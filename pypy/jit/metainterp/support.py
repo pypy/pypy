@@ -1,8 +1,9 @@
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
-from pypy.rpython.lltypesystem import rdict, rstr
+from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
 from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
+from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.translator.simplify import get_funcobj
@@ -24,7 +25,7 @@ def getargtypes(annotator, values):
 
 def _annotation(a, x):
     T = lltype.typeOf(x)
-    if T == lltype.Ptr(rstr.STR):
+    if T == lltype.Ptr(ll_rstr.STR):
         t = str
     else:
         t = annmodel.lltype_to_annotation(T)
@@ -132,89 +133,138 @@ _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
-# ---------- dict ----------
+class LLtypeHelpers:
 
-def _ll_0_newdict(DICT):
-    return rdict.ll_newdict(DICT)
-_ll_0_newdict.need_result_type = True
+    # ---------- dict ----------
 
-_ll_2_dict_getitem = rdict.ll_dict_getitem
-_ll_3_dict_setitem = rdict.ll_dict_setitem
-_ll_2_dict_delitem = rdict.ll_dict_delitem
-_ll_3_dict_setdefault = rdict.ll_setdefault
-_ll_2_dict_contains = rdict.ll_contains
-_ll_3_dict_get = rdict.ll_get
-_ll_1_dict_copy = rdict.ll_copy
-_ll_1_dict_clear = rdict.ll_clear
-_ll_2_dict_update = rdict.ll_update
+    def _ll_0_newdict(DICT):
+        return ll_rdict.ll_newdict(DICT)
+    _ll_0_newdict.need_result_type = True
 
-# ---------- dict keys(), values(), items(), iter ----------
+    _ll_2_dict_getitem = ll_rdict.ll_dict_getitem
+    _ll_3_dict_setitem = ll_rdict.ll_dict_setitem
+    _ll_2_dict_delitem = ll_rdict.ll_dict_delitem
+    _ll_3_dict_setdefault = ll_rdict.ll_setdefault
+    _ll_2_dict_contains = ll_rdict.ll_contains
+    _ll_3_dict_get = ll_rdict.ll_get
+    _ll_1_dict_copy = ll_rdict.ll_copy
+    _ll_1_dict_clear = ll_rdict.ll_clear
+    _ll_2_dict_update = ll_rdict.ll_update
 
-_ll_1_dict_keys   = rdict.ll_dict_keys
-_ll_1_dict_values = rdict.ll_dict_values
-_ll_1_dict_items  = rdict.ll_dict_items
-_ll_1_dict_keys  .need_result_type = True
-_ll_1_dict_values.need_result_type = True
-_ll_1_dict_items .need_result_type = True
+    # ---------- dict keys(), values(), items(), iter ----------
 
-def _ll_1_newdictiter(ITER, d):
-    return rdict.ll_dictiter(lltype.Ptr(ITER), d)
-_ll_1_newdictiter.need_result_type = True
+    _ll_1_dict_keys   = ll_rdict.ll_dict_keys
+    _ll_1_dict_values = ll_rdict.ll_dict_values
+    _ll_1_dict_items  = ll_rdict.ll_dict_items
+    _ll_1_dict_keys  .need_result_type = True
+    _ll_1_dict_values.need_result_type = True
+    _ll_1_dict_items .need_result_type = True
 
-_dictnext_keys   = rdict.ll_dictnext_group['keys']
-_dictnext_values = rdict.ll_dictnext_group['values']
-_dictnext_items  = rdict.ll_dictnext_group['items']
+    def _ll_1_newdictiter(ITER, d):
+        return ll_rdict.ll_dictiter(lltype.Ptr(ITER), d)
+    _ll_1_newdictiter.need_result_type = True
 
-def _ll_1_dictiter_nextkeys(iter):
-    return _dictnext_keys(None, iter)
-def _ll_1_dictiter_nextvalues(iter):
-    return _dictnext_values(None, iter)
-def _ll_1_dictiter_nextitems(RES, iter):
-    return _dictnext_items(lltype.Ptr(RES), iter)
-_ll_1_dictiter_nextitems.need_result_type = True
+    _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
+    _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
+    _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
 
-# ---------- strings and unicode ----------
+    def _ll_1_dictiter_nextkeys(iter):
+        return LLtypeHelpers._dictnext_keys(None, iter)
+    def _ll_1_dictiter_nextvalues(iter):
+        return LLtypeHelpers._dictnext_values(None, iter)
+    def _ll_1_dictiter_nextitems(RES, iter):
+        return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
+    _ll_1_dictiter_nextitems.need_result_type = True
 
-_ll_5_string_copy_contents = rstr.copy_string_contents
+    # ---------- strings and unicode ----------
 
-_ll_1_str_str2unicode = rstr.LLHelpers.ll_str2unicode
-_ll_5_unicode_copy_contents = rstr.copy_unicode_contents
+    _ll_5_string_copy_contents = ll_rstr.copy_string_contents
 
-# --------------- oostring and oounicode ----------------
+    _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
+    _ll_5_unicode_copy_contents = ll_rstr.copy_unicode_contents
 
-def _ll_2_oostring_signed_foldable(n, base):
-    return ootype.oostring(n, base)
 
-def _ll_1_oostring_char_foldable(ch):
-    return ootype.oostring(ch, -1)
+class OOtypeHelpers:
 
-def _ll_2_oounicode_signed_foldable(n, base):
-    return ootype.oounicode(n, base)
+    # ---------- dict ----------
 
-def _ll_1_oounicode_unichar_foldable(ch):
-    return ootype.oounicode(ch, -1)
+    def _ll_0_newdict(DICT):
+        return oo_rdict.ll_newdict(DICT)
+    _ll_0_newdict.need_result_type = True
 
-def _ll_1_oohash_string_foldable(s):
-    return ootype.oohash(s)
+    def _ll_3_dict_setitem(d, key, value):
+        d.ll_set(key, value)
 
-def _ll_1_oohash_unicode_foldable(u):
-    return ootype.oohash(u)
+    def _ll_2_dict_contains(d, key):
+        return d.ll_contains(key)
+
+    def _ll_1_dict_clear(d):
+        d.ll_clear()
+
+    _ll_2_dict_getitem = oo_rdict.ll_dict_getitem
+    _ll_2_dict_delitem = oo_rdict.ll_dict_delitem
+    _ll_3_dict_setdefault = oo_rdict.ll_dict_setdefault
+    _ll_3_dict_get = oo_rdict.ll_dict_get
+    _ll_1_dict_copy = oo_rdict.ll_dict_copy
+    _ll_2_dict_update = oo_rdict.ll_dict_update
+
+    # ---------- dict keys(), values(), items(), iter ----------
+
+    _ll_1_dict_keys   = oo_rdict.ll_dict_keys
+    _ll_1_dict_values = oo_rdict.ll_dict_values
+    _ll_1_dict_items  = oo_rdict.ll_dict_items
+    _ll_1_dict_keys  .need_result_type = True
+    _ll_1_dict_values.need_result_type = True
+    _ll_1_dict_items .need_result_type = True
+
+    def _ll_1_newdictiter(ITER, d):
+        return oo_rdict.ll_dictiter(ITER, d)
+    _ll_1_newdictiter.need_result_type = True
+
+    _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
+    _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])
+    _dictnext_items  = staticmethod(oo_rdict.ll_dictnext_group['items'])
+
+    def _ll_1_dictiter_nextkeys(iter):
+        return OOtypeHelpers._dictnext_keys(None, iter)
+    def _ll_1_dictiter_nextvalues(iter):
+        return OOtypeHelpers._dictnext_values(None, iter)
+    def _ll_1_dictiter_nextitems(RES, iter):
+        return OOtypeHelpers._dictnext_items(RES, iter)
+    _ll_1_dictiter_nextitems.need_result_type = True
+
+    # --------------- oostring and oounicode ----------------
+
+    def _ll_2_oostring_signed_foldable(n, base):
+        return ootype.oostring(n, base)
+
+    def _ll_1_oostring_char_foldable(ch):
+        return ootype.oostring(ch, -1)
+
+    def _ll_2_oounicode_signed_foldable(n, base):
+        return ootype.oounicode(n, base)
+
+    def _ll_1_oounicode_unichar_foldable(ch):
+        return ootype.oounicode(ch, -1)
+
+    def _ll_1_oohash_string_foldable(s):
+        return ootype.oohash(s)
+
+    def _ll_1_oohash_unicode_foldable(u):
+        return ootype.oohash(u)
 
 # -------------------------------------------------------
 
-def setup_extra_builtin(oopspec_name, nb_args):
+def setup_extra_builtin(rtyper, oopspec_name, nb_args):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))
-##    try:
-    wrapper = globals()[name]
-##    except KeyError:
-##        if '.' not in oopspec_name:
-##            raise
-##        if not isinstance(SELFTYPE, ootype.BuiltinADTType):
-##            raise
-##        _, meth = SELFTYPE._lookup(oopspec_name.split('.')[1])
-##        if not meth:
-##            raise
-##        wrapper = ootype.build_unbound_method_wrapper(meth)
+    try:
+        wrapper = globals()[name]
+    except KeyError:
+        if rtyper.type_system.name == 'lltypesystem':
+            Helpers = LLtypeHelpers
+        else:
+            Helpers = OOtypeHelpers
+        wrapper = getattr(Helpers, name).im_func
     return wrapper
 
 # # ____________________________________________________________
@@ -315,7 +365,7 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res):
     else:
         LIST_OR_DICT = ll_args[0]
     s_result = annmodel.lltype_to_annotation(ll_res)
-    impl = setup_extra_builtin(oopspec_name, len(args_s))
+    impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s))
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper
         args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))

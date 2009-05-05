@@ -63,10 +63,11 @@ class DictTests:
 
 
 class TestOOtype(DictTests, OOJitMixin):
-    def test_dict_keys_values_items(self):
-        py.test.skip("implement me")
-    def test_dict_iter(self):
-        py.test.skip("implement me")
+##     def test_dict_keys_values_items(self):
+##         py.test.skip("implement me")
+##     def test_dict_iter(self):
+##         py.test.skip("implement me")
+    pass
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

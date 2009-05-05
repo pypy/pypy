@@ -620,6 +620,9 @@ class TestOOtype(BasicTests, OOJitMixin):
         res = self.interp_operations(f, [1])
         assert res
 
+    def test_r_dict(self):
+        py.test.skip('in-progress')
+
 
 class TestLLtype(BasicTests, LLJitMixin):
 
@@ -649,6 +652,3 @@ class TestLLtype(BasicTests, LLJitMixin):
         x = lltype.malloc(TP)
         expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         assert self.interp_operations(f, [x]) == expected
-
-    def test_r_dict(self):
-        py.test.skip('in-progress')
