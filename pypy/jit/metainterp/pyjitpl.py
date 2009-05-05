@@ -431,6 +431,7 @@ class MIFrame(object):
     def opimpl_ptr_ne(self, box1, box2):
         self.execute(rop.OOISNOT, [box1, box2])
 
+    opimpl_oois = opimpl_ptr_eq
 
     @arguments("box", "descr")
     def opimpl_getfield_gc(self, box, fielddesc):

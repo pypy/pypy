@@ -569,6 +569,20 @@ class TestOOtype(BasicTests, OOJitMixin):
         # translation?
         assert res == ootype.oohash(ootype.oostring(5, -1))
 
+    def test_oois(self):
+        A = ootype.Instance("A", ootype.ROOT)
+        def f(n):
+            obj1 = ootype.new(A)
+            if n:
+                obj2 = obj1
+            else:
+                obj2 = ootype.new(A)
+            return obj1 is obj2
+        res = self.interp_operations(f, [0])
+        assert not res
+        res = self.interp_operations(f, [1])
+        assert res
+
 
 class TestLLtype(BasicTests, LLJitMixin):
 
