@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT
 from pypy.jit.metainterp.policy import StopAtXPolicy
 
 
@@ -368,18 +368,20 @@ class ExceptionTests:
     def test_int_lshift_ovf(self):
         from pypy.jit.metainterp.simple_optimize import Optimizer
         
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y', 'm'])
         def f(x, y, n):
+            m = 0
             while n < 100:
-                myjitdriver.can_enter_jit(n=n, x=x, y=y)
-                myjitdriver.jit_merge_point(n=n, x=x, y=y)
+                myjitdriver.can_enter_jit(n=n, x=x, y=y, m=m)
+                myjitdriver.jit_merge_point(n=n, x=x, y=y, m=m)
                 y += 1
+                y &= (LONG_BIT-1)
                 try:
                     ovfcheck(x<<y)
                 except OverflowError:
-                    n += 1
+                    m += 1
                 n += 1
-            return n
+            return m
 
         res = self.meta_interp(f, [1, 1, 0], optimizer=Optimizer)
         assert res == f(1, 1, 0)
