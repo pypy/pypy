@@ -85,9 +85,9 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
         if self.top_of_virtualizable_hierarchy:
             self.accessor.initialize(self.object_type, my_redirected_fields)
         else:
+            BASE = self.rtyper.type_system.derefType(self.rbase.lowleveltype)
             self.accessor.initialize(self.object_type, my_redirected_fields,
-                                     self.rbase.lowleveltype.TO)
-
+                                     BASE)
 
     def new_instance(self, llops, classcallhop=None):
         vptr = self._super().new_instance(llops, classcallhop)

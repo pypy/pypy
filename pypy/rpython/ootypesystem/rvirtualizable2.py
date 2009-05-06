@@ -7,6 +7,9 @@ from pypy.rpython.rvirtualizable2 import AbstractVirtualizable2InstanceRepr
 
 class VirtualizableAccessor(AbstractVirtualizableAccessor):
 
+    def initialize(self, TYPE, redirected_fields, PARENT=None):
+        pass # TODO
+
     def prepare_getsets(self):
         self.getsets = {} # TODO
 
