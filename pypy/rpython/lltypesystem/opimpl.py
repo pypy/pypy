@@ -301,10 +301,6 @@ def op_cast_adr_to_ptr(TYPE, adr):
     return llmemory.cast_adr_to_ptr(adr, TYPE)
 op_cast_adr_to_ptr.need_result_type = True
 
-def op_cast_adr_to_int(adr):
-    checkadr(adr)
-    return llmemory.cast_adr_to_int(adr)
-
 def op_cast_int_to_adr(int):
     return llmemory.cast_int_to_adr(int)
 

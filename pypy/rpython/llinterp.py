@@ -800,6 +800,10 @@ class LLFrame(object):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
 
+    def op_cast_adr_to_int(self, adr):
+        checkadr(addr) 
+        return llmemory.cast_adr_to_int(adr)
+
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
@@ -1010,14 +1014,6 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
-    def op_int_lshift_ovf_val(self, x, y):
-        assert isinstance(x, int)
-        assert isinstance(y, int)
-        try:
-            return ovfcheck_lshift(x, y)
-        except (OverflowError, ValueError):
-            self.make_llexception()
-
     def _makefunc2(fn, operator, xtype, ytype=None):
         import sys
         d = sys._getframe(1).f_locals
@@ -1062,23 +1058,15 @@ class LLFrame(object):
     _makefunc2('op_int_mod_ovf',          '%',  'int')
     _makefunc2('op_int_mod_zer',          '%',  'int')
     _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
-    _makefunc2('op_int_lshift_val',       '<<', 'int')
-    _makefunc2('op_int_rshift_val',       '>>', 'int')
 
     _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
     _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
-    _makefunc2('op_uint_lshift_val',      '<<', 'r_uint')
-    _makefunc2('op_uint_rshift_val',      '>>', 'r_uint')
 
     _makefunc2('op_llong_floordiv_zer',   '//', 'r_longlong')
     _makefunc2('op_llong_mod_zer',        '%',  'r_longlong')
-    _makefunc2('op_llong_lshift_val',     '<<', 'r_longlong')
-    _makefunc2('op_llong_rshift_val',     '>>', 'r_longlong')
 
     _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
     _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
-    _makefunc2('op_ullong_lshift_val',    '<<', 'r_ulonglong')
-    _makefunc2('op_ullong_rshift_val',    '>>', 'r_ulonglong')
 
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
