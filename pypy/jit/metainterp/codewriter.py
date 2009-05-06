@@ -11,7 +11,7 @@ from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
-from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.jit.metainterp.typesystem import deref, arrayItem, fieldType
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -1152,9 +1152,9 @@ class BytecodeMaker(object):
         pass     # for now
 
     def serialize_op_promote_virtualizable(self, op):
-        STRUCTTYPE = op.args[0].concretetype.TO
+        STRUCTTYPE = deref(op.args[0].concretetype)
         argname = op.args[1].value
-        FIELDTYPE = getattr(STRUCTTYPE, argname)
+        FIELDTYPE = fieldType(STRUCTTYPE, argname)
         if FIELDTYPE != lltype.Void:
             TOPSTRUCT = heaptracker.cast_vable_type(STRUCTTYPE)
             metainterp_sd = self.codewriter.metainterp_sd

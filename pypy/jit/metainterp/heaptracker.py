@@ -28,7 +28,13 @@ def cast_vable(p):
     STRUCT = cast_vable_type(T.TO)
     return lltype.cast_pointer(lltype.Ptr(STRUCT), p)
 
-def cast_vable_type(STRUCT):
+def cast_vable_type(STRUCT_OR_INST):
+    if isinstance(STRUCT_OR_INST, ootype.Instance):
+        return cast_vable_type_instance(STRUCT_OR_INST)
+    else:
+        return cast_vable_type_struct(STRUCT_OR_INST)
+
+def cast_vable_type_struct(STRUCT):
     assert STRUCT._hints.get('virtualizable2'), \
            "not a virtualizable2: %r" % (STRUCT,)
     while True:
@@ -37,6 +43,17 @@ def cast_vable_type(STRUCT):
             break
         STRUCT = PARENT
     return STRUCT
+
+def cast_vable_type_instance(INSTANCE):
+    assert INSTANCE._hints.get('virtualizable2'), \
+           "not a virtualizable2: %r" % (INSTANCE,)
+    while True:
+        PARENT = INSTANCE._superclass
+        if PARENT is None or not PARENT._hints.get('virtualizable2'):
+            break
+        INSTANCE = PARENT
+    return INSTANCE
+
 
 def get_vtable_for_gcstruct(cpu, GCSTRUCT):
     # xxx hack: from a GcStruct representing an instance's

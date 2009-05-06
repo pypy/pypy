@@ -608,10 +608,20 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0, call=0)
 
 
-##class TestOOtype(ExplicitVirtualizableTests,
-##                 ImplicitVirtualizableTests,
-##                 OOJitMixin):
-##    pass
+class TestOOtype(ExplicitVirtualizableTests,
+                ImplicitVirtualizableTests,
+                OOJitMixin):
+
+    def skip(self):
+        py.test.skip('in-progress')
+
+    test_virtual_on_virtualizable = skip
+    test_no_virtual_on_virtualizable = skip
+    test_virtualizable_hierarchy = skip
+    test_non_virtual_on_always_virtual = skip
+    test_external_pass = skip
+    test_pass_always_virtual_to_bridge = skip
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
