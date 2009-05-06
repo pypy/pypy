@@ -55,10 +55,7 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
         return rtyper.type_system.rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
-    elif len(unboxed) == 0:
-        return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
-    else:
-        assert rtyper.type_system.name == 'lltypesystem'
+    elif len(unboxed) > 0 and rtyper.type_system.name == 'lltypesystem':
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
         if len(unboxed) != 1:
@@ -67,6 +64,8 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         assert gcflavor == 'gc'
         from pypy.rpython.lltypesystem import rtagged
         return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
+    else:
+        return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
 
 
 class MissingRTypeAttribute(TyperError):
