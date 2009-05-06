@@ -801,7 +801,7 @@ class LLFrame(object):
         return llmemory.cast_ptr_to_adr(ptr)
 
     def op_cast_adr_to_int(self, adr):
-        checkadr(addr) 
+        checkadr(adr)
         return llmemory.cast_adr_to_int(adr)
 
     def op_weakref_create(self, v_obj):
