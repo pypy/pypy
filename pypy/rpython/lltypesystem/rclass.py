@@ -19,7 +19,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
-from pypy.rlib.objectmodel import UnboxedValue
 from pypy.rlib.rarithmetic import intmask
 
 #
@@ -605,41 +604,6 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
 
-
-def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
-    if classdef is None:
-        unboxed = []
-        virtualizable = False
-        virtualizable2 = False
-    else:
-        unboxed = [subdef for subdef in classdef.getallsubdefs()
-                          if subdef.classdesc.pyobj is not None and
-                             issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable = classdef.classdesc.read_attribute('_virtualizable_',
-                                                          Constant(False)).value
-        virtualizable2 = classdef.classdesc.read_attribute('_virtualizable2_',
-                                                           Constant(False)).value
-    if virtualizable:
-        assert len(unboxed) == 0
-        assert gcflavor == 'gc'
-        from pypy.rpython.lltypesystem import rvirtualizable
-        return rvirtualizable.VirtualizableInstanceRepr(rtyper, classdef)
-    elif virtualizable2:
-        assert len(unboxed) == 0
-        assert gcflavor == 'gc'
-        from pypy.rpython.lltypesystem import rvirtualizable2
-        return rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
-    elif len(unboxed) == 0:
-        return InstanceRepr(rtyper, classdef, gcflavor)
-    else:
-        # the UnboxedValue class and its parent classes need a
-        # special repr for their instances
-        if len(unboxed) != 1:
-            raise TyperError("%r has several UnboxedValue subclasses" % (
-                classdef,))
-        assert gcflavor == 'gc'
-        from pypy.rpython.lltypesystem import rtagged
-        return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

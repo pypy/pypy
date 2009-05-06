@@ -524,8 +524,6 @@ class InstanceRepr(AbstractInstanceRepr):
         if '_hash_cache_' in self.lowleveltype._allfields():
             result._hash_cache_ = hash(value)
 
-buildinstancerepr = InstanceRepr
-
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def convert_from_to((r_ins1, r_ins2), v, llops):
