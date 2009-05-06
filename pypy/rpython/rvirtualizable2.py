@@ -67,10 +67,19 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
     def set_vable(self, llops, vinst, force_cast=False):
         raise NotImplementedError
 
+    def get_mangled_fields(self):
+        raise NotImplementedError
+
+    def get_field(self, attr):
+        raise NotImplementedError
+
+    def is_in_fields(self, attr):
+        raise NotImplementedError
+
     def _setup_repr(self):
         self._setup_instance_repr()
         my_redirected_fields = []
-        for _, (mangled_name, _) in self.fields.items():
+        for mangled_name in self.get_mangled_fields():
             my_redirected_fields.append(mangled_name)
         self.my_redirected_fields = dict.fromkeys(my_redirected_fields)    
         if self.top_of_virtualizable_hierarchy:
@@ -87,8 +96,8 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
 
     def getfield(self, vinst, attr, llops, force_cast=False, flags={}):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
-        if not flags.get('access_directly') and attr in self.fields:
-            mangled_name, r = self.fields[attr]
+        if not flags.get('access_directly') and self.is_in_fields(attr):
+            mangled_name, r = self.get_field(attr)
             if mangled_name in self.my_redirected_fields:
                 if force_cast:
                     vinst = self.gencast(llops, vinst)
@@ -101,8 +110,8 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
     def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
                  flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
-        if not flags.get('access_directly') and attr in self.fields:
-            mangled_name, r = self.fields[attr]
+        if not flags.get('access_directly') and self.is_in_fields(attr):
+            mangled_name, r = self.get_field(attr)
             if mangled_name in self.my_redirected_fields:
                 if force_cast:
                     vinst = self.gencast(llops, vinst)

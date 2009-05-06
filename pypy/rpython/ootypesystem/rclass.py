@@ -191,6 +191,9 @@ class InstanceRepr(AbstractInstanceRepr):
         self.gcflavor = gcflavor
 
     def _setup_repr(self, hints=None):
+        if hints:
+            self.lowleveltype._hints.update(hints)
+
         if self.classdef is None:
             self.allfields = {}
             self.allmethods = {}
@@ -408,12 +411,9 @@ class InstanceRepr(AbstractInstanceRepr):
         s_inst = hop.args_s[0]
         attr = hop.args_s[1].const
         mangled = mangle(attr, self.rtyper.getconfig())
-        v_attr = hop.inputconst(ootype.Void, mangled)
         if mangled in self.allfields:
             # regular instance attributes
-            self.lowleveltype._check_field(mangled)
-            return hop.genop("oogetfield", [v_inst, v_attr],
-                             resulttype = hop.r_result.lowleveltype)
+            return self.getfield(v_inst, attr, hop.llops)
         elif mangled in self.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
@@ -452,13 +452,17 @@ class InstanceRepr(AbstractInstanceRepr):
         self.lowleveltype._check_field(mangled)
         r_value = self.allfields[mangled]
         v_inst, _, v_newval = hop.inputargs(self, ootype.Void, r_value)
-        v_attr = hop.inputconst(ootype.Void, mangled)
-        return hop.genop('oosetfield', [v_inst, v_attr, v_newval])
+        self.setfield(v_inst, attr, v_newval, hop.llops)
+
+    def getfield(self, v_inst, attr, llops):
+        mangled = mangle(attr, self.rtyper.getconfig())
+        v_attr = inputconst(ootype.Void, mangled)
+        r_value = self.allfields[mangled]
+        self.lowleveltype._check_field(mangled)
+        return llops.genop('oogetfield', [v_inst, v_attr],
+                           resulttype = r_value)
 
     def setfield(self, vinst, attr, vvalue, llops):
-        # this method emulates behaviour from the corresponding
-        # lltypesystem one. It is referenced in some obscure corners
-        # like rtyping of OSError.
         mangled_name = mangle(attr, self.rtyper.getconfig())
         cname = inputconst(ootype.Void, mangled_name)
         llops.genop('oosetfield', [vinst, cname, vvalue])

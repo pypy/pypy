@@ -22,8 +22,14 @@ class BaseTest(BaseRtypingTest):
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'promote_virtualizable'
         assert op_promote.args[0] is v_inst
+        TYPE = self.gettype(v_inst)
+        assert TYPE._hints['virtualizable2']
+
 
 class TestLLtype(LLRtypeMixin, BaseTest):
+
+    def gettype(self, v):
+        return v.concretetype.TO
 
     def test_simple(self):
         def f(v):
@@ -35,5 +41,8 @@ class TestLLtype(LLRtypeMixin, BaseTest):
         assert res.inst_v == 42
         assert not res.vable_rti
 
-## class TestOOtype(OORtypeMixin, BaseTest):
-##     pass
+class TestOOtype(OORtypeMixin, BaseTest):
+
+    def gettype(self, v):
+        return v.concretetype
+

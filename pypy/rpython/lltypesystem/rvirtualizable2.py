@@ -49,6 +49,15 @@ class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRep
     def gencast(self, llops, vinst):
         return llops.genop('cast_pointer', [vinst], resulttype=self)
 
+    def get_mangled_fields(self):
+        return [mangled_name for _, (mangled_name, _) in self.fields.items()]
+
+    def get_field(self, attr):
+        return self.fields[attr]
+
+    def is_in_fields(self, attr):
+        return attr in self.fields
+
     def set_vable(self, llops, vinst, force_cast=False):
         if self.top_of_virtualizable_hierarchy:
             if force_cast:

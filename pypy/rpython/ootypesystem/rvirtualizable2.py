@@ -1,6 +1,6 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.rclass import InstanceRepr
+from pypy.rpython.ootypesystem.rclass import InstanceRepr, mangle
 from pypy.rpython.rvirtualizable2 import AbstractVirtualizableAccessor
 from pypy.rpython.rvirtualizable2 import AbstractVirtualizable2InstanceRepr
 
@@ -23,7 +23,17 @@ class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRep
 
     def gencast(self, llops, vinst):
         raise NotImplementedError
-        #return llops.genop('cast_pointer', [vinst], resulttype=self)
+
+    def get_mangled_fields(self):
+        return self.allfields.keys()
+
+    def get_field(self, attr):
+        mangled = mangle(attr, self.rtyper.getconfig())
+        return mangled, self.allfields[mangled]
+
+    def is_in_fields(self, attr):
+        mangled = mangle(attr, self.rtyper.getconfig())
+        return mangled in self.allfields
 
     def set_vable(self, llops, vinst, force_cast=False):
         pass # TODO
