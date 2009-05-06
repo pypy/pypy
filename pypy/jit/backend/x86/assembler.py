@@ -355,7 +355,12 @@ class Assembler386(object):
     def _binaryop_ovf(asmop, can_swap=False):
         def genop_binary_ovf(self, op, guard_op, addr, arglocs, result_loc):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
-            self.mc.JO(rel32(addr))
+            if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+                self.mc.JO(rel32(addr))
+            elif guard_op.opnum == rop.GUARD_EXCEPTION:
+                self.mc.JNO(rel32(addr))
+            else:
+                raise AssertionError
         return genop_binary_ovf
 
     def _cmpop(cond, rev_cond):
@@ -415,7 +420,12 @@ class Assembler386(object):
 
     def genop_guard_int_neg_ovf(self, op, guard_op, addr, arglocs, result_loc):
         self.mc.NEG(result_loc)
-        self.mc.JO(rel32(addr))
+        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+            self.mc.JO(rel32(addr))
+        elif guard_op.opnum == rop.GUARD_EXCEPTION:
+            self.mc.JNO(rel32(addr))
+        else:
+            raise AssertionError
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -476,9 +486,18 @@ class Assembler386(object):
         self.mc.MOV(tmploc, loc)
         self.mc.SHL(tmploc, loc2)
         self.mc.SAR(tmploc, loc2)
-        self.mc.CMP(tmploc, loc)
-        self.mc.JNE(rel32(addr))
-        self.mc.SHL(loc, loc2)
+        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+            self.mc.CMP(tmploc, loc)
+            self.mc.JNE(rel32(addr))
+            self.mc.SHL(loc, loc2)
+        elif guard_op.opnum == rop.GUARD_EXCEPTION:
+            # xxx even more inefficient
+            self.mc.SUB(tmploc, loc)
+            self.mc.SHL(loc, loc2)
+            self.mc.CMP(tmploc, imm8(0))
+            self.mc.JE(rel32(addr))
+        else:
+            raise AssertionError
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]
@@ -497,12 +516,6 @@ class Assembler386(object):
         self.mc.SBB(resloc, argloc)
         self.mc.SBB(tmploc, tmploc)
         self.mc.XOR(resloc, tmploc)
-        # in case of overflow, the result is negative again (-sys.maxint-1)
-        # and the L flag is set.
-
-    def genop_guard_int_abs_ovf(self, op, guard_op, addr, arglocs, resloc):
-        self.genop_int_abs(op, arglocs, resloc)
-        self.mc.JL(rel32(addr))
 
     def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
         loc = arglocs[0]
@@ -534,17 +547,7 @@ class Assembler386(object):
         self.mc.CDQ()
         self.mc.IDIV(ecx)
 
-    def genop_guard_int_mod_ovf(self, op, guard_op, addr, arglocs, result_loc):
-        # detect the combination "eax=-sys.maxint-1, ecx=-1"
-        self.mc.LEA(edx, mem(eax, sys.maxint))  # edx=-1 if eax=-sys.maxint-1
-        self.mc.AND(edx, ecx)                   # edx=-1 only in the case above
-        self.mc.CMP(edx, imm(-1))
-        self.mc.JE(rel32(addr))
-        self.mc.CDQ()
-        self.mc.IDIV(ecx)
-
     genop_int_floordiv = genop_int_mod
-    genop_guard_int_floordiv_ovf = genop_guard_int_mod_ovf
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax

@@ -630,17 +630,35 @@ class BytecodeMaker(object):
         self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
         self.default_serialize_op(op, 'int_mod')
 
+    def serialize_op_int_mod_ovf(self, op):
+        self.emit('check_div_overflow', self.var_position(op.args[0]),
+                                        self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_mod')
+
     def serialize_op_int_mod_ovf_zer(self, op):
         self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
-        self.default_serialize_op(op, 'int_mod_ovf')
+        self.emit('check_div_overflow', self.var_position(op.args[0]),
+                                        self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_mod')
 
     def serialize_op_int_floordiv_zer(self, op):
         self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
         self.default_serialize_op(op, 'int_floordiv')
 
+    def serialize_op_int_floordiv_ovf(self, op):
+        self.emit('check_div_overflow', self.var_position(op.args[0]),
+                                        self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_floordiv')
+
     def serialize_op_int_floordiv_ovf_zer(self, op):
         self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
-        self.default_serialize_op(op, 'int_floordiv_ovf')
+        self.emit('check_div_overflow', self.var_position(op.args[0]),
+                                        self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_floordiv')
+
+    def serialize_op_int_abs_ovf(self, op):
+        self.emit('int_neg_ovf', [self.var_position(op.args[0])])
+        self.default_serialize_op(op, 'int_abs')
 
     def serialize_op_hint(self, op):
         hints = op.args[1].value

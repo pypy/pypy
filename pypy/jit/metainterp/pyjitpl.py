@@ -267,8 +267,8 @@ class MIFrame(object):
                 self.execute(rop.%s, [b1, b2])
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf', 'int_mod_ovf',
-                    'int_lshift_ovf', 'int_floordiv_ovf']:
+    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf',
+                    'int_lshift_ovf']:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
@@ -285,7 +285,7 @@ class MIFrame(object):
                 self.execute(rop.%s, [b])
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    for _opimpl in ['int_neg_ovf', 'int_abs_ovf',
+    for _opimpl in ['int_neg_ovf',
                     ]:
         exec py.code.Source('''
             @arguments("box")
@@ -417,6 +417,24 @@ class MIFrame(object):
         else:
             # division by zero!
             self.metainterp.cpu.set_zero_division_error()
+            return self.metainterp.handle_exception()
+
+    @arguments("orgpc", "box", "box")
+    def opimpl_check_div_overflow(self, pc, box1, box2):
+        # detect the combination "box1 = -sys.maxint-1, box2 = -1".
+        import sys
+        tmp1 = self.metainterp.execute_and_record(    # combination to detect:
+            rop.INT_ADD, [box1, ConstInt(sys.maxint)])    # tmp1=-1, box2=-1
+        tmp2 = self.metainterp.execute_and_record(
+            rop.INT_AND, [tmp1, box2])                    # tmp2=-1
+        tmp3 = self.metainterp.execute_and_record(
+            rop.INT_EQ, [tmp2, ConstInt(-1)])             # tmp3?
+        tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
+        if not tmp4.getint():
+            return False
+        else:
+            # division overflow!
+            self.metainterp.cpu.set_overflow_error()
             return self.metainterp.handle_exception()
 
     @arguments("box")

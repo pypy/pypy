@@ -281,7 +281,9 @@ class RegAlloc(object):
             if not canfold:
                 # detect overflow ops
                 if op.is_ovf():
-                    assert operations[i + 1].opnum == rop.GUARD_NO_EXCEPTION
+                    num = operations[i + 1].opnum
+                    assert (num == rop.GUARD_NO_EXCEPTION or
+                            num == rop.GUARD_EXCEPTION)
                     nothing = oplist[op.opnum](self, op, operations[i + 1])
                     i += 1
                 elif self.can_optimize_cmp_op(op, i, operations):
@@ -797,25 +799,9 @@ class RegAlloc(object):
         self._consider_int_div_or_mod(op, edx, eax)
         self.Perform(op, [eax, ecx], edx)
 
-    def consider_int_mod_ovf(self, op, guard_op):
-        self._consider_int_div_or_mod(op, edx, eax)
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], edx,
-                                overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
-
     def consider_int_floordiv(self, op, ignored):
         self._consider_int_div_or_mod(op, eax, edx)
         self.Perform(op, [eax, ecx], eax)
-
-    def consider_int_floordiv_ovf(self, op, guard_op):
-        self._consider_int_div_or_mod(op, eax, edx)
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], eax,
-                                overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
 
     def _consider_compop(self, op, guard_op):
         vx = op.args[0]
@@ -1041,19 +1027,6 @@ class RegAlloc(object):
         tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
         resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
         self.Perform(op, [argloc, tmploc], resloc)
-        self.eventually_free_var(op.args[0])
-        self.eventually_free_var(tmpvar)
-
-    def consider_int_abs_ovf(self, op, guard_op):
-        argloc = self.make_sure_var_in_reg(op.args[0], [])
-        tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
-        resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [argloc, tmploc],
-                                resloc, overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
         self.eventually_free_var(op.args[0])
         self.eventually_free_var(tmpvar)
 

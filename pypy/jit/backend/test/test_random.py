@@ -321,12 +321,9 @@ for _op in [rop.INT_ADD_OVF,
             ]:
     OPERATIONS.append(BinaryOvfOperation(_op))
 
-OPERATIONS.append(BinaryOvfOperation(rop.INT_FLOORDIV_OVF, -1, 1))
-OPERATIONS.append(BinaryOvfOperation(rop.INT_MOD_OVF, -1, 1))
 OPERATIONS.append(BinaryOvfOperation(rop.INT_LSHIFT_OVF, LONG_BIT-1))
 
 for _op in [rop.INT_NEG_OVF,
-            rop.INT_ABS_OVF,
             ]:
     OPERATIONS.append(UnaryOvfOperation(_op))
 

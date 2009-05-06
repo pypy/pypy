@@ -218,30 +218,6 @@ def do_int_neg_ovf(cpu, args, descr=None):
         cpu.clear_exception()
     return BoxInt(z)
 
-def do_int_abs_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    try:
-        z = ovfcheck(abs(x))
-    except OverflowError:
-        cpu.set_overflow_error()
-        z = 0
-    else:
-        cpu.clear_exception()
-    return BoxInt(z)
-
-def do_int_mod_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
-    try:
-        ovfcheck(x % y)
-    except OverflowError:
-        cpu.set_overflow_error()
-        z = 0
-    else:
-        cpu.clear_exception()
-        z = llop.int_mod(lltype.Signed, x, y)
-    return BoxInt(z)
-
 def do_int_lshift_ovf(cpu, args, descr=None):
     x = args[0].getint()
     y = args[1].getint()
@@ -250,19 +226,6 @@ def do_int_lshift_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
-    return BoxInt(z)
-
-def do_int_floordiv_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
-    try:
-        ovfcheck(x // y)
-    except OverflowError:
-        cpu.set_overflow_error()
-        z = 0
-    else:
-        cpu.clear_exception()
-        z = llop.int_floordiv(lltype.Signed, x, y)
     return BoxInt(z)
 
 # ____________________________________________________________

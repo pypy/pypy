@@ -185,11 +185,8 @@ class rop(object):
     INT_ADD_OVF            = 152
     INT_SUB_OVF            = 153
     INT_MUL_OVF            = 154
-    INT_NEG_OVF            = 155
-    INT_MOD_OVF            = 156
+    INT_NEG_OVF            = 155     # can only overflow in: -(-sys.maxint-1)
     INT_LSHIFT_OVF         = 157
-    INT_FLOORDIV_OVF       = 158
-    INT_ABS_OVF            = 159
     _OVF_LAST = 160
     _CANRAISE_LAST = 160 # ----- end of can_raise operations -----
     _LAST = 160     # for the backend to add more internal operations
