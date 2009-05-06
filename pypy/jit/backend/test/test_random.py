@@ -221,6 +221,7 @@ class BinaryOperation(AbstractOperation):
 
 class AbstractOvfOperation(AbstractOperation):
     def produce_into(self, builder, r):
+        fail_subset = builder.subset_of_intvars(r)
         original_intvars = builder.intvars[:]
         super(AbstractOvfOperation, self).produce_into(builder, r)
         exc = builder.cpu.get_exception()
@@ -229,11 +230,14 @@ class AbstractOvfOperation(AbstractOperation):
             exc_box = ConstInt(exc)
             res_box = BoxPtr()
             op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], res_box)
-            # the overflowed result should not be used any more
+            # the overflowed result should not be used any more, but can
+            # be used on the failure path: recompute fail_subset including
+            # the result, and then remove it from builder.intvars.
+            fail_subset = builder.subset_of_intvars(r)
             builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
-        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None)]
         builder.loop.operations.append(op)
 
 class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):

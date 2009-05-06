@@ -327,6 +327,7 @@ class BaseCallOperation(test_random.AbstractOperation):
 # 1. non raising call and guard_no_exception
 class CallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
+        fail_subset = builder.subset_of_intvars(r)
         subset, f = self.non_raising_func_code(builder, r)
         if len(subset) == 0:
             RES = lltype.Void
@@ -339,7 +340,7 @@ class CallOperation(BaseCallOperation):
         descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         self.put(builder, args, descr)
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
-        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None)]
         builder.loop.operations.append(op)
 
 # 5. Non raising-call and GUARD_EXCEPTION
@@ -371,6 +372,7 @@ class CallOperationException(BaseCallOperation):
 
 class RaisingCallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
+        fail_subset = builder.subset_of_intvars(r)
         subset, f, exc = self.raising_func_code(builder, r)
         TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
         ptr = llhelper(lltype.Ptr(TP), f)
@@ -382,7 +384,7 @@ class RaisingCallOperation(BaseCallOperation):
         assert builder.cpu.get_exception()
         builder.cpu.clear_exception()
         op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
-        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None)]
         builder.loop.operations.append(op)
 
 # 4. raising call and guard_no_exception
