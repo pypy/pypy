@@ -221,6 +221,7 @@ class BinaryOperation(AbstractOperation):
 
 class AbstractOvfOperation(AbstractOperation):
     def produce_into(self, builder, r):
+        original_intvars = builder.intvars[:]
         super(AbstractOvfOperation, self).produce_into(builder, r)
         exc = builder.cpu.get_exception()
         if exc:     # OverflowError
@@ -228,6 +229,8 @@ class AbstractOvfOperation(AbstractOperation):
             exc_box = ConstInt(exc)
             res_box = BoxPtr()
             op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], res_box)
+            # the overflowed result should not be used any more
+            builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
         op.suboperations = [ResOperation(rop.FAIL, [], None)]
@@ -454,8 +457,9 @@ class RandomLoop(object):
         for i, v in enumerate(op.args):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
-                "Got %d, expected %d" % (value,
-                                         self.expected[v])
+                "Got %d, expected %d for value #%d" % (value,
+                                                       self.expected[v],
+                                                       i)
                 )
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
