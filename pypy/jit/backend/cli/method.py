@@ -8,6 +8,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
                                          ConstObj)
 from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.backend.cli import runner
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 
 System = CLR.System
@@ -327,14 +328,41 @@ class Method(object):
         raise NotImplementedError
 
     def emit_op_call(self, op):
-        raise NotImplementedError
+        calldescr = op.descr
+        assert isinstance(calldescr, runner.StaticMethDescr)
+        delegate_type = dotnet.class2type(calldescr.funcclass)
+        meth_invoke = delegate_type.GetMethod('Invoke')
+        av_sm, args_av = op.args[0], op.args[1:]
+        av_sm.load(self)
+        self.il.Emit(OpCodes.Castclass, delegate_type)
+        for av_arg in args_av:
+            av_arg.load(self)
+        self.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
+        if calldescr.has_result:
+            self.store_result(op)
 
     emit_op_call_pure = emit_op_call
+
+    def emit_op_oosend(self, op):
+        methdescr = op.descr
+        assert isinstance(methdescr, runner.MethDescr)
+        clitype = dotnet.class2type(methdescr.selfclass)
+        methinfo = clitype.GetMethod(str(methdescr.methname))
+        av_sm, args_av = op.args[0], op.args[1:]
+        av_sm.load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        for av_arg in args_av:
+            av_arg.load(self)
+        self.il.Emit(OpCodes.Callvirt, methinfo)
+        if methdescr.has_result:
+            self.store_result(op)
+
+    emit_op_oosend_pure = emit_op_oosend
+
 
     def not_implemented(self, op):
         raise NotImplementedError
 
-    emit_op_oosend = not_implemented
     emit_op_guard_exception = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
     emit_op_guard_nonvirtualized = not_implemented
@@ -348,7 +376,6 @@ class Method(object):
     emit_op_strgetitem = not_implemented
     emit_op_getfield_raw = not_implemented
     emit_op_setfield_gc = not_implemented
-    emit_op_oosend_pure = not_implemented
     emit_op_getarrayitem_gc_pure = not_implemented
     emit_op_arraylen_gc = not_implemented
     emit_op_unicodesetitem = not_implemented

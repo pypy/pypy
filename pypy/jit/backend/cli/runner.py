@@ -6,7 +6,6 @@ from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
 from pypy.jit.backend.minimal.runner import cached_method
 from pypy.jit.backend.llgraph.runner import TypeDescr, FieldDescr
-from pypy.jit.backend.cli.method import Method
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 
@@ -51,6 +50,7 @@ class CliCPU(model.AbstractCPU):
     # ----------------------
 
     def compile_operations(self, loop):
+        from pypy.jit.backend.cli.method import Method
         meth = Method(self, loop.name, loop)
         loop._cli_meth = meth
 
@@ -147,6 +147,7 @@ class StaticMethDescr(AbstractDescr):
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
         self.funcclass = dotnet.classof(FUNC)
+        self.has_result = (FUNC.RESULT != ootype.Void)
 
 
 class MethDescr(AbstractMethDescr):
@@ -166,7 +167,10 @@ class MethDescr(AbstractMethDescr):
             if METH.RESULT is not ootype.Void:
                 return boxresult(METH.RESULT, res)
         self.callmeth = callmeth
+        self.selfclass = ootype.runtimeClass(SELFTYPE)
+        self.methname = methname
 
+        self.has_result = (METH.RESULT != ootype.Void)
 
 CPU = CliCPU
 

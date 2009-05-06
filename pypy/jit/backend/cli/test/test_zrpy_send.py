@@ -10,7 +10,6 @@ class TestSend(CliTranslatedJitMixin, test_send.TestOOtype):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_red_builtin_send = skip
     test_send_to_single_target_method = skip
     test_oosend_base = skip
     test_three_receivers = skip
