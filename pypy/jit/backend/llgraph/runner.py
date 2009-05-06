@@ -655,6 +655,10 @@ class FieldDescr(OODescr):
     def sort_key(self):
         return self._keys.getkey((self.TYPE, self.fieldname))
 
+    def equals(self, other):
+        return self.TYPE == other.TYPE and \
+            self.fieldname == other.fieldname
+
 
 # ____________________________________________________________
 

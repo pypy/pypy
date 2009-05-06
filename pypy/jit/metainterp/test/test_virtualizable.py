@@ -611,12 +611,7 @@ class ImplicitVirtualizableTests:
 class TestOOtype(ExplicitVirtualizableTests,
                 ImplicitVirtualizableTests,
                 OOJitMixin):
-
-    def skip(self):
-        py.test.skip('in-progress')
-
-    test_pass_always_virtual_to_bridge = skip
-
+    pass
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
