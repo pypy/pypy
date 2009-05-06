@@ -28,6 +28,9 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     test_bridge_from_interpreter_3 = skip
     test_instantiate_classes = skip
     test_zerodivisionerror = skip
+    test_isinstance = skip
+    test_oois = skip
+    test_oostring_instance = skip
     
     test_stopatxpolicy = _skip
     test_bridge_from_interpreter = _skip

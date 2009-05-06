@@ -107,6 +107,11 @@ class CliCPU(model.AbstractCPU):
         res = ootype.runtimenew(classobj)
         return BoxObj(ootype.cast_to_object(res))
 
+    def do_instanceof(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1
+        return typedescr.instanceof(args[0])
+
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])

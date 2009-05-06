@@ -323,6 +323,9 @@ class Method(object):
         cls = ootype.cast_from_object(ootype.Class, op.args[0].getobj())
         raise NotImplementedError # XXX finish me
 
+    def emit_op_ooidentityhash(self, op):
+        raise NotImplementedError
+
     def emit_op_call(self, op):
         raise NotImplementedError
 
