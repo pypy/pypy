@@ -282,7 +282,6 @@ class ArrayLenOperation(ArrayOperation):
         descr = self.array_descr(builder, A)
         self.put(builder, [v], descr)
 
-# XXX why is the following here, and not in test_random?
 # there are five options in total:
 # 1. non raising call and guard_no_exception
 # 2. raising call and guard_exception

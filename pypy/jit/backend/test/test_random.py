@@ -1,5 +1,6 @@
 import py, sys
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
+from pypy.rpython.lltypesystem import llmemory
 from pypy.jit.backend.test import conftest as demo_conftest
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstAddr
@@ -63,7 +64,6 @@ class OperationBuilder:
         num = int(k * len(self.intvars))
         for i in range(num):
             subset.append(r.choice(self.intvars))
-        r.shuffle(subset)
         return subset
 
     def process_operation(self, s, op, names, subops):
@@ -135,8 +135,9 @@ class OperationBuilder:
         #
         print >>s, '    cpu = CPU(None, None)'
         print >>s, "    loop = TreeLoop('test')"
-        print >>s, '    loop.inputargs = [...]' # % (
-            # ', '.join([names[v] for v in self.loop.inputargs]))
+        if hasattr(self.loop, 'inputargs'):
+            print >>s, '    loop.inputargs = [%s]' % (
+                ', '.join([names[v] for v in self.loop.inputargs]))
         print >>s, '    loop.operations = ['
         for op in self.loop.operations:
             self.process_operation(s, op, names, subops)
@@ -154,8 +155,10 @@ class OperationBuilder:
                 #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
                 #    ', '.join([names[v] for v in op.args]))
         print >>s, '    cpu.compile_operations(loop)'
-        #for i, v in enumerate(self.loop.inputargs):
-        #    print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
+        if hasattr(self.loop, 'inputargs'):
+            for i, v in enumerate(self.loop.inputargs):
+                print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
+                                                                     v.value)
         print >>s, '    op = cpu.execute_operations(loop)'
         if self.should_fail_by is None:
             for i, v in enumerate(self.loop.operations[-1].args):
@@ -215,6 +218,20 @@ class BinaryOperation(AbstractOperation):
                 v = builder.do(rop.INT_OR, [v, ConstInt(self.or_mask)])
             v_second = v
         self.put(builder, [v_first, v_second])
+
+class BinaryOvfOperation(BinaryOperation):
+    def produce_into(self, builder, r):
+        BinaryOperation.produce_into(self, builder, r)
+        exc = builder.cpu.get_exception()
+        if exc:     # OverflowError
+            builder.cpu.clear_exception()
+            exc_box = ConstInt(exc)
+            res_box = BoxPtr()
+            op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], res_box)
+        else:
+            op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        builder.loop.operations.append(op)
 
 class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
@@ -291,6 +308,21 @@ for _op in [rop.INT_NEG,
 
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
+
+for _op in [rop.INT_ADD_OVF,
+            rop.INT_SUB_OVF,
+            rop.INT_MUL_OVF,
+            ]:
+    OPERATIONS.append(BinaryOvfOperation(_op))
+
+OPERATIONS.append(BinaryOvfOperation(rop.INT_FLOORDIV_OVF, -1, 1))
+OPERATIONS.append(BinaryOvfOperation(rop.INT_MOD_OVF, -1, 1))
+OPERATIONS.append(BinaryOvfOperation(rop.INT_LSHIFT_OVF, LONG_BIT-1))
+
+for _op in [rop.INT_NEG_OVF,
+            rop.INT_ABS_OVF,
+            ]:
+    pass #OPERATIONS.append(UnaryOvfOperation(_op))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 
@@ -395,7 +427,8 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
-        #builder.print_loop()
+        if demo_conftest.option.output:
+            builder.print_loop()
 
     def clear_state(self):
         for v, S, fields in self.prebuilt_ptr_consts:
@@ -409,21 +442,23 @@ class RandomLoop(object):
     def run_loop(self):
         cpu = self.builder.cpu
         self.clear_state()
+        assert not cpu.get_exception()
 
         for i, v in enumerate(self.values):
             cpu.set_future_value_int(i, v)
         op = cpu.execute_operations(self.loop)
         assert op is self.should_fail_by
-        if (self.guard_op is not None and
-            self.guard_op.is_guard_exception()):
-            if cpu.get_exception():
-                cpu.clear_exception()
         for i, v in enumerate(op.args):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
                 "Got %d, expected %d" % (value,
                                          self.expected[v])
                 )
+        if (self.guard_op is not None and
+            self.guard_op.is_guard_exception()):
+            cpu.clear_exception()
+        else:
+            assert not cpu.get_exception()
 
     def build_bridge(self):
         def exc_handling(guard_op):
