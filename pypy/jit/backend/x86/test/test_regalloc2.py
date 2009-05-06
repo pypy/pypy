@@ -283,3 +283,47 @@ def test_bug_1():
     assert cpu.get_latest_value_int(18) == 1
     assert cpu.get_latest_value_int(19) == -2147483648
     assert cpu.get_latest_value_int(20) == 49
+
+def test_bug_2():
+    v1 = BoxInt()
+    v2 = BoxInt()
+    v3 = BoxInt()
+    v4 = BoxInt()
+    v5 = BoxInt()
+    v6 = BoxInt()
+    v7 = BoxInt()
+    v8 = BoxInt()
+    v9 = BoxInt()
+    v10 = BoxInt()
+    v11 = BoxInt()
+    v12 = BoxInt()
+    v13 = BoxInt()
+    v14 = BoxInt()
+    tmp21 = BoxInt()
+    loop = TreeLoop('test')
+    loop.inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
+    loop.operations = [
+        ResOperation(rop.INT_IS_TRUE, [v4], tmp21),
+        ResOperation(rop.BOOL_NOT, [tmp21], v11),
+        ResOperation(rop.INT_NEG, [v6], v12),
+        ResOperation(rop.UINT_LT, [v10, v10], v13),
+        ResOperation(rop.INT_ABS_OVF, [v5], v14),
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+        ResOperation(rop.FAIL, [v11, v14], None),
+        ]
+    loop.operations[-2].suboperations = [ResOperation(rop.FAIL, [], None)]
+    cpu = CPU(None, None)
+    cpu.compile_operations(loop)
+    cpu.set_future_value_int(0, 5)
+    cpu.set_future_value_int(1, -3)
+    cpu.set_future_value_int(2, -84)
+    cpu.set_future_value_int(3, 2)
+    cpu.set_future_value_int(4, -12)
+    cpu.set_future_value_int(5, -3)
+    cpu.set_future_value_int(6, 15)
+    cpu.set_future_value_int(7, -17)
+    cpu.set_future_value_int(8, -23)
+    cpu.set_future_value_int(9, 6)
+    cpu.execute_operations(loop)
+    assert cpu.get_latest_value_int(0) == 0
+    assert cpu.get_latest_value_int(1) == 12

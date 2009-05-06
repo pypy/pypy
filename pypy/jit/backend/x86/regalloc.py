@@ -1045,7 +1045,7 @@ class RegAlloc(object):
         self.eventually_free_var(tmpvar)
 
     def consider_int_abs_ovf(self, op, guard_op):
-        argloc = self.force_allocate_reg(op.args[0], [])
+        argloc = self.make_sure_var_in_reg(op.args[0], [])
         tmpvar = TempBox()
         tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
         resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
