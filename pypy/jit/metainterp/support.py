@@ -244,6 +244,9 @@ class OOtypeHelpers:
     def _ll_1_oostring_string_foldable(s):
         return ootype.oostring(s, -1)
 
+    def _ll_1_oostring_root_foldable(s):
+        return ootype.oostring(s, -1)
+
     def _ll_2_oounicode_signed_foldable(n, base):
         return ootype.oounicode(n, base)
 
@@ -315,6 +318,8 @@ def get_oostring_oopspec(op):
         args = op.args[:-1]
     else:
         args = op.args
+    if isinstance(T, ootype.Instance):
+        T = ootype.ROOT
     return '%s_%s_foldable' % (op.opname, T._name.lower()), args
 
 def get_oohash_oopspec(op):

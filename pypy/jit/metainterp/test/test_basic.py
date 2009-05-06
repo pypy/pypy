@@ -628,6 +628,20 @@ class TestOOtype(BasicTests, OOJitMixin):
         res = self.interp_operations(f, [1])
         assert res
 
+    def test_oostring_instance(self):
+        A = ootype.Instance("A", ootype.ROOT)
+        B = ootype.Instance("B", ootype.ROOT)
+        def f(n):
+            obj1 = ootype.new(A)
+            obj2 = ootype.new(B)
+            s1 = ootype.oostring(obj1, -1)
+            s2 = ootype.oostring(obj2, -1)
+            ch1 = s1.ll_stritem_nonneg(1)
+            ch2 = s2.ll_stritem_nonneg(1)
+            return ord(ch1) + ord(ch2)
+        res = self.interp_operations(f, [0])
+        assert res == ord('A') + ord('B')
+
     def test_r_dict(self):
         py.test.skip('in-progress')
 
