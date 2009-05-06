@@ -148,9 +148,8 @@ class ToyLanguageTests:
         res = self.meta_interp(main, [0, 20], optimizer=Optimizer)
         assert res == 0
 
-## ootype virtualizable in-progress!
-## class TestOOtype(ToyLanguageTests, OOJitMixin):
-##    pass
+class TestOOtype(ToyLanguageTests, OOJitMixin):
+   pass
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):
     pass
