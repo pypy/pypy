@@ -9,11 +9,17 @@ from pypy.objspace.std import Space
 from pypy.config.translationoption import set_opt_level
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
 from pypy.objspace.std import multimethod
-from pypy.rpython.annlowlevel import llhelper, llstr, hlstr
+from pypy.rpython.annlowlevel import llhelper, llstr, oostr, hlstr
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.interpreter.pycode import PyCode
 from pypy.translator.goal import unixcheckpoint
+
+if py.test.config.option.ootype:
+    BACKEND = 'cli'
+else:
+    BACKEND = 'c'
 
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0
@@ -26,11 +32,19 @@ config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 config.translation.rweakref = False # XXX
 set_pypy_opt_level(config, level='0')
-config.objspace.std.multimethods = 'mrd'
-multimethod.Installer = multimethod.InstallerVersion2
 config.objspace.std.builtinshortcut = True
 config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
 config.objspace.std.withrangelist = True
+
+if BACKEND == 'c':
+    config.objspace.std.multimethods = 'mrd'
+    multimethod.Installer = multimethod.InstallerVersion2
+elif BACKEND == 'cli':
+    config.objspace.std.multimethods = 'doubledispatch'
+    multimethod.Installer = multimethod.InstallerVersion1
+    config.translation.backend = 'cli'
+else:
+    assert False
 print config
 
 import sys, pdb
@@ -58,8 +72,13 @@ def read_code():
     code = ec.compiler.compile(source, '?', 'exec', 0)
     return llstr(space.str_w(dumps(space, code, space.wrap(2))))
 
-FPTR = lltype.Ptr(lltype.FuncType([], lltype.Ptr(STR)))
-read_code_ptr = llhelper(FPTR, read_code)
+if BACKEND == 'c':
+    FPTR = lltype.Ptr(lltype.FuncType([], lltype.Ptr(STR)))
+    read_code_ptr = llhelper(FPTR, read_code)
+else:
+    llstr = oostr
+    FUNC = ootype.StaticMethod([], ootype.String)
+    read_code_ptr = llhelper(FUNC, read_code)
 
 def entry_point():
     from pypy.module.marshal.interp_marshal import loads
@@ -75,6 +94,7 @@ def test_run_translation():
     try:
         interp, graph = get_interpreter(entry_point, [], backendopt=True,
                                         config=config,
+                                        type_system=config.translation.type_system,
                                         policy=PyPyAnnotatorPolicy(space))
     except Exception, e:
         print '%s: %s' % (e.__class__, e)
@@ -85,8 +105,13 @@ def test_run_translation():
     # print a message, and restart
     unixcheckpoint.restartable_point(auto='run')
 
-    from pypy.jit.tl.pypyjit_child import run_child
-    run_child(globals(), locals())
+    from pypy.jit.tl.pypyjit_child import run_child, run_child_ootype
+    if BACKEND == 'c':
+        run_child(globals(), locals())
+    elif BACKEND == 'cli':
+        run_child_ootype(globals(), locals())
+    else:
+        assert False
 
 
 if __name__ == '__main__':

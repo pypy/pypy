@@ -42,3 +42,17 @@ def run_child(glob, loc):
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=LLtypeCPU,
                              optimizer=Optimizer)
+
+
+def run_child_ootype(glob, loc):
+    import sys, pdb
+    interp = loc['interp']
+    graph = loc['graph']
+
+    print 'warmspot.jittify_and_run() started...'
+    from pypy.jit.backend.llgraph.runner import OOtypeCPU
+    policy = PyPyJitPolicy(interp.typer.annotator.translator)
+    option.view = True
+    warmspot.jittify_and_run(interp, graph, [], policy=policy,
+                             listops=True, CPUClass=OOtypeCPU,
+                             optimizer=Optimizer)
