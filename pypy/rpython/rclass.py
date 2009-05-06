@@ -52,11 +52,9 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         from pypy.rpython.lltypesystem import rvirtualizable
         return rvirtualizable.VirtualizableInstanceRepr(rtyper, classdef)
     elif virtualizable2:
-        assert rtyper.type_system.name == 'lltypesystem'
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
-        from pypy.rpython import rvirtualizable2
-        return rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
+        return rtyper.type_system.rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
     elif len(unboxed) == 0:
         return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
     else:

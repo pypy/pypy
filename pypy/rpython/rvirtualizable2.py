@@ -1,14 +1,13 @@
 import py
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.rclass import InstanceRepr
-from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rclass import AbstractInstanceRepr
 
 
-class VirtualizableAccessor(object):
+class AbstractVirtualizableAccessor(object):
 
-    def initialize(self, STRUCT, redirected_fields, PARENT=None):
-        self.STRUCT = STRUCT
+    def initialize(self, TYPE, redirected_fields, PARENT=None):
+        self.TYPE = TYPE
         self.redirected_fields = redirected_fields
         self.subaccessors = []
         if PARENT is None:
@@ -18,7 +17,7 @@ class VirtualizableAccessor(object):
             self.parent.subaccessors.append(self)
 
     def __repr__(self):
-        return '<VirtualizableAccessor for %s>' % getattr(self, 'STRUCT', '?')
+        return '<VirtualizableAccessor for %s>' % getattr(self, 'TYPE', '?')
 
     def __getattr__(self, name):
         if name.startswith('getset') and 'getsets' not in self.__dict__:
@@ -29,34 +28,23 @@ class VirtualizableAccessor(object):
                 self.__class__.__name__, name))
 
     def prepare_getsets(self):
-        self.getsets = {}
-        STRUCT = self.STRUCT
-        for fieldname in self.redirected_fields:
-            FIELDTYPE = getattr(STRUCT, fieldname)
-            GETTER = lltype.FuncType([lltype.Ptr(STRUCT)], FIELDTYPE)
-            SETTER = lltype.FuncType([lltype.Ptr(STRUCT), FIELDTYPE],
-                                     lltype.Void)
-            VABLE_GETSET = lltype.Struct('vable_getset',
-                                         ('get', lltype.Ptr(GETTER)),
-                                         ('set', lltype.Ptr(SETTER)),
-                                         hints={'immutable': True})
-            getset = lltype.malloc(VABLE_GETSET, flavor='raw', zero=False)
-            # as long as no valid pointer has been put in the structure
-            # by the JIT, accessing the fields should raise, in order
-            # to prevent constant-folding
-            py.test.raises(lltype.UninitializedMemoryAccess, "getset.get")
-            py.test.raises(lltype.UninitializedMemoryAccess, "getset.set")
-            self.getsets[fieldname] = getset
-            setattr(self, 'getset_' + fieldname, getset)
+        raise NotImplementedError
 
     def _freeze_(self):
         return True
 
 
-class Virtualizable2InstanceRepr(InstanceRepr):
+class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
+
+    VirtualizableAccessor = AbstractVirtualizableAccessor
+    op_getfield = None
+    op_setfield = None
+
+    def _super(self):
+        return super(AbstractVirtualizable2InstanceRepr, self)
 
     def __init__(self, rtyper, classdef):
-        InstanceRepr.__init__(self, rtyper, classdef)
+        self._super().__init__(rtyper, classdef)
         classdesc = classdef.classdesc
         if '_virtualizable2_' in classdesc.classdict:
             basedesc = classdesc.basedesc
@@ -68,17 +56,19 @@ class Virtualizable2InstanceRepr(InstanceRepr):
             self.virtuals = tuple(classdesc.classdict['_always_virtual_'].value)
         except KeyError:
             self.virtuals = ()
-        self.accessor = VirtualizableAccessor()
+        self.accessor = self.VirtualizableAccessor()
+
+    def _setup_instance_repr(self):
+        raise NotImplementedError
+
+    def gencast(self, llops, vinst):
+        raise NotImplementedError
+
+    def set_vable(self, llops, vinst, force_cast=False):
+        raise NotImplementedError
 
     def _setup_repr(self):
-        llfields = []
-        if self.top_of_virtualizable_hierarchy:
-            llfields.append(('vable_base', llmemory.Address))
-            llfields.append(('vable_rti', VABLERTIPTR))
-        InstanceRepr._setup_repr(self, llfields,
-                                 hints = {'virtualizable2': True,
-                                          'virtuals' : self.virtuals},
-                                 adtmeths = {'access': self.accessor})
+        self._setup_instance_repr()
         my_redirected_fields = []
         for _, (mangled_name, _) in self.fields.items():
             my_redirected_fields.append(mangled_name)
@@ -89,18 +79,9 @@ class Virtualizable2InstanceRepr(InstanceRepr):
             self.accessor.initialize(self.object_type, my_redirected_fields,
                                      self.rbase.lowleveltype.TO)
 
-    def set_vable(self, llops, vinst, force_cast=False):
-        if self.top_of_virtualizable_hierarchy:
-            if force_cast:
-                vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            cname = inputconst(lltype.Void, 'vable_rti')
-            vvalue = inputconst(VABLERTIPTR, lltype.nullptr(VABLERTIPTR.TO))
-            llops.genop('setfield', [vinst, cname, vvalue])
-        else:
-            self.rbase.set_vable(llops, vinst, force_cast=True)
 
     def new_instance(self, llops, classcallhop=None):
-        vptr = InstanceRepr.new_instance(self, llops, classcallhop)
+        vptr = self._super().new_instance(llops, classcallhop)
         self.set_vable(llops, vptr)
         return vptr
 
@@ -110,12 +91,12 @@ class Virtualizable2InstanceRepr(InstanceRepr):
             mangled_name, r = self.fields[attr]
             if mangled_name in self.my_redirected_fields:
                 if force_cast:
-                    vinst = llops.genop('cast_pointer', [vinst],
-                                        resulttype=self)
+                    vinst = self.gencast(llops, vinst)
                 c_name = inputconst(lltype.Void, mangled_name)
                 llops.genop('promote_virtualizable', [vinst, c_name])
-                return llops.genop('getfield', [vinst, c_name], resulttype=r)
-        return InstanceRepr.getfield(self, vinst, attr, llops, force_cast)
+                return llops.genop(self.op_getfield, [vinst, c_name],
+                                   resulttype=r)
+        return self._super().getfield(vinst, attr, llops, force_cast)
 
     def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
                  flags={}):
@@ -124,10 +105,9 @@ class Virtualizable2InstanceRepr(InstanceRepr):
             mangled_name, r = self.fields[attr]
             if mangled_name in self.my_redirected_fields:
                 if force_cast:
-                    vinst = llops.genop('cast_pointer', [vinst],
-                                        resulttype=self)
+                    vinst = self.gencast(llops, vinst)
                 c_name = inputconst(lltype.Void, mangled_name)
                 llops.genop('promote_virtualizable', [vinst, c_name])
-                llops.genop('setfield', [vinst, c_name, vvalue])
+                llops.genop(self.op_setfield, [vinst, c_name, vvalue])
                 return
-        InstanceRepr.setfield(self, vinst, attr, vvalue, llops, force_cast)
+        self._super().setfield(vinst, attr, vvalue, llops, force_cast)

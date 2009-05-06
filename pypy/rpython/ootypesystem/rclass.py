@@ -190,7 +190,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.object_type = self.lowleveltype
         self.gcflavor = gcflavor
 
-    def _setup_repr(self):
+    def _setup_repr(self, hints=None):
         if self.classdef is None:
             self.allfields = {}
             self.allmethods = {}
