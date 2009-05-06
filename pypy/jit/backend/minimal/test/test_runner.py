@@ -1,6 +1,7 @@
 import py
 from pypy.jit.backend.minimal.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.jit.backend.test.runner import LLtypeBackendTest, OOtypeBackendTest
+from pypy.jit.backend.test.runner_test import LLtypeBackendTest
+from pypy.jit.backend.test.runner_test import OOtypeBackendTest
 
 class FakeStats(object):
     pass

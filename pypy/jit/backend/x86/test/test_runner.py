@@ -8,7 +8,7 @@ from pypy.jit.backend.x86.regalloc import WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
-from pypy.jit.backend.test.runner import LLtypeBackendTest
+from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 import ctypes
 import sys
 
