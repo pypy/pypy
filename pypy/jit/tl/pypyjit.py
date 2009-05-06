@@ -1,5 +1,8 @@
 """
 A file that invokes translation of PyPy with the JIT enabled.
+
+Run it with py.test -s --pdb pypyjit.py [--ootype]
+
 """
 
 import autopath
