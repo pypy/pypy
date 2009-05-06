@@ -887,15 +887,26 @@ def clear_exception():
     global _last_exception
     _last_exception = None
 
+_pseudo_exceptions = {}
+
 def _set_error(Class):
     global _last_exception
-    llframe = _llinterp.frame_class(None, None, _llinterp)
-    try:
-        llframe.make_llexception(Class())
-    except LLException, e:
-        _last_exception = e
+    if _llinterp.typer is not None:
+        llframe = _llinterp.frame_class(None, None, _llinterp)
+        try:
+            llframe.make_llexception(Class())
+        except LLException, e:
+            _last_exception = e
+        else:
+            assert 0, "should have raised"
     else:
-        assert 0, "should have raised"
+        # for tests, a random emulated ll_inst will do
+        if Class not in _pseudo_exceptions:
+            ll_inst = lltype.malloc(rclass.OBJECT)
+            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+                                            immortal=True)
+            _pseudo_exceptions[Class] = LLException(ll_inst.typeptr, ll_inst)
+        _last_exception = _pseudo_exceptions[Class]
 
 def set_overflow_error():
     _set_error(OverflowError)

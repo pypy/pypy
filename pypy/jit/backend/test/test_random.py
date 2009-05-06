@@ -176,7 +176,7 @@ class OperationBuilder:
 class CannotProduceOperation(Exception):
     pass
 
-class AbstractOperation:
+class AbstractOperation(object):
     def __init__(self, opnum, boolres=False):
         self.opnum = opnum
         self.boolres = boolres
@@ -219,9 +219,9 @@ class BinaryOperation(AbstractOperation):
             v_second = v
         self.put(builder, [v_first, v_second])
 
-class BinaryOvfOperation(BinaryOperation):
+class AbstractOvfOperation(AbstractOperation):
     def produce_into(self, builder, r):
-        BinaryOperation.produce_into(self, builder, r)
+        super(AbstractOvfOperation, self).produce_into(builder, r)
         exc = builder.cpu.get_exception()
         if exc:     # OverflowError
             builder.cpu.clear_exception()
@@ -232,6 +232,12 @@ class BinaryOvfOperation(BinaryOperation):
             op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
         op.suboperations = [ResOperation(rop.FAIL, [], None)]
         builder.loop.operations.append(op)
+
+class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):
+    pass
+
+class UnaryOvfOperation(AbstractOvfOperation, UnaryOperation):
+    pass
 
 class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
@@ -322,7 +328,7 @@ OPERATIONS.append(BinaryOvfOperation(rop.INT_LSHIFT_OVF, LONG_BIT-1))
 for _op in [rop.INT_NEG_OVF,
             rop.INT_ABS_OVF,
             ]:
-    pass #OPERATIONS.append(UnaryOvfOperation(_op))
+    OPERATIONS.append(UnaryOvfOperation(_op))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 
