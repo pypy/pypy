@@ -174,3 +174,20 @@ def test_gcref():
     fn = compile(f, [int], gcpolicy='boehm')
     assert fn(3) == 123
     assert fn(-3) == -42
+
+def test_cast_adr_to_int():
+    S = lltype.Struct("S", ("x", lltype.Signed))
+    s = lltype.malloc(S, immortal=True)
+    adr = cast_ptr_to_adr(s)
+    def f(n):
+        i = cast_adr_to_int(adr)
+        if n > 10:
+            adr2 = adr
+        else:
+            adr2 = NULL
+        print "hello world"     # prevent constant-folding
+        j = cast_adr_to_int(adr2)
+        return i - j
+    fc = compile(f, [int])
+    res = fc(42)
+    assert res == 0

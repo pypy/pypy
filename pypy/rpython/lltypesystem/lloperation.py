@@ -378,7 +378,7 @@ LL_OPERATIONS = {
     'adr_call':             LLOp(canraise=(Exception,)),
     'cast_ptr_to_adr':      LLOp(sideeffects=False),
     'cast_adr_to_ptr':      LLOp(canfold=True),
-    'cast_adr_to_int':      LLOp(canfold=True),
+    'cast_adr_to_int':      LLOp(sideeffects=False),
     'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
 
     # __________ used by the JIT ________
