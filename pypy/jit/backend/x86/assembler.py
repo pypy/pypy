@@ -505,18 +505,6 @@ class Assembler386(object):
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETNZ(lower_byte(resloc))
 
-    def genop_int_abs(self, op, arglocs, resloc):
-        argloc = arglocs[0]
-        tmploc = arglocs[1]
-        assert resloc != argloc and resloc != tmploc
-        self.mc.MOV(resloc, argloc)
-        # ABS-computing code from Psyco, found by exhaustive search
-        # on *all* short sequences of operations :-)
-        self.mc.ADD(resloc, resloc)
-        self.mc.SBB(resloc, argloc)
-        self.mc.SBB(tmploc, tmploc)
-        self.mc.XOR(resloc, tmploc)
-
     def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
         loc = arglocs[0]
         self.mc.TEST(loc, loc)

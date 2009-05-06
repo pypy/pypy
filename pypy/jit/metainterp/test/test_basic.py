@@ -408,6 +408,14 @@ class BasicTests:
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
 
+    def test_abs(self):
+        def f(x):
+            return abs(x)
+        res = self.interp_operations(f, [-17])
+        assert res == 17
+        res = self.interp_operations(f, [4141])
+        assert res == 4141
+
     def test_print(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):

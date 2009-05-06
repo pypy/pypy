@@ -137,7 +137,6 @@ class rop(object):
     INT_NEG                = 61
     INT_INVERT             = 62
     BOOL_NOT               = 63
-    INT_ABS                = 65
     #
     OONONNULL              = 70
     OOISNULL               = 71

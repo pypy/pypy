@@ -277,7 +277,6 @@ class MIFrame(object):
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
                     'cast_ptr_to_int', 'cast_int_to_ptr',
-                    'int_abs',
                     ]:
         exec py.code.Source('''
             @arguments("box")
@@ -436,6 +435,16 @@ class MIFrame(object):
             # division overflow!
             self.metainterp.cpu.set_overflow_error()
             return self.metainterp.handle_exception()
+
+    @arguments("orgpc", "box")
+    def opimpl_int_abs(self, pc, box):
+        nonneg = self.metainterp.execute_and_record(
+            rop.INT_GE, [box, ConstInt(0)])
+        nonneg = self.implement_guard_value(pc, nonneg)
+        if nonneg.getint():
+            self.make_result_box(box)
+        else:
+            self.execute(rop.INT_NEG, [box])
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):

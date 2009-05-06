@@ -1021,15 +1021,6 @@ class RegAlloc(object):
         self.eventually_free_var(op.args[0])
         self.Perform(op, [argloc], resloc)
 
-    def consider_int_abs(self, op, ignored):
-        argloc = self.make_sure_var_in_reg(op.args[0], [])
-        tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
-        resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
-        self.Perform(op, [argloc, tmploc], resloc)
-        self.eventually_free_var(op.args[0])
-        self.eventually_free_var(tmpvar)
-
     def _consider_nullity(self, op, guard_op):
         # doesn't need a register in arg
         if guard_op is not None:

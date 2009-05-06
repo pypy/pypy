@@ -53,9 +53,6 @@ def do_uint_rshift(cpu, args, descr=None):
     v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
     return ConstInt(intmask(v))
 
-def do_int_abs(cpu, args, descr=None):
-    return ConstInt(intmask(abs(args[0].getint())))
-
 # ----------
 
 def do_int_lt(cpu, args, descr=None):

@@ -656,10 +656,6 @@ class BytecodeMaker(object):
                                         self.var_position(op.args[1]))
         self.default_serialize_op(op, 'int_floordiv')
 
-    def serialize_op_int_abs_ovf(self, op):
-        self.emit('int_neg_ovf', [self.var_position(op.args[0])])
-        self.default_serialize_op(op, 'int_abs')
-
     def serialize_op_hint(self, op):
         hints = op.args[1].value
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:

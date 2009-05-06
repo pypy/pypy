@@ -68,7 +68,6 @@ TYPES = {
     'int_is_true'     : (('int',), 'bool'),
     'int_neg'         : (('int',), 'int'),
     'int_invert'      : (('int',), 'int'),
-    'int_abs'         : (('int',), 'int'),
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),

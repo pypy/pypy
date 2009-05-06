@@ -117,7 +117,7 @@ def test_bug_0():
         ResOperation(rop.INT_OR, [ConstInt(-4), v25], v26),
         ResOperation(rop.INT_INVERT, [v8], v27),
         ResOperation(rop.INT_SUB, [ConstInt(-113), v11], v28),
-        ResOperation(rop.INT_ABS, [v7], v29),
+        ResOperation(rop.INT_NEG, [v7], v29),
         ResOperation(rop.INT_NEG, [v24], v30),
         ResOperation(rop.INT_FLOORDIV, [v3, ConstInt(53)], v31),
         ResOperation(rop.INT_MUL, [v28, v27], v32),
@@ -224,7 +224,7 @@ def test_bug_1():
         ResOperation(rop.UINT_RSHIFT, [v14, tmp42], v18),
         ResOperation(rop.INT_AND, [v14, ConstInt(31)], tmp43),
         ResOperation(rop.INT_LSHIFT, [ConstInt(7), tmp43], v19),
-        ResOperation(rop.INT_ABS, [v19], v20),
+        ResOperation(rop.INT_NEG, [v19], v20),
         ResOperation(rop.INT_MOD, [v3, ConstInt(1)], v21),
         ResOperation(rop.UINT_GE, [v15, v1], v22),
         ResOperation(rop.INT_AND, [v16, ConstInt(31)], tmp44),
@@ -236,17 +236,17 @@ def test_bug_1():
         ResOperation(rop.INT_EQ, [v9, v15], v27),
         ResOperation(rop.INT_GE, [ConstInt(0), v6], v28),
         ResOperation(rop.INT_NEG, [v15], v29),
-        ResOperation(rop.INT_ABS, [v22], v30),
+        ResOperation(rop.INT_NEG, [v22], v30),
         ResOperation(rop.INT_ADD, [v7, v16], v31),
         ResOperation(rop.UINT_LT, [v19, v19], v32),
         ResOperation(rop.INT_ADD, [v2, ConstInt(1)], v33),
-        ResOperation(rop.INT_ABS, [v5], v34),
+        ResOperation(rop.INT_NEG, [v5], v34),
         ResOperation(rop.INT_ADD, [v17, v24], v35),
         ResOperation(rop.UINT_LT, [ConstInt(2), v16], v36),
-        ResOperation(rop.INT_ABS, [v9], v37),
+        ResOperation(rop.INT_NEG, [v9], v37),
         ResOperation(rop.INT_GT, [v4, v11], v38),
         ResOperation(rop.INT_LT, [v27, v22], v39),
-        ResOperation(rop.INT_ABS, [v27], v40),
+        ResOperation(rop.INT_NEG, [v27], v40),
         ResOperation(rop.FAIL, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None),
             ]
     cpu = CPU(None, None)
@@ -267,7 +267,7 @@ def test_bug_1():
     assert cpu.get_latest_value_int(2) == 1
     assert cpu.get_latest_value_int(3) == 131072
     assert cpu.get_latest_value_int(4) == 20
-    assert cpu.get_latest_value_int(5) == 1
+    assert cpu.get_latest_value_int(5) == -1
     assert cpu.get_latest_value_int(6) == 0
     assert cpu.get_latest_value_int(7) == -19
     assert cpu.get_latest_value_int(8) == 6
@@ -278,52 +278,8 @@ def test_bug_1():
     assert cpu.get_latest_value_int(13) == 2
     assert cpu.get_latest_value_int(14) == 2
     assert cpu.get_latest_value_int(15) == 1
-    assert cpu.get_latest_value_int(16) == 57344
+    assert cpu.get_latest_value_int(16) == -57344
     assert cpu.get_latest_value_int(17) == 1
-    assert cpu.get_latest_value_int(18) == 1
+    assert cpu.get_latest_value_int(18) == -1
     assert cpu.get_latest_value_int(19) == -2147483648
-    assert cpu.get_latest_value_int(20) == 49
-
-def test_bug_2():
-    v1 = BoxInt()
-    v2 = BoxInt()
-    v3 = BoxInt()
-    v4 = BoxInt()
-    v5 = BoxInt()
-    v6 = BoxInt()
-    v7 = BoxInt()
-    v8 = BoxInt()
-    v9 = BoxInt()
-    v10 = BoxInt()
-    v11 = BoxInt()
-    v12 = BoxInt()
-    v13 = BoxInt()
-    v14 = BoxInt()
-    tmp21 = BoxInt()
-    loop = TreeLoop('test')
-    loop.inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
-    loop.operations = [
-        ResOperation(rop.INT_IS_TRUE, [v4], tmp21),
-        ResOperation(rop.BOOL_NOT, [tmp21], v11),
-        ResOperation(rop.INT_NEG, [v6], v12),
-        ResOperation(rop.UINT_LT, [v10, v10], v13),
-        ResOperation(rop.INT_ABS_OVF, [v5], v14),
-        ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-        ResOperation(rop.FAIL, [v11, v14], None),
-        ]
-    loop.operations[-2].suboperations = [ResOperation(rop.FAIL, [], None)]
-    cpu = CPU(None, None)
-    cpu.compile_operations(loop)
-    cpu.set_future_value_int(0, 5)
-    cpu.set_future_value_int(1, -3)
-    cpu.set_future_value_int(2, -84)
-    cpu.set_future_value_int(3, 2)
-    cpu.set_future_value_int(4, -12)
-    cpu.set_future_value_int(5, -3)
-    cpu.set_future_value_int(6, 15)
-    cpu.set_future_value_int(7, -17)
-    cpu.set_future_value_int(8, -23)
-    cpu.set_future_value_int(9, 6)
-    cpu.execute_operations(loop)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == 12
+    assert cpu.get_latest_value_int(20) == -49

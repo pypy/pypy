@@ -145,7 +145,6 @@ class BaseBackendTest(Runner):
             (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
             (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
             (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
-            (rop.INT_ABS, [(0, 0), (123, 123), (-23127, 23127)]),
             ]:
             for x, y in testcases:
                 res = self.execute_operation(opnum, [BoxInt(x)],
@@ -202,7 +201,7 @@ class BaseBackendTest(Runner):
                     ]
                 ops[1].suboperations = [ResOperation(rop.FAIL, [v_res], None)]
             #
-            if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
+            if opnum == rop.INT_NEG_OVF:
                 del ops[0].args[1]
             loop = TreeLoop('name')
             loop.operations = ops

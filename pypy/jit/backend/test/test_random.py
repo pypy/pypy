@@ -315,7 +315,6 @@ OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
-            rop.INT_ABS,
             ]:
     OPERATIONS.append(UnaryOperation(_op))
 
