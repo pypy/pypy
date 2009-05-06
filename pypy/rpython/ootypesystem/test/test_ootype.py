@@ -649,3 +649,8 @@ def test_bool_class():
     cls = runtimeClass(A)
     assert bool(cls)
     assert not bool(nullruntimeclass)
+
+def test_bool_default_sm():
+    SM = StaticMethod([], Void)
+    sm = SM._defl()
+    assert not bool(sm)

@@ -1594,6 +1594,24 @@ class BaseTestRPBC(BaseRtypingTest):
 
         self.interpret(f, [int])
 
+
+    def test_funcpointer_default_value(self):
+        def foo(x): return x+1
+        class Foo:
+            func = None
+            def __init__(self, n):
+                if n == 1:
+                    self.func = foo
+
+        def fn(n):
+            a = Foo(n)
+            if a.func:
+                return a.func(n)
+            return -1
+        
+        res = self.interpret(fn, [0])
+        assert res == -1
+
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
 

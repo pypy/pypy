@@ -277,7 +277,7 @@ class StaticMethod(SpecializableType):
     def __init__(self, args, result):
         self.ARGS = tuple(args)
         self.RESULT = result
-        self._null = _static_meth(self, _callable=None)
+        self._null = _null_static_meth(self)
 
     def _example(self):
         _retval = self.RESULT._example()
@@ -1187,6 +1187,14 @@ class _static_meth(_callable):
 
    def _as_ptr(self):
        return self
+
+class _null_static_meth(_null_mixin(_static_meth), _static_meth):
+
+    def __init__(self, STATICMETHOD):
+        self.__dict__["_TYPE"] = STATICMETHOD
+        self.__dict__["_name"] = "? (null)"
+        self.__dict__["_callable"] = None
+
 
 class _forward_static_meth(_static_meth):
    allowed_types = (StaticMethod, ForwardReference)
