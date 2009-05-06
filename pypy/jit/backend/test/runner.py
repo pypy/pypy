@@ -152,7 +152,7 @@ class BaseBackendTest(Runner):
                                              'int')
                 assert res.value == y
 
-    def test_ovf_operations(self):
+    def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1
         boom = 'boom'
         for opnum, testcases in [
@@ -192,15 +192,33 @@ class BaseBackendTest(Runner):
             v1 = BoxInt(testcases[0][0])
             v2 = BoxInt(testcases[0][1])
             v_res = BoxInt()
-            ops = [
-                ResOperation(opnum, [v1, v2], v_res),
-                ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-                ResOperation(rop.FAIL, [v_res], None),
-                ]
+            #
+            if not reversed:
+                ops = [
+                    ResOperation(opnum, [v1, v2], v_res),
+                    ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+                    ResOperation(rop.FAIL, [v_res], None),
+                    ]
+                ops[1].suboperations = [ResOperation(rop.FAIL, [], None)]
+            else:
+                self.cpu.set_overflow_error()
+                ovferror = self.cpu.get_exception()
+                self.cpu.clear_exception()
+                if self.cpu.is_oo:
+                    v_exc = BoxPtr()
+                    c_ovferror = ConstObj(ovferror)
+                else:
+                    v_exc = BoxObj()
+                    c_ovferror = ConstInt(ovferror)
+                ops = [
+                    ResOperation(opnum, [v1, v2], v_res),
+                    ResOperation(rop.GUARD_EXCEPTION, [c_ovferror], v_exc),
+                    ResOperation(rop.FAIL, [], None),
+                    ]
+                ops[1].suboperations = [ResOperation(rop.FAIL, [v_res], None)]
+            #
             if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
                 del ops[0].args[1]
-            ops[1].suboperations = [ResOperation(rop.FAIL, [],
-                                                 None)]
             loop = TreeLoop('name')
             loop.operations = ops
             loop.inputargs = [v1, v2]
@@ -209,36 +227,15 @@ class BaseBackendTest(Runner):
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
                 op = self.cpu.execute_operations(loop)
-                if z == boom:
+                if (z == boom) ^ reversed:
                     assert op is ops[1].suboperations[0]
                 else:
                     assert op is ops[-1]
+                if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
-            # ----------
-            # the same thing but with the exception path reversed
-##            v1 = BoxInt(testcases[0][0])
-##            v2 = BoxInt(testcases[0][1])
-##            v_res = BoxInt()
-##            v_exc = BoxPtr()
-##            self.cpu.set_overflow_error()
-##            ovferror = self.cpu.get_exception()
-##            self.cpu.clear_exception()
-##            ops = [
-##                ResOperation(opnum, [v1, v2], v_res),
-##                ResOperation(rop.GUARD_EXCEPTION, [ConstInt(ovferror)], v_exc),
-##                ResOperation(rop.FAIL, [ConstInt(boom)], None),
-##                ]
-##            if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
-##                del ops[0].args[1]
-##            ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(v_res)],
-##                                                 None)]
-##            loop = TreeLoop('inverted')
-##            loop.operations = ops
-##            loop.inputargs = [v1, v2]
-##            self.cpu.compile_operations(loop)
-##            for x, y, z in testcases:
-##                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
-##                assert op.args[0].value == z
+
+    def test_ovf_operations_reversed(self):
+        self.test_ovf_operations(reversed=True)
 
 
     def test_passing_guards(self):
