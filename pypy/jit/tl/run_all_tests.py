@@ -47,14 +47,22 @@ for name in names:
     f.seek(start)
     lines = f.readlines()
     f.close()
-    if '---ending 2---' in lines[-1]:
+    i = -1
+    while (lines[i].startswith('leaving with Return:') or
+           lines[i].startswith('TOTAL:') or
+           lines[i].startswith('Tracing:') or
+           lines[i].startswith('Backend:') or
+           lines[i].startswith('Running asm:') or
+           lines[i].startswith('Blackhole:')):
+        i -= 1
+    if '---ending 2---' in lines[i]:
         print >> sys.stderr, 'ok'
-    elif (lines[-1].startswith('ImportError:') or
-          lines[-1].startswith('TestSkipped:') or
-          lines[-1].startswith('ResourceDenied:')):
-        print >> sys.stderr, lines[-1].rstrip()
+    elif (lines[i].startswith('ImportError:') or
+          lines[i].startswith('TestSkipped:') or
+          lines[i].startswith('ResourceDenied:')):
+        print >> sys.stderr, lines[i].rstrip()
     else:
         print >> sys.stderr, "failed!  The last line of the output is:"
-        print >> sys.stderr, lines[-1].rstrip()
+        print >> sys.stderr, lines[i].rstrip()
         break
     #time.sleep(1)
