@@ -1,7 +1,7 @@
 import py
 from pypy.jit.backend.cli.runner import CliCPU
 from pypy.jit.backend.test.support import CliCompiledMixin
-from pypy.jit.metainterp.test.test_basic import BasicTests
+from pypy.jit.metainterp.test import test_basic
 
 class CliTranslatedJitMixin(CliCompiledMixin):
     CPUClass = CliCPU
@@ -12,7 +12,7 @@ class CliTranslatedJitMixin(CliCompiledMixin):
         return CliCompiledMixin.meta_interp(self, *args, **kwds)
 
 
-class TestBasic(CliTranslatedJitMixin, BasicTests):
+class TestBasic(CliTranslatedJitMixin, test_basic.TestOOtype):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
 

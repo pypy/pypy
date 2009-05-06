@@ -5,7 +5,7 @@ from pypy.jit.metainterp.test import test_basic
 class CliJitMixin(test_basic.OOJitMixin):
     CPUClass = CliCPU
 
-class TestBasic(CliJitMixin, test_basic.BasicTests):
+class TestBasic(CliJitMixin, test_basic.TestOOtype):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
 
