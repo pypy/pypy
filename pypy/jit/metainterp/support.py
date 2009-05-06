@@ -241,6 +241,9 @@ class OOtypeHelpers:
     def _ll_1_oostring_char_foldable(ch):
         return ootype.oostring(ch, -1)
 
+    def _ll_1_oostring_unsigned_foldable(n):
+        return ootype.oostring(n, -1)
+
     def _ll_1_oostring_string_foldable(s):
         return ootype.oostring(s, -1)
 
