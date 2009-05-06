@@ -233,6 +233,12 @@ class BaseBackendTest(Runner):
                     assert op is ops[-1]
                 if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
+                ovferror = self.cpu.get_exception()
+                if ovferror:
+                    assert z == boom
+                    self.cpu.clear_exception()
+                else:
+                    assert z != boom
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
