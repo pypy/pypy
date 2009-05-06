@@ -615,10 +615,7 @@ class TestOOtype(ExplicitVirtualizableTests,
     def skip(self):
         py.test.skip('in-progress')
 
-    test_virtual_on_virtualizable = skip
-    test_no_virtual_on_virtualizable = skip
     test_virtualizable_hierarchy = skip
-    test_non_virtual_on_always_virtual = skip
     test_external_pass = skip
     test_pass_always_virtual_to_bridge = skip
 
