@@ -208,6 +208,7 @@ class BaseBackendTest(Runner):
             loop.inputargs = [v1, v2]
             self.cpu.compile_operations(loop)
             for x, y, z in testcases:
+                assert not self.cpu.get_exception()
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
                 op = self.cpu.execute_operations(loop)

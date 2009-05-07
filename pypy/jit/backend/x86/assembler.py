@@ -803,7 +803,8 @@ class Assembler386(object):
         exc = False
         if ovf:
             regalloc.position = -1
-            self.generate_ovf_set()
+            if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+                self.generate_ovf_set()
             exc = True
         if (guard_op.opnum == rop.GUARD_EXCEPTION or
             guard_op.opnum == rop.GUARD_NO_EXCEPTION):
