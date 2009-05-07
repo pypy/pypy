@@ -283,7 +283,7 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
 
     def __cmp__(self, other):
         if not isinstance(other, TotalOrderSymbolic):
-            return NotImplemented
+            return cmp(self.compute_fn(), other)
         else:
             return cmp(self.orderwitness, other.orderwitness)
 

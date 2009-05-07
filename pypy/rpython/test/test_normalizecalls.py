@@ -1,10 +1,24 @@
+import py
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.normalizecalls import TotalOrderSymbolic, MAX
 
 
+def test_TotalOrderSymbolic():
+    lst = []
+    t1 = TotalOrderSymbolic([3, 4], lst)
+    t2 = TotalOrderSymbolic([3, 4, 2], lst)
+    t3 = TotalOrderSymbolic([3, 4, 2, MAX], lst)
+    t4 = TotalOrderSymbolic([3, 4, MAX], lst)
+    assert t1 < t2 < t3 < t4
+    assert t1.value is t2.value is t3.value is t4.value is None
+    assert 1 <= t3
+    assert t3.value == 2
+    assert t1 <= 5
+    assert t1.value == 0
 
 # ____________________________________________________________
 
