@@ -31,3 +31,8 @@ class TestBasic(Jit386Mixin, test_basic.BasicTests):
             return n
         res = self.meta_interp(f, [31], specialize=False)
         assert res == -4
+
+    def test_r_dict(self):
+        # a Struct that belongs to the hash table is not seen as being
+        # included in the larger Array
+        py.test.skip("issue with ll2ctypes")
