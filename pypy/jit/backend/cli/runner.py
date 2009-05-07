@@ -5,7 +5,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
 from pypy.jit.backend.minimal.runner import cached_method
-from pypy.jit.backend.llgraph.runner import TypeDescr, KeyManager
+from pypy.jit.backend.llgraph.runner import KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 
@@ -136,6 +136,45 @@ class CliCPU(model.AbstractCPU):
 key_manager = KeyManager()
 
 
+class TypeDescr(AbstractDescr):
+
+    def __init__(self, TYPE):
+        from pypy.jit.backend.llgraph.runner import boxresult
+        def create():
+            return boxresult(TYPE, ootype.new(TYPE))
+        def create_array(lengthbox):
+            n = lengthbox.getint()
+            return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
+        def getarrayitem(arraybox, ibox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            i = ibox.getint()
+            return boxresult(TYPE, array.ll_getitem_fast(i))
+        def setarrayitem(arraybox, ibox, valuebox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            i = ibox.getint()
+            value = unwrap(TYPE, valuebox)
+            array.ll_setitem_fast(i, value)
+        def getarraylength(arraybox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            return boxresult(ootype.Signed, array.ll_length())
+        def instanceof(box):
+            obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+            return history.BoxInt(ootype.instanceof(obj, TYPE))
+        self.create = create
+        self.create_array = create_array
+        self.getarrayitem = getarrayitem
+        self.setarrayitem = setarrayitem
+        self.getarraylength = getarraylength
+        self.instanceof = instanceof
+        self.ooclass = ootype.runtimeClass(TYPE)
+
+    def get_clitype(self):
+        return dotnet.class2type(self.ooclass)
+
+    def get_constructor_info(self):
+        clitype = self.get_clitype()
+        return clitype.GetConstructor(dotnet.new_array(System.Type, 0))
+
 class StaticMethDescr(AbstractDescr):
 
     def __init__(self, FUNC, ARGS, RESULT):
@@ -195,6 +234,7 @@ class FieldDescr(AbstractDescr):
 
     def __init__(self, TYPE, fieldname):
         from pypy.jit.backend.llgraph.runner import boxresult
+        from pypy.jit.metainterp.warmspot import unwrap
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
             obj = ootype.cast_from_object(TYPE, objbox.getobj())

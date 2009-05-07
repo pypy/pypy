@@ -320,9 +320,13 @@ class Method(object):
         self.il.Emit(OpCodes.Br, self.il_loop_start)
 
     def emit_op_new_with_vtable(self, op):
-        assert isinstance(op.args[0], ConstObj)
-        cls = ootype.cast_from_object(ootype.Class, op.args[0].getobj())
-        raise NotImplementedError # XXX finish me
+        assert isinstance(op.args[0], ConstObj) # ignored, using the descr instead
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        clitype = descr.get_clitype()
+        ctor_info = descr.get_constructor_info()
+        self.il.Emit(OpCodes.Newobj, ctor_info)
+        self.store_result(op)
 
     def emit_op_ooidentityhash(self, op):
         raise NotImplementedError
@@ -367,6 +371,16 @@ class Method(object):
     
     emit_op_getfield_gc_pure = emit_op_getfield_gc
 
+    def emit_op_setfield_gc(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.FieldDescr)
+        clitype = descr.get_self_clitype()
+        fieldinfo = descr.get_field_info()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        op.args[1].load(self)
+        self.il.Emit(OpCodes.Stfld, fieldinfo)
+
 
     def not_implemented(self, op):
         raise NotImplementedError
@@ -383,7 +397,6 @@ class Method(object):
     emit_op_unicodegetitem = not_implemented
     emit_op_strgetitem = not_implemented
     emit_op_getfield_raw = not_implemented
-    emit_op_setfield_gc = not_implemented
     emit_op_getarrayitem_gc_pure = not_implemented
     emit_op_arraylen_gc = not_implemented
     emit_op_unicodesetitem = not_implemented
