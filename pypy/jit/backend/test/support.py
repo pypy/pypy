@@ -14,7 +14,8 @@ class BaseCompiledMixin(object):
     def _compile_and_run(self, t, entry_point, entry_point_graph, args):
         raise NotImplementedError
 
-    def meta_interp(self, function, args, repeat=1, **kwds): # XXX ignored
+    # XXX backendopt is ignored
+    def meta_interp(self, function, args, repeat=1, backendopt=None, **kwds): # XXX ignored
         from pypy.jit.metainterp.warmspot import WarmRunnerDesc
         from pypy.annotation.listdef import s_list_of_strings
         from pypy.annotation import model as annmodel

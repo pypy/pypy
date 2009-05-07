@@ -5,7 +5,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
 from pypy.jit.backend.minimal.runner import cached_method
-from pypy.jit.backend.llgraph.runner import TypeDescr, FieldDescr
+from pypy.jit.backend.llgraph.runner import TypeDescr, KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 
@@ -133,6 +133,8 @@ class CliCPU(model.AbstractCPU):
 
 
 # ----------------------------------------------------------------------
+key_manager = KeyManager()
+
 
 class StaticMethDescr(AbstractDescr):
 
@@ -149,6 +151,13 @@ class StaticMethDescr(AbstractDescr):
         self.funcclass = dotnet.classof(FUNC)
         self.has_result = (FUNC.RESULT != ootype.Void)
 
+    def get_delegate_clitype(self):
+        return dotnet.class2type(self.funcclass)
+
+    def get_meth_info(self):
+        clitype = self.get_delegate_clitype()
+        return clitype.GetMethod('Invoke')
+        
 
 class MethDescr(AbstractMethDescr):
 
@@ -169,8 +178,53 @@ class MethDescr(AbstractMethDescr):
         self.callmeth = callmeth
         self.selfclass = ootype.runtimeClass(SELFTYPE)
         self.methname = methname
-
         self.has_result = (METH.RESULT != ootype.Void)
+
+    def get_self_clitype(self):
+        return dotnet.class2type(self.selfclass)
+    
+    def get_meth_info(self):
+        clitype = self.get_self_clitype()
+        return clitype.GetMethod(str(self.methname))
+
+
+class FieldDescr(AbstractDescr):
+
+    getfield = None
+    _keys = KeyManager()
+
+    def __init__(self, TYPE, fieldname):
+        from pypy.jit.backend.llgraph.runner import boxresult
+        _, T = TYPE._lookup_field(fieldname)
+        def getfield(objbox):
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            value = getattr(obj, fieldname)
+            return boxresult(T, value)
+        def setfield(objbox, valuebox):
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            value = unwrap(T, valuebox)
+            setattr(obj, fieldname, value)
+            
+        self.getfield = getfield
+        self.setfield = setfield
+        self.selfclass = ootype.runtimeClass(TYPE)
+        self.fieldname = fieldname
+        self.key = key_manager.getkey((TYPE, fieldname))
+
+    def sort_key(self):
+        return self.key
+
+    def equals(self, other):
+        assert isinstance(other, FieldDescr)
+        return self.key == other.key
+
+    def get_self_clitype(self):
+        return dotnet.class2type(self.selfclass)
+
+    def get_field_info(self):
+        clitype = self.get_self_clitype()
+        return clitype.GetField(str(self.fieldname))
+
 
 CPU = CliCPU
 

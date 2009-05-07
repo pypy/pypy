@@ -539,6 +539,9 @@ class KeyManager(object):
             self.keys[key] = n
             return n
 
+    def _freeze_(self):
+        raise Exception("KeyManager is not supposed to be turned into a pbc")
+
 
 descr_cache = {}
 class OODescr(history.AbstractDescr):

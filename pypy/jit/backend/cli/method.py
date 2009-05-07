@@ -328,36 +328,44 @@ class Method(object):
         raise NotImplementedError
 
     def emit_op_call(self, op):
-        calldescr = op.descr
-        assert isinstance(calldescr, runner.StaticMethDescr)
-        delegate_type = dotnet.class2type(calldescr.funcclass)
-        meth_invoke = delegate_type.GetMethod('Invoke')
-        av_sm, args_av = op.args[0], op.args[1:]
-        av_sm.load(self)
-        self.il.Emit(OpCodes.Castclass, delegate_type)
-        for av_arg in args_av:
-            av_arg.load(self)
-        self.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
-        if calldescr.has_result:
-            self.store_result(op)
+        descr = op.descr
+        assert isinstance(descr, runner.StaticMethDescr)
+        delegate_type = descr.get_delegate_clitype()
+        meth_invoke = descr.get_meth_info()
+        self._emit_call(op, delegate_type, meth_invoke, descr.has_result)
 
     emit_op_call_pure = emit_op_call
 
     def emit_op_oosend(self, op):
-        methdescr = op.descr
-        assert isinstance(methdescr, runner.MethDescr)
-        clitype = dotnet.class2type(methdescr.selfclass)
-        methinfo = clitype.GetMethod(str(methdescr.methname))
+        descr = op.descr
+        assert isinstance(descr, runner.MethDescr)
+        clitype = descr.get_self_clitype()
+        methinfo = descr.get_meth_info()
+        self._emit_call(op, clitype, methinfo, descr.has_result)
+
+    emit_op_oosend_pure = emit_op_oosend
+
+    def _emit_call(self, op, clitype, methinfo, has_result):
         av_sm, args_av = op.args[0], op.args[1:]
         av_sm.load(self)
         self.il.Emit(OpCodes.Castclass, clitype)
         for av_arg in args_av:
             av_arg.load(self)
         self.il.Emit(OpCodes.Callvirt, methinfo)
-        if methdescr.has_result:
+        if has_result:
             self.store_result(op)
 
-    emit_op_oosend_pure = emit_op_oosend
+    def emit_op_getfield_gc(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.FieldDescr)
+        clitype = descr.get_self_clitype()
+        fieldinfo = descr.get_field_info()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        self.il.Emit(OpCodes.Ldfld, fieldinfo)
+        self.store_result(op)
+    
+    emit_op_getfield_gc_pure = emit_op_getfield_gc
 
 
     def not_implemented(self, op):
@@ -380,9 +388,7 @@ class Method(object):
     emit_op_arraylen_gc = not_implemented
     emit_op_unicodesetitem = not_implemented
     emit_op_getfield_raw_pure = not_implemented
-    emit_op_getfield_gc_pure = not_implemented
     emit_op_getarrayitem_gc = not_implemented
-    emit_op_getfield_gc = not_implemented
     emit_op_strlen = not_implemented
     emit_op_newstr = not_implemented
     emit_op_strsetitem = not_implemented
