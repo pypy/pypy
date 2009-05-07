@@ -484,6 +484,7 @@ def _find_parent(llobj):
 _all_callbacks = {}
 _all_callbacks_results = []
 _callback2obj = {}
+_callback_exc_info = None
 
 # this is just another hack that passes around references to applevel types
 # disguised as base_ptr_lltype
@@ -548,7 +549,7 @@ def lltype2ctypes(llobj, normalize=True):
             v1voidlist = [(i, getattr(container, '_void' + str(i), None))
                              for i in range(len(T.TO.ARGS))
                                  if T.TO.ARGS[i] is lltype.Void]
-            def callback(*cargs):
+            def callback_internal(*cargs):
                 cargs = list(cargs)
                 for v1 in v1voidlist:
                     cargs.insert(v1[0], v1[1])
@@ -568,9 +569,9 @@ def lltype2ctypes(llobj, normalize=True):
                     except LLException, lle:
                         llinterp._store_exception(lle)
                         return 0
-                    except:
-                        import pdb
-                        pdb.set_trace()
+                    #except:
+                    #    import pdb
+                    #    pdb.set_trace()
                 else:
                     try:
                         llres = container._callable(*llargs)
@@ -589,14 +590,16 @@ def lltype2ctypes(llobj, normalize=True):
                         return 0
                 return res
 
-            if conftest.option.usepdb:
-                callback_original = callback
-                def callback(*cargs):
-                    try:
-                        return callback_original(*cargs)
-                    except:
-                        import pdb, sys; pdb.post_mortem(sys.exc_traceback)
-                        raise
+            def callback(*cargs):
+                try:
+                    return callback_internal(*cargs)
+                except:
+                    import sys
+                    #if conftest.option.usepdb:
+                    #    import pdb; pdb.post_mortem(sys.exc_traceback)
+                    global _callback_exc_info
+                    _callback_exc_info = sys.exc_info()
+                    raise
 
             if isinstance(T.TO.RESULT, lltype.Ptr):
                 TMod = lltype.Ptr(lltype.FuncType(T.TO.ARGS,
@@ -911,6 +914,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
         if FUNCTYPE.ARGS[i] is lltype.Void:
             void_arguments.append(i)
     def invoke_via_ctypes(*argvalues):
+        global _callback_exc_info
         cargs = []
         for i in range(len(FUNCTYPE.ARGS)):
             if i not in void_arguments:
@@ -918,9 +922,14 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
                 if i in container_arguments:
                     cvalue = cvalue.contents
                 cargs.append(cvalue)
+        _callback_exc_info = None
         _restore_c_errno()
         cres = cfunc(*cargs)
         _save_c_errno()
+        if _callback_exc_info:
+            etype, evalue, etb = _callback_exc_info
+            _callback_exc_info = None
+            raise etype, evalue, etb
         return ctypes2lltype(RESULT, cres)
     return invoke_via_ctypes
 
