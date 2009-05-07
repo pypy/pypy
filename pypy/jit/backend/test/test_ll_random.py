@@ -14,6 +14,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
         self.vtable_counter = 0
+        self.rstrs = []
+        self.runicodes = []
         self.structure_types = []
         self.structure_types_and_vtables = []
 
@@ -123,6 +125,14 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         for i in range(length):
             p[i] = rffi.cast(A.OF, r.random_integer())
         return p
+
+    def get_index(self, length, r):
+        if length == 0:
+            raise test_random.CannotProduceOperation
+        v_index = r.choice(self.intvars)
+        if not (0 <= v_index.value < length):
+            v_index = ConstInt(r.random_integer() % length)
+        return v_index
 
     def field_values(self, p):
         dic = {}
@@ -237,12 +247,7 @@ class GetArrayItemOperation(ArrayOperation):
     def field_descr(self, builder, r):
         v, A = builder.get_arrayptr_var(r)
         array = v.getptr(lltype.Ptr(A))
-        length = len(array)
-        if length == 0:
-            raise test_random.CannotProduceOperation
-        v_index = r.choice(builder.intvars)
-        if not (0 <= v_index.value < length):
-            v_index = ConstInt(r.random_integer() % length)
+        v_index = builder.get_index(len(array), r)
         descr = self.array_descr(builder, A)
         return v, A, v_index, descr
 
@@ -270,9 +275,7 @@ class SetArrayItemOperation(GetArrayItemOperation):
 class NewArrayOperation(ArrayOperation):
     def produce_into(self, builder, r):
         A = builder.get_random_array_type(r)
-        v_size = r.choice(builder.intvars)
-        if not (0 <= v_size.value < 300):
-            v_size = ConstInt((r.random_integer() // 15) % 300)
+        v_size = builder.get_index(300, r)
         v_ptr = builder.do(self.opnum, [v_size], self.array_descr(builder, A))
         builder.ptrvars.append((v_ptr, A))
 
@@ -282,17 +285,83 @@ class ArrayLenOperation(ArrayOperation):
         descr = self.array_descr(builder, A)
         self.put(builder, [v], descr)
 
+class _UnicodeOperation:
+    builder_cache = "runicodes"
+    struct = rstr.UNICODE
+    ptr = lltype.Ptr(struct)
+    alloc = staticmethod(rstr.mallocunicode)
+    # XXX This should really be runicode.MAXUNICODE, but then
+    # lltype.cast_primitive complains.
+    max = py.std.sys.maxunicode
+    primitive = lltype.UniChar
+    set_char = rop.UNICODESETITEM
+
+class _StrOperation:
+    builder_cache = "rstrs"
+    struct = rstr.STR
+    ptr = lltype.Ptr(struct)
+    alloc = staticmethod(rstr.mallocstr)
+    max = 255
+    primitive = lltype.Char
+    set_char = rop.STRSETITEM
+
 class NewSeqOperation(test_random.AbstractOperation):
     def produce_into(self, builder, r):
-        v_length = r.choice(builder.intvars)
-        if not (0 <= v_length.value < 500):
-            v_length = ConstInt((r.random_integer() // 5) % 500)
+        v_length = builder.get_index(10, r)
         v_ptr = builder.do(self.opnum, [v_length])
-        if self.opnum == rop.NEWSTR:
-            seq_type = lltype.Ptr(rstr.STR)
+        getattr(builder, self.builder_cache).append(v_ptr)
+        # Initialize the string. Is there a better way to do this?
+        for i in range(v_length.getint()):
+            v_index = ConstInt(i)
+            v_char = ConstInt(r.random_integer() % self.max)
+            builder.do(self.set_char, [v_ptr, v_index, v_char])
+
+class NewStrOperation(NewSeqOperation, _StrOperation):
+    pass
+
+class NewUnicodeOperation(NewSeqOperation, _UnicodeOperation):
+    pass
+
+class AbstractStringOperation(test_random.AbstractOperation):
+    def get_string(self, builder, r):
+        current = getattr(builder, self.builder_cache)
+        if current and r.random() < .8:
+            v_string = r.choice(current)
+            string = v_string.getptr(self.ptr)
         else:
-            seq_type = lltype.Ptr(rstr.UNICODE)
-        builder.ptrvars.append((v_ptr, seq_type))
+            string = self.alloc(builder.get_index(500, r).getint())
+            v_string = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, string))
+            current.append(v_string)
+        for i in range(len(string.chars)):
+            char = r.random_integer() % self.max
+            string.chars[i] = lltype.cast_primitive(self.primitive, char)
+        return v_string
+
+class AbstractGetItemOperation(AbstractStringOperation):
+    def produce_into(self, builder, r):
+        v_string = self.get_string(builder, r)
+        v_index = builder.get_index(len(v_string.getptr(self.ptr).chars), r)
+        v_result = builder.do(self.opnum, [v_string, v_index])
+
+class AbstractSetItemOperation(AbstractStringOperation):
+    def produce_into(self, builder, r):
+        v_string = self.get_string(builder, r)
+        v_index = builder.get_index(len(v_string.getptr(self.ptr).chars), r)
+        v_target = ConstInt(r.random_integer() % self.max)
+        builder.do(self.opnum, [v_string, v_index, v_target])
+
+class StrGetItemOperation(AbstractGetItemOperation, _StrOperation):
+    pass
+
+class UnicodeGetItemOperation(AbstractGetItemOperation, _UnicodeOperation):
+    pass
+
+class StrSetItemOperation(AbstractSetItemOperation, _StrOperation):
+    pass
+
+class UnicodeSetItemOperation(AbstractSetItemOperation, _UnicodeOperation):
+    pass
+
 
 # there are five options in total:
 # 1. non raising call and guard_no_exception
@@ -462,8 +531,12 @@ for i in range(4):      # make more common
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
     OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
     OPERATIONS.append(ArrayLenOperation(rop.ARRAYLEN_GC))
-    OPERATIONS.append(NewSeqOperation(rop.NEWSTR))
-    OPERATIONS.append(NewSeqOperation(rop.NEWUNICODE))
+    OPERATIONS.append(NewStrOperation(rop.NEWSTR))
+    OPERATIONS.append(NewUnicodeOperation(rop.NEWUNICODE))
+    OPERATIONS.append(StrGetItemOperation(rop.STRGETITEM))
+    OPERATIONS.append(UnicodeGetItemOperation(rop.UNICODEGETITEM))
+    OPERATIONS.append(StrSetItemOperation(rop.STRSETITEM))
+    OPERATIONS.append(UnicodeSetItemOperation(rop.UNICODESETITEM))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
