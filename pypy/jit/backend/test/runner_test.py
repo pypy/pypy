@@ -189,10 +189,10 @@ class BaseBackendTest(Runner):
                 ovferror = self.cpu.get_exception()
                 self.cpu.clear_exception()
                 if self.cpu.is_oo:
-                    v_exc = BoxPtr()
+                    v_exc = BoxObj()
                     c_ovferror = ConstObj(ovferror)
                 else:
-                    v_exc = BoxObj()
+                    v_exc = BoxPtr()
                     c_ovferror = ConstInt(ovferror)
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
@@ -218,7 +218,12 @@ class BaseBackendTest(Runner):
                 if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
                 ovferror = self.cpu.get_exception()
-                if ovferror:
+                if reversed:
+                    # in the 'reversed' case, ovferror should always be
+                    # consumed: either it is not set in the first place,
+                    # or it is set and GUARD_EXCEPTION succeeds.
+                    assert not ovferror
+                elif ovferror:
                     assert z == boom
                     self.cpu.clear_exception()
                 else:
