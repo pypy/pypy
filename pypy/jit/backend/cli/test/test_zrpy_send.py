@@ -7,11 +7,14 @@ class TestSend(CliTranslatedJitMixin, test_send.TestOOtype):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_send.py
 
+    def skip_loop(self):
+        py.test.skip('jump across loops not implemented yet')
+
     def skip(self):
         py.test.skip('in-progress')
 
-    test_three_receivers = skip
-    test_oosend_different_initial_class = skip
+    test_three_receivers = skip_loop
+    
     test_indirect_call_unknown_object_1 = skip
     test_three_cases = skip
     test_three_classes = skip

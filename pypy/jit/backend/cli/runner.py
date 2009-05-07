@@ -201,6 +201,9 @@ class StaticMethDescr(AbstractDescr):
 class MethDescr(AbstractMethDescr):
 
     callmeth = None
+    selfclass = ootype.nullruntimeclass
+    methname = ''
+    has_result = False
     
     def __init__(self, SELFTYPE, methname):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
@@ -224,13 +227,16 @@ class MethDescr(AbstractMethDescr):
     
     def get_meth_info(self):
         clitype = self.get_self_clitype()
-        return clitype.GetMethod(str(self.methname))
+        return clitype.GetMethod(self.methname+'')
 
 
 class FieldDescr(AbstractDescr):
 
     getfield = None
-    _keys = KeyManager()
+    setfield = None
+    selfclass = ootype.nullruntimeclass
+    fieldname = ''
+    key = -1
 
     def __init__(self, TYPE, fieldname):
         from pypy.jit.backend.llgraph.runner import boxresult
@@ -263,7 +269,7 @@ class FieldDescr(AbstractDescr):
 
     def get_field_info(self):
         clitype = self.get_self_clitype()
-        return clitype.GetField(str(self.fieldname))
+        return clitype.GetField(self.fieldname+'')
 
 
 CPU = CliCPU
