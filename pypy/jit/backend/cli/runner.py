@@ -177,6 +177,10 @@ class TypeDescr(AbstractDescr):
 
 class StaticMethDescr(AbstractDescr):
 
+    callfunc = None
+    funcclass = ootype.nullruntimeclass
+    has_result = False
+
     def __init__(self, FUNC, ARGS, RESULT):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         getargs = make_getargs(FUNC.ARGS)
