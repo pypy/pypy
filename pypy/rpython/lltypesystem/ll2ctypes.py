@@ -733,6 +733,9 @@ def ctypes2lltype(T, cobj):
         llobj = unichr(cobj)
     elif T is lltype.Signed:
         llobj = cobj
+    elif T is lltype.Bool:
+        assert cobj == True or cobj == False    # 0 and 1 work too
+        llobj = bool(cobj)
     elif T is lltype.SingleFloat:
         if isinstance(cobj, ctypes.c_float):
             cobj = cobj.value
