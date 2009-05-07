@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi, rstr
 from pypy.jit.backend.test import test_random
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr, BoxPtr,\
@@ -282,6 +282,18 @@ class ArrayLenOperation(ArrayOperation):
         descr = self.array_descr(builder, A)
         self.put(builder, [v], descr)
 
+class NewSeqOperation(test_random.AbstractOperation):
+    def produce_into(self, builder, r):
+        v_length = r.choice(builder.intvars)
+        if not (0 <= v_length.value < 500):
+            v_length = ConstInt((r.random_integer() // 5) % 500)
+        v_ptr = builder.do(self.opnum, [v_length])
+        if self.opnum == rop.NEWSTR:
+            seq_type = lltype.Ptr(rstr.STR)
+        else:
+            seq_type = lltype.Ptr(rstr.UNICODE)
+        builder.ptrvars.append((v_ptr, seq_type))
+
 # there are five options in total:
 # 1. non raising call and guard_no_exception
 # 2. raising call and guard_exception
@@ -450,6 +462,8 @@ for i in range(4):      # make more common
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
     OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
     OPERATIONS.append(ArrayLenOperation(rop.ARRAYLEN_GC))
+    OPERATIONS.append(NewSeqOperation(rop.NEWSTR))
+    OPERATIONS.append(NewSeqOperation(rop.NEWUNICODE))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
