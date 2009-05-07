@@ -16,6 +16,13 @@ from pypy.jit.metainterp.resoperation import rop
 REGS = [eax, ecx, edx]
 WORD = 4
 
+class ImplementConstantOverflow(Exception):
+    """ This exception is raised when someone uses the result
+    of GUARD_EXCEPTION(overflowerror). I think codewriter should
+    constant fold it as we know what kind of exception it will
+    be
+    """
+
 class TempBox(Box):
     def __init__(self):
         pass
@@ -281,9 +288,10 @@ class RegAlloc(object):
             if not canfold:
                 # detect overflow ops
                 if op.is_ovf():
-                    num = operations[i + 1].opnum
-                    assert (num == rop.GUARD_NO_EXCEPTION or
-                            num == rop.GUARD_EXCEPTION)
+                    assert operations[i + 1].is_guard_exception()
+                    if (operations[i + 1].opnum == rop.GUARD_EXCEPTION and
+                        operations[i + 1].result in self.longevity):
+                        raise ImplementConstantOverflow()
                     nothing = oplist[op.opnum](self, op, operations[i + 1])
                     i += 1
                 elif self.can_optimize_cmp_op(op, i, operations):
