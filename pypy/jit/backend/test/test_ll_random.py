@@ -350,6 +350,11 @@ class AbstractSetItemOperation(AbstractStringOperation):
         v_target = ConstInt(r.random_integer() % self.max)
         builder.do(self.opnum, [v_string, v_index, v_target])
 
+class AbstractStringLenOperation(AbstractStringOperation):
+    def produce_into(self, builder, r):
+        v_string = self.get_string(builder, r)
+        builder.do(self.opnum, [v_string])
+
 class StrGetItemOperation(AbstractGetItemOperation, _StrOperation):
     pass
 
@@ -360,6 +365,12 @@ class StrSetItemOperation(AbstractSetItemOperation, _StrOperation):
     pass
 
 class UnicodeSetItemOperation(AbstractSetItemOperation, _UnicodeOperation):
+    pass
+
+class StrLenOperation(AbstractStringLenOperation, _StrOperation):
+    pass
+
+class UnicodeLenOperation(AbstractStringLenOperation, _UnicodeOperation):
     pass
 
 
@@ -537,6 +548,8 @@ for i in range(4):      # make more common
     OPERATIONS.append(UnicodeGetItemOperation(rop.UNICODEGETITEM))
     OPERATIONS.append(StrSetItemOperation(rop.STRSETITEM))
     OPERATIONS.append(UnicodeSetItemOperation(rop.UNICODESETITEM))
+    OPERATIONS.append(StrLenOperation(rop.STRLEN))
+    OPERATIONS.append(UnicodeLenOperation(rop.UNICODELEN))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
