@@ -605,6 +605,11 @@ class CPU386(object):
         return counter, basesize, ptr
 
     def calldescrof(self, functype, argtypes, resulttype):
+        for argtype in argtypes:
+            if rffi.sizeof(argtype) > WORD:
+                raise NotImplementedError("bigger than lltype.Signed")
+        if resulttype is not lltype.Void and rffi.sizeof(resulttype) > WORD:
+            raise NotImplementedError("bigger than lltype.Signed")
         if resulttype is lltype.Void:
             size = 0
         else:
