@@ -730,7 +730,7 @@ def sizeof(tp):
         return size
     if isinstance(tp, lltype.Ptr):
         tp = ULONG     # XXX!
-    if tp is lltype.Char:
+    if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
         return r_wchar_t.BITS/8

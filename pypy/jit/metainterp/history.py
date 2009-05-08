@@ -1,6 +1,6 @@
 
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.rarithmetic import intmask
@@ -24,6 +24,9 @@ def getkind(TYPE):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
+        # XXX fix this for oo...
+        if rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed):
+            raise NotImplementedError("type %s is too large" % TYPE)
         return "int"
     elif isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind == 'raw':
