@@ -38,17 +38,6 @@ def getkind(TYPE):
     else:
         raise NotImplementedError("type %s not supported" % TYPE)
 
-def getkind_num(cpu, TYPE):
-    if TYPE is lltype.Void:
-        return "void"
-    elif isinstance(TYPE, lltype.Primitive):
-        return "_%d" % cpu.numof(TYPE)
-    else:
-        assert isinstance(TYPE, lltype.Ptr)
-        if TYPE.TO._gckind == 'raw':
-            return "_%d" % cpu.numof(TYPE)
-        return "ptr"
-
 def repr_pointer(box):
     try:
         return '*%s' % (box.value._obj.container._TYPE._name,)
