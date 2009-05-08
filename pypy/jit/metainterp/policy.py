@@ -1,5 +1,5 @@
 from pypy.translator.simplify import get_funcobj
-from pypy.jit.metainterp import support
+from pypy.jit.metainterp import support, history
 
 class JitPolicy(object):
 
@@ -16,6 +16,8 @@ class JitPolicy(object):
         return True
 
     def look_inside_graph(self, graph):
+        if contains_unsupported_variable_type(graph):
+            return False
         try:
             func = graph.func
         except AttributeError:
@@ -65,6 +67,23 @@ class JitPolicy(object):
             return 'residual'
         return 'regular'
 
+def contains_unsupported_variable_type(graph):
+    getkind = history.getkind
+    try:
+        for block in graph.iterblocks():
+            for v in block.inputargs:
+                getkind(v.concretetype)
+            for op in block.operations:
+                for v in op.args:
+                    getkind(v.concretetype)
+                getkind(op.result.concretetype)
+    except NotImplementedError, e:
+        history.log.WARNING('%s, ignoring graph' % (e,))
+        history.log.WARNING('  %s' % (graph,))
+        return True
+    return False
+
+# ____________________________________________________________
 
 class StopAtXPolicy(JitPolicy):
     def __init__(self, *funcs):
@@ -90,7 +109,9 @@ class ManualJitPolicy(JitPolicy):
     def look_inside_graph(self, graph):
         if graph in self.enabled_graphs:
             return self.enabled_graphs[graph]
-        return super(ManualJitPolicy, self).look_inside_graph(graph)
+        res = super(ManualJitPolicy, self).look_inside_graph(graph)
+        self.enabled_graphs[graph] = res     # cache the result
+        return res
 
     def fill_seen_graphs(self):
         # subclasses should have their own

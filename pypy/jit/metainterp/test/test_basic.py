@@ -602,6 +602,20 @@ class BasicTests:
         res = self.interp_operations(f, [5])
         assert res == f(5)
 
+    def test_long_long(self):
+        from pypy.rlib.rarithmetic import r_longlong, intmask
+        def g(n, m, o):
+            # This function should be completely marked as residual by
+            # codewriter.py on 32-bit platforms.  On 64-bit platforms,
+            # this function should be JITted and the test should pass too.
+            n = r_longlong(n)
+            m = r_longlong(m)
+            return intmask((n*m) // o)
+        def f(n, m, o):
+            return g(n, m, o) // 3
+        res = self.interp_operations(f, [1000000000, 90, 91])
+        assert res == (1000000000 * 90 // 91) // 3
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
