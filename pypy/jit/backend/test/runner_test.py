@@ -187,6 +187,7 @@ class BaseBackendTest(Runner):
             else:
                 self.cpu.set_overflow_error()
                 ovferror = self.cpu.get_exception()
+                assert self.cpu.get_exc_value()
                 self.cpu.clear_exception()
                 if self.cpu.is_oo:
                     v_exc = BoxObj()
@@ -209,6 +210,7 @@ class BaseBackendTest(Runner):
             self.cpu.compile_operations(loop)
             for x, y, z in testcases:
                 assert not self.cpu.get_exception()
+                assert not self.cpu.get_exc_value()
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
                 op = self.cpu.execute_operations(loop)
@@ -219,6 +221,7 @@ class BaseBackendTest(Runner):
                 if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
                 ovferror = self.cpu.get_exception()
+                assert bool(ovferror) == bool(self.cpu.get_exc_value())
                 if reversed:
                     # in the 'reversed' case, ovferror should always be
                     # consumed: either it is not set in the first place,

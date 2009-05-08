@@ -225,6 +225,7 @@ class AbstractOvfOperation(AbstractOperation):
         original_intvars = builder.intvars[:]
         super(AbstractOvfOperation, self).produce_into(builder, r)
         exc = builder.cpu.get_exception()
+        assert bool(exc) == bool(builder.cpu.get_exc_value())
         if exc:     # OverflowError
             builder.cpu.clear_exception()
             exc_box = ConstInt(exc)
@@ -452,6 +453,7 @@ class RandomLoop(object):
         cpu = self.builder.cpu
         self.clear_state()
         assert not cpu.get_exception()
+        assert not cpu.get_exc_value()
 
         for i, v in enumerate(self.values):
             cpu.set_future_value_int(i, v)
@@ -466,9 +468,11 @@ class RandomLoop(object):
                 )
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
+            assert cpu.get_exc_value()
             cpu.clear_exception()
         else:
             assert not cpu.get_exception()
+            assert not cpu.get_exc_value()
 
     def build_bridge(self):
         def exc_handling(guard_op):

@@ -196,6 +196,7 @@ class CPU386(object):
     def clear_exception(self):
         self.assembler.make_sure_mc_exists()
         self.assembler._exception_bck[0] = 0
+        self.assembler._exception_bck[1] = 0
 
     def set_overflow_error(self):
         self.assembler.make_sure_mc_exists()

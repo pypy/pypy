@@ -861,6 +861,7 @@ class Assembler386(object):
         # clean up the original exception, we don't want
         # to enter more rpython code with exc set
         self.mc.MOV(heap(self._exception_addr), imm(0))
+        self.mc.MOV(addr_add(imm(self._exception_addr), imm(WORD)), imm(0))
 
     @specialize.arg(3)
     def implement_guard(self, addr, guard_op, emit_jump):
