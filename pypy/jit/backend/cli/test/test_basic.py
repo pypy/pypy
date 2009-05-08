@@ -4,6 +4,9 @@ from pypy.jit.metainterp.test import test_basic
 
 class CliJitMixin(test_basic.OOJitMixin):
     CPUClass = CliCPU
+    def setup_class(cls):
+        from pypy.translator.cli.support import PythonNet
+        PythonNet.System     # possibly raises Skip
 
 class TestBasic(CliJitMixin, test_basic.TestOOtype):
     # for the individual tests see
