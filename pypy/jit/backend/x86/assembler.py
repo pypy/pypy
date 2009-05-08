@@ -772,6 +772,7 @@ class Assembler386(object):
         if resloc is not None:
             self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
         self.mc.MOV(heap(self._exception_addr), imm(0))
+        self.mc.MOV(addr_add(imm(self._exception_addr), imm(WORD)), imm(0))
 
     def genop_guard_guard_false(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]

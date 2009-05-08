@@ -1338,6 +1338,7 @@ class MetaInterp(object):
     def handle_exception(self):
         etype = self.cpu.get_exception()
         evalue = self.cpu.get_exc_value()
+        assert bool(etype) == bool(evalue)
         self.cpu.clear_exception()
         frame = self.framestack[-1]
         if etype:
