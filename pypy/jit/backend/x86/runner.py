@@ -587,7 +587,7 @@ class CPU386(object):
         assert isinstance(A, lltype.GcArray)
         basesize, itemsize, ofs_length = symbolic.get_array_token(A,
                                                   self.translate_support_code)
-        assert itemsize in [1, 2, WORD]
+        assert rffi.sizeof(A.OF) in [1, 2, WORD]
         assert ofs_length == 0
         if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
             ptr = True
@@ -629,7 +629,7 @@ class CPU386(object):
     def fielddescrof(self, S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname,
                                              self.translate_support_code)
-        assert isinstance(size, Symbolic) or size in [0, 1, WORD]
+        assert rffi.sizeof(lltype.typeOf(getattr(S, fieldname))) in [1, 2, WORD]
         if (isinstance(getattr(S, fieldname), lltype.Ptr) and
             getattr(S, fieldname).TO._gckind == 'gc'):
             ptr = True
