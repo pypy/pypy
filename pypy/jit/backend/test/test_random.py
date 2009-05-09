@@ -468,7 +468,9 @@ class RandomLoop(object):
                 )
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
-            assert cpu.get_exc_value()
+            if self.guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+                assert cpu.get_exception()
+                assert cpu.get_exc_value()
             cpu.clear_exception()
         else:
             assert not cpu.get_exception()
