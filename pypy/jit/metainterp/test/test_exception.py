@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
-from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.metainterp.policy import StopAtXPolicy
 
 
@@ -219,6 +219,37 @@ class ExceptionTests:
             return n
         res = self.meta_interp(f, [53], policy=StopAtXPolicy(check))
         assert res == -2
+
+    def test_exception_four_cases(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm'])
+        class Error1(Exception): pass
+        class Error2(Exception): pass
+        class Error3(Exception): pass
+        class Error4(Exception): pass
+        def check(n):
+            if n % 4 == 0: raise Error1
+            if n % 4 == 1: raise Error2
+            if n % 4 == 2: raise Error3
+            else:          raise Error4
+        def f(n):
+            m = 1
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                try:
+                    check(n)
+                except Error1:
+                    m = intmask(m * 3 + 1)
+                except Error2:
+                    m = intmask(m * 5 + 1)
+                except Error3:
+                    m = intmask(m * 7 + 1)
+                except Error4:
+                    m = intmask(m * 11 + 1)
+                n -= 1
+            return m
+        res = self.meta_interp(f, [99], policy=StopAtXPolicy(check))
+        assert res == f(99)
 
     def test_exception_later(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
