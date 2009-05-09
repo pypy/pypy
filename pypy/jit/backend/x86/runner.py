@@ -629,7 +629,7 @@ class CPU386(object):
     def fielddescrof(self, S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname,
                                              self.translate_support_code)
-        assert size in [0, 1, WORD]
+        assert isinstance(size, Symbolic) or size in [0, 1, WORD]
         if (isinstance(getattr(S, fieldname), lltype.Ptr) and
             getattr(S, fieldname).TO._gckind == 'gc'):
             ptr = True
