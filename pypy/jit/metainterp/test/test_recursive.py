@@ -25,7 +25,6 @@ class RecursiveTests:
         assert res == main(20)
 
     def test_simple_recursion_with_exc(self):
-        py.test.skip("Fails")
         myjitdriver = JitDriver(greens=[], reds=['n', 'm'])
         class Error(Exception):
             pass
@@ -80,4 +79,5 @@ class TestLLtype(RecursiveTests, LLJitMixin):
     pass
 
 class TestOOtype(RecursiveTests, OOJitMixin):
-    pass
+    def test_simple_recursion_with_exc(self):
+        py.test.skip("Fails")
