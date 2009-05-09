@@ -471,9 +471,12 @@ class BasicTests:
     def test_bridge_from_interpreter_3(self):
         # one case for backend - computing of framesize on guard failure
         mydriver = JitDriver(reds = ['n', 'x', 'y', 'z', 'k'], greens = [])
-        glob = [1]
+        class Global:
+            pass
+        glob = Global()
 
         def f(n):
+            glob.x = 1
             x = 0
             y = 0
             z = 0
@@ -485,8 +488,8 @@ class BasicTests:
                 y += 3
                 z -= 15
                 k += 4
-                if n == 17 and glob[0]:
-                    glob[0] = 0
+                if n == 17 and glob.x:
+                    glob.x = 0
                     x += n + 1
                     y += n + 2
                     z += n + 3
@@ -528,6 +531,26 @@ class BasicTests:
         warmrunnerdesc.finish()
         for n, k in [(20, 0), (20, 1)]:
             interp.eval_graph(graph, [n, k])
+
+    def test_bridge_leaving_interpreter_5(self):
+        mydriver = JitDriver(reds = ['n', 'x'], greens = [])
+        class Global:
+            pass
+        glob = Global()
+
+        def f(n):
+            x = 0
+            glob.x = 1
+            while n > 0:
+                mydriver.can_enter_jit(n=n, x=x)
+                mydriver.jit_merge_point(n=n, x=x)
+                glob.x += 1
+                x += 3
+                n -= 1
+            glob.x += 100
+            return glob.x + x
+        res = self.meta_interp(f, [20], repeat=7, optimizer=SimpleOptimizer)
+        assert res == f(20)
 
     def test_instantiate_classes(self):
         class Base: pass
