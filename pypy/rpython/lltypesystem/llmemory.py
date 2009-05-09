@@ -416,11 +416,14 @@ class fakeaddress(object):
 
     def __eq__(self, other):
         if isinstance(other, fakeaddress):
-            obj1 = self._fixup().ptr
-            obj2 = other._fixup().ptr
-            if obj1 is not None: obj1 = obj1._obj
-            if obj2 is not None: obj2 = obj2._obj
-            return obj1 == obj2
+            try:
+                obj1 = self._fixup().ptr
+                obj2 = other._fixup().ptr
+                if obj1 is not None: obj1 = obj1._obj
+                if obj2 is not None: obj2 = obj2._obj
+                return obj1 == obj2
+            except lltype.DelayedPointer:
+                return self.ptr is other.ptr
         else:
             return NotImplemented
 
