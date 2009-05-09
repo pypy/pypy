@@ -1314,7 +1314,7 @@ class MetaInterp(object):
         if must_compile:
             guard_op = resumedescr.get_guard_op()
             suboperations = guard_op.suboperations
-            if suboperations[-1].opnum != rop.FAIL:
+            if suboperations[-1] is not guard_failure:
                 must_compile = False
                 log("ignoring old version of the guard")
             else:

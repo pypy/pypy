@@ -2,6 +2,7 @@ import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.simple_optimize import Optimizer
+from pypy.jit.metainterp.policy import StopAtXPolicy
 
 
 class RecursiveTests:
@@ -73,6 +74,26 @@ class RecursiveTests:
         res = self.meta_interp(main, [10], optimizer=Optimizer)
         assert res == main(10)
         self.check_enter_count_at_most(10)
+
+    def test_bug_1(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'i', 'stack'])
+        def opaque(n, i):
+            if n == 1 and i == 19:
+                for j in range(20):
+                    res = f(0)      # recurse repeatedly, 20 times
+                    assert res == 0
+        def f(n):
+            stack = [n]
+            i = 0
+            while i < 20:
+                myjitdriver.can_enter_jit(n=n, i=i, stack=stack)
+                myjitdriver.jit_merge_point(n=n, i=i, stack=stack)
+                opaque(n, i)
+                i += 1
+            return stack.pop()
+        res = self.meta_interp(f, [1], optimizer=Optimizer, repeat=2,
+                               policy=StopAtXPolicy(opaque))
+        assert res == 1
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
