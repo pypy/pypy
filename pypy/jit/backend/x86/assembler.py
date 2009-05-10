@@ -264,17 +264,21 @@ class Assembler386(object):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
         self.mc.SUB(esp, imm(framesize * WORD))
+        # This uses XCHG to put zeroes in fail_boxes after reading them,
+        # just in case they are pointers.
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
-                self.mc.MOV(ecx,
-                            addr_add(imm(self.fail_box_addr), imm(i*WORD)))
+                self.mc.XOR(ecx, ecx)
+                self.mc.XCHG(ecx,
+                             addr_add(imm(self.fail_box_addr), imm(i*WORD)))
                 self.mc.MOV(loc, ecx)
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if isinstance(loc, REG):
-                self.mc.MOV(loc,
-                            addr_add(imm(self.fail_box_addr), imm(i*WORD)))
+                self.mc.XOR(loc, loc)
+                self.mc.XCHG(loc,
+                             addr_add(imm(self.fail_box_addr), imm(i*WORD)))
         self.mc.JMP(rel32(jumpaddr))
         self.mc.done()
         return addr
