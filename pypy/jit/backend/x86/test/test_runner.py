@@ -271,7 +271,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW, [],
                                      'ptr', self.cpu.sizeof(TP))
         ofs_s = self.cpu.fielddescrof(TP, 's')
-        ofs_f = self.cpu.fielddescrof(TP, 'f')
+        #ofs_f = self.cpu.fielddescrof(TP, 'f')
         ofs_u = self.cpu.fielddescrof(TP, 'u')
         ofsc1 = self.cpu.fielddescrof(TP, 'c1')
         ofsc2 = self.cpu.fielddescrof(TP, 'c2')
