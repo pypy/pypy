@@ -1025,6 +1025,8 @@ class _lladdress(long):
     _TYPE = llmemory.Address
 
     def __new__(cls, void_p):
+        if isinstance(void_p, (int, long)):
+            void_p = ctypes.c_void_p(void_p)
         self = long.__new__(cls, void_p.value)
         self.void_p = void_p
         self.intval = intmask(void_p.value)
@@ -1037,7 +1039,9 @@ class _lladdress(long):
         return '<_lladdress %s>' % (self.void_p,)
 
     def __eq__(self, other):
-        return cast_adr_to_int(other) == self.intval
+        if not isinstance(other, (int, long)):
+            other = cast_adr_to_int(other)
+        return intmask(other) == self.intval
 
     def __ne__(self, other):
         return not self == other
@@ -1066,7 +1070,7 @@ class _llgcref(object):
         return self.intval
 
     def _cast_to_adr(self):
-        return _lladdress(ctypes.c_void_p(self.intval))
+        return _lladdress(self.intval)
 
 def cast_adr_to_int(addr):
     if isinstance(addr, llmemory.fakeaddress):

@@ -138,13 +138,6 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
                 memset((void*) r, 0, size);				\
   }
 
-/* as we said in rbuiltin.py: 
-# XXX this next little bit is a monstrous hack.  the Real Thing awaits
-# some kind of proper GC integration
-if GC integration has happened and this junk is still here, please delete it :)
-*/
-#define OP_CALL_BOEHM_GC_ALLOC(size, r) OP_BOEHM_ZERO_MALLOC(size, r, void *, 0, 0)
-
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)			   \
 	if (GC_base(obj) == NULL)					   \
 		; /* 'obj' is probably a prebuilt object - it makes no */  \

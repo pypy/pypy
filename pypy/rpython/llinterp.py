@@ -971,10 +971,6 @@ class LLFrame(object):
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")
 
-    # ______ for the JIT ____________
-    def op_call_boehm_gc_alloc(self):
-        raise NotImplementedError("call_boehm_gc_alloc")
-
     # ____________________________________________________________
     # Overflow-detecting variants
 
