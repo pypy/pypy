@@ -78,6 +78,10 @@ class LLTypeHelper(TypeSystemHelper):
         obj = evaluebox.getptr(lltype.Ptr(rclass.OBJECT))
         return cast_base_ptr_to_instance(Exception, obj)
 
+    def clean_box(self, box):
+        if isinstance(box, history.BoxPtr):
+            box.value = lltype.nullptr(llmemory.GCREF.TO)
+
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -118,6 +122,10 @@ class OOTypeHelper(TypeSystemHelper):
         # only works when translated
         obj = ootype.cast_from_object(ootype.ROOT, evaluebox.getobj())
         return cast_base_ptr_to_instance(Exception, obj)
+
+    def clean_box(self, box):
+        if isinstance(box, history.BoxObj):
+            box.value = ootype.NULL
 
 
 llhelper = LLTypeHelper()

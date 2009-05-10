@@ -94,7 +94,7 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
     loop.inputargs = history.inputargs
-    if start != 0:
+    if start > 0:
         loop.operations = history.operations[start:]
     else:
         loop.operations = history.operations

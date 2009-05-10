@@ -1146,16 +1146,23 @@ class MetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 if j > 0:
-                    pass
-                elif self.extra_rebuild_operations >= 0:
-                    # The history only starts at a bridge, not at the
-                    # full loop header.  Complete it as a full loop by
-                    # inserting a copy of the operations from the old
-                    # loop branch before the guard that failed.
-                    lgt = self.extra_rebuild_operations
-                    assert lgt >= 0
-                    del self.history.operations[:lgt]
-                    compile.prepare_loop_from_bridge(self, self.resumekey)
+                    # clean up, but without shifting the end of the list
+                    # (that would make 'history_guard_index' invalid)
+                    for i in range(start):
+                        self.history.operations[i] = None
+                else:
+                    assert start == 0
+                    if self.extra_rebuild_operations >= 0:
+                        # The history only starts at a bridge, not at the
+                        # full loop header.  Complete it as a full loop by
+                        # inserting a copy of the operations from the old
+                        # loop branch before the guard that failed.
+                        start = self.extra_rebuild_operations
+                        assert start >= 0
+                        # clean up, but without shifting the end of the list
+                        for i in range(start):
+                            self.history.operations[i] = None
+                        compile.prepare_loop_from_bridge(self, self.resumekey)
                 loop = self.compile(original_boxes, live_arg_boxes, start)
                 raise GenerateMergePoint(live_arg_boxes, loop)
 
@@ -1163,21 +1170,39 @@ class MetaInterp(object):
         start = len(self.history.operations)
         self.current_merge_points.append((live_arg_boxes, start))
 
-    def resume_already_compiled(self, live_arg_boxes):
-        log('followed a path already compiled earlier')
-        key = self.resumekey
-        assert isinstance(key, compile.ResumeGuardDescr)
-        guard_op = key.get_guard_op()
-        loop = guard_op.suboperations[-1].jump_target
-        raise GenerateMergePoint(live_arg_boxes, loop)
-
     def designate_target_loop(self, gmp):
         loop = gmp.target_loop
         num_green_args = self.staticdata.num_green_args
         residual_args = self.get_residual_args(loop,
                                                gmp.argboxes[num_green_args:])
         history.set_future_values(self.cpu, residual_args)
+        self.clean_up_history()
         return loop
+
+    def clean_up_history(self):
+        # Clear the BoxPtrs used in self.history, at the end.  The
+        # purpose of this is to clear the boxes that are also used in
+        # the TreeLoop just produced.  After this, there should be no
+        # reference left to temporary values in long-living BoxPtrs.
+        # A note about recursion: setting to NULL like this should be
+        # safe, because ResumeGuardDescr.restore_patched_boxes should
+        # save and restore all the boxes that are also used by callers.
+        if self.history.inputargs is not None:
+            for box in self.history.inputargs:
+                self.staticdata.ts.clean_box(box)
+        lists = [self.history.operations]
+        while lists:
+            for op in lists.pop():
+                if op is None:
+                    continue
+                if op.result is not None:
+                    self.staticdata.ts.clean_box(op.result)
+                if op.suboperations is not None:
+                    lists.append(op.suboperations)
+                if op.optimized is not None:
+                    lists.append(op.optimized.suboperations)
+                    if op.optimized.result is not None:
+                        self.staticdata.ts.clean_box(op.optimized.result)
 
     def prepare_resume_from_failure(self, opnum):
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
