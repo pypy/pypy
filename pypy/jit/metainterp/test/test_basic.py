@@ -639,6 +639,33 @@ class BasicTests:
         res = self.interp_operations(f, [1000000000, 90, 91])
         assert res == (1000000000 * 90 // 91) // 3
 
+    def test_free_object(self):
+        import weakref
+        from pypy.rlib import rgc
+        from pypy.rpython.lltypesystem.lloperation import llop
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        class X(object):
+            pass
+        def main(n, x):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                n -= x.foo
+        def g(n):
+            x = X()
+            x.foo = 2
+            main(n, x)
+            x.foo = 5
+            return weakref.ref(x)
+        def f(n):
+            r = g(n)
+            rgc.collect(); rgc.collect(); rgc.collect()
+            return r() is None
+        #
+        assert f(30) == 1
+        res = self.meta_interp(f, [30])
+        assert res == 1
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

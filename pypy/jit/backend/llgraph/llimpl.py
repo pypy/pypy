@@ -820,6 +820,7 @@ def frame_clear(frame, loop):
     frame.env = {}
     for i in range(len(loop.inputargs)):
         frame.env[loop.inputargs[i]] = _future_values[i]
+    del _future_values[:]
 
 def set_future_value_int(index, value):
     del _future_values[index:]
@@ -853,6 +854,7 @@ def frame_execute(frame):
             import sys, pdb
             pdb.post_mortem(sys.exc_info()[2])
         raise
+    del frame.env
     return result
 
 def frame_int_getvalue(frame, num):
@@ -861,15 +863,9 @@ def frame_int_getvalue(frame, num):
 
 def frame_ptr_getvalue(frame, num):
     frame = _from_opaque(frame)
-    return frame.fail_args[num]
-
-def frame_int_getresult(frame):
-    frame = _from_opaque(frame)
-    return frame.returned_value
-
-def frame_ptr_getresult(frame):
-    frame = _from_opaque(frame)
-    return frame.returned_value
+    result = frame.fail_args[num]
+    frame.fail_args[num] = None
+    return result
 
 _last_exception = None
 
@@ -1228,8 +1224,6 @@ setannotation(set_future_value_obj, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
-setannotation(frame_int_getresult, annmodel.SomeInteger())
-setannotation(frame_ptr_getresult, annmodel.SomePtr(llmemory.GCREF))
 
 setannotation(get_exception, annmodel.SomeAddress())
 setannotation(get_exc_value, annmodel.SomePtr(llmemory.GCREF))
