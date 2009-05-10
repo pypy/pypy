@@ -299,7 +299,10 @@ class CPU386(object):
 
     def get_latest_value_ptr(self, index):
         intvalue = self.assembler.fail_boxes[index]
-        return self.cast_int_to_gcref(intvalue)
+        ptrvalue = self.cast_int_to_gcref(intvalue)
+        # clear after reading (-1 instead of 0, to crash if still used)
+        self.assembler.fail_boxes[index] = -1
+        return ptrvalue
 
     def execute_call(self, loop, func, verbose):
         # help flow objspace
