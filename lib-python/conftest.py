@@ -628,6 +628,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
             else:
                 msg = regrtest.skip
             py.test.skip(msg)
+        # XXX evil hack
+        if 'thread' in regrtest.usemodules:
+            py.test.skip("uses thread")
         (skipped, exit_status, test_stdout,
                                test_stderr) = self.getresult(regrtest)
         if skipped:
