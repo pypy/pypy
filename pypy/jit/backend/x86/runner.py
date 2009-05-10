@@ -287,7 +287,10 @@ class CPU386(object):
 
     def set_future_value_ptr(self, index, ptrvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
-        self.keepalives.append(ptrvalue)
+        if not we_are_translated():
+            self.keepalives.append(ptrvalue)
+        else:
+            pass    # Boehm looks inside fail_boxes (XXX)
         intvalue = self.cast_gcref_to_int(ptrvalue)
         self.assembler.fail_boxes[index] = intvalue
 
@@ -310,7 +313,8 @@ class CPU386(object):
             if verbose:
                 print "Entering: %d" % rffi.cast(lltype.Signed, func)
             res = func()
-            del self.keepalives[:]
+            if not we_are_translated():
+                del self.keepalives[:]
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
