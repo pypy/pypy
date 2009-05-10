@@ -34,7 +34,6 @@ class GcRootTracker(object):
     def clear(self):
         self.gcmaptable = []
         self.seen_main = False
-        self.files_seen = 0
 
     def dump_raw_table(self, output):
         print >> output, "seen_main = %d" % (self.seen_main,)
@@ -130,10 +129,9 @@ class GcRootTracker(object):
             if in_function:
                 lines = self.process_function(lines, entrypoint, filename)
             newfile.writelines(lines)
-        self.files_seen += 1
 
     def process_function(self, lines, entrypoint, filename):
-        tracker = FunctionGcRootTracker(lines, filetag = self.files_seen)
+        tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename))
         tracker.is_main = tracker.funcname == entrypoint
         if self.verbose:
             print >> sys.stderr, '[trackgcroot:%s] %s' % (filename,
@@ -408,7 +406,7 @@ class FunctionGcRootTracker(object):
         if label is None:
             k = call.lineno
             while 1:
-                label = '__gcmap_IN%d_%s_%d' % (self.filetag, self.funcname, k)
+                label = '__gcmap_%s__%s_%d' % (self.filetag, self.funcname, k)
                 if label not in self.labels:
                     break
                 k += 1
@@ -988,6 +986,19 @@ def decompress_callshape(bytes):
     assert result[5] == 0
     del result[5]
     return result
+
+def getidentifier(s):
+    def mapchar(c):
+        if c.isalnum():
+            return c
+        else:
+            return '_'
+    if s.endswith('.s'):
+        s = s[:-2]
+    s = ''.join([mapchar(c) for c in s])
+    while s.endswith('__'):
+        s = s[:-1]
+    return s
 
 
 if __name__ == '__main__':
