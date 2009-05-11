@@ -1,8 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], llmemory.Address))
-
 
 def gc_malloc__boehm(gcdescr):
     """Returns a pointer to the Boehm 'malloc' function."""
@@ -23,7 +21,10 @@ def gc_malloc__framework(gcdescr):
 
 def gc_malloc_fnaddr(gcdescr):
     """Returns a pointer to the proper 'malloc' function."""
-    name = gcdescr.config.translation.gctransformer
+    if gcdescr is not None:
+        name = gcdescr.config.translation.gctransformer
+    else:
+        name = "boehm"
     try:
         func = globals()['gc_malloc__' + name]
     except KeyError:

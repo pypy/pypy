@@ -12,7 +12,6 @@ from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
                                       arg_pos, lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from pypy.jit.backend.x86 import codebuf
-from pypy.jit.backend.x86.support import gc_malloc_fnaddr
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
 
@@ -105,8 +104,7 @@ class Assembler386(object):
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
-        self.gc_malloc_fn = gc_malloc_fnaddr(cpu.gcdescr)
-        
+
     def _get_log(self):
         s = os.environ.get('PYPYJITLOG')
         if not s:
@@ -146,7 +144,8 @@ class Assembler386(object):
             self.mc = self.mcstack.next_mc()
             self.mc2 = self.mcstack.next_mc()
             # the address of the function called by 'new'
-            self.malloc_func_addr = rffi.cast(lltype.Signed, self.gc_malloc_fn)
+            self.malloc_func_addr = rffi.cast(lltype.Signed,
+                                              self.cpu.gc_malloc_fn)
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
                                   myid=0):

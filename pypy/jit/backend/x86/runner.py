@@ -17,8 +17,6 @@ from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
 from pypy.rlib.objectmodel import r_dict
 
-GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
-
 VOID = 0
 PTR = 1
 INT = 2
@@ -103,6 +101,7 @@ class CPU386(object):
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
         self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
+        self.gc_malloc_fn = gc_malloc_fnaddr(gcdescr)
 
     def _setup_prebuilt_error(self, prefix, Class):
         if self.rtyper is not None:   # normal case
@@ -511,21 +510,22 @@ class CPU386(object):
         self._base_do_setfield(fielddescr, args[0].getint(), args[1])
 
     def do_new(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.v[0])
-        return BoxPtr(self.cast_int_to_gcref(res))
+        res = self.gc_malloc_fn(descrsize.v[0])
+        return BoxPtr(self.cast_adr_to_gcref(res))
 
     def do_new_with_vtable(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.v[0])
+        res = self.gc_malloc_fn(descrsize.v[0])
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = args[0].getint()
-        return BoxPtr(self.cast_int_to_gcref(res))
+        return BoxPtr(self.cast_adr_to_gcref(res))
 
     def do_new_array(self, args, arraydescr):
         size_of_field, ofs, ptr = self.unpack_arraydescr(arraydescr)
         num_elem = args[0].getint()
         size = ofs + (1 << size_of_field) * num_elem
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(size)
+        res = self.gc_malloc_fn(size)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
-        return BoxPtr(self.cast_int_to_gcref(res))
+        # XXX don't use 0 above!
+        return BoxPtr(self.cast_adr_to_gcref(res))
 
     def _new_do_newstr(TP):
         def do_newstr(self, args, descr=0):
@@ -533,9 +533,9 @@ class CPU386(object):
                                              self.translate_support_code)
             num_elem = args[0].getint()
             size = basesize + num_elem * itemsize
-            res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(size)
+            res = self.gc_malloc_fn(size)
             rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-            return BoxPtr(self.cast_int_to_gcref(res))
+            return BoxPtr(self.cast_adr_to_gcref(res))
         return do_newstr
     do_newstr = _new_do_newstr(rstr.STR)
     do_newunicode = _new_do_newstr(rstr.UNICODE)
@@ -663,7 +663,13 @@ class CPU386(object):
         return rffi.cast(lltype.Signed, x)
 
     def cast_int_to_gcref(self, x):
-        assert x == 0 or x > (1<<20) or x < (-1<<20)
+        if not we_are_translated():
+            assert x == 0 or x > (1<<20) or x < (-1<<20)
+        return rffi.cast(llmemory.GCREF, x)
+
+    def cast_adr_to_gcref(self, x):
+        if not we_are_translated():
+            assert x == 0 or x > (1<<20) or x < (-1<<20)
         return rffi.cast(llmemory.GCREF, x)
 
 def uhex(x):
