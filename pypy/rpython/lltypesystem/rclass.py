@@ -350,6 +350,10 @@ class InstanceRepr(AbstractInstanceRepr):
             if '_immutable_' in self.classdef.classdesc.classdict:
                 hints = hints.copy()
                 hints['immutable'] = True
+            if ('_hash_cache_' in fields or
+                '_hash_cache_' in self.rbase.allinstancefields):
+                adtmeths = adtmeths.copy()
+                adtmeths['gethash'] = self.get_ll_hash_function()
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    hints=hints,

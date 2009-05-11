@@ -781,6 +781,41 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         expected = hex(r_uint(xid)).lower().replace('l', '')
         assert expected in xstr
 
+    def test_hash_via_type(self):
+        from pypy.annotation import model as annmodel
+        from pypy.rpython import extregistry
+        from pypy.rpython.annlowlevel import cast_object_to_ptr
+        class X(object): pass
+        class Y(X): pass
+        class Z(Y): pass
+
+        def my_gethash(z):
+            not_implemented
+
+        def ll_my_gethash(ptr):
+            return ptr.gethash()
+
+        class MyGetHashEntry(extregistry.ExtRegistryEntry):
+            _about_ = my_gethash
+            def compute_result_annotation(self, s_instance):
+                return annmodel.SomeInteger()
+            def specialize_call(self, hop):
+                [v_instance] = hop.inputargs(*hop.args_r)
+                return hop.gendirectcall(ll_my_gethash, v_instance)
+
+        def f(n):
+            if n > 10:
+                z = Y()
+                got = -1    # path never used
+            else:
+                z = Z()
+                got = my_gethash(z)
+            expected = hash(z)     # put the _hash_cache_ in the class Y
+            return got - expected
+
+        res = self.interpret(f, [5])
+        assert res == 0
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 

@@ -1,7 +1,7 @@
 import random
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rstr import AbstractLLHelpers
-from pypy.rpython.lltypesystem.rstr import LLHelpers, mallocstr
+from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
 from pypy.rpython.ootypesystem.ootype import make_string
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -860,6 +860,17 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
             assert res == s1.find(s2)
             res = LLHelpers.ll_rfind(llstr(s1), llstr(s2), 0, n1)
             assert res == s1.rfind(s2)
+
+    def test_hash_via_type(self):
+        def f(n):
+            s = malloc(STR, n)
+            s.hash = 0
+            for i in range(n):
+                s.chars[i] = chr(i)
+            return s.gethash() - hash('\x00\x01\x02\x03\x04')
+
+        res = self.interpret(f, [5])
+        assert res == 0
 
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):

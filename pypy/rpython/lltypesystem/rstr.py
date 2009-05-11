@@ -70,17 +70,6 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
 copy_unicode_contents = _new_copy_contents_fun(UNICODE, UniChar, 'unicode')
 
-STR.become(GcStruct('rpy_string', ('hash',  Signed),
-                    ('chars', Array(Char, hints={'immutable': True})),
-                    adtmeths={'malloc' : staticAdtMethod(mallocstr),
-                              'empty'  : staticAdtMethod(emptystrfun),
-                              'copy_contents' : staticAdtMethod(copy_string_contents)}))
-UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
-                        ('chars', Array(UniChar, hints={'immutable': True})),
-                        adtmeths={'malloc' : staticAdtMethod(mallocunicode),
-                                  'empty'  : staticAdtMethod(emptyunicodefun),
-                                  'copy_contents' : staticAdtMethod(copy_unicode_contents)}
-                        ))
 SIGNED_ARRAY = GcArray(Signed)
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
@@ -842,6 +831,22 @@ class LLHelpers(AbstractLLHelpers):
     do_stringformat = classmethod(do_stringformat)
 
 TEMP = GcArray(Ptr(STR))
+
+# ____________________________________________________________
+
+STR.become(GcStruct('rpy_string', ('hash',  Signed),
+                    ('chars', Array(Char, hints={'immutable': True})),
+                    adtmeths={'malloc' : staticAdtMethod(mallocstr),
+                              'empty'  : staticAdtMethod(emptystrfun),
+                              'copy_contents' : staticAdtMethod(copy_string_contents),
+                              'gethash': LLHelpers.ll_strhash}))
+UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
+                        ('chars', Array(UniChar, hints={'immutable': True})),
+                        adtmeths={'malloc' : staticAdtMethod(mallocunicode),
+                                  'empty'  : staticAdtMethod(emptyunicodefun),
+                                  'copy_contents' : staticAdtMethod(copy_unicode_contents),
+                                  'gethash': LLHelpers.ll_strhash}
+                        ))
 
 
 # TODO: make the public interface of the rstr module cleaner

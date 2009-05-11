@@ -1,5 +1,6 @@
 
-
+from pypy.rpython.lltypesystem.lltype import malloc
+from pypy.rpython.lltypesystem.rstr import LLHelpers, UNICODE
 from pypy.rpython.test.tool import LLRtypeMixin, OORtypeMixin
 from pypy.rpython.test.test_rstr import AbstractTestRstr
 import py
@@ -213,6 +214,17 @@ class BaseTestRUnicode(AbstractTestRstr):
 
 class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
     EMPTY_STRING_HASH = -1
+
+    def test_hash_via_type(self):
+        def f(n):
+            s = malloc(UNICODE, n)
+            s.hash = 0
+            for i in range(n):
+                s.chars[i] = unichr(ord('A') + i)
+            return s.gethash() - hash(u'ABCDE')
+
+        res = self.interpret(f, [5])
+        assert res == 0
 
 class TestOOtype(BaseTestRUnicode, OORtypeMixin):
     EMPTY_STRING_HASH = 0
