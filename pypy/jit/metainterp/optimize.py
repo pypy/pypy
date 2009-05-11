@@ -394,10 +394,11 @@ class PerfectSpecializer(object):
                         instnode.allfields = op.vdesc.fields
                 continue
             elif op.is_always_pure():
+                is_pure = True
                 for arg in op.args:
                     if not self.getnode(arg).const:
-                        break
-                else:
+                        is_pure = False
+                if is_pure:
                     box = op.result
                     assert box is not None
                     self.nodes[box] = InstanceNode(box.constbox(),
