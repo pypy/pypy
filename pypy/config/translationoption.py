@@ -111,9 +111,9 @@ translation_optiondescription = OptionDescription(
     # JIT generation
     BoolOption("jit", "generate a JIT",
                default=False, cmdline="--jit",
-               requires=[("translation.gc", "boehm"),
-                         ("translation.list_comprehension_operations", True),
-                         ("translation.thread", False)]),
+               requires=[("translation.thread", False)],
+               suggests=[("translation.gc", "boehm"),         # for now
+                         ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "minimal", "x86"],
                  default="auto", cmdline="--jit-backend"),

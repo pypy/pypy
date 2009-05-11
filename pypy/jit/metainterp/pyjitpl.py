@@ -867,7 +867,6 @@ class MIFrame(object):
 # ____________________________________________________________
 
 class MetaInterpStaticData(object):
-    num_green_args = 0
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
                  optimizer=None, profile=None):
@@ -909,9 +908,14 @@ class MetaInterpStaticData(object):
     def _freeze_(self):
         return True
 
-    def finish_setup(self, num_green_args, state):
-        self.num_green_args = num_green_args
-        self.state = state
+    def finish_setup(self, warmrunnerdesc):
+        self.warmrunnerdesc = warmrunnerdesc
+        if warmrunnerdesc is not None:
+            self.num_green_args = warmrunnerdesc.num_green_args
+            self.state = warmrunnerdesc.state
+        else:
+            self.num_green_args = 0
+            self.state = None
         self.globaldata = MetaInterpGlobalData(self)
 
     def _setup_once(self):

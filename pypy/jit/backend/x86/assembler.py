@@ -105,6 +105,7 @@ class Assembler386(object):
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
+        self.gc_malloc_fn = gc_malloc_fnaddr(cpu.gcdescr)
         
     def _get_log(self):
         s = os.environ.get('PYPYJITLOG')
@@ -144,10 +145,8 @@ class Assembler386(object):
                 self._exception_bck)
             self.mc = self.mcstack.next_mc()
             self.mc2 = self.mcstack.next_mc()
-            # the address of the function called by 'new': directly use
-            # Boehm's GC_malloc function.
-            if self.malloc_func_addr == 0:
-                self.malloc_func_addr = gc_malloc_fnaddr()
+            # the address of the function called by 'new'
+            self.malloc_func_addr = rffi.cast(lltype.Signed, self.gc_malloc_fn)
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
                                   myid=0):

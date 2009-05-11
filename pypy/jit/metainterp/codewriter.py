@@ -735,7 +735,10 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_zero_gc_pointers_inside(self, op):
-        pass   # XXX assume Boehm for now
+        # XXX this is always a no-op for now
+        warmrunnerdesc = self.codewriter.metainterp_sd.warmrunnerdesc
+        if warmrunnerdesc is not None:
+            assert warmrunnerdesc.gcdescr.malloc_zero_filled
 
     def serialize_op_getfield(self, op):
         if self.is_typeptr_getset(op):

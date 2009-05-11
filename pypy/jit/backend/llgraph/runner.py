@@ -69,7 +69,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
-                 annmixlevel=None):
+                 annmixlevel=None, gcdescr=None):
         self.rtyper = rtyper
         self.translate_support_code = translate_support_code
         self.stats = stats or MiniStats()

@@ -30,7 +30,7 @@ def cached_method(cachename):
 class BaseCPU(model.AbstractCPU):
 
     def __init__(self, rtyper, stats, translate_support_code=False,
-                 mixlevelann=None):
+                 mixlevelann=None, gcdescr=None):
         self.rtyper = rtyper
         if rtyper:
             if self.is_oo:

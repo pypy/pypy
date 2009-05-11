@@ -72,9 +72,10 @@ class CPU386(object):
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
 
     def __init__(self, rtyper, stats, translate_support_code=False,
-                 mixlevelann=None):
+                 mixlevelann=None, gcdescr=None):
         self.rtyper = rtyper
         self.stats = stats
+        self.gcdescr = gcdescr
         self.translate_support_code = translate_support_code
         if translate_support_code:
             assert mixlevelann

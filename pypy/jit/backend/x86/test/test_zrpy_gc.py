@@ -33,19 +33,30 @@ def g(n):
 g._dont_inline_ = True
 
 def f(args):
-    r = g(3000)
-    rgc.collect(); rgc.collect(); rgc.collect()
-    print int(r() is None)
+    r_list = []
+    for i in range(20):
+        r = g(1000)
+        r_list.append(r)
+        rgc.collect()
+    rgc.collect(); rgc.collect()
+    freed = 0
+    for r in r_list:
+        if r() is None:
+            freed += 1
+    print freed
     return 0
 
 
-def test_compile():
+def compile_and_run(gc, **kwds):
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
     from pypy.translator.c import genc
     #
     t = TranslationContext()
-    t.config.translation.jit = True    # forces other options as well
+    t.config.translation.gc = gc
+    t.config.translation.jit = True
+    for name, value in kwds.items():
+        setattr(t.config.translation, name, value)
     t.buildannotator().build_types(f, [int])
     t.buildrtyper().specialize()
     apply_jit(t, CPUClass=CPU386)
@@ -54,4 +65,16 @@ def test_compile():
     cbuilder.compile()
     #
     data = cbuilder.cmdexec('')
-    assert int(data.strip()) == 1
+    res = int(data.strip())
+    if gc == "boehm":
+        assert res >= 16
+    else:
+        assert res == 20
+
+
+def test_compile_boehm():
+    compile_and_run("boehm")
+
+def test_compile_semispace():
+    # a moving GC, but with no write barrier
+    compile_and_run("semispace", gcrootfinder="asmgcc")

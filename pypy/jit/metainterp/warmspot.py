@@ -17,7 +17,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
-from pypy.jit.metainterp import support, history, pyjitpl
+from pypy.jit.metainterp import support, history, pyjitpl, gc
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
@@ -56,6 +56,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype', **kwd
 
 def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, **kwds):
     translator = interp.typer.annotator.translator
+    translator.config.translation.gc = "boehm"
     warmrunnerdesc = WarmRunnerDesc(translator, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
@@ -133,7 +134,7 @@ class WarmRunnerDesc:
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.add_profiler_finish()
-        self.metainterp_sd.finish_setup(self.num_green_args, self.state)
+        self.metainterp_sd.finish_setup(self)
 
     def finish(self):
         if self.cpu.translate_support_code:
@@ -149,6 +150,7 @@ class WarmRunnerDesc:
         else:
             assert translator.rtyper.type_system.name == 'ootypesystem'
             self.ts = OOTypeHelper()
+        self.gcdescr = gc.get_description(translator.config)
 
     def build_meta_interp(self, CPUClass=None, view="auto",
                           translate_support_code=False, optimizer=None,
@@ -162,7 +164,7 @@ class WarmRunnerDesc:
         else:
             annhelper = None
         cpu = CPUClass(self.translator.rtyper, self.stats,
-                       translate_support_code, annhelper)
+                       translate_support_code, annhelper, self.gcdescr)
         self.cpu = cpu
         graphs = self.translator.graphs
         self.jit_merge_point_pos = find_jit_merge_point(graphs)
