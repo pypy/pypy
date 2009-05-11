@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated, UnboxedValue, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
@@ -59,6 +59,7 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, **kwds):
     warmrunnerdesc = WarmRunnerDesc(translator, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
+    warmrunnerdesc.state.create_tables_now()             # for tests
     if hash_bits:
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
@@ -507,31 +508,28 @@ def make_state_class(warmrunnerdesc):
     warmrunnerdesc.num_green_args = num_green_args
     green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
     green_args_names = unrolling_iterable(jitdriver.greens)
+    green_args_spec_names = unrolling_iterable(zip(
+        warmrunnerdesc.green_args_spec, jitdriver.greens))
     red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
     if num_green_args:
         MAX_HASH_TABLE_BITS = 28
     else:
-        MAX_HASH_TABLE_BITS = 0
-    THRESHOLD_MAX = (sys.maxint-1) / 2
+        MAX_HASH_TABLE_BITS = 1
+    THRESHOLD_LIMIT = sys.maxint // 2
 
-    class StateCell(object):
-        __slots__ = []
-
-    class Counter(StateCell, UnboxedValue):
-        __slots__ = 'counter'
-
-    class MachineCodeEntryPoint(StateCell):
+    class MachineCodeEntryPoint(object):
+        next = None    # linked list
         def __init__(self, bridge, *greenargs):
             self.bridge = bridge
-            self.next = Counter(0)
             i = 0
             for name in green_args_names:
                 setattr(self, 'green_' + name, greenargs[i])
                 i = i + 1
         def equalkey(self, *greenargs):
             i = 0
-            for name in green_args_names:
-                if getattr(self, 'green_' + name) != greenargs[i]:
+            for TYPE, name in green_args_spec_names:
+                myvalue = getattr(self, 'green_' + name)
+                if not equal_whatever(TYPE, myvalue, greenargs[i]):
                     return False
                 i = i + 1
             return True
@@ -561,47 +559,60 @@ def make_state_class(warmrunnerdesc):
                 meth(default_value)
 
         def set_param_threshold(self, threshold):
-            if threshold > THRESHOLD_MAX:
-                threshold = THRESHOLD_MAX
-            self.threshold = threshold
+            if threshold < 2:
+                threshold = 2
+            self.increment_threshold = (THRESHOLD_LIMIT // threshold) + 1
+            # the number is at least 1, and at most about half THRESHOLD_LIMIT
 
         def set_param_trace_eagerness(self, value):
             self.trace_eagerness = value
 
         def set_param_hash_bits(self, value):
-            if value < 0:
-                value = 0
+            if value < 1:
+                value = 1
             elif value > MAX_HASH_TABLE_BITS:
                 value = MAX_HASH_TABLE_BITS
-            self.cells = [Counter(0)] * (1 << value)
-            self.hashtablemask = (1 << value) - 1
+            # the tables are initialized with the correct size only in
+            # attach_unoptimized_bridge_from_interp()
+            self.hashbits = value
+            self.hashtablemask = 0
+            self.mccounters = [0]
+            self.mcentrypoints = [None]
+            # invariant: (self.mccounters[j] < 0) if and only if
+            #            (self.mcentrypoints[j] is not None)
 
-            # Only use the hash of the arguments as the profiling key.
-            # Indeed, this is all a heuristic, so if things are designed
-            # correctly, the occasional mistake due to hash collision is
-            # not too bad.
+        def create_tables_now(self):
+            count = 1 << self.hashbits
+            self.hashtablemask = count - 1
+            self.mccounters = [0] * count
+            self.mcentrypoints = [None] * count
+
+        # Only use the hash of the arguments as the profiling key.
+        # Indeed, this is all a heuristic, so if things are designed
+        # correctly, the occasional mistake due to hash collision is
+        # not too bad.
 
         def maybe_compile_and_run(self, *args):
             # get the greenargs and look for the cell corresponding to the hash
             greenargs = args[:num_green_args]
             argshash = self.getkeyhash(*greenargs) & self.hashtablemask
-            cell = self.cells[argshash]
-            if isinstance(cell, Counter):
+            counter = self.mccounters[argshash]
+            if counter >= 0:
                 # update the profiling counter
-                n = cell.counter + 1
-                if n < self.threshold:
-                    #if hotrunnerdesc.verbose_level >= 3:
-                    #    interp.debug_trace("jit_not_entered", *args)
-                    self.cells[argshash] = Counter(n)
+                n = counter + self.increment_threshold
+                if n <= THRESHOLD_LIMIT:       # bound not reached
+                    self.mccounters[argshash] = n
                     return
-                #interp.debug_trace("jit_compile", *greenargs)
+                if self.hashtablemask == 0: # must really create the tables now
+                    self.create_tables_now()
+                    return
                 metainterp_sd = warmrunnerdesc.metainterp_sd
                 metainterp = MetaInterp(metainterp_sd)
                 loop = metainterp.compile_and_run_once(*args)
             else:
                 # machine code was already compiled for these greenargs
                 # (or we have a hash collision)
-                assert isinstance(cell, MachineCodeEntryPoint)
+                cell = self.mcentrypoints[argshash]
                 if not cell.equalkey(*greenargs):
                     # hash collision
                     loop = self.handle_hash_collision(cell, argshash, *args)
@@ -621,25 +632,27 @@ def make_state_class(warmrunnerdesc):
                 loop = fail_op.descr.handle_fail_op(metainterp_sd, fail_op)
         maybe_compile_and_run._dont_inline_ = True
 
-        def handle_hash_collision(self, cell, argshash, *args):
+        def handle_hash_collision(self, firstcell, argshash, *args):
             greenargs = args[:num_green_args]
-            next = cell.next
-            while not isinstance(next, Counter):
-                assert isinstance(next, MachineCodeEntryPoint)
-                if next.equalkey(*greenargs):
+            # search the linked list for the correct cell
+            cell = firstcell
+            while cell.next is not None:
+                nextcell = cell.next
+                if nextcell.equalkey(*greenargs):
                     # found, move to the front of the linked list
-                    cell.next = next.next
-                    next.next = self.cells[argshash]
-                    self.cells[argshash] = next
+                    cell.next = nextcell.next
+                    nextcell.next = firstcell
+                    self.mcentrypoints[argshash] = nextcell
                     cpu = warmrunnerdesc.metainterp_sd.cpu
-                    next.set_future_values(cpu, *args[num_green_args:])
-                    return next.bridge
-                cell = next
-                next = cell.next
+                    nextcell.set_future_values(cpu, *args[num_green_args:])
+                    return nextcell.bridge
+                cell = nextcell
             # not found at all, do profiling
-            n = next.counter + 1
-            if n < self.threshold:
-                cell.next = Counter(n)
+            counter = self.mccounters[argshash]
+            assert counter < 0          # by invariant
+            n = counter + self.increment_threshold
+            if n < 0:      # bound not reached
+                self.mccounters[argshash] = n
                 return None
             metainterp_sd = warmrunnerdesc.metainterp_sd
             metainterp = MetaInterp(metainterp_sd)
@@ -652,18 +665,23 @@ def make_state_class(warmrunnerdesc):
             for TYPE in green_args_spec:
                 value = unwrap(TYPE, greenkey[i])
                 greenargs += (value,)
-                i += 1
+                i = i + 1
             return greenargs
+        unwrap_greenkey._always_inline_ = True
 
-        def comparekey(self, greenargs1, greenargs2):
+        def comparekey(greenargs1, greenargs2):
             i = 0
             for TYPE in green_args_spec:
                 if not equal_whatever(TYPE, greenargs1[i], greenargs2[i]):
                     return False
             return True
-        comparekey._always_inline_ = True
+        comparekey = staticmethod(comparekey)
 
-        def getkeyhash(self, *greenargs):
+        def hashkey(greenargs):
+            return intmask(WarmEnterState.getkeyhash(*greenargs))
+        hashkey = staticmethod(hashkey)
+
+        def getkeyhash(*greenargs):
             result = r_uint(0x345678)
             i = 0
             mult = r_uint(1000003)
@@ -674,8 +692,9 @@ def make_state_class(warmrunnerdesc):
                 item = greenargs[i]
                 result = result ^ cast_whatever_to_int(TYPE, item)
                 i = i + 1
-            return result
+            return result         # returns a r_uint
         getkeyhash._always_inline_ = True
+        getkeyhash = staticmethod(getkeyhash)
 
         def must_compile_from_failure(self, key):
             key.counter += 1
@@ -685,16 +704,9 @@ def make_state_class(warmrunnerdesc):
             greenargs = self.unwrap_greenkey(greenkey)
             newcell = MachineCodeEntryPoint(bridge, *greenargs)
             argshash = self.getkeyhash(*greenargs) & self.hashtablemask
-            cell = self.cells[argshash]
-            if not isinstance(cell, Counter):
-                while True:
-                    assert isinstance(cell, MachineCodeEntryPoint)
-                    next = cell.next
-                    if isinstance(next, Counter):
-                        cell.next = Counter(0)
-                        break
-                    cell = next
-                newcell.next = self.cells[argshash]
-            self.cells[argshash] = newcell
+            oldcell = self.mcentrypoints[argshash]
+            newcell.next = oldcell     # link
+            self.mcentrypoints[argshash] = newcell
+            self.mccounters[argshash] = -THRESHOLD_LIMIT-1
 
     return WarmEnterState

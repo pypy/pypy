@@ -960,11 +960,7 @@ class MetaInterpGlobalData(object):
         state = staticdata.state
         if state is not None:
             self.unpack_greenkey = state.unwrap_greenkey
-            def mp_eq(greenargs1, greenargs2):
-                return state.comparekey(greenargs1, greenargs2)
-            def mp_hash(greenargs):
-                return intmask(state.getkeyhash(*greenargs))
-            self.compiled_merge_points = r_dict(mp_eq, mp_hash)
+            self.compiled_merge_points = r_dict(state.comparekey,state.hashkey)
                 # { (greenargs): [MergePoints] }
         else:
             self.compiled_merge_points = {}    # for tests only; not RPython
