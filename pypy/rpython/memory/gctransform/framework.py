@@ -596,6 +596,17 @@ class FrameworkGCTransformer(GCTransformer):
                   [c_result],
                   resultvar=op.result)
 
+    def gct_do_malloc_fixedsize_clear(self, hop):
+        # used by the JIT (see the x86 backend)
+        op = hop.spaceop
+        [v_typeid, v_size, v_can_collect,
+         v_has_finalizer, v_contains_weakptr] = op.args
+        hop.genop("direct_call",
+                  [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
+                   v_typeid, v_size, v_can_collect,
+                   v_has_finalizer, v_contains_weakptr],
+                  resultvar=op.result)
+
     def gct_zero_gc_pointers_inside(self, hop):
         if not self.malloc_zero_filled:
             v_ob = hop.spaceop.args[0]

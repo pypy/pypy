@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.backend.x86.runner import ConstDescr3
@@ -64,14 +64,12 @@ class GcLLDescr_framework(GcLLDescription):
         # where it can be fished and reused by the FrameworkGCTransformer
         self.layoutbuilder = framework.TransformerLayoutBuilder()
         self.translator._transformerlayoutbuilder_from_jit = self.layoutbuilder
-        GCClass, _ = choose_gc_from_config(gcdescr.config)
+        #GCClass, _ = choose_gc_from_config(gcdescr.config)
 
         # make a malloc function, with three arguments
-        def getgc():
-            ptr = llop.get_gc_pointer(rclass.OBJECTPTR)
-            return cast_base_ptr_to_instance(GCClass, ptr)
         def malloc_basic(size, type_id, has_finalizer):
-            return getgc().malloc_fixedsize_clear(type_id, size, True,
+            return llop.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                  type_id, size, True,
                                                   has_finalizer, False)
         self.malloc_basic = malloc_basic
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(

@@ -399,7 +399,7 @@ class Assembler386(object):
             
 
     def call(self, addr, args, res):
-        for i in range(len(args)):
+        for i in range(len(args)-1, -1, -1):
             arg = args[i]
             assert not isinstance(arg, MODRM)
             self.mc.PUSH(arg)
