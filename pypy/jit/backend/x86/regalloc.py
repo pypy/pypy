@@ -836,7 +836,6 @@ class RegAlloc(object):
     consider_int_gt = _consider_compop
     consider_int_ge = _consider_compop
     consider_int_le = _consider_compop
-    xxx_consider_char_eq = _consider_compop
     consider_int_ne = _consider_compop
     consider_int_eq = _consider_compop
     consider_uint_gt = _consider_compop
