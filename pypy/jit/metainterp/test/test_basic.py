@@ -24,8 +24,8 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
     graph = rtyper.annotator.translator.graphs[0]
     opt = history.Options(specialize=False, listops=listops)
     metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
+    metainterp_sd.finish_setup(0, None)
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
-    metainterp.num_green_args = 0
     return metainterp, rtyper
 
 class JitMixin:

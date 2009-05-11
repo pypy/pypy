@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance
@@ -132,8 +132,7 @@ class WarmRunnerDesc:
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.add_profiler_finish()
-        self.metainterp_sd.num_green_args = self.num_green_args
-        self.metainterp_sd.state = self.state
+        self.metainterp_sd.finish_setup(self.num_green_args, self.state)
 
     def finish(self):
         if self.cpu.translate_support_code:
@@ -480,10 +479,18 @@ def unwrap(TYPE, box):
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
 
-def cast_whatever_to_int(TYPE, x, cpu):
+def equal_whatever(TYPE, x, y):
     if isinstance(TYPE, lltype.Ptr):
-        # XXX moving GCs...?
-        return cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
+        if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
+            return rstr.LLHelpers.ll_streq(x, y)
+    return x == y
+equal_whatever._annspecialcase_ = 'specialize:arg(0)'
+
+def cast_whatever_to_int(TYPE, x):
+    if isinstance(TYPE, lltype.Ptr):
+        # only supports strings, unicodes and regular instances *with a hash
+        # cache*.  The 'jit_merge_point' hint forces a hash cache to appear.
+        return x.gethash()
     elif TYPE is ootype.String or TYPE is ootype.Unicode:
         return ootype.oohash(x)
     elif isinstance(TYPE, ootype.OOType):
@@ -639,6 +646,23 @@ def make_state_class(warmrunnerdesc):
             return metainterp.compile_and_run_once(*args)
         handle_hash_collision._dont_inline_ = True
 
+        def unwrap_greenkey(self, greenkey):
+            greenargs = ()
+            i = 0
+            for TYPE in green_args_spec:
+                value = unwrap(TYPE, greenkey[i])
+                greenargs += (value,)
+                i += 1
+            return greenargs
+
+        def comparekey(self, greenargs1, greenargs2):
+            i = 0
+            for TYPE in green_args_spec:
+                if not equal_whatever(TYPE, greenargs1[i], greenargs2[i]):
+                    return False
+            return True
+        comparekey._always_inline_ = True
+
         def getkeyhash(self, *greenargs):
             result = r_uint(0x345678)
             i = 0
@@ -648,8 +672,7 @@ def make_state_class(warmrunnerdesc):
                     result = result * mult
                     mult = mult + 82520 + 2*len(greenargs)
                 item = greenargs[i]
-                result = result ^ cast_whatever_to_int(TYPE, item,
-                                                       warmrunnerdesc.cpu)
+                result = result ^ cast_whatever_to_int(TYPE, item)
                 i = i + 1
             return result & self.hashtablemask
         getkeyhash._always_inline_ = True
@@ -659,12 +682,7 @@ def make_state_class(warmrunnerdesc):
             return key.counter >= self.trace_eagerness
 
         def attach_unoptimized_bridge_from_interp(self, greenkey, bridge):
-            greenargs = ()
-            i = 0
-            for TYPE in green_args_spec:
-                value = unwrap(TYPE, greenkey[i])
-                greenargs += (value,)
-                i += 1
+            greenargs = self.unwrap_greenkey(greenkey)
             newcell = MachineCodeEntryPoint(bridge, *greenargs)
             argshash = self.getkeyhash(*greenargs)
             cell = self.cells[argshash]

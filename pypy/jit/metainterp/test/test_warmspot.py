@@ -7,7 +7,7 @@ def test_translate_cast_whatever_to_int():
     from pypy.rpython.test.test_llinterp import interpret
     from pypy.rpython.lltypesystem import lltype
     def fn(x):
-        return cast_whatever_to_int(lltype.typeOf(x), x, None)
+        return cast_whatever_to_int(lltype.typeOf(x), x)
     for type_system in ('lltype', 'ootype'):
         res = interpret(fn, [42], type_system=type_system)
         assert res == 42

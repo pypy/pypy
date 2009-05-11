@@ -261,6 +261,9 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                "arguments: %s" % (self.instance,
                                                   expected))
         driver._emulate_method_calls(self.bookkeeper, kwds_s)
+        for name in driver.greens:
+            s_green_key = kwds_s['s_' + name]
+            s_green_key.hash()      # force the hash cache to appear
         return annmodel.s_None
 
     def specialize_call(self, hop, **kwds_i):

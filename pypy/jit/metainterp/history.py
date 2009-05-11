@@ -591,22 +591,6 @@ class BlackHole(RunningMatcher):
     def record(self, opnum, argboxes, resbox, descr=None):
         return None
 
-
-def mp_eq(greenkey1, greenkey2):
-    assert len(greenkey1) == len(greenkey2)
-    for i in range(len(greenkey1)):
-        g1 = greenkey1[i]
-        g2 = greenkey2[i]
-        if g1.get_() != g2.get_():
-            return False
-    return True
-
-def mp_hash(greenkey):
-    h = 0x345678
-    for g in greenkey:
-        h = (h ^ g.get_()) * 1000003        # XXX Boehm only
-    return intmask(h)
-
 # ____________________________________________________________
 
 

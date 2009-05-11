@@ -875,7 +875,6 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = stats
         self.options = options
-        self.globaldata = MetaInterpGlobalData()
 
         RESULT = portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
@@ -909,6 +908,11 @@ class MetaInterpStaticData(object):
 
     def _freeze_(self):
         return True
+
+    def finish_setup(self, num_green_args, state):
+        self.num_green_args = num_green_args
+        self.state = state
+        self.globaldata = MetaInterpGlobalData(self)
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
@@ -949,11 +953,22 @@ class MetaInterpStaticData(object):
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
-    def __init__(self):
+    def __init__(self, staticdata):
         self._debug_history = []
-        self.compiled_merge_points = r_dict(history.mp_eq, history.mp_hash)
-                 # { greenkey: list-of-MergePoints }
         self.initialized = False
+        #
+        state = staticdata.state
+        if state is not None:
+            self.unpack_greenkey = state.unwrap_greenkey
+            def mp_eq(greenargs1, greenargs2):
+                return state.comparekey(greenargs1, greenargs2)
+            def mp_hash(greenargs):
+                return intmask(state.getkeyhash(*greenargs))
+            self.compiled_merge_points = r_dict(mp_eq, mp_hash)
+                # { (greenargs): [MergePoints] }
+        else:
+            self.compiled_merge_points = {}    # for tests only; not RPython
+            self.unpack_greenkey = tuple
 
 # ____________________________________________________________
 
@@ -1217,7 +1232,8 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         glob = self.staticdata.globaldata
-        old_loops = glob.compiled_merge_points.setdefault(greenkey, [])
+        greenargs = glob.unpack_greenkey(greenkey)
+        old_loops = glob.compiled_merge_points.setdefault(greenargs, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop = compile.compile_new_loop(self, old_loops, greenkey, start)
         assert loop is not None
@@ -1229,8 +1245,9 @@ class MetaInterp(object):
         num_green_args = self.staticdata.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         glob = self.staticdata.globaldata
+        greenargs = glob.unpack_greenkey(greenkey)
         try:
-            old_loops = glob.compiled_merge_points[greenkey]
+            old_loops = glob.compiled_merge_points[greenargs]
         except KeyError:
             return
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)

@@ -355,7 +355,8 @@ class ResumeFromInterpDescr(AbstractDescr):
         # store the new_loop in compiled_merge_points too
         # XXX it's probably useless to do so when optimizing
         glob = metainterp_sd.globaldata
-        old_loops = glob.compiled_merge_points.setdefault(greenkey, [])
+        greenargs = glob.unpack_greenkey(greenkey)
+        old_loops = glob.compiled_merge_points.setdefault(greenargs, [])
         old_loops.append(new_loop)
 
 

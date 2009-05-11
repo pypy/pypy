@@ -490,7 +490,10 @@ class LoopTest:
         jitdriver = JitDriver(greens = ['p', 'code'], reds = ['i', 'j',
                                                               'total'])
 
-        codes = [[], [0, 0, 1, 1]]
+        class Code:
+            def __init__(self, lst):
+                self.lst = lst
+        codes = [Code([]), Code([0, 0, 1, 1])]
         
         def interpret(num):
             code = codes[num]
@@ -498,10 +501,10 @@ class LoopTest:
             i = 0
             j = 0
             total = 0
-            while p < len(code):
+            while p < len(code.lst):
                 jitdriver.jit_merge_point(code=code, p=p, i=i, j=j, total=total)
                 total += i
-                e = code[p]
+                e = code.lst[p]
                 if e == 0:
                     p += 1
                 elif e == 1:
