@@ -144,8 +144,8 @@ class Assembler386(object):
             self.mc = self.mcstack.next_mc()
             self.mc2 = self.mcstack.next_mc()
             # the address of the function called by 'new'
-            self.malloc_func_addr = rffi.cast(lltype.Signed,
-                                              self.cpu.gc_malloc_fn)
+            ll_new = self.cpu.gc_ll_descr.get_funcptr_for_new()
+            self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
                                   myid=0):
@@ -164,8 +164,8 @@ class Assembler386(object):
             op = operations[i]
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None and isinstance(op.descr, ConstDescr3):
-                descr = (str(op.descr.v[0]) + "," + str(op.descr.v[1]) +
-                         "," + str(op.descr.v[2]))
+                descr = (str(op.descr.v0) + "," + str(op.descr.v1) +
+                         "," + str(op.descr.flag2))
                 os.write(self._log_fd, "%d:%s %s[%s]\n" % (i, op.getopname(),
                                                            args, descr))
             else:
@@ -541,17 +541,17 @@ class Assembler386(object):
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
-        loc_size, loc_vtable = arglocs
-        self.mc.PUSH(loc_vtable)
-        self.call(self.malloc_func_addr, [loc_size], eax)
+        loc_vtable = arglocs[-1]
+        assert isinstance(loc_vtable, IMM32)
+        arglocs = arglocs[:-1]
+        self.call(self.malloc_func_addr, arglocs, eax)
         # xxx ignore NULL returns for now
-        self.mc.POP(mem(eax, 0))
+        self.mc.MOV(mem(eax, self.cpu.vtable_offset), loc_vtable)
 
     # same as malloc varsize after all
     def genop_new(self, op, arglocs, result_loc):
         assert result_loc is eax
-        loc_size = arglocs[0]
-        self.call(self.malloc_func_addr, [loc_size], eax)
+        self.call(self.malloc_func_addr, arglocs, eax)
 
     def genop_getfield_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc = arglocs

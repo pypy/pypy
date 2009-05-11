@@ -124,7 +124,11 @@ class FrameworkGCTransformer(GCTransformer):
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
 
-        self.layoutbuilder = TransformerLayoutBuilder(self)
+        if hasattr(translator, '_transformerlayoutbuilder_from_jit'):
+            self.layoutbuilder = translator._transformerlayoutbuilder_from_jit
+        else:
+            self.layoutbuilder = TransformerLayoutBuilder()
+        self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
         # set up dummy a table, to be overwritten with the real one in finish()
@@ -770,14 +774,13 @@ class FrameworkGCTransformer(GCTransformer):
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
-    def __init__(self, transformer):
-        super(TransformerLayoutBuilder, self).__init__()
-        self.transformer = transformer
-        self.offsettable_cache = {}
+    def has_finalizer(self, TYPE):
+        rtti = get_rtti(TYPE)
+        return rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
 
     def make_finalizer_funcptr_for_type(self, TYPE):
-        rtti = get_rtti(TYPE)
-        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+        if self.has_finalizer(TYPE):
+            rtti = get_rtti(TYPE)
             destrptr = rtti._obj.destructor_funcptr
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         else:

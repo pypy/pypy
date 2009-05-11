@@ -14,7 +14,6 @@ from pypy.jit.metainterp.history import (ResOperation, Box, Const,
 from pypy.jit.backend.x86.assembler import Assembler386, WORD, MAX_FAIL_BOXES
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
-from pypy.jit.backend.x86.support import gc_malloc_fnaddr
 from pypy.rlib.objectmodel import r_dict
 
 VOID = 0
@@ -24,19 +23,22 @@ INT = 2
 history.TreeLoop._x86_compiled = 0
 
 def const_descr_eq(a, b):
-    return a.v == b.v
+    return (a.v0 == b.v0 and
+            a.v1 == b.v1 and
+            a.flag2 == b.flag2)
 
 def const_descr_hash(a):
-    return a.v[0] + (a.v[1] << 2) + int(a.v[2] << 4)
+    return a.v0 + (a.v1 << 2) + int(a.flag2 << 4)
 
 class ConstDescr3(AbstractDescr):
-    def __init__(self, v):
-        # XXX don't use a tuple! that's yet another indirection...
-        self.v = v
+    def __init__(self, v0, v1, flag2):
+        self.v0 = v0
+        self.v1 = v1
+        self.flag2 = flag2
 
     def _v(self):
         l = []
-        for i in self.v:
+        for i in (self.v0, self.v1, self.flag2):
             if isinstance(i, Symbolic):
                 l.append(id(i))
             else:
@@ -44,7 +46,7 @@ class ConstDescr3(AbstractDescr):
         return tuple(l)
 
     def sort_key(self):
-        return self.v[0]    # the ofs field for fielddescrs
+        return self.v0    # the ofs field for fielddescrs
 
     def equals(self, other):
         if not isinstance(other, ConstDescr3):
@@ -61,7 +63,7 @@ class ConstDescr3(AbstractDescr):
         return not self == other
 
     def __repr__(self):
-        return '<ConstDescr3 %r>' % (self.v,)
+        return '<ConstDescr3 %s, %s, %s>' % (self.v0, self.v1, self.flag2)
 
 class CPU386(object):
     debug = True
@@ -71,9 +73,9 @@ class CPU386(object):
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None, gcdescr=None):
+        from pypy.jit.backend.x86.gc import get_ll_description
         self.rtyper = rtyper
         self.stats = stats
-        self.gcdescr = gcdescr
         self.translate_support_code = translate_support_code
         if translate_support_code:
             assert mixlevelann
@@ -101,7 +103,11 @@ class CPU386(object):
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
         self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
-        self.gc_malloc_fn = gc_malloc_fnaddr(gcdescr)
+        self.gc_ll_descr = get_ll_description(gcdescr, mixlevelann)
+        self._descr_caches = {}
+        self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
+                                                         'typeptr',
+                                                        translate_support_code)
 
     def _setup_prebuilt_error(self, prefix, Class):
         if self.rtyper is not None:   # normal case
@@ -375,10 +381,15 @@ class CPU386(object):
 #         frame[mp.stacklocs[argindex]] = self.convert_box_to_int(valuebox)
 
     def sizeof(self, S):
-        size = symbolic.get_size(S, self.translate_support_code)
-        return ConstDescr3((size, 0, False))
+        try:
+            return self._descr_caches['sizeof', S]
+        except KeyError:
+            pass
+        descr = self.gc_ll_descr.sizeof(S, self.translate_support_code)
+        self._descr_caches['sizeof', S] = descr
+        return descr
 
-    numof = sizeof
+#    numof = sizeof
 #    addresssuffix = str(symbolic.get_size(llmemory.Address))
 
 #    def itemoffsetof(self, A):
@@ -510,19 +521,18 @@ class CPU386(object):
         self._base_do_setfield(fielddescr, args[0].getint(), args[1])
 
     def do_new(self, args, descrsize):
-        res = self.gc_malloc_fn(descrsize.v[0])
-        return BoxPtr(self.cast_adr_to_gcref(res))
+        res = self.gc_ll_descr.gc_malloc(descrsize)
+        return BoxPtr(res)
 
     def do_new_with_vtable(self, args, descrsize):
-        res = self.gc_malloc_fn(descrsize.v[0])
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = args[0].getint()
-        return BoxPtr(self.cast_adr_to_gcref(res))
+        res = self.gc_ll_descr.gc_malloc(descrsize)
+        as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+        as_array[self.vtable_offset/WORD] = args[0].getint()
+        return BoxPtr(res)
 
     def do_new_array(self, args, arraydescr):
-        size_of_field, ofs, ptr = self.unpack_arraydescr(arraydescr)
         num_elem = args[0].getint()
-        size = ofs + (1 << size_of_field) * num_elem
-        res = self.gc_malloc_fn(size)
+        res = self.gc_ll_descr.gc_malloc_array(arraydescr, num_elem)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
         # XXX don't use 0 above!
         return BoxPtr(self.cast_adr_to_gcref(res))
@@ -533,7 +543,7 @@ class CPU386(object):
                                              self.translate_support_code)
             num_elem = args[0].getint()
             size = basesize + num_elem * itemsize
-            res = self.gc_malloc_fn(size)
+            res = self.gc_ll_descr.funcptr_for_new(size)    # XXX don't use
             rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
             return BoxPtr(self.cast_adr_to_gcref(res))
         return do_newstr
@@ -558,8 +568,8 @@ class CPU386(object):
         rffi.cast(rffi.CArrayPtr(lltype.UniChar), a)[index + basesize] = unichr(v)
 
     def do_call(self, args, calldescr):
-        num_args, size, ptr = self.unpack_calldescr(calldescr)
         assert isinstance(calldescr, ConstDescr3)
+        num_args, size, ptr = self.unpack_calldescr(calldescr)
         assert num_args == len(args) - 1
         loop = self._get_loop_for_call(num_args, calldescr, ptr)
         history.set_future_values(self, args)
@@ -592,6 +602,10 @@ class CPU386(object):
         return CPU386.cast_adr_to_int(adr)
 
     def arraydescrof(self, A):
+        try:
+            return self._descr_caches['array', A]
+        except KeyError:
+            pass
         assert isinstance(A, lltype.GcArray)
         basesize, itemsize, ofs_length = symbolic.get_array_token(A,
                                                   self.translate_support_code)
@@ -601,12 +615,16 @@ class CPU386(object):
             ptr = True
         else:
             ptr = False
-        return ConstDescr3((basesize, itemsize, ptr))
+        descr = ConstDescr3(basesize, itemsize, ptr)
+        self._descr_caches['array', A] = descr
+        return descr
 
     @staticmethod
     def unpack_arraydescr(arraydescr):
         assert isinstance(arraydescr, ConstDescr3)
-        basesize, itemsize, ptr = arraydescr.v
+        basesize = arraydescr.v0
+        itemsize = arraydescr.v1
+        ptr = arraydescr.flag2
         counter = 0
         while itemsize != 1:
             itemsize >>= 1
@@ -614,6 +632,11 @@ class CPU386(object):
         return counter, basesize, ptr
 
     def calldescrof(self, functype, argtypes, resulttype):
+        cachekey = ('call', functype, tuple(argtypes), resulttype)
+        try:
+            return self._descr_caches[cachekey]
+        except KeyError:
+            pass
         for argtype in argtypes:
             if rffi.sizeof(argtype) > WORD:
                 raise NotImplementedError("bigger than lltype.Signed")
@@ -627,14 +650,20 @@ class CPU386(object):
             ptr = True
         else:
             ptr = False
-        return ConstDescr3((len(argtypes), size, ptr))
+        descr = ConstDescr3(len(argtypes), size, ptr)
+        self._descr_caches[cachekey] = descr
+        return descr
 
     @staticmethod
     def unpack_calldescr(calldescr):
         assert isinstance(calldescr, ConstDescr3)
-        return calldescr.v
+        return calldescr.v0, calldescr.v1, calldescr.flag2
 
     def fielddescrof(self, S, fieldname):
+        try:
+            return self._descr_caches['field', S, fieldname]
+        except KeyError:
+            pass
         ofs, size = symbolic.get_field_token(S, fieldname,
                                              self.translate_support_code)
         assert rffi.sizeof(getattr(S, fieldname)) in [1, 2, WORD]
@@ -643,12 +672,14 @@ class CPU386(object):
             ptr = True
         else:
             ptr = False
-        return ConstDescr3((ofs, size, ptr))
+        descr = ConstDescr3(ofs, size, ptr)
+        self._descr_caches['field', S, fieldname] = descr
+        return descr
 
     @staticmethod
     def unpack_fielddescr(fielddescr):
         assert isinstance(fielddescr, ConstDescr3)
-        return fielddescr.v
+        return fielddescr.v0, fielddescr.v1, fielddescr.flag2
 
     @staticmethod
     def cast_int_to_adr(x):

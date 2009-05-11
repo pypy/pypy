@@ -21,7 +21,9 @@ def main(n, x):
     while n > 0:
         myjitdriver.can_enter_jit(n=n, x=x)
         myjitdriver.jit_merge_point(n=n, x=x)
-        n -= x.foo
+        y = X()
+        y.foo = x.foo
+        n -= y.foo
 main._dont_inline_ = True
 
 def g(n):

@@ -1050,7 +1050,10 @@ class _llgcref(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, void_p):
-        self.intval = intmask(void_p.value)
+        if isinstance(void_p, (int, long)):
+            self.intval = intmask(void_p)
+        else:
+            self.intval = intmask(void_p.value)
 
     def __eq__(self, other):
         if isinstance(other, _llgcref):

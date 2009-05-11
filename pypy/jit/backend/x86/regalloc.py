@@ -885,15 +885,16 @@ class RegAlloc(object):
 
     def consider_new(self, op, ignored):
         from pypy.jit.backend.x86.runner import ConstDescr3
-        descr = op.descr
-        assert isinstance(descr, ConstDescr3)
-        return self._call(op, [imm(descr.v[0])])
+        args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
+        arglocs = [imm(x) for x in args]
+        return self._call(op, arglocs)
 
     def consider_new_with_vtable(self, op, ignored):
         from pypy.jit.backend.x86.runner import ConstDescr3
-        descr = op.descr
-        assert isinstance(descr, ConstDescr3)
-        return self._call(op, [imm(descr.v[0]), self.loc(op.args[0])])
+        args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
+        arglocs = [imm(x) for x in args]
+        arglocs.append(self.loc(op.args[0]))
+        return self._call(op, arglocs)
 
     def consider_newstr(self, op, ignored):
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
