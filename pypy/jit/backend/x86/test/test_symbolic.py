@@ -48,10 +48,10 @@ def test_array_token_2():
     cpu = CPU386(None, None)
     A = lltype.GcArray(lltype.Ptr(lltype.Array(lltype.Signed)))
     descr = cpu.arraydescrof(A)
-    assert not descr.v[2]
+    assert not descr.flag2
     A = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
     descr = cpu.arraydescrof(A)
-    assert descr.v[2]
+    assert descr.flag2
 
 def test_varsized_struct_size():
     S1 = lltype.GcStruct('S1', ('parent', S),
