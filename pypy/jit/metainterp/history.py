@@ -102,6 +102,9 @@ class AbstractValue(object):
     def sort_key(self):
         raise NotImplementedError
 
+    def set_future_value(self, cpu, j):
+        raise NotImplementedError
+
     def repr_rpython(self):
         return '%s' % self
 
