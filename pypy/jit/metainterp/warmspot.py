@@ -584,7 +584,7 @@ def make_state_class(warmrunnerdesc):
         def maybe_compile_and_run(self, *args):
             # get the greenargs and look for the cell corresponding to the hash
             greenargs = args[:num_green_args]
-            argshash = self.getkeyhash(*greenargs)
+            argshash = self.getkeyhash(*greenargs) & self.hashtablemask
             cell = self.cells[argshash]
             if isinstance(cell, Counter):
                 # update the profiling counter
@@ -674,7 +674,7 @@ def make_state_class(warmrunnerdesc):
                 item = greenargs[i]
                 result = result ^ cast_whatever_to_int(TYPE, item)
                 i = i + 1
-            return result & self.hashtablemask
+            return result
         getkeyhash._always_inline_ = True
 
         def must_compile_from_failure(self, key):
@@ -684,7 +684,7 @@ def make_state_class(warmrunnerdesc):
         def attach_unoptimized_bridge_from_interp(self, greenkey, bridge):
             greenargs = self.unwrap_greenkey(greenkey)
             newcell = MachineCodeEntryPoint(bridge, *greenargs)
-            argshash = self.getkeyhash(*greenargs)
+            argshash = self.getkeyhash(*greenargs) & self.hashtablemask
             cell = self.cells[argshash]
             if not isinstance(cell, Counter):
                 while True:
