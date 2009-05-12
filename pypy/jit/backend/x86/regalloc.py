@@ -3,11 +3,12 @@
 """
 
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, ConstAddr)
+                                         ResOperation, ConstAddr, BoxPtr)
 from pypy.jit.backend.x86.ri386 import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import rgc
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop
 
@@ -44,11 +45,15 @@ def convert_to_imm(c):
     if isinstance(c, ConstInt):
         return imm(c.value)
     elif isinstance(c, ConstPtr):
+        if we_are_translated() and rgc.can_move(c.value):
+            print "convert_to_imm: ConstPtr needs special care"
+            raise AssertionError
         return imm(rffi.cast(lltype.Signed, c.value))
     elif isinstance(c, ConstAddr):
         return imm(ll2ctypes.cast_adr_to_int(c.value))
     else:
-        raise ValueError("convert_to_imm: got a %s" % c)
+        print "convert_to_imm: got a %s" % c
+        raise AssertionError
 
 class RegAlloc(object):
     max_stack_depth = 0
@@ -60,6 +65,7 @@ class RegAlloc(object):
         self.assembler = assembler
         self.translate_support_code = translate_support_code
         if regalloc is None:
+            self._rewrite_const_ptrs(tree.operations)
             self.tree = tree
             self.reg_bindings = newcheckdict()
             self.stack_bindings = newcheckdict()
@@ -76,6 +82,7 @@ class RegAlloc(object):
             self.loop_consts = loop_consts
             self.current_stack_depth = sd
         else:
+            self._rewrite_const_ptrs(guard_op.suboperations)
             inp = guard_op.inputargs
             self.reg_bindings = {}
             self.stack_bindings = {}
@@ -312,6 +319,33 @@ class RegAlloc(object):
                                        self.max_stack_depth)
         self.max_stack_depth = max(self.max_stack_depth,
                                    self.current_stack_depth + 1)
+
+    def _rewrite_const_ptrs(self, operations):
+        # Idea: when running on a moving GC, we can't (easily) encode
+        # the ConstPtrs in the assembler, because they can move at any
+        # point in time.  Instead, we store them in 'gcrefs.list', a GC
+        # but nonmovable list; and here, we modify 'operations' to
+        # replace direct usage of ConstPtr with a BoxPtr loaded by a
+        # GETFIELD_RAW from the array 'gcrefs.list'.
+        gcrefs = self.assembler.gcrefs
+        if gcrefs is None:
+            return
+        single_gcref_descr = self.assembler.single_gcref_descr
+        newops = []
+        for op in operations:
+            for i in range(len(op.args)):
+                v = op.args[i]
+                if isinstance(v, ConstPtr) and rgc.can_move(v.value):
+                    box = BoxPtr(v.value)
+                    addr = gcrefs.get_address_of_gcref(v.value)
+                    addr = rffi.cast(lltype.Signed, addr)
+                    newops.append(ResOperation(rop.GETFIELD_RAW,
+                                               [ConstInt(addr)], box,
+                                               single_gcref_descr))
+                    op.args[i] = box
+            newops.append(op)
+        del operations[:]
+        operations.extend(newops)
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in

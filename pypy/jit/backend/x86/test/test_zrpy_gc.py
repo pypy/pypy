@@ -79,6 +79,5 @@ def test_compile_boehm():
     compile_and_run("boehm")
 
 def test_compile_hybrid():
-    py.test.skip("in-progress")
     # a moving GC, with a write barrier.  Supports malloc_varsize_nonmovable.
     compile_and_run("hybrid", gcrootfinder="asmgcc")

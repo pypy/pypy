@@ -77,7 +77,9 @@ class GcRefList:
         self.hashtable = lltype.malloc(self.HASHTABLE,
                                        self.HASHTABLE_SIZE+1,
                                        flavor='raw')
-        dummy = llmemory.itemoffsetof(self.hashtable, self.HASHTABLE_SIZE)
+        dummy = lltype.direct_ptradd(lltype.direct_arrayitems(self.hashtable),
+                                     self.HASHTABLE_SIZE)
+        dummy = llmemory.cast_ptr_to_adr(dummy)
         for i in range(self.HASHTABLE_SIZE+1):
             self.hashtable[i] = dummy
 
@@ -110,7 +112,9 @@ class GcRefList:
         # add it
         index = self.nextindex
         self.list[index] = gcref
-        addr_ref = llmemory.itemoffsetof(self.GCREF_LIST, index)
+        addr_ref = lltype.direct_ptradd(lltype.direct_arrayitems(self.list),
+                                        index)
+        addr_ref = llmemory.cast_ptr_to_adr(addr_ref)
         self.nextindex = index + 1
         # record it in the hashtable
         self.hashtable[hash] = addr_ref

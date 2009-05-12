@@ -120,6 +120,8 @@ class Assembler386(object):
 
     def make_sure_mc_exists(self):
         if self.mc is None:
+            from pypy.jit.backend.x86.runner import ConstDescr3
+
             self.fail_boxes = lltype.malloc(rffi.CArray(lltype.Signed),
                                             MAX_FAIL_BOXES, flavor='raw')
             self.fail_box_addr = self.cpu.cast_ptr_to_int(self.fail_boxes)
@@ -150,6 +152,7 @@ class Assembler386(object):
             # that appear as ConstPtr.
             if self.cpu.gc_ll_descr.moving_gc:
                 self.gcrefs = self.cpu.gc_ll_descr.GcRefList()
+                self.single_gcref_descr = ConstDescr3(0, WORD, True)
             else:
                 self.gcrefs = None
 
