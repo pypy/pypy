@@ -4,8 +4,6 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.x86.ri386 import I386CodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
 
-class CodeBlockOverflow(Exception):
-    pass
 
 class InMemoryCodeBuilder(I386CodeBuilder):
     _last_dump_start = 0
@@ -22,8 +20,7 @@ class InMemoryCodeBuilder(I386CodeBuilder):
 
     def write(self, data):
         p = self._pos
-        if p + len(data) > self._size:
-            raise CodeBlockOverflow
+        assert p + len(data) <= self._size
         for c in data:
             self._data[p] = c
             p += 1
@@ -126,48 +123,3 @@ class MachineCodeBlock(InMemoryCodeBuilder):
         size = self._size
         assert size >= 0
         free(self._data, size)
-
-# ____________________________________________________________
-
-from pypy.rpython.lltypesystem import lltype
-
-BUF = lltype.GcArray(lltype.Char)
-
-class LLTypeMachineCodeBlock(I386CodeBuilder):
-    # for testing only
-
-    class State:
-        pass
-    state = State()
-    state.base = 1
-
-    def __init__(self, map_size):
-        self._size = map_size
-        self._pos = 0
-        self._base = LLTypeMachineCodeBlock.state.base
-        LLTypeMachineCodeBlock.state.base += map_size
-
-    def write(self, data):
-        p = self._pos
-        if p + len(data) > self._size:
-            raise CodeBlockOverflow
-        self._pos += len(data)
-        return
-
-    def tell(self):
-        return self._base + self._pos
-
-    def seekback(self, count):
-        self._pos -= count
-
-    def done(self):
-        pass
-
-class LLTypeInMemoryCodeBuilder(LLTypeMachineCodeBlock):
-    _last_dump_start = 0
-
-    def __init__(self, start, end):
-        self._size = end - start
-        self._pos = 0
-        self._base = start
-

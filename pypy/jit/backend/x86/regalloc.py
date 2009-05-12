@@ -1116,11 +1116,6 @@ for name, value in RegAlloc.__dict__.iteritems():
         num = getattr(rop, name.upper())
         oplist[num] = value
 
-def arg_pos(i, framesize):
-    res = mem(esp, framesize + WORD * (i + 1))
-    res.position = (i + 1) + framesize // WORD
-    return res
-
 def stack_pos(i):
     res = mem(esp, WORD * i)
     res.position = i

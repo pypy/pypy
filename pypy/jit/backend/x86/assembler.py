@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
-                                      arg_pos, lower_byte, stack_pos)
+                                           lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
@@ -291,30 +291,7 @@ class Assembler386(object):
         finally:
             Box._extended_display = _prev
 
-#     def assemble_comeback_bootstrap(self, position, arglocs, stacklocs):
-#         return
-#         entry_point_addr = self.mc2.tell()
-#         for i in range(len(arglocs)):
-#             argloc = arglocs[i]
-#             if isinstance(argloc, REG):
-#                 self.mc2.MOV(argloc, stack_pos(stacklocs[i]))
-#             elif not we_are_translated():
-#                 # debug checks
-#                 if not isinstance(argloc, (IMM8, IMM32)):
-#                     assert repr(argloc) == repr(stack_pos(stacklocs[i]))
-#         self.mc2.JMP(rel32(position))
-#         self.mc2.done()
-#         return entry_point_addr
-
-#     def assemble_generic_return(self):
-#         # generate a generic stub that just returns, taking the
-#         # return value from *esp (i.e. stack position 0).
-#         addr = self.mc.tell()
-#         self.mc.MOV(eax, mem(esp, 0))
-#         self.mc.ADD(esp, imm(FRAMESIZE))
-#         self.mc.RET()
-#         self.mc.done()
-#         return addr
+    # ------------------------------------------------------------
 
     def regalloc_load(self, from_loc, to_loc):
         self.mc.MOV(to_loc, from_loc)
@@ -646,7 +623,7 @@ class Assembler386(object):
 
     def genop_arraylen_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
-        self.mc.MOV(resloc, addr_add(base_loc, imm(0)))
+        self.mc.MOV(resloc, addr_add_const(base_loc, 0))     # XXX fix this 0
 
     def genop_strgetitem(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
@@ -730,24 +707,6 @@ class Assembler386(object):
                                          MachineCodeBlockWrapper.MC_SIZE)
         mc.JMP(rel32(pos))
         mc.done()
-
-#     def genop_discard_return(self, op, locs):
-#         if op.args:
-#             loc = locs[0]
-#             if loc is not eax:
-#                 self.mc.MOV(eax, loc)
-#         self.mc.ADD(esp, imm(FRAMESIZE))
-#         # copy exception to some safe place and clean the original
-#         # one
-#         self.mc.MOV(ecx, heap(self._exception_addr))
-#         self.mc.MOV(heap(self._exception_bck_addr), ecx)
-#         self.mc.MOV(ecx, addr_add(imm(self._exception_addr), imm(WORD)))
-#         self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
-#                      ecx)
-#         # clean up the original exception, we don't want
-#         # to enter more rpython code with exc set
-#         self.mc.MOV(heap(self._exception_addr), imm(0))
-#         self.mc.RET()
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
