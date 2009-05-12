@@ -19,4 +19,7 @@ Support for non-Boehm GCs:
 * support root stack enumeration (at first, the easiest is probably to
   do it with asmgcc, which is good for performance :-)
 
+* what to do about all ConstPtrs that end up embedded in the assembler?
+  annoying with a moving GC
+
 * support write_barriers (later; at first, we support the semispace gc only)
