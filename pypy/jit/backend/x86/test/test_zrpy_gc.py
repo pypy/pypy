@@ -5,6 +5,7 @@ however, is the correct handling of GC, i.e. if objects are freed as
 soon as possible (at least in a simple case).
 """
 import weakref
+import py
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver
@@ -77,6 +78,7 @@ def compile_and_run(gc, **kwds):
 def test_compile_boehm():
     compile_and_run("boehm")
 
-def test_compile_semispace():
-    # a moving GC, but with no write barrier
-    compile_and_run("semispace", gcrootfinder="asmgcc")
+def test_compile_hybrid():
+    py.test.skip("in-progress")
+    # a moving GC, with a write barrier.  Supports malloc_varsize_nonmovable.
+    compile_and_run("hybrid", gcrootfinder="asmgcc")

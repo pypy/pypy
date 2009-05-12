@@ -146,6 +146,12 @@ class Assembler386(object):
             # the address of the function called by 'new'
             ll_new = self.cpu.gc_ll_descr.get_funcptr_for_new()
             self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+            # for moving GCs, the array used to hold the address of GC objects
+            # that appear as ConstPtr.
+            if self.cpu.gc_ll_descr.moving_gc:
+                self.gcrefs = self.cpu.gc_ll_descr.GcRefList()
+            else:
+                self.gcrefs = None
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
                                   myid=0):
