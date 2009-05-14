@@ -17,4 +17,4 @@ Support for non-Boehm GCs:
 * support root stack enumeration (at first, the easiest is probably to
   do it with asmgcc, which is good for performance :-)
 
-* support write_barriers (later; at first, we support the semispace gc only)
+* support write_barriers
