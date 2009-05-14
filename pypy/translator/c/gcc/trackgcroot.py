@@ -76,7 +76,7 @@ class GcRootTracker(object):
             popl   %ebp              /* restore from ASM_FRAMEDATA[3] */
             popl   %eax
             ret
-        .size pypy_asm_stackwalk_init, .-pypy_asm_stackwalk_init
+        .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
         """
         print >> output, '\t.data'
         print >> output, '\t.align\t4'
