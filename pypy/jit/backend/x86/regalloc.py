@@ -951,7 +951,8 @@ class RegAlloc(object):
             loc = self.make_sure_var_in_reg(v, [v])
             self.sync_var(v)
             if size != 0:
-                # XXX lshift?
+                # XXX lshift? no, better yet, use 'LEA' somehow (it can be
+                # combined with the following INT_ADD)
                 self.Perform(ResOperation(rop.INT_MUL, [], None),
                              [loc, imm(1 << size)], loc)
             self.Perform(ResOperation(rop.INT_ADD, [], None),

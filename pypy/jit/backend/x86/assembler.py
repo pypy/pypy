@@ -155,6 +155,9 @@ class Assembler386(object):
                 self.single_gcref_descr = ConstDescr3(0, WORD, True)
             else:
                 self.gcrefs = None
+            self.gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+            if self.gcrootmap:
+                self.gcrootmap.initialize()
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
                                   myid=0):
@@ -240,8 +243,7 @@ class Assembler386(object):
         self.eventually_log_operations(tree.inputargs, tree.operations, None,
                                        compute_unique_id(tree))
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
-        if not we_are_translated():
-            self._regalloc = regalloc # for debugging
+        self._regalloc = regalloc
         regalloc.walk_operations(tree)
         self.sanitize_tree(tree.operations)
         self.mc.done()
@@ -257,6 +259,8 @@ class Assembler386(object):
                 tl = op.jump_target
                 self.patch_jump(pos, tl._x86_compiled, tl.arglocs, tl.arglocs,
                                 tree._x86_stack_depth, tl._x86_stack_depth)
+        if we_are_translated():
+            self._regalloc = None   # else keep it around for debugging
 
     def sanitize_tree(self, operations):
         """ Cleans up all attributes attached by regalloc and backend
@@ -270,6 +274,9 @@ class Assembler386(object):
     def assemble_bootstrap_code(self, jumpaddr, arglocs, framesize):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
+        if self.gcrootmap:
+            self.mc.PUSH(ebp)
+            self.mc.MOV(ebp, esp)
         self.mc.SUB(esp, imm(framesize * WORD))
         # This uses XCHG to put zeroes in fail_boxes after reading them,
         # just in case they are pointers.
@@ -390,6 +397,7 @@ class Assembler386(object):
             assert not isinstance(arg, MODRM)
             self.mc.PUSH(arg)
         self.mc.CALL(rel32(addr))
+        self.mark_gc_roots(len(args))
         self.mc.ADD(esp, imm(len(args) * WORD))
         assert res is eax
 
@@ -814,6 +822,8 @@ class Assembler386(object):
         self.mc.ADD(esp, imm32(0))
         guard_index = self.cpu.make_guard_index(op)
         self.mc.MOV(eax, imm(guard_index))
+        if self.gcrootmap:
+            self.mc.POP(ebp)
         self.mc.RET()
 
     def generate_ovf_set(self):
@@ -860,6 +870,7 @@ class Assembler386(object):
             if isinstance(x, MODRM):
                 x = stack_pos(x.position + extra_on_stack)
         self.mc.CALL(x)
+        self.mark_gc_roots(extra_on_stack)
         self.mc.ADD(esp, imm(WORD * extra_on_stack))
         if size == 1:
             self.mc.AND(eax, imm(0xff))
@@ -888,6 +899,18 @@ class Assembler386(object):
     #    # XXX test it test it test it
     #    self.gen_call(op, arglocs, resloc)
     #    self.mc.MOVZX(eax, eax)
+
+    def mark_gc_roots(self, extra_on_stack):
+        if self.gcrootmap:
+            gclocs = []
+            regalloc = self._regalloc
+            for v, val in regalloc.stack_bindings.items():
+                if (isinstance(v, BoxPtr) and
+                    regalloc.longevity[v][1] > regalloc.position):
+                    gclocs.append(val)
+            shape = self.gcrootmap.encode_callshape(gclocs)
+            self.gcrootmap.put(rffi.cast(llmemory.Address, self.mc.tell()),
+                               shape)
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST

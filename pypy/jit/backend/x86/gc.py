@@ -19,6 +19,7 @@ class GcLLDescription:
 
 class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
+    gcrootmap = None
 
     def __init__(self, gcdescr, mixlevelann):
         # grab a pointer to the Boehm 'malloc' function
@@ -135,16 +136,22 @@ class GcRootMap_asmgcc:
     CALLSHAPE_ARRAY = rffi.CArray(rffi.UCHAR)
 
     def __init__(self):
-        self._gcmap = lltype.malloc(self.GCMAP_ARRAY, 0, flavor='raw')
+        self._gcmap = lltype.nullptr(self.GCMAP_ARRAY)
         self._gcmap_curlength = 0
         self._gcmap_maxlength = 0
+
+    def initialize(self):
+        # hack hack hack.  Remove these lines and see MissingRTypeAttribute
+        # when the rtyper tries to annotate these methods only when GC-ing...
+        self.gcmapstart()
+        self.gcmapend()
 
     def gcmapstart(self):
         return llmemory.cast_ptr_to_adr(self._gcmap)
 
     def gcmapend(self):
         start = self.gcmapstart()
-        return start + llmemory.sizeof(lltype.Signed) * self._gcmap_curlength
+        return start + llmemory.sizeof(llmemory.Address)*self._gcmap_curlength
 
     def put(self, retaddr, callshapeaddr):
         """'retaddr' is the address just after the CALL.
@@ -157,31 +164,31 @@ class GcRootMap_asmgcc:
         self._gcmap_curlength = index + 2
 
     def _enlarge_gcmap(self):
-        newlength = 128 + self._gcmap_maxlength // 4
+        newlength = 128 + self._gcmap_maxlength * 5 // 4
         newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw')
         oldgcmap = self._gcmap
         for i in range(self._gcmap_curlength):
             newgcmap[i] = oldgcmap[i]
         self._gcmap = newgcmap
         self._gcmap_maxlength = newlength
-        lltype.free(oldgcmap, flavor='raw')
+        if oldgcmap:
+            lltype.free(oldgcmap, flavor='raw')
 
-    def encode_callshape(self, gclocs, framesize):
+    def encode_callshape(self, gclocs):
         """Encode a callshape from the list of locations containing GC
-        pointers and from the frame size of the current (caller) frame.
-        The framesize gives the offset from %esp to the return address
-        of the current frame."""
-        shape = self._get_callshape(gclocs, framesize)
+        pointers."""
+        shape = self._get_callshape(gclocs)
         return self._compress_callshape(shape)
 
-    def _get_callshape(self, gclocs, framesize):
-        # the four registers %ebx, %esi, %edi, %ebp are not used at all
+    def _get_callshape(self, gclocs):
+        # The return address is always found at 4(%ebp); and
+        # the three registers %ebx, %esi, %edi are not used at all
         # so far, so their value always comes from the caller.
-        shape = [self.LOC_ESP_BASED | framesize,
+        shape = [self.LOC_EBP_BASED | 4,
                  self.LOC_REG | 0,
                  self.LOC_REG | 4,
                  self.LOC_REG | 8,
-                 self.LOC_REG | 12,
+                 self.LOC_EBP_BASED | 0,
                  0]
         for loc in gclocs:
             assert isinstance(loc, MODRM)
@@ -225,15 +232,16 @@ class GcLLDescr_framework(GcLLDescription):
         except KeyError:
             raise NotImplementedError("--gcrootfinder=%s not implemented"
                                       " with the JIT" % (name,))
-        self.gcrootmap = cls()
+        gcrootmap = cls()
+        self.gcrootmap = gcrootmap
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
         self.layoutbuilder = framework.TransformerLayoutBuilder()
         self.translator._jit2gc = {
             'layoutbuilder': self.layoutbuilder,
-            'gcmapstart': self.gcrootmap.gcmapstart,
-            'gcmapend': self.gcrootmap.gcmapend,
+            'gcmapstart': lambda: gcrootmap.gcmapstart(),
+            'gcmapend': lambda: gcrootmap.gcmapend(),
             }
         GCClass, _ = choose_gc_from_config(gcdescr.config)
         self.moving_gc = GCClass.moving_gc

@@ -7,7 +7,7 @@ soon as possible (at least in a simple case).
 import weakref, random
 import py
 from pypy.rlib import rgc
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.x86.runner import CPU386
@@ -112,17 +112,34 @@ def test_compile_hybrid_1():
 
 def test_GcRootMap_asmgcc():
     gcrootmap = GcRootMap_asmgcc()
-    shape = gcrootmap._get_callshape([stack_pos(1), stack_pos(55)], 236)
-    assert shape == [236|3, 1, 5, 9, 13, 0, 4|3, 220|3]
+    shape = gcrootmap._get_callshape([stack_pos(1), stack_pos(55)])
+    assert shape == [6, 1, 5, 9, 2, 0, 4|3, 220|3]
     #
-    addr = gcrootmap.encode_callshape([stack_pos(1), stack_pos(55)], 236)
+    shapeaddr = gcrootmap.encode_callshape([stack_pos(1), stack_pos(55)])
     PCALLSHAPE = lltype.Ptr(GcRootMap_asmgcc.CALLSHAPE_ARRAY)
-    p = llmemory.cast_adr_to_ptr(addr, PCALLSHAPE)
-    for i, expected in enumerate([131, 62, 14, 0, 26, 18, 10, 2, 131, 94]):
+    p = llmemory.cast_adr_to_ptr(shapeaddr, PCALLSHAPE)
+    for i, expected in enumerate([131, 62, 14, 0, 4, 18, 10, 2, 12]):
         assert p[i] == expected
+    #
+    retaddr = rffi.cast(llmemory.Address, 1234567890)
+    gcrootmap.put(retaddr, shapeaddr)
+    assert gcrootmap._gcmap[0] == retaddr
+    assert gcrootmap._gcmap[1] == shapeaddr
+    assert gcrootmap.gcmapstart().address[0] == retaddr
+    #
+    # the same as before, but enough times to trigger a few resizes
+    expected_shapeaddr = {}
+    for i in range(1, 600):
+        shapeaddr = gcrootmap.encode_callshape([stack_pos(i)])
+        expected_shapeaddr[i] = shapeaddr
+        retaddr = rffi.cast(llmemory.Address, 123456789 + i)
+        gcrootmap.put(retaddr, shapeaddr)
+    for i in range(1, 600):
+        expected_retaddr = rffi.cast(llmemory.Address, 123456789 + i)
+        assert gcrootmap._gcmap[i*2+0] == expected_retaddr
+        assert gcrootmap._gcmap[i*2+1] == expected_shapeaddr[i]
 
 def test_compile_hybrid_2():
-    py.test.skip("in-progress")
     # a moving GC.  Supports malloc_varsize_nonmovable.  More complex test,
     # requires root stack enumeration but not write_barriers.
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
