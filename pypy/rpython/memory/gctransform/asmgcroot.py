@@ -46,6 +46,14 @@ class AsmStackRootWalker(BaseRootWalker):
             self.walk_stack_from(initialframedata)
         self._asm_callback = _asm_callback
         self._shape_decompressor = ShapeDecompressor()
+        if hasattr(gctransformer.translator, '_jit2gc'):
+            jit2gc = gctransformer.translator._jit2gc
+            self._extra_gcmapstart = jit2gc['gcmapstart']
+            self._extra_gcmapend   = jit2gc['gcmapend']
+        else:
+            returns_null = lambda: llmemory.NULL
+            self._extra_gcmapstart = returns_null
+            self._extra_gcmapend   = returns_null
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
@@ -128,25 +136,12 @@ class AsmStackRootWalker(BaseRootWalker):
         retaddr = callee.frame_address.address[0]
         #
         # try to locate the caller function based on retaddr.
+        # set up self._shape_decompressor.
         #
-        gcmapstart = llop.llvm_gcmapstart(llmemory.Address)
-        gcmapend   = llop.llvm_gcmapend(llmemory.Address)
-        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
-        if not item:
-            # the item may have been not found because the array was
-            # not sorted.  Sort it and try again.
-            sort_gcmap(gcmapstart, gcmapend)
-            item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
-            if not item:
-                llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
-                return False
+        self.locate_caller_based_on_retaddr(retaddr)
         #
         # found!  Enumerate the GC roots in the caller frame
         #
-        shape = item.signed[1]
-        if shape < 0:
-            shape = ~ shape     # can ignore this "range" marker here
-        self._shape_decompressor.setpos(shape)
         collect_stack_root = self.gcdata._gc_collect_stack_root
         gc = self.gc
         while True:
@@ -172,6 +167,36 @@ class AsmStackRootWalker(BaseRootWalker):
         # we get a NULL marker to mean "I'm the frame
         # of the entry point, stop walking"
         return caller.frame_address != llmemory.NULL
+
+    def locate_caller_based_on_retaddr(self, retaddr):
+        gcmapstart = llop.llvm_gcmapstart(llmemory.Address)
+        gcmapend   = llop.llvm_gcmapend(llmemory.Address)
+        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
+        if item:
+            self._shape_decompressor.setpos(item.signed[1])
+            return
+        gcmapstart2 = self._extra_gcmapstart()
+        gcmapend2   = self._extra_gcmapend()
+        if gcmapstart2 != gcmapend2:
+            # we have a non-empty JIT-produced table to look in
+            item = search_in_gcmap(gcmapstart2, gcmapend2, retaddr)
+            if item:
+                self._shape_decompressor.setaddr(item.address[1])
+                return
+            # maybe the JIT-produced table is not sorted?
+            sort_gcmap(gcmapstart2, gcmapend2)
+            item = search_in_gcmap(gcmapstart2, gcmapend2, retaddr)
+            if item:
+                self._shape_decompressor.setaddr(item.address[1])
+                return
+        # the item may have been not found because the main array was
+        # not sorted.  Sort it and try again.
+        sort_gcmap(gcmapstart, gcmapend)
+        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
+        if item:
+            self._shape_decompressor.setpos(item.signed[1])
+            return
+        llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
     def getlocation(self, callee, location):
         """Get the location in the 'caller' frame of a variable, based
@@ -261,8 +286,13 @@ class ShapeDecompressor:
     _alloc_flavor_ = "raw"
 
     def setpos(self, pos):
+        if pos < 0:
+            pos = ~ pos     # can ignore this "range" marker here
         gccallshapes = llop.llvm_gccallshapes(llmemory.Address)
         self.addr = gccallshapes + pos
+
+    def setaddr(self, addr):
+        self.addr = addr
 
     def next(self):
         value = 0

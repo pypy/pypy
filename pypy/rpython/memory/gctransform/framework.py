@@ -124,8 +124,8 @@ class FrameworkGCTransformer(GCTransformer):
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
 
-        if hasattr(translator, '_transformerlayoutbuilder_from_jit'):
-            self.layoutbuilder = translator._transformerlayoutbuilder_from_jit
+        if hasattr(translator, '_jit2gc'):
+            self.layoutbuilder = translator._jit2gc['layoutbuilder']
         else:
             self.layoutbuilder = TransformerLayoutBuilder()
         self.layoutbuilder.transformer = self
