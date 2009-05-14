@@ -16,7 +16,7 @@ from pypy.jit.backend.x86.regalloc import stack_pos
 
 
 class X(object):
-    pass
+    next = None
 
 def get_test(main):
     main._dont_inline_ = True
@@ -140,8 +140,8 @@ def test_GcRootMap_asmgcc():
         assert gcrootmap._gcmap[i*2+1] == expected_shapeaddr[i]
 
 def test_compile_hybrid_2():
-    # a moving GC.  Supports malloc_varsize_nonmovable.  More complex test,
-    # requires root stack enumeration but not write_barriers.
+    # More complex test, requires root stack enumeration but
+    # not write_barriers.
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     def main(n, x):
         while n > 0:
@@ -153,6 +153,35 @@ def test_compile_hybrid_2():
                 y.foo = prev.foo
                 prev = y
             n -= prev.foo
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20
+
+def test_compile_hybrid_3():
+    py.test.skip("in-progress")
+    # Third version of the test.  Really requires write_barriers.
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+    def main(n, x):
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x=x)
+            myjitdriver.jit_merge_point(n=n, x=x)
+            x.next = None
+            for j in range(101):    # main() runs 20'000 times, thus allocates
+                y = X()             # a total of 2'020'000 objects
+                y.foo = j+1
+                y.next = x.next
+                x.next = y
+            total = 0
+            y = x
+            for j in range(101):
+                y = y.next
+                total += y.foo
+            assert not y.next
+            assert total == 101*102/2
+            n -= x.foo
+    x_test = X()
+    x_test.foo = 5
+    main(6, x_test)     # check that it does not raise AssertionError
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
