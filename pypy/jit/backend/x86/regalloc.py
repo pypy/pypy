@@ -335,7 +335,8 @@ class RegAlloc(object):
         for op in operations:
             for i in range(len(op.args)):
                 v = op.args[i]
-                if isinstance(v, ConstPtr) and rgc.can_move(v.value):
+                if (isinstance(v, ConstPtr) and v.value
+                                            and rgc.can_move(v.value)):
                     box = BoxPtr(v.value)
                     addr = gcrefs.get_address_of_gcref(v.value)
                     addr = rffi.cast(lltype.Signed, addr)
