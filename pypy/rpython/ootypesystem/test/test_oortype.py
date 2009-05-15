@@ -471,3 +471,21 @@ def test_cast_to_object_nullruntimeclass():
 
     res = interpret(fn, [], type_system='ootype')
     assert cast_from_object(Class, res) == nullruntimeclass
+
+def test_cast_to_object_static_meth():
+    from pypy.rpython.annlowlevel import llhelper
+    FUNC = StaticMethod([Signed], Signed)
+    def f(x):
+        return x+1
+    fptr = llhelper(FUNC, f)
+
+    def fn(x):
+        if x:
+            obj = cast_to_object(fptr)
+        else:
+            obj = NULL
+        myfunc = cast_from_object(FUNC, obj)
+        return myfunc(x)
+
+    res = interpret(fn, [1], type_system='ootype')
+    assert res == 2

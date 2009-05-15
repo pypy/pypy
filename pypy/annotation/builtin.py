@@ -569,8 +569,9 @@ def oodowncast(I, i):
         raise AnnotatorError, 'Cannot cast %s to %s' % (i.ootype, I.const)
 
 def cast_to_object(obj):
-    assert isinstance(obj.ootype, ootype.OOType) or \
-        (isinstance(obj, SomeOOClass) and obj.ootype is None)
+    assert isinstance(obj, SomeOOStaticMeth) or \
+           (isinstance(obj, SomeOOClass) and obj.ootype is None) or \
+           isinstance(obj.ootype, ootype.OOType)
     return SomeOOObject()
 
 def cast_from_object(T, obj):
