@@ -24,6 +24,7 @@ class BaseCompiledMixin(object):
             assert isinstance(arg, int)
 
         t = self._get_TranslationContext()
+        t.config.translation.type_system = self.type_system # force typesystem-specific options
         if repeat != 1:
             src = py.code.Source("""
             def entry_point(argv):

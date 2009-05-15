@@ -26,3 +26,6 @@ class TestBasic(CliTranslatedJitMixin, test_basic.TestOOtype):
     test_bridge_from_interpreter_2 = skip
     test_bridge_from_interpreter_3 = skip
     test_bridge_from_interpreter_4 = skip
+    test_bridge_leaving_interpreter_5 = skip
+    test_free_object = skip
+    test_we_are_jitted = skip
