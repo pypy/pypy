@@ -340,6 +340,12 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
+            func = getattr(GCClass, GCClass.JIT_WB_THEN_CALL).im_func
+            self.write_barrier_failing_case_ptr = getfn(func,
+                                           [s_gc,
+                                            annmodel.SomeAddress(),
+                                            annmodel.SomeAddress()],
+                                           annmodel.s_None)
         else:
             self.write_barrier_ptr = None
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
@@ -605,6 +611,15 @@ class FrameworkGCTransformer(GCTransformer):
                   [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_size, v_can_collect,
                    v_has_finalizer, v_contains_weakptr],
+                  resultvar=op.result)
+
+    def gct_get_write_barrier_failing_case(self, hop):
+        op = hop.spaceop
+        c_result = rmodel.inputconst(
+            lltype.typeOf(self.write_barrier_failing_case_ptr),
+            self.write_barrier_failing_case_ptr)
+        hop.genop("same_as",
+                  [c_result],
                   resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):

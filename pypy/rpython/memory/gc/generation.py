@@ -407,6 +407,10 @@ class GenerationGC(SemiSpaceGC):
                     continue    # no need to remember this weakref any longer
             self.objects_with_weakrefs.append(obj)
 
+    # for the JIT: a minimal description of the write_barrier() method
+    JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
+    JIT_WB_THEN_CALL = 'remember_young_pointer'
+
     def write_barrier(self, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, newvalue)
