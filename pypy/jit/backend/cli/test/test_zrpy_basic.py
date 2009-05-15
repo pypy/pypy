@@ -28,4 +28,6 @@ class TestBasic(CliTranslatedJitMixin, test_basic.TestOOtype):
     test_bridge_from_interpreter_4 = skip
     test_bridge_leaving_interpreter_5 = skip
     test_free_object = skip
-    test_we_are_jitted = skip
+
+    def test_we_are_jitted(self):
+        py.test.skip("it seems to fail even with the x86 backend, didn't investigate the problem")
