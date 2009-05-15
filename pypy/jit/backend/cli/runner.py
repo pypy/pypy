@@ -18,7 +18,7 @@ class CliCPU(model.AbstractCPU):
     is_oo = True
 
     def __init__(self, rtyper, stats, translate_support_code=False,
-                 mixlevelann=None):
+                 mixlevelann=None, gcdescr=None):
         self.rtyper = rtyper
         if rtyper:
             assert rtyper.type_system.name == "ootypesystem"
