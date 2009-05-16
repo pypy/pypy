@@ -489,3 +489,19 @@ def test_cast_to_object_static_meth():
 
     res = interpret(fn, [1], type_system='ootype')
     assert res == 2
+
+def test_instanceof():
+    A = Instance('A', ootype.ROOT, {})
+    B = Instance('B', A, {})
+
+    def fn(x):
+        if x:
+            obj = ooupcast(A, new(B))
+        else:
+            obj = new(A)
+        return instanceof(obj, B)
+
+    res = interpret(fn, [0], type_system='ootype')
+    assert not res
+    res = interpret(fn, [1], type_system='ootype')
+    assert res
