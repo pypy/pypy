@@ -78,8 +78,8 @@ class Entry(ExtRegistryEntry):
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 40,
-              'trace_eagerness': 10,
+PARAMETERS = {'threshold': 1000,
+              'trace_eagerness': 200,
               'hash_bits': 14,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
