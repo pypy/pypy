@@ -676,6 +676,7 @@ def make_state_class(warmrunnerdesc):
             for TYPE in green_args_spec:
                 if not equal_whatever(TYPE, greenargs1[i], greenargs2[i]):
                     return False
+                i = i + 1
             return True
         comparekey = staticmethod(comparekey)
 
