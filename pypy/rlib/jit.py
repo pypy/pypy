@@ -302,6 +302,7 @@ class ExtSetParam(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
         v_value = hop.inputarg(lltype.Signed, arg=1)
