@@ -264,7 +264,6 @@ class InstanceRepr(AbstractInstanceRepr):
         self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
 
-        methods = {}
         classattributes = {}
         baseInstance = self.lowleveltype._superclass
         classrepr = getclassrepr(self.rtyper, self.classdef)
@@ -275,32 +274,6 @@ class InstanceRepr(AbstractInstanceRepr):
             oovalue = classrepr.get_meta_instance()
             self.attach_class_attr_accessor('getmeta', oovalue)
 
-        for mangled, (name, s_value) in allmethods.iteritems():
-            methdescs = s_value.descriptions
-            origin = dict([(methdesc.originclassdef, methdesc) for
-                           methdesc in methdescs])
-            if self.classdef in origin:
-                methdesc = origin[self.classdef]
-            else:
-                if name in selfattrs:
-                    for superdef in self.classdef.getmro():
-                        if superdef in origin:
-                            # put in methods
-                            methdesc = origin[superdef]
-                            break
-                    else:
-                        # abstract method
-                        methdesc = None
-                else:
-                    continue
-
-            # get method implementation
-            from pypy.rpython.ootypesystem.rpbc import MethodImplementations
-            methimpls = MethodImplementations.get(self.rtyper, s_value)
-            m_impls = methimpls.get_impl(mangled, methdesc,
-                    is_finalizer=name == "__del__")
-            
-            methods.update(m_impls)
                                         
 
         for classdef in self.classdef.getmro():
@@ -326,8 +299,6 @@ class InstanceRepr(AbstractInstanceRepr):
                     if not attrdef.s_value.is_constant():
                         classattributes[mangled] = attrdef.s_value, value
 
-        ootype.addMethods(self.lowleveltype, methods)
-        
         self.allfields = allfields
         self.allmethods = allmethods
         self.allclassattributes = allclassattributes
@@ -342,6 +313,41 @@ class InstanceRepr(AbstractInstanceRepr):
             ootype.addFields(self.lowleveltype, {mangled: (oot, impl)})
 
     def _setup_repr_final(self):
+        if self.classdef is None:
+            return
+
+        # we attach methods here and not in _setup(), because we want
+        # to be sure that all the reprs of the input arguments of all
+        # our methods have been computed at this point
+        methods = {}
+        selfattrs = self.classdef.attrs
+        for mangled, (name, s_value) in self.allmethods.iteritems():
+            methdescs = s_value.descriptions
+            origin = dict([(methdesc.originclassdef, methdesc) for
+                           methdesc in methdescs])
+            if self.classdef in origin:
+                methdesc = origin[self.classdef]
+            else:
+                if name in selfattrs:
+                    for superdef in self.classdef.getmro():
+                        if superdef in origin:
+                            # put in methods
+                            methdesc = origin[superdef]
+                            break
+                    else:
+                        # abstract method
+                        methdesc = None
+                else:
+                    continue
+            # get method implementation
+            from pypy.rpython.ootypesystem.rpbc import MethodImplementations
+            methimpls = MethodImplementations.get(self.rtyper, s_value)
+            m_impls = methimpls.get_impl(mangled, methdesc,
+                    is_finalizer=name == "__del__")
+            methods.update(m_impls)
+        ootype.addMethods(self.lowleveltype, methods)
+        
+        
         # step 3: provide accessor methods for class attributes that
         # are really overridden in subclasses. Must be done here
         # instead of _setup_repr to avoid recursion problems if class

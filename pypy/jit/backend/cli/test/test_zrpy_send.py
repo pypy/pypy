@@ -16,7 +16,6 @@ class TestSend(CliTranslatedJitMixin, test_send.TestOOtype):
     test_three_receivers = skip_loop
     test_three_classes = skip_loop
     test_recursive_call_to_portal_from_blackhole = skip_loop
-    
-    test_indirect_call_unknown_object_1 = skip # cast_to_object of StaticMethods
-    test_three_cases = skip # seems an annotator bug :-/
+    test_indirect_call_unknown_object_1 = skip_loop
+    #test_three_cases = skip_loop
 
