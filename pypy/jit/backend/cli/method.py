@@ -406,7 +406,13 @@ class Method(object):
         self.il.Emit(OpCodes.Stelem, itemtype)
 
     def emit_op_arraylen_gc(self, op):
-        raise NotImplementedError
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        clitype = descr.get_array_clitype()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        self.il.Emit(OpCodes.Ldlen)
+        self.store_result(op)
         
     def not_implemented(self, op):
         raise NotImplementedError

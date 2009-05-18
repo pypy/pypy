@@ -151,7 +151,12 @@ class CliCPU(model.AbstractCPU):
         ibox = args[1]
         valuebox = args[2]
         descr.setarrayitem(arraybox, ibox, valuebox)
-        
+
+    def do_arraylen_gc(self, args, descr):
+        assert isinstance(descr, TypeDescr)
+        assert len(args) == 1
+        arraybox = args[0]
+        return descr.getarraylength(arraybox)
 
 # ----------------------------------------------------------------------
 key_manager = KeyManager()
