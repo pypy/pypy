@@ -11,5 +11,4 @@ class TestSList(CliTranslatedJitMixin, test_slist.TestOOtype):
         py.test.skip('in-progress')
 
 
-    test_lazy_getitem_1 = skip
     test_lazy_getitem_4 = skip

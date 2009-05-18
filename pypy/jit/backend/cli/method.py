@@ -381,14 +381,39 @@ class Method(object):
         op.args[1].load(self)
         self.il.Emit(OpCodes.Stfld, fieldinfo)
 
+    def emit_op_getarrayitem_gc(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        clitype = descr.get_array_clitype()
+        itemtype = descr.get_clitype()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        op.args[1].load(self)
+        self.il.Emit(OpCodes.Ldelem, itemtype)
+        self.store_result(op)
+    
+    emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
+    def emit_op_setarrayitem_gc(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        clitype = descr.get_array_clitype()
+        itemtype = descr.get_clitype()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Castclass, clitype)
+        op.args[1].load(self)
+        op.args[2].load(self)
+        self.il.Emit(OpCodes.Stelem, itemtype)
+
+    def emit_op_arraylen_gc(self, op):
+        raise NotImplementedError
+        
     def not_implemented(self, op):
         raise NotImplementedError
 
     emit_op_guard_exception = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
     emit_op_guard_nonvirtualized = not_implemented
-    emit_op_setarrayitem_gc = not_implemented
     emit_op_unicodelen = not_implemented
     emit_op_setfield_raw = not_implemented
     emit_op_cast_ptr_to_int = not_implemented
@@ -397,11 +422,8 @@ class Method(object):
     emit_op_unicodegetitem = not_implemented
     emit_op_strgetitem = not_implemented
     emit_op_getfield_raw = not_implemented
-    emit_op_getarrayitem_gc_pure = not_implemented
-    emit_op_arraylen_gc = not_implemented
     emit_op_unicodesetitem = not_implemented
     emit_op_getfield_raw_pure = not_implemented
-    emit_op_getarrayitem_gc = not_implemented
     emit_op_strlen = not_implemented
     emit_op_newstr = not_implemented
     emit_op_strsetitem = not_implemented

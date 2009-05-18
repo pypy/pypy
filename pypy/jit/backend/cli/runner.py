@@ -43,6 +43,12 @@ class CliCPU(model.AbstractCPU):
     def typedescrof(self, TYPE):
         return TypeDescr(TYPE)
 
+    @cached_method('_arraycache')
+    def arraydescrof(self, A):
+        assert isinstance(A, ootype.Array)
+        TYPE = A.ITEM
+        return TypeDescr(TYPE)
+
     @cached_method('_fieldcache')
     def fielddescrof(self, T, fieldname):
         return FieldDescr(T, fieldname)
@@ -131,24 +137,62 @@ class CliCPU(model.AbstractCPU):
         argboxes = args[1:]
         return descr.callmeth(selfbox, argboxes)
 
+    def do_getarrayitem_gc(self, args, descr):
+        assert isinstance(descr, TypeDescr)
+        assert len(args) == 2
+        arraybox = args[0]
+        ibox = args[1]
+        return descr.getarrayitem(arraybox, ibox)
+
+    def do_setarrayitem_gc(self, args, descr):
+        assert isinstance(descr, TypeDescr)
+        assert len(args) == 3
+        arraybox = args[0]
+        ibox = args[1]
+        valuebox = args[2]
+        descr.setarrayitem(arraybox, ibox, valuebox)
+        
 
 # ----------------------------------------------------------------------
 key_manager = KeyManager()
+
+def get_class_for_type(T):
+    if T is ootype.Void:
+        return ootype.nullruntimeclass
+    elif T is ootype.Signed:
+        return dotnet.classof(System.Int32)
+    elif T is ootype.Bool:
+        return dotnet.classof(System.Boolean)
+    elif T is ootype.Float:
+        return dotnet.classof(System.Double)
+##     elif T is ootype.String:
+##         return dotnet.classof(System.String)
+    elif T is ootype.Char:
+        return dotnet.classof(System.Char)
+    elif isinstance(T, ootype.OOType):
+        return ootype.runtimeClass(T)
+    else:
+        assert False
 
 
 class TypeDescr(AbstractDescr):
 
     def __init__(self, TYPE):
         from pypy.jit.backend.llgraph.runner import boxresult
+        from pypy.jit.metainterp.warmspot import unwrap
+        ARRAY = ootype.Array(TYPE)
         def create():
-            return boxresult(TYPE, ootype.new(TYPE))
+            if isinstance(TYPE, ootype.OOType):
+                return boxresult(TYPE, ootype.new(TYPE))
+            return None
         def create_array(lengthbox):
             n = lengthbox.getint()
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
         def getarrayitem(arraybox, ibox):
             array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
-            return boxresult(TYPE, array.ll_getitem_fast(i))
+            if TYPE is not ootype.Void:
+                return boxresult(TYPE, array.ll_getitem_fast(i))
         def setarrayitem(arraybox, ibox, valuebox):
             array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
@@ -158,18 +202,24 @@ class TypeDescr(AbstractDescr):
             array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             return boxresult(ootype.Signed, array.ll_length())
         def instanceof(box):
-            obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
-            return history.BoxInt(ootype.instanceof(obj, TYPE))
+            if isinstance(TYPE, ootype.Instance):
+                obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+                return BoxInt(ootype.instanceof(obj, TYPE))
+            return None
         self.create = create
         self.create_array = create_array
         self.getarrayitem = getarrayitem
         self.setarrayitem = setarrayitem
         self.getarraylength = getarraylength
         self.instanceof = instanceof
-        self.ooclass = ootype.runtimeClass(TYPE)
+        self.ooclass = get_class_for_type(TYPE)
+        self.ooarrayclass = get_class_for_type(ARRAY)
 
     def get_clitype(self):
         return dotnet.class2type(self.ooclass)
+
+    def get_array_clitype(self):
+        return dotnet.class2type(self.ooarrayclass)
 
     def get_constructor_info(self):
         clitype = self.get_clitype()
