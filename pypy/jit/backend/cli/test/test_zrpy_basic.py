@@ -19,7 +19,6 @@ class TestBasic(CliTranslatedJitMixin, test_basic.TestOOtype):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_constant_across_mp = skip
     test_stopatxpolicy = skip
     test_print = skip
     test_bridge_from_interpreter = skip
