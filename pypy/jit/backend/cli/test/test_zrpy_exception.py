@@ -17,8 +17,7 @@ class TestException(CliTranslatedJitMixin, test_exception.TestOOtype):
     test_exception_four_cases = skip_loop
     test_bridge_from_interpreter_exc = skip_loop
     test_bridge_from_interpreter_exc_2 = skip_loop
-    
-    test_int_ovf = skip
-    test_int_lshift_ovf = skip
+    test_int_lshift_ovf = skip_loop
+
 
 

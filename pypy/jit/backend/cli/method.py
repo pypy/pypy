@@ -104,6 +104,12 @@ class Method(object):
         t_InputArgs = dotnet.typeof(InputArgs)
         self.av_inputargs = MethodArgument(1,t_InputArgs )
         self.exc_value_field = t_InputArgs.GetField('exc_value')
+        if cpu.rtyper:
+            self.av_OverflowError = ConstObj(ootype.cast_to_object(cpu.ll_ovf_exc))
+            self.av_ZeroDivisionError = ConstObj(ootype.cast_to_object(cpu.ll_zero_exc))
+        else:
+            self.av_OverflowError = None
+            self.av_ZeroDivisionError = None
         # ----
         self.emit_load_inputargs()
         self.emit_preamble()
@@ -253,6 +259,10 @@ class Method(object):
         for exctype in exctypes:
             v = self.il.DeclareLocal(exctype)
             self.il.BeginCatchBlock(exctype)
+            if exctype == dotnet.typeof(System.OverflowException) and self.av_OverflowError:
+                # translate OverflowException into excpetions.OverflowError
+                self.il.Emit(OpCodes.Pop)
+                self.av_OverflowError.load(self)
             self.il.Emit(OpCodes.Stloc, v)
             self.av_inputargs.load(self)
             self.il.Emit(OpCodes.Ldloc, v)

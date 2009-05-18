@@ -25,6 +25,17 @@ class CliCPU(model.AbstractCPU):
         self.stats = stats
         self.translate_support_code = translate_support_code
         self.inputargs = None
+        self.ll_ovf_exc = self._get_prebuilt_exc(OverflowError)
+        self.ll_zero_exc = self._get_prebuilt_exc(ZeroDivisionError)
+
+    def _get_prebuilt_exc(self, cls):
+        if self.rtyper is None:
+            return System.Exception()
+        else:
+            bk = self.rtyper.annotator.bookkeeper
+            clsdef = bk.getuniqueclassdef(cls)
+            return self.rtyper.exceptiondata.get_standard_ll_exc_instance(
+                self.rtyper, clsdef)
 
     def get_inputargs(self):
         if self.inputargs is None:
