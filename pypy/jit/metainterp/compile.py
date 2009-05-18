@@ -6,7 +6,8 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr, BoxObj
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr, BoxObj,\
+     Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode
 from pypy.rlib.debug import debug_print
@@ -277,6 +278,8 @@ class ResumeGuardDescr(AbstractDescr):
             elif cpu.is_oo and isinstance(box, BoxObj):
                 srcvalue = cpu.get_latest_value_obj(i)
                 box.changevalue_obj(srcvalue)
+            elif isinstance(box, Const):
+                pass # we don't need to do anything
             else:
                 assert False
         return patch
@@ -289,6 +292,8 @@ class ResumeGuardDescr(AbstractDescr):
                 dstbox.changevalue_int(srcbox.getint())
             elif isinstance(dstbox, BoxPtr):
                 dstbox.changevalue_ptr(srcbox.getptr_base())
+            elif isinstance(dstbox, Const):
+                pass
             elif metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxObj):
                 dstbox.changevalue_obj(srcbox.getobj())
             else:
