@@ -10,9 +10,6 @@ class TestSend(CliTranslatedJitMixin, test_send.TestOOtype):
     def skip_loop(self):
         py.test.skip('jump across loops not implemented yet')
 
-    def skip(self):
-        py.test.skip('in-progress')
-
     test_three_receivers = skip_loop
     test_three_classes = skip_loop
     test_recursive_call_to_portal_from_blackhole = skip_loop
