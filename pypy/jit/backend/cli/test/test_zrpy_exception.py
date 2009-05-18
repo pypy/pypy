@@ -13,7 +13,8 @@ class TestException(CliTranslatedJitMixin, test_exception.TestOOtype):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_bridge_from_guard_exception = skip
+    test_bridge_from_guard_exception = skip_loop
+    
     test_bridge_from_guard_no_exception = skip
     test_exception_from_outside = skip
     test_exception_from_outside_2 = skip

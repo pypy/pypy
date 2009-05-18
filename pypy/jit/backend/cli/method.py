@@ -256,6 +256,10 @@ class Method(object):
             self.il.Emit(OpCodes.Stfld, self.exc_value_field)
         self.il.EndExceptionBlock()
 
+    def mark(self, msg):
+        self.il.Emit(OpCodes.Ldstr, msg)
+        self.il.Emit(OpCodes.Pop)
+
     # --------------------------------
 
     def emit_op_fail(self, op):
@@ -309,6 +313,18 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.il.Emit(OpCodes.Brtrue, il_label)
 
+    def emit_op_guard_exception(self, op):
+        assert op.suboperations
+        il_label = self.newbranch(op)
+        classbox = op.args[0]
+        assert isinstance(classbox, ConstObj)
+        oocls = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        clitype = dotnet.class2type(oocls)
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
+        self.il.Emit(OpCodes.Isinst, clitype)
+        self.il.Emit(OpCodes.Brfalse, il_label)
+
     def emit_op_jump(self, op):
         target = op.jump_target
         assert target is self.loop, 'TODO'
@@ -331,12 +347,17 @@ class Method(object):
     def emit_op_ooidentityhash(self, op):
         raise NotImplementedError
 
-    def emit_op_call(self, op):
+    def emit_op_call_impl(self, op):
         descr = op.descr
         assert isinstance(descr, runner.StaticMethDescr)
         delegate_type = descr.get_delegate_clitype()
         meth_invoke = descr.get_meth_info()
         self._emit_call(op, delegate_type, meth_invoke, descr.has_result)
+
+    def emit_op_call(self, op):
+        emit_op = Method.emit_op_call_impl.im_func
+        exctypes = [dotnet.typeof(System.Exception)]
+        self.emit_raising_op(op, emit_op, exctypes)
 
     emit_op_call_pure = emit_op_call
 
@@ -417,7 +438,6 @@ class Method(object):
     def not_implemented(self, op):
         raise NotImplementedError
 
-    emit_op_guard_exception = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
     emit_op_guard_nonvirtualized = not_implemented
     emit_op_unicodelen = not_implemented

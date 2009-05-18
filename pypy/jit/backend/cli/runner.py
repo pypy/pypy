@@ -82,12 +82,16 @@ class CliCPU(model.AbstractCPU):
     def get_exception(self):
         exc_value = self.get_inputargs().get_exc_value()
         if exc_value:
-            assert False, 'TODO'
+            exc_obj = dotnet.cast_from_native_object(exc_value)
+            exc_inst = ootype.cast_from_object(ootype.ROOT, exc_obj)
+            cls = ootype.classof(exc_value)
+            return ootype.cast_to_object(cls)
         return ootype.cast_to_object(ootype.nullruntimeclass)
 
     def get_exc_value(self):
-        if self.get_inputargs().get_exc_value():
-            assert False, 'TODO'
+        exc_value = self.get_inputargs().get_exc_value()
+        if exc_value:
+            return dotnet.cast_from_native_object(exc_value)
         else:
             return ootype.NULL
 
@@ -129,7 +133,19 @@ class CliCPU(model.AbstractCPU):
     def do_call(self, args, calldescr):
         assert isinstance(calldescr, StaticMethDescr)
         funcbox, args = args[0], args[1:]
-        return calldescr.callfunc(funcbox, args)
+        self.clear_exception()
+        try:
+            return calldescr.callfunc(funcbox, args)
+        except Exception, e:
+            exc_value = self._cast_instance_to_native_obj(e)
+            self.get_inputargs().set_exc_value(exc_value)
+            return calldescr.get_errbox()
+
+    def _cast_instance_to_native_obj(self, e):
+        from pypy.rpython.annlowlevel import cast_instance_to_base_obj
+        inst = cast_instance_to_base_obj(e)      # SomeOOInstance
+        obj = ootype.cast_to_object(inst)        # SomeOOObject
+        return dotnet.cast_to_native_object(obj) # System.Object
 
     def do_oosend(self, args, descr=None):
         assert isinstance(descr, MethDescr)
@@ -248,6 +264,16 @@ class StaticMethDescr(AbstractDescr):
         self.callfunc = callfunc
         self.funcclass = dotnet.classof(FUNC)
         self.has_result = (FUNC.RESULT != ootype.Void)
+        if RESULT is ootype.Void:
+            def get_errbox():
+                return None
+        elif isinstance(RESULT, ootype.OOType):
+            def get_errbox():
+                return BoxObj()
+        else:
+            def get_errbox():
+                return BoxInt()
+        self.get_errbox = get_errbox
 
     def get_delegate_clitype(self):
         return dotnet.class2type(self.funcclass)
