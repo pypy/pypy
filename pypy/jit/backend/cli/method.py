@@ -87,6 +87,7 @@ class MethodArgument(AbstractValue):
 class Method(object):
 
     operations = [] # overwritten at the end of the module
+    debug = False
 
     def __init__(self, cpu, name, loop):
         self.cpu = cpu
@@ -204,6 +205,8 @@ class Method(object):
 
     def emit_operations(self, operations):
         for op in operations:
+            if self.debug:
+                self.il.EmitWriteLine(op.repr())
             func = self.operations[op.opnum]
             assert func is not None
             func(self, op)
@@ -324,6 +327,10 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.il.Emit(OpCodes.Isinst, clitype)
         self.il.Emit(OpCodes.Brfalse, il_label)
+        # the guard succeeded, store the result
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
+        self.store_result(op)
 
     def emit_op_jump(self, op):
         target = op.jump_target

@@ -15,8 +15,6 @@ class TestException(CliTranslatedJitMixin, test_exception.TestOOtype):
 
     test_bridge_from_guard_exception = skip_loop
     
-    test_bridge_from_guard_no_exception = skip
-    test_exception_from_outside = skip
     test_exception_from_outside_2 = skip
     test_exception_two_cases = skip
     test_exception_two_cases_2 = skip
