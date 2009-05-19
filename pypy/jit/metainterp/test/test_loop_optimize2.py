@@ -1,7 +1,7 @@
 
 from pypy.jit.metainterp.test import test_loop, test_send
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.jit.metainterp.simple_optimize import Optimizer
+from pypy.jit.metainterp.optimize2 import Optimizer
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 class LoopDummyTest(test_loop.LoopTest, test_send.SendTests):

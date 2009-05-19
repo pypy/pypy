@@ -1,4 +1,5 @@
 
+import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 
@@ -7,7 +8,7 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
      ConstInt, BoxInt
 from pypy.jit.backend.llgraph import runner
 
-from pypy.jit.metainterp.simple_optimize import optimize_loop
+from pypy.jit.metainterp.optimize2 import optimize_loop
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 
 node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
@@ -19,6 +20,9 @@ NODE = lltype.GcForwardReference()
 NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                     ('value', lltype.Signed),
                                     ('next', lltype.Ptr(NODE))))
+node = lltype.malloc(NODE)
+nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
+nodedescr = cpu.fielddescrof(NODE, 'value')
 
 def newloop(inputargs, operations):
     loop = TreeLoop("test")
@@ -27,8 +31,6 @@ def newloop(inputargs, operations):
     return loop
 
 def test_remove_guard_class():
-    node = lltype.malloc(NODE)
-    nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     ops = [
         ResOperation(rop.GUARD_CLASS, [nodebox, vtable_box], None),
         ResOperation(rop.GUARD_CLASS, [nodebox, vtable_box], None),
@@ -56,3 +58,21 @@ def test_remove_consecutive_guard_value_constfold():
     equaloplists(loop.operations, [
         ResOperation(rop.GUARD_VALUE, [n, ConstInt(0)], None),
         ])
+
+def test_remove_consecutive_getfields():
+    py.test.skip("in progress")
+    n1 = BoxInt()
+    n2 = BoxInt()
+    n3 = BoxInt()
+    ops = [
+        ResOperation(rop.GETFIELD_GC, [nodebox], n1, nodedescr),
+        ResOperation(rop.GETFIELD_GC, [nodebox], n2, nodedescr),
+        ResOperation(rop.INT_ADD, [n1, n2], n3),
+    ]
+    loop = newloop([nodebox], ops)
+    optimize_loop(None, [], loop)
+    equaloplists(loop.operations, [
+        ResOperation(rop.GETFIELD_GC, [nodebox], n1, nodedescr),
+        ResOperation(rop.INT_ADD, [n1, n1], n3),
+        ])
+    
