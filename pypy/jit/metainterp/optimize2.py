@@ -1,7 +1,7 @@
 
 """ Simplified optimize.py
 """
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import Const, Box
 
 class InstanceNode(object):
@@ -11,7 +11,8 @@ class InstanceNode(object):
             assert isinstance(source, Const)
         self.const = const
         self.cls = None
-        self.field_cache = {}
+        self.cleanfields = {}
+        self.dirtyfields = {}
 
     def __repr__(self):
         flags = ''
@@ -107,6 +108,24 @@ class Specializer(object):
                 self.optimize_guard(op)
                 newoperations.append(op)
                 continue
+            elif op.opnum == rop.GETFIELD_GC:
+                instnode = self.getnode(op.args[0])
+                descr = op.descr
+                node = instnode.cleanfields.get(descr, None)
+                if node is not None:
+                    self.nodes[op.result] = node
+                    continue
+                else:
+                    instnode.cleanfields[descr] = self.getnode(op.result)
+            elif op.opnum == rop.SETFIELD_GC:
+                instnode = self.getnode(op.args[0])
+                descr = op.descr
+                node = self.getnode(op.args[1])
+                instnode.dirtyfields[descr] = node
+                instnode.cleanfields[descr] = node
+                l = self.field_caches.setdefault(descr, [])
+                l.append((instnode, node))
+                continue
             # default handler
             op = op.clone()
             op.args = self.new_arguments(op)
@@ -121,12 +140,23 @@ class Specializer(object):
                     instnode = InstanceNode(box.constbox(), const=True)
                     self.nodes[box] = instnode
                     continue
+            elif not op.has_no_side_effect():
+                self.clean_up_caches(newoperations)
             newoperations.append(op)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
+
+    def clean_up_caches(self, newoperations):
+        for descr, v in self.field_caches.iteritems():
+            for instnode, fieldnode in v:
+                newoperations.append(ResOperation(rop.SETFIELD_GC,
+                    [instnode.source, fieldnode.source], None, descr))
+                del instnode.cleanfields[descr]
+                del instnode.dirtyfields[descr]
     
     def optimize_loop(self, loop):
         self.nodes = {}
+        self.field_caches = {}
         self.loop = loop
         self.find_nodes()
         self.optimize_operations()

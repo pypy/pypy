@@ -60,7 +60,6 @@ def test_remove_consecutive_guard_value_constfold():
         ])
 
 def test_remove_consecutive_getfields():
-    py.test.skip("in progress")
     n1 = BoxInt()
     n2 = BoxInt()
     n3 = BoxInt()
@@ -76,3 +75,21 @@ def test_remove_consecutive_getfields():
         ResOperation(rop.INT_ADD, [n1, n1], n3),
         ])
     
+def test_setfield_getfield_clean_cache():
+    n1 = BoxInt()
+    n2 = BoxInt()
+    n3 = BoxInt()
+    ops = [
+        ResOperation(rop.GETFIELD_GC, [nodebox], n1, nodedescr),
+        ResOperation(rop.SETFIELD_GC, [nodebox, ConstInt(3)], None, nodedescr),
+        ResOperation(rop.GETFIELD_GC, [nodebox], n2, nodedescr),
+        ResOperation(rop.CALL, [n2], None),
+    ]
+    loop = newloop([nodebox], ops)
+    optimize_loop(None, [], loop)
+    equaloplists(loop.operations, [
+        ResOperation(rop.GETFIELD_GC, [nodebox], n1, nodedescr),
+        ResOperation(rop.SETFIELD_GC, [nodebox, ConstInt(3)], None, nodedescr),
+        ResOperation(rop.CALL, [ConstInt(3)], None),
+        ])
+
