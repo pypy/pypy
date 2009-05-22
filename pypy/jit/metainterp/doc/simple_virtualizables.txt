@@ -1,0 +1,24 @@
+Simplified virtualizables
+=========================
+
+As a first step for speeding up code, we plan to implement simplified version
+of virtualizables. Simplified in a sense that it won't support virtuals stored
+on virtualizables.
+
+For those unaware:
+
+* Virtuals are objects which are known not to escape from jit code, hence
+  they're not allocated at all and their fields are stored in registers and or
+  on the stack.
+
+* Virtualizables are objects that are known to escape (for example the frame
+  object), but they're stored anyway on the stack with a way to access and
+  modify from outside the jit code. So the jit knows where they're and have
+  a way to reconstruct them if necessary.
+
+The way to implement virtualizables would be as follows:
+
+* During translation, all field accesses to virtualizables are replace by
+  calls to helpers that read/write fields via the jit.
+
+XXX
