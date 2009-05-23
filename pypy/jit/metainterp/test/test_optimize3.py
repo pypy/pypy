@@ -93,7 +93,6 @@ class BaseTestOptimize3(object):
         assert len(loop.operations) == 1
 
     def test_remove_consecutive_guard_value_constfold(self):
-        py.test.skip('in-progress')
         n = BoxInt(0)
         n1 = BoxInt(1)
         n2 = BoxInt(3)

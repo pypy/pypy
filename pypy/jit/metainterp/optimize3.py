@@ -175,15 +175,15 @@ class OptimizeGuards(AbstractOptimization):
         node.cls = InstanceNode(op.args[1], const=True)
         return self.optimize_guard(spec, op)
 
-##     def guard_value(self, spec, op):
-##         instnode = spec.nodes[op.args[0]]
-##         assert isinstance(op.args[1], Const)
-##         if instnode.const:
-##             return
-##         self.optimize_guard(spec, op)
-##         instnode.const = True
-##         instnode.source = op.args[0].constbox()
-##         return op
+    def guard_value(self, spec, op):
+        instnode = spec.nodes[op.args[0]]
+        assert isinstance(op.args[1], Const)
+        if instnode.const:
+            return
+        self.optimize_guard(spec, op)
+        instnode.const = True
+        instnode.source = op.args[0].constbox()
+        return op
 
 ##     def guard_nonvirtualized(self, spec, op):
 ##         return
