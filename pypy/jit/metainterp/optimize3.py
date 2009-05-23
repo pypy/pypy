@@ -25,6 +25,9 @@ class Specializer(object):
     nodes = None
 
     def __init__(self, optlist):
+        for opt in optlist:
+            assert not isinstance(opt, CloneAndConstFold), 'automatically added'
+        optlist.append(CloneAndConstFold())
         self.optlist = optlist
 
     def getnode(self, box):
@@ -84,8 +87,6 @@ class Specializer(object):
                 if newop is None:
                     break
             if newop is not None:
-                newop = newop.clone()
-                newop.args = self.new_arguments(op)
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
@@ -131,9 +132,16 @@ class AbstractOptimization(object):
         return op
 
 
-class ConstFold(AbstractOptimization):
+class CloneAndConstFold(AbstractOptimization):
+    """
+    Automatically inserted as the last optimization of the list.
+    """
 
     def handle_default_op(self, spec, op):
+        if op.is_guard():
+            return op # TODO
+        op = op.clone()
+        op.args = spec.new_arguments(op)
         if op.is_always_pure():
             for box in op.args:
                 if isinstance(box, Box):
@@ -145,10 +153,6 @@ class ConstFold(AbstractOptimization):
                 instnode = InstanceNode(box.constbox(), const=True)
                 spec.nodes[box] = instnode
                 return
-        elif not op.has_no_side_effect():
-            # XXX
-            pass
-            #spec.clean_up_caches(newoperations)
         return op
 
 
@@ -195,7 +199,6 @@ class OptimizeGuards(AbstractOptimization):
 
 OPTLIST = [
     OptimizeGuards(),
-    ConstFold(),
     ]
 specializer = Specializer(OPTLIST)
 
