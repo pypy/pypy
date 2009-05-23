@@ -83,6 +83,8 @@ class Specializer(object):
                 newop = optimization.handle_op(self, newop)
                 if newop is None:
                     break
+                newop = newop.clone()
+                newop.args = self.new_arguments(op)
             if newop is not None:
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
@@ -132,8 +134,6 @@ class AbstractOptimization(object):
 class ConstFold(AbstractOptimization):
 
     def handle_default_op(self, spec, op):
-        op = op.clone()
-        op.args = spec.new_arguments(op)
         if op.is_always_pure():
             for box in op.args:
                 if isinstance(box, Box):
