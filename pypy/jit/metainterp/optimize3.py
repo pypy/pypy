@@ -83,9 +83,9 @@ class Specializer(object):
                 newop = optimization.handle_op(self, newop)
                 if newop is None:
                     break
+            if newop is not None:
                 newop = newop.clone()
                 newop.args = self.new_arguments(op)
-            if newop is not None:
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
