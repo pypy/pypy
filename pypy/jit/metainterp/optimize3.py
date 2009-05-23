@@ -129,6 +129,29 @@ class AbstractOptimization(object):
         return op
 
 
+class ConstFold(AbstractOptimization):
+
+    def handle_default_op(self, spec, op):
+        op = op.clone()
+        op.args = spec.new_arguments(op)
+        if op.is_always_pure():
+            for box in op.args:
+                if isinstance(box, Box):
+                    break
+            else:
+                # all constant arguments: constant-fold away
+                box = op.result
+                assert box is not None
+                instnode = InstanceNode(box.constbox(), const=True)
+                spec.nodes[box] = instnode
+                return
+        elif not op.has_no_side_effect():
+            # XXX
+            pass
+            #spec.clean_up_caches(newoperations)
+        return op
+
+
 class OptimizeGuards(AbstractOptimization):
 
     def optimize_guard(self, spec, op):
@@ -172,6 +195,7 @@ class OptimizeGuards(AbstractOptimization):
 
 OPTLIST = [
     OptimizeGuards(),
+    ConstFold(),
     ]
 specializer = Specializer(OPTLIST)
 

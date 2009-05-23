@@ -73,6 +73,13 @@ class BaseTestOptimize3(object):
         loop.operations = operations
         return loop
 
+    def test_constfold(self):
+        ops = [
+            ResOperation(rop.INT_ADD, [ConstInt(10), ConstInt(20)], ConstInt(30)),
+            ]
+        loop = self.newloop([], ops)
+        optimize_loop(None, [], loop)
+        assert len(loop.operations) == 0
 
     def test_remove_guard_class(self):
         ops = [
