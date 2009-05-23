@@ -8,8 +8,6 @@ class InstanceNode(object):
             assert isinstance(source, Const)
         self.const = const
         self.cls = None
-        self.cleanfields = {}
-        self.dirtyfields = {}
 
     def __repr__(self):
         flags = ''
@@ -90,14 +88,6 @@ class Specializer(object):
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
-
-    def clean_up_caches(self, newoperations):
-        for descr, v in self.field_caches.iteritems():
-            for instnode, fieldnode in v:
-                newoperations.append(ResOperation(rop.SETFIELD_GC,
-                    [instnode.source, fieldnode.source], None, descr))
-                del instnode.cleanfields[descr]
-                del instnode.dirtyfields[descr]
     
     def optimize_loop(self, loop):
         self.nodes = {}
