@@ -10,9 +10,36 @@ from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize2 import (optimize_loop,
      ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualizableOpt)
-from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
+from pypy.jit.metainterp.test.test_optimize import ANY
 
 from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.metainterp.virtualizable import VirtualizableDesc
+
+def equaloplists(oplist1, oplist2):
+    #saved = Box._extended_display
+    #try:
+    #    Box._extended_display = False
+    print '-'*20, 'Comparing lists', '-'*20
+    for op1, op2 in zip(oplist1, oplist2):
+        txt1 = str(op1)
+        txt2 = str(op2)
+        while txt1 or txt2:
+            print '%-39s| %s' % (txt1[:39], txt2[:39])
+            txt1 = txt1[39:]
+            txt2 = txt2[39:]
+        assert op1.opnum == op2.opnum
+        assert len(op1.args) == len(op2.args)
+        for x, y in zip(op1.args, op2.args):
+            assert x == y or y == x     # for ANY object :-(
+        assert op1.result == op2.result
+        assert op1.descr == op2.descr
+        if op1.suboperations or op2.suboperations:
+            equaloplists(op1.suboperations, op2.suboperations)
+    assert len(oplist1) == len(oplist2)
+    print '-'*57
+    #finally:
+    #    Box._extended_display = saved
+    return True
 
 class LLtypeMixin(object):
 
@@ -29,9 +56,13 @@ class LLtypeMixin(object):
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
-    XY = lltype.GcStruct('XY', ('field', lltype.Signed),
-                         hints= {'virtualizable2': True})
-    field_desc = cpu.fielddescrof(XY, 'field')
+    XY = lltype.GcStruct('XY', ('inst_field', lltype.Signed),
+                         ('inst_other_field', lltype.Signed),
+                         hints= {'virtualizable2': True,
+                                 'virtuals': ('field',)})
+    field_desc = cpu.fielddescrof(XY, 'inst_field')
+    other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
+    vdesc = VirtualizableDesc(cpu, XY, XY)
 
     namespace = locals()
 
@@ -89,10 +120,9 @@ class BaseTestOptimize2(object):
                           expected)
 
     def test_basic_virtualizable(self):
-        py.test.skip("xxx")
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0)
+        guard_nonvirtualized(p0, descr=vdesc)
             fail()
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=field_desc)
@@ -102,6 +132,31 @@ class BaseTestOptimize2(object):
         [p0]
         i1 = getfield_gc(p0, descr=field_desc)
         i3 = int_add(i1, i1)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)
+
+    def test_virtualizable_setfield_rebuild_ops(self):
+        pre_op = """
+        [p0]
+        guard_nonvirtualized(p0, descr=vdesc)
+            fail()
+        i1 = getfield_gc(p0, descr=field_desc)
+        i2 = getfield_gc(p0, descr=other_field_desc)
+        setfield_gc(p0, i2, descr=field_desc)
+        # ^^^ this should be gone
+        i3 = getfield_gc(p0, descr=field_desc)
+        # ^^^ this one as well
+        guard_true(i3)
+            fail()
+        """
+        expected = """
+        [p0]
+        i1 = getfield_gc(p0, descr=field_desc)
+        i2 = getfield_gc(p0, descr=other_field_desc)
+        guard_true(i2)
+            setfield_gc(p0, i2, descr=field_desc)
+            fail()
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)

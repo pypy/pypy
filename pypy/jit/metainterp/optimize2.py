@@ -13,6 +13,7 @@ class InstanceNode(object):
         self.cls = None
         self.cleanfields = {}
         self.dirtyfields = {}
+        self.virtualized = False
 
     def __repr__(self):
         flags = ''
@@ -20,7 +21,7 @@ class InstanceNode(object):
         #if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
         #if self.virtual:           flags += 'v'
-        #if self.virtualized:       flags += 'V'
+        if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
 class Specializer(object):
@@ -62,7 +63,7 @@ class Specializer(object):
                 if is_pure:
                     box = op.result
                     assert box is not None
-                    self.nodes[box] = InstanceNode(box.constbox(), const=True)
+                    self.nodes[box] = self.getnode(box.constbox())
                     continue
             else:
                 if op.is_guard():
@@ -73,7 +74,7 @@ class Specializer(object):
                     self.getnode(box)
             box = op.result
             if box is not None:
-                self.nodes[box] = InstanceNode(box)
+                self.nodes[box] = self.getnode(box)
 
     def new_arguments(self, op):
         newboxes = []
@@ -90,9 +91,15 @@ class Specializer(object):
         op_fail.args = self.new_arguments(op_fail)
         # modification in place. Reason for this is explained in mirror
         # in optimize.py
-        op.suboperations = [op_fail]
+        op.suboperations = []
+        for node, field in self.additional_stores:
+            op.suboperations.append(ResOperation(rop.SETFIELD_GC,
+               [node.source, node.cleanfields[field].source], None, field))
+        op.suboperations.append(op_fail)
+        op.args = self.new_arguments(op)
 
     def optimize_operations(self):
+        self.additional_stores = []
         newoperations = []
         for op in self.loop.operations:
             newop = op
@@ -141,7 +148,36 @@ class ConsecutiveGuardClassRemoval(object):
 
 class SimpleVirtualizableOpt(object):
     def optimize_guard_nonvirtualized(self, op, spec):
-        xxx
+        instnode = spec.getnode(op.args[0])
+        instnode.virtualized = True
+        instnode.vdesc = op.descr
+        return None
+
+    def optimize_getfield_gc(self, op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return op
+        field = op.descr
+        if field not in instnode.vdesc.virtuals:
+            return op
+        node = instnode.cleanfields.get(field, None)
+        if node is not None:
+            spec.nodes[op.result] = node
+            return None
+        instnode.cleanfields[field] = spec.getnode(op.result)
+        return op
+
+    def optimize_setfield_gc(self, op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return op
+        field = op.descr
+        if field not in instnode.vdesc.virtuals:
+            return op
+        instnode.cleanfields[field] = spec.getnode(op.args[1])
+        # we never set it here
+        spec.additional_stores.append((instnode, field))
+        return None
 
 specializer = Specializer([])
 
