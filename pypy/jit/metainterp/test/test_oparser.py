@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.history import AbstractDescr
 
 def test_basic_parse():
     x = """
@@ -30,3 +31,14 @@ def test_const_ptr_subops():
     assert len(loop.operations) == 1
     assert len(loop.operations[0].suboperations) == 1
 
+def test_descr():
+    class Xyz(AbstractDescr):
+        pass
+    
+    x = """
+    [p0]
+    i1 = getfield_gc(p0, descr=stuff)
+    """
+    stuff = Xyz()
+    loop = parse(x, None, locals())
+    assert loop.operations[0].descr is stuff

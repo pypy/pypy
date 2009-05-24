@@ -73,16 +73,21 @@ class OpParser(object):
             return opnum, [], None
         allargs = argspec.split(",")
         args = []
+        descr = None
+        poss_descr = allargs[-1].strip()
+        if poss_descr.startswith('descr='):
+            descr = self.consts[poss_descr[len('descr='):]]
+            allargs = allargs[:-1]
         for arg in allargs:
             arg = arg.strip()
             try:
                 args.append(self.getvar(arg))
             except KeyError:
                 raise ParseError("Unknown var: %s" % arg)
-        return opnum, args, None
+        return opnum, args, descr
 
     def parse_result_op(self, line):
-        res, op = line.split("=")
+        res, op = line.split("=", 1)
         res = res.strip()
         op = op.strip()
         opnum, args, descr = self.parse_op(op)
