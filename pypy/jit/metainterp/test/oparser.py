@@ -8,6 +8,8 @@ from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rpython.lltypesystem import lltype, llmemory
 
+_cache = {}
+
 class ParseError(Exception):
     pass
 
@@ -19,6 +21,10 @@ class OpParser(object):
         self.consts = namespace
 
     def box_for_var(self, elem):
+        try:
+            return _cache[elem]
+        except KeyError:
+            pass
         if elem.startswith('i'):
             # integer
             box = BoxInt()
@@ -27,6 +33,7 @@ class OpParser(object):
             box = BoxPtr()
         else:
             raise ParseError("Unknown variable type: %s" % elem)
+        _cache[elem] = box
         return box
 
     def parse_header_line(self, line):
@@ -134,6 +141,8 @@ class OpParser(object):
     def parse_inpargs(self, line):
         base_indent = line.find('[')
         line = line.strip()
+        if line == '[]':
+            return base_indent, []
         if base_indent == -1 or not line.endswith(']'):
             raise ParseError("Wrong header: %s" % line)
         inpargs = self.parse_header_line(line[1:-1])
