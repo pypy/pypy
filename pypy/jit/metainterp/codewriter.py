@@ -92,6 +92,7 @@ class CodeWriter(object):
         self.cpu = metainterp_sd.cpu
         self.policy = policy
         self.ts = ts
+        self.counter = 0
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
@@ -111,6 +112,9 @@ class CodeWriter(object):
         maker = BytecodeMaker(self, graph_key, portal)
         if not hasattr(maker.bytecode, 'code'):
             maker.assemble()
+            self.counter += 1
+            if not self.counter % 500:
+                log.info("Produced %d jitcodes" % self.counter)
         return maker.bytecode
 
     def get_jitcode(self, graph, called_from=None, oosend_methdescr=None):
