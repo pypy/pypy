@@ -70,13 +70,18 @@ class OpParser(object):
             raise ParseError("invalid line: %s" % line)
         argspec = line[num + 1:endnum]
         if not argspec.strip():
-            return opnum, [], None
+            return opnum, [], None, None
         allargs = argspec.split(",")
         args = []
         descr = None
+        vdesc = None
         poss_descr = allargs[-1].strip()
         if poss_descr.startswith('descr='):
             descr = self.consts[poss_descr[len('descr='):]]
+            allargs = allargs[:-1]        
+        poss_vdesc = allargs[-1].strip()
+        if poss_vdesc.startswith('vdesc='):
+            descr = self.consts[poss_descr[len('vdesc='):]]
             allargs = allargs[:-1]
         for arg in allargs:
             arg = arg.strip()
@@ -84,22 +89,26 @@ class OpParser(object):
                 args.append(self.getvar(arg))
             except KeyError:
                 raise ParseError("Unknown var: %s" % arg)
-        return opnum, args, descr
+        return opnum, args, descr, vdesc
 
     def parse_result_op(self, line):
         res, op = line.split("=", 1)
         res = res.strip()
         op = op.strip()
-        opnum, args, descr = self.parse_op(op)
+        opnum, args, descr, vdesc = self.parse_op(op)
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         rvar = self.box_for_var(res)
         self.vars[res] = rvar
-        return ResOperation(opnum, args, rvar, descr)
+        res = ResOperation(opnum, args, rvar, descr)
+        res.vdesc = vdesc
+        return res
 
     def parse_op_no_result(self, line):
-        opnum, args, descr = self.parse_op(line)
-        return ResOperation(opnum, args, None, descr)
+        opnum, args, descr, vdesc = self.parse_op(line)
+        res = ResOperation(opnum, args, None, descr)
+        res.vdesc = vdesc
+        return res
 
     def parse_next_op(self, line):
         if "=" in line and line.find('(') > line.find('='):
