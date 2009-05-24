@@ -122,7 +122,7 @@ class BaseTestOptimize2(object):
     def test_basic_virtualizable(self):
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0, descr=vdesc)
+        guard_nonvirtualized(p0, vdesc=vdesc)
             fail()
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=field_desc)
@@ -139,7 +139,7 @@ class BaseTestOptimize2(object):
     def test_virtualizable_setfield_rebuild_ops(self):
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0, descr=vdesc)
+        guard_nonvirtualized(p0, vdesc=vdesc)
             fail()
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=other_field_desc)

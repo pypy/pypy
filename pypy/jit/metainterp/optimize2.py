@@ -150,7 +150,7 @@ class SimpleVirtualizableOpt(object):
     def optimize_guard_nonvirtualized(self, op, spec):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
-        instnode.vdesc = op.descr
+        instnode.vdesc = op.vdesc
         return None
 
     def optimize_getfield_gc(self, op, spec):
@@ -179,7 +179,8 @@ class SimpleVirtualizableOpt(object):
         spec.additional_stores.append((instnode, field))
         return None
 
-specializer = Specializer([])
+specializer = Specializer([SimpleVirtualizableOpt(),
+                           ConsecutiveGuardClassRemoval()])
 
 def optimize_loop(options, old_loops, loop, cpu=None, spec=specializer):
     if old_loops:
