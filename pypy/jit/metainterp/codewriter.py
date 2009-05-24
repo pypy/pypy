@@ -293,7 +293,7 @@ class BytecodeMaker(object):
         if self.debug:
             self.bytecode.dump()
         else:
-            print repr(self.bytecode)
+            log.dot()
             dir = udir.ensure("jitcodes", dir=1)
             if self.portal:
                 name = "portal_runner"
