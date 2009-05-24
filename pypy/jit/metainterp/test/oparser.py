@@ -3,16 +3,20 @@
 in a nicer fashion
 """
 
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt
+from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
+     ConstAddr
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 class ParseError(Exception):
     pass
 
 class OpParser(object):
-    def __init__(self, descr):
+    def __init__(self, descr, cpu, namespace):
         self.descr = descr
         self.vars = {}
+        self.cpu = cpu
+        self.consts = namespace
 
     def box_for_var(self, elem):
         if elem.startswith('i'):
@@ -39,6 +43,10 @@ class OpParser(object):
         try:
             return ConstInt(int(arg))
         except ValueError:
+            if arg.startswith('ConstAddr('):
+                name = arg[len('ConstAddr('):-1]
+                return ConstAddr(llmemory.cast_ptr_to_adr(self.consts[name]),
+                                 self.cpu)
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -50,7 +58,7 @@ class OpParser(object):
             opnum = getattr(rop, opname.upper())
         except AttributeError:
             raise ParseError("unknown op: %s" % opname)
-        endnum = line.find(')')
+        endnum = line.rfind(')')
         if endnum == -1:
             raise ParseError("invalid line: %s" % line)
         argspec = line[num + 1:endnum]
@@ -89,22 +97,47 @@ class OpParser(object):
 
     def parse(self):
         lines = self.descr.split("\n")
-        inpargs = None
         ops = []
+        newlines = []
         for line in lines:
-            line = line.strip()
-            if not line or line.startswith("#"):
+            if not line.strip() or line.strip().startswith("#"):
                 continue # a comment
-            if inpargs is None:
-                if not line.startswith('[') or not line.endswith(']'):
-                    raise ParseError("Wrong header: %s" % line)
-                inpargs = self.parse_header_line(line[1:-1])
-            else:
-                ops.append(self.parse_next_op(line))
+            newlines.append(line)
+        base_indent, inpargs = self.parse_inpargs(newlines[0])
+        newlines = newlines[1:]
+        num, ops = self.parse_ops(base_indent, newlines, 0)
+        if num < len(newlines):
+            raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = TreeLoop("loop")
         loop.operations = ops
         loop.inputargs = inpargs
         return loop
 
-def parse(descr):
-    return OpParser(descr).parse()
+    def parse_ops(self, indent, lines, start):
+        num = start
+        ops = []
+        while num < len(lines):
+            line = lines[num]
+            if not line.startswith(" " * indent):
+                # dedent
+                return num, ops
+            elif line.startswith(" "*(indent + 1)):
+                # suboperations
+                new_indent = len(line) - len(line.lstrip())
+                num, suboperations = self.parse_ops(new_indent, lines, num)
+                ops[-1].suboperations = suboperations
+            else:
+                ops.append(self.parse_next_op(lines[num].strip()))
+            num += 1
+        return num, ops
+
+    def parse_inpargs(self, line):
+        base_indent = line.find('[')
+        line = line.strip()
+        if base_indent == -1 or not line.endswith(']'):
+            raise ParseError("Wrong header: %s" % line)
+        inpargs = self.parse_header_line(line[1:-1])
+        return base_indent, inpargs
+
+def parse(descr, cpu=None, namespace={}):
+    return OpParser(descr, cpu, namespace).parse()

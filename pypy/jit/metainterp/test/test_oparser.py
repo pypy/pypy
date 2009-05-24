@@ -1,4 +1,6 @@
 
+from pypy.rpython.lltypesystem import lltype
+
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 
@@ -15,3 +17,16 @@ def test_basic_parse():
     assert [op.opnum for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
                                                     rop.FAIL]
     assert len(loop.inputargs) == 2
+
+def test_const_ptr_subops():
+    x = """
+    [p0]
+    guard_class(p0, ConstAddr(vtable))
+        fail()
+    """
+    S = lltype.Struct('S')
+    vtable = lltype.nullptr(S)
+    loop = parse(x, None, locals())
+    assert len(loop.operations) == 1
+    assert len(loop.operations[0].suboperations) == 1
+
