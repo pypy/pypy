@@ -8,7 +8,8 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
      ConstInt, BoxInt, BoxObj, ConstObj
 from pypy.jit.backend.llgraph import runner
 
-from pypy.jit.metainterp.optimize2 import optimize_loop
+from pypy.jit.metainterp.optimize2 import (optimize_loop,
+     ConsecutiveGuardClassRemoval, Specializer)
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 
 from pypy.jit.metainterp.test.oparser import parse
@@ -28,6 +29,8 @@ class LLtypeMixin(object):
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
+    namespace = locals()
+
 class OOtypeMixin(object):
     cpu = runner.OOtypeCPU(None)
 
@@ -42,18 +45,19 @@ class OOtypeMixin(object):
     nodebox = BoxObj(ootype.cast_to_object(node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
-
+    namespace = locals()
 
 class BaseTestOptimize2(object):
 
-    def optimize(self, lst):
-        loop = parse(lst, self.cpu, self.__dict__)
-        optimize_loop(None, [], loop)
+    def optimize(self, lst, optimizations_enabled=[]):
+        loop = parse(lst, self.cpu, self.namespace)
+        optimize_loop(None, [], loop, self.cpu,
+                      spec=Specializer(optimizations_enabled))
         return loop.operations
 
     def assert_equal(self, optimized, expected):
         equaloplists(optimized,
-                     parse(expected, self.cpu, self.__dict__).operations)
+                     parse(expected, self.cpu, self.namespace).operations)
 
     def test_basic_constant_folding(self):
         pre_op = """
@@ -64,20 +68,21 @@ class BaseTestOptimize2(object):
         self.assert_equal(self.optimize(pre_op), expected)
     
     def test_remove_guard_class(self):
-        py.test.skip("not yet")
         pre_op = """
         [p0]
-        guard_class(p0, Const(vtable))
+        guard_class(p0, ConstAddr(node_vtable))
           fail()
-        guard_class(p0, Const(vtable))
+        guard_class(p0, ConstAddr(node_vtable))
           fail()
         """
         expected = """
         [p0]
-        guard_class(p0, Const(vtable))
+        guard_class(p0, ConstAddr(node_vtable))
           fail()
         """
-        self.equal(self.optimize(pre_op, []), expected)
+        self.assert_equal(self.optimize(pre_op,
+                                        [ConsecutiveGuardClassRemoval()]),
+                          expected)
 
     def test_remove_consecutive_guard_value_constfold(self):
         py.test.skip("not yet")
@@ -139,4 +144,5 @@ class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    pass
+    def setup_class(cls):
+        py.test.skip("XXX Fix me")

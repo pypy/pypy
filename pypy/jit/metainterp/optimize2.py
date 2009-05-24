@@ -31,8 +31,8 @@ class Specializer(object):
         # NOT_RPYTHON
         self.optimizations = [[] for i in range(rop._LAST)]
         for opt in opts:
-            for name, opnum in opname.iteritems():
-                meth = getattr(opt, 'optimize_' + name, None)
+            for opnum, name in opname.iteritems():
+                meth = getattr(opt, 'optimize_' + name.lower(), None)
                 if meth is not None:
                     self.optimizations[opnum].append(meth)
 
@@ -126,6 +126,14 @@ class Specializer(object):
         self.loop = loop
         self.find_nodes()
         self.optimize_operations()
+
+class ConsecutiveGuardClassRemoval(object):
+    def optimize_guard_class(self, op, spec):
+        instnode = spec.getnode(op.args[0])
+        if instnode.cls is not None:
+            return None
+        instnode.cls = op.args[1]
+        return op
 
 specializer = Specializer([])
 
