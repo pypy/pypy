@@ -81,7 +81,7 @@ class OpParser(object):
             allargs = allargs[:-1]        
         poss_vdesc = allargs[-1].strip()
         if poss_vdesc.startswith('vdesc='):
-            descr = self.consts[poss_descr[len('vdesc='):]]
+            vdesc = self.consts[poss_descr[len('vdesc='):]]
             allargs = allargs[:-1]
         for arg in allargs:
             arg = arg.strip()
