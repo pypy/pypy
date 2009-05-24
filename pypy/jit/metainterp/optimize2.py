@@ -1,7 +1,7 @@
 
 """ Simplified optimize.py
 """
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, opname
 from pypy.jit.metainterp.history import Const, Box
 
 class InstanceNode(object):
@@ -26,6 +26,15 @@ class InstanceNode(object):
 class Specializer(object):
     loop = None
     nodes = None
+
+    def __init__(self, opts):
+        # NOT_RPYTHON
+        self.optimizations = [[] for i in range(rop._LAST)]
+        for opt in opts:
+            for name, opnum in opname.iteritems():
+                meth = getattr(opt, 'optimize_' + name, None)
+                if meth is not None:
+                    self.optimizations[opnum].append(meth)
 
     def getnode(self, box):
         try:
@@ -86,6 +95,9 @@ class Specializer(object):
     def optimize_operations(self):
         newoperations = []
         for op in self.loop.operations:
+            for opt in self.optimizations[op.opnum]:
+                if opt(op, self) is None:
+                    continue
             if op.is_guard():
                 self.optimize_guard(op)
                 newoperations.append(op)
@@ -115,18 +127,18 @@ class Specializer(object):
         self.find_nodes()
         self.optimize_operations()
 
-specializer = Specializer()
+specializer = Specializer([])
 
-def optimize_loop(options, old_loops, loop, cpu=None):
+def optimize_loop(options, old_loops, loop, cpu=None, spec=specializer):
     if old_loops:
         assert len(old_loops) == 1
         return old_loops[0]
     else:
-        specializer.optimize_loop(loop)
+        spec.optimize_loop(loop)
         return None
 
-def optimize_bridge(options, old_loops, loop, cpu=None):
-    optimize_loop(options, [], loop, cpu)
+def optimize_bridge(options, old_loops, loop, cpu=None, spec=specializer):
+    optimize_loop(options, [], loop, cpu, spec)
     return old_loops[0]
 
 class Optimizer:

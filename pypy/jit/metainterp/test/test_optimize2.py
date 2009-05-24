@@ -11,6 +11,8 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.optimize2 import optimize_loop
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 
+from pypy.jit.metainterp.test.oparser import parse
+
 class LLtypeMixin(object):
 
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
@@ -44,25 +46,41 @@ class OOtypeMixin(object):
 
 class BaseTestOptimize2(object):
 
-    @staticmethod
-    def newloop(inputargs, operations):
-        loop = TreeLoop("test")
-        loop.inputargs = inputargs
-        loop.operations = operations
-        return loop
-
-    def test_remove_guard_class(self):
-        ops = [
-            ResOperation(rop.GUARD_CLASS, [self.nodebox, self.vtable_box], None),
-            ResOperation(rop.GUARD_CLASS, [self.nodebox, self.vtable_box], None),
-        ]
-        ops[0].suboperations = [ResOperation(rop.FAIL, [], None)]
-        ops[1].suboperations = [ResOperation(rop.FAIL, [], None)]
-        loop = self.newloop([self.nodebox], ops)
+    def optimize(self, lst):
+        loop = parse(lst, self.cpu, self.__dict__)
         optimize_loop(None, [], loop)
-        assert len(loop.operations) == 1
+        return loop.operations
+
+    def assert_equal(self, optimized, expected):
+        equaloplists(optimized,
+                     parse(expected, self.cpu, self.__dict__).operations)
+
+    def test_basic_constant_folding(self):
+        pre_op = """
+        []
+        i1 = int_add(3, 2)
+        """
+        expected = "[]"
+        self.assert_equal(self.optimize(pre_op), expected)
+    
+    def test_remove_guard_class(self):
+        py.test.skip("not yet")
+        pre_op = """
+        [p0]
+        guard_class(p0, Const(vtable))
+          fail()
+        guard_class(p0, Const(vtable))
+          fail()
+        """
+        expected = """
+        [p0]
+        guard_class(p0, Const(vtable))
+          fail()
+        """
+        self.equal(self.optimize(pre_op, []), expected)
 
     def test_remove_consecutive_guard_value_constfold(self):
+        py.test.skip("not yet")
         n = BoxInt(0)
         n1 = BoxInt(1)
         n2 = BoxInt(3)
@@ -81,6 +99,7 @@ class BaseTestOptimize2(object):
             ])
 
     def test_remove_consecutive_getfields(self):
+        py.test.skip("not yet")
         n1 = BoxInt()
         n2 = BoxInt()
         n3 = BoxInt()
@@ -97,6 +116,7 @@ class BaseTestOptimize2(object):
             ])
 
     def test_setfield_getfield_clean_cache(self):
+        py.test.skip("not yet")
         n1 = BoxInt()
         n2 = BoxInt()
         n3 = BoxInt()
