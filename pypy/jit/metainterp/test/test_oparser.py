@@ -42,3 +42,13 @@ def test_descr():
     stuff = Xyz()
     loop = parse(x, None, locals())
     assert loop.operations[0].descr is stuff
+
+def test_after_fail():
+    x = """
+    [i0]
+    guard_value(i0, 3)
+       fail()
+    i1 = int_add(1, 2)
+    """
+    loop = parse(x, None, {})
+    assert len(loop.operations) == 2

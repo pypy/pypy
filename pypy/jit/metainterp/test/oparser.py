@@ -140,7 +140,7 @@ class OpParser(object):
                 ops[-1].suboperations = suboperations
             else:
                 ops.append(self.parse_next_op(lines[num].strip()))
-            num += 1
+                num += 1
         return num, ops
 
     def parse_inpargs(self, line):
