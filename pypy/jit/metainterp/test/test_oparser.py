@@ -52,3 +52,15 @@ def test_after_fail():
     """
     loop = parse(x, None, {})
     assert len(loop.operations) == 2
+
+def test_descr_setfield():
+    class Xyz(AbstractDescr):
+        pass
+    
+    x = """
+    [p0]
+    setfield_gc(p0, 3, descr=stuff)
+    """
+    stuff = Xyz()
+    loop = parse(x, None, locals())
+    assert loop.operations[0].descr is stuff

@@ -102,7 +102,7 @@ class OpParser(object):
         return ResOperation(opnum, args, None, descr)
 
     def parse_next_op(self, line):
-        if "=" in line:
+        if "=" in line and line.find('(') > line.find('='):
             return self.parse_result_op(line)
         else:
             return self.parse_op_no_result(line)
