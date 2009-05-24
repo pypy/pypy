@@ -9,7 +9,7 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize2 import (optimize_loop,
-     ConsecutiveGuardClassRemoval, Specializer)
+     ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualizableOpt)
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 
 from pypy.jit.metainterp.test.oparser import parse
@@ -28,6 +28,10 @@ class LLtypeMixin(object):
     node = lltype.malloc(NODE)
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
+
+    XY = lltype.GcStruct('XY', ('field', lltype.Signed),
+                         hints= {'virtualizable2': True})
+    field_desc = cpu.fielddescrof(XY, 'field')
 
     namespace = locals()
 
@@ -83,6 +87,25 @@ class BaseTestOptimize2(object):
         self.assert_equal(self.optimize(pre_op,
                                         [ConsecutiveGuardClassRemoval()]),
                           expected)
+
+    def test_basic_virtualizable(self):
+        py.test.skip("xxx")
+        pre_op = """
+        [p0]
+        guard_nonvirtualized(p0)
+            fail()
+        i1 = getfield_gc(p0, descr=field_desc)
+        i2 = getfield_gc(p0, descr=field_desc)
+        i3 = int_add(i1, i2)
+        """
+        expected = """
+        [p0]
+        i1 = getfield_gc(p0, descr=field_desc)
+        i3 = int_add(i1, i1)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)
+        
 
     def test_remove_consecutive_guard_value_constfold(self):
         py.test.skip("not yet")

@@ -95,9 +95,13 @@ class Specializer(object):
     def optimize_operations(self):
         newoperations = []
         for op in self.loop.operations:
+            newop = op
             for opt in self.optimizations[op.opnum]:
-                if opt(op, self) is None:
-                    continue
+                newop = opt(op, self)
+                if newop is None:
+                    break
+            if newop is None:
+                continue
             if op.is_guard():
                 self.optimize_guard(op)
                 newoperations.append(op)
@@ -134,6 +138,10 @@ class ConsecutiveGuardClassRemoval(object):
             return None
         instnode.cls = op.args[1]
         return op
+
+class SimpleVirtualizableOpt(object):
+    def optimize_guard_nonvirtualized(self, op, spec):
+        xxx
 
 specializer = Specializer([])
 
