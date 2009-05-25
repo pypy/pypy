@@ -17,7 +17,7 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.pyopcode import ExitFrame
 
 PyFrame._virtualizable2_ = True
-PyFrame._always_virtual_ = ['valuestack_w', 'fastlocals_w']
+PyFrame._always_virtual_ = ['valuestack_w', 'valuestackdepth']
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -70,7 +70,7 @@ class __extend__(PyFrame):
 
 # ____________________________________________________________
 #
-# Public interface
+# Public interface    
 
 def set_param(space, args):
     '''Configure the tunable JIT parameters.
