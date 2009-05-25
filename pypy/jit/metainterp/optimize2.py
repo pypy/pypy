@@ -131,7 +131,7 @@ class Specializer(object):
             # default handler
             op = op.clone()
             op.args = self.new_arguments(op)
-            if op.is_always_pure() or op.is_guard():
+            if op.is_always_pure():
                 for box in op.args:
                     if isinstance(box, Box):
                         break
