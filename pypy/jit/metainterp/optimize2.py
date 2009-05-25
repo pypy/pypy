@@ -153,25 +153,25 @@ class Specializer(object):
         self.find_nodes()
         self.optimize_operations()
 
-class AbstractOptimization(object):
-    pass
-
-class ConsecutiveGuardClassRemoval(AbstractOptimization):
-    def optimize_guard_class(self, op, spec):
+class ConsecutiveGuardClassRemoval(object):
+    @staticmethod
+    def optimize_guard_class(op, spec):
         instnode = spec.getnode(op.args[0])
         if instnode.cls is not None:
             return None
         instnode.cls = op.args[1]
         return op
 
-class SimpleVirtualizableOpt(AbstractOptimization):
-    def optimize_guard_nonvirtualized(self, op, spec):
+class SimpleVirtualizableOpt(object):
+    @staticmethod
+    def optimize_guard_nonvirtualized(op, spec):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
         instnode.vdesc = op.vdesc
         return None
 
-    def optimize_getfield_gc(self, op, spec):
+    @staticmethod
+    def optimize_getfield_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.virtualized:
             return op
@@ -187,7 +187,8 @@ class SimpleVirtualizableOpt(AbstractOptimization):
         instnode.cleanfields[field] = node
         return op
 
-    def optimize_setfield_gc(self, op, spec):
+    @staticmethod
+    def optimize_setfield_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.virtualized:
             return op
@@ -200,7 +201,8 @@ class SimpleVirtualizableOpt(AbstractOptimization):
         spec.additional_stores[instnode, field] = node
         return None
 
-    def optimize_getarrayitem_gc(self, op, spec):
+    @staticmethod
+    def optimize_getarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.possibly_virtualized_list:
             return op
@@ -214,9 +216,9 @@ class SimpleVirtualizableOpt(AbstractOptimization):
         node = spec.getnode(op.result)
         instnode.cleanfields[field] = node
         return op
-        
 
-    def optimize_setarrayitem_gc(self, op, spec):
+    @staticmethod
+    def optimize_setarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.possibly_virtualized_list:
             return op
