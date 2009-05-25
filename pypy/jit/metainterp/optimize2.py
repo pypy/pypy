@@ -101,12 +101,15 @@ class Specializer(object):
         # modification in place. Reason for this is explained in mirror
         # in optimize.py
         op.suboperations = []
-        for (node, field), fieldnode in self.additional_stores.iteritems():
-            op.suboperations.append(ResOperation(rop.SETFIELD_GC,
-               [node.source, node.cleanfields[field].source], None, field))
-        for (node, field), (fieldnode, descr) in self.additional_setarrayitems.iteritems():
-            op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
-            [node.source, field, node.cleanfields[field].source], None, descr))
+        for node, d in self.additional_stores.iteritems():
+            for field, fieldnode in d.iteritems():
+                op.suboperations.append(ResOperation(rop.SETFIELD_GC,
+                    [node.source, fieldnode.source], None, field))
+        for node, d in self.additional_setarrayitems.iteritems():
+            for field, (fieldnode, descr) in d.iteritems():
+                box = fieldnode.source
+                op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
+                                 [node.source, field, box], None, descr))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
         return op
@@ -198,7 +201,8 @@ class SimpleVirtualizableOpt(object):
         node = spec.getnode(op.args[1])
         instnode.cleanfields[field] = node
         # we never set it here
-        spec.additional_stores[instnode, field] = node
+        d = spec.additional_stores.setdefault(instnode, {})
+        d[field] = node
         return None
 
     @staticmethod
@@ -222,13 +226,14 @@ class SimpleVirtualizableOpt(object):
         instnode = spec.getnode(op.args[0])
         if not instnode.possibly_virtualized_list:
             return op
-        fieldnode = spec.getnode(op.args[1])
-        if not fieldnode.const:
+        argnode = spec.getnode(op.args[1])
+        if not argnode.const:
             raise VirtualizedListAccessedWithVariableArg()
-        node = spec.getnode(op.args[2])
-        field = fieldnode.source
-        instnode.cleanfields[field] = node
-        spec.additional_setarrayitems[instnode, field] = (node, op.descr)
+        fieldnode = spec.getnode(op.args[2])
+        field = argnode.source
+        instnode.cleanfields[field] = fieldnode
+        d = spec.additional_setarrayitems.setdefault(instnode, {})
+        d[field] = (fieldnode, op.descr)
         return None
 
 specializer = Specializer([SimpleVirtualizableOpt(),
