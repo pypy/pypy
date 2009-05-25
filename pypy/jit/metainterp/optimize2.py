@@ -153,7 +153,10 @@ class Specializer(object):
         self.find_nodes()
         self.optimize_operations()
 
-class ConsecutiveGuardClassRemoval(object):
+class AbstractOptimization(object):
+    pass
+
+class ConsecutiveGuardClassRemoval(AbstractOptimization):
     def optimize_guard_class(self, op, spec):
         instnode = spec.getnode(op.args[0])
         if instnode.cls is not None:
@@ -161,7 +164,7 @@ class ConsecutiveGuardClassRemoval(object):
         instnode.cls = op.args[1]
         return op
 
-class SimpleVirtualizableOpt(object):
+class SimpleVirtualizableOpt(AbstractOptimization):
     def optimize_guard_nonvirtualized(self, op, spec):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
