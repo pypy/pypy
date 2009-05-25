@@ -188,7 +188,11 @@ class Assembler386(object):
             if op.is_guard():
                 self.eventually_log_operations(None, op.suboperations, memo)
         if operations[-1].opnum == rop.JUMP:
-            jump_target = compute_unique_id(operations[-1].jump_target)
+            if operations[-1].jump_target is not None:
+                jump_target = compute_unique_id(operations[-1].jump_target)
+            else:
+                # XXX hack for the annotator
+                jump_target = 13
             os.write(self._log_fd, 'JUMPTO:%s\n' % jump_target)
         if inputargs is None:
             os.write(self._log_fd, "END\n")
