@@ -4,6 +4,9 @@
 from pypy.jit.metainterp.resoperation import rop, ResOperation, opname
 from pypy.jit.metainterp.history import Const, Box
 
+class VirtualizedListAccessedWithVariableArg(Exception):
+    pass
+
 class InstanceNode(object):
     def __init__(self, source, const=False):
         self.source = source
@@ -14,6 +17,7 @@ class InstanceNode(object):
         self.cleanfields = {}
         self.dirtyfields = {}
         self.virtualized = False
+        self.possibly_virtualized_list = False
 
     def __repr__(self):
         flags = ''
@@ -86,6 +90,11 @@ class Specializer(object):
         return newboxes
 
     def optimize_guard(self, op):
+        for arg in op.args:
+            if not self.getnode(arg).const:
+                break
+        else:
+            return None
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
         op_fail.args = self.new_arguments(op_fail)
@@ -95,11 +104,16 @@ class Specializer(object):
         for (node, field), fieldnode in self.additional_stores.iteritems():
             op.suboperations.append(ResOperation(rop.SETFIELD_GC,
                [node.source, node.cleanfields[field].source], None, field))
+        for (node, field), (fieldnode, descr) in self.additional_setarrayitems.iteritems():
+            op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
+            [node.source, field, node.cleanfields[field].source], None, descr))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
+        return op
 
     def optimize_operations(self):
         self.additional_stores = {}
+        self.additional_setarrayitems = {}
         newoperations = []
         for op in self.loop.operations:
             newop = op
@@ -110,13 +124,14 @@ class Specializer(object):
             if newop is None:
                 continue
             if op.is_guard():
-                self.optimize_guard(op)
-                newoperations.append(op)
+                op = self.optimize_guard(op)
+                if op is not None:
+                    newoperations.append(op)
                 continue
             # default handler
             op = op.clone()
             op.args = self.new_arguments(op)
-            if op.is_always_pure():
+            if op.is_always_pure() or op.is_guard():
                 for box in op.args:
                     if isinstance(box, Box):
                         break
@@ -164,7 +179,9 @@ class SimpleVirtualizableOpt(object):
         if node is not None:
             spec.nodes[op.result] = node
             return None
-        instnode.cleanfields[field] = spec.getnode(op.result)
+        node = spec.getnode(op.result)
+        node.possibly_virtualized_list = True
+        instnode.cleanfields[field] = node
         return op
 
     def optimize_setfield_gc(self, op, spec):
@@ -178,6 +195,35 @@ class SimpleVirtualizableOpt(object):
         instnode.cleanfields[field] = node
         # we never set it here
         spec.additional_stores[instnode, field] = node
+        return None
+
+    def optimize_getarrayitem_gc(self, op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.possibly_virtualized_list:
+            return op
+        if not spec.getnode(op.args[1]).const:
+            raise VirtualizedListAccessedWithVariableArg()
+        field = spec.getnode(op.args[1]).source
+        node = instnode.cleanfields.get(field, None)
+        if node is not None:
+            spec.nodes[op.result] = node
+            return None
+        node = spec.getnode(op.result)
+        instnode.cleanfields[field] = node
+        return op
+        
+
+    def optimize_setarrayitem_gc(self, op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.possibly_virtualized_list:
+            return op
+        fieldnode = spec.getnode(op.args[1])
+        if not fieldnode.const:
+            raise VirtualizedListAccessedWithVariableArg()
+        node = spec.getnode(op.args[2])
+        field = fieldnode.source
+        instnode.cleanfields[field] = node
+        spec.additional_setarrayitems[instnode, field] = (node, op.descr)
         return None
 
 specializer = Specializer([SimpleVirtualizableOpt(),
@@ -198,5 +244,6 @@ def optimize_bridge(options, old_loops, loop, cpu=None, spec=specializer):
 class Optimizer:
     optimize_loop = staticmethod(optimize_loop)
     optimize_bridge = staticmethod(optimize_bridge)
+
 
 

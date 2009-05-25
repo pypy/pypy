@@ -56,11 +56,16 @@ class LLtypeMixin(object):
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
+    TP = lltype.GcArray(lltype.Signed)
+
     XY = lltype.GcStruct('XY', ('inst_field', lltype.Signed),
                          ('inst_other_field', lltype.Signed),
+                         ('inst_list', lltype.Ptr(TP)),
                          hints= {'virtualizable2': True,
-                                 'virtuals': ('field',)})
+                                 'virtuals': ('field','list')})
     field_desc = cpu.fielddescrof(XY, 'inst_field')
+    array_descr = cpu.arraydescrof(TP)
+    list_desc = cpu.fielddescrof(XY, 'inst_list')
     other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
     vdesc = VirtualizableDesc(cpu, XY, XY)
 
@@ -85,7 +90,10 @@ class OOtypeMixin(object):
 class BaseTestOptimize2(object):
 
     def optimize(self, lst, optimizations_enabled=[]):
-        loop = parse(lst, self.cpu, self.namespace)
+        if not isinstance(lst, TreeLoop):
+            loop = parse(lst, self.cpu, self.namespace)
+        else:
+            loop = lst
         optimize_loop(None, [], loop, self.cpu,
                       spec=Specializer(optimizations_enabled))
         return loop.operations
@@ -160,7 +168,67 @@ class BaseTestOptimize2(object):
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
-        
+
+    def test_const_guard_value(self):
+        pre_op = """
+        []
+        guard_value(0, 0)
+            fail()
+        """
+        expected = "[]"
+        self.assert_equal(self.optimize(pre_op, []), expected)
+
+    def test_virtualized_list_on_virtualizable(self):
+        pre_op = """
+        [p0]
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p1 = getfield_gc(p0, descr=list_desc)
+        setarrayitem_gc(p1, 0, 1, descr=array_descr)
+        i1 = getarrayitem_gc(p1, 0)
+        i2 = int_add(i1, i1)
+        i3 = int_is_true(i2)
+        guard_true(i3)
+            fail()
+        """
+        pre_op = parse(pre_op, self.cpu, self.namespace)
+        # cheat
+        pre_op.operations[-2].result.value = 1
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=list_desc)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)        
+
+
+    def test_virtualized_list_on_virtualizable_2(self):
+        pre_op = """
+        [p0, i0]
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p1 = getfield_gc(p0, descr=list_desc)
+        setarrayitem_gc(p1, 0, i0, descr=array_descr)
+        i1 = getarrayitem_gc(p1, 0)
+        i2 = int_add(i1, i1)
+        i3 = int_is_true(i2)
+        guard_true(i3)
+            fail()
+        """
+        pre_op = parse(pre_op, self.cpu, self.namespace)
+        # cheat
+        pre_op.operations[-2].result.value = 1
+        expected = """
+        [p0, i0]
+        p1 = getfield_gc(p0, descr=list_desc)
+        i2 = int_add(i0, i0)
+        i3 = int_is_true(i2)
+        guard_true(i3)
+            setarrayitem_gc(p1, 0, i0, descr=array_descr)
+            fail()
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)        
 
     def test_remove_consecutive_guard_value_constfold(self):
         py.test.skip("not yet")
