@@ -92,14 +92,14 @@ class Specializer(object):
         # modification in place. Reason for this is explained in mirror
         # in optimize.py
         op.suboperations = []
-        for node, field in self.additional_stores:
+        for (node, field), fieldnode in self.additional_stores.iteritems():
             op.suboperations.append(ResOperation(rop.SETFIELD_GC,
                [node.source, node.cleanfields[field].source], None, field))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
 
     def optimize_operations(self):
-        self.additional_stores = []
+        self.additional_stores = {}
         newoperations = []
         for op in self.loop.operations:
             newop = op
@@ -174,9 +174,10 @@ class SimpleVirtualizableOpt(object):
         field = op.descr
         if field not in instnode.vdesc.virtuals:
             return op
-        instnode.cleanfields[field] = spec.getnode(op.args[1])
+        node = spec.getnode(op.args[1])
+        instnode.cleanfields[field] = node
         # we never set it here
-        spec.additional_stores.append((instnode, field))
+        spec.additional_stores[instnode, field] = node
         return None
 
 specializer = Specializer([SimpleVirtualizableOpt(),
