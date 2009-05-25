@@ -4,9 +4,10 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
-     ConstAddr
+     ConstAddr, ConstObj
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 
 _cache = {}
 
@@ -14,11 +15,12 @@ class ParseError(Exception):
     pass
 
 class OpParser(object):
-    def __init__(self, descr, cpu, namespace):
+    def __init__(self, descr, cpu, namespace, type_system):
         self.descr = descr
         self.vars = {}
         self.cpu = cpu
         self.consts = namespace
+        self.type_system = type_system
 
     def box_for_var(self, elem):
         try:
@@ -50,10 +52,13 @@ class OpParser(object):
         try:
             return ConstInt(int(arg))
         except ValueError:
-            if arg.startswith('ConstAddr('):
-                name = arg[len('ConstAddr('):-1]
-                return ConstAddr(llmemory.cast_ptr_to_adr(self.consts[name]),
-                                 self.cpu)
+            if arg.startswith('ConstClass('):
+                name = arg[len('ConstClass('):-1]
+                if self.type_system == 'lltype':
+                    return ConstAddr(llmemory.cast_ptr_to_adr(self.consts[name]),
+                                     self.cpu)
+                else:
+                    return ConstObj(ootype.cast_to_object(self.consts[name]))
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -162,5 +167,5 @@ class OpParser(object):
         inpargs = self.parse_header_line(line[1:-1])
         return base_indent, inpargs
 
-def parse(descr, cpu=None, namespace={}):
-    return OpParser(descr, cpu, namespace).parse()
+def parse(descr, cpu=None, namespace={}, type_system='lltype'):
+    return OpParser(descr, cpu, namespace, type_system).parse()

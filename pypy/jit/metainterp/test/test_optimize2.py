@@ -42,6 +42,7 @@ def equaloplists(oplist1, oplist2):
     return True
 
 class LLtypeMixin(object):
+    type_system = 'lltype'
 
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
@@ -72,6 +73,8 @@ class LLtypeMixin(object):
     namespace = locals()
 
 class OOtypeMixin(object):
+    type_system = 'ootype'
+    
     cpu = runner.OOtypeCPU(None)
 
     NODE = ootype.Instance('NODE', ootype.ROOT, {})
@@ -85,13 +88,32 @@ class OOtypeMixin(object):
     nodebox = BoxObj(ootype.cast_to_object(node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
+    TP = ootype.Array(ootype.Signed)
+
+    XY = ootype.Instance('XY', ootype.ROOT,
+                         {'inst_field': ootype.Signed,
+                          'inst_other_field': ootype.Signed,
+                          'inst_list': TP},
+                         _hints = {'virtualizable2': True,
+                                 'virtuals': ('field','list')})
+    
+    field_desc = cpu.fielddescrof(XY, 'inst_field')
+    array_descr = cpu.arraydescrof(TP)
+    list_desc = cpu.fielddescrof(XY, 'inst_list')
+    other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
+    vdesc = VirtualizableDesc(cpu, XY, XY)
+
     namespace = locals()
 
 class BaseTestOptimize2(object):
 
+    def parse(self, s):
+        return parse(s, self.cpu, self.namespace,
+                     type_system=self.type_system)
+
     def optimize(self, lst, optimizations_enabled=[]):
         if not isinstance(lst, TreeLoop):
-            loop = parse(lst, self.cpu, self.namespace)
+            loop = self.parse(lst)
         else:
             loop = lst
         optimize_loop(None, [], loop, self.cpu,
@@ -99,8 +121,7 @@ class BaseTestOptimize2(object):
         return loop.operations
 
     def assert_equal(self, optimized, expected):
-        equaloplists(optimized,
-                     parse(expected, self.cpu, self.namespace).operations)
+        equaloplists(optimized, self.parse(expected).operations)
 
     def test_basic_constant_folding(self):
         pre_op = """
@@ -113,14 +134,14 @@ class BaseTestOptimize2(object):
     def test_remove_guard_class(self):
         pre_op = """
         [p0]
-        guard_class(p0, ConstAddr(node_vtable))
+        guard_class(p0, ConstClass(node_vtable))
           fail()
-        guard_class(p0, ConstAddr(node_vtable))
+        guard_class(p0, ConstClass(node_vtable))
           fail()
         """
         expected = """
         [p0]
-        guard_class(p0, ConstAddr(node_vtable))
+        guard_class(p0, ConstClass(node_vtable))
           fail()
         """
         self.assert_equal(self.optimize(pre_op,
@@ -290,5 +311,11 @@ class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    def setup_class(cls):
-        py.test.skip("XXX Fix me")
+
+    def skip(self):
+        py.test.skip('in-progress')
+        
+    test_basic_virtualizable = skip
+    test_virtualizable_setfield_rebuild_ops = skip
+    test_virtualized_list_on_virtualizable = skip
+    test_virtualized_list_on_virtualizable_2 = skip

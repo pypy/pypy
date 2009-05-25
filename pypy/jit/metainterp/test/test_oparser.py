@@ -22,7 +22,7 @@ def test_basic_parse():
 def test_const_ptr_subops():
     x = """
     [p0]
-    guard_class(p0, ConstAddr(vtable))
+    guard_class(p0, ConstClass(vtable))
         fail()
     """
     S = lltype.Struct('S')
