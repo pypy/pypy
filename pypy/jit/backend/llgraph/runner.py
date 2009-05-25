@@ -593,6 +593,9 @@ class MethDescr(history.AbstractMethDescr):
                 return boxresult(RESULT, res)
         self.callmeth = callmeth
 
+    def __repr__(self):
+        return '<MethDescr %r>' % self.methname
+
 class TypeDescr(OODescr):
 
     create = None
@@ -633,6 +636,9 @@ class TypeDescr(OODescr):
         self.getarraylength = getarraylength
         self.instanceof = instanceof
 
+    def __repr__(self):
+        return '<TypeDescr %s>' % self.TYPE._short_name()
+
 class FieldDescr(OODescr):
 
     getfield = None
@@ -661,6 +667,9 @@ class FieldDescr(OODescr):
     def equals(self, other):
         return self.TYPE == other.TYPE and \
             self.fieldname == other.fieldname
+
+    def __repr__(self):
+        return '<FieldDescr %r>' % self.fieldname
 
 
 # ____________________________________________________________
