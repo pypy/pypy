@@ -66,7 +66,7 @@ def _compile_new_bridge_1(metainterp, old_loops, resumekey):
 
 def show_loop(metainterp, loop=None, error=None):
     # debugging
-    if option.view:
+    if option.view or option.viewloops:
         if error:
             errmsg = error.__class__.__name__
             if str(error):
