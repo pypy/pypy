@@ -42,13 +42,18 @@ class ResOperation(object):
         return self.repr()
 
     def repr(self):
+        from pypy.rlib.objectmodel import we_are_translated
         # RPython-friendly version
         if self.result is not None:
             sres = '%s = ' % (self.result,)
         else:
             sres = ''
-        return '%s%s(%s)' % (sres, self.getopname(),
-                             ', '.join([str(a) for a in self.args]))
+        if self.descr is None or we_are_translated():
+            return '%s%s(%s)' % (sres, self.getopname(),
+                                 ', '.join([str(a) for a in self.args]))
+        else:
+            return '%s%s(%s, descr=%r)' % (sres, self.getopname(),
+                            ', '.join([str(a) for a in self.args]), self.descr)
 
     def getopname(self):
         try:
