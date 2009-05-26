@@ -80,6 +80,7 @@ misc_ops = {
     'keepalive':                Ignore,
     'is_early_constant':        [PushPrimitive(ootype.Bool, False)],
     'jit_marker':               Ignore,
+    'promote_virtualizable':    Ignore,
     }
 
 # __________ numeric operations __________

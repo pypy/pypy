@@ -64,5 +64,8 @@ class BaseTestClass(test_rclass.TestOOtype):
             return a.x + b.x
         assert self.interpret(fn, [1, 2]) == 3
 
+    def test_cast_object_mix_null(self):
+        py.test.skip('cannot return ootype.NULL from translated functions')
+
 class BaseTestSpecialcase(BaseTestRspecialcase):
     pass

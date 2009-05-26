@@ -104,3 +104,9 @@ class CliCompiledMixin(BaseCompiledMixin):
         from pypy.translator.cli.test.runtest import compile_graph
         func = compile_graph(entry_point_graph, t, nowrap=True, standalone=True)
         return func(*args)
+
+    def run_directly(self, fn, args):
+        from pypy.translator.cli.test.runtest import compile_function, get_annotation
+        ann = [get_annotation(x) for x in args]
+        clifunc = compile_function(fn, ann)
+        return clifunc(*args)

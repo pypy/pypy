@@ -116,10 +116,11 @@ class MethodImplementations(object):
 
 class MethodsPBCRepr(AbstractMethodsPBCRepr):
 
-    def __init__(self, rtyper, s_pbc):
-        AbstractMethodsPBCRepr.__init__(self, rtyper, s_pbc)
-        sampledesc = s_pbc.descriptions.iterkeys().next()
-        self.concretetable, _ = get_concrete_calltable(rtyper,
+    concretetable = None # set by _setup_repr_final
+
+    def _setup_repr_final(self):
+        sampledesc = self.s_pbc.descriptions.iterkeys().next()
+        self.concretetable, _ = get_concrete_calltable(self.rtyper,
                                              sampledesc.funcdesc.getcallfamily())
 
     def rtype_simple_call(self, hop):

@@ -30,7 +30,7 @@ translation_optiondescription = OptionDescription(
                                 ("translation.backendopt.heap2stack", False),
                                 ("translation.backendopt.clever_malloc_removal", False),
                                 ("translation.list_comprehension_operations", False),
-                                ("translation.gc", "generation"), # it's not really used, but some jit code expects a value here
+                                ("translation.gc", "boehm"), # it's not really used, but some jit code expects a value here
                                 ]
                      }),
     ChoiceOption("backend", "Backend to use for code generation",

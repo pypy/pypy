@@ -617,3 +617,11 @@ class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  LLJitMixin):
     pass
+
+
+class TestOptimize2(ImplicitVirtualizableTests, LLJitMixin):
+
+    def meta_interp(self, *args, **kwds):
+        from pypy.jit.metainterp.optimize2 import Optimizer
+        kwds['optimizer'] = Optimizer
+        return LLJitMixin.meta_interp(self, *args, **kwds)

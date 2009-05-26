@@ -14,6 +14,7 @@ from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 System = CLR.System
 OpCodes = System.Reflection.Emit.OpCodes
 LoopDelegate = CLR.pypy.runtime.LoopDelegate
+DelegateHolder = CLR.pypy.runtime.DelegateHolder
 InputArgs = CLR.pypy.runtime.InputArgs
 
 cVoid = ootype.nullruntimeclass
@@ -51,11 +52,39 @@ class __extend__(Const):
     def store(self, meth):
         assert False, 'cannot store() to Constant'
 
+    def get_cliobj(self):
+        return dotnet.cast_to_native_object(self.getobj())
+
 class __extend__(ConstInt):
     __metaclass__ = extendabletype
 
     def load(self, meth):
         meth.il.Emit(OpCodes.Ldc_I4, self.value)
+
+
+class ConstFunction(Const):
+
+    def __init__(self, name):
+        self.name = name
+        self.holder = DelegateHolder()
+
+    def get_cliobj(self):
+        return dotnet.cliupcast(self.holder, System.Object)
+
+    def load(self, meth):
+        holdertype = self.holder.GetType()
+        funcfield = holdertype.GetField('func')
+        Const.load(self, meth)
+        meth.il.Emit(OpCodes.Castclass, holdertype)
+        meth.il.Emit(OpCodes.Ldfld, funcfield)
+        meth.il.Emit(OpCodes.Castclass, dotnet.typeof(LoopDelegate))
+
+    def _getrepr_(self):
+        return '<ConstFunction %s>' % self.name
+
+    def __hash__(self):
+        return hash(self.holder)
+
 
 class MethodArgument(AbstractValue):
     def __init__(self, index, cliType):
@@ -87,6 +116,7 @@ class MethodArgument(AbstractValue):
 class Method(object):
 
     operations = [] # overwritten at the end of the module
+    tailcall = True
     debug = False
 
     def __init__(self, cpu, name, loop):
@@ -94,7 +124,6 @@ class Method(object):
         self.name = name
         self.loop = loop
         self.boxes = {}       # box --> local var
-        self.failing_ops = [] # index --> op
         self.branches = []
         self.branchlabels = []
         self.consts = {}      # object --> index
@@ -124,10 +153,12 @@ class Method(object):
         # initialize the array of genconsts
         consts = dotnet.new_array(System.Object, len(self.consts))
         for av_const, i in self.consts.iteritems():
-            consts[i] = dotnet.cast_to_native_object(av_const.getobj())
+            #consts[i] = dotnet.cast_to_native_object(av_const.getobj())
+            consts[i] = av_const.get_cliobj()
         # build the delegate
         func = self.meth_wrapper.create_delegate(delegatetype, consts)
-        self.func = dotnet.clidowncast(func, LoopDelegate)
+        func = dotnet.clidowncast(func, LoopDelegate)
+        self.loop._cli_funcbox.holder.SetFunc(func)
 
     def _get_meth_wrapper(self):
         restype = dotnet.class2type(cVoid)
@@ -151,10 +182,10 @@ class Method(object):
 
     def get_index_for_failing_op(self, op):
         try:
-            return self.failing_ops.index(op)
+            return self.cpu.failing_ops.index(op)
         except ValueError:
-            self.failing_ops.append(op)
-            return len(self.failing_ops)-1
+            self.cpu.failing_ops.append(op)
+            return len(self.cpu.failing_ops)-1
 
     def get_index_for_constant(self, obj):
         try:
@@ -199,6 +230,7 @@ class Method(object):
         self.il.Emit(OpCodes.Stelem, clitype)
 
     def emit_load_inputargs(self):
+        self.emit_debug("executing: " + self.name)
         i = 0
         for box in self.loop.inputargs:
             self.load_inputarg(i, box.type, box.getCliType())
@@ -211,8 +243,7 @@ class Method(object):
 
     def emit_operations(self, operations):
         for op in operations:
-            if self.debug:
-                self.il.EmitWriteLine(op.repr())
+            self.emit_debug(op.repr())
             func = self.operations[op.opnum]
             assert func is not None
             func(self, op)
@@ -245,6 +276,10 @@ class Method(object):
 
     def store_result(self, op):
         op.result.store(self)
+
+    def emit_debug(self, msg):
+        if self.debug:
+            self.il.EmitWriteLine(msg)
 
     def emit_clear_exception(self):
         self.av_inputargs.load(self)
@@ -282,12 +317,15 @@ class Method(object):
         self.il.Emit(OpCodes.Ldc_I4, index_op)
         field = dotnet.typeof(InputArgs).GetField('failed_op')
         self.il.Emit(OpCodes.Stfld, field)
-        # store the lates values
+        self.emit_store_opargs(op)
+        self.il.Emit(OpCodes.Ret)
+
+    def emit_store_opargs(self, op):
+        # store the latest values
         i = 0
         for box in op.args:
             self.store_inputarg(i, box.type, box.getCliType(), box)
             i+=1
-        self.il.Emit(OpCodes.Ret)
 
     def emit_guard_bool(self, op, opcode):
         assert op.suboperations
@@ -344,13 +382,24 @@ class Method(object):
 
     def emit_op_jump(self, op):
         target = op.jump_target
-        assert target is self.loop, 'TODO'
         assert len(op.args) == len(target.inputargs)
-        i = 0
-        for i in range(len(op.args)):
-            op.args[i].load(self)
-            target.inputargs[i].store(self)
-        self.il.Emit(OpCodes.Br, self.il_loop_start)
+        if target is self.loop:
+            i = 0
+            for i in range(len(op.args)):
+                op.args[i].load(self)
+                target.inputargs[i].store(self)
+            self.il.Emit(OpCodes.Br, self.il_loop_start)
+        else:
+            # it's a real bridge
+            self.emit_debug('jumping to ' + target.name)
+            self.emit_store_opargs(op)
+            target._cli_funcbox.load(self)
+            self.av_inputargs.load(self)
+            methinfo = dotnet.typeof(LoopDelegate).GetMethod('Invoke')
+            if self.tailcall:
+                self.il.Emit(OpCodes.Tailcall)
+            self.il.Emit(OpCodes.Callvirt, methinfo)
+            self.il.Emit(OpCodes.Ret)
 
     def emit_op_new_with_vtable(self, op):
         assert isinstance(op.args[0], ConstObj) # ignored, using the descr instead
@@ -361,6 +410,19 @@ class Method(object):
         self.il.Emit(OpCodes.Newobj, ctor_info)
         self.store_result(op)
 
+    def emit_op_runtimenew(self, op):
+        raise NotImplementedError
+
+    def emit_op_instanceof(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        clitype = descr.get_clitype()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Isinst, clitype)
+        self.il.Emit(OpCodes.Ldnull)
+        self.il.Emit(OpCodes.Cgt_Un)
+        self.store_result(op)
+
     def emit_op_ooidentityhash(self, op):
         raise NotImplementedError
 
@@ -369,7 +431,8 @@ class Method(object):
         assert isinstance(descr, runner.StaticMethDescr)
         delegate_type = descr.get_delegate_clitype()
         meth_invoke = descr.get_meth_info()
-        self._emit_call(op, delegate_type, meth_invoke, descr.has_result)
+        self._emit_call(op, OpCodes.Callvirt, delegate_type,
+                        meth_invoke, descr.has_result)
 
     def emit_op_call(self, op):
         emit_op = Method.emit_op_call_impl.im_func
@@ -383,17 +446,18 @@ class Method(object):
         assert isinstance(descr, runner.MethDescr)
         clitype = descr.get_self_clitype()
         methinfo = descr.get_meth_info()
-        self._emit_call(op, clitype, methinfo, descr.has_result)
+        opcode = descr.get_call_opcode()
+        self._emit_call(op, opcode, clitype, methinfo, descr.has_result)
 
     emit_op_oosend_pure = emit_op_oosend
 
-    def _emit_call(self, op, clitype, methinfo, has_result):
+    def _emit_call(self, op, opcode, clitype, methinfo, has_result):
         av_sm, args_av = op.args[0], op.args[1:]
         av_sm.load(self)
         self.il.Emit(OpCodes.Castclass, clitype)
         for av_arg in args_av:
             av_arg.load(self)
-        self.il.Emit(OpCodes.Callvirt, methinfo)
+        self.il.Emit(opcode, methinfo)
         if has_result:
             self.store_result(op)
 
@@ -451,25 +515,36 @@ class Method(object):
         self.il.Emit(OpCodes.Castclass, clitype)
         self.il.Emit(OpCodes.Ldlen)
         self.store_result(op)
-        
-    def not_implemented(self, op):
+
+    def emit_op_new_array(self, op):
+        descr = op.descr
+        assert isinstance(descr, runner.TypeDescr)
+        item_clitype = descr.get_clitype()
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Newarr, item_clitype)
+        self.store_result(op)        
+
+    def emit_op_guard_nonvirtualized(self, op):
         raise NotImplementedError
 
-    emit_op_cast_int_to_ptr = not_implemented
-    emit_op_guard_nonvirtualized = not_implemented
-    emit_op_unicodelen = not_implemented
-    emit_op_setfield_raw = not_implemented
-    emit_op_cast_ptr_to_int = not_implemented
-    emit_op_newunicode = not_implemented
-    emit_op_new_array = not_implemented
-    emit_op_unicodegetitem = not_implemented
-    emit_op_strgetitem = not_implemented
-    emit_op_getfield_raw = not_implemented
-    emit_op_unicodesetitem = not_implemented
-    emit_op_getfield_raw_pure = not_implemented
-    emit_op_strlen = not_implemented
-    emit_op_newstr = not_implemented
-    emit_op_strsetitem = not_implemented
+    def lltype_only(self, op):
+        print 'Operation %s is lltype specific, should not get here!' % op.getopname()
+        raise NotImplementedError
+
+    emit_op_new = lltype_only
+    emit_op_setfield_raw = lltype_only
+    emit_op_getfield_raw = lltype_only
+    emit_op_getfield_raw_pure = lltype_only
+    emit_op_strsetitem = lltype_only
+    emit_op_unicodesetitem = lltype_only
+    emit_op_cast_int_to_ptr = lltype_only
+    emit_op_cast_ptr_to_int = lltype_only
+    emit_op_newstr = lltype_only
+    emit_op_strlen = lltype_only
+    emit_op_strgetitem = lltype_only
+    emit_op_newunicode = lltype_only    
+    emit_op_unicodelen = lltype_only
+    emit_op_unicodegetitem = lltype_only
 
 
 # --------------------------------------------------------------------
@@ -507,10 +582,7 @@ def render_op(methname, instrlist):
         elif isinstance(instr, opcodes.PushArg):
             lines.append('self.push_arg(op, %d)' % instr.n)
         else:
-            if not isinstance(instr, str):
-                print 'WARNING: unknown instruction %s' % instr
-                return
-
+            assert isinstance(instr, str), 'unknown instruction %s' % instr
             if instr.startswith('call '):
                 signature = instr[len('call '):]
                 renderCall(lines, signature)

@@ -291,24 +291,25 @@ namespace pypy.runtime
             return default_blockid;
         }
     }
+  */
         
     public class DelegateHolder
     {
-        public Delegate func;
+        public LoopDelegate func;
 
         // we need getter and setter because we can't directly access fields from RPython
-        public void SetFunc(Delegate func)
+        public void SetFunc(LoopDelegate func)
         {
             this.func = func;
         }
 
-        public Delegate GetFunc()
+        public LoopDelegate GetFunc()
         {
             return this.func;
         }
     }
 
-  */
+
 
     public class AutoSaveAssembly
     {

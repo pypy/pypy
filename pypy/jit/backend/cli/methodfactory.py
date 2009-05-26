@@ -71,7 +71,7 @@ class AssemblyMethodWrapper(AbstractMethodWrapper):
     def create_delegate(self, delegatetype, consts):
         t = self.typeBuilder.CreateType()
         methinfo = t.GetMethod("invoke")
-##         if self.name == 'generated_case_1':
+##         if self.name == 'Loop #0(r1)_2':
 ##             assemblyData.auto_save_assembly.Save()
         return System.Delegate.CreateDelegate(delegatetype,
                                               consts,

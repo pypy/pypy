@@ -16,6 +16,9 @@ class LoopTest:
                               CPUClass=self.CPUClass,
                               type_system=self.type_system)
 
+    def run_directly(self, f, args):
+        return f(*args)
+
     def test_simple_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
@@ -348,7 +351,21 @@ class LoopTest:
                 x += unichr(n)
                 n -= 1
             return hash(x)
-        expected = f(100)
+        expected = self.run_directly(f, [100])
+        res = self.meta_interp(f, [100])
+        assert res == expected
+
+    def test_loop_string(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        def f(n):
+            x = ''
+            while n > 13:
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                x += chr(n)
+                n -= 1
+            return hash(x)
+        expected = self.run_directly(f, [100])
         res = self.meta_interp(f, [100])
         assert res == expected
 
