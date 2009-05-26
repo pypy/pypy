@@ -20,7 +20,7 @@ class InstanceNode(object):
         self.const = const
         self.cls = None
         self.cleanfields = {}
-        self.dirtyfields = {}
+        self.arrayfields = {}
         self.virtualized = False
         self.possibly_virtualized_list = False
 
@@ -115,7 +115,7 @@ class Specializer(object):
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
-                             [node.source, field, box], None, descr))
+                             [node.source, ConstInt(field), box], None, descr))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
         return op
@@ -218,13 +218,13 @@ class SimpleVirtualizableOpt(object):
             return False
         if not spec.getnode(op.args[1]).const:
             raise VirtualizedListAccessedWithVariableArg()
-        field = spec.getnode(op.args[1]).source
-        node = instnode.cleanfields.get(field, None)
+        field = spec.getnode(op.args[1]).source.getint()
+        node = instnode.arrayfields.get(field, None)
         if node is not None:
             spec.nodes[op.result] = node
             return True
         node = spec.getnode(op.result)
-        instnode.cleanfields[field] = node
+        instnode.arrayfields[field] = node
         return False
 
     @staticmethod
@@ -236,8 +236,8 @@ class SimpleVirtualizableOpt(object):
         if not argnode.const:
             raise VirtualizedListAccessedWithVariableArg()
         fieldnode = spec.getnode(op.args[2])
-        field = argnode.source
-        instnode.cleanfields[field] = fieldnode
+        field = argnode.source.getint()
+        instnode.arrayfields[field] = fieldnode
         d = spec.additional_setarrayitems.setdefault(instnode, {})
         d[field] = (fieldnode, op.descr)
         return True
