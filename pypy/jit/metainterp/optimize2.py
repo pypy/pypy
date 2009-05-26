@@ -187,7 +187,6 @@ class SimpleVirtualizableOpt(object):
     def optimize_guard_nonvirtualized(op, spec):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
-        instnode.cls = op.args[1]
         instnode.vdesc = op.vdesc
         return True
 
