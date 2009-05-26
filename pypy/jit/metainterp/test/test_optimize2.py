@@ -184,6 +184,7 @@ class BaseTestOptimize2(object):
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=other_field_desc)
         guard_true(i2)
+            guard_nonvirtualized(p0)
             setfield_gc(p0, i2, descr=field_desc)
             fail()
         """
@@ -251,6 +252,7 @@ class BaseTestOptimize2(object):
         i2 = int_add(i0, i0)
         i3 = int_is_true(i2)
         guard_true(i3)
+            guard_nonvirtualized(p1)
             setarrayitem_gc(p1, 0, i0, descr=array_descr)
             fail()
         """
@@ -279,6 +281,7 @@ class BaseTestOptimize2(object):
         i4 = int_add(i0, i1)
         i5 = int_is_true(i4)
         guard_true(i5)
+            guard_nonvirtualized(p1)
             setarrayitem_gc(p1, 0, i1, descr=array_descr)
             fail()
         """

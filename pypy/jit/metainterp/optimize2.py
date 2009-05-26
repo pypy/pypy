@@ -22,7 +22,7 @@ class InstanceNode(object):
         self.cleanfields = {}
         self.arrayfields = {}
         self.virtualized = False
-        self.possibly_virtualized_list = False
+        self.vdesc = None
 
     def __repr__(self):
         flags = ''
@@ -109,11 +109,19 @@ class Specializer(object):
         op.suboperations = []
         for node, d in self.additional_stores.iteritems():
             for field, fieldnode in d.iteritems():
+                gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
+                                   [node.source], None)
+                gop.vdesc = node.vdesc
+                op.suboperations.append(gop)
                 op.suboperations.append(ResOperation(rop.SETFIELD_GC,
                     [node.source, fieldnode.source], None, field))
         for node, d in self.additional_setarrayitems.iteritems():
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
+                gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
+                                   [node.source], None)
+                gop.vdesc = node.vdesc
+                op.suboperations.append(gop) 
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
                              [node.source, ConstInt(field), box], None, descr))
         op.suboperations.append(op_fail)
@@ -192,7 +200,7 @@ class SimpleVirtualizableOpt(object):
             spec.nodes[op.result] = node
             return True
         node = spec.getnode(op.result)
-        node.possibly_virtualized_list = True
+        node.virtualized = True
         instnode.cleanfields[field] = node
         return False
 
@@ -214,7 +222,7 @@ class SimpleVirtualizableOpt(object):
     @staticmethod
     def optimize_getarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
-        if not instnode.possibly_virtualized_list:
+        if not instnode.virtualized:
             return False
         if not spec.getnode(op.args[1]).const:
             raise VirtualizedListAccessedWithVariableArg()
@@ -230,7 +238,7 @@ class SimpleVirtualizableOpt(object):
     @staticmethod
     def optimize_setarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
-        if not instnode.possibly_virtualized_list:
+        if not instnode.virtualized:
             return False
         argnode = spec.getnode(op.args[1])
         if not argnode.const:
