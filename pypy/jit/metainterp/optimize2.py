@@ -119,12 +119,12 @@ class Specializer(object):
         self.additional_setarrayitems = {}
         newoperations = []
         for op in self.loop.operations:
-            newop = op
+            remove_op = False
             for opt in self.optimizations[op.opnum]:
-                newop = opt(op, self)
-                if newop is None:
+                remove_op = opt(op, self)
+                if remove_op:
                     break
-            if newop is None:
+            if remove_op:
                 continue
             if op.is_guard():
                 op = self.optimize_guard(op)
@@ -161,9 +161,9 @@ class ConsecutiveGuardClassRemoval(object):
     def optimize_guard_class(op, spec):
         instnode = spec.getnode(op.args[0])
         if instnode.cls is not None:
-            return None
+            return True
         instnode.cls = op.args[1]
-        return op
+        return False
 
 class SimpleVirtualizableOpt(object):
     @staticmethod
@@ -171,61 +171,61 @@ class SimpleVirtualizableOpt(object):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
         instnode.vdesc = op.vdesc
-        return None
+        return True
 
     @staticmethod
     def optimize_getfield_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.virtualized:
-            return op
+            return False
         field = op.descr
         if field not in instnode.vdesc.virtuals:
-            return op
+            return False
         node = instnode.cleanfields.get(field, None)
         if node is not None:
             spec.nodes[op.result] = node
-            return None
+            return True
         node = spec.getnode(op.result)
         node.possibly_virtualized_list = True
         instnode.cleanfields[field] = node
-        return op
+        return False
 
     @staticmethod
     def optimize_setfield_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.virtualized:
-            return op
+            return False
         field = op.descr
         if field not in instnode.vdesc.virtuals:
-            return op
+            return False
         node = spec.getnode(op.args[1])
         instnode.cleanfields[field] = node
         # we never set it here
         d = spec.additional_stores.setdefault(instnode, {})
         d[field] = node
-        return None
+        return True
 
     @staticmethod
     def optimize_getarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.possibly_virtualized_list:
-            return op
+            return False
         if not spec.getnode(op.args[1]).const:
             raise VirtualizedListAccessedWithVariableArg()
         field = spec.getnode(op.args[1]).source
         node = instnode.cleanfields.get(field, None)
         if node is not None:
             spec.nodes[op.result] = node
-            return None
+            return True
         node = spec.getnode(op.result)
         instnode.cleanfields[field] = node
-        return op
+        return False
 
     @staticmethod
     def optimize_setarrayitem_gc(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.possibly_virtualized_list:
-            return op
+            return False
         argnode = spec.getnode(op.args[1])
         if not argnode.const:
             raise VirtualizedListAccessedWithVariableArg()
@@ -234,7 +234,7 @@ class SimpleVirtualizableOpt(object):
         instnode.cleanfields[field] = fieldnode
         d = spec.additional_setarrayitems.setdefault(instnode, {})
         d[field] = (fieldnode, op.descr)
-        return None
+        return True
 
 specializer = Specializer([SimpleVirtualizableOpt(),
                            ConsecutiveGuardClassRemoval()])
