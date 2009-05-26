@@ -94,6 +94,13 @@ class Specializer(object):
             newboxes.append(box)
         return newboxes
 
+    def _guard_for_node(self, node):
+        gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
+                           [node.source], None)
+        gop.vdesc = node.vdesc
+        gop.suboperations = [ResOperation(rop.FAIL, [], None)]
+        return gop
+
     def optimize_guard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
@@ -109,20 +116,14 @@ class Specializer(object):
         op.suboperations = []
         for node, d in self.additional_stores.iteritems():
             for field, fieldnode in d.iteritems():
-                gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
-                                   [node.source, node.cls], None)
-                gop.vdesc = node.vdesc
-                gop.suboperations = [ResOperation(rop.FAIL, [], None)]
+                gop = self._guard_for_node(node)
                 op.suboperations.append(gop)
                 op.suboperations.append(ResOperation(rop.SETFIELD_GC,
                     [node.source, fieldnode.source], None, field))
         for node, d in self.additional_setarrayitems.iteritems():
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
-                gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
-                                   [node.source, node.cls], None)
-                gop.suboperations = [ResOperation(rop.FAIL, [], None)]
-                gop.vdesc = node.vdesc
+                gop = self._guard_for_node(node)
                 op.suboperations.append(gop) 
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
                              [node.source, ConstInt(field), box], None, descr))
