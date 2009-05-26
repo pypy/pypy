@@ -110,7 +110,7 @@ class Specializer(object):
         for node, d in self.additional_stores.iteritems():
             for field, fieldnode in d.iteritems():
                 gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
-                                   [node.source], None)
+                                   [node.source, node.cls], None)
                 gop.vdesc = node.vdesc
                 gop.suboperations = [ResOperation(rop.FAIL, [], None)]
                 op.suboperations.append(gop)
@@ -120,7 +120,7 @@ class Specializer(object):
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
                 gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
-                                   [node.source], None)
+                                   [node.source, node.cls], None)
                 gop.suboperations = [ResOperation(rop.FAIL, [], None)]
                 gop.vdesc = node.vdesc
                 op.suboperations.append(gop) 
@@ -186,6 +186,7 @@ class SimpleVirtualizableOpt(object):
     def optimize_guard_nonvirtualized(op, spec):
         instnode = spec.getnode(op.args[0])
         instnode.virtualized = True
+        instnode.cls = op.args[1]
         instnode.vdesc = op.vdesc
         return True
 

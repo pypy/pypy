@@ -4,7 +4,7 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
-     ConstAddr, ConstObj
+     ConstAddr, ConstObj, ConstPtr
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
@@ -59,6 +59,8 @@ class OpParser(object):
                                      self.cpu)
                 else:
                     return ConstObj(ootype.cast_to_object(self.consts[name]))
+            elif arg == 'None':
+                return None
             return self.vars[arg]
 
     def parse_op(self, line):

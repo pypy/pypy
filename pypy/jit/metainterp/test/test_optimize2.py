@@ -59,7 +59,8 @@ class LLtypeMixin(object):
 
     TP = lltype.GcArray(lltype.Signed)
 
-    XY = lltype.GcStruct('XY', ('inst_field', lltype.Signed),
+    XY = lltype.GcStruct('XY', ('parent', OBJECT),
+                         ('inst_field', lltype.Signed),
                          ('inst_other_field', lltype.Signed),
                          ('inst_list', lltype.Ptr(TP)),
                          hints= {'virtualizable2': True,
@@ -69,6 +70,7 @@ class LLtypeMixin(object):
     list_desc = cpu.fielddescrof(XY, 'inst_list')
     other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
     vdesc = VirtualizableDesc(cpu, XY, XY)
+    xy_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
 
     namespace = locals()
 
@@ -102,6 +104,7 @@ class OOtypeMixin(object):
     list_desc = cpu.fielddescrof(XY, 'olist')
     other_field_desc = cpu.fielddescrof(XY, 'oother_field')
     vdesc = VirtualizableDesc(cpu, XY, XY)
+    xy_vtable = ootype.runtimeClass(XY)
 
     namespace = locals()
 
@@ -151,7 +154,7 @@ class BaseTestOptimize2(object):
     def test_basic_virtualizable(self):
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0, vdesc=vdesc)
+        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
             fail()
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=field_desc)
@@ -168,7 +171,7 @@ class BaseTestOptimize2(object):
     def test_virtualizable_setfield_rebuild_ops(self):
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0, vdesc=vdesc)
+        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
             fail()
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=other_field_desc)
@@ -184,7 +187,8 @@ class BaseTestOptimize2(object):
         i1 = getfield_gc(p0, descr=field_desc)
         i2 = getfield_gc(p0, descr=other_field_desc)
         guard_true(i2)
-            guard_nonvirtualized(p0)
+            guard_nonvirtualized(p0, ConstClass(xy_vtable))
+                fail()
             setfield_gc(p0, i2, descr=field_desc)
             fail()
         """
@@ -211,7 +215,7 @@ class BaseTestOptimize2(object):
     def test_virtualized_list_on_virtualizable(self):
         pre_op = """
         [p0]
-        guard_nonvirtualized(p0, vdesc=vdesc)
+        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
             fail()
         p1 = getfield_gc(p0, descr=list_desc)
         setarrayitem_gc(p1, 0, 1, descr=array_descr)
@@ -235,7 +239,7 @@ class BaseTestOptimize2(object):
     def test_virtualized_list_on_virtualizable_2(self):
         pre_op = """
         [p0, i0]
-        guard_nonvirtualized(p0, vdesc=vdesc)
+        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
             fail()
         p1 = getfield_gc(p0, descr=list_desc)
         setarrayitem_gc(p1, 0, i0, descr=array_descr)
@@ -252,7 +256,8 @@ class BaseTestOptimize2(object):
         i2 = int_add(i0, i0)
         i3 = int_is_true(i2)
         guard_true(i3)
-            guard_nonvirtualized(p1)
+            guard_nonvirtualized(p1, None)
+                fail()
             setarrayitem_gc(p1, 0, i0, descr=array_descr)
             fail()
         """
@@ -262,7 +267,7 @@ class BaseTestOptimize2(object):
     def test_virtualized_list_on_virtualizable_3(self):
         pre_op = """
         [p0, i0, i1]
-        guard_nonvirtualized(p0, vdesc=vdesc)
+        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
             fail()
         p1 = getfield_gc(p0, descr=list_desc)
         setarrayitem_gc(p1, 0, i0, descr=array_descr)
@@ -281,7 +286,8 @@ class BaseTestOptimize2(object):
         i4 = int_add(i0, i1)
         i5 = int_is_true(i4)
         guard_true(i5)
-            guard_nonvirtualized(p1)
+            guard_nonvirtualized(p1, None)
+                fail()
             setarrayitem_gc(p1, 0, i1, descr=array_descr)
             fail()
         """
@@ -348,4 +354,5 @@ class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    pass
+    def setup_class(cls):
+        py.test.skip("XXX")
