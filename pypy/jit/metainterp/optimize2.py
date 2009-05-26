@@ -90,11 +90,12 @@ class Specializer(object):
         return newboxes
 
     def optimize_guard(self, op):
-        for arg in op.args:
-            if not self.getnode(arg).const:
-                break
-        else:
-            return None
+        if op.is_foldable_guard():
+            for arg in op.args:
+                if not self.getnode(arg).const:
+                    break
+            else:
+                return None
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
         op_fail.args = self.new_arguments(op_fail)

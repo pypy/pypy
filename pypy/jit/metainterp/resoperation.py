@@ -64,6 +64,9 @@ class ResOperation(object):
     def is_guard(self):
         return rop._GUARD_FIRST <= self.opnum <= rop._GUARD_LAST
 
+    def is_foldable_guard(self):
+        return rop._GUARD_FOLDABLE_FIRST <= self.opnum <= rop._GUARD_FOLDABLE_LAST
+
     def is_guard_exception(self):
         return (self.opnum == rop.GUARD_EXCEPTION or
                 self.opnum == rop.GUARD_NO_EXCEPTION)
@@ -98,10 +101,12 @@ class rop(object):
     _FINAL_LAST = 3
 
     _GUARD_FIRST = 8 # ----- start of guard operations -----
+    _GUARD_FOLDABLE_FIRST = 8
     GUARD_TRUE             = 8
     GUARD_FALSE            = 9
     GUARD_VALUE            = 10
     GUARD_CLASS            = 11
+    _GUARD_FOLDABLE_LAST   = 11
     GUARD_NONVIRTUALIZED   = 12
     GUARD_NO_EXCEPTION     = 13
     GUARD_EXCEPTION        = 14

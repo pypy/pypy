@@ -199,6 +199,14 @@ class BaseTestOptimize2(object):
         expected = "[]"
         self.assert_equal(self.optimize(pre_op, []), expected)
 
+    def test_don_t_fold_guard_no_exception(self):
+        pre_op = """
+        []
+        guard_no_exception()
+            fail()
+        """
+        self.assert_equal(self.optimize(pre_op, []), pre_op)
+
     def test_virtualized_list_on_virtualizable(self):
         pre_op = """
         [p0]
