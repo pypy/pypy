@@ -135,7 +135,9 @@ class Specializer(object):
         self.additional_stores = {}
         self.additional_setarrayitems = {}
         newoperations = []
+        opnum = 0
         for op in self.loop.operations:
+            opnum += 1
             remove_op = False
             for opt in self.optimizations[op.opnum]:
                 remove_op = opt(op, self)
