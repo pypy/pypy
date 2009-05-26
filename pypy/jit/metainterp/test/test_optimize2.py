@@ -245,8 +245,6 @@ class BaseTestOptimize2(object):
             fail()
         """
         pre_op = parse(pre_op, self.cpu, self.namespace)
-        # cheat
-        pre_op.operations[-2].result.value = 1
         expected = """
         [p0, i0]
         p1 = getfield_gc(p0, descr=list_desc)
@@ -258,6 +256,34 @@ class BaseTestOptimize2(object):
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)        
+
+    def test_virtualized_list_on_virtualizable_3(self):
+        pre_op = """
+        [p0, i0, i1]
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p1 = getfield_gc(p0, descr=list_desc)
+        setarrayitem_gc(p1, 0, i0, descr=array_descr)
+        i2 = getarrayitem_gc(p1, 0)
+        setarrayitem_gc(p1, 0, i1, descr=array_descr)
+        i3 = getarrayitem_gc(p1, 0)
+        i4 = int_add(i2, i3)
+        i5 = int_is_true(i4)
+        guard_true(i5)
+            fail()
+        """
+        pre_op = parse(pre_op, self.cpu, self.namespace)
+        expected = """
+        [p0, i0, i1]
+        p1 = getfield_gc(p0, descr=list_desc)
+        i4 = int_add(i0, i1)
+        i5 = int_is_true(i4)
+        guard_true(i5)
+            setarrayitem_gc(p1, 0, i1, descr=array_descr)
+            fail()
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)
 
     def test_remove_consecutive_guard_value_constfold(self):
         py.test.skip("not yet")
