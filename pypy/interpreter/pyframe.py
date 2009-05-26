@@ -181,6 +181,7 @@ class PyFrame(eval.Frame):
         return values_w
 
     def dropvalues(self, n):
+        n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
         assert finaldepth >= 0, "stack underflow in dropvalues()"        
         while True:
@@ -188,7 +189,7 @@ class PyFrame(eval.Frame):
             if n < 0:
                 break
             self.valuestack_w[finaldepth+n] = None
-        self.valuestackdepth = hint(finaldepth, promote=True)
+        self.valuestackdepth = finaldepth
 
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
         while True:
@@ -207,21 +208,24 @@ class PyFrame(eval.Frame):
             self.pushvalue(w_value)
         
     def peekvalue(self, index_from_top=0):
+        index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "peek past the bottom of the stack"
         return self.valuestack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
+        index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "settop past the bottom of the stack"
         self.valuestack_w[index] = w_object
 
     def dropvaluesuntil(self, finaldepth):
         depth = self.valuestackdepth - 1
+        finaldepth = hint(finaldepth, promote=True)
         while depth >= finaldepth:
             self.valuestack_w[depth] = None
             depth -= 1
-        self.valuestackdepth = hint(finaldepth, promote=True)
+        self.valuestackdepth = finaldepth
 
     def savevaluestack(self):
         return self.valuestack_w[:self.valuestackdepth]
