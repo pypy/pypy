@@ -2,7 +2,8 @@ from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
 #from pypy.jit.metainterp.simple_optimize import Optimizer
-from pypy.jit.metainterp import optimize as Optimizer
+#from pypy.jit.metainterp import optimize as Optimizer
+from pypy.jit.metainterp.optimize2 import Optimizer
 from pypy.module.pypyjit.policy import PyPyJitPolicy
 
 # Current output: http://paste.pocoo.org/show/106540/
