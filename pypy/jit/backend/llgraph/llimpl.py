@@ -554,8 +554,9 @@ class Frame(object):
             raise GuardFailed
 
     def op_guard_nonvirtualized(self, for_accessing_field,
-                                value, expected_class):
-        self.op_guard_class(-1, value, expected_class)
+                                value, expected_class=None):
+        if expected_class is None:
+            self.op_guard_class(-1, value, expected_class)
         if heaptracker.cast_vable(value).vable_rti:
             raise GuardFailed    # some other code is already in control
 
