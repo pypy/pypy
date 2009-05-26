@@ -13,10 +13,17 @@ def simple_loop():
         i = i + step
     print i
 
+def g(i):
+    for k in range(i, i +2):
+        pass
+
+def loop():
+    for i in range(10000):
+        g(i)
 
 try:
     #do()
-    simple_loop()
+    loop()
     print "---ending 2---"
 except BaseException, e:
     print "---ending 0---"
