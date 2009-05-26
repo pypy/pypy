@@ -2,7 +2,12 @@
 """ Simplified optimize.py
 """
 from pypy.jit.metainterp.resoperation import rop, ResOperation, opname
-from pypy.jit.metainterp.history import Const, Box
+from pypy.jit.metainterp.history import Const, Box, ConstInt
+
+# For anybody reading.
+# Next step is to fix this so cleanfields and dicts on specializer
+# (additional_*) would be r_dicts so they can consider
+# two different constants as the same.
 
 class VirtualizedListAccessedWithVariableArg(Exception):
     pass
@@ -110,7 +115,7 @@ class Specializer(object):
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
-                                 [node.source, field, box], None, descr))
+                             [node.source, field, box], None, descr))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
         return op
