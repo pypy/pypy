@@ -2,7 +2,7 @@
 from pypy.translator.tool.graphpage import GraphPage
 from pypy.translator.tool.make_dot import DotGen
 from pypy.jit.metainterp.history import Box
-
+from pypy.jit.metainterp.resoperation import rop
 
 class SubGraph:
     def __init__(self, suboperations):
@@ -16,7 +16,7 @@ def display_loops(loops, errmsg=None, highlight_loops=()):
     graphs = [(loop, loop in highlight_loops) for loop in loops]
     for graph, highlight in graphs:
         for op in graph.get_operations():
-            if op.is_guard():
+            if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
                 graphs.append((SubGraph(op.suboperations), highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
