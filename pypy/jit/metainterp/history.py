@@ -48,6 +48,8 @@ def repr_object(box):
     try:
         if box.value.obj._TYPE is ootype.String:
             return '(%r)' % box.value.obj._str
+        if isinstance(box.value.obj._TYPE, ootype.StaticMethod):
+            return '(%r)' % box.value.obj
         if isinstance(box.value.obj, ootype._view):
             return repr(box.value.obj._inst._TYPE)
         else:
