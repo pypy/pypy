@@ -131,14 +131,14 @@ class PyFrame(eval.Frame):
     def pushvalue(self, w_object):
         depth = self.valuestackdepth
         self.valuestack_w[depth] = w_object
-        self.valuestackdepth = depth + 1
+        self.valuestackdepth = hint(depth + 1, promote=True)
 
     def popvalue(self):
         depth = self.valuestackdepth - 1
         assert depth >= 0, "pop from empty value stack"
         w_object = self.valuestack_w[depth]
         self.valuestack_w[depth] = None
-        self.valuestackdepth = depth
+        self.valuestackdepth = hint(depth, promote=True)
         return w_object
 
     def popstrdictvalues(self, n):
@@ -188,7 +188,7 @@ class PyFrame(eval.Frame):
             if n < 0:
                 break
             self.valuestack_w[finaldepth+n] = None
-        self.valuestackdepth = finaldepth
+        self.valuestackdepth = hint(finaldepth, promote=True)
 
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
         while True:
@@ -221,7 +221,7 @@ class PyFrame(eval.Frame):
         while depth >= finaldepth:
             self.valuestack_w[depth] = None
             depth -= 1
-        self.valuestackdepth = finaldepth
+        self.valuestackdepth = hint(finaldepth, promote=True)
 
     def savevaluestack(self):
         return self.valuestack_w[:self.valuestackdepth]
