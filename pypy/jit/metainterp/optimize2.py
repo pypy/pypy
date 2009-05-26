@@ -112,6 +112,7 @@ class Specializer(object):
                 gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
                                    [node.source], None)
                 gop.vdesc = node.vdesc
+                gop.suboperations = [ResOperation(rop.FAIL, [], None)]
                 op.suboperations.append(gop)
                 op.suboperations.append(ResOperation(rop.SETFIELD_GC,
                     [node.source, fieldnode.source], None, field))
@@ -120,6 +121,7 @@ class Specializer(object):
                 box = fieldnode.source
                 gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
                                    [node.source], None)
+                gop.suboperations = [ResOperation(rop.FAIL, [], None)]
                 gop.vdesc = node.vdesc
                 op.suboperations.append(gop) 
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
