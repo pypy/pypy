@@ -138,7 +138,7 @@ class ResOpGen(object):
         while True:
             op = operations[opindex]
             lines.append(repr(op))
-            if op.is_guard():
+            if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
                 tgt = op.suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),
