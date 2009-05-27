@@ -225,7 +225,7 @@ class BaseTestOptimize2(object):
         guard_true(i3)
             fail()
         """
-        pre_op = parse(pre_op, self.cpu, self.namespace)
+        pre_op = self.parse(pre_op)
         # cheat
         pre_op.operations[-2].result.value = 1
         expected = """
@@ -249,7 +249,7 @@ class BaseTestOptimize2(object):
         guard_true(i3)
             fail()
         """
-        pre_op = parse(pre_op, self.cpu, self.namespace)
+        pre_op = self.parse(pre_op)
         expected = """
         [p0, i0]
         p1 = getfield_gc(p0, descr=list_desc)
@@ -370,5 +370,4 @@ class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    def setup_class(cls):
-        py.test.skip("XXX")
+    pass
