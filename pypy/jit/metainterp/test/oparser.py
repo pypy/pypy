@@ -124,7 +124,7 @@ class OpParser(object):
             return self.parse_op_no_result(line)
 
     def parse(self):
-        lines = self.descr.split("\n")
+        lines = self.descr.splitlines()
         ops = []
         newlines = []
         for line in lines:
