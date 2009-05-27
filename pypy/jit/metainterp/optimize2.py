@@ -238,7 +238,10 @@ class SimpleVirtualizableOpt(object):
 
     @staticmethod
     def find_nodes_setarrayitem_gc(op, spec):
-        return False
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return False
+        return True
 
     @staticmethod
     def find_nodes_guard_nonvirtualized(op, spec):
@@ -343,6 +346,7 @@ class SimpleVirtualOpt(object):
         return True
 
 specializer = Specializer([SimpleVirtualizableOpt(),
+                           SimpleVirtualOpt(),
                            ConsecutiveGuardClassRemoval()])
 
 def optimize_loop(options, old_loops, loop, cpu=None, spec=specializer):

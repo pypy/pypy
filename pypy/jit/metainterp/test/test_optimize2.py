@@ -59,16 +59,19 @@ class LLtypeMixin(object):
     nodedescr = cpu.fielddescrof(NODE, 'value')
 
     TP = lltype.GcArray(lltype.Signed)
+    NODE_ARRAY = lltype.GcArray(lltype.Ptr(NODE))
 
     XY = lltype.GcStruct('XY', ('parent', OBJECT),
                          ('inst_field', lltype.Signed),
                          ('inst_other_field', lltype.Signed),
                          ('inst_list', lltype.Ptr(TP)),
+                         ('inst_item_list', lltype.Ptr(NODE_ARRAY)),
                          hints= {'virtualizable2': True,
-                                 'virtuals': ('field','list')})
+                                 'virtuals': ('field','list', 'item_list')})
     field_desc = cpu.fielddescrof(XY, 'inst_field')
     array_descr = cpu.arraydescrof(TP)
     list_desc = cpu.fielddescrof(XY, 'inst_list')
+    list_node_desc = cpu.fielddescrof(XY, 'inst_item_list')
     other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
     vdesc = VirtualizableDesc(cpu, XY, XY)
     xy_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
@@ -377,8 +380,31 @@ class BaseTestOptimize2(object):
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
                           expected)
 
+    def test_virtual_with_virtualizable(self):
+        pre_op = """
+        [p0]
+        p1 = new_with_vtable(13, ConstClass(node_vtable))
+        setfield_gc(p1, 1, descr=nodedescr)
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p2 = getfield_gc(p0, descr=list_node_desc)
+        setarrayitem_gc(p2, 0, p1)
+        p3 = getarrayitem_gc(p2, 0)
+        i3 = getfield_gc(p3, descr=nodedescr)
+        fail(i3)
+        """
+        expected = """
+        [p0]
+        p2 = getfield_gc(p0, descr=list_node_desc)
+        fail(1)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
+                                                 SimpleVirtualOpt()]),
+                          expected)
+
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    pass
+    def test_virtual_with_virtualizable(self):
+        py.test.skip("XXX")
