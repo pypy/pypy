@@ -13,7 +13,7 @@ class VirtualizedListAccessedWithVariableArg(Exception):
     pass
 
 class InstanceNode(object):
-    def __init__(self, source, const=False):
+    def __init__(self, source, const=False, escaped=False):
         self.source = source
         if const:
             assert isinstance(source, Const)
@@ -24,10 +24,11 @@ class InstanceNode(object):
         self.virtualized = False
         self.allocated_in_loop = False
         self.vdesc = None
+        self.escaped = escaped
 
     def __repr__(self):
         flags = ''
-        #if self.escaped:           flags += 'e'
+        if self.escaped:           flags += 'e'
         #if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
         #if self.virtual:           flags += 'v'
@@ -41,11 +42,17 @@ class Specializer(object):
     def __init__(self, opts):
         # NOT_RPYTHON
         self.optimizations = [[] for i in range(rop._LAST)]
+        self.find_nodes_funcs = [[] for i in range(rop._LAST)]
         for opt in opts:
             for opnum, name in opname.iteritems():
                 meth = getattr(opt, 'optimize_' + name.lower(), None)
                 if meth is not None:
                     self.optimizations[opnum].append(meth)
+        for opt in opts:
+            for opnum, name in opname.iteritems():
+                meth = getattr(opt, 'find_nodes_' + name.lower(), None)
+                if meth is not None:
+                    self.find_nodes_funcs[opnum].append(meth)
 
     def getnode(self, box):
         try:
@@ -54,7 +61,7 @@ class Specializer(object):
             if isinstance(box, Const):
                 node = InstanceNode(box, const=True)
             else:
-                node = InstanceNode(box)
+                node = InstanceNode(box, escaped=True)
             self.nodes[box] = node
             return node
 
@@ -65,6 +72,13 @@ class Specializer(object):
 
     def find_nodes(self):
         for op in self.loop.operations:
+            res = False
+            for f in self.find_nodes_funcs[op.opnum]:
+                res = f(op, self)
+                if res:
+                    break
+            if res:
+                continue
             if op.is_always_pure():
                 is_pure = True
                 for arg in op.args:
@@ -81,10 +95,13 @@ class Specializer(object):
                         self.getnode(arg)
                 # default case
                 for box in op.args:
-                    self.getnode(box)
+                    node = self.getnode(box)
+                    if not op.has_no_side_effect() and not op.is_guard():
+                        node.escaped = True
             box = op.result
             if box is not None:
                 node = self.getnode(box)
+                node.escaped = False
                 if op.opnum == rop.NEW or op.opnum == rop.NEW_WITH_VTABLE:
                     node.allocated_in_loop = True
                 self.nodes[box] = node
@@ -190,11 +207,40 @@ class ConsecutiveGuardClassRemoval(object):
 
 class SimpleVirtualizableOpt(object):
     @staticmethod
-    def optimize_guard_nonvirtualized(op, spec):
+    def find_nodes_setfield_gc(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return False
+        field = op.descr
+        if field not in instnode.vdesc.virtuals:
+            return False
+        return True
+
+    @staticmethod
+    def find_nodes_getfield_gc(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return False
+        field = op.descr
+        if field not in instnode.vdesc.virtuals:
+            return False
+        spec.getnode(op.result).virtualized = True
+        return False
+
+    @staticmethod
+    def find_nodes_setarrayitem_gc(op, spec):
+        return False
+
+    @staticmethod
+    def find_nodes_guard_nonvirtualized(op, spec):
         instnode = spec.getnode(op.args[0])
         if not instnode.allocated_in_loop:
             instnode.virtualized = True
             instnode.vdesc = op.vdesc
+        return False
+    
+    @staticmethod
+    def optimize_guard_nonvirtualized(op, spec):
         return True
 
     @staticmethod
@@ -210,7 +256,6 @@ class SimpleVirtualizableOpt(object):
             spec.nodes[op.result] = node
             return True
         node = spec.getnode(op.result)
-        node.virtualized = True
         instnode.cleanfields[field] = node
         return False
 
@@ -259,6 +304,12 @@ class SimpleVirtualizableOpt(object):
         d = spec.additional_setarrayitems.setdefault(instnode, {})
         d[field] = (fieldnode, op.descr)
         return True
+
+class SimpleVirtualOpt(object):
+    def optimize_new_with_vtable(op, spec):
+        xxx
+        node = spec.getnode(op.result)
+        node.escaped = False
 
 specializer = Specializer([SimpleVirtualizableOpt(),
                            ConsecutiveGuardClassRemoval()])

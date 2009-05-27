@@ -9,7 +9,8 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize2 import (optimize_loop,
-     ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualizableOpt)
+     ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualizableOpt,
+     SimpleVirtualOpt)
 from pypy.jit.metainterp.test.test_optimize import ANY
 
 from pypy.jit.metainterp.test.oparser import parse
@@ -309,6 +310,72 @@ class BaseTestOptimize2(object):
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
 
+    def test_escape_analysis(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, i0)
+        """
+        spec = Specializer([])
+        loop = self.parse(ops)
+        optimize_loop(None, [], loop, self.cpu, spec=spec)
+        assert spec.nodes[loop.operations[0].args[0]].escaped
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=field_desc)
+        i2 = int_add(i1, i1)
+        """
+        spec = Specializer([])
+        loop = self.parse(ops)
+        optimize_loop(None, [], loop, self.cpu, spec=spec)
+        assert not spec.nodes[loop.operations[0].result].escaped
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=field_desc)
+        fail(i1)
+        """
+        spec = Specializer([])
+        loop = self.parse(ops)
+        optimize_loop(None, [], loop, self.cpu, spec=spec)
+        assert spec.nodes[loop.operations[0].result].escaped
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=field_desc)
+        guard_true(i1)
+            fail()
+        """
+        spec = Specializer([])
+        loop = self.parse(ops)
+        optimize_loop(None, [], loop, self.cpu, spec=spec)
+        assert not spec.nodes[loop.operations[0].result].escaped
+
+    def test_escape_analysis_on_virtualizable(self):
+        ops = """
+        [p0]
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        i1 = getfield_gc(p0, descr=field_desc)
+        setfield_gc(p0, i1, descr=field_desc)
+        i2 = int_add(i1, i1)
+        """
+        spec = Specializer([SimpleVirtualizableOpt()])
+        loop = self.parse(ops)
+        optimize_loop(None, [], loop, self.cpu, spec=spec)
+        assert not spec.nodes[loop.operations[0].result].escaped
+
+#     def test_simple_virtual(self):
+#         pre_op = """
+#         []
+#         p0 = new_with_vtable(13, ConstClass(node_vtable))
+#         setfield_gc(p0, 1, descr=field_desc)
+#         i2 = getfield_gc(p0, descr=field_desc)
+#         fail(i2)
+#         """
+#         expected = """
+#         []
+#         fail(1)
+#         """
+#         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
+#                                         expected)
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
