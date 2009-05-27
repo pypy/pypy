@@ -57,6 +57,7 @@ class LLtypeMixin(object):
     node = lltype.malloc(NODE)
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
+    nodesize = cpu.sizeof(NODE)
 
     TP = lltype.GcArray(lltype.Signed)
     NODE_ARRAY = lltype.GcArray(lltype.Ptr(NODE))
@@ -93,6 +94,7 @@ class OOtypeMixin(object):
     node = ootype.new(NODE)
     nodebox = BoxObj(ootype.cast_to_object(node))
     nodedescr = cpu.fielddescrof(NODE, 'value')
+    nodesize = cpu.sizeof(node)
 
     TP = ootype.Array(ootype.Signed)
 
@@ -305,14 +307,14 @@ class BaseTestOptimize2(object):
     def test_newly_allocated_virtualizable_is_not_virtualized(self):
         pre_op = """
         []
-        p0 = new_with_vtable(13, ConstClass(xy_vtable))
+        p0 = new_with_vtable(ConstClass(xy_vtable))
         guard_nonvirtualized(p0, vdesc=vdesc)
             fail()
         setfield_gc(p0, 3, descr=field_desc)
         """
         expected = """
         []
-        p0 = new_with_vtable(13, ConstClass(xy_vtable))
+        p0 = new_with_vtable(ConstClass(xy_vtable))
         setfield_gc(p0, 3, descr=field_desc)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
@@ -373,7 +375,7 @@ class BaseTestOptimize2(object):
     def test_simple_virtual(self):
         pre_op = """
         []
-        p0 = new_with_vtable(13, ConstClass(node_vtable))
+        p0 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p0, 1, descr=field_desc)
         i2 = getfield_gc(p0, descr=field_desc)
         fail(i2)
@@ -388,7 +390,7 @@ class BaseTestOptimize2(object):
     def test_virtual_with_virtualizable(self):
         pre_op = """
         [p0]
-        p1 = new_with_vtable(13, ConstClass(node_vtable))
+        p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, 1, descr=nodedescr)
         guard_nonvirtualized(p0, vdesc=vdesc)
             fail()
@@ -410,7 +412,7 @@ class BaseTestOptimize2(object):
     def test_rebuild_ops(self):
         pre_op = """
         [i1]
-        p1 = new_with_vtable(13, ConstClass(node_vtable))
+        p1 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(p1, 1, descr=field_desc)
         guard_true(i1)
             fail(p1)
@@ -418,7 +420,7 @@ class BaseTestOptimize2(object):
         expected = """
         [i1]
         guard_true(i1)
-            p1 = new_with_vtable(13, ConstClass(node_vtable))
+            p1 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
             setfield_gc(p1, 1, descr=field_desc)
             fail(p1)
         """

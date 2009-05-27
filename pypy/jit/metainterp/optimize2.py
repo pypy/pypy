@@ -134,8 +134,8 @@ class Specializer(object):
 
     def rebuild_virtual(self, ops, node):
         assert node.virtual
-        ops.append(ResOperation(rop.NEW_WITH_VTABLE, [node.size, node.cls],
-                                node.source))
+        ops.append(ResOperation(rop.NEW_WITH_VTABLE, [node.cls],
+                                node.source, node.size))
         for field, valuenode in node.cleanfields.iteritems():
             if valuenode.virtual:
                 self.rebuild_virtual(ops, valuenode)
@@ -344,8 +344,8 @@ class SimpleVirtualOpt(object):
         if node.escaped:
             return False
         node.virtual = True
-        node.cls = op.args[1]
-        node.size = op.args[0]
+        node.cls = op.args[0]
+        node.size = op.descr
         return True
 
     @staticmethod
