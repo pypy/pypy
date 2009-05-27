@@ -555,6 +555,11 @@ class Frame(object):
 
     def op_guard_nonvirtualized(self, for_accessing_field,
                                 value, expected_class=None):
+        # XXX
+        # We completely ignore guard_nonvirtualized
+        # right now, nobody can devirtualize a virtualizable anyway
+        # and we abuse guard_nonvirtualized for propagating properties
+        return
         if expected_class is not None:
             self.op_guard_class(-1, value, expected_class)
         if heaptracker.cast_vable(value).vable_rti:
