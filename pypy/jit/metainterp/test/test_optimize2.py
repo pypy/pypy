@@ -279,7 +279,6 @@ class BaseTestOptimize2(object):
         guard_true(i5)
             fail()
         """
-        pre_op = parse(pre_op, self.cpu, self.namespace)
         expected = """
         [p0, i0, i1]
         p1 = getfield_gc(p0, descr=list_desc)
@@ -293,6 +292,23 @@ class BaseTestOptimize2(object):
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
+
+    def test_newly_allocated_virtualizable_is_not_virtualized(self):
+        pre_op = """
+        []
+        p0 = new_with_vtable(13, ConstClass(xy_vtable))
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        setfield_gc(p0, 3, descr=field_desc)
+        """
+        expected = """
+        []
+        p0 = new_with_vtable(13, ConstClass(xy_vtable))
+        setfield_gc(p0, 3, descr=field_desc)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
+                          expected)
+        
 
     def test_remove_consecutive_guard_value_constfold(self):
         py.test.skip("not yet")

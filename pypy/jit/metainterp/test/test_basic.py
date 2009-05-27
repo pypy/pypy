@@ -667,7 +667,6 @@ class BasicTests:
         res = self.meta_interp(f, [30])
         assert res == 1
 
-
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

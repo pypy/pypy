@@ -22,6 +22,7 @@ class InstanceNode(object):
         self.cleanfields = {}
         self.arrayfields = {}
         self.virtualized = False
+        self.allocated_in_loop = False
         self.vdesc = None
 
     def __repr__(self):
@@ -83,7 +84,10 @@ class Specializer(object):
                     self.getnode(box)
             box = op.result
             if box is not None:
-                self.nodes[box] = self.getnode(box)
+                node = self.getnode(box)
+                if op.opnum == rop.NEW or op.opnum == rop.NEW_WITH_VTABLE:
+                    node.allocated_in_loop = True
+                self.nodes[box] = node
 
     def new_arguments(self, op):
         newboxes = []
@@ -188,8 +192,9 @@ class SimpleVirtualizableOpt(object):
     @staticmethod
     def optimize_guard_nonvirtualized(op, spec):
         instnode = spec.getnode(op.args[0])
-        instnode.virtualized = True
-        instnode.vdesc = op.vdesc
+        if not instnode.allocated_in_loop:
+            instnode.virtualized = True
+            instnode.vdesc = op.vdesc
         return True
 
     @staticmethod
