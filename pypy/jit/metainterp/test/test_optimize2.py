@@ -308,62 +308,6 @@ class BaseTestOptimize2(object):
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
-        
-
-    def test_remove_consecutive_guard_value_constfold(self):
-        py.test.skip("not yet")
-        n = BoxInt(0)
-        n1 = BoxInt(1)
-        n2 = BoxInt(3)
-        ops = [
-            ResOperation(rop.GUARD_VALUE, [n, ConstInt(0)], None),
-            ResOperation(rop.INT_ADD, [n, ConstInt(1)], n1),
-            ResOperation(rop.GUARD_VALUE, [n1, ConstInt(1)], None),
-            ResOperation(rop.INT_ADD, [n1, ConstInt(2)], n2),
-        ]
-        ops[0].suboperations = [ResOperation(rop.FAIL, [], None)]
-        ops[2].suboperations = [ResOperation(rop.FAIL, [], None)]
-        loop = self.newloop([n], ops)
-        optimize_loop(None, [], loop)
-        equaloplists(loop.operations, [
-            ResOperation(rop.GUARD_VALUE, [n, ConstInt(0)], None),
-            ])
-
-    def test_remove_consecutive_getfields(self):
-        py.test.skip("not yet")
-        n1 = BoxInt()
-        n2 = BoxInt()
-        n3 = BoxInt()
-        ops = [
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n1, self.nodedescr),
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n2, self.nodedescr),
-            ResOperation(rop.INT_ADD, [n1, n2], n3),
-        ]
-        loop = self.newloop([self.nodebox], ops)
-        optimize_loop(None, [], loop)
-        equaloplists(loop.operations, [
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n1, self.nodedescr),
-            ResOperation(rop.INT_ADD, [n1, n1], n3),
-            ])
-
-    def test_setfield_getfield_clean_cache(self):
-        py.test.skip("not yet")
-        n1 = BoxInt()
-        n2 = BoxInt()
-        n3 = BoxInt()
-        ops = [
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n1, self.nodedescr),
-            ResOperation(rop.SETFIELD_GC, [self.nodebox, ConstInt(3)], None, self.nodedescr),
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n2, self.nodedescr),
-            ResOperation(rop.CALL, [n2], None),
-        ]
-        loop = self.newloop([self.nodebox], ops)
-        optimize_loop(None, [], loop)
-        equaloplists(loop.operations, [
-            ResOperation(rop.GETFIELD_GC, [self.nodebox], n1, self.nodedescr),
-            ResOperation(rop.SETFIELD_GC, [self.nodebox, ConstInt(3)], None, self.nodedescr),
-            ResOperation(rop.CALL, [ConstInt(3)], None),
-            ])
 
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
