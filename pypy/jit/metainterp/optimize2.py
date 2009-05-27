@@ -26,6 +26,7 @@ class InstanceNode(object):
         self.vdesc = None
         self.escaped = escaped
         self.virtual = False
+        self.size = 0
 
     def __repr__(self):
         flags = ''
@@ -131,6 +132,16 @@ class Specializer(object):
         gop.suboperations = [ResOperation(rop.FAIL, [], None)]
         return gop
 
+    def rebuild_virtual(self, ops, node):
+        assert node.virtual
+        ops.append(ResOperation(rop.NEW_WITH_VTABLE, [node.size, node.cls],
+                                node.source))
+        for field, valuenode in node.cleanfields.iteritems():
+            if valuenode.virtual:
+                self.rebuild_virtual(ops, valuenode)
+            ops.append(ResOperation(rop.SETFIELD_GC,
+                     [node.source, valuenode.source], None, field))
+
     def optimize_guard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
@@ -140,12 +151,19 @@ class Specializer(object):
                 return None
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
+        op.suboperations = []
+        self.already_build_nodes = {}
+        for arg in op_fail.args:
+            node = self.getnode(arg)
+            if node.virtual:
+                self.rebuild_virtual(op.suboperations, node)
         op_fail.args = self.new_arguments(op_fail)
         # modification in place. Reason for this is explained in mirror
         # in optimize.py
-        op.suboperations = []
         for node, d in self.additional_stores.iteritems():
             for field, fieldnode in d.iteritems():
+                if fieldnode.virtual:
+                    self.rebuild_virtual(op.suboperations, fieldnode)
                 gop = self._guard_for_node(node)
                 op.suboperations.append(gop)
                 op.suboperations.append(ResOperation(rop.SETFIELD_GC,
@@ -153,6 +171,8 @@ class Specializer(object):
         for node, d in self.additional_setarrayitems.iteritems():
             for field, (fieldnode, descr) in d.iteritems():
                 box = fieldnode.source
+                if fieldnode.virtual:
+                    self.rebuild_virtual(op.suboperations, fieldnode)
                 gop = self._guard_for_node(node)
                 op.suboperations.append(gop) 
                 op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
@@ -324,6 +344,8 @@ class SimpleVirtualOpt(object):
         if node.escaped:
             return False
         node.virtual = True
+        node.cls = op.args[1]
+        node.size = op.args[0]
         return True
 
     @staticmethod

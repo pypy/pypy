@@ -402,6 +402,24 @@ class BaseTestOptimize2(object):
                                                  SimpleVirtualOpt()]),
                           expected)
 
+    def test_rebuild_ops(self):
+        pre_op = """
+        [i1]
+        p1 = new_with_vtable(13, ConstClass(node_vtable))
+        setfield_gc(p1, 1, descr=field_desc)
+        guard_true(i1)
+            fail(p1)
+        """
+        expected = """
+        [i1]
+        guard_true(i1)
+            p1 = new_with_vtable(13, ConstClass(node_vtable))
+            setfield_gc(p1, 1, descr=field_desc)
+            fail(p1)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
+                          expected)
+
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
