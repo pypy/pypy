@@ -65,8 +65,15 @@ def target(driver, args):
     config.objspace.usemodules.pypyjit = True
     config.objspace.usemodules._weakref = False
     config.objspace.usemodules._sre = False
-    config.objspace.std.multimethods = 'mrd'
-    multimethod.Installer = multimethod.InstallerVersion2
+    if config.translation.type_system == 'lltype':
+        config.objspace.std.multimethods = 'mrd'
+        multimethod.Installer = multimethod.InstallerVersion2
+    else:
+        from pypy.rlib import jit
+        jit.PARAMETERS['hash_bits'] = 6 # XXX: this is a hack, should be fixed at some point
+        config.objspace.std.multimethods = 'doubledispatch'
+        multimethod.Installer = multimethod.InstallerVersion1
+        
     config.objspace.std.builtinshortcut = True
     config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
     config.objspace.std.withrangelist = True
@@ -75,6 +82,7 @@ def target(driver, args):
     space = make_objspace(config)
     w_dict = space.newdict()
     return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+
 
 def jitpolicy(driver):
     """Returns the JIT policy to use when translating."""

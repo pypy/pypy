@@ -30,6 +30,7 @@ PROFILE = False
 
 def apply_jit(translator, backend_name="auto", **kwds):
     from pypy.jit.metainterp.simple_optimize import Optimizer
+    #from pypy.jit.metainterp.optimize2 import Optimizer
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)

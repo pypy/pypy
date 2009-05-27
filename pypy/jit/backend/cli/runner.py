@@ -241,7 +241,7 @@ def get_class_for_type(T):
         return dotnet.classof(System.Double)
 ##     elif T is ootype.String:
 ##         return dotnet.classof(System.String)
-    elif T is ootype.Char:
+    elif T in (ootype.Char, ootype.UniChar):
         return dotnet.classof(System.Char)
     elif isinstance(T, ootype.OOType):
         return ootype.runtimeClass(T)

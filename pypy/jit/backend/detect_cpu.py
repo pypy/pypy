@@ -47,6 +47,8 @@ def getcpuclass(backend_name="auto"):
         from pypy.jit.backend.x86.runner import CPU
     elif backend_name == 'minimal':
         from pypy.jit.backend.minimal.runner import LLtypeCPU as CPU
+    elif backend_name == 'cli':
+        from pypy.jit.backend.cli.runner import CliCPU as CPU
     else:
         raise ProcessorAutodetectError, "unsupported cpu '%s'" % backend_name
     return CPU

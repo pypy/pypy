@@ -28,7 +28,7 @@ by the genoo.py subclass of the backend
 from pypy.rpython.ootypesystem import ootype
 import operator
 
-MAX_CONST_PER_STEP = 100
+MAX_CONST_PER_STEP = 50
 
 PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                        ootype.Float, ootype.Signed, ootype.Unsigned,

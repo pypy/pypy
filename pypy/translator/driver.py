@@ -369,6 +369,20 @@ class TranslationDriver(SimpleTaskEngine):
         [RTYPE],
         "Backendopt before jitting")
 
+    def task_prejitbackendopt_ootype(self):
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(self.translator,
+                              inline_threshold=0,
+                              merge_if_blocks=True,
+                              constfold=False, # XXX?
+                              raisingop2direct_call=False,
+                              remove_asserts=False)
+    #
+    task_prejitbackendopt_ootype = taskdef(
+        task_prejitbackendopt_ootype,
+        [OOTYPE],
+        "Backendopt before jitting")
+
     def task_pyjitpl_lltype(self):
         get_policy = self.extra['jitpolicy']
         self.jitpolicy = get_policy(self)
@@ -381,6 +395,20 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_pyjitpl_lltype = taskdef(task_pyjitpl_lltype,
                                   [RTYPE, '?prejitbackendopt_lltype'],
+                                  "JIT compiler generation")
+
+    def task_pyjitpl_ootype(self):
+        get_policy = self.extra['jitpolicy']
+        self.jitpolicy = get_policy(self)
+        #
+        from pypy.jit.metainterp.warmspot import apply_jit
+        apply_jit(self.translator, policy=self.jitpolicy,
+                  backend_name='cli') #XXX
+        #
+        self.log.info("the JIT compiler was generated")
+    #
+    task_pyjitpl_ootype = taskdef(task_pyjitpl_ootype,
+                                  [OOTYPE, '?prejitbackendopt_ootype'],
                                   "JIT compiler generation")
 
     def task_backendopt_lltype(self):

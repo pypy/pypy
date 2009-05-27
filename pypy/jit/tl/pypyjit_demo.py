@@ -7,12 +7,17 @@ def do():
 
 def simple_loop():
     print "simple loop"
+    import time
     i = 0
     N = 100
+    #N = 10000000
     step = 3
+    start = time.clock()
     while i < N:
         i = i + step
+    end = time.clock()
     print i
+    print end-start, 'seconds'
 
 def g(i):
     for k in range(i, i +2):
@@ -24,7 +29,8 @@ def loop():
 
 try:
     #do()
-    loop()
+    #loop()
+    simple_loop()
     print "---ending 2---"
 except BaseException, e:
     print "---ending 0---"
