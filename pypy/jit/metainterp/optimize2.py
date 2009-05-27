@@ -25,13 +25,14 @@ class InstanceNode(object):
         self.allocated_in_loop = False
         self.vdesc = None
         self.escaped = escaped
+        self.virtual = False
 
     def __repr__(self):
         flags = ''
         if self.escaped:           flags += 'e'
         #if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
-        #if self.virtual:           flags += 'v'
+        if self.virtual:           flags += 'v'
         if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
@@ -94,9 +95,17 @@ class Specializer(object):
                     for arg in op.suboperations[0].args:
                         self.getnode(arg)
                 # default case
+                nodes = []
                 for box in op.args:
-                    node = self.getnode(box)
-                    if not op.has_no_side_effect() and not op.is_guard():
+                    nodes.append(self.getnode(box))
+                if op.has_no_side_effect() or op.is_guard():
+                    pass
+                elif (op.opnum in [rop.SETFIELD_GC, rop.SETFIELD_RAW,
+                                   rop.SETARRAYITEM_GC]):
+                    for i in range(1, len(nodes)):
+                        nodes[i].escaped = True
+                else:
+                    for node in nodes:
                         node.escaped = True
             box = op.result
             if box is not None:
@@ -306,10 +315,32 @@ class SimpleVirtualizableOpt(object):
         return True
 
 class SimpleVirtualOpt(object):
+    @staticmethod
     def optimize_new_with_vtable(op, spec):
-        xxx
         node = spec.getnode(op.result)
-        node.escaped = False
+        if node.escaped:
+            return False
+        node.virtual = True
+        return True
+
+    @staticmethod
+    def optimize_setfield_gc(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtual:
+            return False
+        field = op.descr
+        node = spec.getnode(op.args[1])
+        instnode.cleanfields[field] = node
+        return True
+
+    @staticmethod
+    def optimize_getfield_gc(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtual:
+            return False
+        field = op.descr
+        spec.nodes[op.result] = instnode.cleanfields[field]
+        return True
 
 specializer = Specializer([SimpleVirtualizableOpt(),
                            ConsecutiveGuardClassRemoval()])

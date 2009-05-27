@@ -362,20 +362,20 @@ class BaseTestOptimize2(object):
         optimize_loop(None, [], loop, self.cpu, spec=spec)
         assert not spec.nodes[loop.operations[0].result].escaped
 
-#     def test_simple_virtual(self):
-#         pre_op = """
-#         []
-#         p0 = new_with_vtable(13, ConstClass(node_vtable))
-#         setfield_gc(p0, 1, descr=field_desc)
-#         i2 = getfield_gc(p0, descr=field_desc)
-#         fail(i2)
-#         """
-#         expected = """
-#         []
-#         fail(1)
-#         """
-#         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
-#                                         expected)
+    def test_simple_virtual(self):
+        pre_op = """
+        []
+        p0 = new_with_vtable(13, ConstClass(node_vtable))
+        setfield_gc(p0, 1, descr=field_desc)
+        i2 = getfield_gc(p0, descr=field_desc)
+        fail(i2)
+        """
+        expected = """
+        []
+        fail(1)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
+                          expected)
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
