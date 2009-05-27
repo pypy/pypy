@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, opname
 from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
      ConstInt, BoxInt, BoxObj, ConstObj
 from pypy.jit.backend.llgraph import runner
@@ -131,13 +131,18 @@ class BaseTestOptimize2(object):
         equaloplists(optimized, self.parse(expected).operations)
 
     def test_basic_constant_folding(self):
-        pre_op = """
-        []
-        i1 = int_add(3, 2)
-        """
-        expected = "[]"
-        self.assert_equal(self.optimize(pre_op), expected)
-    
+        for op in range(rop.INT_ADD, rop._COMPARISON_FIRST):
+            try:
+                op = opname[op]
+            except KeyError:
+                continue
+            pre_op = """
+            []
+            i1 = %s(3, 2)
+            """ % op.lower()
+            expected = "[]"
+            self.assert_equal(self.optimize(pre_op), expected)
+
     def test_remove_guard_class(self):
         pre_op = """
         [p0]
