@@ -64,7 +64,7 @@ class ResOpGen(object):
             self.block_starters[graphindex] = {0: True}
         for graphindex, graph in enumerate(self.graphs):
             for i, op in enumerate(graph.get_operations()):
-                if op.is_guard():
+                if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
                     self.mark_starter(graphindex, i+1)
 
     def set_errmsg(self, errmsg):
