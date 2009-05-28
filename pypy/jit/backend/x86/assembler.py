@@ -13,21 +13,23 @@ from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.support import Logger
+from pypy.jit.backend.support import AbstractLogger
 
 # our calling convention - we pass three first args as edx, ecx and eax
 # and the rest stays on the stack
 
 MAX_FAIL_BOXES = 1000
 
-class x86Logger(Logger):
+class x86Logger(AbstractLogger):
 
-    def repr_for_descr(self, descr):
+    is_oo = False
+
+    def repr_of_descr(self, descr):
         from pypy.jit.backend.x86.runner import ConstDescr3
         if isinstance(descr, ConstDescr3):
-            return (str(op.descr.v0) + "," + str(op.descr.v1) +
-                    "," + str(op.descr.flag2))
-        return Logger.repr_for_descr(descr)
+            return (str(descr.v0) + "," + str(descr.v1) +
+                    "," + str(descr.flag2))
+        return AbstractLogger.repr_of_descr(self, descr)
 
 
 class MachineCodeBlockWrapper(object):

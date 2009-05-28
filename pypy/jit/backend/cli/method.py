@@ -1,5 +1,6 @@
 import py
 from pypy.tool.pairtype import extendabletype
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -8,6 +9,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
                                          ConstObj)
 from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.backend.support import AbstractLogger
 from pypy.jit.backend.cli import runner
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 
@@ -19,6 +21,16 @@ InputArgs = CLR.pypy.runtime.InputArgs
 
 cVoid = ootype.nullruntimeclass
 
+class CliLogger(AbstractLogger):
+    is_oo = True
+
+    def repr_of_descr(self, descr):
+        from pypy.jit.backend.cli.runner import DescrWithKey
+        if isinstance(descr, DescrWithKey):
+            return descr.short_repr()
+        return AbstractLogger.repr_of_descr(self, descr)
+    
+logger = CliLogger()
 
 class __extend__(AbstractValue):
     __metaclass__ = extendabletype
@@ -139,6 +151,11 @@ class Method(object):
         else:
             self.av_OverflowError = None
             self.av_ZeroDivisionError = None
+
+        # ----
+        logger.create_log()
+        logger.eventually_log_operations(loop.inputargs, loop.operations, None,
+                                         compute_unique_id(loop))
         # ----
         self.emit_load_inputargs()
         self.emit_preamble()

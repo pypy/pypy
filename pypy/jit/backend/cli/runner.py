@@ -230,6 +230,9 @@ class DescrWithKey(AbstractDescr):
     def sort_key(self):
         return self.key
 
+    def short_repr(self):
+        return ''
+
 
 def get_class_for_type(T):
     if T is ootype.Void:
@@ -288,6 +291,7 @@ class TypeDescr(DescrWithKey):
         self.getarraylength = getarraylength
         self.instanceof = instanceof
         self.ooclass = get_class_for_type(TYPE)
+        self.typename = TYPE._short_name()
 
     def get_clitype(self):
         return dotnet.class2type(self.ooclass)
@@ -298,6 +302,9 @@ class TypeDescr(DescrWithKey):
     def get_constructor_info(self):
         clitype = self.get_clitype()
         return clitype.GetConstructor(dotnet.new_array(System.Type, 0))
+
+    def short_repr(self):
+        return self.typename
 
 class StaticMethDescr(DescrWithKey):
 
@@ -425,6 +432,8 @@ class FieldDescr(DescrWithKey):
         clitype = self.get_self_clitype()
         return clitype.GetField(self.fieldname+'')
 
+    def short_repr(self):
+        return "'%s'" % self.fieldname
 
 CPU = CliCPU
 

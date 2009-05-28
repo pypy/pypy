@@ -272,7 +272,7 @@ class ResumeGuardDescr(AbstractDescr):
             if isinstance(box, BoxInt):
                 srcvalue = cpu.get_latest_value_int(i)
                 box.changevalue_int(srcvalue)
-            elif isinstance(box, BoxPtr):
+            elif not cpu.is_oo and isinstance(box, BoxPtr):
                 srcvalue = cpu.get_latest_value_ptr(i)
                 box.changevalue_ptr(srcvalue)
             elif cpu.is_oo and isinstance(box, BoxObj):
@@ -290,7 +290,7 @@ class ResumeGuardDescr(AbstractDescr):
             dstbox = fail_op.args[i]
             if isinstance(dstbox, BoxInt):
                 dstbox.changevalue_int(srcbox.getint())
-            elif isinstance(dstbox, BoxPtr):
+            elif not metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxPtr):
                 dstbox.changevalue_ptr(srcbox.getptr_base())
             elif isinstance(dstbox, Const):
                 pass
