@@ -46,14 +46,15 @@ def repr_pointer(box):
 
 def repr_object(box):
     try:
-        if box.value.obj._TYPE is ootype.String:
+        TYPE = box.value.obj._TYPE
+        if TYPE is ootype.String:
             return '(%r)' % box.value.obj._str
-        if isinstance(box.value.obj._TYPE, ootype.StaticMethod):
+        if TYPE is ootype.Class or isinstance(TYPE, ootype.StaticMethod):
             return '(%r)' % box.value.obj
         if isinstance(box.value.obj, ootype._view):
             return repr(box.value.obj._inst._TYPE)
         else:
-            return repr(box.value.obj._TYPE)
+            return repr(TYPE)
     except AttributeError:
         return box.value
 
