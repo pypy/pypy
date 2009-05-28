@@ -80,7 +80,8 @@ class CliCPU(model.AbstractCPU):
 
     @cached_method('_fieldcache')
     def fielddescrof(self, T, fieldname):
-        return FieldDescr(T, fieldname)
+        T1, _ = T._lookup_field(fieldname)
+        return FieldDescr(T1, fieldname)
 
     # ----------------------
 
