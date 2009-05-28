@@ -7,7 +7,6 @@ from pypy.jit.metainterp.history import TreeLoop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
-from pypy.jit.backend.minimal.runner import cached_method
 from pypy.jit.backend.llgraph.runner import KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -58,30 +57,30 @@ class CliCPU(model.AbstractCPU):
             self.inputargs = InputArgs()
         return self.inputargs
     
-    @cached_method('_callcache')
-    def calldescrof(self, FUNC, ARGS, RESULT):
-        return StaticMethDescr(FUNC, ARGS, RESULT)
+    @staticmethod
+    def calldescrof(FUNC, ARGS, RESULT):
+        return StaticMethDescr.new(FUNC, ARGS, RESULT)
 
-    @cached_method('_methcache')
-    def methdescrof(self, SELFTYPE, methname):
+    @staticmethod
+    def methdescrof(SELFTYPE, methname):
         if SELFTYPE in (ootype.String, ootype.Unicode):
-            return StringMethDescr(SELFTYPE, methname)
-        return MethDescr(SELFTYPE, methname)
+            return StringMethDescr.new(SELFTYPE, methname)
+        return MethDescr.new(SELFTYPE, methname)
 
-    @cached_method('_typecache')
-    def typedescrof(self, TYPE):
-        return TypeDescr(TYPE)
+    @staticmethod
+    def typedescrof(TYPE):
+        return TypeDescr.new(TYPE)
 
-    @cached_method('_arraycache')
-    def arraydescrof(self, A):
+    @staticmethod
+    def arraydescrof(A):
         assert isinstance(A, ootype.Array)
         TYPE = A.ITEM
-        return TypeDescr(TYPE)
+        return TypeDescr.new(TYPE)
 
-    @cached_method('_fieldcache')
-    def fielddescrof(self, T, fieldname):
+    @staticmethod
+    def fielddescrof(T, fieldname):
         T1, _ = T._lookup_field(fieldname)
-        return FieldDescr(T1, fieldname)
+        return FieldDescr.new(T1, fieldname)
 
     # ----------------------
 
@@ -221,8 +220,21 @@ class CliCPU(model.AbstractCPU):
 # ----------------------------------------------------------------------
 key_manager = KeyManager()
 
+descr_cache = {}
 class DescrWithKey(AbstractDescr):
     key = -1
+
+    @classmethod
+    def new(cls, *args):
+        'NOT_RPYTHON'
+        key = (cls, args)
+        try:
+            return descr_cache[key]
+        except KeyError:
+            res = cls(*args)
+            descr_cache[key] = res
+            return res
+
 
     def __init__(self, key):
         self.key = key_manager.getkey(key)
@@ -351,7 +363,9 @@ class MethDescr(AbstractMethDescr):
     methname = ''
     has_result = False
     key = -1
-    
+
+    new = classmethod(DescrWithKey.new.im_func)
+
     def __init__(self, SELFTYPE, methname):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         _, meth = SELFTYPE._lookup(methname)
