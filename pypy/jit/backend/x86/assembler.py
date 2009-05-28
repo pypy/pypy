@@ -93,7 +93,7 @@ class Assembler386(object):
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
-        self.logger = Logger()
+        self.logger = x86Logger()
 
     def make_sure_mc_exists(self):
         if self.mc is None:
