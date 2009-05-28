@@ -224,3 +224,13 @@ class TestLLTypeLLGraph(LLtypeBackendTest, LLGraphTests):
 ## these tests never worked
 ## class TestOOTypeLLGraph(LLGraphTest):
 ##     from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
+
+def test_fielddescr_ootype():
+    from pypy.rpython.ootypesystem import ootype
+    from pypy.jit.backend.llgraph.runner import OOtypeCPU
+    A = ootype.Instance("A", ootype.ROOT, {"foo": ootype.Signed})
+    B = ootype.Instance("B", A)
+    cpu = OOtypeCPU(None)
+    descr1 = cpu.fielddescrof(A, "foo")
+    descr2 = cpu.fielddescrof(B, "foo")
+    assert descr1 is descr2

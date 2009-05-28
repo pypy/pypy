@@ -402,7 +402,9 @@ class OOtypeCPU(BaseCPU):
 
     @staticmethod
     def fielddescrof(T, fieldname):
-        return FieldDescr.new(T, fieldname)
+        # use class where the field is really defined as a key
+        T1, _ = T._lookup_field(fieldname)
+        return FieldDescr.new(T1, fieldname)
 
     @staticmethod
     def calldescrof(FUNC, ARGS, RESULT):
