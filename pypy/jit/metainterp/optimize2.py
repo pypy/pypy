@@ -20,6 +20,7 @@ class InstanceNode(object):
         self.const = const
         self.cls = None
         self.cleanfields = {}
+        self.origfields = {}
         self.arrayfields = {}
         self.virtualized = False
         self.allocated_in_loop = False
@@ -253,7 +254,8 @@ class SimpleVirtualizableOpt(object):
         field = op.descr
         if field not in instnode.vdesc.virtuals:
             return False
-        spec.getnode(op.result).virtualized = True
+        node = spec.getnode(op.result)
+        node.virtualized = True
         return False
 
     @staticmethod
@@ -270,7 +272,7 @@ class SimpleVirtualizableOpt(object):
             instnode.virtualized = True
             instnode.vdesc = op.vdesc
         return False
-    
+
     @staticmethod
     def optimize_guard_nonvirtualized(op, spec):
         return True
