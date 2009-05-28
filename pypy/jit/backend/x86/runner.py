@@ -168,7 +168,7 @@ class CPU386(object):
 #             #    llop.debug_print(lltype.Void, '.. calling back from',
 #             #                     guard_op, 'to the jit')
 #             gf = GuardFailed(self, frame_addr, guard_op)
-#             self.assembler.log_failure_recovery(gf, guard_index)
+#             self.assembler.logger.log_failure_recovery(gf, guard_index)
 #             self.metainterp.handle_guard_failure(gf)
 #             self.return_value_type = gf.return_value_type
 #             #if self.debug:
@@ -279,7 +279,7 @@ class CPU386(object):
         #    values_repr = ", ".join([str(values_as_int[i]) for i in
         #                             range(len(valueboxes))])
         #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
-        #self.assembler.log_call(valueboxes) --- XXX
+        #self.assembler.logger.log_call(valueboxes) --- XXX
         guard_index = self.execute_call(loop, func, verbose)
         self._guard_index = guard_index # for tests
         op = self._guard_list[guard_index]
