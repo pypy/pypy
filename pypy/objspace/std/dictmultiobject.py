@@ -4,6 +4,7 @@ from pypy.interpreter import gateway
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
+from pypy.rlib.jit import purefunction
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -695,7 +696,7 @@ class SharedStructure(object):
         self.length = length
         self.back_struct = back_struct
         if other_structs is None:
-            other_structs = []
+            other_structs = {}
         self.other_structs = other_structs
         self.last_key = last_key
         if last_key is not None:
@@ -703,16 +704,11 @@ class SharedStructure(object):
         self.propagating = False
 
     def new_structure(self, added_key):
-        keys = {}
-        for key, item in self.keys.iteritems():
-            if item >= 0:
-                keys[key] = item
+        keys = self.keys.copy()
+        keys[added_key] = len(self.keys)
         new_structure = SharedStructure(keys, self.length + 1,
-                                        [], added_key, self)
-        new_index = len(keys)
-        new_structure.keys[added_key] = new_index
-        self.keys[added_key] = ~len(self.other_structs)
-        self.other_structs.append(new_structure)
+                                        {}, added_key, self)
+        self.other_structs[added_key] = new_structure
         return new_structure
 
 
@@ -751,18 +747,17 @@ class SharedDictImplementation(DictImplementation):
             return self._as_rdict().setitem(w_key, w_value)
 
     def setitem_str(self, w_key, w_value, shadows_type=True):
-        m = ~len(self.structure.other_structs)
         key = self.space.str_w(w_key)
-        i = self.structure.keys.get(key, m)
+        i = self.structure.keys.get(key, -1)
         if i >= 0:
             self.entries[i] = w_value
             return self
         if not self.structure.propagating:
             return self._as_rdict(as_strdict=True).setitem_str(w_key, w_value)
-        if i == m:
+        new_structure = self.structure.other_structs.get(key, None)
+        if new_structure is None:
             new_structure = self.structure.new_structure(key)
         else:
-            new_structure = self.structure.other_structs[~i]
             new_structure.propagating = True
         self.entries.append(w_value)
         assert self.structure.length + 1 == new_structure.length
@@ -845,9 +840,8 @@ class SharedItemIteratorImplementation(IteratorImplementation):
         implementation = self.dictimplementation
         assert isinstance(implementation, SharedDictImplementation)
         for key, index in self.iterator:
-            if index >= 0:
-                w_value = implementation.entries[index]
-                return self.space.newtuple([self.space.wrap(key), w_value])
+            w_value = implementation.entries[index]
+            return self.space.newtuple([self.space.wrap(key), w_value])
         else:
             return None
 
@@ -860,8 +854,7 @@ class SharedKeyIteratorImplementation(IteratorImplementation):
         implementation = self.dictimplementation
         assert isinstance(implementation, SharedDictImplementation)
         for key, index in self.iterator:
-            if index >= 0:
-                return self.space.wrap(key)
+            return self.space.wrap(key)
         else:
             return None
 
