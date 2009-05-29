@@ -1,7 +1,5 @@
 /* LLVM includes */
-
 #include <cstdio>
-#include "llvm/LinkAllPasses.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -15,7 +13,7 @@ using namespace llvm;
  */
 void _LLVM_SetFlags(void)
 {
-  PerformTailCallOpt = true;
+  //PerformTailCallOpt = true;
 }
 
 /* This piece of code regroups conveniently a part of the initialization.

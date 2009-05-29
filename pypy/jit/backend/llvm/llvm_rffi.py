@@ -31,10 +31,10 @@ if (not os.path.isfile(libname) or
 
     o1name = os.path.join(dirname, 'demo1.o')
     o2name = os.path.join(dirname, 'demo2.o')
-    do("gcc -c '%s' -o '%s' -I/home/fijal/load/llvm/include" % (cname, o1name))
-    do("g++ -c '%s' -o '%s' `%s --cppflags`" % (cppname, o2name, llvm_config))
-    do("g++ -shared '%s' '%s' -o '%s' " % (o1name, o2name, libname) +
-       " `%s --cflags --ldflags --libs jit engine` -lLLVMInstrumentation -lLLVMipo -lLLVMipa -lLLVMTransformUtils -lLLVMAnalysis -lLLVMCore" % llvm_config)
+    do("g++ -g -c '%s' -o '%s' `%s --cppflags`" % (cname, o1name, llvm_config))
+    do("g++ -g -c '%s' -o '%s' `%s --cppflags`" % (cppname, o2name, llvm_config))
+    do("g++ -g -shared '%s' '%s' -o '%s'" % (o1name, o2name, libname) +
+       " `%s --cflags --ldflags --libs jit engine`" % llvm_config)
 
 compilation_info = ExternalCompilationInfo(
     library_dirs = [dirname],
