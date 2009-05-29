@@ -135,8 +135,11 @@ class Specializer(object):
 
     def rebuild_virtual(self, ops, node):
         assert node.virtual
-        ops.append(ResOperation(rop.NEW_WITH_VTABLE, [node.cls],
-                                node.source, node.size))
+        if node.cls is not None:
+            ops.append(ResOperation(rop.NEW_WITH_VTABLE, [node.cls],
+                                    node.source, node.size))
+        else:
+            ops.append(ResOperation(rop.NEW, [], node.source, node.size))
         for field, valuenode in node.cleanfields.iteritems():
             if valuenode.virtual:
                 self.rebuild_virtual(ops, valuenode)
@@ -377,6 +380,15 @@ class SimpleVirtualOpt(object):
             return False
         node.virtual = True
         node.cls = op.args[0]
+        node.size = op.descr
+        return True
+
+    @staticmethod
+    def optimize_new(op, spec):
+        node = spec.getnode(op.result)
+        if node.escaped:
+            return False
+        node.virtual = True
         node.size = op.descr
         return True
 

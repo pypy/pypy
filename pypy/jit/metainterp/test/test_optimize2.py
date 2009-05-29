@@ -472,6 +472,22 @@ class BaseTestOptimize2(object):
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
                                                  SimpleVirtualOpt()]),
                           expected)
+
+    def test_virtual_without_vtable(self):
+        pre_op = """
+        [i1]
+        p0 = new()
+        guard_true(i1)
+            fail(p0)
+        """
+        expected = """
+        [i1]
+        guard_true(i1)
+            p0 = new()
+            fail(p0)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
+                          expected)
         
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
