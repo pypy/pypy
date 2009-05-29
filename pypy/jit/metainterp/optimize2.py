@@ -411,6 +411,8 @@ class SimpleVirtualOpt(object):
         spec.nodes[op.result] = instnode.cleanfields[field]
         return True
 
+    optimize_getfield_gc_pure = optimize_getfield_gc
+
     @staticmethod
     def optimize_oononnull(op, spec):
         instnode = spec.getnode(op.args[0])
