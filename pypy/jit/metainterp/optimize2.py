@@ -268,6 +268,7 @@ class SimpleVirtualizableOpt(object):
             node.virtualized = True
             return True
         node = spec.getnode(op.result)
+        instnode.cleanfields[field] = node
         node.virtualized = True
         return False
 
@@ -291,6 +292,7 @@ class SimpleVirtualizableOpt(object):
         if node is not None:
             spec.nodes[op.result] = node
             return True
+        instnode.arrayfields[field] = node
         return False
 
     @staticmethod

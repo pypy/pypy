@@ -451,6 +451,29 @@ class BaseTestOptimize2(object):
                                                  SimpleVirtualOpt()]),
                           expected)
 
+    def test_virtualizable_double_read(self):
+        pre_op = """
+        [p0]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p1 = getfield_gc(p0, descr=list_node_desc)
+        setarrayitem_gc(p1, 0, p3)
+        p2 = getfield_gc(p0, descr=list_node_desc)
+        p4 = getarrayitem_gc(p2, 0)
+        fail(p4)
+        """
+        expected = """
+        [p0]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        p1 = getfield_gc(p0, descr=list_node_desc)
+        fail(p3)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
+                                                 SimpleVirtualOpt()]),
+                          expected)
+        
+
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
@@ -459,3 +482,4 @@ class TestOOtype(OOtypeMixin, BaseTestOptimize2):
         py.test.skip("XXX")
 
     test_virtual_with_virtualizable_escapes = test_virtual_with_virtualizable
+    test_virtualizable_double_read = test_virtual_with_virtualizable
