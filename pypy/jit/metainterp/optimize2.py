@@ -218,12 +218,18 @@ class Specializer(object):
             newoperations.append(op)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
+
+    def cleanup_nodes(self):
+        for node in self.nodes.values():
+            node.arrayfields.clear()
+            node.cleanfields.clear()
     
     def optimize_loop(self, loop):
         self.nodes = {}
         self.field_caches = {}
         self.loop = loop
         self.find_nodes()
+        self.cleanup_nodes()
         self.optimize_operations()
 
 class ConsecutiveGuardClassRemoval(object):
@@ -244,6 +250,8 @@ class SimpleVirtualizableOpt(object):
         field = op.descr
         if field not in instnode.vdesc.virtuals:
             return False
+        node = spec.getnode(op.args[1])
+        instnode.cleanfields[field] = node
         return True
 
     @staticmethod
@@ -254,6 +262,11 @@ class SimpleVirtualizableOpt(object):
         field = op.descr
         if field not in instnode.vdesc.virtuals:
             return False
+        node = instnode.cleanfields.get(field, None)
+        if node:
+            spec.nodes[op.result] = node
+            node.virtualized = True
+            return True
         node = spec.getnode(op.result)
         node.virtualized = True
         return False
@@ -263,7 +276,22 @@ class SimpleVirtualizableOpt(object):
         instnode = spec.getnode(op.args[0])
         if not instnode.virtualized:
             return False
+        field = op.args[1].getint()
+        node = spec.getnode(op.args[2])
+        instnode.arrayfields[field] = node
         return True
+
+    @staticmethod
+    def find_nodes_getarrayitem_gc(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtualized:
+            return False
+        field = op.args[1].getint()
+        node = instnode.arrayfields.get(field, None)
+        if node is not None:
+            spec.nodes[op.result] = node
+            return True
+        return False
 
     @staticmethod
     def find_nodes_guard_nonvirtualized(op, spec):

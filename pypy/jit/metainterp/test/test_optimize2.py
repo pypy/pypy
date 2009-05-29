@@ -429,7 +429,6 @@ class BaseTestOptimize2(object):
 
 
     def test_virtual_with_virtualizable_escapes(self):
-        py.test.skip("FIXME")
         pre_op = """
         [p0]
         p1 = new_with_vtable(ConstClass(node_vtable))
