@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
+from pypy.rlib.jit import hint
 
 funccallunrolling = unrolling_iterable(range(4))
 
@@ -45,7 +46,7 @@ class Function(Wrappable):
         return self.code.funcrun_obj(self, w_obj, args)
 
     def getcode(self):
-        return self.code
+        return hint(self.code, promote=True)
     
     def funccall(self, *args_w): # speed hack
         from pypy.interpreter import gateway
