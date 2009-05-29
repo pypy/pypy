@@ -58,10 +58,10 @@ class PyFrame(eval.Frame):
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        self.initialize_frame_scopes(closure)
+        self.initialize_frame_scopes(closure, code)
         self.fastlocals_w = [None]*self.numlocals
         make_sure_not_resized(self.fastlocals_w)
-        self.f_lineno = self.pycode.co_firstlineno
+        self.f_lineno = code.co_firstlineno
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:
@@ -69,13 +69,13 @@ class PyFrame(eval.Frame):
         else:
             return self.space.builtin
         
-    def initialize_frame_scopes(self, closure): 
+    def initialize_frame_scopes(self, closure, code): 
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
         # CO_OPTIMIZED: no locals dict needed at all
         # NB: this method is overridden in nestedscope.py
-        flags = self.pycode.co_flags
+        flags = code.co_flags
         if flags & pycode.CO_OPTIMIZED: 
             return 
         if flags & pycode.CO_NEWLOCALS:
@@ -86,7 +86,7 @@ class PyFrame(eval.Frame):
 
     def run(self):
         """Start this frame's execution."""
-        if self.pycode.co_flags & pycode.CO_GENERATOR:
+        if self.getcode().co_flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             return self.space.wrap(GeneratorIterator(self))
         else:
@@ -361,7 +361,7 @@ class PyFrame(eval.Frame):
         return self.pycode.hidden_applevel
 
     def getcode(self):
-        return self.pycode
+        return hint(self.pycode, promote=True)
 
     def getfastscope(self):
         "Get the fast locals as a list."

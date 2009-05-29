@@ -82,9 +82,8 @@ class __extend__(pyframe.PyFrame):
 
     cells = None
 
-    def initialize_frame_scopes(self, closure):
-        super_initialize_frame_scopes(self, closure)
-        code = self.pycode
+    def initialize_frame_scopes(self, closure, code):
+        super_initialize_frame_scopes(self, closure, code)
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
         if not nfreevars:
