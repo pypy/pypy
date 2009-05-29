@@ -276,6 +276,27 @@ class BasicTests:
         assert res == 42
         self.check_history_(int_add=0, int_mul=0, call=0)
 
+    def test_residual_call_pure_exception(self):
+        py.test.skip("fix this")
+        def externfn(x, y):
+            if x == 0:
+                raise IndexError
+            return x * y
+        externfn._pure_function_ = True
+        def f(n):
+            try:
+                n = hint(n, promote=True)
+                return externfn(n, n+1)
+            except IndexError:
+                return 5
+        res = self.interp_operations(f, [6])
+        assert res == 42
+        self.check_history_(int_add=0, int_mul=0, call=0)
+        res = self.interp_operations(f, [0])
+        assert res == 5
+        # XXX what should go to the next line?
+        # self.check_history_(int_add=0, int_mul=0, call=0)
+
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
