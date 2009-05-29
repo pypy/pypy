@@ -270,7 +270,8 @@ class BytecodeMaker(object):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
-        self.raise_analyzer = RaiseAnalyzer(self.cpu.rtyper.annotator.translator)
+        self.translator = self.cpu.rtyper.annotator.translator
+        self.raise_analyzer = RaiseAnalyzer(self.translator)
 
     def assemble(self):
         """Assemble the opcodes for self.bytecode."""
@@ -928,12 +929,18 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
                                                                 args,
                                                                 op.result)
+        pure = False
+        if op.opname == "direct_call":
+            func = get_funcobj(op.args[0].value)._callable
+            pure = getattr(func, "_pure_function_", False)
         try:
             canraise = self.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
             canraise = True  # if we need to look into the delayed ptr that is
                              # the portal, then it's certainly going to raise
-        if canraise:
+        if pure:
+            self.emit('residual_call_pure')
+        elif canraise:
             self.emit('residual_call')
         else:
             self.emit('residual_call_noexception')

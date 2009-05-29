@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted
+from pypy.rlib.jit import JitDriver, we_are_jitted, hint
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import support, codewriter, pyjitpl, history
@@ -264,6 +264,17 @@ class BasicTests:
         res = self.interp_operations(f, [6], policy=StopAtXPolicy(externfn))
         assert res == 42
         self.check_history_(int_add=1, int_mul=0, call=1, guard_no_exception=0)
+
+    def test_residual_call_pure(self):
+        def externfn(x, y):
+            return x * y
+        externfn._pure_function_ = True
+        def f(n):
+            n = hint(n, promote=True)
+            return externfn(n, n+1)
+        res = self.interp_operations(f, [6])
+        assert res == 42
+        self.check_history_(int_add=0, int_mul=0, call=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
