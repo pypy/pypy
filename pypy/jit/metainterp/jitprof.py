@@ -69,10 +69,12 @@ class Profiler(object):
         t0 = self.t1
         self.t1 = self.timer()
         if not self.current:
-            raise BrokenProfilerData
+            print "BROKEN PROFILER DATA!"
+            return
         ev1 = self.current.pop()
         if ev1 != event:
-            raise BrokenProfilerData
+            print "BROKEN PROFILER DATA!"
+            return
         self.times[ev1] += self.t1 - t0
 
     def start_tracing(self):   self._start(TRACING)
