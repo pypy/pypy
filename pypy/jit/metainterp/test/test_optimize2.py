@@ -97,17 +97,21 @@ class OOtypeMixin(object):
     nodesize = cpu.sizeof(node)
 
     TP = ootype.Array(ootype.Signed)
+    NODE_ARRAY = ootype.Array(NODE)
 
     XY = ootype.Instance('XY', ootype.ROOT,
                          {'ofield': ootype.Signed,
                           'oother_field': ootype.Signed,
-                          'olist': TP},
+                          'olist': TP,
+                          'oitem_list': NODE_ARRAY,
+                          },
                          _hints = {'virtualizable2': True,
-                                 'virtuals': ('field','list')})
+                                 'virtuals': ('field','list', 'item_list')})
     
     field_desc = cpu.fielddescrof(XY, 'ofield')
     array_descr = cpu.arraydescrof(TP)
     list_desc = cpu.fielddescrof(XY, 'olist')
+    list_node_desc = cpu.fielddescrof(XY, 'oitem_list')
     other_field_desc = cpu.fielddescrof(XY, 'oother_field')
     vdesc = VirtualizableDesc(cpu, XY, XY)
     xy_vtable = ootype.runtimeClass(XY)
@@ -508,8 +512,4 @@ class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
 
 class TestOOtype(OOtypeMixin, BaseTestOptimize2):
-    def test_virtual_with_virtualizable(self):
-        py.test.skip("XXX")
-
-    test_virtual_with_virtualizable_escapes = test_virtual_with_virtualizable
-    test_virtualizable_double_read = test_virtual_with_virtualizable
+    pass
