@@ -598,7 +598,7 @@ class RegAlloc(object):
         if len(candidates) == 1:
             return candidates[0]
         max = 0
-        choosen = None
+        chosen = None
         for one in candidates:
             next_usage = self._compute_next_usage(one, self.position)
             if next_usage == -1:
