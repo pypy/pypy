@@ -27,7 +27,7 @@ class InstanceNode(object):
         self.vdesc = None
         self.escaped = escaped
         self.virtual = False
-        self.size = 0
+        self.size = None
 
     def __repr__(self):
         flags = ''
