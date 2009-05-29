@@ -285,6 +285,7 @@ class RegAlloc(object):
 
     def _walk_operations(self, operations):
         i = 0
+        self.operations = operations
         while i < len(operations):
             op = operations[i]
             self.position = i
@@ -572,6 +573,14 @@ class RegAlloc(object):
         except KeyError:
             return self.stack_bindings[v]
 
+    def _compute_next_usage(self, v, pos):
+        for i in range(pos, len(self.operations)):
+            if v in self.operations[i].args:
+                return i
+            if i > self.longevity[v][1]:
+                return -1
+        return -1
+
     def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None):
         # XXX could be improved
         if v in self.jump_reg_candidates and (selected_reg is None or
@@ -580,12 +589,24 @@ class RegAlloc(object):
                 if (reg is self.jump_reg_candidates[v] and
                     var not in forbidden_vars):
                     return var
-        iter = self.reg_bindings.iterkeys()
-        while 1:
-            next = iter.next()
+        candidates = []
+        for next in self.reg_bindings:
             if (next not in forbidden_vars and selected_reg is None or
                 self.reg_bindings[next] is selected_reg):
-                return next
+                candidates.append(next)
+        assert candidates
+        if len(candidates) == 1:
+            return candidates[0]
+        max = 0
+        choosen = None
+        for one in candidates:
+            next_usage = self._compute_next_usage(one, self.position)
+            if next_usage == -1:
+                return one
+            elif next_usage > max:
+                next_usage = max
+                chosen = one
+        return chosen
 
     def move_variable_away(self, v, prev_loc):
         reg = None
