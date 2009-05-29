@@ -411,6 +411,23 @@ class SimpleVirtualOpt(object):
         spec.nodes[op.result] = instnode.cleanfields[field]
         return True
 
+    @staticmethod
+    def optimize_oononnull(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtual:
+            return False
+        spec.nodes[op.result] = InstanceNode(ConstInt(1), const=True)
+        return True
+
+    @staticmethod
+    def optimize_ooisnull(op, spec):
+        instnode = spec.getnode(op.args[0])
+        if not instnode.virtual:
+            return False
+        spec.nodes[op.result] = InstanceNode(ConstInt(0), const=True)
+        return True
+    
+
 specializer = Specializer([SimpleVirtualizableOpt(),
                            SimpleVirtualOpt(),
                            ConsecutiveGuardClassRemoval()])

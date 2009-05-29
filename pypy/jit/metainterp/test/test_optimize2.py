@@ -488,7 +488,21 @@ class BaseTestOptimize2(object):
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
                           expected)
-        
+
+    def test_oononnull_on_virtual(self):
+        pre_op = """
+        []
+        p0 = new()
+        i1 = oononnull(p0)
+        guard_true(i1)
+            fail()
+        i2 = ooisnull(p0)
+        guard_false(i2)
+            fail()
+        """
+        expected = "[]"
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
+                          expected)
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize2):
     pass
