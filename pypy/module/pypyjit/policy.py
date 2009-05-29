@@ -35,7 +35,6 @@ class PyPyJitPolicy(ManualJitPolicy):
             # gc_id operation
             if func.__name__ == 'id__ANY':
                 return False
-            return True
         # floats
         if mod == 'pypy.rlib.rbigint':
             #if func.__name__ == '_bigint_true_divide':

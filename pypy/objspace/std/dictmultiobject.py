@@ -711,6 +711,16 @@ class SharedStructure(object):
         self.other_structs[added_key] = new_structure
         return new_structure
 
+    def lookup_position(self, key):
+       # jit helper
+       self = hint(self, promote=True)
+       key = hint(key, promote=True)
+       return _lookup_position_shared(self, key)
+
+@purefunction
+def _lookup_position_shared(self, key):
+    return self.keys.get(key, -1)
+
 
 class State(object):
     def __init__(self, space):
@@ -730,8 +740,8 @@ class SharedDictImplementation(DictImplementation):
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
             lookup = space.str_w(w_lookup)
-            i = self.structure.keys.get(lookup, -1)
-            if i < 0:
+            i = self.structure.lookup_position(lookup)
+            if i == -1:
                 return None
             return self.entries[i]
         elif _is_sane_hash(space, w_lookup_type):
@@ -748,8 +758,8 @@ class SharedDictImplementation(DictImplementation):
 
     def setitem_str(self, w_key, w_value, shadows_type=True):
         key = self.space.str_w(w_key)
-        i = self.structure.keys.get(key, -1)
-        if i >= 0:
+        i = self.structure.lookup_position(key)
+        if i != -1:
             self.entries[i] = w_value
             return self
         if not self.structure.propagating:
