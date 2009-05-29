@@ -931,8 +931,11 @@ class BytecodeMaker(object):
                                                                 op.result)
         pure = False
         if op.opname == "direct_call":
-            func = get_funcobj(op.args[0].value)._callable
-            pure = getattr(func, "_pure_function_", False)
+            func = getattr(get_funcobj(op.args[0].value), '_callable', None)
+            if func is None:
+                pure = getattr(func, "_pure_function_", False)
+            else:
+                pure = False # a portal, likely
         try:
             canraise = self.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
