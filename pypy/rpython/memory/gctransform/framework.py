@@ -340,7 +340,7 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
-            func = getattr(gcdata.gc, GCClass.JIT_WB_THEN_CALL)
+            func = gcdata.gc.remember_young_pointer
             assert isinstance(func, types.FunctionType)   # not a bound method,
                                                           # but a real function
             self.write_barrier_failing_case_ptr = getfn(func,
