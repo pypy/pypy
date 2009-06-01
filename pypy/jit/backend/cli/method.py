@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rpython.ootypesystem import ootype
@@ -132,6 +133,7 @@ class Method(object):
     debug = False
 
     def __init__(self, cpu, name, loop):
+        self.setoptions()
         self.cpu = cpu
         self.name = name
         self.loop = loop
@@ -164,6 +166,29 @@ class Method(object):
         self.emit_end()
         # ----
         self.finish_code()
+
+    def _parseopt(self, text):
+        text = text.lower()
+        if text[0] == '-':
+            return text[1:], False
+        elif text[0] == '+':
+            return text[1:], True
+        else:
+            return text, True
+
+    def setoptions(self):
+        opts = os.environ.get('PYPYJITOPT')
+        if opts is None:
+            pass
+        parts = opts.split()
+        for part in parts:
+            name, value = self._parseopt(part)
+            if name == 'debug':
+                self.debug = value
+            elif name == 'tailcall':
+                self.tailcall = value
+            else:
+                os.write(2, 'Warning: invalid option name: %s\n' % name)
 
     def finish_code(self):
         delegatetype = dotnet.typeof(LoopDelegate)

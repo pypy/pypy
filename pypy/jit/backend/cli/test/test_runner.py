@@ -29,3 +29,31 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     def test_ovf_operations(self, reversed=False):
         if reversed:
             py.test.skip('fixme')
+
+
+def test_pypycliopt():
+    import os
+    from pypy.jit.backend.cli.method import Method
+    
+    def getmeth(value):
+        oldenv = os.environ.get('PYPYJITOPT')
+        os.environ['PYPYJITOPT'] = value
+        meth = Method.__new__(Method) # evil hack not to call __init__
+        meth.setoptions()
+        if oldenv:
+            os.environ['PYPYJITOPT'] = oldenv
+        else:
+            del os.environ['PYPYJITOPT']
+        return meth
+
+    meth = getmeth('')
+    assert meth.debug == Method.debug
+    assert meth.tailcall == Method.tailcall
+
+    meth = getmeth('debug -tailcall')
+    assert meth.debug
+    assert not meth.tailcall
+
+    meth = getmeth('+debug +tailcall')
+    assert meth.debug
+    assert meth.tailcall
