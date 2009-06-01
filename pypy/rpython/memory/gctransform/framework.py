@@ -616,11 +616,8 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
-        c_result = rmodel.inputconst(
-            lltype.typeOf(self.write_barrier_failing_case_ptr),
-            self.write_barrier_failing_case_ptr)
         hop.genop("same_as",
-                  [c_result],
+                  [self.write_barrier_failing_case_ptr],
                   resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
