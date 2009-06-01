@@ -542,7 +542,7 @@ class Method(object):
         self.store_result(op)        
 
     def emit_op_guard_nonvirtualized(self, op):
-        raise NotImplementedError
+        pass
 
     def lltype_only(self, op):
         print 'Operation %s is lltype specific, should not get here!' % op.getopname()
