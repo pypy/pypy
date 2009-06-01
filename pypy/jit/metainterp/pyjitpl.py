@@ -1068,7 +1068,9 @@ class MetaInterp(object):
             assert resbox is None or isinstance(resbox, Box)
         # record the operation if not constant-folded away
         if not canfold:
-            self.history.record(opnum, argboxes, resbox, descr)
+            self.history.record(opnum, argboxes, resbox, descr,
+                                self.framestack[-1].pc,
+                                self.framestack[-1].jitcode.name)
         return resbox
 
     def _interpret(self):

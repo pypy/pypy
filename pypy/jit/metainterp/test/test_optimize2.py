@@ -195,7 +195,7 @@ class BaseTestOptimize2(object):
         i3 = getfield_gc(p0, descr=field_desc)
         # ^^^ this one as well
         guard_true(i3)
-            fail()
+            fail(p0)
         """
         expected = """
         [p0]
@@ -205,7 +205,7 @@ class BaseTestOptimize2(object):
             guard_nonvirtualized(p0)
                 fail()
             setfield_gc(p0, i2, descr=field_desc)
-            fail()
+            fail(p0)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
@@ -262,7 +262,7 @@ class BaseTestOptimize2(object):
         i2 = int_add(i1, i1)
         i3 = int_is_true(i2)
         guard_true(i3)
-            fail()
+            fail(p0)
         """
         pre_op = self.parse(pre_op)
         expected = """
@@ -274,7 +274,7 @@ class BaseTestOptimize2(object):
             guard_nonvirtualized(p1)
                 fail()
             setarrayitem_gc(p1, 0, i0, descr=array_descr)
-            fail()
+            fail(p0)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)        
@@ -292,7 +292,7 @@ class BaseTestOptimize2(object):
         i4 = int_add(i2, i3)
         i5 = int_is_true(i4)
         guard_true(i5)
-            fail()
+            fail(p0)
         """
         expected = """
         [p0, i0, i1]
@@ -303,7 +303,7 @@ class BaseTestOptimize2(object):
             guard_nonvirtualized(p1)
                 fail()
             setarrayitem_gc(p1, 0, i1, descr=array_descr)
-            fail()
+            fail(p0)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
                           expected)
@@ -472,6 +472,30 @@ class BaseTestOptimize2(object):
         p3 = new_with_vtable(ConstClass(node_vtable))
         p1 = getfield_gc(p0, descr=list_node_desc)
         fail(p3)
+        """
+        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
+                                                 SimpleVirtualOpt()]),
+                          expected)
+
+
+    def test_virtualizable_fail_forces(self):
+        pre_op = """
+        [p0]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        guard_nonvirtualized(p0, vdesc=vdesc)
+            fail()
+        p1 = getfield_gc(p0, descr=list_node_desc)
+        setarrayitem_gc(p1, 0, p3)
+        fail(p0)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=list_node_desc)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        guard_nonvirtualized(p1)
+            fail()
+        setarrayitem_gc(p1, 0, p3)        
+        fail(p0)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
                                                  SimpleVirtualOpt()]),

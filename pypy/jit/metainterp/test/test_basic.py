@@ -749,7 +749,6 @@ class TestOOtype(BasicTests, OOJitMixin):
     def test_r_dict(self):
         py.test.skip('in-progress')
 
-
 class TestLLtype(BasicTests, LLJitMixin):
 
     def test_oops_on_nongc(self):

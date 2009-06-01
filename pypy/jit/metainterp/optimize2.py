@@ -156,34 +156,43 @@ class Specializer(object):
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
         op.suboperations = []
-        self.already_build_nodes = {}
-        for arg in op_fail.args:
-            node = self.getnode(arg)
-            if node.virtual:
-                self.rebuild_virtual(op.suboperations, node)
+        self.rebuild_virtuals(op.suboperations, op_fail.args)
         op_fail.args = self.new_arguments(op_fail)
-        # modification in place. Reason for this is explained in mirror
-        # in optimize.py
-        for node, d in self.additional_stores.iteritems():
-            for field, fieldnode in d.iteritems():
-                if fieldnode.virtual:
-                    self.rebuild_virtual(op.suboperations, fieldnode)
-                gop = self._guard_for_node(node)
-                op.suboperations.append(gop)
-                op.suboperations.append(ResOperation(rop.SETFIELD_GC,
-                    [node.source, fieldnode.source], None, field))
-        for node, d in self.additional_setarrayitems.iteritems():
-            for field, (fieldnode, descr) in d.iteritems():
-                box = fieldnode.source
-                if fieldnode.virtual:
-                    self.rebuild_virtual(op.suboperations, fieldnode)
-                gop = self._guard_for_node(node)
-                op.suboperations.append(gop) 
-                op.suboperations.append(ResOperation(rop.SETARRAYITEM_GC,
-                             [node.source, ConstInt(field), box], None, descr))
         op.suboperations.append(op_fail)
         op.args = self.new_arguments(op)
         return op
+
+    def rebuild_virtuals(self, ops, args):
+        self.already_build_nodes = {}
+        rebuild = False
+        for arg in args:
+            node = self.getnode(arg)
+            if node.virtual:
+                self.rebuild_virtual(ops, node)
+            if node.virtualized:
+                rebuild = True
+        # modification in place. Reason for this is explained in mirror
+        # in optimize.py
+        # XXX in general, it's probably not correct, but should work
+        #     because we always pass frame anyway
+        if rebuild:
+            for node, d in self.additional_stores.iteritems():
+                for field, fieldnode in d.iteritems():
+                    if fieldnode.virtual:
+                        self.rebuild_virtual(ops, fieldnode)
+                    gop = self._guard_for_node(node)
+                    ops.append(gop)
+                    ops.append(ResOperation(rop.SETFIELD_GC,
+                               [node.source, fieldnode.source], None, field))
+            for node, d in self.additional_setarrayitems.iteritems():
+                for field, (fieldnode, descr) in d.iteritems():
+                    box = fieldnode.source
+                    if fieldnode.virtual:
+                        self.rebuild_virtual(ops, fieldnode)
+                    gop = self._guard_for_node(node)
+                    ops.append(gop) 
+                    ops.append(ResOperation(rop.SETARRAYITEM_GC,
+                              [node.source, ConstInt(field), box], None, descr))
 
     def optimize_operations(self):
         self.additional_stores = {}
@@ -205,6 +214,8 @@ class Specializer(object):
                     newoperations.append(op)
                 continue
             # default handler
+            if op.opnum == rop.FAIL or op.opnum == rop.JUMP:
+                self.rebuild_virtuals(newoperations, op.args)
             op = op.clone()
             op.args = self.new_arguments(op)
             if op.is_always_pure():
@@ -371,7 +382,7 @@ class SimpleVirtualizableOpt(object):
         d = spec.additional_setarrayitems.setdefault(instnode, {})
         d[field] = (fieldnode, op.descr)
         return True
-
+        
 class SimpleVirtualOpt(object):
     @staticmethod
     def optimize_new_with_vtable(op, spec):
