@@ -582,19 +582,22 @@ class RunningMatcher(Base):
         self.cpu = cpu
         self.inputargs = None
         self.operations = []
-    def record(self, opnum, argboxes, resbox, descr=None):
+    def record(self, opnum, argboxes, resbox, descr=None, pc=0, name=""):
         raise NotImplementedError
 
 class History(RunningMatcher):
     extratext = ''
-    def record(self, opnum, argboxes, resbox, descr=None):
+    def record(self, opnum, argboxes, resbox, descr=None,
+               pc=0, name=""):
         op = ResOperation(opnum, argboxes, resbox, descr)
+        op.pc = pc
+        op.name = name
         self.operations.append(op)
         return op
 
 class BlackHole(RunningMatcher):
     extratext = ' (BlackHole)'
-    def record(self, opnum, argboxes, resbox, descr=None):
+    def record(self, opnum, argboxes, resbox, descr=None, pc=0, name=""):
         return None
 
 # ____________________________________________________________

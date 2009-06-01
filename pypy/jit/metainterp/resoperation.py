@@ -15,6 +15,10 @@ class ResOperation(object):
     # for x86 backend and guards
     inputargs = None
 
+    # debug
+    name = ""
+    pc = 0
+
     def __init__(self, opnum, args, result, descr=None):
         assert isinstance(opnum, int)
         self.opnum = opnum
@@ -48,11 +52,15 @@ class ResOperation(object):
             sres = '%s = ' % (self.result,)
         else:
             sres = ''
+        if self.name:
+            prefix = "%s:%s:" % (self.name, self.pc)
+        else:
+            prefix = ""
         if self.descr is None or we_are_translated():
-            return '%s%s(%s)' % (sres, self.getopname(),
+            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
                                  ', '.join([str(a) for a in self.args]))
         else:
-            return '%s%s(%s, descr=%r)' % (sres, self.getopname(),
+            return '%s%s%s(%s, descr=%r)' % (prefix, sres, self.getopname(),
                             ', '.join([str(a) for a in self.args]), self.descr)
 
     def getopname(self):
