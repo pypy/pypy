@@ -103,8 +103,8 @@ class CPU386(object):
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
         self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
-        self.gc_ll_descr = get_ll_description(gcdescr, mixlevelann)
         self._descr_caches = {}
+        self.gc_ll_descr = get_ll_description(gcdescr, self)
         self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                          'typeptr',
                                                         translate_support_code)
@@ -504,11 +504,13 @@ class CPU386(object):
             v = rffi.cast(rffi.USHORT, vbox.getint())
             rffi.cast(rffi.CArrayPtr(rffi.USHORT), gcref)[ofs/2] = v
         elif size == WORD:
-            a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
             if ptr:
                 ptr = vbox.getptr(llmemory.GCREF)
+                self.gc_ll_descr.do_write_barrier(gcref, ptr)
+                a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
                 a[ofs/WORD] = self.cast_gcref_to_int(ptr)
             else:
+                a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
                 a[ofs/WORD] = vbox.getint()
         else:
             raise NotImplementedError("size = %d" % size)

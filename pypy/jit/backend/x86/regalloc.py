@@ -1001,15 +1001,21 @@ class RegAlloc(object):
 
     def _unpack_fielddescr(self, fielddescr):
         from pypy.jit.backend.x86.runner import CPU386
-        ofs, size, _ = CPU386.unpack_fielddescr(fielddescr)
-        return imm(ofs), imm(size)
+        ofs, size, ptr = CPU386.unpack_fielddescr(fielddescr)
+        return imm(ofs), imm(size), ptr
 
     def consider_setfield_gc(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        ofs_loc, size_loc = self._unpack_fielddescr(op.descr)
         value_loc = self.make_sure_var_in_reg(op.args[1], op.args)
+        ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
+        if ptr:
+            gc_ll_descr = self.assembler.cpu.gc_ll_descr
+            gc_ll_descr.gen_write_barrier(self.assembler, base_loc, value_loc)
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
+
+    #def consider_setfield_raw(...):
+    #    like consider_setfield_gc(), except without write barrier support
 
     def consider_strsetitem(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
@@ -1030,7 +1036,7 @@ class RegAlloc(object):
                                  imm(scale), imm(ofs)])
 
     def consider_getfield_gc(self, op, ignored):
-        ofs_loc, size_loc = self._unpack_fielddescr(op.descr)
+        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.descr)
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         self.eventually_free_vars(op.args)
         result_loc = self.force_allocate_reg(op.result, [])

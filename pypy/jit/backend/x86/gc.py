@@ -5,15 +5,20 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.backend.x86.runner import ConstDescr3
-from pypy.jit.backend.x86.ri386 import MODRM
+from pypy.jit.backend.x86.ri386 import MODRM, mem, imm32, rel32
+from pypy.jit.backend.x86.ri386 import REG, eax, ecx, edx
 
 # ____________________________________________________________
 
 class GcLLDescription:
-    def __init__(self, gcdescr, mixlevelann):
+    def __init__(self, gcdescr, cpu):
         self.gcdescr = gcdescr
     def _freeze_(self):
         return True
+    def do_write_barrier(self, gcref_struct, gcref_newptr):
+        pass
+    def gen_write_barrier(self, regalloc, base_reg, value_reg):
+        pass
 
 # ____________________________________________________________
 
@@ -21,7 +26,7 @@ class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
 
-    def __init__(self, gcdescr, mixlevelann):
+    def __init__(self, gcdescr, cpu):
         # grab a pointer to the Boehm 'malloc' function
         compilation_info = ExternalCompilationInfo(libraries=['gc'])
         malloc_fn_ptr = rffi.llexternal("GC_malloc",
@@ -220,10 +225,11 @@ class GcRootMap_asmgcc:
 class GcLLDescr_framework(GcLLDescription):
     GcRefList = GcRefList
 
-    def __init__(self, gcdescr, mixlevelann):
+    def __init__(self, gcdescr, cpu):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
         from pypy.rpython.memory.gctransform import framework
-        self.translator = mixlevelann.rtyper.annotator.translator
+        self.cpu = cpu
+        self.translator = cpu.mixlevelann.rtyper.annotator.translator
 
         # to find roots in the assembler, make a GcRootMap
         name = gcdescr.config.translation.gcrootfinder
@@ -243,8 +249,10 @@ class GcLLDescr_framework(GcLLDescription):
             'gcmapstart': lambda: gcrootmap.gcmapstart(),
             'gcmapend': lambda: gcrootmap.gcmapend(),
             }
-        GCClass, _ = choose_gc_from_config(gcdescr.config)
-        self.moving_gc = GCClass.moving_gc
+        self.GCClass, _ = choose_gc_from_config(gcdescr.config)
+        self.moving_gc = self.GCClass.moving_gc
+        self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
+        self.fielddescr_tid = cpu.fielddescrof(self.GCClass.HDR, 'tid')
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
@@ -254,6 +262,8 @@ class GcLLDescr_framework(GcLLDescription):
         self.malloc_basic = malloc_basic
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
             [lltype.Signed, lltype.Signed, lltype.Bool], llmemory.GCREF))
+        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address, llmemory.Address], lltype.Void))
 
     def sizeof(self, S, translate_support_code):
         from pypy.rpython.memory.gctypelayout import weakpointer_offset
@@ -285,9 +295,52 @@ class GcLLDescr_framework(GcLLDescription):
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)
 
+    def do_write_barrier(self, gcref_struct, gcref_newptr):
+        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
+        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
+        if hdr.tid & self.GCClass.JIT_WB_IF_FLAG:
+            # get a pointer to the 'remember_young_pointer' function from
+            # the GC, and call it immediately
+            funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
+            funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
+                    llmemory.cast_ptr_to_adr(gcref_newptr))
+
+    def gen_write_barrier(self, assembler, base_reg, value_reg):
+        assert isinstance(base_reg, REG)
+        assert isinstance(value_reg, REG)
+        # XXX very low-level, needs fixing if anything changes :-/
+        assembler.mc.TEST(mem(base_reg, 0), imm32(self.GCClass.JIT_WB_IF_FLAG))
+        assembler.mc.write('\x74\x0B')         # JZ label_end
+        # xxx longish - save all three registers in REGS; we know that base_reg
+        # and value_reg are two of these registers, find out the missing one
+        if base_reg is eax:
+            if value_reg is ecx:   third_reg = edx
+            elif value_reg is edx: third_reg = ecx
+            else: assert 0, "bad value_reg"
+        elif base_reg is ecx:
+            if value_reg is edx:   third_reg = eax
+            elif value_reg is eax: third_reg = edx
+            else: assert 0, "bad value_reg"
+        elif base_reg is edx:
+            if value_reg is eax:   third_reg = ecx
+            elif value_reg is ecx: third_reg = eax
+            else: assert 0, "bad value_reg"
+        else:
+            assert 0, "bad base_reg"
+        assembler.mc.PUSH(third_reg)           # 1 byte
+        assembler.mc.PUSH(value_reg)           # 1 byte
+        assembler.mc.PUSH(base_reg)            # 1 byte
+        funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
+        funcaddr = rffi.cast(lltype.Signed, funcptr)
+        assembler.mc.CALL(rel32(funcaddr))     # 5 bytes
+        assembler.mc.POP(base_reg)             # 1 byte
+        assembler.mc.POP(value_reg)            # 1 byte
+        assembler.mc.POP(third_reg)            # 1 byte
+                                       # total: 11 bytes
+
 # ____________________________________________________________
 
-def get_ll_description(gcdescr, mixlevelann):
+def get_ll_description(gcdescr, cpu):
     if gcdescr is not None:
         name = gcdescr.config.translation.gctransformer
     else:
@@ -297,4 +350,4 @@ def get_ll_description(gcdescr, mixlevelann):
     except KeyError:
         raise NotImplementedError("GC transformer %r not supported by "
                                   "the x86 backend" % (name,))
-    return cls(gcdescr, mixlevelann)
+    return cls(gcdescr, cpu)

@@ -42,6 +42,9 @@ class MachineCodeBlockWrapper(object):
     def tell(self):
         return self._mc.tell()
 
+    def write(self, data):
+        self._mc.write(data)
+
     def done(self):
         self._mc.done()
 
