@@ -19,7 +19,7 @@ from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
 from pypy.rpython.memory.gctransform.log import log
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
-import sys
+import sys, types
 
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
@@ -340,10 +340,11 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
-            func = getattr(GCClass, GCClass.JIT_WB_THEN_CALL).im_func
+            func = getattr(gcdata.gc, GCClass.JIT_WB_THEN_CALL)
+            assert isinstance(func, types.FunctionType)   # not a bound method,
+                                                          # but a real function
             self.write_barrier_failing_case_ptr = getfn(func,
-                                           [s_gc,
-                                            annmodel.SomeAddress(),
+                                           [annmodel.SomeAddress(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None)
         else:
