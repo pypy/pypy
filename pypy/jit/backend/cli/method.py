@@ -36,7 +36,10 @@ logger = CliLogger()
 class __extend__(AbstractValue):
     __metaclass__ = extendabletype
 
-    def getCliType(self):
+    def getCliType(self, meth):
+        if self in meth.box2type:
+            return meth.box2type[self]
+        
         if self.type == history.INT:
             return dotnet.typeof(System.Int32)
         elif self.type == history.OBJ:
@@ -104,7 +107,7 @@ class MethodArgument(AbstractValue):
         self.index = index
         self.cliType = cliType
 
-    def getCliType(self):
+    def getCliType(self, meth):
         return self.cliType
 
     def load(self, meth):
@@ -129,8 +132,9 @@ class MethodArgument(AbstractValue):
 class Method(object):
 
     operations = [] # overwritten at the end of the module
-    tailcall = True
     debug = False
+    tailcall = True
+    nocast = True
 
     def __init__(self, cpu, name, loop):
         self.setoptions()
@@ -159,6 +163,9 @@ class Method(object):
         logger.eventually_log_operations(loop.inputargs, loop.operations, None,
                                          compute_unique_id(loop))
         # ----
+        self.box2type = {}
+        if self.nocast:
+            self.compute_types()
         self.emit_load_inputargs()
         self.emit_preamble()
         self.emit_operations(loop.operations)
@@ -179,16 +186,37 @@ class Method(object):
     def setoptions(self):
         opts = os.environ.get('PYPYJITOPT')
         if opts is None:
-            pass
-        parts = opts.split()
+            return
+        parts = opts.split(' ')
         for part in parts:
             name, value = self._parseopt(part)
             if name == 'debug':
                 self.debug = value
             elif name == 'tailcall':
                 self.tailcall = value
+            elif name == 'nocast':
+                self.nocast = value
             else:
                 os.write(2, 'Warning: invalid option name: %s\n' % name)
+
+    def compute_types(self):
+        # XXX: look also in op.suboperations
+        box2classes = {} # box --> [ootype.Class]
+        for op in self.loop.operations:
+            if op.opnum in (rop.GETFIELD_GC, rop.SETFIELD_GC):
+                box = op.args[0]
+                descr = op.descr
+                assert isinstance(descr, runner.FieldDescr)
+                box2classes.setdefault(box, []).append(descr.selfclass)
+
+        for box, classes in box2classes.iteritems():
+            cls = classes[0]
+            for cls2 in classes[1:]:
+                if ootype.subclassof(cls, cls2):
+                    cls = cls2
+                else:
+                    assert ootype.subclassof(cls2, cls)
+            self.box2type[box] = dotnet.class2type(cls)
 
     def finish_code(self):
         delegatetype = dotnet.typeof(LoopDelegate)
@@ -218,7 +246,7 @@ class Method(object):
         try:
             return self.boxes[box]
         except KeyError:
-            v = self.il.DeclareLocal(box.getCliType())
+            v = self.il.DeclareLocal(box.getCliType(self))
             self.boxes[box] = v
             return v
 
@@ -275,7 +303,7 @@ class Method(object):
         self.emit_debug("executing: " + self.name)
         i = 0
         for box in self.loop.inputargs:
-            self.load_inputarg(i, box.type, box.getCliType())
+            self.load_inputarg(i, box.type, box.getCliType(self))
             box.store(self)
             i+=1
 
@@ -366,7 +394,7 @@ class Method(object):
         # store the latest values
         i = 0
         for box in op.args:
-            self.store_inputarg(i, box.type, box.getCliType(), box)
+            self.store_inputarg(i, box.type, box.getCliType(self), box)
             i+=1
 
     def emit_guard_bool(self, op, opcode):
@@ -508,8 +536,10 @@ class Method(object):
         assert isinstance(descr, runner.FieldDescr)
         clitype = descr.get_self_clitype()
         fieldinfo = descr.get_field_info()
-        op.args[0].load(self)
-        self.il.Emit(OpCodes.Castclass, clitype)
+        obj = op.args[0]
+        obj.load(self)
+        if obj.getCliType(self) is not clitype:
+            self.il.Emit(OpCodes.Castclass, clitype)
         self.il.Emit(OpCodes.Ldfld, fieldinfo)
         self.store_result(op)
     
@@ -520,8 +550,10 @@ class Method(object):
         assert isinstance(descr, runner.FieldDescr)
         clitype = descr.get_self_clitype()
         fieldinfo = descr.get_field_info()
-        op.args[0].load(self)
-        self.il.Emit(OpCodes.Castclass, clitype)
+        obj = op.args[0]
+        obj.load(self)
+        if obj.getCliType(self) is not clitype:
+            self.il.Emit(OpCodes.Castclass, clitype)
         op.args[1].load(self)
         self.il.Emit(OpCodes.Stfld, fieldinfo)
 
