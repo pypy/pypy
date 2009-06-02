@@ -255,6 +255,26 @@ class ConsecutiveGuardClassRemoval(object):
         instnode.cls = op.args[1]
         return False
 
+    @staticmethod
+    def optimize_oononnull(op, spec):
+        # very simple optimization: if the class of something is known (via
+        # guard_class) the thing cannot be a NULL
+        instnode = spec.getnode(op.args[0])
+        if instnode.cls is None:
+            return False
+        spec.nodes[op.result] = InstanceNode(ConstInt(1), const=True)
+        return True
+
+    @staticmethod
+    def optimize_ooisnull(op, spec):
+        # very simple optimization: if the class of something is known (via
+        # guard_class) the thing cannot be a NULL
+        instnode = spec.getnode(op.args[0])
+        if instnode.cls is None:
+            return False
+        spec.nodes[op.result] = InstanceNode(ConstInt(0), const=True)
+        return True
+
 class SimpleVirtualizableOpt(object):
     @staticmethod
     def find_nodes_setfield_gc(op, spec):

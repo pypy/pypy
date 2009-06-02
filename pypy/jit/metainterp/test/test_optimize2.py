@@ -166,6 +166,29 @@ class BaseTestOptimize2(object):
                                         [ConsecutiveGuardClassRemoval()]),
                           expected)
 
+    def test_remove_ooisnull_after_guard(self):
+        pre_op = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable))
+          fail()
+        i0 = ooisnull(p0)
+        guard_false(i0)
+          fail()
+        i1 = oononnull(p0)
+        guard_true(i1)
+          fail()
+        guard_class(p0, ConstClass(node_vtable))
+          fail()
+        """
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable))
+          fail()
+        """
+        self.assert_equal(self.optimize(pre_op,
+                                        [ConsecutiveGuardClassRemoval()]),
+                          expected)
+
     def test_basic_virtualizable(self):
         pre_op = """
         [p0]
