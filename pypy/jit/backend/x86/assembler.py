@@ -177,8 +177,7 @@ class Assembler386(object):
             mc.ADD(esp, imm32(tree._x86_stack_depth * WORD))
             mc.done()
         for op, pos in self.jumps_to_look_at:
-            if op.jump_target._x86_stack_depth < tree._x86_stack_depth:
-                # XXX do a dumb thing
+            if op.jump_target._x86_stack_depth != tree._x86_stack_depth:
                 tl = op.jump_target
                 self.patch_jump(pos, tl._x86_compiled, tl.arglocs, tl.arglocs,
                                 tree._x86_stack_depth, tl._x86_stack_depth)
@@ -197,9 +196,9 @@ class Assembler386(object):
     def assemble_bootstrap_code(self, jumpaddr, arglocs, framesize):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
-        if self.gcrootmap:
-            self.mc.PUSH(ebp)
-            self.mc.MOV(ebp, esp)
+        #if self.gcrootmap:
+        self.mc.PUSH(ebp)
+        self.mc.MOV(ebp, esp)
         self.mc.SUB(esp, imm(framesize * WORD))
         # This uses XCHG to put zeroes in fail_boxes after reading them,
         # just in case they are pointers.
@@ -606,51 +605,17 @@ class Assembler386(object):
                 locs = [loc.position for loc in newlocs if isinstance(loc, MODRM)]
                 assert locs == sorted(locs)
         #
-        if newdepth != olddepth:
-            mc2 = self.mcstack.next_mc()
-            pos = mc2.tell()
-            diff = olddepth - newdepth
-            for loc in newlocs:
-                if isinstance(loc, MODRM):
-                    has_modrm = True
-                    break
-            else:
-                has_modrm = False
-            if diff > 0:
-                if has_modrm:
-                    extra_place = stack_pos(olddepth - 1) # this is unused
-                    mc2.MOV(extra_place, eax)
-                    for i in range(len(newlocs) -1, -1, -1):
-                        loc = newlocs[i]
-                        if isinstance(loc, MODRM):
-                            mc2.MOV(eax, loc)
-                            mc2.MOV(stack_pos(loc.position + diff), eax)
-                    mc2.MOV(eax, extra_place)
-                mc2.ADD(esp, imm32((diff) * WORD))
-            else:
-                mc2.SUB(esp, imm32((-diff) * WORD))
-                if has_modrm:
-                    extra_place = stack_pos(newdepth - 1) # this is unused
-                    mc2.MOV(extra_place, eax)
-                    for i in range(len(newlocs)):
-                        loc = newlocs[i]
-                        if isinstance(loc, MODRM):
-                            # diff is negative!
-                            mc2.MOV(eax, stack_pos(loc.position - diff))
-                            mc2.MOV(loc, eax)
-                    mc2.MOV(eax, extra_place)
-            mc2.JMP(rel32(new_pos))
-            self.mcstack.give_mc_back(mc2)
-        else:
-            pos = new_pos
         mc = codebuf.InMemoryCodeBuilder(old_pos, old_pos +
                                          MachineCodeBlockWrapper.MC_SIZE)
-        mc.JMP(rel32(pos))
+        mc.SUB(esp, imm(WORD * (newdepth - olddepth)))
+        mc.JMP(rel32(new_pos))
         mc.done()
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
-        self.jumps_to_look_at.append((op, self.mc.tell()))
+        if op.jump_target is not self.tree:
+            self.jumps_to_look_at.append((op, self.mc.tell()))
+            self.mc.ADD(esp, imm(0))
         self.mc.JMP(rel32(targetmp._x86_compiled))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
@@ -745,8 +710,8 @@ class Assembler386(object):
         self.mc.ADD(esp, imm32(0))
         guard_index = self.cpu.make_guard_index(op)
         self.mc.MOV(eax, imm(guard_index))
-        if self.gcrootmap:
-            self.mc.POP(ebp)
+        #if self.gcrootmap:
+        self.mc.POP(ebp)
         self.mc.RET()
 
     def generate_ovf_set(self):
@@ -784,14 +749,14 @@ class Assembler386(object):
                 self.mc.PUSH(loc)
             else:
                 # we need to add a bit, ble
-                self.mc.PUSH(stack_pos(loc.position + extra_on_stack))
+                self.mc.PUSH(stack_pos(loc.position))
             extra_on_stack += 1
         if isinstance(op.args[0], Const):
             x = rel32(op.args[0].getint())
         else:
             x = arglocs[0]
             if isinstance(x, MODRM):
-                x = stack_pos(x.position + extra_on_stack)
+                x = stack_pos(x.position)
         self.mc.CALL(x)
         self.mark_gc_roots(extra_on_stack)
         self.mc.ADD(esp, imm(WORD * extra_on_stack))

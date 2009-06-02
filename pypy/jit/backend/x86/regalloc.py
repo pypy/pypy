@@ -315,9 +315,9 @@ class RegAlloc(object):
             i += 1
         assert not self.reg_bindings
         jmp = operations[-1]
-        if jmp.opnum == rop.JUMP and jmp.jump_target is not self.tree:
-            self.max_stack_depth = max(jmp.jump_target._x86_stack_depth,
-                                       self.max_stack_depth)
+        #if jmp.opnum == rop.JUMP and jmp.jump_target is not self.tree:
+        #    self.max_stack_depth = max(jmp.jump_target._x86_stack_depth,
+        #                               self.max_stack_depth)
         self.max_stack_depth = max(self.max_stack_depth,
                                    self.current_stack_depth + 1)
 
@@ -1155,9 +1155,9 @@ class RegAlloc(object):
             # write the code that moves the correct value into 'res', in two
             # steps: generate a pair PUSH (immediately) / POP (later)
             if isinstance(src, MODRM):
-                src = stack_pos(src.position + extra_on_stack)
+                src = stack_pos(src.position)
             if isinstance(res, MODRM):
-                res = stack_pos(res.position + extra_on_stack)
+                res = stack_pos(res.position)
             self.assembler.regalloc_push(src)
             later_pops.append(res)
             extra_on_stack += 1
@@ -1180,7 +1180,7 @@ for name, value in RegAlloc.__dict__.iteritems():
         oplist[num] = value
 
 def stack_pos(i):
-    res = mem(esp, WORD * i)
+    res = mem(ebp, -WORD * (1 + i))
     res.position = i
     return res
 
