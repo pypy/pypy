@@ -7,7 +7,7 @@ from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import hint, purefunction
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
@@ -189,6 +189,14 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
+        w_self = hint(w_self, promote=True)
+        name = hint(name, promote=True)
+        version_tag = hint(version_tag, promote=True)
+        return w_self._pure_lookup_where_with_method_cache(name, version_tag)
+
+    @purefunction
+    def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
+        space = w_self.space
         SHIFT = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
         version_tag_as_int = current_object_addr_as_int(version_tag)
         # ^^^Note: if the version_tag object is moved by a moving GC, the
