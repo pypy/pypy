@@ -1,0 +1,104 @@
+Simplified virtualizables
+=========================
+
+Let's start with some definitions:
+
+* Virtuals are objects which are known not to escape from jit code, hence
+  they're not allocated at all and their fields are stored in registers and or
+  on the stack.
+
+* Virtualizables are objects that are known to escape (for example the frame
+  object), but they're stored anyway on the stack with a way to access and
+  modify from outside the jit code. So the jit knows where they're and have
+  a way to reconstruct them if necessary.
+
+A couple of observations, in terms of a python interpreter:
+
+Usually we pass a virtualizable around everywhere (this is a frame
+object) which is stored on a framestack and allocated before each next
+call to portal (portal is a bytecode dispatch loop). Almost everything
+is stored on top of this virtualizable. There is a valuestack and locals
+which usually store most commonly accessed variables.
+
+A typical loop, for example for adding integers (the best benchmark ever)
+will look like this:
+
+for a code:
+   
+   while i < 10000:
+       i += 1
+
+v1 = getfield_gc(frame, "locals")
+v2 = getarrayitem_gc(v1, 0) # or some other element
+v3 = getfield_gc(frame, "valuestack")
+setarrayitem_gc(v3, 0, v2)
+setarrayitem_gc(v3, 1, Constant(1))
+v4 = getarrayitem_gc(v3, 0)
+v5 = getarrayitem_gc(v3, 1)
+i0 = getfield_gc(v4, "intval")
+i1 = getfield_gc(v5, "intval")
+v3 = new_with_vtable(W_IntObject)
+i2 = int_add(i0, i1)
+setfield_gc(v3, "intval", i2)
+.... store into valuestack, load and store in locals
+
+clearly, what we really want is:
+
+i1 = int_add(i0, 1)
+
+In order to achieve this, we need:
+
+* Make sure that frame is not used
+
+* Make sure that things on the frame are virtual, so they don't get
+  allocated until needed.
+
+So the real loop will pass around virtualizable and intval of local variable i.
+We can achieve that by unpacking W_IntObject read from locals before the loop
+and carefully rebuilding this for each guard failure, by a small bit of
+assembler code.
+
+Problem one: what if we access this from a call or somewhere else?
+-------------------------------------------------------------------
+
+This is the general problem with virtualizables, what if one has a reference
+to that object and will choose to use it in place where we have things on
+stack or not allocated at all?
+
+1. We store a small piece of assembler code as a function pointer inside
+   a virtualizable. This is I think simpler than having complex rebuild
+   info kept together along the chain. If someone accesses the frame,
+   this code will run and rebuild what is necessary. If this happens, there
+   are two possiblities:
+
+2. We check after the call (guard_nonvirtualized, but we need to put it
+   a bit differently) that frame was not accessed and if it was, exit the
+   jit.
+
+Problem two: what if we grow more elements during bridges?
+----------------------------------------------------------
+
+The problem is for such code:
+
+  while i < 10000:
+    if i % 2:
+     i += a
+    else:
+     i += b
+
+Now the first loop is compiled and when the second part (a bridge) is compiled,
+we end up with non-matching virtualizables. To avoid that, we need to pass
+more arguments to the loop that usually anticipated. Note that this is not
+a big deal if we're careful enough (for x86) since we can put more stuff on
+the stack if we update esp register. We'll use ebp as a base for stack
+operations, so we're free to change value of esp any time we want.
+So we will end up with things like this:
+
+(%ebp), (%ebp+4), (%ebp+8) - original args
+(%ebp+c), %(ebp+10) - temporary values
+(%ebp+14) - additional value
+
+and we'll update esp by +4
+
+This also solves the problem of moving around vars when we need to update
+esp because of jump. good.
