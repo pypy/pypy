@@ -661,6 +661,18 @@ class BaseTestRclass(BaseRtypingTest):
             return a.revealconst(1) + b.revealconst(2) + a.revealconst(3)
         assert self.interpret(fn, []) == 3 + 8 + 9
 
+    def test_hash_of_none(self):
+        class A:
+            pass
+        def fn(x):
+            if x:
+                obj = A()
+            else:
+                obj = None
+            return hash(obj)
+        res = self.interpret(fn, [0])
+        assert res == 0
+
 
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 

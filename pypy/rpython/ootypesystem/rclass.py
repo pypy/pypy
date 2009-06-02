@@ -570,6 +570,8 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 
 
 def ll_inst_hash(ins):
+    if not ins:
+        return 0
     cached = ins._hash_cache_
     if cached == 0:
         cached = ins._hash_cache_ = ootype.ooidentityhash(ins)
