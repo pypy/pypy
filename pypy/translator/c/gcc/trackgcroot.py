@@ -129,11 +129,15 @@ class GcRootTracker(object):
             if in_function:
                 lines = self.process_function(lines, entrypoint, filename)
             newfile.writelines(lines)
+        if self.verbose == 1:
+            sys.stderr.write('\n')
 
     def process_function(self, lines, entrypoint, filename):
         tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename))
         tracker.is_main = tracker.funcname == entrypoint
-        if self.verbose:
+        if self.verbose == 1:
+            sys.stderr.write('.')
+        elif self.verbose > 1:
             print >> sys.stderr, '[trackgcroot:%s] %s' % (filename,
                                                           tracker.funcname)
         table = tracker.computegcmaptable(self.verbose)
