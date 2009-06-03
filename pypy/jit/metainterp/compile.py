@@ -108,14 +108,14 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
             debug_print("reusing old loop")
         return old_loop
     history.source_link = loop
-    send_loop_to_backend(metainterp, loop, "loop")
+    send_loop_to_backend(metainterp, loop, None, "loop")
     metainterp.staticdata.stats.loops.append(loop)
     old_loops.append(loop)
     return loop
 
-def send_loop_to_backend(metainterp, loop, type):
+def send_loop_to_backend(metainterp, loop, bridge, type):
     metainterp.staticdata.profiler.start_backend()
-    metainterp.cpu.compile_operations(loop)
+    metainterp.cpu.compile_operations(loop, bridge)
     metainterp.staticdata.profiler.end_backend()
     if not we_are_translated():
         if type != "entry bridge":
@@ -315,7 +315,7 @@ class ResumeGuardDescr(AbstractDescr):
         metainterp.history.source_guard_index = self.history_guard_index
         guard_op = self.get_guard_op()
         guard_op.suboperations = new_loop.operations
-        send_loop_to_backend(metainterp, source_loop, "bridge")
+        send_loop_to_backend(metainterp, source_loop, new_loop, "bridge")
 
     def find_source_loop(self):
         # Find the TreeLoop object that contains this guard operation.
@@ -352,7 +352,7 @@ class ResumeFromInterpDescr(AbstractDescr):
         metainterp.history.inputargs = redkey
         new_loop.greenkey = greenkey
         new_loop.inputargs = redkey
-        send_loop_to_backend(metainterp, new_loop, "entry bridge")
+        send_loop_to_backend(metainterp, new_loop, None, "entry bridge")
         metainterp_sd.stats.loops.append(new_loop)
         # send the new_loop to warmspot.py, to be called directly the next time
         metainterp_sd.state.attach_unoptimized_bridge_from_interp(greenkey,
