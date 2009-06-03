@@ -45,7 +45,7 @@ def convert_to_imm(c):
     if isinstance(c, ConstInt):
         return imm(c.value)
     elif isinstance(c, ConstPtr):
-        if we_are_translated() and rgc.can_move(c.value):
+        if we_are_translated() and c.value and rgc.can_move(c.value):
             print "convert_to_imm: ConstPtr needs special care"
             raise AssertionError
         return imm(rffi.cast(lltype.Signed, c.value))

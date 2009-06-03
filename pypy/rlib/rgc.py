@@ -165,7 +165,7 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
 
-def can_move(p):
+def can_move(p):    # NB. must not be called with NULL pointers
     return True
 
 class CanMoveEntry(ExtRegistryEntry):
