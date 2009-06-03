@@ -5,7 +5,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.backend.x86.runner import ConstDescr3
-from pypy.jit.backend.x86.ri386 import MODRM, mem, imm32, rel32
+from pypy.jit.backend.x86.ri386 import MODRM, IMM32, mem, imm32, rel32, heap
 from pypy.jit.backend.x86.ri386 import REG, eax, ecx, edx
 
 # ____________________________________________________________
@@ -306,37 +306,51 @@ class GcLLDescr_framework(GcLLDescription):
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
     def gen_write_barrier(self, assembler, base_reg, value_reg):
-        assert isinstance(base_reg, REG)
-        assert isinstance(value_reg, REG)
-        # XXX very low-level, needs fixing if anything changes :-/
-        assembler.mc.TEST(mem(base_reg, 0), imm32(self.GCClass.JIT_WB_IF_FLAG))
-        assembler.mc.write('\x74\x0B')         # JZ label_end
-        # xxx longish - save all three registers in REGS; we know that base_reg
-        # and value_reg are two of these registers, find out the missing one
-        if base_reg is eax:
-            if value_reg is ecx:   third_reg = edx
-            elif value_reg is edx: third_reg = ecx
-            else: assert 0, "bad value_reg"
-        elif base_reg is ecx:
-            if value_reg is edx:   third_reg = eax
-            elif value_reg is eax: third_reg = edx
-            else: assert 0, "bad value_reg"
-        elif base_reg is edx:
-            if value_reg is eax:   third_reg = ecx
-            elif value_reg is ecx: third_reg = eax
-            else: assert 0, "bad value_reg"
+        from pypy.jit.backend.x86.regalloc import REGS
+        SAVE_ME = [reg for reg in REGS
+                       if reg != base_reg and reg != value_reg]
+        bytes_count = 9 + 2 * len(SAVE_ME)
+        #
+        if isinstance(value_reg, IMM32):
+            if value_reg.value == 0:
+                return      # writing NULL: don't need the write barrier at all
+            bytes_count += 4
         else:
-            assert 0, "bad base_reg"
-        assembler.mc.PUSH(third_reg)           # 1 byte
-        assembler.mc.PUSH(value_reg)           # 1 byte
-        assembler.mc.PUSH(base_reg)            # 1 byte
+            assert isinstance(value_reg, REG)
+        #
+        if isinstance(base_reg, IMM32):
+            bytes_count += 4
+            tidaddr = heap(base_reg.value + 0)
+        else:
+            assert isinstance(base_reg, REG)
+            tidaddr = mem(base_reg, 0)
+        #
+        assembler.mc.TEST(tidaddr, imm32(self.GCClass.JIT_WB_IF_FLAG))
+        # do the rest using 'mc._mc' directly instead of 'mc', to avoid
+        # bad surprizes if the code buffer is mostly full
+        mc = assembler.mc._mc
+        mc.write('\x74')             # JZ label_end
+        mc.write(chr(bytes_count))
+        start = mc.tell()
+        for reg in SAVE_ME:
+            mc.PUSH(reg)             # len(SAVE_ME) bytes
+        mc.PUSH(value_reg)           # 1 or 5 bytes
+        mc.PUSH(base_reg)            # 1 or 5 bytes
         funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
         funcaddr = rffi.cast(lltype.Signed, funcptr)
-        assembler.mc.CALL(rel32(funcaddr))     # 5 bytes
-        assembler.mc.POP(base_reg)             # 1 byte
-        assembler.mc.POP(value_reg)            # 1 byte
-        assembler.mc.POP(third_reg)            # 1 byte
-                                       # total: 11 bytes
+        mc.CALL(rel32(funcaddr))     # 5 bytes
+        if isinstance(base_reg, REG):
+            mc.POP(base_reg)         # 1 byte
+        else:
+            mc.POP(SAVE_ME[0])
+        if isinstance(value_reg, REG):
+            mc.POP(value_reg)        # 1 byte
+        else:
+            mc.POP(SAVE_ME[0])
+        for i in range(len(SAVE_ME)-1, -1, -1):
+            mc.POP(SAVE_ME[i])       # len(SAVE_ME) bytes
+                              # total: 9+(4?)+(4?)+2*len(SAVE_ME) bytes
+        assert mc.tell() == start + bytes_count
 
 # ____________________________________________________________
 
