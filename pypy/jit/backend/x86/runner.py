@@ -321,7 +321,10 @@ class CPU386(object):
             self.caught_exception = None
             if verbose:
                 print "Entering: %d" % rffi.cast(lltype.Signed, func)
+            #llop.debug_print(lltype.Void, ">>>> Entering",
+            #                 rffi.cast(lltype.Signed, func))
             res = func()
+            #llop.debug_print(lltype.Void, "<<<< Back")
             if not we_are_translated():
                 del self.keepalives[:]
             self.reraise_caught_exception()

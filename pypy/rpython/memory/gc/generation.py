@@ -312,7 +312,9 @@ class GenerationGC(SemiSpaceGC):
                          "obtain_free_space failed to do its job")
         if self.nursery:
             if self.config.gcconfig.debugprint:
-                llop.debug_print(lltype.Void, "minor collect")
+                llop.debug_print(lltype.Void, "--- minor collect ---")
+                llop.debug_print(lltype.Void, "nursery:",
+                                 self.nursery, "to", self.nursery_top)
             # a nursery-only collection
             scan = beginning = self.free
             self.collect_oldrefs_to_nursery()
@@ -327,7 +329,9 @@ class GenerationGC(SemiSpaceGC):
             # mark the nursery as free and fill it with zeroes again
             llarena.arena_reset(self.nursery, self.nursery_size, True)
             if self.config.gcconfig.debugprint:
-                llop.debug_print(lltype.Void, "percent survived:", float(scan - beginning) / self.nursery_size)
+                llop.debug_print(lltype.Void,
+                                 "survived (fraction of the size):",
+                                 float(scan - beginning) / self.nursery_size)
             #self.debug_check_consistency()   # -- quite expensive
         else:
             # no nursery - this occurs after a full collect, triggered either
@@ -423,6 +427,8 @@ class GenerationGC(SemiSpaceGC):
         # Additionally, it makes the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
         def remember_young_pointer(addr_struct, addr):
+            llop.debug_print(lltype.Void, "\tremember_young_pointer",
+                             addr_struct, "<-", addr)
             ll_assert(not self.is_in_nursery(addr_struct),
                          "nursery object with GCFLAG_NO_YOUNG_PTRS")
             if self.is_in_nursery(addr):

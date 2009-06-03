@@ -258,9 +258,12 @@ class GcLLDescr_framework(GcLLDescription):
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
-            return llop.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                  type_id, size, True,
-                                                  has_finalizer, False)
+            res = llop.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                 type_id, size, True,
+                                                 has_finalizer, False)
+            #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
+            #                 "-->", res)
+            return res
         self.malloc_basic = malloc_basic
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
             [lltype.Signed, lltype.Signed, lltype.Bool], llmemory.GCREF))

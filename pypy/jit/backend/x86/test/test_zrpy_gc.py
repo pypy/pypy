@@ -159,7 +159,6 @@ def test_compile_hybrid_2():
     assert int(res) == 20
 
 def test_compile_hybrid_3():
-    py.test.skip("in-progress")
     # Third version of the test.  Really requires write_barriers.
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     def main(n, x):

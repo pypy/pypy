@@ -587,7 +587,7 @@ class Assembler386(object):
 
     def patch_jump(self, old_pos, new_pos, oldlocs, newlocs, olddepth, newdepth):
         if len(oldlocs) != len(newlocs):
-            # virtualizable mess
+            assert 0   # virtualizable mess
             return
         for i in range(len(oldlocs)):
             oldloc = oldlocs[i]
@@ -612,8 +612,11 @@ class Assembler386(object):
         targetmp = op.jump_target
         if op.jump_target is not self.tree:
             self.jumps_to_look_at.append((op, self.mc.tell()))
-            self.mc.ADD(esp, imm(0))
         self.mc.JMP(rel32(targetmp._x86_compiled))
+        if op.jump_target is not self.tree:
+            # Reserve 6 bytes for a possible later patch by patch_jump().
+            # Put them after the JMP by default, as it's not doing anything.
+            self.mc.SUB(esp, imm32(0))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
