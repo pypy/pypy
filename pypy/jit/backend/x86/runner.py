@@ -218,7 +218,7 @@ class CPU386(object):
         self.assembler._exception_bck[0] = zer_vtable
         self.assembler._exception_bck[1] = zer_inst
 
-    def compile_operations(self, tree):
+    def compile_operations(self, tree, bridge=None):
         old_loop = tree._x86_compiled
         if old_loop:
             olddepth = tree._x86_stack_depth

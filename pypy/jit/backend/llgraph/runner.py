@@ -88,7 +88,7 @@ class BaseCPU(model.AbstractCPU):
         assert self.translate_support_code
         return False
 
-    def compile_operations(self, loop):
+    def compile_operations(self, loop, bridge=None):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl

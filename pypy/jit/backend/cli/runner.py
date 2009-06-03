@@ -84,7 +84,7 @@ class CliCPU(model.AbstractCPU):
 
     # ----------------------
 
-    def compile_operations(self, loop):
+    def compile_operations(self, loop, bridge=None):
         from pypy.jit.backend.cli.method import Method, ConstFunction
         if loop._cli_funcbox is None:
             loop._cli_funcbox = ConstFunction(loop.name)

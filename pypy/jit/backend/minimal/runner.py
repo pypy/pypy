@@ -57,7 +57,7 @@ class BaseCPU(model.AbstractCPU):
     def _cast_error_inst(self, ll_inst):
         return ll_inst
 
-    def compile_operations(self, loop):
+    def compile_operations(self, loop, bridge=None):
         pass
 
     def execute_operations(self, loop):
