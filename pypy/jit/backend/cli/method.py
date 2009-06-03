@@ -185,7 +185,7 @@ class Method(object):
 
     def setoptions(self):
         opts = os.environ.get('PYPYJITOPT')
-        if opts is None:
+        if not opts:
             return
         parts = opts.split(' ')
         for part in parts:
@@ -199,16 +199,19 @@ class Method(object):
             else:
                 os.write(2, 'Warning: invalid option name: %s\n' % name)
 
-    def compute_types(self):
-        # XXX: look also in op.suboperations
-        box2classes = {} # box --> [ootype.Class]
-        for op in self.loop.operations:
+    def _collect_types(self, operations, box2classes):
+        for op in operations:
             if op.opnum in (rop.GETFIELD_GC, rop.SETFIELD_GC):
                 box = op.args[0]
                 descr = op.descr
                 assert isinstance(descr, runner.FieldDescr)
                 box2classes.setdefault(box, []).append(descr.selfclass)
+            if op.suboperations:
+                self._collect_types(op.suboperations, box2classes)
 
+    def compute_types(self):
+        box2classes = {} # box --> [ootype.Class]
+        self._collect_types(self.loop.operations, box2classes)
         for box, classes in box2classes.iteritems():
             cls = classes[0]
             for cls2 in classes[1:]:
