@@ -18,7 +18,7 @@ Usually we pass a virtualizable around everywhere (this is a frame
 object) which is stored on a framestack and allocated before each next
 call to portal (portal is a bytecode dispatch loop). Almost everything
 is stored on top of this virtualizable. There is a valuestack and locals
-which usually store most commonly accessed variables.
+which usually are most commonly accessed fields.
 
 A typical loop, for example for adding integers (the best benchmark ever)
 will look like this:
@@ -66,7 +66,7 @@ to that object and will choose to use it in place where we have things on
 stack or not allocated at all?
 
 1. We store a small piece of assembler code as a function pointer inside
-   a virtualizable. This is I think simpler than having complex rebuild
+   a virtualizable. This is, I think, simpler than having complex rebuild
    info kept together along the chain. If someone accesses the frame,
    this code will run and rebuild what is necessary. If this happens, there
    are two possiblities:
