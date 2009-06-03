@@ -32,7 +32,7 @@ def get_test(main):
     def entrypoint(args):
         r_list = []
         for i in range(20):
-            r = g(1000)
+            r = g(2000)
             r_list.append(r)
             rgc.collect()
         rgc.collect(); rgc.collect()
@@ -53,6 +53,7 @@ def compile_and_run(f, gc, **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
+    t.config.translation.gcconfig.debugprint = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
     t.buildannotator().build_types(f, [int])
@@ -113,12 +114,12 @@ def test_compile_hybrid_1():
 def test_GcRootMap_asmgcc():
     gcrootmap = GcRootMap_asmgcc()
     shape = gcrootmap._get_callshape([stack_pos(1), stack_pos(55)])
-    assert shape == [6, 1, 5, 9, 2, 0, 4|3, 220|3]
+    assert shape == [6, 1, 5, 9, 2, 0, -8|2, -224|2]
     #
     shapeaddr = gcrootmap.encode_callshape([stack_pos(1), stack_pos(55)])
     PCALLSHAPE = lltype.Ptr(GcRootMap_asmgcc.CALLSHAPE_ARRAY)
     p = llmemory.cast_adr_to_ptr(shapeaddr, PCALLSHAPE)
-    for i, expected in enumerate([131, 62, 14, 0, 4, 18, 10, 2, 12]):
+    for i, expected in enumerate([131, 59, 11, 0, 4, 18, 10, 2, 12]):
         assert p[i] == expected
     #
     retaddr = rffi.cast(llmemory.Address, 1234567890)
@@ -171,6 +172,7 @@ def test_compile_hybrid_3():
                 y.foo = j+1
                 y.next = x.next
                 x.next = y
+            assert x.next.foo == 101
             total = 0
             y = x
             for j in range(101):

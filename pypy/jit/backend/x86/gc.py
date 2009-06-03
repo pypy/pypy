@@ -197,15 +197,17 @@ class GcRootMap_asmgcc:
                  0]
         for loc in gclocs:
             assert isinstance(loc, MODRM)
-            shape.append(self.LOC_ESP_BASED | (4 * loc.position))
+            shape.append(self.LOC_EBP_BASED | (-4 * (1 + loc.position)))
         return shape
 
     def _compress_callshape(self, shape):
         # Similar to compress_callshape() in trackgcroot.py.  XXX a bit slowish
         result = []
         for loc in shape:
-            assert loc >= 0
-            loc = loc * 2
+            if loc < 0:
+                loc = (-loc) * 2 - 1
+            else:
+                loc = loc * 2
             flag = 0
             while loc >= 0x80:
                 result.append(int(loc & 0x7F) | flag)
