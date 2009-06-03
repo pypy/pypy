@@ -6,7 +6,6 @@ from pypy.jit.metainterp import support, codewriter, pyjitpl, history
 from pypy.jit.metainterp.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
@@ -509,8 +508,7 @@ class BasicTests:
                 n -= 1
             return x + 2*y + 3*z + 5*k + 13*n
 
-        # XXX explodes on normal optimize.py
-        res = self.meta_interp(f, [20], repeat=7, optimizer=SimpleOptimizer)
+        res = self.meta_interp(f, [20], repeat=7)
         assert res == f(20)
 
     def test_bridge_from_interpreter_4(self):
@@ -528,16 +526,14 @@ class BasicTests:
 
         from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
         from pypy.jit.metainterp.warmspot import WarmRunnerDesc
-        from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
-
+        
         interp, graph = get_interpreter(f, [0, 0], backendopt=False,
                                         inline_threshold=0, type_system=self.type_system)
         clear_tcache()
         translator = interp.typer.annotator.translator
         translator.config.translation.gc = "boehm"
         warmrunnerdesc = WarmRunnerDesc(translator,
-                                        CPUClass=self.CPUClass,
-                                        optimizer=SimpleOptimizer)
+                                        CPUClass=self.CPUClass)
         warmrunnerdesc.state.set_param_threshold(3)          # for tests
         warmrunnerdesc.state.set_param_trace_eagerness(0)    # for tests
         warmrunnerdesc.finish()
@@ -561,7 +557,7 @@ class BasicTests:
                 n -= 1
             glob.x += 100
             return glob.x + x
-        res = self.meta_interp(f, [20], repeat=7, optimizer=SimpleOptimizer)
+        res = self.meta_interp(f, [20], repeat=7)
         assert res == f(20)
 
     def test_instantiate_classes(self):
