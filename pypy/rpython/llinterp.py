@@ -1186,6 +1186,7 @@ class LLFrame(object):
 class Tracer(object):
     Counter = 0
     file = None
+    TRACE = False
 
     HEADER = """<html><head>
         <script language=javascript type='text/javascript'>
@@ -1229,6 +1230,8 @@ class Tracer(object):
 
     def start(self):
         # start of a dump file
+        if not self.TRACE:
+            return
         from pypy.tool.udir import udir
         n = Tracer.Counter
         Tracer.Counter += 1
