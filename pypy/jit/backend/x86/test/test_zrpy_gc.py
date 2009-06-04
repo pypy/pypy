@@ -186,3 +186,24 @@ def test_compile_hybrid_3():
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
+
+def test_compile_hybrid_4():
+    # Fourth version of the test, with __del__.
+    class Counter:
+        cnt = 0
+    counter = Counter()
+    class Z:
+        def __del__(self):
+            counter.cnt -= 1
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+    def main(n, x):
+        assert counter.cnt < 5
+        counter.cnt = n // x.foo
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x=x)
+            myjitdriver.jit_merge_point(n=n, x=x)
+            Z()
+            n -= x.foo
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20

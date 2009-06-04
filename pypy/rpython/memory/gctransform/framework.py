@@ -382,6 +382,8 @@ class FrameworkGCTransformer(GCTransformer):
             self.thread_die_ptr = getfn(root_walker.thread_die,
                                         [], annmodel.s_None)
 
+        self.layoutbuilder.encode_type_shapes_now()
+
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
 

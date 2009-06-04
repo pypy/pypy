@@ -181,6 +181,7 @@ def encode_type_shape(builder, info, TYPE):
 
 class TypeLayoutBuilder(object):
     can_add_new_types = True
+    can_encode_type_shape = True    # set to False initially by the JIT
 
     def __init__(self):
         self.type_info_list = [None]   # don't use typeid 0, helps debugging
@@ -226,10 +227,20 @@ class TypeLayoutBuilder(object):
 
             # build the TYPE_INFO structure
             info = lltype.malloc(GCData.TYPE_INFO, immortal=True, zero=True)
-            encode_type_shape(self, info, TYPE)
+            if self.can_encode_type_shape:
+                encode_type_shape(self, info, TYPE)
+            else:
+                self._pending_type_shapes.append((info, TYPE))
             self.type_info_list[type_id] = info
             self.id_of_type[TYPE] = type_id
             return type_id
+
+    def encode_type_shapes_now(self):
+        if not self.can_encode_type_shape:
+            self.can_encode_type_shape = True
+            for info, TYPE in self._pending_type_shapes:
+                encode_type_shape(self, info, TYPE)
+            del self._pending_type_shapes
 
     def offsets2table(self, offsets, TYPE):
         if len(offsets) == 0:

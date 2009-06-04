@@ -246,6 +246,8 @@ class GcLLDescr_framework(GcLLDescription):
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
         self.layoutbuilder = framework.TransformerLayoutBuilder()
+        self.layoutbuilder._pending_type_shapes = []
+        self.layoutbuilder.can_encode_type_shape = False
         self.translator._jit2gc = {
             'layoutbuilder': self.layoutbuilder,
             'gcmapstart': lambda: gcrootmap.gcmapstart(),
