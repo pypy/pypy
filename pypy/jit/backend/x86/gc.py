@@ -1,5 +1,5 @@
 from pypy.rlib import rgc
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -7,6 +7,7 @@ from pypy.jit.backend.x86 import symbolic
 from pypy.jit.backend.x86.runner import ConstDescr3
 from pypy.jit.backend.x86.ri386 import MODRM, IMM32, mem, imm32, rel32, heap
 from pypy.jit.backend.x86.ri386 import REG, eax, ecx, edx
+from pypy.jit.backend.x86.assembler import WORD
 
 # ____________________________________________________________
 
@@ -51,7 +52,26 @@ class GcLLDescr_boehm(GcLLDescription):
         basesize = arraydescr.v0
         itemsize = arraydescr.v1
         size = basesize + itemsize * num_elem
-        return self.funcptr_for_new(size)
+        res = self.funcptr_for_new(size)
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
+        return res
+
+    def gc_malloc_str(self, num_elem, translate_support_code):
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                                      translate_support_code)
+        assert itemsize == 1
+        size = basesize + num_elem
+        res = self.funcptr_for_new(size)
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
+        return res
+
+    def gc_malloc_unicode(self, num_elem, translate_support_code):
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                                      translate_support_code)
+        size = basesize + num_elem * itemsize
+        res = self.funcptr_for_new(size)
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
+        return res
 
     def args_for_new(self, descrsize):
         assert isinstance(descrsize, ConstDescr3)
@@ -60,6 +80,9 @@ class GcLLDescr_boehm(GcLLDescription):
 
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
+
+    get_funcptr_for_newstr = None
+    get_funcptr_for_newunicode = None
 
 # ____________________________________________________________
 
@@ -271,6 +294,28 @@ class GcLLDescr_framework(GcLLDescription):
             [lltype.Signed, lltype.Signed, lltype.Bool], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
+        #
+        (str_basesize, str_itemsize, str_ofs_length
+         ) = symbolic.get_array_token(rstr.STR, True)
+        (unicode_basesize, unicode_itemsize, unicode_ofs_length
+         ) = symbolic.get_array_token(rstr.UNICODE, True)
+        str_type_id = self.layoutbuilder.get_type_id(rstr.STR)
+        unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
+        #
+        def malloc_str(length):
+            return llop.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                str_type_id, length, str_basesize, str_itemsize,
+                str_ofs_length, True, False)
+        def malloc_unicode(length):
+            return llop.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                unicode_ofs_length, True, False)
+        self.malloc_str = malloc_str
+        self.malloc_unicode = malloc_unicode
+        self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed], llmemory.GCREF))
 
     def sizeof(self, S, translate_support_code):
         from pypy.rpython.memory.gctypelayout import weakpointer_offset
@@ -292,6 +337,14 @@ class GcLLDescr_framework(GcLLDescription):
     def gc_malloc_array(self, arraydescr, num_elem):
         raise NotImplementedError
 
+    def gc_malloc_str(self, num_elem, translate_support_code):
+        assert translate_support_code, "required with the framework GC"
+        return self.malloc_str(num_elem)
+
+    def gc_malloc_unicode(self, num_elem, translate_support_code):
+        assert translate_support_code, "required with the framework GC"
+        return self.malloc_unicode(num_elem)
+
     def args_for_new(self, descrsize):
         assert isinstance(descrsize, ConstDescr3)
         size = descrsize.v0
@@ -301,6 +354,12 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)
+
+    def get_funcptr_for_newstr(self):
+        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_str)
+
+    def get_funcptr_for_newunicode(self):
+        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_unicode)
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)

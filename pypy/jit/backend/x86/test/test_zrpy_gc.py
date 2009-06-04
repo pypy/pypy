@@ -207,3 +207,18 @@ def test_compile_hybrid_4():
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
+
+def test_compile_hybrid_5():
+    # Test string manipulation.
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 's'])
+    def main(n, x):
+        s = ''
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x=x, s=s)
+            myjitdriver.jit_merge_point(n=n, x=x, s=s)
+            n -= x.foo
+            s += str(n)
+        assert len(s) == 1*5 + 2*45 + 3*450 + 4*500
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20

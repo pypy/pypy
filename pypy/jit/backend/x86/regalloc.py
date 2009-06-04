@@ -952,23 +952,35 @@ class RegAlloc(object):
         return self._call(op, arglocs)
 
     def consider_newstr(self, op, ignored):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newstr is not None:
+            # framework GC
+            loc = self.loc(op.args[0])
+            return self._call(op, [loc])
+        # boehm GC (XXX kill the following code at some point)
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
         assert itemsize == 1
-        return self._malloc_varsize(0, ofs_items, ofs, 0, op.args[0],
+        return self._malloc_varsize(ofs_items, ofs, 0, op.args[0],
                                     op.result)
 
     def consider_newunicode(self, op, ignored):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newunicode is not None:
+            # framework GC
+            loc = self.loc(op.args[0])
+            return self._call(op, [loc])
+        # boehm GC (XXX kill the following code at some point)
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
         if itemsize == 4:
-            return self._malloc_varsize(0, ofs_items, ofs, 2, op.args[0],
+            return self._malloc_varsize(ofs_items, ofs, 2, op.args[0],
                                         op.result)
         elif itemsize == 2:
-            return self._malloc_varsize(0, ofs_items, ofs, 1, op.args[0],
+            return self._malloc_varsize(ofs_items, ofs, 1, op.args[0],
                                         op.result)
         else:
             assert False, itemsize
 
-    def _malloc_varsize(self, ofs, ofs_items, ofs_length, size, v, res_v):
+    def _malloc_varsize(self, ofs_items, ofs_length, size, v, res_v):
         if isinstance(v, Box):
             loc = self.make_sure_var_in_reg(v, [v])
             self.sync_var(v)
@@ -978,9 +990,9 @@ class RegAlloc(object):
                 self.Perform(ResOperation(rop.INT_MUL, [], None),
                              [loc, imm(1 << size)], loc)
             self.Perform(ResOperation(rop.INT_ADD, [], None),
-                         [loc, imm(ofs + ofs_items)], loc)
+                         [loc, imm(ofs_items)], loc)
         else:
-            loc = imm(ofs + ofs_items + (v.getint() << size))
+            loc = imm(ofs_items + (v.getint() << size))
         self._call(ResOperation(rop.NEW, [v], res_v),
                    [loc], [v])
         loc = self.make_sure_var_in_reg(v, [res_v])
@@ -988,11 +1000,11 @@ class RegAlloc(object):
         # now we have to reload length to some reasonable place
         self.eventually_free_var(v)
         self.PerformDiscard(ResOperation(rop.SETFIELD_GC, [], None),
-                            [eax, imm(ofs + ofs_length), imm(WORD), loc])
+                            [eax, imm(ofs_length), imm(WORD), loc])
 
     def consider_new_array(self, op, ignored):
         size_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
-        return self._malloc_varsize(0, basesize, 0, size_of_field, op.args[0],
+        return self._malloc_varsize(basesize, 0, size_of_field, op.args[0],
                                     op.result)
 
     def _unpack_arraydescr(self, arraydescr):

@@ -92,6 +92,8 @@ class Assembler386(object):
         self.verbose = False
         self.rtyper = cpu.rtyper
         self.malloc_func_addr = 0
+        self.malloc_str_func_addr = 0
+        self.malloc_unicode_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
@@ -125,16 +127,25 @@ class Assembler386(object):
             self.mc = self.mcstack.next_mc()
             self.mc2 = self.mcstack.next_mc()
             # the address of the function called by 'new'
-            ll_new = self.cpu.gc_ll_descr.get_funcptr_for_new()
+            gc_ll_descr = self.cpu.gc_ll_descr
+            ll_new = gc_ll_descr.get_funcptr_for_new()
             self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+            if gc_ll_descr.get_funcptr_for_newstr is not None:
+                ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
+                self.malloc_str_func_addr = rffi.cast(lltype.Signed,
+                                                      ll_new_str)
+            if gc_ll_descr.get_funcptr_for_newunicode is not None:
+                ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
+                self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
+                                                          ll_new_unicode)
             # for moving GCs, the array used to hold the address of GC objects
             # that appear as ConstPtr.
-            if self.cpu.gc_ll_descr.moving_gc:
-                self.gcrefs = self.cpu.gc_ll_descr.GcRefList()
+            if gc_ll_descr.moving_gc:
+                self.gcrefs = gc_ll_descr.GcRefList()
                 self.single_gcref_descr = ConstDescr3(0, WORD, True)
             else:
                 self.gcrefs = None
-            self.gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+            self.gcrootmap = gc_ll_descr.gcrootmap
             if self.gcrootmap:
                 self.gcrootmap.initialize()
 
@@ -316,7 +327,7 @@ class Assembler386(object):
             assert not isinstance(arg, MODRM)
             self.mc.PUSH(arg)
         self.mc.CALL(rel32(addr))
-        self.mark_gc_roots(len(args))
+        self.mark_gc_roots()
         self.mc.ADD(esp, imm(len(args) * WORD))
         assert res is eax
 
@@ -465,6 +476,14 @@ class Assembler386(object):
     def genop_new(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_func_addr, arglocs, eax)
+
+    def genop_newstr(self, op, arglocs, result_loc):
+        assert result_loc is eax
+        self.call(self.malloc_str_func_addr, arglocs, eax)
+
+    def genop_newunicode(self, op, arglocs, result_loc):
+        assert result_loc is eax
+        self.call(self.malloc_unicode_func_addr, arglocs, eax)
 
     def genop_getfield_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc = arglocs
@@ -758,7 +777,7 @@ class Assembler386(object):
             if isinstance(x, MODRM):
                 x = stack_pos(x.position)
         self.mc.CALL(x)
-        self.mark_gc_roots(extra_on_stack)
+        self.mark_gc_roots()
         self.mc.ADD(esp, imm(WORD * extra_on_stack))
         if size == 1:
             self.mc.AND(eax, imm(0xff))
@@ -788,7 +807,7 @@ class Assembler386(object):
     #    self.gen_call(op, arglocs, resloc)
     #    self.mc.MOVZX(eax, eax)
 
-    def mark_gc_roots(self, extra_on_stack):
+    def mark_gc_roots(self):
         if self.gcrootmap:
             gclocs = []
             regalloc = self._regalloc

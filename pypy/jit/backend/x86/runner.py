@@ -538,22 +538,19 @@ class CPU386(object):
     def do_new_array(self, args, arraydescr):
         num_elem = args[0].getint()
         res = self.gc_ll_descr.gc_malloc_array(arraydescr, num_elem)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
-        # XXX don't use 0 above!
         return BoxPtr(self.cast_adr_to_gcref(res))
 
-    def _new_do_newstr(TP):
-        def do_newstr(self, args, descr=0):
-            basesize, itemsize, ofs_length = symbolic.get_array_token(TP,
-                                             self.translate_support_code)
-            num_elem = args[0].getint()
-            size = basesize + num_elem * itemsize
-            res = self.gc_ll_descr.funcptr_for_new(size)    # XXX don't use
-            rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-            return BoxPtr(self.cast_adr_to_gcref(res))
-        return do_newstr
-    do_newstr = _new_do_newstr(rstr.STR)
-    do_newunicode = _new_do_newstr(rstr.UNICODE)
+    def do_newstr(self, args, descr=0):
+        num_elem = args[0].getint()
+        tsc = self.translate_support_code
+        res = self.gc_ll_descr.gc_malloc_str(num_elem, tsc)
+        return BoxPtr(self.cast_adr_to_gcref(res))
+
+    def do_newunicode(self, args, descr=0):
+        num_elem = args[0].getint()
+        tsc = self.translate_support_code
+        res = self.gc_ll_descr.gc_malloc_unicode(num_elem, tsc)
+        return BoxPtr(self.cast_adr_to_gcref(res))
 
     def do_strsetitem(self, args, descr=0):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,

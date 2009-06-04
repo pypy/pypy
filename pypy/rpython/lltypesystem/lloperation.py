@@ -388,6 +388,7 @@ LL_OPERATIONS = {
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear': LLOp(),
+    'do_malloc_varsize_clear': LLOp(),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
 
     # __________ GC operations __________
