@@ -674,6 +674,28 @@ class BasicTests:
         res = self.meta_interp(f, [30])
         assert res == 1
 
+    def test_pass_around(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+
+        def call():
+            pass
+
+        def f(n, x):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                if n % 2:
+                    call()
+                    if n == 8:
+                        return x
+                    x = 3
+                else:
+                    x = 5
+                n -= 1
+            return 0
+
+        self.meta_interp(f, [40, 0])
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

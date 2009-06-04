@@ -411,9 +411,16 @@ class PerfectSpecializer(object):
                 for box in op.args:
                     if isinstance(box, Box):
                         self.getnode(box).escaped = True
+            if op.is_guard():
+                self.find_nodes_guard(op)
             box = op.result
             if box is not None:
                 self.nodes[box] = InstanceNode(box, escaped=True)
+
+    def find_nodes_guard(self, op):
+        assert len(op.suboperations) == 1
+        for arg in op.suboperations[0].args:
+            self.getnode(arg)
 
     def recursively_find_escaping_values(self):
         end_args = self.loop.operations[-1].args
