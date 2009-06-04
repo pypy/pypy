@@ -192,16 +192,18 @@ OPTLIST = [
     ]
 specializer = Specializer(OPTLIST)
 
-def optimize_loop(options, old_loops, loop, cpu=None):
+def optimize_loop(options, old_loops, loop, cpu=None, spec=None):
+    if spec is None:
+        spec = specializer
     if old_loops:
         assert len(old_loops) == 1
         return old_loops[0]
     else:
-        specializer.optimize_loop(loop)
+        spec.optimize_loop(loop)
         return None
 
-def optimize_bridge(options, old_loops, loop, cpu=None):
-    optimize_loop(options, [], loop, cpu)
+def optimize_bridge(options, old_loops, loop, cpu=None, spec=None):
+    optimize_loop(options, [], loop, cpu, spec)
     return old_loops[0]
 
 class Optimizer:
