@@ -805,6 +805,8 @@ class BytecodeMaker(object):
     def serialize_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         assert ARRAY._gckind == 'gc'
+        if self._array_of_voids(ARRAY):
+            return
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('getarrayitem_gc')
         self.emit(self.var_position(op.args[0]))
@@ -815,6 +817,8 @@ class BytecodeMaker(object):
     def serialize_op_setarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         assert ARRAY._gckind == 'gc'
+        if self._array_of_voids(ARRAY):
+            return
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('setarrayitem_gc')
         self.emit(self.var_position(op.args[0]))
@@ -1028,18 +1032,20 @@ class BytecodeMaker(object):
         self.emit_varargs([c_func] + non_void_args)
         self.register_var(op.result)
 
+    def _array_of_voids(self, ARRAY):
+        if isinstance(ARRAY, ootype.Array):
+            return ARRAY.ITEM == ootype.Void
+        else:
+            return ARRAY.OF == lltype.Void
+
     def handle_list_call(self, op, oopspec_name, args, LIST):
         if not (oopspec_name.startswith('list.') or oopspec_name == 'newlist'):
             return False
         if not isinstance(deref(LIST), (lltype.GcArray, ootype.Array)):
             return False # resizable lists
         ARRAY = deref(LIST)
-        if isinstance(ARRAY, ootype.Array):
-            if ARRAY.ITEM == lltype.Void:
-                return False   # arrays of voids: not supported
-        else:
-            if ARRAY.OF == lltype.Void:
-                return False   # arrays of voids: not supported
+        if self._array_of_voids(ARRAY):
+            return False # arrays of voids: not supported
         arraydescr = self.cpu.arraydescrof(ARRAY)
         #
         if oopspec_name == 'newlist':
