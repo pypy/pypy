@@ -52,6 +52,9 @@ class Specializer(object):
                 if box is not None:
                     self.nodes[box] = InstanceNode(box)
 
+            for optimization in self.optlist:
+                optimization.find_nodes_for_op(self, op)
+
     def _find_nodes_in_guard_maybe(self, op):
         if op.is_guard():
             assert len(op.suboperations) == 1
@@ -148,16 +151,34 @@ class AbstractOptimization(object):
     def __init__(self):
         'NOT_RPYTHON'
         operations = [None] * (rop._LAST+1)
+        find_nodes = [None] * (rop._LAST+1)
         for key, value in rop.__dict__.items():
             if key.startswith('_'):
                 continue
             methname = key.lower()
-            if hasattr(self, methname):
-                func = getattr(self, methname).im_func
-            else:
-                func = getattr(self, 'handle_default_op').im_func
-            operations[value] = func
+            operations[value] = self._get_handle_method(methname)
+            find_nodes[value] = self._get_find_nodes_method(methname)
         self.operations = operations
+        self.find_nodes_ops = find_nodes
+
+    def _get_handle_method(self, methname):
+        'NOT_RPYTHON'
+        if hasattr(self, methname):
+            return getattr(self, methname).im_func
+        else:
+            return getattr(self, 'handle_default_op').im_func
+
+    def _get_find_nodes_method(self, methname):
+        'NOT_RPYTHON'
+        methname = 'find_nodes_' + methname
+        if hasattr(self, methname):
+            return getattr(self, methname).im_func
+        return None
+
+    def find_nodes_for_op(self, spec, op):
+        func = self.find_nodes_ops[op.opnum]
+        if func:
+            func(self, spec, op)
 
     def handle_op(self, spec, op):
         func = self.operations[op.opnum]
@@ -187,14 +208,6 @@ class OptimizeGuards(AbstractOptimization):
         instnode.const = True
         instnode.source = op.args[0].constbox()
         return op
-
-##     def guard_nonvirtualized(self, spec, op):
-##         return
-
-##     def handle_default_op(self, spec, op):
-##         if op.is_guard():
-##             return self.optimize_guard(op)
-##         return op
 
 
 

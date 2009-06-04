@@ -25,15 +25,24 @@ def test_AbstractOptimization():
         def handle_default_op(self, spec, op):
             return 'default op', op
 
+        def find_nodes_int_add(self, spec, op):
+            op.found = 42
+
     myopt = MyOpt()
     myopt2 = MyOpt2()
     op = ResOperation(rop.INT_ADD, [], None)
     assert myopt.handle_op(None, op) == ('hello world', op)
     assert myopt2.handle_op(None, op) == ('hello world', op)
+    myopt.find_nodes_for_op(None, op)
+    assert not hasattr(op, 'found')
+    myopt2.find_nodes_for_op(None, op)
+    assert op.found == 42
 
     op = ResOperation(rop.INT_SUB, [], None)
     assert myopt.handle_op(None, op) == op
     assert myopt2.handle_op(None, op) == ('default op', op)
+    myopt2.find_nodes_for_op(None, op)
+    assert not hasattr(op, 'found')
 
 
 class LLtypeMixin(object):
