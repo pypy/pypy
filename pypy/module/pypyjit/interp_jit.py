@@ -17,7 +17,7 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.pyopcode import ExitFrame
 
 PyFrame._virtualizable2_ = True
-PyFrame._always_virtual_ = ['valuestack_w', 'valuestackdepth']
+PyFrame._always_virtual_ = ['valuestack_w', 'fastlocals_w']
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
