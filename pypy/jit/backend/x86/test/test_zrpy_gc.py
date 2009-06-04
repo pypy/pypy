@@ -222,3 +222,21 @@ def test_compile_hybrid_5():
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
+
+def test_compile_hybrid_6():
+    # Array manipulation (i.e. fixed-sized list).
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'l'])
+    def main(n, x):
+        l = []
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x=x, l=l)
+            myjitdriver.jit_merge_point(n=n, x=x, l=l)
+            l = [n, n, n]
+            n -= x.foo
+        assert len(l) == 3
+        assert l[0] == 2
+        assert l[1] == 2
+        assert l[2] == 2
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20

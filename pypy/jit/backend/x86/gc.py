@@ -42,6 +42,17 @@ class GcLLDescr_boehm(GcLLDescription):
         size = symbolic.get_size(S, translate_support_code)
         return ConstDescr3(size, 0, False)
 
+    def arraydescrof(self, A, translate_support_code):
+        basesize, itemsize, ofs_length = symbolic.get_array_token(A,
+                                                       translate_support_code)
+        assert rffi.sizeof(A.OF) in [1, 2, WORD]
+        assert ofs_length == 0
+        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
+            ptr = True
+        else:
+            ptr = False
+        return ConstDescr3(basesize, itemsize, ptr)
+
     def gc_malloc(self, descrsize):
         assert isinstance(descrsize, ConstDescr3)
         size = descrsize.v0
@@ -81,6 +92,7 @@ class GcLLDescr_boehm(GcLLDescription):
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
 
+    get_funcptr_for_newarray = None
     get_funcptr_for_newstr = None
     get_funcptr_for_newunicode = None
 
@@ -280,6 +292,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.fielddescr_tid = cpu.fielddescrof(self.GCClass.HDR, 'tid')
+        self._array_length_ofs = None
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
@@ -294,6 +307,15 @@ class GcLLDescr_framework(GcLLDescription):
             [lltype.Signed, lltype.Signed, lltype.Bool], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
+        #
+        def malloc_array(basesize, itemsize, type_id, num_elem):
+            return llop.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                type_id, num_elem, basesize, itemsize,
+                self._array_length_ofs, True, False)
+        self.malloc_array = malloc_array
+        self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed] * 4, llmemory.GCREF))
         #
         (str_basesize, str_itemsize, str_ofs_length
          ) = symbolic.get_array_token(rstr.STR, True)
@@ -324,18 +346,42 @@ class GcLLDescr_framework(GcLLDescription):
         type_id = self.layoutbuilder.get_type_id(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
         assert weakpointer_offset(S) == -1     # XXX
-        return ConstDescr3(size, type_id, has_finalizer)
+        descr = ConstDescr3(size, 0, has_finalizer)
+        descr.type_id = type_id
+        return descr
+
+    def arraydescrof(self, A, translate_support_code):
+        assert translate_support_code, "required with the framework GC"
+        basesize, itemsize, ofs_length = symbolic.get_array_token(A, True)
+        assert rffi.sizeof(A.OF) in [1, 2, WORD]
+        if self._array_length_ofs is None:
+            self._array_length_ofs = ofs_length
+        else:
+            assert self._array_length_ofs == ofs_length    # all the same
+        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
+            ptr = True
+        else:
+            ptr = False
+        type_id = self.layoutbuilder.get_type_id(A)
+        descr = ConstDescr3(basesize, itemsize, ptr)
+        descr.type_id = type_id
+        return descr
 
     def gc_malloc(self, descrsize):
         assert isinstance(descrsize, ConstDescr3)
         size = descrsize.v0
-        type_id = descrsize.v1
+        type_id = descrsize.type_id
         has_finalizer = descrsize.flag2
         assert type_id > 0
         return self.malloc_basic(size, type_id, has_finalizer)
 
     def gc_malloc_array(self, arraydescr, num_elem):
-        raise NotImplementedError
+        assert isinstance(arraydescr, ConstDescr3)
+        basesize = arraydescr.v0
+        itemsize = arraydescr.v1
+        type_id = arraydescr.type_id
+        assert type_id > 0
+        return self.malloc_array(basesize, itemsize, type_id, num_elem)
 
     def gc_malloc_str(self, num_elem, translate_support_code):
         assert translate_support_code, "required with the framework GC"
@@ -348,12 +394,22 @@ class GcLLDescr_framework(GcLLDescription):
     def args_for_new(self, descrsize):
         assert isinstance(descrsize, ConstDescr3)
         size = descrsize.v0
-        type_id = descrsize.v1
+        type_id = descrsize.type_id
         has_finalizer = descrsize.flag2
         return [size, type_id, has_finalizer]
 
+    def args_for_new_array(self, arraydescr):
+        assert isinstance(arraydescr, ConstDescr3)
+        basesize = arraydescr.v0
+        itemsize = arraydescr.v1
+        type_id = arraydescr.type_id
+        return [basesize, itemsize, type_id]
+
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)
+
+    def get_funcptr_for_newarray(self):
+        return llhelper(self.GC_MALLOC_ARRAY, self.malloc_array)
 
     def get_funcptr_for_newstr(self):
         return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_str)

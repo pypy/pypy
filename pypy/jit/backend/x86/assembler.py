@@ -92,6 +92,7 @@ class Assembler386(object):
         self.verbose = False
         self.rtyper = cpu.rtyper
         self.malloc_func_addr = 0
+        self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
@@ -130,6 +131,10 @@ class Assembler386(object):
             gc_ll_descr = self.cpu.gc_ll_descr
             ll_new = gc_ll_descr.get_funcptr_for_new()
             self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+            if gc_ll_descr.get_funcptr_for_newarray is not None:
+                ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
+                self.malloc_array_func_addr = rffi.cast(lltype.Signed,
+                                                        ll_new_array)
             if gc_ll_descr.get_funcptr_for_newstr is not None:
                 ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
                 self.malloc_str_func_addr = rffi.cast(lltype.Signed,
@@ -472,10 +477,15 @@ class Assembler386(object):
         # xxx ignore NULL returns for now
         self.mc.MOV(mem(eax, self.cpu.vtable_offset), loc_vtable)
 
-    # same as malloc varsize after all
+    # XXX genop_new is abused for all varsized mallocs with Boehm, for now
+    # (instead of genop_new_array, genop_newstr, genop_newunicode)
     def genop_new(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_func_addr, arglocs, eax)
+
+    def genop_new_array(self, op, arglocs, result_loc):
+        assert result_loc is eax
+        self.call(self.malloc_array_func_addr, arglocs, eax)
 
     def genop_newstr(self, op, arglocs, result_loc):
         assert result_loc is eax

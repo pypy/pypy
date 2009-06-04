@@ -939,13 +939,11 @@ class RegAlloc(object):
     consider_call_pure = consider_call
 
     def consider_new(self, op, ignored):
-        from pypy.jit.backend.x86.runner import ConstDescr3
         args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
         arglocs = [imm(x) for x in args]
         return self._call(op, arglocs)
 
     def consider_new_with_vtable(self, op, ignored):
-        from pypy.jit.backend.x86.runner import ConstDescr3
         args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
         arglocs = [imm(x) for x in args]
         arglocs.append(self.loc(op.args[0]))
@@ -981,6 +979,7 @@ class RegAlloc(object):
             assert False, itemsize
 
     def _malloc_varsize(self, ofs_items, ofs_length, size, v, res_v):
+        # XXX kill this function at some point
         if isinstance(v, Box):
             loc = self.make_sure_var_in_reg(v, [v])
             self.sync_var(v)
@@ -1003,6 +1002,14 @@ class RegAlloc(object):
                             [eax, imm(ofs_length), imm(WORD), loc])
 
     def consider_new_array(self, op, ignored):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newarray is not None:
+            # framework GC
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(op.descr)
+            arglocs = [imm(x) for x in args]
+            arglocs.append(self.loc(op.args[0]))
+            return self._call(op, arglocs)
+        # boehm GC (XXX kill the following code at some point)
         size_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
         return self._malloc_varsize(basesize, 0, size_of_field, op.args[0],
                                     op.result)

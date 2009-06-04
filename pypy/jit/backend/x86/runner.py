@@ -609,15 +609,7 @@ class CPU386(object):
         except KeyError:
             pass
         assert isinstance(A, lltype.GcArray)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A,
-                                                  self.translate_support_code)
-        assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        assert ofs_length == 0
-        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
-            ptr = True
-        else:
-            ptr = False
-        descr = ConstDescr3(basesize, itemsize, ptr)
+        descr = self.gc_ll_descr.arraydescrof(A, self.translate_support_code)
         self._descr_caches['array', A] = descr
         return descr
 
