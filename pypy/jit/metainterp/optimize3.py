@@ -37,33 +37,34 @@ class Specializer(object):
             self.nodes[box] = node
             return node
 
-    def getsource(self, box):
-        if isinstance(box, Const):
-            return box
-        return self.nodes[box].source
-
     def find_nodes(self):
         for op in self.loop.operations:
-            if op.is_always_pure():
-                is_pure = True
-                for arg in op.args:
-                    if not self.getnode(arg).const:
-                        is_pure = False
-                if is_pure:
-                    box = op.result
-                    assert box is not None
-                    self.nodes[box] = InstanceNode(box.constbox(), const=True)
-                    continue
+            self._find_nodes_in_guard_maybe(op)
+            if self._is_pure_and_constfoldable(op):
+                box = op.result
+                assert box is not None
+                self.nodes[box] = InstanceNode(box.constbox(), const=True)
             else:
-                if op.is_guard():
-                    for arg in op.suboperations[0].args:
-                        self.getnode(arg)
                 # default case
                 for box in op.args:
                     self.getnode(box)
-            box = op.result
-            if box is not None:
-                self.nodes[box] = InstanceNode(box)
+                box = op.result
+                if box is not None:
+                    self.nodes[box] = InstanceNode(box)
+
+    def _find_nodes_in_guard_maybe(self, op):
+        if op.is_guard():
+            assert len(op.suboperations) == 1
+            for arg in op.suboperations[0].args:
+                self.getnode(arg)
+
+    def _is_pure_and_constfoldable(self, op):
+        if not op.is_always_pure():
+            return False
+        for arg in op.args:
+            if not self.getnode(arg).const:
+                return False
+        return True
 
     def new_arguments(self, op):
         newboxes = []
@@ -119,7 +120,7 @@ class Specializer(object):
     def _fixguard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
-                if not self.getnode(arg).const:
+                if not self.nodes[arg].const:
                     break
             else:
                 return None
@@ -170,7 +171,7 @@ class AbstractOptimization(object):
 class OptimizeGuards(AbstractOptimization):
 
     def guard_class(self, spec, op):
-        node = spec.getnode(op.args[0])
+        node = spec.nodes[op.args[0]]
         if node.cls is not None:
             # assert that they're equal maybe
             return
