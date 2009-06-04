@@ -83,6 +83,8 @@ class RegAlloc(object):
             self.current_stack_depth = sd
         else:
             self._rewrite_const_ptrs(guard_op.suboperations)
+            guard_op.inputargs = None
+            self._compute_inpargs(guard_op)
             inp = guard_op.inputargs
             self.reg_bindings = {}
             self.stack_bindings = {}
