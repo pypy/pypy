@@ -202,41 +202,6 @@ def test_C_intersect_input_and_output():
 
 # ____________________________________________________________
 
-if 0:
-  class D:
-    class SomeDescr(ListDescr):
-        def __init__(self):
-            pass
-    
-    locals().update(A.__dict__)
-    n2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.inst_node))
-    v2 = BoxInt(13)
-    l = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.inst_node))
-    inputargs = [fr]
-    ops = [
-        ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu),
-                                              ConstInt(ofs_node)], None),
-        #
-        ResOperation('getfield_gc', [fr, ConstInt(ofs_l)], l),
-        ResOperation('guard_builtin', [l, SomeDescr()], None),
-        ResOperation('getitem', [None, l, ConstInt(0)], v2),
-        ResOperation('setitem', [None, l, ConstInt(0), v2], None),
-        ResOperation('jump', [fr], None),
-        ]
-    ops[1].vdesc = xy_desc
-
-def test_D_intersect_input_and_output():
-    py.test.skip("XXX")
-    spec = PerfectSpecializer(Loop(D.inputargs, D.ops))
-    spec.find_nodes()
-    spec.intersect_input_and_output()
-    assert spec.nodes[D.fr].escaped
-    assert spec.nodes[D.fr].virtualized
-    assert not spec.nodes[D.l].escaped
-    assert spec.nodes[D.l].expanded_fields.keys() == [0]
-
-# ____________________________________________________________
-
 class E:
     locals().update(A.__dict__)
     inputargs = [fr]
