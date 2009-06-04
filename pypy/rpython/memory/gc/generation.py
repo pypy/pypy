@@ -427,8 +427,8 @@ class GenerationGC(SemiSpaceGC):
         # Additionally, it makes the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
         def remember_young_pointer(addr_struct, addr):
-            llop.debug_print(lltype.Void, "\tremember_young_pointer",
-                             addr_struct, "<-", addr)
+            #llop.debug_print(lltype.Void, "\tremember_young_pointer",
+            #                 addr_struct, "<-", addr)
             ll_assert(not self.is_in_nursery(addr_struct),
                          "nursery object with GCFLAG_NO_YOUNG_PTRS")
             if self.is_in_nursery(addr):
