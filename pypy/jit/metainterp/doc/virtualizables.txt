@@ -94,9 +94,9 @@ the stack if we update esp register. We'll use ebp as a base for stack
 operations, so we're free to change value of esp any time we want.
 So we will end up with things like this:
 
-(%ebp), (%ebp+4), (%ebp+8) - original args
-(%ebp+c), %(ebp+10) - temporary values
-(%ebp+14) - additional value
+(%ebp-4), (%ebp-8), (%ebp-c) - original args
+(%ebp-10), %(ebp-14) - temporary values
+(%ebp-18) - additional value
 
 and we'll update esp by +4
 
