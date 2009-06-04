@@ -10,7 +10,7 @@ from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize3 import AbstractOptimization
 from pypy.jit.metainterp.optimize3 import optimize_loop, Specializer,\
-     OptimizeGuards
+     OptimizeGuards, OptimizeVirtuals
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
 
@@ -58,7 +58,9 @@ class LLtypeMixin(object):
                                         ('next', lltype.Ptr(NODE))))
     node = lltype.malloc(NODE)
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
-    nodedescr = cpu.fielddescrof(NODE, 'value')
+    nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
+    nodesize = cpu.sizeof(NODE)
+    valuedescr = cpu.fielddescrof(NODE, 'value')
     namespace = locals()
 
 class OOtypeMixin(object):
@@ -71,10 +73,13 @@ class OOtypeMixin(object):
                       'next': NODE})
 
     node_vtable = ootype.runtimeClass(NODE)
+    node_vtable_adr = ootype.cast_to_object(node_vtable)
 
     node = ootype.new(NODE)
     nodebox = BoxObj(ootype.cast_to_object(node))
-    nodedescr = cpu.fielddescrof(NODE, 'value')
+    nodebox2 = BoxObj(ootype.cast_to_object(node))
+    valuedescr = cpu.fielddescrof(NODE, 'value')
+    nodesize = cpu.typedescrof(NODE)
 
     namespace = locals()
 
@@ -171,6 +176,47 @@ class BaseTestOptimize3(object):
         loop.operations[3].result.value = 3
         loop = self.optimize(loop, [OptimizeGuards()])
         self.assert_equal(loop, expected)
+
+    def _get_virtual_simple_loop(self):
+        ops = """
+        [i0, p0]
+        guard_class(p0, ConstClass(node_vtable))
+          fail()
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_sub(i1, 1)
+        i3 = int_add(i0, i1)
+        p1 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(i3, p1)
+        """
+        loop = self.parse(ops)
+        # cheat
+        loop.inputargs[1].value = self.nodebox.value # p0
+        loop.operations[1].result.value = 20         # i1
+        loop.operations[2].result.value = 19         # i2
+        loop.operations[3].result.value = 20         # i3
+        loop.operations[4].result = self.nodebox2    # p1
+        loop.operations[5].args[0] = self.nodebox2   # p1
+        loop.operations[6].args[1] = self.nodebox2   # p1
+        loop.operations[6].jump_target = loop
+        return loop
+
+    def test_virtual_simple_find_nodes(self):
+        loop = self._get_virtual_simple_loop()
+        spec = Specializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+
+        i0, p0 = loop.inputargs
+        i3 = loop.operations[3].result
+        p1 = loop.operations[4].result
+        assert spec.nodes[i0] is not spec.nodes[i3]
+        assert spec.nodes[p0] is not spec.nodes[p1]
+        assert spec.nodes[p0].cls.source.value == self.node_vtable_adr
+        assert not spec.nodes[p0].escaped
+        assert spec.nodes[p1].cls.source.value == self.node_vtable_adr
+        assert not spec.nodes[p1].escaped
+
 
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize3):

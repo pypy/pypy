@@ -1,12 +1,13 @@
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.history import Const, Box
+from pypy.jit.metainterp.history import Const, Box, AbstractValue
 
 class InstanceNode(object):
-    def __init__(self, source, const=False):
+    def __init__(self, source, const=False, escaped=True):
         self.source = source
         if const:
             assert isinstance(source, Const)
         self.const = const
+        self.escaped = escaped
         self.cls = None
 
     def __repr__(self):
@@ -38,6 +39,10 @@ class Specializer(object):
             return node
 
     def find_nodes(self):
+        for box in self.loop.inputargs:
+            self.nodes[box] = InstanceNode(box, escaped=False,)
+                                           #startbox=True)
+
         for op in self.loop.operations:
             self._find_nodes_in_guard_maybe(op)
             if self._is_pure_and_constfoldable(op):
@@ -136,11 +141,14 @@ class Specializer(object):
         op.suboperations = [op_fail]
         return op
 
-    def optimize_loop(self, loop):
+    def _init(self, loop):
         self.nodes = {}
         self.field_caches = {}
         self.fixedops = {}
         self.loop = loop
+
+    def optimize_loop(self, loop):
+        self._init(loop)
         self.find_nodes()
         self.optimize_operations()
 
@@ -209,6 +217,47 @@ class OptimizeGuards(AbstractOptimization):
         instnode.source = op.args[0].constbox()
         return op
 
+
+
+class OptimizeVirtuals(AbstractOptimization):
+
+    def find_nodes_guard_class(self, spec, op):
+        # XXX: how does this relate to OptimizeGuards.guard_class?
+        instnode = spec.getnode(op.args[0])
+        if instnode.cls is None:
+            instnode.cls = InstanceNode(op.args[1], const=True)
+
+    def find_nodes_new_with_vtable(self, spec, op):
+        box = op.result
+        instnode = InstanceNode(box, escaped=False)
+        instnode.cls = InstanceNode(op.args[0], const=True)
+        spec.nodes[box] = instnode
+
+##     def find_nodes_setfield_gc(self, spec, op):
+##         instnode = spec.getnode(op.args[0])
+##         fielddescr = op.descr
+##         fieldnode = self.getnode(op.args[1])
+##         assert isinstance(fielddescr, AbstractValue)
+##         instnode.curfields[fielddescr] = fieldnode
+##         ##self.dependency_graph.append((instnode, fieldnode))
+
+##     def find_nodes_getfield_gc(self, spec, op):
+##         import pdb;pdb.set_trace()
+##         instnode = spec.getnode(op.args[0])
+##         fielddescr = op.descr
+##         resbox = op.result
+##         assert isinstance(fielddescr, AbstractValue)
+##         if fielddescr in instnode.curfields:
+##             fieldnode = instnode.curfields[fielddescr]
+##         elif fielddescr in instnode.origfields:
+##             fieldnode = instnode.origfields[fielddescr]
+##         else:
+##             fieldnode = InstanceNode(resbox, escaped=False)
+##             if instnode.startbox:
+##                 fieldnode.startbox = True
+##             ##self.dependency_graph.append((instnode, fieldnode))
+##             instnode.origfields[fielddescr] = fieldnode
+##         self.nodes[resbox] = fieldnode
 
 
 # -------------------------------------------------------------------
