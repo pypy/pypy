@@ -97,6 +97,19 @@ class ListTests:
         assert res == 42
         py.test.skip("not virtualized away so far")
 
+    def test_list_of_voids(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
+        def f(n):
+            lst = [None]
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, lst=lst)
+                myjitdriver.jit_merge_point(n=n, lst=lst)
+                lst = [None, None]
+                n -= 1
+            return len(lst)
+        res = self.meta_interp(f, [21], listops=True)
+        assert res == 2
+
 class TestOOtype(ListTests, OOJitMixin):
    pass
 

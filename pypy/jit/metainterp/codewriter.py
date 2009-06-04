@@ -1034,6 +1034,12 @@ class BytecodeMaker(object):
         if not isinstance(deref(LIST), (lltype.GcArray, ootype.Array)):
             return False # resizable lists
         ARRAY = deref(LIST)
+        if isinstance(ARRAY, ootype.Array):
+            if ARRAY.ITEM == lltype.Void:
+                return False   # arrays of voids: not supported
+        else:
+            if ARRAY.OF == lltype.Void:
+                return False   # arrays of voids: not supported
         arraydescr = self.cpu.arraydescrof(ARRAY)
         #
         if oopspec_name == 'newlist':
