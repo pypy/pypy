@@ -13,6 +13,7 @@ from pypy.rpython import rclass
 from pypy.rpython.rmodel import inputconst
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.debug import ll_assert
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 
@@ -59,6 +60,11 @@ class BaseExceptionTransformer(object):
         runtime_error_def = translator.annotator.bookkeeper.getuniqueclassdef(RuntimeError)
         runtime_error_ll_exc = edata.get_standard_ll_exc_instance(translator.rtyper, runtime_error_def)
         runtime_error_ll_exc_type = rclass.ll_inst_type(runtime_error_ll_exc)
+        bk = translator.annotator.bookkeeper
+        assertion_error_def = bk.getuniqueclassdef(AssertionError)
+        assertion_error_ll_exc = edata.get_standard_ll_exc_instance(
+            translator.rtyper, assertion_error_def)
+        assertion_error_ll_exc_type=rclass.ll_inst_type(assertion_error_ll_exc)
 
         def rpyexc_occured():
             exc_type = exc_data.exc_type
@@ -76,6 +82,7 @@ class BaseExceptionTransformer(object):
 
         def rpyexc_raise(etype, evalue):
             # assert(!RPyExceptionOccurred());
+            ll_assert(etype != assertion_error_ll_exc_type, "AssertionError!")
             exc_data.exc_type = etype
             exc_data.exc_value = evalue
 
