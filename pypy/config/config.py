@@ -98,9 +98,9 @@ class Config(object):
             raise AttributeError('unknown option %s' % (name,))
         child = getattr(self._cfgimpl_descr, name)
         oldowner = self._cfgimpl_value_owners[child._name]
-        oldvalue = getattr(self, name)
-        if oldvalue != value and oldowner not in ("default", "suggested"):
-            if who in ("default", "suggested"):
+        if oldowner not in ("default", "suggested"):
+            oldvalue = getattr(self, name)
+            if oldvalue == value or who in ("default", "suggested"):
                 return
             raise ConflictConfigError('cannot override value to %s for '
                                       'option %s' % (value, name))

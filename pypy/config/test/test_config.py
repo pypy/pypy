@@ -580,3 +580,19 @@ def test_validator():
     assert c.booloption2 is False
     c.booloption2 = False
     assert c.booloption2 is False
+
+def test_suggested_owner_does_not_override():
+    descr = OptionDescription("test", '', [
+        BoolOption("toplevel", "", default=False),
+        BoolOption("opt", "", default=False,
+                   suggests=[("toplevel", False)]),
+        BoolOption("opt2", "", default=False,
+                   suggests=[("toplevel", True)]),
+    ])
+    c = Config(descr)
+    c.toplevel = False
+    c.opt = True      # bug: sets owner of toplevel back to 'suggested'
+    c.opt2 = True     # and this overrides toplevel because it's only suggested
+    assert c.toplevel == False
+    assert c.opt == True
+    assert c.opt2 == True
