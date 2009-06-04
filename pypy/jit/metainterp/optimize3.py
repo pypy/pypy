@@ -21,6 +21,7 @@ class InstanceNode(object):
 class Specializer(object):
     loop = None
     nodes = None
+    fixedops = None
 
     def __init__(self, optlist):
         self.optlist = optlist
@@ -89,9 +90,17 @@ class Specializer(object):
 
     def fixop(self, op):
         if op is None:
-            return
+            return None
+        if op in self.fixedops:
+            return op
         if op.is_guard():
-            return self.fixguard(op)
+            newop = self._fixguard(op)
+        else:
+            newop = self._fixop_default(op)
+        self.fixedops[newop] = None
+        return newop
+
+    def _fixop_default(self, op):
         op = op.clone()
         op.args = self.new_arguments(op)
         if op.is_always_pure():
@@ -107,7 +116,14 @@ class Specializer(object):
                 return
         return op
 
-    def fixguard(self, op):
+    def _fixguard(self, op):
+        if op.is_foldable_guard():
+            for arg in op.args:
+                if not self.getnode(arg).const:
+                    break
+            else:
+                return None
+        op.args = self.new_arguments(op)
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
         op_fail.args = self.new_arguments(op_fail)
@@ -119,6 +135,7 @@ class Specializer(object):
     def optimize_loop(self, loop):
         self.nodes = {}
         self.field_caches = {}
+        self.fixedops = {}
         self.loop = loop
         self.find_nodes()
         self.optimize_operations()
@@ -165,7 +182,7 @@ class OptimizeGuards(AbstractOptimization):
         assert isinstance(op.args[1], Const)
         if instnode.const:
             return
-        #op = spec.fixguard(op) # ??
+        op = spec.fixop(op)
         instnode.const = True
         instnode.source = op.args[0].constbox()
         return op

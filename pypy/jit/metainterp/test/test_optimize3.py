@@ -91,10 +91,11 @@ class BaseTestOptimize3(object):
             optlist = []
         optimize_loop(None, [], loop, self.cpu,
                       spec=Specializer(optlist))
-        return loop.operations
+        return loop
 
     def assert_equal(self, optimized, expected):
-        equaloplists(optimized, self.parse(expected).operations)
+        equaloplists(optimized.operations,
+                     self.parse(expected).operations)
 
 
     def test_constfold(self):
@@ -110,6 +111,18 @@ class BaseTestOptimize3(object):
             expected = "[]"
             self.assert_equal(self.optimize(ops), expected)
 
+    def test_constfold_guard(self):
+        ops = """
+        []
+        i0 = int_add(0, 0)
+        guard_value(i0, 0)
+          fail(i0)
+        """
+        expected = """
+        []
+        """
+        loop = self.optimize(ops, [])
+        self.assert_equal(loop, expected)
 
     def test_remove_guard_class(self):
         ops = """
@@ -143,7 +156,11 @@ class BaseTestOptimize3(object):
         guard_value(i0, 0)
             fail()
         """
-        loop = self.optimize(ops, [OptimizeGuards()])
+        loop = self.parse(ops)
+        # cheat
+        loop.operations[1].result.value = 1
+        loop.operations[3].result.value = 3
+        loop = self.optimize(loop, [OptimizeGuards()])
         self.assert_equal(loop, expected)
 
 
