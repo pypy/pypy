@@ -27,20 +27,26 @@ class Specializer(object):
     def __init__(self, optlist):
         self.optlist = optlist
 
+    def newnode(self, *args, **kwds): # XXX RPython
+        node = InstanceNode(*args, **kwds)
+        for opt in self.optlist:
+            opt.init_node(node)
+        return node
+
     def getnode(self, box):
         try:
             return self.nodes[box]
         except KeyError:
             if isinstance(box, Const):
-                node = InstanceNode(box, const=True)
+                node = self.newnode(box, const=True)
             else:
-                node = InstanceNode(box)
+                node = self.newnode(box)
             self.nodes[box] = node
             return node
 
     def find_nodes(self):
         for box in self.loop.inputargs:
-            self.nodes[box] = InstanceNode(box, escaped=False,)
+            self.nodes[box] = self.newnode(box, escaped=False,)
                                            #startbox=True)
 
         for op in self.loop.operations:
@@ -48,14 +54,14 @@ class Specializer(object):
             if self._is_pure_and_constfoldable(op):
                 box = op.result
                 assert box is not None
-                self.nodes[box] = InstanceNode(box.constbox(), const=True)
+                self.nodes[box] = self.newnode(box.constbox(), const=True)
             else:
                 # default case
                 for box in op.args:
                     self.getnode(box)
                 box = op.result
                 if box is not None:
-                    self.nodes[box] = InstanceNode(box)
+                    self.nodes[box] = self.newnode(box)
 
             for optimization in self.optlist:
                 optimization.find_nodes_for_op(self, op)
@@ -120,7 +126,7 @@ class Specializer(object):
                 # all constant arguments: constant-fold away
                 box = op.result
                 assert box is not None
-                instnode = InstanceNode(box.constbox(), const=True)
+                instnode = self.newnode(box.constbox(), const=True)
                 self.nodes[box] = instnode
                 return
         return op
@@ -183,6 +189,9 @@ class AbstractOptimization(object):
             return getattr(self, methname).im_func
         return None
 
+    def init_node(self, node):
+        pass
+
     def find_nodes_for_op(self, spec, op):
         func = self.find_nodes_ops[op.opnum]
         if func:
@@ -204,7 +213,7 @@ class OptimizeGuards(AbstractOptimization):
         if node.cls is not None:
             # assert that they're equal maybe
             return
-        node.cls = InstanceNode(op.args[1], const=True)
+        node.cls = spec.newnode(op.args[1], const=True)
         return op
 
     def guard_value(self, spec, op):
@@ -225,12 +234,12 @@ class OptimizeVirtuals(AbstractOptimization):
         # XXX: how does this relate to OptimizeGuards.guard_class?
         instnode = spec.getnode(op.args[0])
         if instnode.cls is None:
-            instnode.cls = InstanceNode(op.args[1], const=True)
+            instnode.cls = spec.newnode(op.args[1], const=True)
 
     def find_nodes_new_with_vtable(self, spec, op):
         box = op.result
-        instnode = InstanceNode(box, escaped=False)
-        instnode.cls = InstanceNode(op.args[0], const=True)
+        instnode = spec.newnode(box, escaped=False)
+        instnode.cls = spec.newnode(op.args[0], const=True)
         spec.nodes[box] = instnode
 
 ##     def find_nodes_setfield_gc(self, spec, op):
