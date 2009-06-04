@@ -54,41 +54,44 @@ class AbstractLogger(object):
             return "?%r" % (arg,)
 
     def eventually_log_operations(self, inputargs, operations, memo=None,
-                                  myid=0):
+                                  myid=0, indent=0):
         if self._log_fd == -1:
             return
+        pre = " " * indent
         if memo is None:
             memo = {}
         if inputargs is None:
-            os.write(self._log_fd, "BEGIN(%s)\n" % myid)
+            os.write(self._log_fd, pre + "BEGIN(%s)\n" % myid)
         else:
             args = ",".join([self.repr_of_arg(memo, arg) for arg in inputargs])
-            os.write(self._log_fd, "LOOP %s\n" % args)
+            os.write(self._log_fd, pre + "LOOP %s\n" % args)
         for i in range(len(operations)):
             op = operations[i]
             args = ",".join([self.repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None:
                 descr = self.repr_of_descr(op.descr)
-                os.write(self._log_fd, "%d:%s %s[%s]\n" % (i, op.getopname(),
-                                                           args, descr))
+                os.write(self._log_fd, pre + "%d:%s %s[%s]\n" %
+                         (i, op.getopname(), args, descr))
             else:
-                os.write(self._log_fd, "%d:%s %s\n" % (i, op.getopname(), args))
+                os.write(self._log_fd, pre + "%d:%s %s\n" %
+                         (i, op.getopname(), args))
             if op.result is not None:
-                os.write(self._log_fd, "  => %s\n" % self.repr_of_arg(memo,
-                                                                      op.result))
+                os.write(self._log_fd, pre + "  => %s\n" %
+                         self.repr_of_arg(memo, op.result))
             if op.is_guard():
-                self.eventually_log_operations(None, op.suboperations, memo)
+                self.eventually_log_operations(None, op.suboperations, memo,
+                                               indent=indent+2)
         if operations[-1].opnum == rop.JUMP:
             if operations[-1].jump_target is not None:
                 jump_target = compute_unique_id(operations[-1].jump_target)
             else:
                 # XXX hack for the annotator
                 jump_target = 13
-            os.write(self._log_fd, 'JUMPTO:%s\n' % jump_target)
+            os.write(self._log_fd, pre + 'JUMPTO:%s\n' % jump_target)
         if inputargs is None:
-            os.write(self._log_fd, "END\n")
+            os.write(self._log_fd, pre + "END\n")
         else:
-            os.write(self._log_fd, "LOOP END\n")
+            os.write(self._log_fd, pre + "LOOP END\n")
 
     def log_failure_recovery(self, gf, guard_index):
         if self._log_fd == -1:
