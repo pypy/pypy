@@ -23,9 +23,6 @@ class Specializer(object):
     nodes = None
 
     def __init__(self, optlist):
-        for opt in optlist:
-            assert not isinstance(opt, CloneAndConstFold), 'automatically added'
-        optlist.append(CloneAndConstFold())
         self.optlist = optlist
 
     def getnode(self, box):
@@ -84,11 +81,41 @@ class Specializer(object):
                 newop = optimization.handle_op(self, newop)
                 if newop is None:
                     break
+            newop = self.fixop(newop)
             if newop is not None:
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
-    
+
+    def fixop(self, op):
+        if op is None:
+            return
+        if op.is_guard():
+            return self.fixguard(op)
+        op = op.clone()
+        op.args = self.new_arguments(op)
+        if op.is_always_pure():
+            for box in op.args:
+                if isinstance(box, Box):
+                    break
+            else:
+                # all constant arguments: constant-fold away
+                box = op.result
+                assert box is not None
+                instnode = InstanceNode(box.constbox(), const=True)
+                self.nodes[box] = instnode
+                return
+        return op
+
+    def fixguard(self, op):
+        assert len(op.suboperations) == 1
+        op_fail = op.suboperations[0]
+        op_fail.args = self.new_arguments(op_fail)
+        # modification in place. Reason for this is explained in mirror
+        # in optimize.py
+        op.suboperations = [op_fail]
+        return op
+
     def optimize_loop(self, loop):
         self.nodes = {}
         self.field_caches = {}
@@ -122,40 +149,8 @@ class AbstractOptimization(object):
         return op
 
 
-class CloneAndConstFold(AbstractOptimization):
-    """
-    Automatically inserted as the last optimization of the list.
-    """
-
-    def handle_default_op(self, spec, op):
-        if op.is_guard():
-            return op # TODO
-        op = op.clone()
-        op.args = spec.new_arguments(op)
-        if op.is_always_pure():
-            for box in op.args:
-                if isinstance(box, Box):
-                    break
-            else:
-                # all constant arguments: constant-fold away
-                box = op.result
-                assert box is not None
-                instnode = InstanceNode(box.constbox(), const=True)
-                spec.nodes[box] = instnode
-                return
-        return op
-
 
 class OptimizeGuards(AbstractOptimization):
-
-    def optimize_guard(self, spec, op):
-        assert len(op.suboperations) == 1
-        op_fail = op.suboperations[0]
-        op_fail.args = spec.new_arguments(op_fail)
-        # modification in place. Reason for this is explained in mirror
-        # in optimize.py
-        op.suboperations = [op_fail]
-        return op
 
     def guard_class(self, spec, op):
         node = spec.getnode(op.args[0])
@@ -163,14 +158,14 @@ class OptimizeGuards(AbstractOptimization):
             # assert that they're equal maybe
             return
         node.cls = InstanceNode(op.args[1], const=True)
-        return self.optimize_guard(spec, op)
+        return op
 
     def guard_value(self, spec, op):
         instnode = spec.nodes[op.args[0]]
         assert isinstance(op.args[1], Const)
         if instnode.const:
             return
-        self.optimize_guard(spec, op)
+        #op = spec.fixguard(op) # ??
         instnode.const = True
         instnode.source = op.args[0].constbox()
         return op
