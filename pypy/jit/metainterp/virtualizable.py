@@ -26,16 +26,24 @@ class VirtualizableDesc(history.AbstractDescr):
         return self.catch_all_fields_lltype(cpu, S)
 
     def catch_all_fields_lltype(self, cpu, S):
+        def name_in_all(name):
+            for p in all:
+                if hasattr(p, name):
+                    return True
+            return False
+        
         lst = []
         p = S
+        all = [p]
         while True:
             lst.extend(p._names)
             if getattr(p, 'super', None) is not None:
                 p = p.super
+                all.append(p)
             else:
                 break
         return [cpu.fielddescrof(S, name) for name in lst if
-                name.startswith('inst_')]
+                name.startswith('inst_') and name_in_all(name)]
 
     def catch_all_fields_ootype(self, cpu, S):
         lst = S._allfields().keys()
