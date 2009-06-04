@@ -35,7 +35,7 @@ class VirtualizableDesc(history.AbstractDescr):
             else:
                 break
         return [cpu.fielddescrof(S, name) for name in lst if
-                name.startswith('inst_') and hasattr(S, name)]
+                name.startswith('inst_')]
 
     def catch_all_fields_ootype(self, cpu, S):
         lst = S._allfields().keys()
