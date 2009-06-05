@@ -15,13 +15,37 @@ class InstanceNode(object):
 
     def __repr__(self):
         flags = ''
-        #if self.escaped:           flags += 'e'
+        if self.escaped:           flags += 'e'
         #if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
         #if self.virtual:           flags += 'v'
         #if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
+
+class InstanceValue(object):
+    """
+    optimize_operations does an abstract interpretation of the loop.
+
+    Each box is associated to an InstanceValue, that carries on extra
+    informations about the box, e.g. whether it is a constant or its class is
+    statically known.
+
+    The concrete optimizations can modify the value of the box attribute: in
+    that case, the optimized loop will contains a reference to the new box
+    instead of the old one.
+    """
+    
+    def __init__(self, box, const=False):
+        self.box = box
+        if const:
+            assert isinstance(box, Const)
+        self.const = const
+
+    def __repr__(self):
+        flags = ''
+        if self.const:             flags += 'c'
+        return "<InstanceValue %s (%s)>" % (self.box, flags)
 
 
 class LoopSpecializer(object):
@@ -91,16 +115,38 @@ class LoopSpecializer(object):
 
 class LoopOptimizer(object):
 
-    fixedops = None
-
     def __init__(self, optlist):
-        self.spec = LoopSpecializer(optlist)
         self.optlist = optlist
+        self.spec = LoopSpecializer(optlist)
+        self.fixedops = None
+        self.values = None  # box --> InstanceValue
+        
 
     def _init(self, loop):
         self.spec._init(loop)
         self.fixedops = {}
+        self.values = {}
         self.loop = loop
+
+    def newval(self, *args, **kwds): # XXX RPython
+        val = InstanceValue(*args, **kwds)
+        for opt in self.optlist:
+            opt.init_value(val)
+        return val
+
+    def getval(self, box):
+        try:
+            return self.values[box]
+        except KeyError:
+            assert isinstance(box, Const)
+            val = self.newval(box, const=True)
+            self.values[box] = val
+            return val
+
+    def setval(self, box):
+        assert box not in self.values
+        assert not isinstance(box, Const)
+        self.values[box] = self.newval(box)
 
     def optimize_loop(self, loop):
         self._init(loop)
@@ -108,6 +154,9 @@ class LoopOptimizer(object):
         self.optimize_operations()
 
     def optimize_operations(self):
+        for box in self.loop.inputargs:
+            self.setval(box) #  startbox=True)
+
         newoperations = []
         for op in self.loop.operations:
             newop = op
@@ -117,6 +166,7 @@ class LoopOptimizer(object):
                     break
             newop = self.fixop(newop)
             if newop is not None:
+                self.setval(newop.result)
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
@@ -125,12 +175,16 @@ class LoopOptimizer(object):
         newboxes = []
         for box in op.args:
             if isinstance(box, Box):
-                instnode = self.spec.nodes[box]
-                box = instnode.source
+                val = self.values[box]
+                box = val.box
             newboxes.append(box)
         return newboxes
 
     def fixop(self, op):
+        """
+        Fix the arguments of the op by using the box stored on the
+        InstanceValue of each argument.
+        """
         if op is None:
             return None
         if op in self.fixedops:
@@ -153,15 +207,15 @@ class LoopOptimizer(object):
                 # all constant arguments: constant-fold away
                 box = op.result
                 assert box is not None
-                instnode = self.spec.newnode(box.constbox(), const=True)
-                self.spec.nodes[box] = instnode
+                val = self.newval(box.constbox(), const=True)
+                self.values[box] = val
                 return
         return op
 
     def _fixguard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
-                if not self.spec.nodes[arg].const:
+                if not self.getval(arg).const:
                     break
             else:
                 return None
@@ -206,6 +260,9 @@ class AbstractOptimization(object):
             return getattr(self, methname).im_func
         return None
 
+    # hooks for LoopSpecializer
+    # -------------------------
+    
     def init_node(self, node):
         pass
 
@@ -213,6 +270,13 @@ class AbstractOptimization(object):
         func = self.find_nodes_ops[op.opnum]
         if func:
             func(self, spec, op)
+
+
+    # hooks for LoopOptimizer
+    # -------------------------
+
+    def init_value(self, value):
+        pass
 
     def handle_op(self, spec, op):
         func = self.operations[op.opnum]
@@ -225,24 +289,25 @@ class AbstractOptimization(object):
 
 class OptimizeGuards(AbstractOptimization):
 
+    def init_value(self, val):
+        val.cls = None
+
     def guard_class(self, opt, op):
-        spec = opt.spec
-        node = spec.nodes[op.args[0]]
-        if node.cls is not None:
+        val = opt.values[op.args[0]]
+        if val.cls is not None:
             # assert that they're equal maybe
             return
-        node.cls = spec.newnode(op.args[1], const=True)
+        val.cls = opt.newval(op.args[1], const=True)
         return op
 
     def guard_value(self, opt, op):
-        spec = opt.spec
-        instnode = spec.nodes[op.args[0]]
+        val = opt.values[op.args[0]]
         assert isinstance(op.args[1], Const)
-        if instnode.const:
+        if val.const:
             return
         op = opt.fixop(op)
-        instnode.const = True
-        instnode.source = op.args[0].constbox()
+        val.const = True
+        val.box = op.args[0].constbox()
         return op
 
 
