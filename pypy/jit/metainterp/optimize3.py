@@ -11,7 +11,6 @@ class InstanceNode(object):
             assert isinstance(source, Const)
         self.const = const
         self.escaped = escaped
-        self.cls = None
 
     def __repr__(self):
         flags = ''
@@ -317,7 +316,7 @@ class OptimizeVirtuals(AbstractOptimization):
     def init_node(self, node):
         node.origfields = r_dict(av_eq, av_hash)
         node.curfields = r_dict(av_eq, av_hash)
-
+        node.cls = None
 
     def find_nodes_guard_class(self, spec, op):
         # XXX: how does this relate to OptimizeGuards.guard_class?
