@@ -124,6 +124,11 @@ def test_A_find_nodes():
     assert spec.nodes[A.n2].cls.source.value == node_vtable_adr
     assert not spec.nodes[A.n2].escaped
 
+    assert len(spec.nodes[A.n1].curfields) == 0
+    assert spec.nodes[A.n1].origfields[A.ofs_value] is spec.nodes[A.v]
+    assert len(spec.nodes[A.n2].origfields) == 0
+    assert spec.nodes[A.n2].curfields[A.ofs_value] is spec.nodes[A.v2]
+
 def test_A_intersect_input_and_output():
     spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()

@@ -208,6 +208,8 @@ class BaseTestOptimize3(object):
         spec.find_nodes()
 
         i0, p0 = loop.inputargs
+        i1 = loop.operations[1].result
+        i2 = loop.operations[2].result
         i3 = loop.operations[3].result
         p1 = loop.operations[4].result
         assert spec.nodes[i0] is not spec.nodes[i3]
@@ -216,6 +218,12 @@ class BaseTestOptimize3(object):
         assert not spec.nodes[p0].escaped
         assert spec.nodes[p1].cls.source.value == self.node_vtable_adr
         assert not spec.nodes[p1].escaped
+
+        assert len(spec.nodes[p0].curfields) == 0
+        assert spec.nodes[p0].origfields[self.valuedescr] is spec.nodes[i1]
+        assert len(spec.nodes[p1].origfields) == 0
+        assert spec.nodes[p1].curfields[self.valuedescr] is spec.nodes[i2]
+
 
 
 

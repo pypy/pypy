@@ -1,5 +1,8 @@
+from pypy.rlib.objectmodel import r_dict
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import Const, Box, AbstractValue
+from pypy.jit.metainterp.optimize import av_eq, av_hash
+
 
 class InstanceNode(object):
     def __init__(self, source, const=False, escaped=True):
@@ -230,6 +233,11 @@ class OptimizeGuards(AbstractOptimization):
 
 class OptimizeVirtuals(AbstractOptimization):
 
+    def init_node(self, node):
+        node.origfields = r_dict(av_eq, av_hash)
+        node.curfields = r_dict(av_eq, av_hash)
+
+
     def find_nodes_guard_class(self, spec, op):
         # XXX: how does this relate to OptimizeGuards.guard_class?
         instnode = spec.getnode(op.args[0])
@@ -242,31 +250,30 @@ class OptimizeVirtuals(AbstractOptimization):
         instnode.cls = spec.newnode(op.args[0], const=True)
         spec.nodes[box] = instnode
 
-##     def find_nodes_setfield_gc(self, spec, op):
-##         instnode = spec.getnode(op.args[0])
-##         fielddescr = op.descr
-##         fieldnode = self.getnode(op.args[1])
-##         assert isinstance(fielddescr, AbstractValue)
-##         instnode.curfields[fielddescr] = fieldnode
-##         ##self.dependency_graph.append((instnode, fieldnode))
+    def find_nodes_setfield_gc(self, spec, op):
+        instnode = spec.getnode(op.args[0])
+        fielddescr = op.descr
+        fieldnode = spec.getnode(op.args[1])
+        assert isinstance(fielddescr, AbstractValue)
+        instnode.curfields[fielddescr] = fieldnode
+##         self.dependency_graph.append((instnode, fieldnode))
 
-##     def find_nodes_getfield_gc(self, spec, op):
-##         import pdb;pdb.set_trace()
-##         instnode = spec.getnode(op.args[0])
-##         fielddescr = op.descr
-##         resbox = op.result
-##         assert isinstance(fielddescr, AbstractValue)
-##         if fielddescr in instnode.curfields:
-##             fieldnode = instnode.curfields[fielddescr]
-##         elif fielddescr in instnode.origfields:
-##             fieldnode = instnode.origfields[fielddescr]
-##         else:
-##             fieldnode = InstanceNode(resbox, escaped=False)
+    def find_nodes_getfield_gc(self, spec, op):
+        instnode = spec.getnode(op.args[0])
+        fielddescr = op.descr
+        resbox = op.result
+        assert isinstance(fielddescr, AbstractValue)
+        if fielddescr in instnode.curfields:
+            fieldnode = instnode.curfields[fielddescr]
+        elif fielddescr in instnode.origfields:
+            fieldnode = instnode.origfields[fielddescr]
+        else:
+            fieldnode = InstanceNode(resbox, escaped=False)
 ##             if instnode.startbox:
 ##                 fieldnode.startbox = True
-##             ##self.dependency_graph.append((instnode, fieldnode))
-##             instnode.origfields[fielddescr] = fieldnode
-##         self.nodes[resbox] = fieldnode
+##             self.dependency_graph.append((instnode, fieldnode))
+            instnode.origfields[fielddescr] = fieldnode
+        spec.nodes[resbox] = fieldnode
 
 
 # -------------------------------------------------------------------
