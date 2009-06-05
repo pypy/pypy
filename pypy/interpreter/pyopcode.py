@@ -888,10 +888,13 @@ class __extend__(pyframe.PyFrame):
         arguments = f.popvalues(n_arguments)
         args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
         w_function  = f.popvalue()
-        if f.is_being_profiled and is_builtin_code(w_function):
-            w_result = f.space.call_args_and_c_profile(f, w_function, args)
-        else:
+        if we_are_jitted():
             w_result = f.space.call_args(w_function, args)
+        else:
+            if f.is_being_profiled and is_builtin_code(w_function):
+                w_result = f.space.call_args_and_c_profile(f, w_function, args)
+            else:
+                w_result = f.space.call_args(w_function, args)
         rstack.resume_point("call_function", f, returns=w_result)
         f.pushvalue(w_result)
         
