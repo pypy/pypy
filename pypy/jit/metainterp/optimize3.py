@@ -22,13 +22,18 @@ class InstanceNode(object):
         #if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
-class Specializer(object):
-    loop = None
-    nodes = None
-    fixedops = None
+
+
+class LoopSpecializer(object):
 
     def __init__(self, optlist):
         self.optlist = optlist
+        self.nodes = None
+        self.loop = None
+
+    def _init(self, loop):
+        self.nodes = {}
+        self.loop = loop
 
     def newnode(self, *args, **kwds): # XXX RPython
         node = InstanceNode(*args, **kwds)
@@ -83,14 +88,24 @@ class Specializer(object):
                 return False
         return True
 
-    def new_arguments(self, op):
-        newboxes = []
-        for box in op.args:
-            if isinstance(box, Box):
-                instnode = self.nodes[box]
-                box = instnode.source
-            newboxes.append(box)
-        return newboxes
+
+class LoopOptimizer(object):
+
+    fixedops = None
+
+    def __init__(self, optlist):
+        self.spec = LoopSpecializer(optlist)
+        self.optlist = optlist
+
+    def _init(self, loop):
+        self.spec._init(loop)
+        self.fixedops = {}
+        self.loop = loop
+
+    def optimize_loop(self, loop):
+        self._init(loop)
+        self.spec.find_nodes()
+        self.optimize_operations()
 
     def optimize_operations(self):
         newoperations = []
@@ -105,6 +120,15 @@ class Specializer(object):
                 newoperations.append(newop)
         print "Length of the loop:", len(newoperations)
         self.loop.operations = newoperations
+
+    def new_arguments(self, op):
+        newboxes = []
+        for box in op.args:
+            if isinstance(box, Box):
+                instnode = self.spec.nodes[box]
+                box = instnode.source
+            newboxes.append(box)
+        return newboxes
 
     def fixop(self, op):
         if op is None:
@@ -129,15 +153,15 @@ class Specializer(object):
                 # all constant arguments: constant-fold away
                 box = op.result
                 assert box is not None
-                instnode = self.newnode(box.constbox(), const=True)
-                self.nodes[box] = instnode
+                instnode = self.spec.newnode(box.constbox(), const=True)
+                self.spec.nodes[box] = instnode
                 return
         return op
 
     def _fixguard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
-                if not self.nodes[arg].const:
+                if not self.spec.nodes[arg].const:
                     break
             else:
                 return None
@@ -150,16 +174,6 @@ class Specializer(object):
         op.suboperations = [op_fail]
         return op
 
-    def _init(self, loop):
-        self.nodes = {}
-        self.field_caches = {}
-        self.fixedops = {}
-        self.loop = loop
-
-    def optimize_loop(self, loop):
-        self._init(loop)
-        self.find_nodes()
-        self.optimize_operations()
 
 # -------------------------------------------------------------------
 
@@ -211,7 +225,8 @@ class AbstractOptimization(object):
 
 class OptimizeGuards(AbstractOptimization):
 
-    def guard_class(self, spec, op):
+    def guard_class(self, opt, op):
+        spec = opt.spec
         node = spec.nodes[op.args[0]]
         if node.cls is not None:
             # assert that they're equal maybe
@@ -219,12 +234,13 @@ class OptimizeGuards(AbstractOptimization):
         node.cls = spec.newnode(op.args[1], const=True)
         return op
 
-    def guard_value(self, spec, op):
+    def guard_value(self, opt, op):
+        spec = opt.spec
         instnode = spec.nodes[op.args[0]]
         assert isinstance(op.args[1], Const)
         if instnode.const:
             return
-        op = spec.fixop(op)
+        op = opt.fixop(op)
         instnode.const = True
         instnode.source = op.args[0].constbox()
         return op
@@ -281,16 +297,17 @@ class OptimizeVirtuals(AbstractOptimization):
 OPTLIST = [
     OptimizeGuards(),
     ]
-specializer = Specializer(OPTLIST)
 
-def optimize_loop(options, old_loops, loop, cpu=None, spec=None):
-    if spec is None:
-        spec = specializer
+loop_optimizer = LoopOptimizer(OPTLIST)
+
+def optimize_loop(options, old_loops, loop, cpu=None, opt=None):
+    if opt is None:
+        opt = loop_optimizer
     if old_loops:
         assert len(old_loops) == 1
         return old_loops[0]
     else:
-        spec.optimize_loop(loop)
+        opt.optimize_loop(loop)
         return None
 
 def optimize_bridge(options, old_loops, loop, cpu=None, spec=None):

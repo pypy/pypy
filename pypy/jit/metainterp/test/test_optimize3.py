@@ -9,8 +9,8 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize3 import AbstractOptimization
-from pypy.jit.metainterp.optimize3 import optimize_loop, Specializer,\
-     OptimizeGuards, OptimizeVirtuals
+from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
+     LoopSpecializer, OptimizeGuards, OptimizeVirtuals
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
 
@@ -104,7 +104,7 @@ class BaseTestOptimize3(object):
         if optlist is None:
             optlist = []
         optimize_loop(None, [], loop, self.cpu,
-                      spec=Specializer(optlist))
+                      opt=LoopOptimizer(optlist))
         return loop
 
     def assert_equal(self, optimized, expected):
@@ -203,7 +203,7 @@ class BaseTestOptimize3(object):
 
     def test_virtual_simple_find_nodes(self):
         loop = self._get_virtual_simple_loop()
-        spec = Specializer([OptimizeVirtuals()])
+        spec = LoopSpecializer([OptimizeVirtuals()])
         spec._init(loop)
         spec.find_nodes()
 
