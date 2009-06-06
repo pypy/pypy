@@ -1,0 +1,24 @@
+
+How does perfect specialization match nodes
+============================================
+
+Categories of spec nodes:
+
+NotSpecNode - nothing special
+
+FixedClassSpecNode - specnode with no know fields, matches the same class
+  specnode, less general than NotSpecNode.
+
+VirtualSpecNode - a virtual. matches only specnode that uses exactly
+  the same fields in the identical manner.
+
+VirtualListSpecNode - same as virtual
+
+VirtualizableSpecNode - virtualizable. This one is a little bit more complex:
+  for matching, VirtualizableSpecNode matches NotSpecNode (it was not used
+  at all, hence no guard_nonvirtualized) or VirtualizableSpecNode with a
+  common subset of fields.
+
+Say v0 (Virtualizable) has fields a, b and v1 to match has fields b, c
+means that b need to have the exact same shape, but a and c can stay
+whatever they are.
