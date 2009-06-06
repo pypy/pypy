@@ -26,7 +26,7 @@ class LLVMCPU(model.AbstractCPU):
 
     def setup_once(self):
         if not we_are_translated():
-            teardown_now()
+            llvm_rffi.teardown_now()
         llvm_rffi.LLVM_SetFlags()
         self.module = llvm_rffi.LLVMModuleCreateWithName("pypyjit")
         if sys.maxint == 2147483647:
@@ -45,7 +45,7 @@ class LLVMCPU(model.AbstractCPU):
         #
         self.ee = llvm_rffi.LLVM_EE_Create(self.module)
         if not we_are_translated():
-            set_teardown_function(self._teardown)
+            llvm_rffi.set_teardown_function(self._teardown)
 
     def _teardown(self):
         llvm_rffi.LLVMDisposeExecutionEngine(self.ee)
@@ -312,16 +312,3 @@ for _key, _value in rop.__dict__.items():
         if hasattr(LLVMJITCompiler, methname):
             all_operations[_value] = methname
 all_operations = unrolling_iterable(all_operations.items())
-
-_teardown = None
-
-def set_teardown_function(fn):
-    global _teardown
-    _teardown = fn
-
-def teardown_now():
-    global _teardown
-    fn = _teardown
-    _teardown = None
-    if fn is not None:
-        fn()

@@ -41,6 +41,19 @@ compilation_info = ExternalCompilationInfo(
     libraries    = ['pypy_cache_llvm'],
 )
 
+_teardown = None
+
+def set_teardown_function(fn):
+    global _teardown
+    _teardown = fn
+
+def teardown_now():
+    global _teardown
+    fn = _teardown
+    _teardown = None
+    if fn is not None:
+        fn()
+
 # ____________________________________________________________
 
 Debug = True
