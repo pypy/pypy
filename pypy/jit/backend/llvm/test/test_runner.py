@@ -55,3 +55,47 @@ def test_loop_1():
     cpu.set_future_value_int(2, 0)
     cpu.execute_operations(loop)
     assert cpu.get_latest_value_int(0) == 3*(2**29)
+
+def test_loop_2():
+    cpu = LLVMCPU(None)
+    cpu.setup_once()
+    #
+    v1 = BoxInt(); v2 = BoxInt()
+    loop1 = TreeLoop('loop1')
+    loop1.inputargs = [v1]
+    loop1.operations = [
+        ResOperation(rop.INT_ADD, [ConstInt(1), v1], v2),
+        ResOperation(rop.FAIL, [v2], None),
+        ]
+    cpu.compile_operations(loop1)
+    #
+    cpu.set_future_value_int(0, 123)
+    cpu.execute_operations(loop1)
+    assert cpu.get_latest_value_int(0) == 124
+    #
+    v3 = BoxInt(); v4 = BoxInt(); v5 = BoxInt()
+    loop2 = TreeLoop('loop2')
+    loop2.inputargs = [v3, v4]
+    loop2.operations = [
+        ResOperation(rop.INT_SUB, [v3, v4], v5),
+        ResOperation(rop.JUMP, [v5], None),
+        ]
+    loop2.operations[-1].jump_target = loop1
+    cpu.compile_operations(loop2)
+    #
+    cpu.set_future_value_int(0, 1500)
+    cpu.set_future_value_int(1, 60)
+    cpu.execute_operations(loop2)
+    assert cpu.get_latest_value_int(0) == 1441
+    #
+    # Now try to change the definition of loop1...
+    loop1.operations = [
+        ResOperation(rop.INT_ADD, [ConstInt(3), v1], v2),
+        ResOperation(rop.FAIL, [v2], None),
+        ]
+    cpu.compile_operations(loop1)
+    #
+    cpu.set_future_value_int(0, 1500)
+    cpu.set_future_value_int(1, 60)
+    cpu.execute_operations(loop2)
+    assert cpu.get_latest_value_int(0) == 1443    # should see the change

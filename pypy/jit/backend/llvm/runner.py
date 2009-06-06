@@ -277,12 +277,19 @@ class LLVMJITCompiler(object):
                 incoming.append(self.getintarg(op.args[i]))
             llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
         else:
-            xxx
+            index = op.jump_target._llvm_compiled_index
+            assert index >= 0
+            self._generate_fail(op.args, index)
 
     def generate_FAIL(self, op):
-        self.cpu._ensure_out_args(len(op.args))
-        for i in range(len(op.args)):
-            value_ref = self.vars[op.args[i]]
+        i = len(self.cpu.fail_ops)
+        self.cpu.fail_ops.append(op)
+        self._generate_fail(op.args, ~i)
+
+    def _generate_fail(self, args, index):
+        self.cpu._ensure_out_args(len(args))
+        for i in range(len(args)):
+            value_ref = self.vars[args[i]]
             ty = llvm_rffi.LLVMTypeOf(value_ref)
             typtr = llvm_rffi.LLVMPointerType(ty, 0)
             addr_as_signed = rffi.cast(lltype.Signed, self.cpu.in_out_args[i])
@@ -290,9 +297,7 @@ class LLVMJITCompiler(object):
             llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, typtr)
             llvm_rffi.LLVMBuildStore(self.builder, value_ref,
                                      llvmconstptr)
-        i = len(self.cpu.fail_ops)
-        self.cpu.fail_ops.append(op)
-        llvm_rffi.LLVMBuildRet(self.builder, self._make_const_int(~i))
+        llvm_rffi.LLVMBuildRet(self.builder, self._make_const_int(index))
 
 # ____________________________________________________________
 
