@@ -113,9 +113,9 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     old_loops.append(loop)
     return loop
 
-def send_loop_to_backend(metainterp, loop, bridge, type):
+def send_loop_to_backend(metainterp, loop, guard_op, type):
     metainterp.staticdata.profiler.start_backend()
-    metainterp.cpu.compile_operations(loop, bridge)
+    metainterp.cpu.compile_operations(loop, guard_op)
     metainterp.staticdata.profiler.end_backend()
     if not we_are_translated():
         if type != "entry bridge":
@@ -315,7 +315,8 @@ class ResumeGuardDescr(AbstractDescr):
         metainterp.history.source_guard_index = self.history_guard_index
         guard_op = self.get_guard_op()
         guard_op.suboperations = new_loop.operations
-        send_loop_to_backend(metainterp, source_loop, new_loop, "bridge")
+        send_loop_to_backend(metainterp, source_loop, self.get_guard_op(),
+                             "bridge")
 
     def find_source_loop(self):
         # Find the TreeLoop object that contains this guard operation.
