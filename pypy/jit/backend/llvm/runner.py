@@ -235,6 +235,7 @@ class LLVMJITCompiler(object):
 
     for _opname, _llvmname in [('INT_ADD', 'Add'),
                                ('INT_SUB', 'Sub'),
+                               ('INT_LSHIFT', 'Shl'),
                                ('UINT_RSHIFT', 'LShr'),
                                ]:
         exec py.code.Source('''
@@ -312,3 +313,6 @@ for _key, _value in rop.__dict__.items():
         if hasattr(LLVMJITCompiler, methname):
             all_operations[_value] = methname
 all_operations = unrolling_iterable(all_operations.items())
+
+import pypy.jit.metainterp.executor
+pypy.jit.metainterp.executor.make_execute_list(LLVMCPU)
