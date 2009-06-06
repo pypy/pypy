@@ -254,6 +254,11 @@ class LLVMJITCompiler(object):
                     "")
         ''' % (_opname, _llvmname)).compile()
 
+    def generate_INT_NEG(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildNeg(self.builder,
+                                                    self.getintarg(op.args[0]),
+                                                    "")
+
     def generate_INT_INVERT(self, op):
         self.vars[op.result] = llvm_rffi.LLVMBuildNot(self.builder,
                                                     self.getintarg(op.args[0]),
@@ -297,12 +302,11 @@ class LLVMJITCompiler(object):
     def _generate_fail(self, args, index):
         self.cpu._ensure_out_args(len(args))
         for i in range(len(args)):
-            value_ref = self.vars[args[i]]
-            ty = llvm_rffi.LLVMTypeOf(value_ref)
-            typtr = llvm_rffi.LLVMPointerType(ty, 0)
+            value_ref = self.getintarg(args[i])
             addr_as_signed = rffi.cast(lltype.Signed, self.cpu.in_out_args[i])
             llvmconstint = self._make_const_int(addr_as_signed)
-            llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, typtr)
+            llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint,
+                                                       self.cpu.ty_int_ptr)
             llvm_rffi.LLVMBuildStore(self.builder, value_ref,
                                      llvmconstptr)
         llvm_rffi.LLVMBuildRet(self.builder, self._make_const_int(index))
