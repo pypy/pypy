@@ -6,22 +6,23 @@ from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.backend import model
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
+from pypy.jit.metainterp.history import TreeLoop
 from pypy.jit.metainterp.resoperation import rop
+
+TreeLoop._llvm_compiled_index = -1
 
 
 class LLVMCPU(model.AbstractCPU):
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
-    STUB_FUNC = lltype.FuncType([rffi.VOIDP], lltype.Signed)
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
         self.translate_support_code = translate_support_code
-        self.ty_funcs = {}
+        self.compiled_functions = []
         self.fail_ops = []
         self.in_out_args = []
-        self.entry_stubs = {}
 
     def setup_once(self):
         if not we_are_translated():
@@ -34,19 +35,18 @@ class LLVMCPU(model.AbstractCPU):
             self.ty_int = llvm_rffi.LLVMInt64Type()
         self.ty_bit = llvm_rffi.LLVMInt1Type()
         self.ty_char = llvm_rffi.LLVMInt8Type()
-        self.ty_charp = llvm_rffi.LLVMPointerType(self.ty_char, 0)
+        self.ty_int_ptr = llvm_rffi.LLVMPointerType(self.ty_int, 0)
         #
-        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 1,
+        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
                                 flavor='raw')
-        arglist[0] = self.ty_charp
-        self.ty_stub_func = llvm_rffi.LLVMFunctionType(self.ty_int, arglist,
-                                                       1, False)
+        self.ty_func = llvm_rffi.LLVMFunctionType(self.ty_int, arglist, 0,
+                                                  False)
         lltype.free(arglist, flavor='raw')
         #
         self.ee = llvm_rffi.LLVM_EE_Create(self.module)
         if not we_are_translated():
             set_teardown_function(self._teardown)
-            
+
     def _teardown(self):
         llvm_rffi.LLVMDisposeExecutionEngine(self.ee)
 
@@ -54,89 +54,124 @@ class LLVMCPU(model.AbstractCPU):
     # Compilation
 
     def compile_operations(self, loop):
-        self.compiling_loop = loop
-        self._ensure_in_args(len(loop.inputargs))
-        ty_func = self.get_ty_func(len(loop.inputargs))
-        func = llvm_rffi.LLVMAddFunction(self.module, "", ty_func)
-        llvm_rffi.LLVMSetFunctionCallConv(func, llvm_rffi.CallConv.Fast)
-        loop._llvm_func = func
-        self.vars = {}
-        for i in range(len(loop.inputargs)):
-            self.vars[loop.inputargs[i]] = llvm_rffi.LLVMGetParam(func, i)
-        self.builder = llvm_rffi.LLVMCreateBuilder()
-        bb_start = llvm_rffi.LLVMAppendBasicBlock(func, "entry")
-        self.pending_blocks = [(loop.operations, bb_start)]
-        while self.pending_blocks:
-            operations, bb = self.pending_blocks.pop()
-            self._generate_branch(operations, bb)
-        llvm_rffi.LLVMDisposeBuilder(self.builder)
-        self.vars = None
-        #
-        loop._llvm_func_addr = llvm_rffi.LLVM_EE_getPointerToFunction(
-            self.ee, loop._llvm_func)
-        if not we_are_translated():
-            print '--- function is at %r ---' % (loop._llvm_func_addr,)
-        #
-        loop._llvm_entry_stub = self._get_entry_stub(loop)
-        llvm_rffi.LLVMDumpModule(self.module)
-        self.compiling_loop = None
-
-    def _get_entry_stub(self, loop):
-        key = len(loop.inputargs)
-        try:
-            stub = self.entry_stubs[key]
-        except KeyError:
-            stub = self.entry_stubs[key] = self._build_entry_stub(key)
-        return stub
-
-    def _build_entry_stub(self, nb_args):
-        stubfunc = llvm_rffi.LLVMAddFunction(self.module, "stub",
-                                             self.ty_stub_func)
-        basicblock = llvm_rffi.LLVMAppendBasicBlock(stubfunc, "entry")
-        builder = llvm_rffi.LLVMCreateBuilder()
-        llvm_rffi.LLVMPositionBuilderAtEnd(builder, basicblock)
-        args = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), nb_args,
-                             flavor='raw')
-        for i in range(nb_args):
-            ty_int_ptr = llvm_rffi.LLVMPointerType(self.ty_int, 0)
-            addr_as_signed = rffi.cast(lltype.Signed, self.in_out_args[i])
-            llvmconstint = self._make_const_int(addr_as_signed)
-            llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, ty_int_ptr)
-            args[i] = llvm_rffi.LLVMBuildLoad(builder, llvmconstptr, "")
-        #
-        realtype = llvm_rffi.LLVMPointerType(self.get_ty_func(nb_args), 0)
-        realfunc = llvm_rffi.LLVMGetParam(stubfunc, 0)
-        realfunc = llvm_rffi.LLVMBuildBitCast(builder, realfunc, realtype, "")
-        res = llvm_rffi.LLVMBuildCall(builder, realfunc, args, nb_args, "")
-        llvm_rffi.LLVMSetInstructionCallConv(res, llvm_rffi.CallConv.Fast)
-        lltype.free(args, flavor='raw')
-        llvm_rffi.LLVMBuildRet(builder, res)
-        llvm_rffi.LLVMDisposeBuilder(builder)
-        #
-        stub = llvm_rffi.LLVM_EE_getPointerToFunction(self.ee, stubfunc)
-        if not we_are_translated():
-            print '--- stub is at %r ---' % (stub,)
-        return rffi.cast(lltype.Ptr(self.STUB_FUNC), stub)
-
-    def get_ty_func(self, nb_args):
-        try:
-            return self.ty_funcs[nb_args]
-        except KeyError:
-            arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
-                                    nb_args, flavor='raw')
-            for i in range(nb_args):
-                arglist[i] = self.ty_int
-            ty_func = llvm_rffi.LLVMFunctionType(self.ty_int, arglist,
-                                                 nb_args, False)
-            lltype.free(arglist, flavor='raw')
-            self.ty_funcs[nb_args] = ty_func
-            return ty_func
+        compiler = LLVMJITCompiler(self, loop)
+        compiler.start_generating_function()
+        compiler.generate_initial_arguments_load()
+        compiler.generate_loop_body()
+        compiler.close_phi_nodes()
+        compiler.done_generating_function()
+        llvm_rffi.LLVMDumpModule(self.module)   # xxx for debugging
 
     def _ensure_in_args(self, count):
         while len(self.in_out_args) < count:
             self.in_out_args.append(lltype.malloc(self.RAW_VALUE, flavor='raw'))
 
     _ensure_out_args = _ensure_in_args
+
+    # ------------------------------
+    # Execution
+
+    def set_future_value_int(self, index, intvalue):
+        p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
+        p[0] = intvalue
+
+    def execute_operations(self, loop):
+        index = loop._llvm_compiled_index
+        assert index >= 0
+        while True:
+            func_ptr = self.compiled_functions[index]
+            print 'execute_operations: %d (at 0x%x)' % (
+                index,  rffi.cast(lltype.Signed, func_ptr))
+            index = func_ptr()
+            print '\t--->', index
+            if index < 0:
+                break
+        return self.fail_ops[~index]
+
+    def get_latest_value_int(self, index):
+        p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
+        return p[0]
+
+# ____________________________________________________________
+
+class LLVMJITCompiler(object):
+    FUNC = lltype.FuncType([], lltype.Signed)
+
+    def __init__(self, cpu, loop):
+        self.cpu = cpu
+        self.loop = loop
+
+    def start_generating_function(self):
+        if self.loop._llvm_compiled_index < 0:
+            self.loop._llvm_compiled_index = len(self.cpu.compiled_functions)
+            self.cpu.compiled_functions.append(lltype.nullptr(self.FUNC))
+        func = llvm_rffi.LLVMAddFunction(self.cpu.module, "", self.cpu.ty_func)
+        self.compiling_func = func
+        self.builder = llvm_rffi.LLVMCreateBuilder()
+        self.vars = {}
+
+    def generate_initial_arguments_load(self):
+        loop = self.loop
+        func = self.compiling_func
+        bb_entry = llvm_rffi.LLVMAppendBasicBlock(func, "entry")
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_entry)
+        self.cpu._ensure_in_args(len(loop.inputargs))
+        self.phi_incoming_blocks = [bb_entry]
+        self.phi_incoming_values = []
+        for i in range(len(loop.inputargs)):
+            addr_as_signed = rffi.cast(lltype.Signed, self.cpu.in_out_args[i])
+            llvmconstint = self._make_const_int(addr_as_signed)
+            llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint,
+                                                       self.cpu.ty_int_ptr)
+            res = llvm_rffi.LLVMBuildLoad(self.builder, llvmconstptr, "")
+            self.phi_incoming_values.append([res])
+        self.bb_start = llvm_rffi.LLVMAppendBasicBlock(func, "")
+        llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
+        #
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, self.bb_start)
+        for i in range(len(loop.inputargs)):
+            phi = llvm_rffi.LLVMBuildPhi(self.builder, self.cpu.ty_int, "")
+            self.vars[loop.inputargs[i]] = phi
+
+    def generate_loop_body(self):
+        func = self.compiling_func
+        self.pending_blocks = [(self.loop.operations, self.bb_start)]
+        while self.pending_blocks:
+            operations, bb = self.pending_blocks.pop()
+            self._generate_branch(operations, bb)
+        self.bb_start = lltype.nullptr(llvm_rffi.LLVMBasicBlockRef.TO)
+
+    def close_phi_nodes(self):
+        incoming_blocks = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMBasicBlockRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        incoming_values = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMValueRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        for j in range(len(self.phi_incoming_blocks)):
+            incoming_blocks[j] = self.phi_incoming_blocks[j]
+        loop = self.loop
+        for i in range(len(loop.inputargs)):
+            phi = self.vars[loop.inputargs[i]]
+            incoming = self.phi_incoming_values[i]
+            for j in range(len(self.phi_incoming_blocks)):
+                incoming_values[j] = incoming[j]
+            llvm_rffi.LLVMAddIncoming(phi, incoming_values, incoming_blocks,
+                                      len(self.phi_incoming_blocks))
+        lltype.free(incoming_values, flavor='raw')
+        lltype.free(incoming_blocks, flavor='raw')
+
+    def done_generating_function(self):
+        llvm_rffi.LLVMDisposeBuilder(self.builder)
+        #
+        func_addr = llvm_rffi.LLVM_EE_getPointerToFunction(self.cpu.ee,
+                                                           self.compiling_func)
+        if not we_are_translated():
+            print '--- function is at %r ---' % (func_addr,)
+        #
+        func_ptr = rffi.cast(lltype.Ptr(self.FUNC), func_addr)
+        index = self.loop._llvm_compiled_index
+        self.cpu.compiled_functions[index] = func_ptr
 
     def _generate_branch(self, operations, basicblock):
         llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, basicblock)
@@ -163,15 +198,15 @@ class LLVMCPU(model.AbstractCPU):
             return self._cast_to_int(value_ref)
 
     def _make_const_int(self, value):
-        return llvm_rffi.LLVMConstInt(self.ty_int, value, True)
+        return llvm_rffi.LLVMConstInt(self.cpu.ty_int, value, True)
 
     def _cast_to_int(self, value_ref):
         ty = llvm_rffi.LLVMTypeOf(value_ref)
-        if ty == self.ty_int:
+        if ty == self.cpu.ty_int:
             return value_ref
-        elif ty == self.ty_bit:
+        elif ty == self.cpu.ty_bit:
             return llvm_rffi.LLVMBuildZExt(self.builder, value_ref,
-                                           self.ty_int, "")
+                                           self.cpu.ty_int, "")
         else:
             raise AssertionError("type is not an int nor a bit")
 
@@ -190,11 +225,11 @@ class LLVMCPU(model.AbstractCPU):
 
     def _cast_to_bit(self, value_ref):
         ty = llvm_rffi.LLVMTypeOf(value_ref)
-        if ty == self.ty_bit:
+        if ty == self.cpu.ty_bit:
             return value_ref
-        elif ty == self.ty_int:
+        elif ty == self.cpu.ty_int:
             return llvm_rffi.LLVMBuildTrunc(self.builder, value_ref,
-                                            self.ty_bit, "")
+                                            self.cpu.ty_bit, "")
         else:
             raise AssertionError("type is not an int nor a bit")
 
@@ -224,7 +259,7 @@ class LLVMCPU(model.AbstractCPU):
                                                     "")
 
     def generate_GUARD_TRUE(self, op):
-        func = self.compiling_loop._llvm_func
+        func = self.compiling_func
         bb_on_track = llvm_rffi.LLVMAppendBasicBlock(func, "")
         bb_off_track = llvm_rffi.LLVMAppendBasicBlock(func, "")
         llvm_rffi.LLVMBuildCondBr(self.builder, self.getbitarg(op.args[0]),
@@ -234,49 +269,30 @@ class LLVMCPU(model.AbstractCPU):
         llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_on_track)
 
     def generate_JUMP(self, op):
-        args = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), len(op.args),
-                             flavor='raw')
-        for i in range(len(op.args)):
-            args[i] = self.getintarg(op.args[i])
-        res = llvm_rffi.LLVMBuildCall(self.builder, op.jump_target._llvm_func,
-                                      args, len(op.args), "")
-        llvm_rffi.LLVMSetInstructionCallConv(res, llvm_rffi.CallConv.Fast)
-        llvm_rffi.LLVMSetTailCall(res, True)
-        llvm_rffi.LLVMBuildRet(self.builder, res)
-        lltype.free(args, flavor='raw')
+        if op.jump_target is self.loop:
+            basicblock = llvm_rffi.LLVMGetInsertBlock(self.builder)
+            self.phi_incoming_blocks.append(basicblock)
+            for i in range(len(op.args)):
+                incoming = self.phi_incoming_values[i]
+                incoming.append(self.getintarg(op.args[i]))
+            llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
+        else:
+            xxx
 
     def generate_FAIL(self, op):
-        self._ensure_out_args(len(op.args))
+        self.cpu._ensure_out_args(len(op.args))
         for i in range(len(op.args)):
             value_ref = self.vars[op.args[i]]
             ty = llvm_rffi.LLVMTypeOf(value_ref)
             typtr = llvm_rffi.LLVMPointerType(ty, 0)
-            addr_as_signed = rffi.cast(lltype.Signed, self.in_out_args[i])
+            addr_as_signed = rffi.cast(lltype.Signed, self.cpu.in_out_args[i])
             llvmconstint = self._make_const_int(addr_as_signed)
             llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, typtr)
             llvm_rffi.LLVMBuildStore(self.builder, value_ref,
                                      llvmconstptr)
-        i = len(self.fail_ops)
-        self.fail_ops.append(op)
-        llvm_rffi.LLVMBuildRet(self.builder, self._make_const_int(i))
-
-    # ------------------------------
-    # Execution
-
-    def set_future_value_int(self, index, intvalue):
-        p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
-        p[0] = intvalue
-
-    def execute_operations(self, loop):
-        print 'execute_operations: %s' % (loop._llvm_func_addr,)
-        #import time; time.sleep(2)
-        res = loop._llvm_entry_stub(loop._llvm_func_addr)
-        print '\t--->', res
-        return self.fail_ops[res]
-
-    def get_latest_value_int(self, index):
-        p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
-        return p[0]
+        i = len(self.cpu.fail_ops)
+        self.cpu.fail_ops.append(op)
+        llvm_rffi.LLVMBuildRet(self.builder, self._make_const_int(~i))
 
 # ____________________________________________________________
 
@@ -288,7 +304,7 @@ for _key, _value in rop.__dict__.items():
     if 'A' <= _key <= 'Z':
         assert _value not in all_operations
         methname = 'generate_' + _key
-        if hasattr(LLVMCPU, methname):
+        if hasattr(LLVMJITCompiler, methname):
             all_operations[_value] = methname
 all_operations = unrolling_iterable(all_operations.items())
 
