@@ -193,7 +193,8 @@ LLVMBuildCondBr = llexternal('LLVMBuildCondBr',
                               LLVMBasicBlockRef],  # block if false
                              LLVMValueRef)
 
-for _name in ['Add', 'Sub', 'Shl', 'LShr']:
+for _name in ['Add', 'Sub', 'Mul', 'SDiv', 'SRem', 'Shl', 'LShr', 'AShr',
+              'And', 'Or', 'Xor']:
     globals()['LLVMBuild' + _name] = llexternal('LLVMBuild' + _name,
         [LLVMBuilderRef,  # builder
          LLVMValueRef,    # left-hand side

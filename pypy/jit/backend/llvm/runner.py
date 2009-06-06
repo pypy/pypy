@@ -235,8 +235,15 @@ class LLVMJITCompiler(object):
 
     for _opname, _llvmname in [('INT_ADD', 'Add'),
                                ('INT_SUB', 'Sub'),
+                               ('INT_MUL', 'Mul'),
+                               ('INT_FLOORDIV', 'SDiv'),
+                               ('INT_MOD', 'SRem'),
                                ('INT_LSHIFT', 'Shl'),
+                               ('INT_RSHIFT', 'AShr'),
                                ('UINT_RSHIFT', 'LShr'),
+                               ('INT_AND', 'And'),
+                               ('INT_OR',  'Or'),
+                               ('INT_XOR', 'Xor'),
                                ]:
         exec py.code.Source('''
             def generate_%s(self, op):

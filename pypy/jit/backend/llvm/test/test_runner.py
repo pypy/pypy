@@ -17,8 +17,6 @@ class TestLLVM(LLtypeBackendTest):
 
     test_do_call = _skip
     test_executor = _skip
-    test_uint_rshift = _skip
-    test_binary_operations = _skip
     test_unary_operations = _skip
     test_ovf_operations = _skip
     test_ovf_operations_reversed = _skip
