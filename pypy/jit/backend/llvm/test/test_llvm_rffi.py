@@ -53,13 +53,8 @@ class LLVMException(Exception):
     pass
 
 
-def test_from_llvm_py_example_2():
+def create_execution_engine(my_module):
     teardown_now()
-    d = test_from_llvm_py_example_1()
-    my_module = d['my_module']
-    ty_int = d['ty_int']
-    f_sum = d['f_sum']
-
     # Create a module provider object first. Modules can come from
     # in-memory IRs like what we created now, or from bitcode (.bc)
     # files. The module provider abstracts this detail.
@@ -82,6 +77,18 @@ def test_from_llvm_py_example_2():
         lltype.free(ee_out, flavor='raw')
 
     set_teardown_function(lambda: LLVMDisposeExecutionEngine(ee))
+    return ee
+
+
+def test_from_llvm_py_example_2():
+    d = test_from_llvm_py_example_1()
+    my_module = d['my_module']
+    ty_int = d['ty_int']
+    f_sum = d['f_sum']
+
+    # Create an execution engine object. This creates a JIT compiler,
+    # or complain on platforms that don't support it.
+    ee = create_execution_engine(my_module)
 
     # The arguments needs to be passed as "GenericValue" objects.
     args = lltype.malloc(rffi.CArray(LLVMGenericValueRef), 2, flavor='raw')
@@ -105,3 +112,59 @@ def test_from_llvm_py_example_3():
     """This test is the same as the previous one.  Just tests that we
     have freed enough stuff to be able to call it again."""
     test_from_llvm_py_example_2()
+
+
+def test_add_ovf():
+    my_module = LLVMModuleCreateWithName("my_module")
+    ty_int = LLVMInt32Type()
+    f_add_ovf = LLVM_Intrinsic_add_ovf(my_module, ty_int)
+    #
+    arglist = lltype.malloc(rffi.CArray(LLVMTypeRef), 2, flavor='raw')
+    arglist[0] = ty_int
+    arglist[1] = ty_int
+    ty_func = LLVMFunctionType(ty_int, arglist, 2, False)
+    lltype.free(arglist, flavor='raw')
+    #
+    f_sum_ovf = LLVMAddFunction(my_module, "sum_ovf", ty_func)
+    f_arg_0 = LLVMGetParam(f_sum_ovf, 0)
+    f_arg_1 = LLVMGetParam(f_sum_ovf, 1)
+    #
+    bb = LLVMAppendBasicBlock(f_sum_ovf, "entry")
+    #
+    builder = LLVMCreateBuilder()
+    LLVMPositionBuilderAtEnd(builder, bb)
+    #
+    arglist = lltype.malloc(rffi.CArray(LLVMValueRef), 2, flavor='raw')
+    arglist[0] = f_arg_0
+    arglist[1] = f_arg_1
+    tmp = LLVMBuildCall(builder, f_add_ovf, arglist, 2, "tmp")
+    lltype.free(arglist, flavor='raw')
+    #
+    tmp0 = LLVMBuildExtractValue(builder, tmp, 0, "tmp0")
+    tmp1 = LLVMBuildExtractValue(builder, tmp, 1, "tmp1")
+    c666 = LLVMConstInt(ty_int, 666, 1)
+    tmp2 = LLVMBuildSelect(builder, tmp1, c666, tmp0, "tmp2")
+    #
+    LLVMBuildRet(builder, tmp2)
+    LLVMDisposeBuilder(builder)
+    #
+    LLVMDumpModule(my_module)
+
+    ee = create_execution_engine(my_module)
+    #
+    OVERFLOW = 666
+    for x, y, z in [(100, 42, 142),
+                    (sys.maxint, 1, OVERFLOW),
+                    (-10, -sys.maxint, OVERFLOW)]:
+        args = lltype.malloc(rffi.CArray(LLVMGenericValueRef), 2, flavor='raw')
+        args[0] = LLVMCreateGenericValueOfInt(ty_int, x, True)
+        args[1] = LLVMCreateGenericValueOfInt(ty_int, y, True)
+        retval = LLVMRunFunction(ee, f_sum_ovf, 2, args)
+        LLVMDisposeGenericValue(args[1])
+        LLVMDisposeGenericValue(args[0])
+        lltype.free(args, flavor='raw')
+        #
+        ulonglong = LLVMGenericValueToInt(retval, True)
+        LLVMDisposeGenericValue(retval)
+        res = rffi.cast(lltype.Signed, ulonglong)
+        assert res == z

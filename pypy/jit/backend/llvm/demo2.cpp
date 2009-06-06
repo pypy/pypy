@@ -4,6 +4,7 @@
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Intrinsics.h"
 #include "demo2.h"
 
 using namespace llvm;
@@ -38,4 +39,14 @@ void *_LLVM_EE_getPointerToFunction(LLVMExecutionEngineRef EE,
                                     LLVMValueRef F)
 {
   return unwrap(EE)->getPointerToFunction(unwrap<Function>(F));
+}
+
+LLVMValueRef _LLVM_Intrinsic_add_ovf(LLVMModuleRef M, LLVMTypeRef Ty)
+{
+  const Type *array_of_types[1];
+  Function *F;
+  array_of_types[0] = unwrap(Ty);
+  F = Intrinsic::getDeclaration(unwrap(M), Intrinsic::sadd_with_overflow,
+                                array_of_types, 1);
+  return wrap(F);
 }

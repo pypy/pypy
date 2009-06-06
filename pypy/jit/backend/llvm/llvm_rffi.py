@@ -256,6 +256,19 @@ LLVMBuildCall = llexternal('LLVMBuildCall',
                             rffi.UINT,                    # argument count
                             rffi.CCHARP],                 # name of result
                            LLVMValueRef)
+LLVMBuildSelect = llexternal('LLVMBuildSelect',
+                             [LLVMBuilderRef,             # builder
+                              LLVMValueRef,               # if
+                              LLVMValueRef,               # then
+                              LLVMValueRef,               # else
+                              rffi.CCHARP],               # name of result
+                             LLVMValueRef)
+LLVMBuildExtractValue = llexternal('LLVMBuildExtractValue',
+                                   [LLVMBuilderRef,       # builder
+                                    LLVMValueRef,         # aggregated value
+                                    rffi.UINT,            # index
+                                    rffi.CCHARP],         # name of result
+                                   LLVMValueRef)
 
 LLVMCreateModuleProviderForExistingModule = llexternal(
     'LLVMCreateModuleProviderForExistingModule', [LLVMModuleRef],
@@ -300,3 +313,6 @@ LLVM_EE_getPointerToFunction = llexternal('_LLVM_EE_getPointerToFunction',
                                           [LLVMExecutionEngineRef,
                                            LLVMValueRef],           # function
                                           rffi.VOIDP)
+LLVM_Intrinsic_add_ovf = llexternal('_LLVM_Intrinsic_add_ovf',
+                                    [LLVMModuleRef, LLVMTypeRef],
+                                    LLVMValueRef)
