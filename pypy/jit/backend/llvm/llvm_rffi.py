@@ -260,7 +260,7 @@ LLVMBuildBitCast = llexternal('LLVMBuildBitCast',
                               LLVMValueRef)
 LLVMBuildICmp = llexternal('LLVMBuildICmp',
                            [LLVMBuilderRef,  # builder
-                            rffi.INT,        # predicate (see LLVMIntPredicate)
+                            rffi.INT,        # predicate (see Predicate above)
                             LLVMValueRef,    # left-hand side
                             LLVMValueRef,    # right-hand side
                             rffi.CCHARP],    # name of result

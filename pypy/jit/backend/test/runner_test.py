@@ -1,5 +1,5 @@
 
-import sys
+import sys, random
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
                                          ConstInt, ConstPtr, BoxObj,
                                          ConstObj)
@@ -152,6 +152,35 @@ class BaseBackendTest(Runner):
             for x, y, z in testcases:
                 res = self.execute_operation(opnum, [BoxInt(x), BoxInt(y)],
                                              'int')
+                assert res.value == z
+
+    def test_compare_operations(self):
+        random_numbers = [-sys.maxint-1, -1, 0, 1, sys.maxint]
+        def pick():
+            r = random.randrange(-99999, 100000)
+            if r & 1:
+                return r
+            else:
+                return random_numbers[r % len(random_numbers)]
+        minint = -sys.maxint-1
+        for opnum, operation in [
+            (rop.INT_LT, lambda x, y: x <  y),
+            (rop.INT_LE, lambda x, y: x <= y),
+            (rop.INT_EQ, lambda x, y: x == y),
+            (rop.INT_NE, lambda x, y: x != y),
+            (rop.INT_GT, lambda x, y: x >  y),
+            (rop.INT_GE, lambda x, y: x >= y),
+            (rop.UINT_LT, lambda x, y: r_uint(x) <  r_uint(y)),
+            (rop.UINT_LE, lambda x, y: r_uint(x) <= r_uint(y)),
+            (rop.UINT_GT, lambda x, y: r_uint(x) >  r_uint(y)),
+            (rop.UINT_GE, lambda x, y: r_uint(x) >= r_uint(y)),
+            ]:
+            for i in range(20):
+                x = pick()
+                y = pick()
+                res = self.execute_operation(opnum, [BoxInt(x), BoxInt(y)],
+                                             'int')
+                z = int(operation(x, y))
                 assert res.value == z
 
     def test_unary_operations(self):

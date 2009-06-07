@@ -478,6 +478,26 @@ class LLVMJITCompiler(object):
                     "")
         ''' % (_opname, _llvmname)).compile()
 
+    for _opname, _predicate in [('INT_LT', llvm_rffi.Predicate.SLT),
+                                ('INT_LE', llvm_rffi.Predicate.SLE),
+                                ('INT_EQ', llvm_rffi.Predicate.EQ),
+                                ('INT_NE', llvm_rffi.Predicate.NE),
+                                ('INT_GT', llvm_rffi.Predicate.SGT),
+                                ('INT_GE', llvm_rffi.Predicate.SGE),
+                                ('UINT_LT', llvm_rffi.Predicate.ULT),
+                                ('UINT_LE', llvm_rffi.Predicate.ULE),
+                                ('UINT_GT', llvm_rffi.Predicate.UGT),
+                                ('UINT_GE', llvm_rffi.Predicate.UGE)]:
+        exec py.code.Source('''
+            def generate_%s(self, op):
+                self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+                    self.builder,
+                    %d,
+                    self.getintarg(op.args[0]),
+                    self.getintarg(op.args[1]),
+                    "")
+        ''' % (_opname, _predicate)).compile()
+
     def generate_INT_NEG(self, op):
         self.vars[op.result] = llvm_rffi.LLVMBuildNeg(self.builder,
                                                     self.getintarg(op.args[0]),
@@ -581,6 +601,9 @@ class LLVMJITCompiler(object):
                                         cls,
                                         self.getintarg(op.args[1]), "")
         self._generate_guard(op, equal, False)
+
+    def generate_GUARD_NONVIRTUALIZED(self, op):
+        pass      # xxx ignored
 
     def generate_GUARD_NO_EXCEPTION(self, op):
         # etype: ty_char_ptr
@@ -720,6 +743,8 @@ class LLVMJITCompiler(object):
                 res = llvm_rffi.LLVMBuildAnd(self.builder,
                                              res, mask, "")
             self.vars[op.result] = res
+
+    generate_CALL_PURE = generate_CALL
 
     def generate_CAST_PTR_TO_INT(self, op):
         res = llvm_rffi.LLVMBuildPtrToInt(self.builder,
