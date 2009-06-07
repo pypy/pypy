@@ -18,7 +18,6 @@ class TestLLVM(LLtypeBackendTest):
     test_do_call = _skip
     test_executor = _skip
     test_passing_guard_class = _skip
-    test_failing_guards = _skip
     test_failing_guard_class = _skip
     test_casts = _skip
     test_ooops_non_gc = _skip
