@@ -214,9 +214,9 @@ class BaseTestOptimize3(object):
         p1 = loop.operations[4].result
         assert spec.nodes[i0] is not spec.nodes[i3]
         assert spec.nodes[p0] is not spec.nodes[p1]
-        assert spec.nodes[p0].cls.source.value == self.node_vtable_adr
+        assert spec.nodes[p0].known_class.source.value == self.node_vtable_adr
         assert not spec.nodes[p0].escaped
-        assert spec.nodes[p1].cls.source.value == self.node_vtable_adr
+        assert spec.nodes[p1].known_class.source.value == self.node_vtable_adr
         assert not spec.nodes[p1].escaped
 
         assert len(spec.nodes[p0].curfields) == 0

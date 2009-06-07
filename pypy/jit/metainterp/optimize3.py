@@ -290,6 +290,12 @@ class TrackClass(AbstractOptimization):
     def init_node(self, node):
         node.known_class = None
 
+    def find_nodes_new_with_vtable(self, spec, op):
+        box = op.result
+        node = spec.newnode(box, escaped=False)
+        node.known_class = spec.newnode(op.args[0], const=True)
+        spec.nodes[box] = node
+
     def find_nodes_guard_class(self, spec, op):
         node = spec.getnode(op.args[0])
         if node.known_class is None:
@@ -327,14 +333,6 @@ class OptimizeVirtuals(AbstractOptimization):
     def init_node(self, node):
         node.origfields = r_dict(av_eq, av_hash)
         node.curfields = r_dict(av_eq, av_hash)
-        node.cls = None
-
-
-    def find_nodes_new_with_vtable(self, spec, op):
-        box = op.result
-        instnode = spec.newnode(box, escaped=False)
-        instnode.cls = spec.newnode(op.args[0], const=True)
-        spec.nodes[box] = instnode
 
     def find_nodes_setfield_gc(self, spec, op):
         instnode = spec.getnode(op.args[0])
