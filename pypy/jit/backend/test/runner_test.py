@@ -189,6 +189,7 @@ class BaseBackendTest(Runner):
             (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
             (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
             (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
+            (rop.BOOL_NOT, [(0, 1), (1, 0)]),
             ]:
             for x, y in testcases:
                 res = self.execute_operation(opnum, [BoxInt(x)],

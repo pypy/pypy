@@ -509,11 +509,37 @@ class LLVMJITCompiler(object):
                                                     "")
 
     def generate_INT_IS_TRUE(self, op):
-        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(self.builder,
-                                                    llvm_rffi.Predicate.NE,
-                                                    self.getintarg(op.args[0]),
-                                                    self.cpu.const_zero,
-                                                    "")
+        v = op.args[0]
+        try:
+            value_ref = self.vars[v]
+            if llvm_rffi.LLVMTypeOf(value_ref) != self.cpu.ty_bit:
+                raise KeyError
+        except KeyError:
+            res = llvm_rffi.LLVMBuildICmp(self.builder,
+                                          llvm_rffi.Predicate.NE,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.const_zero,
+                                          "")
+        else:
+            res = value_ref     # value_ref: ty_bit.  this is a no-op
+        self.vars[op.result] = res
+
+    def generate_BOOL_NOT(self, op):
+        v = op.args[0]
+        try:
+            value_ref = self.vars[v]
+            if llvm_rffi.LLVMTypeOf(value_ref) != self.cpu.ty_bit:
+                raise KeyError
+        except KeyError:
+            res = llvm_rffi.LLVMBuildICmp(self.builder,
+                                          llvm_rffi.Predicate.EQ,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.const_zero,
+                                          "")
+        else:
+            # value_ref: ty_int
+            res = LLVMBuildNot(self.builder, value_ref, "")
+        self.vars[op.result] = res
 
     def generate_INT_ADD_OVF(self, op):
         self._generate_ovf_op(op, self.cpu.f_add_ovf)
