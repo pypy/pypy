@@ -285,8 +285,17 @@ class AbstractOptimization(object):
         return op
 
 
+class TrackClass(AbstractOptimization):
 
-class OptimizeGuards(AbstractOptimization):
+    def init_node(self, node):
+        node.known_class = None
+
+    def find_nodes_guard_class(self, spec, op):
+        node = spec.getnode(op.args[0])
+        if node.known_class is None:
+            node.known_class = spec.newnode(op.args[1], const=True)
+
+    # -----------------------------
 
     def init_value(self, val):
         val.cls = None
@@ -299,6 +308,9 @@ class OptimizeGuards(AbstractOptimization):
         val.cls = opt.newval(op.args[1], const=True)
         return op
 
+
+class OptimizeGuards(AbstractOptimization):
+
     def guard_value(self, opt, op):
         val = opt.values[op.args[0]]
         assert isinstance(op.args[1], Const)
@@ -310,7 +322,6 @@ class OptimizeGuards(AbstractOptimization):
         return op
 
 
-
 class OptimizeVirtuals(AbstractOptimization):
 
     def init_node(self, node):
@@ -318,11 +329,6 @@ class OptimizeVirtuals(AbstractOptimization):
         node.curfields = r_dict(av_eq, av_hash)
         node.cls = None
 
-    def find_nodes_guard_class(self, spec, op):
-        # XXX: how does this relate to OptimizeGuards.guard_class?
-        instnode = spec.getnode(op.args[0])
-        if instnode.cls is None:
-            instnode.cls = spec.newnode(op.args[1], const=True)
 
     def find_nodes_new_with_vtable(self, spec, op):
         box = op.result

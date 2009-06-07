@@ -10,7 +10,7 @@ from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize3 import AbstractOptimization
 from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
-     LoopSpecializer, OptimizeGuards, OptimizeVirtuals
+     LoopSpecializer, OptimizeGuards, OptimizeVirtuals, TrackClass
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
 
@@ -151,7 +151,7 @@ class BaseTestOptimize3(object):
         guard_class(p0, ConstClass(node_vtable))
           fail()
         """
-        loop = self.optimize(ops, [OptimizeGuards()])
+        loop = self.optimize(ops, [TrackClass()])
         self.assert_equal(loop, expected)
 
 
@@ -203,7 +203,7 @@ class BaseTestOptimize3(object):
 
     def test_virtual_simple_find_nodes(self):
         loop = self._get_virtual_simple_loop()
-        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec = LoopSpecializer([TrackClass(), OptimizeVirtuals()])
         spec._init(loop)
         spec.find_nodes()
 
