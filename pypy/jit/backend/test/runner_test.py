@@ -84,6 +84,21 @@ class BaseBackendTest(Runner):
             calldescr)
         assert x.value == ord('B')
 
+    def test_call(self):
+        from pypy.rpython.annlowlevel import llhelper
+        cpu = self.cpu
+        #
+        def func(c):
+            return chr(ord(c) + 1)
+        FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
+        func_ptr = llhelper(FPTR, func)
+        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
+        res = self.execute_operation(rop.CALL,
+                                     [self.get_funcbox(cpu, func_ptr),
+                                      BoxInt(ord('A'))],
+                                     'int', descr=calldescr)
+        assert res.value == ord('B')
+
     def test_executor(self):
         cpu = self.cpu
         x = execute(cpu, rop.INT_ADD, [BoxInt(100), ConstInt(42)])

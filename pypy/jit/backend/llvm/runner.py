@@ -28,16 +28,21 @@ class LLVMCPU(model.AbstractCPU):
         self.in_out_args = []
         self._descr_caches = {}
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
+        if sys.maxint == 2147483647:
+            self.size_of_int = 4
+        else:
+            self.size_of_int = 8
 
     def setup_once(self):
         if not we_are_translated():
             llvm_rffi.teardown_now()
         llvm_rffi.LLVM_SetFlags()
         self.module = llvm_rffi.LLVMModuleCreateWithName("pypyjit")
-        if sys.maxint == 2147483647:
+        if self.size_of_int == 4:
             self.ty_int = llvm_rffi.LLVMInt32Type()
         else:
             self.ty_int = llvm_rffi.LLVMInt64Type()
+        self.ty_void = llvm_rffi.LLVMVoidType()
         self.ty_bit = llvm_rffi.LLVMInt1Type()
         self.ty_char = llvm_rffi.LLVMInt8Type()
         self.ty_char_ptr = llvm_rffi.LLVMPointerType(self.ty_char, 0)
@@ -143,6 +148,14 @@ class LLVMCPU(model.AbstractCPU):
         return llvmconstptr
     _make_const._annspecialcase_ = 'specialize:argtype(1)'
 
+    def _lltype2llvmtype(self, TYPE):
+        if TYPE is lltype.Void:
+            return self.ty_void
+        elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+            return self.ty_char_ptr
+        else:
+            return self.ty_int
+
     def _get_var_type(self, v):
         if v.type == INT:
             return self.ty_int
@@ -231,11 +244,45 @@ class LLVMCPU(model.AbstractCPU):
         self._descr_caches['field', S, fieldname] = descr
         return descr
 
+    def calldescrof(self, FUNC, ARGS, RESULT):
+        try:
+            return self._descr_caches['call', ARGS, RESULT]
+        except KeyError:
+            pass
+        #
+        param_types = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
+                                    len(ARGS), flavor='raw')
+        for i in range(len(ARGS)):
+            param_types[i] = self._lltype2llvmtype(ARGS[i])
+        ty_func = llvm_rffi.LLVMFunctionType(self._lltype2llvmtype(RESULT),
+                                             param_types, len(ARGS), 0)
+        lltype.free(param_types, flavor='raw')
+        ty_funcptr = llvm_rffi.LLVMPointerType(ty_func, 0)
+        #
+        result_mask = -1
+        if RESULT is lltype.Void:
+            pass
+        elif isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
+            pass
+        else:
+            result_size = symbolic.get_size(RESULT,
+                                            self.translate_support_code)
+            if result_size < self.size_of_int:
+                result_mask = (1 << (result_size*8)) - 1
+        descr = CallDescr(ty_funcptr, result_mask)
+        self._descr_caches['call', ARGS, RESULT] = descr
+        return descr
+
 
 class FieldDescr(AbstractDescr):
     def __init__(self, offset, size):
         self.offset = offset
         self.size = size      # set to -1 to mark a pointer field
+
+class CallDescr(AbstractDescr):
+    def __init__(self, ty_function_ptr, result_mask=-1):
+        self.ty_function_ptr = ty_function_ptr
+        self.result_mask = result_mask
 
 # ____________________________________________________________
 
@@ -642,6 +689,37 @@ class LLVMJITCompiler(object):
             value_ref = self.getintarg(op.args[1])
             # XXX mask for char fields
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
+    def generate_CALL(self, op):
+        calldescr = op.descr
+        assert isinstance(calldescr, CallDescr)
+        v = op.args[0]
+        if isinstance(v, ConstInt):
+            func = self.cpu._make_const(v.value, calldescr.ty_function_ptr)
+        else:
+            func = self.getintarg(v)
+            func = llvm_rffi.LLVMBuildIntToPtr(self.builder,
+                                               func,
+                                               calldescr.ty_function_ptr, "")
+        nb_args = len(op.args) - 1
+        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), nb_args,
+                                flavor='raw')
+        for i in range(nb_args):
+            v = op.args[1 + i]
+            if v.type == INT:
+                value_ref = self.getintarg(v)
+            else:
+                value_ref = self.getptrarg(v)
+            arglist[i] = value_ref
+        res = llvm_rffi.LLVMBuildCall(self.builder,
+                                      func, arglist, nb_args, "")
+        lltype.free(arglist, flavor='raw')
+        if op.result is not None:
+            if calldescr.result_mask != -1:
+                mask = self.cpu._make_const_int(calldescr.result_mask)
+                res = llvm_rffi.LLVMBuildAnd(self.builder,
+                                             res, mask, "")
+            self.vars[op.result] = res
 
 # ____________________________________________________________
 

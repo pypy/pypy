@@ -126,6 +126,7 @@ LLVMFunctionType = llexternal('LLVMFunctionType',
 LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
                                                  rffi.UINT],   # address space
                              LLVMTypeRef)
+LLVMVoidType = llexternal('LLVMVoidType', [], LLVMTypeRef)
 
 LLVMTypeOf = llexternal('LLVMTypeOf', [LLVMValueRef], LLVMTypeRef)
 LLVMConstNull = llexternal('LLVMConstNull', [LLVMTypeRef], LLVMValueRef)
@@ -239,6 +240,12 @@ LLVMBuildZExt = llexternal('LLVMBuildZExt',
                             LLVMTypeRef,       # destination type
                             rffi.CCHARP],      # name of result
                            LLVMValueRef)
+LLVMBuildIntToPtr = llexternal('LLVMBuildIntToPtr',
+                               [LLVMBuilderRef,  # builder
+                                LLVMValueRef,    # value
+                                LLVMTypeRef,     # destination type
+                                rffi.CCHARP],    # name of result
+                               LLVMValueRef)
 LLVMBuildBitCast = llexternal('LLVMBuildBitCast',
                               [LLVMBuilderRef, # builder
                                LLVMValueRef,   # value
