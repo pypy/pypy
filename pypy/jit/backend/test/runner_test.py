@@ -245,6 +245,15 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'int', descr=fielddescr)
         assert res.value == 39082
+        #
+        u_box, U_box = self.alloc_instance(self.U)
+        fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
+                                     'void', descr=fielddescr2)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'ptr', descr=fielddescr2)
+        assert res.value == u_box.value
 
     def test_passing_guards(self):
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),

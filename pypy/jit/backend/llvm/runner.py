@@ -8,6 +8,7 @@ from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.history import TreeLoop
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.x86 import symbolic     # xxx
 
 TreeLoop._llvm_compiled_index = -1
 
@@ -217,13 +218,15 @@ class LLVMCPU(model.AbstractCPU):
             return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
 
     def fielddescrof(self, S, fieldname):
-        from pypy.jit.backend.x86 import symbolic     # xxx
         try:
             return self._descr_caches['field', S, fieldname]
         except KeyError:
             pass
         ofs, size = symbolic.get_field_token(S, fieldname,
                                              self.translate_support_code)
+        if (isinstance(getattr(S, fieldname), lltype.Ptr) and
+            getattr(S, fieldname).TO._gckind == 'gc'):
+            size = -1
         descr = FieldDescr(ofs, size)
         self._descr_caches['field', S, fieldname] = descr
         return descr
@@ -232,7 +235,7 @@ class LLVMCPU(model.AbstractCPU):
 class FieldDescr(AbstractDescr):
     def __init__(self, offset, size):
         self.offset = offset
-        self.size = size
+        self.size = size      # set to -1 to mark a pointer field
 
 # ____________________________________________________________
 
@@ -617,21 +620,28 @@ class LLVMJITCompiler(object):
                                           self.getptrarg(v_structure),
                                           indices, 1, "")
         lltype.free(indices, flavor='raw')
-        return llvm_rffi.LLVMBuildBitCast(self.builder,
-                                          location,
-                                          self.cpu.ty_int_ptr,    # XXX
-                                          "")
+        if fielddescr.size < 0:   # pointer field
+            ty = self.cpu.ty_char_ptr_ptr
+        else:
+            assert fielddescr.size == symbolic.get_size(lltype.Signed,  # XXX
+                                              self.cpu.translate_support_code)
+            ty = self.cpu.ty_int_ptr
+        return llvm_rffi.LLVMBuildBitCast(self.builder, location, ty, "")
 
     def generate_GETFIELD_GC(self, op):
         loc = self._generate_field_gep(op.args[0], op.descr)
+        # XXX zero-extension for char fields
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
                                                        loc, "")
 
     def generate_SETFIELD_GC(self, op):
         loc = self._generate_field_gep(op.args[0], op.descr)
-        llvm_rffi.LLVMBuildStore(self.builder,
-                                 self.getintarg(op.args[1]),      # XXX
-                                 loc, "")
+        if llvm_rffi.LLVMTypeOf(loc) == self.cpu.ty_char_ptr_ptr:
+            value_ref = self.getptrarg(op.args[1])
+        else:
+            value_ref = self.getintarg(op.args[1])
+            # XXX mask for char fields
+        llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
 # ____________________________________________________________
 
