@@ -721,6 +721,18 @@ class LLVMJITCompiler(object):
                                              res, mask, "")
             self.vars[op.result] = res
 
+    def generate_CAST_PTR_TO_INT(self, op):
+        res = llvm_rffi.LLVMBuildPtrToInt(self.builder,
+                                          self.getptrarg(op.args[0]),
+                                          self.cpu.ty_int, "")
+        self.vars[op.result] = res
+
+    def generate_CAST_INT_TO_PTR(self, op):
+        res = llvm_rffi.LLVMBuildIntToPtr(self.builder,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.ty_char_ptr, "")
+        self.vars[op.result] = res
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):

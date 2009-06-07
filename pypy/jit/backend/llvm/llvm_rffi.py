@@ -240,6 +240,12 @@ LLVMBuildZExt = llexternal('LLVMBuildZExt',
                             LLVMTypeRef,       # destination type
                             rffi.CCHARP],      # name of result
                            LLVMValueRef)
+LLVMBuildPtrToInt = llexternal('LLVMBuildPtrToInt',
+                               [LLVMBuilderRef,  # builder
+                                LLVMValueRef,    # value
+                                LLVMTypeRef,     # destination type
+                                rffi.CCHARP],    # name of result
+                               LLVMValueRef)
 LLVMBuildIntToPtr = llexternal('LLVMBuildIntToPtr',
                                [LLVMBuilderRef,  # builder
                                 LLVMValueRef,    # value
