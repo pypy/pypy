@@ -999,3 +999,9 @@ class TestLL2Ctypes(object):
         v2 = ctypes2lltype(llmemory.GCREF, ctypes.c_void_p(1235))
         assert v2 != v
         
+    def test_gcref_type(self):
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+        v = lltype2ctypes(ref)
+        assert isinstance(v, ctypes.c_void_p)

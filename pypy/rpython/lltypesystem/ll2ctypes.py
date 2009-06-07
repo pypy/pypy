@@ -648,6 +648,8 @@ def lltype2ctypes(llobj, normalize=True):
             storage._normalized_ctype = c_tp
         if normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
+        if lltype.typeOf(llobj) == llmemory.GCREF:
+            p = ctypes.cast(p, ctypes.c_void_p)
         return p
 
     if isinstance(llobj, Symbolic):
