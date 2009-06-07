@@ -31,15 +31,15 @@ class InstanceValue(object):
     instead of the old one.
     """
     
-    def __init__(self, box, const=False):
+    def __init__(self, box):
         self.box = box
-        if const:
-            assert isinstance(box, Const)
-        self.const = const
+
+    def is_const(self):
+        return isinstance(self.box, Const)
 
     def __repr__(self):
         flags = ''
-        if self.const:             flags += 'c'
+        if self.is_const():        flags += 'c'
         return "<InstanceValue %s (%s)>" % (self.box, flags)
 
 
@@ -117,7 +117,7 @@ class LoopOptimizer(object):
             return self.values[box]
         except KeyError:
             assert isinstance(box, Const)
-            val = self.newval(box, const=True)
+            val = self.newval(box)
             self.values[box] = val
             return val
 
@@ -185,7 +185,7 @@ class LoopOptimizer(object):
                 # all constant arguments: constant-fold away
                 box = op.result
                 assert box is not None
-                val = self.newval(box.constbox(), const=True)
+                val = self.newval(box.constbox())
                 self.values[box] = val
                 return
         return op
@@ -193,7 +193,7 @@ class LoopOptimizer(object):
     def _fixguard(self, op):
         if op.is_foldable_guard():
             for arg in op.args:
-                if not self.getval(arg).const:
+                if not self.getval(arg).is_const():
                     break
             else:
                 return None
@@ -286,23 +286,22 @@ class TrackClass(AbstractOptimization):
         val.cls = None
 
     def guard_class(self, opt, op):
-        val = opt.values[op.args[0]]
+        val = opt.getval(op.args[0])
         if val.cls is not None:
             # assert that they're equal maybe
             return
-        val.cls = opt.newval(op.args[1], const=True)
+        val.cls = opt.newval(op.args[1].constbox())
         return op
 
 
 class OptimizeGuards(AbstractOptimization):
 
     def guard_value(self, opt, op):
-        val = opt.values[op.args[0]]
+        val = opt.getval(op.args[0])
         assert isinstance(op.args[1], Const)
-        if val.const:
+        if val.is_const():
             return
         op = opt.fixop(op)
-        val.const = True
         val.box = op.args[0].constbox()
         return op
 
