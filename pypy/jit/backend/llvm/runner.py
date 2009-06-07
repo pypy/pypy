@@ -13,6 +13,7 @@ TreeLoop._llvm_compiled_index = -1
 
 
 class LLVMCPU(model.AbstractCPU):
+    is_oo = False
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
 
@@ -451,6 +452,21 @@ class LLVMJITCompiler(object):
                                           etype,
                                           self.cpu.const_null, "")
         self._generate_guard(op, eisnull, False, exc=True)
+
+    def generate_GUARD_EXCEPTION(self, op):
+        v = op.args[0]
+        assert isinstance(v, ConstInt)
+        expectedtype = self.cpu._make_const_ptr(v.getint())
+        etype = llvm_rffi.LLVMBuildLoad(self.builder,
+                                        self.cpu.const_exc_type, "")
+        eisequal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                           llvm_rffi.Predicate.EQ,
+                                           etype,
+                                           expectedtype, "")
+        self._generate_guard(op, eisequal, False, exc=True)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
+                                                      self.cpu.const_exc_value,
+                                                      "")
 
     def _generate_guard(self, op, verify_condition, reversed, exc=False):
         func = self.compiling_func
