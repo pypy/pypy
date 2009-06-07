@@ -26,6 +26,7 @@ class LLVMCPU(model.AbstractCPU):
         self.fail_ops = []
         self.in_out_args = []
         self._descr_caches = {}
+        self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
 
     def setup_once(self):
         if not we_are_translated():
@@ -206,6 +207,14 @@ class LLVMCPU(model.AbstractCPU):
     @staticmethod
     def cast_adr_to_int(x):
         return rffi.cast(lltype.Signed, x)
+
+    @staticmethod
+    def cast_int_to_adr(x):
+        if we_are_translated():
+            return rffi.cast(llmemory.Address, x)
+        else:
+            # indirect casting because the above doesn't work with ll2ctypes
+            return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
 
     def fielddescrof(self, S, fieldname):
         from pypy.jit.backend.x86 import symbolic     # xxx
@@ -391,7 +400,8 @@ class LLVMJITCompiler(object):
         try:
             value_ref = self.vars[v]
         except KeyError:
-            return self.cpu._make_const(v.getaddr(), self.cpu.ty_char_ptr_ptr)
+            return self.cpu._make_const(v.getaddr(self.cpu),
+                                        self.cpu.ty_char_ptr_ptr)
         else:
             ty = llvm_rffi.LLVMTypeOf(value_ref)
             assert ty != self.cpu.ty_int and ty != self.cpu.ty_bit
@@ -503,24 +513,24 @@ class LLVMJITCompiler(object):
 
     def generate_GUARD_VALUE(self, op):
         if op.args[0].type == INT:
-            equal = llvm_rffi.LLVMBuildICmp(self.builder,
-                                            llvm_rffi.Predicate.EQ,
-                                            self.getintarg(op.args[0]),
-                                            self.getintarg(op.args[1]), "")
+            arg0 = self.getintarg(op.args[0])
+            arg1 = self.getintarg(op.args[1])
         else:
-            xxxxxxxxxx
+            arg0 = self.getptrarg(op.args[0])
+            arg1 = self.getptrarg(op.args[1])
+        equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                        llvm_rffi.Predicate.EQ,
+                                        arg0, arg1, "")
         self._generate_guard(op, equal, False)
 
-    #def generate_GUARD_CLASS(self, op):
-    #    clsptr = llvm_rffi.LLVMBuildGEP(self.builder,
-    #                                    ...
-    #    cls = llvm_rffi.LLVMBuildLoad(self.builder,
-    #                                  
-    #    equal = llvm_rffi.LLVMBuildICmp(self.builder,
-    #                                    llvm_rffi.Predicate.EQ,
-    #                                    self.getintarg(op.args[0]),
-    #                                    self.getintarg(op.args[1]), "")
-    #    self._generate_guard(op, equal, False)
+    def generate_GUARD_CLASS(self, op):
+        loc = self._generate_field_gep(op.args[0], self.cpu.fielddescr_vtable)
+        cls = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+        equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                        llvm_rffi.Predicate.EQ,
+                                        cls,
+                                        self.getintarg(op.args[1]), "")
+        self._generate_guard(op, equal, False)
 
     def generate_GUARD_NO_EXCEPTION(self, op):
         # etype: ty_char_ptr
