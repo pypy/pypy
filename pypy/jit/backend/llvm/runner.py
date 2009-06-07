@@ -2,7 +2,7 @@ import py, sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.history import ConstInt, AbstractDescr, INT
 from pypy.jit.backend import model
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
@@ -16,6 +16,7 @@ class LLVMCPU(model.AbstractCPU):
     is_oo = False
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
+    POINTER_VALUE = rffi.CFixedArray(llmemory.GCREF, 1)
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
@@ -24,6 +25,7 @@ class LLVMCPU(model.AbstractCPU):
         self.compiled_functions = []
         self.fail_ops = []
         self.in_out_args = []
+        self._descr_caches = {}
 
     def setup_once(self):
         if not we_are_translated():
@@ -36,12 +38,14 @@ class LLVMCPU(model.AbstractCPU):
             self.ty_int = llvm_rffi.LLVMInt64Type()
         self.ty_bit = llvm_rffi.LLVMInt1Type()
         self.ty_char = llvm_rffi.LLVMInt8Type()
+        self.ty_char_ptr = llvm_rffi.LLVMPointerType(self.ty_char, 0)
+        self.ty_char_ptr_ptr = llvm_rffi.LLVMPointerType(self.ty_char_ptr, 0)
         self.ty_int_ptr = llvm_rffi.LLVMPointerType(self.ty_int, 0)
         self.ty_int_ptr_ptr = llvm_rffi.LLVMPointerType(self.ty_int_ptr, 0)
         self.const_zero = self._make_const_int(0)
         self.const_one  = self._make_const_int(1)
-        self.const_null = self._make_const_ptr(0)
         self.const_minint = self._make_const_int(-sys.maxint-1)
+        self.const_null_charptr = self._make_const(0, self.ty_char_ptr)
         #
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
                                 flavor='raw')
@@ -66,10 +70,14 @@ class LLVMCPU(model.AbstractCPU):
                                              zero=True, flavor='raw')
         self.backup_exc_value = lltype.malloc(rffi.CArray(llmemory.GCREF), 1,
                                               zero=True, flavor='raw')
-        self.const_exc_type = self._make_const_ptr2(self.exc_type)
-        self.const_exc_value = self._make_const_ptr2(self.exc_value)
-        self.const_backup_exc_type = self._make_const_ptr2(self.backup_exc_type)
-        self.const_backup_exc_value = self._make_const_ptr2(self.backup_exc_value)
+        self.const_exc_type = self._make_const(self.exc_type,
+                                               self.ty_char_ptr_ptr)
+        self.const_exc_value = self._make_const(self.exc_value,
+                                                self.ty_char_ptr_ptr)
+        self.const_backup_exc_type = self._make_const(self.backup_exc_type,
+                                                      self.ty_char_ptr_ptr)
+        self.const_backup_exc_value = self._make_const(self.backup_exc_value,
+                                                       self.ty_char_ptr_ptr)
         #
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
@@ -97,9 +105,9 @@ class LLVMCPU(model.AbstractCPU):
         setattr(self, '_%s_error_value' % prefix,
                 lltype.cast_opaque_ptr(llmemory.GCREF, ll_inst))
         setattr(self, 'const_%s_error_type' % prefix,
-                self._make_const_ptr(ll_inst.typeptr))
+                self._make_const(ll_inst.typeptr, self.ty_char_ptr))
         setattr(self, 'const_%s_error_value' % prefix,
-                self._make_const_ptr(ll_inst))
+                self._make_const(ll_inst, self.ty_char_ptr))
 
     # ------------------------------
     # Compilation
@@ -126,20 +134,24 @@ class LLVMCPU(model.AbstractCPU):
         assert (value & ~1) == 0, "value is not 0 or 1"
         return llvm_rffi.LLVMConstInt(self.ty_bit, value, True)
 
-    def _make_const_ptr_at(self, intvalue, resulttype):
-        llvmconstint = self._make_const_int(intvalue)
-        llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, resulttype)
+    def _make_const(self, value, ty_result):
+        value_as_signed = rffi.cast(lltype.Signed, value)
+        llvmconstint = self._make_const_int(value_as_signed)
+        llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, ty_result)
         return llvmconstptr
+    _make_const._annspecialcase_ = 'specialize:argtype(1)'
 
-    def _make_const_ptr(self, value):
-        addr_as_signed = rffi.cast(lltype.Signed, value)
-        return self._make_const_ptr_at(addr_as_signed, self.ty_int_ptr)
-    _make_const_ptr._annspecialcase_ = 'specialize:argtype(1)'
+    def _get_var_type(self, v):
+        if v.type == INT:
+            return self.ty_int
+        else:
+            return self.ty_char_ptr
 
-    def _make_const_ptr2(self, value):
-        addr_as_signed = rffi.cast(lltype.Signed, value)
-        return self._make_const_ptr_at(addr_as_signed, self.ty_int_ptr_ptr)
-    _make_const_ptr2._annspecialcase_ = 'specialize:argtype(1)'
+    def _get_pointer_type(self, v):
+        if v.type == INT:
+            return self.ty_int_ptr
+        else:
+            return self.ty_char_ptr_ptr
 
     # ------------------------------
     # Execution
@@ -147,6 +159,10 @@ class LLVMCPU(model.AbstractCPU):
     def set_future_value_int(self, index, intvalue):
         p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
         p[0] = intvalue
+
+    def set_future_value_ptr(self, index, ptrvalue):
+        p = rffi.cast(lltype.Ptr(self.POINTER_VALUE), self.in_out_args[index])
+        p[0] = ptrvalue
 
     def execute_operations(self, loop):
         index = loop._llvm_compiled_index
@@ -163,6 +179,10 @@ class LLVMCPU(model.AbstractCPU):
 
     def get_latest_value_int(self, index):
         p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
+        return p[0]
+
+    def get_latest_value_ptr(self, index):
+        p = rffi.cast(lltype.Ptr(self.POINTER_VALUE), self.in_out_args[index])
         return p[0]
 
     def get_exception(self):
@@ -182,6 +202,28 @@ class LLVMCPU(model.AbstractCPU):
     def set_zero_division_error(self):
         self.backup_exc_type[0] = self._zer_error_type
         self.backup_exc_value[0] = self._zer_error_value
+
+    @staticmethod
+    def cast_adr_to_int(x):
+        return rffi.cast(lltype.Signed, x)
+
+    def fielddescrof(self, S, fieldname):
+        from pypy.jit.backend.x86 import symbolic     # xxx
+        try:
+            return self._descr_caches['field', S, fieldname]
+        except KeyError:
+            pass
+        ofs, size = symbolic.get_field_token(S, fieldname,
+                                             self.translate_support_code)
+        descr = FieldDescr(ofs, size)
+        self._descr_caches['field', S, fieldname] = descr
+        return descr
+
+
+class FieldDescr(AbstractDescr):
+    def __init__(self, offset, size):
+        self.offset = offset
+        self.size = size
 
 # ____________________________________________________________
 
@@ -207,16 +249,18 @@ class LLVMJITCompiler(object):
         self.phi_incoming_blocks = [bb_entry]
         self.phi_incoming_values = []
         for i in range(len(loop.inputargs)):
-            llvmconstptr = self.cpu._make_const_ptr(self.cpu.in_out_args[i])
+            ty = self.cpu._get_pointer_type(loop.inputargs[i])
+            llvmconstptr = self.cpu._make_const(self.cpu.in_out_args[i], ty)
             res = llvm_rffi.LLVMBuildLoad(self.builder, llvmconstptr, "")
             self.phi_incoming_values.append([res])
         self.bb_start = llvm_rffi.LLVMAppendBasicBlock(func, "")
         llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
         #
         llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, self.bb_start)
-        for i in range(len(loop.inputargs)):
-            phi = llvm_rffi.LLVMBuildPhi(self.builder, self.cpu.ty_int, "")
-            self.vars[loop.inputargs[i]] = phi
+        for v in loop.inputargs:
+            ty = self.cpu._get_var_type(v)
+            phi = llvm_rffi.LLVMBuildPhi(self.builder, ty, "")
+            self.vars[v] = phi
 
     def generate_loop_body(self):
         func = self.compiling_func
@@ -287,10 +331,11 @@ class LLVMJITCompiler(object):
             raise MissingOperation(resoperation.opname[opnum])
 
     def _store_away_exception(self):
+        # etype, evalue: ty_char_ptr
         etype = llvm_rffi.LLVMBuildLoad(self.builder,
                                         self.cpu.const_exc_type, "")
         llvm_rffi.LLVMBuildStore(self.builder,
-                                 self.cpu.const_null,
+                                 self.cpu.const_null_charptr,
                                  self.cpu.const_exc_type)
         llvm_rffi.LLVMBuildStore(self.builder,
                                  etype,
@@ -298,7 +343,7 @@ class LLVMJITCompiler(object):
         evalue = llvm_rffi.LLVMBuildLoad(self.builder,
                                          self.cpu.const_exc_value, "")
         llvm_rffi.LLVMBuildStore(self.builder,
-                                 self.cpu.const_null,
+                                 self.cpu.const_null_charptr,
                                  self.cpu.const_exc_value)
         llvm_rffi.LLVMBuildStore(self.builder,
                                  evalue,
@@ -341,6 +386,16 @@ class LLVMJITCompiler(object):
                                             self.cpu.ty_bit, "")
         else:
             raise AssertionError("type is not an int nor a bit")
+
+    def getptrarg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            return self.cpu._make_const(v.getaddr(), self.cpu.ty_char_ptr_ptr)
+        else:
+            ty = llvm_rffi.LLVMTypeOf(value_ref)
+            assert ty != self.cpu.ty_int and ty != self.cpu.ty_bit
+            return value_ref
 
     for _opname, _llvmname in [('INT_ADD', 'Add'),
                                ('INT_SUB', 'Sub'),
@@ -429,12 +484,14 @@ class LLVMJITCompiler(object):
     def _generate_set_ovf(self, ovf_flag):
         exc_type = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
                                              self.cpu.const_ovf_error_type,
-                                             self.cpu.const_null, "")
+                                             self.cpu.const_null_charptr,
+                                             "")
         llvm_rffi.LLVMBuildStore(self.builder, exc_type,
                                  self.cpu.const_exc_type)
         exc_value = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
                                               self.cpu.const_ovf_error_value,
-                                              self.cpu.const_null, "")
+                                              self.cpu.const_null_charptr,
+                                              "")
         llvm_rffi.LLVMBuildStore(self.builder, exc_value,
                                  self.cpu.const_exc_value)
 
@@ -445,25 +502,41 @@ class LLVMJITCompiler(object):
         self._generate_guard(op, self.getbitarg(op.args[0]), False)
 
     def generate_GUARD_VALUE(self, op):
-        equal = llvm_rffi.LLVMBuildICmp(self.builder,
-                                        llvm_rffi.Predicate.EQ,
-                                        self.getintarg(op.args[0]),
-                                        self.getintarg(op.args[1]), "")
+        if op.args[0].type == INT:
+            equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                            llvm_rffi.Predicate.EQ,
+                                            self.getintarg(op.args[0]),
+                                            self.getintarg(op.args[1]), "")
+        else:
+            xxxxxxxxxx
         self._generate_guard(op, equal, False)
 
+    #def generate_GUARD_CLASS(self, op):
+    #    clsptr = llvm_rffi.LLVMBuildGEP(self.builder,
+    #                                    ...
+    #    cls = llvm_rffi.LLVMBuildLoad(self.builder,
+    #                                  
+    #    equal = llvm_rffi.LLVMBuildICmp(self.builder,
+    #                                    llvm_rffi.Predicate.EQ,
+    #                                    self.getintarg(op.args[0]),
+    #                                    self.getintarg(op.args[1]), "")
+    #    self._generate_guard(op, equal, False)
+
     def generate_GUARD_NO_EXCEPTION(self, op):
+        # etype: ty_char_ptr
         etype = llvm_rffi.LLVMBuildLoad(self.builder,
                                         self.cpu.const_exc_type, "")
         eisnull = llvm_rffi.LLVMBuildICmp(self.builder,
                                           llvm_rffi.Predicate.EQ,
                                           etype,
-                                          self.cpu.const_null, "")
+                                          self.cpu.const_null_charptr, "")
         self._generate_guard(op, eisnull, False, exc=True)
 
     def generate_GUARD_EXCEPTION(self, op):
         v = op.args[0]
         assert isinstance(v, ConstInt)
-        expectedtype = self.cpu._make_const_ptr(v.getint())
+        # etype, expectedtype: ty_char_ptr
+        expectedtype = self.cpu._make_const(v.value, self.cpu.ty_char_ptr)
         etype = llvm_rffi.LLVMBuildLoad(self.builder,
                                         self.cpu.const_exc_type, "")
         eisequal = llvm_rffi.LLVMBuildICmp(self.builder,
@@ -493,7 +566,12 @@ class LLVMJITCompiler(object):
             self.phi_incoming_blocks.append(basicblock)
             for i in range(len(op.args)):
                 incoming = self.phi_incoming_values[i]
-                incoming.append(self.getintarg(op.args[i]))
+                v = op.args[i]
+                if v.type == INT:
+                    value_ref = self.getintarg(v)
+                else:
+                    value_ref = self.getptrarg(v)
+                incoming.append(value_ref)
             llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
         else:
             index = op.jump_target._llvm_compiled_index
@@ -508,11 +586,42 @@ class LLVMJITCompiler(object):
     def _generate_fail(self, args, index):
         self.cpu._ensure_out_args(len(args))
         for i in range(len(args)):
-            value_ref = self.getintarg(args[i])
-            llvmconstptr = self.cpu._make_const_ptr(self.cpu.in_out_args[i])
+            v = args[i]
+            if v.type == INT:
+                value_ref = self.getintarg(v)
+                ty = self.cpu.ty_int_ptr
+            else:
+                value_ref = self.getptrarg(v)
+                ty = self.cpu.ty_char_ptr_ptr
+            llvmconstptr = self.cpu._make_const(self.cpu.in_out_args[i], ty)
             llvm_rffi.LLVMBuildStore(self.builder, value_ref,
                                      llvmconstptr)
         llvm_rffi.LLVMBuildRet(self.builder, self.cpu._make_const_int(index))
+
+    def _generate_field_gep(self, v_structure, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 1,
+                                flavor='raw')
+        indices[0] = self.cpu._make_const_int(fielddescr.offset)
+        location = llvm_rffi.LLVMBuildGEP(self.builder,
+                                          self.getptrarg(v_structure),
+                                          indices, 1, "")
+        lltype.free(indices, flavor='raw')
+        return llvm_rffi.LLVMBuildBitCast(self.builder,
+                                          location,
+                                          self.cpu.ty_int_ptr,    # XXX
+                                          "")
+
+    def generate_GETFIELD_GC(self, op):
+        loc = self._generate_field_gep(op.args[0], op.descr)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
+                                                       loc, "")
+
+    def generate_SETFIELD_GC(self, op):
+        loc = self._generate_field_gep(op.args[0], op.descr)
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 self.getintarg(op.args[1]),      # XXX
+                                 loc, "")
 
 # ____________________________________________________________
 

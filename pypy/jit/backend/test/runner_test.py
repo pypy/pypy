@@ -236,6 +236,15 @@ class BaseBackendTest(Runner):
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
 
+    def test_field(self):
+        t_box, T_box = self.alloc_instance(self.T)
+        fielddescr = self.cpu.fielddescrof(self.S, 'value')
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
+                                     'void', descr=fielddescr)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr)
+        assert res.value == 39082
 
     def test_passing_guards(self):
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),

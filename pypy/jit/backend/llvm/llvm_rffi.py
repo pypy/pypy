@@ -220,6 +220,13 @@ LLVMBuildStore = llexternal('LLVMBuildStore',
                              LLVMValueRef,      # value
                              LLVMValueRef],     # pointer location
                             LLVMValueRef)
+LLVMBuildGEP = llexternal('LLVMBuildGEP',       # GEP = 'getelementptr'
+                          [LLVMBuilderRef,      # builder
+                           LLVMValueRef,        # base pointer
+                           rffi.CArrayPtr(LLVMValueRef),  # indices
+                           rffi.UINT,           # num indices
+                           rffi.CCHARP],        # name of result
+                          LLVMValueRef)
 LLVMBuildTrunc = llexternal('LLVMBuildTrunc',
                             [LLVMBuilderRef,    # builder
                              LLVMValueRef,      # value

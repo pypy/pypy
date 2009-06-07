@@ -23,7 +23,7 @@ S = LLtypeBackendTest.S
 class TestX86(LLtypeBackendTest):
 
     # for the individual tests see
-    # ====> ../../test/runner.py
+    # ====> ../../test/runner_test.py
     
     def setup_class(cls):
         cls.cpu = CPU(rtyper=None, stats=FakeStats())
