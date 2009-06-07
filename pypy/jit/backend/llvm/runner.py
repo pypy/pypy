@@ -444,6 +444,13 @@ class LLVMJITCompiler(object):
     def generate_GUARD_TRUE(self, op):
         self._generate_guard(op, self.getbitarg(op.args[0]), False)
 
+    def generate_GUARD_VALUE(self, op):
+        equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                        llvm_rffi.Predicate.EQ,
+                                        self.getintarg(op.args[0]),
+                                        self.getintarg(op.args[1]), "")
+        self._generate_guard(op, equal, False)
+
     def generate_GUARD_NO_EXCEPTION(self, op):
         etype = llvm_rffi.LLVMBuildLoad(self.builder,
                                         self.cpu.const_exc_type, "")
