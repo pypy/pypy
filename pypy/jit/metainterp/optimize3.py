@@ -5,18 +5,14 @@ from pypy.jit.metainterp.optimize import av_eq, av_hash
 
 
 class InstanceNode(object):
-    def __init__(self, source, const=False, escaped=True):
+    def __init__(self, source, escaped=True):
         self.source = source
-        if const:
-            assert isinstance(source, Const)
-        self.const = const
         self.escaped = escaped
 
     def __repr__(self):
         flags = ''
         if self.escaped:           flags += 'e'
         #if self.startbox:          flags += 's'
-        if self.const:             flags += 'c'
         #if self.virtual:           flags += 'v'
         #if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
@@ -68,10 +64,7 @@ class LoopSpecializer(object):
         try:
             return self.nodes[box]
         except KeyError:
-            if isinstance(box, Const):
-                node = self.newnode(box, const=True)
-            else:
-                node = self.newnode(box)
+            node = self.newnode(box)
             self.nodes[box] = node
             return node
 
@@ -82,17 +75,11 @@ class LoopSpecializer(object):
 
         for op in self.loop.operations:
             self._find_nodes_in_guard_maybe(op)
-            if self._is_pure_and_constfoldable(op):
-                box = op.result
-                assert box is not None
-                self.nodes[box] = self.newnode(box.constbox(), const=True)
-            else:
-                # default case
-                for box in op.args:
-                    self.getnode(box)
-                box = op.result
-                if box is not None:
-                    self.nodes[box] = self.newnode(box)
+            for box in op.args:
+                self.getnode(box)
+            resbox = op.result
+            if resbox is not None:
+                self.nodes[resbox] = self.newnode(resbox)
 
             for optimization in self.optlist:
                 optimization.find_nodes_for_op(self, op)
@@ -102,14 +89,6 @@ class LoopSpecializer(object):
             assert len(op.suboperations) == 1
             for arg in op.suboperations[0].args:
                 self.getnode(arg)
-
-    def _is_pure_and_constfoldable(self, op):
-        if not op.is_always_pure():
-            return False
-        for arg in op.args:
-            if not self.getnode(arg).const:
-                return False
-        return True
 
 
 class LoopOptimizer(object):
@@ -293,13 +272,13 @@ class TrackClass(AbstractOptimization):
     def find_nodes_new_with_vtable(self, spec, op):
         box = op.result
         node = spec.newnode(box, escaped=False)
-        node.known_class = spec.newnode(op.args[0], const=True)
+        node.known_class = spec.newnode(op.args[0])
         spec.nodes[box] = node
 
     def find_nodes_guard_class(self, spec, op):
         node = spec.getnode(op.args[0])
         if node.known_class is None:
-            node.known_class = spec.newnode(op.args[1], const=True)
+            node.known_class = spec.newnode(op.args[1])
 
     # -----------------------------
 
