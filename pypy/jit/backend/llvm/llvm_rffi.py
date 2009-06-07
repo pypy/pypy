@@ -128,6 +128,7 @@ LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
                              LLVMTypeRef)
 
 LLVMTypeOf = llexternal('LLVMTypeOf', [LLVMValueRef], LLVMTypeRef)
+LLVMConstNull = llexternal('LLVMConstNull', [LLVMTypeRef], LLVMValueRef)
 LLVMConstInt = llexternal('LLVMConstInt', [LLVMTypeRef,     # type
                                            rffi.ULONGLONG,  # value
                                            rffi.INT],       # flag: is_signed
@@ -314,5 +315,11 @@ LLVM_EE_getPointerToFunction = llexternal('_LLVM_EE_getPointerToFunction',
                                            LLVMValueRef],           # function
                                           rffi.VOIDP)
 LLVM_Intrinsic_add_ovf = llexternal('_LLVM_Intrinsic_add_ovf',
+                                    [LLVMModuleRef, LLVMTypeRef],
+                                    LLVMValueRef)
+LLVM_Intrinsic_sub_ovf = llexternal('_LLVM_Intrinsic_sub_ovf',
+                                    [LLVMModuleRef, LLVMTypeRef],
+                                    LLVMValueRef)
+LLVM_Intrinsic_mul_ovf = llexternal('_LLVM_Intrinsic_mul_ovf',
                                     [LLVMModuleRef, LLVMTypeRef],
                                     LLVMValueRef)

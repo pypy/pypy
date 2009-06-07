@@ -11,5 +11,7 @@
 void* llvm_c_functions[] = {
   (void*) LLVMModuleCreateWithName,
   (void*) _LLVM_EE_getPointerToFunction,
-  (void*) _LLVM_Intrinsic_add_ovf
+  (void*) _LLVM_Intrinsic_add_ovf,
+  (void*) _LLVM_Intrinsic_sub_ovf,
+  (void*) _LLVM_Intrinsic_mul_ovf
 };

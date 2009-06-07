@@ -41,12 +41,27 @@ void *_LLVM_EE_getPointerToFunction(LLVMExecutionEngineRef EE,
   return unwrap(EE)->getPointerToFunction(unwrap<Function>(F));
 }
 
-LLVMValueRef _LLVM_Intrinsic_add_ovf(LLVMModuleRef M, LLVMTypeRef Ty)
+static LLVMValueRef _LLVM_Intrinsic_ovf(LLVMModuleRef M, LLVMTypeRef Ty,
+                                        Intrinsic::ID num)
 {
   const Type *array_of_types[1];
   Function *F;
   array_of_types[0] = unwrap(Ty);
-  F = Intrinsic::getDeclaration(unwrap(M), Intrinsic::sadd_with_overflow,
-                                array_of_types, 1);
+  F = Intrinsic::getDeclaration(unwrap(M), num, array_of_types, 1);
   return wrap(F);
+}
+
+LLVMValueRef _LLVM_Intrinsic_add_ovf(LLVMModuleRef M, LLVMTypeRef Ty)
+{
+  return _LLVM_Intrinsic_ovf(M, Ty, Intrinsic::sadd_with_overflow);
+}
+
+LLVMValueRef _LLVM_Intrinsic_sub_ovf(LLVMModuleRef M, LLVMTypeRef Ty)
+{
+  return _LLVM_Intrinsic_ovf(M, Ty, Intrinsic::ssub_with_overflow);
+}
+
+LLVMValueRef _LLVM_Intrinsic_mul_ovf(LLVMModuleRef M, LLVMTypeRef Ty)
+{
+  return _LLVM_Intrinsic_ovf(M, Ty, Intrinsic::smul_with_overflow);
 }
