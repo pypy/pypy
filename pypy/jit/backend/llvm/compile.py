@@ -1,0 +1,589 @@
+import py
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.jit.metainterp.history import ConstInt, INT
+from pypy.jit.backend.llvm import llvm_rffi
+from pypy.jit.metainterp import resoperation
+from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.x86 import symbolic     # xxx
+from pypy.jit.backend.llvm.runner import CallDescr, FieldDescr
+
+# ____________________________________________________________
+
+class LLVMJITCompiler(object):
+    FUNC = lltype.FuncType([], lltype.Signed)
+
+    def __init__(self, cpu, loop):
+        self.cpu = cpu
+        self.loop = loop
+
+    def compile(self):
+        self.start_generating_function()
+        self.generate_initial_arguments_load()
+        self.generate_loop_body()
+        self.close_phi_nodes()
+        self.done_generating_function()
+
+    def start_generating_function(self):
+        func = llvm_rffi.LLVMAddFunction(self.cpu.module, "", self.cpu.ty_func)
+        self.compiling_func = func
+        self.builder = llvm_rffi.LLVMCreateBuilder()
+        self.vars = {}
+
+    def generate_initial_arguments_load(self):
+        loop = self.loop
+        func = self.compiling_func
+        bb_entry = llvm_rffi.LLVMAppendBasicBlock(func, "entry")
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_entry)
+        self.cpu._ensure_in_args(len(loop.inputargs))
+        self.phi_incoming_blocks = [bb_entry]
+        self.phi_incoming_values = []
+        for i in range(len(loop.inputargs)):
+            ty = self.cpu._get_pointer_type(loop.inputargs[i])
+            llvmconstptr = self.cpu._make_const(self.cpu.in_out_args[i], ty)
+            res = llvm_rffi.LLVMBuildLoad(self.builder, llvmconstptr, "")
+            self.phi_incoming_values.append([res])
+        self.bb_start = llvm_rffi.LLVMAppendBasicBlock(func, "")
+        llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
+        #
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, self.bb_start)
+        for v in loop.inputargs:
+            ty = self.cpu._get_var_type(v)
+            phi = llvm_rffi.LLVMBuildPhi(self.builder, ty, "")
+            self.vars[v] = phi
+
+    def generate_loop_body(self):
+        func = self.compiling_func
+        self.pending_blocks = [(self.loop.operations, self.bb_start, False)]
+        while self.pending_blocks:
+            operations, bb, exc = self.pending_blocks.pop()
+            self._generate_branch(operations, bb, exc)
+        self.bb_start = lltype.nullptr(llvm_rffi.LLVMBasicBlockRef.TO)
+
+    def close_phi_nodes(self):
+        incoming_blocks = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMBasicBlockRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        incoming_values = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMValueRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        for j in range(len(self.phi_incoming_blocks)):
+            incoming_blocks[j] = self.phi_incoming_blocks[j]
+        loop = self.loop
+        for i in range(len(loop.inputargs)):
+            phi = self.vars[loop.inputargs[i]]
+            incoming = self.phi_incoming_values[i]
+            for j in range(len(self.phi_incoming_blocks)):
+                incoming_values[j] = incoming[j]
+            llvm_rffi.LLVMAddIncoming(phi, incoming_values, incoming_blocks,
+                                      len(self.phi_incoming_blocks))
+        lltype.free(incoming_values, flavor='raw')
+        lltype.free(incoming_blocks, flavor='raw')
+
+    def done_generating_function(self):
+        llvm_rffi.LLVMDisposeBuilder(self.builder)
+        #
+        func_addr = llvm_rffi.LLVM_EE_getPointerToFunction(self.cpu.ee,
+                                                           self.compiling_func)
+        if not we_are_translated():
+            print '--- function is at %r ---' % (func_addr,)
+        #
+        func_ptr = rffi.cast(lltype.Ptr(self.FUNC), func_addr)
+        index = self.loop._llvm_compiled_index
+        if index < 0:
+            self.loop._llvm_compiled_index = len(self.cpu.compiled_functions)
+            self.cpu.compiled_functions.append(func_ptr)
+        else:
+            self.cpu.compiled_functions[index] = func_ptr
+
+    def _generate_branch(self, operations, basicblock, exc):
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, basicblock)
+        # The flag 'exc' is set to True if we are a branch handling a
+        # GUARD_EXCEPTION or GUARD_NO_EXCEPTION.  In this case, we have to
+        # store away the exception into self.backup_exc_xxx, *unless* the
+        # branch starts with a further GUARD_EXCEPTION/GUARD_NO_EXCEPTION.
+        if exc:
+            opnum = operations[0].opnum
+            if opnum not in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
+                self._store_away_exception()
+        # Normal handling of the operations follows.
+        for op in operations:
+            self._generate_op(op)
+
+    def _generate_op(self, op):
+        opnum = op.opnum
+        for i, name in all_operations:
+            if opnum == i:
+                meth = getattr(self, name)
+                meth(op)
+                return
+        else:
+            raise MissingOperation(resoperation.opname[opnum])
+
+    def _store_away_exception(self):
+        # etype, evalue: ty_char_ptr
+        etype = llvm_rffi.LLVMBuildLoad(self.builder,
+                                        self.cpu.const_exc_type, "")
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 self.cpu.const_null_charptr,
+                                 self.cpu.const_exc_type)
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 etype,
+                                 self.cpu.const_backup_exc_type)
+        evalue = llvm_rffi.LLVMBuildLoad(self.builder,
+                                         self.cpu.const_exc_value, "")
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 self.cpu.const_null_charptr,
+                                 self.cpu.const_exc_value)
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 evalue,
+                                 self.cpu.const_backup_exc_value)
+
+    def getintarg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            assert isinstance(v, ConstInt)
+            return self.cpu._make_const_int(v.value)
+        else:
+            return self._cast_to_int(value_ref)
+
+    def _cast_to_int(self, value_ref):
+        ty = llvm_rffi.LLVMTypeOf(value_ref)
+        if ty == self.cpu.ty_int:
+            return value_ref
+        elif ty == self.cpu.ty_bit or ty == self.cpu.ty_char:
+            return llvm_rffi.LLVMBuildZExt(self.builder, value_ref,
+                                           self.cpu.ty_int, "")
+        else:
+            raise AssertionError("type is not an int nor a bit")
+
+    def getbitarg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            assert isinstance(v, ConstInt)
+            return self.cpu._make_const_bit(v.value)
+        else:
+            return self._cast_to_bit(value_ref)
+
+    def _cast_to_bit(self, value_ref):
+        ty = llvm_rffi.LLVMTypeOf(value_ref)
+        if ty == self.cpu.ty_bit:
+            return value_ref
+        elif ty == self.cpu.ty_int or ty == self.cpu.ty_char:
+            return llvm_rffi.LLVMBuildTrunc(self.builder, value_ref,
+                                            self.cpu.ty_bit, "")
+        else:
+            raise AssertionError("type is not an int nor a bit")
+
+    def getchararg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            assert isinstance(v, ConstInt)
+            return self.cpu._make_const_char(v.value)
+        else:
+            return self._cast_to_char(value_ref)
+
+    def _cast_to_char(self, value_ref):
+        ty = llvm_rffi.LLVMTypeOf(value_ref)
+        if ty == self.cpu.ty_char:
+            return value_ref
+        elif ty == self.cpu.ty_int:
+            return llvm_rffi.LLVMBuildTrunc(self.builder, value_ref,
+                                            self.cpu.ty_char, "")
+        elif ty == self.cpu.ty_bit:
+            return llvm_rffi.LLVMBuildZExt(self.builder, value_ref,
+                                           self.cpu.ty_char, "")
+        else:
+            raise AssertionError("type is not an int nor a bit")
+
+    def getptrarg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            return self.cpu._make_const(v.getaddr(self.cpu),
+                                        self.cpu.ty_char_ptr_ptr)
+        else:
+            ty = llvm_rffi.LLVMTypeOf(value_ref)
+            assert (ty != self.cpu.ty_int and
+                    ty != self.cpu.ty_bit and
+                    ty != self.cpu.ty_char)
+            return value_ref
+
+    for _opname, _llvmname in [('INT_ADD', 'Add'),
+                               ('INT_SUB', 'Sub'),
+                               ('INT_MUL', 'Mul'),
+                               ('INT_FLOORDIV', 'SDiv'),
+                               ('INT_MOD', 'SRem'),
+                               ('INT_LSHIFT', 'Shl'),
+                               ('INT_RSHIFT', 'AShr'),
+                               ('UINT_RSHIFT', 'LShr'),
+                               ('INT_AND', 'And'),
+                               ('INT_OR',  'Or'),
+                               ('INT_XOR', 'Xor'),
+                               ]:
+        exec py.code.Source('''
+            def generate_%s(self, op):
+                self.vars[op.result] = llvm_rffi.LLVMBuild%s(
+                    self.builder,
+                    self.getintarg(op.args[0]),
+                    self.getintarg(op.args[1]),
+                    "")
+        ''' % (_opname, _llvmname)).compile()
+
+    for _opname, _predicate in [('INT_LT', llvm_rffi.Predicate.SLT),
+                                ('INT_LE', llvm_rffi.Predicate.SLE),
+                                ('INT_EQ', llvm_rffi.Predicate.EQ),
+                                ('INT_NE', llvm_rffi.Predicate.NE),
+                                ('INT_GT', llvm_rffi.Predicate.SGT),
+                                ('INT_GE', llvm_rffi.Predicate.SGE),
+                                ('UINT_LT', llvm_rffi.Predicate.ULT),
+                                ('UINT_LE', llvm_rffi.Predicate.ULE),
+                                ('UINT_GT', llvm_rffi.Predicate.UGT),
+                                ('UINT_GE', llvm_rffi.Predicate.UGE)]:
+        exec py.code.Source('''
+            def generate_%s(self, op):
+                self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+                    self.builder,
+                    %d,
+                    self.getintarg(op.args[0]),
+                    self.getintarg(op.args[1]),
+                    "")
+        ''' % (_opname, _predicate)).compile()
+
+    def generate_INT_NEG(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildNeg(self.builder,
+                                                    self.getintarg(op.args[0]),
+                                                    "")
+
+    def generate_INT_INVERT(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildNot(self.builder,
+                                                    self.getintarg(op.args[0]),
+                                                    "")
+
+    def generate_INT_IS_TRUE(self, op):
+        v = op.args[0]
+        try:
+            value_ref = self.vars[v]
+            if llvm_rffi.LLVMTypeOf(value_ref) != self.cpu.ty_bit:
+                raise KeyError
+        except KeyError:
+            res = llvm_rffi.LLVMBuildICmp(self.builder,
+                                          llvm_rffi.Predicate.NE,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.const_zero,
+                                          "")
+        else:
+            res = value_ref     # value_ref: ty_bit.  this is a no-op
+        self.vars[op.result] = res
+
+    def generate_BOOL_NOT(self, op):
+        v = op.args[0]
+        try:
+            value_ref = self.vars[v]
+            if llvm_rffi.LLVMTypeOf(value_ref) != self.cpu.ty_bit:
+                raise KeyError
+        except KeyError:
+            res = llvm_rffi.LLVMBuildICmp(self.builder,
+                                          llvm_rffi.Predicate.EQ,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.const_zero,
+                                          "")
+        else:
+            # value_ref: ty_int
+            res = LLVMBuildNot(self.builder, value_ref, "")
+        self.vars[op.result] = res
+
+    def generate_INT_ADD_OVF(self, op):
+        self._generate_ovf_op(op, self.cpu.f_add_ovf)
+
+    def generate_INT_SUB_OVF(self, op):
+        self._generate_ovf_op(op, self.cpu.f_sub_ovf)
+
+    def generate_INT_MUL_OVF(self, op):
+        self._generate_ovf_op(op, self.cpu.f_mul_ovf)
+
+    def generate_INT_NEG_OVF(self, op):
+        arg = self.getintarg(op.args[0])
+        self.vars[op.result] = llvm_rffi.LLVMBuildNeg(self.builder, arg, "")
+        ovf = llvm_rffi.LLVMBuildICmp(self.builder,
+                                      llvm_rffi.Predicate.EQ,
+                                      arg,
+                                      self.cpu.const_minint,
+                                      "")
+        self._generate_set_ovf(ovf)
+
+    def generate_INT_LSHIFT_OVF(self, op):
+        arg0 = self.getintarg(op.args[0])
+        arg1 = llvm_rffi.LLVMBuildShl(self.builder,
+                                      self.cpu.const_one,
+                                      self.getintarg(op.args[1]),
+                                      "")
+        self._generate_ovf_test(self.cpu.f_mul_ovf, arg0, arg1, op.result)
+
+    def _generate_ovf_op(self, op, f_intrinsic):
+        self._generate_ovf_test(f_intrinsic,
+                                self.getintarg(op.args[0]),
+                                self.getintarg(op.args[1]),
+                                op.result)
+
+    def _generate_ovf_test(self, f_intrinsic, arg0, arg1, result):
+        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 2,
+                                flavor='raw')
+        arglist[0] = arg0
+        arglist[1] = arg1
+        tmp = llvm_rffi.LLVMBuildCall(self.builder, f_intrinsic,
+                                      arglist, 2, "")
+        lltype.free(arglist, flavor='raw')
+        self.vars[result] = llvm_rffi.LLVMBuildExtractValue(self.builder,
+                                                            tmp, 0, "")
+        ovf = llvm_rffi.LLVMBuildExtractValue(self.builder, tmp, 1, "")
+        self._generate_set_ovf(ovf)
+
+    def _generate_set_ovf(self, ovf_flag):
+        exc_type = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
+                                             self.cpu.const_ovf_error_type,
+                                             self.cpu.const_null_charptr,
+                                             "")
+        llvm_rffi.LLVMBuildStore(self.builder, exc_type,
+                                 self.cpu.const_exc_type)
+        exc_value = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
+                                              self.cpu.const_ovf_error_value,
+                                              self.cpu.const_null_charptr,
+                                              "")
+        llvm_rffi.LLVMBuildStore(self.builder, exc_value,
+                                 self.cpu.const_exc_value)
+
+    def generate_GUARD_FALSE(self, op):
+        self._generate_guard(op, self.getbitarg(op.args[0]), True)
+
+    def generate_GUARD_TRUE(self, op):
+        self._generate_guard(op, self.getbitarg(op.args[0]), False)
+
+    def generate_GUARD_VALUE(self, op):
+        if op.args[0].type == INT:
+            arg0 = self.getintarg(op.args[0])
+            arg1 = self.getintarg(op.args[1])
+        else:
+            arg0 = self.getptrarg(op.args[0])
+            arg1 = self.getptrarg(op.args[1])
+        equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                        llvm_rffi.Predicate.EQ,
+                                        arg0, arg1, "")
+        self._generate_guard(op, equal, False)
+
+    def generate_GUARD_CLASS(self, op):
+        loc, _ = self._generate_field_gep(op.args[0],
+                                          self.cpu.fielddescr_vtable)
+        cls = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+        equal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                        llvm_rffi.Predicate.EQ,
+                                        cls,
+                                        self.getintarg(op.args[1]), "")
+        self._generate_guard(op, equal, False)
+
+    def generate_GUARD_NONVIRTUALIZED(self, op):
+        pass      # xxx ignored
+
+    def generate_GUARD_NO_EXCEPTION(self, op):
+        # etype: ty_char_ptr
+        etype = llvm_rffi.LLVMBuildLoad(self.builder,
+                                        self.cpu.const_exc_type, "")
+        eisnull = llvm_rffi.LLVMBuildICmp(self.builder,
+                                          llvm_rffi.Predicate.EQ,
+                                          etype,
+                                          self.cpu.const_null_charptr, "")
+        self._generate_guard(op, eisnull, False, exc=True)
+
+    def generate_GUARD_EXCEPTION(self, op):
+        v = op.args[0]
+        assert isinstance(v, ConstInt)
+        # etype, expectedtype: ty_char_ptr
+        expectedtype = self.cpu._make_const(v.value, self.cpu.ty_char_ptr)
+        etype = llvm_rffi.LLVMBuildLoad(self.builder,
+                                        self.cpu.const_exc_type, "")
+        eisequal = llvm_rffi.LLVMBuildICmp(self.builder,
+                                           llvm_rffi.Predicate.EQ,
+                                           etype,
+                                           expectedtype, "")
+        self._generate_guard(op, eisequal, False, exc=True)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
+                                                      self.cpu.const_exc_value,
+                                                      "")
+
+    def _generate_guard(self, op, verify_condition, reversed, exc=False):
+        func = self.compiling_func
+        bb_on_track = llvm_rffi.LLVMAppendBasicBlock(func, "")
+        bb_off_track = llvm_rffi.LLVMAppendBasicBlock(func, "")
+        llvm_rffi.LLVMBuildCondBr(self.builder, verify_condition,
+                                  bb_on_track, bb_off_track)
+        if reversed:
+            bb_on_track, bb_off_track = bb_off_track, bb_on_track
+        # generate the on-track part first, and the off-track part later
+        self.pending_blocks.append((op.suboperations, bb_off_track, exc))
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_on_track)
+
+    def generate_JUMP(self, op):
+        if op.jump_target is self.loop:
+            basicblock = llvm_rffi.LLVMGetInsertBlock(self.builder)
+            self.phi_incoming_blocks.append(basicblock)
+            for i in range(len(op.args)):
+                incoming = self.phi_incoming_values[i]
+                v = op.args[i]
+                if v.type == INT:
+                    value_ref = self.getintarg(v)
+                else:
+                    value_ref = self.getptrarg(v)
+                incoming.append(value_ref)
+            llvm_rffi.LLVMBuildBr(self.builder, self.bb_start)
+        else:
+            index = op.jump_target._llvm_compiled_index
+            assert index >= 0
+            self._generate_fail(op.args, index)
+
+    def generate_FAIL(self, op):
+        i = len(self.cpu.fail_ops)
+        self.cpu.fail_ops.append(op)
+        self._generate_fail(op.args, ~i)
+
+    def _generate_fail(self, args, index):
+        self.cpu._ensure_out_args(len(args))
+        for i in range(len(args)):
+            v = args[i]
+            if v.type == INT:
+                value_ref = self.getintarg(v)
+                ty = self.cpu.ty_int_ptr
+            else:
+                value_ref = self.getptrarg(v)
+                ty = self.cpu.ty_char_ptr_ptr
+            llvmconstptr = self.cpu._make_const(self.cpu.in_out_args[i], ty)
+            llvm_rffi.LLVMBuildStore(self.builder, value_ref,
+                                     llvmconstptr)
+        llvm_rffi.LLVMBuildRet(self.builder, self.cpu._make_const_int(index))
+
+    def _generate_field_gep(self, v_structure, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 1,
+                                flavor='raw')
+        indices[0] = self.cpu._make_const_int(fielddescr.offset)
+        location = llvm_rffi.LLVMBuildGEP(self.builder,
+                                          self.getptrarg(v_structure),
+                                          indices, 1, "")
+        lltype.free(indices, flavor='raw')
+        if fielddescr.size < 0:   # pointer field
+            ty_val = self.cpu.ty_char_ptr
+            ty = self.cpu.ty_char_ptr_ptr
+        elif fielddescr.size == symbolic.get_size(lltype.Signed,
+                                              self.cpu.translate_support_code):
+            ty_val = self.cpu.ty_int
+            ty = self.cpu.ty_int_ptr
+        elif fielddescr.size == 1:
+            ty_val = self.cpu.ty_char
+            ty = self.cpu.ty_char_ptr
+        else:
+            raise BadSizeError
+        location = llvm_rffi.LLVMBuildBitCast(self.builder, location, ty, "")
+        return location, ty_val
+
+    def generate_GETFIELD_GC(self, op):
+        loc, _ = self._generate_field_gep(op.args[0], op.descr)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    def generate_SETFIELD_GC(self, op):
+        loc, tyval = self._generate_field_gep(op.args[0], op.descr)
+        if tyval == self.cpu.ty_char_ptr:
+            value_ref = self.getptrarg(op.args[1])
+        elif tyval == self.cpu.ty_char:
+            value_ref = self.getchararg(op.args[1])
+        else:
+            value_ref = self.getintarg(op.args[1])
+        llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
+    def generate_CALL(self, op):
+        calldescr = op.descr
+        assert isinstance(calldescr, CallDescr)
+        v = op.args[0]
+        if isinstance(v, ConstInt):
+            func = self.cpu._make_const(v.value, calldescr.ty_function_ptr)
+        else:
+            func = self.getintarg(v)
+            func = llvm_rffi.LLVMBuildIntToPtr(self.builder,
+                                               func,
+                                               calldescr.ty_function_ptr, "")
+        nb_args = len(op.args) - 1
+        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), nb_args,
+                                flavor='raw')
+        for i in range(nb_args):
+            v = op.args[1 + i]
+            if v.type == INT:
+                value_ref = self.getintarg(v)
+            else:
+                value_ref = self.getptrarg(v)
+            arglist[i] = value_ref
+        res = llvm_rffi.LLVMBuildCall(self.builder,
+                                      func, arglist, nb_args, "")
+        lltype.free(arglist, flavor='raw')
+        if op.result is not None:
+            if calldescr.result_mask >= 0:
+                mask = self.cpu._make_const_int(calldescr.result_mask)
+                res = llvm_rffi.LLVMBuildAnd(self.builder,
+                                             res, mask, "")
+            self.vars[op.result] = res
+
+    generate_CALL_PURE = generate_CALL
+
+    def generate_CAST_PTR_TO_INT(self, op):
+        res = llvm_rffi.LLVMBuildPtrToInt(self.builder,
+                                          self.getptrarg(op.args[0]),
+                                          self.cpu.ty_int, "")
+        self.vars[op.result] = res
+
+    def generate_CAST_INT_TO_PTR(self, op):
+        res = llvm_rffi.LLVMBuildIntToPtr(self.builder,
+                                          self.getintarg(op.args[0]),
+                                          self.cpu.ty_char_ptr, "")
+        self.vars[op.result] = res
+
+    def generate_OOIS(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.EQ,
+            self.getptrarg(op.args[0]),
+            self.getptrarg(op.args[1]), "")
+
+    def generate_OOISNOT(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.NE,
+            self.getptrarg(op.args[0]),
+            self.getptrarg(op.args[1]), "")
+
+    def generate_OOISNULL(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.EQ,
+            self.getptrarg(op.args[0]),
+            self.cpu.const_null_charptr, "")
+
+    def generate_OONONNULL(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.NE,
+            self.getptrarg(op.args[0]),
+            self.cpu.const_null_charptr, "")
+
+# ____________________________________________________________
+
+class MissingOperation(Exception):
+    pass
+
+class BadSizeError(Exception):
+    pass
+
+all_operations = {}
+for _key, _value in rop.__dict__.items():
+    if 'A' <= _key <= 'Z':
+        assert _value not in all_operations
+        methname = 'generate_' + _key
+        if hasattr(LLVMJITCompiler, methname):
+            all_operations[_value] = methname
+all_operations = unrolling_iterable(all_operations.items())
