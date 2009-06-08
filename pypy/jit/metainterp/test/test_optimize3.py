@@ -11,7 +11,7 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.optimize3 import AbstractOptimization
 from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
      LoopSpecializer, OptimizeGuards, OptimizeVirtuals
-from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode, \
+from pypy.jit.metainterp.specnode3 import VirtualInstanceSpecNode, \
      NotSpecNode
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
@@ -123,8 +123,12 @@ class BaseTestOptimize3(object):
             ops = """
             []
             i1 = %s(3, 2)
+            jump()
             """ % op.lower()
-            expected = "[]"
+            expected = """
+            []
+            jump()
+            """
             self.assert_equal(self.optimize(ops), expected)
 
     def test_constfold_guard(self):
@@ -133,9 +137,11 @@ class BaseTestOptimize3(object):
         i0 = int_add(0, 0)
         guard_value(i0, 0)
           fail(i0)
+        jump()
         """
         expected = """
         []
+        jump()
         """
         loop = self.optimize(ops, [])
         self.assert_equal(loop, expected)
@@ -147,11 +153,13 @@ class BaseTestOptimize3(object):
           fail()
         guard_class(p0, ConstClass(node_vtable))
           fail()
+        jump(p0)
         """
         expected = """
         [p0]
         guard_class(p0, ConstClass(node_vtable))
           fail()
+        jump(p0)
         """
         loop = self.optimize(ops, [OptimizeGuards()])
         self.assert_equal(loop, expected)
@@ -166,11 +174,13 @@ class BaseTestOptimize3(object):
         guard_value(i1, 1)
           fail()
         i2 = int_add(i1, 2)
+        jump(i0)
         """
         expected = """
         [i0]
         guard_value(i0, 0)
             fail()
+        jump(0)
         """
         loop = self.parse(ops)
         # cheat
@@ -241,7 +251,17 @@ class BaseTestOptimize3(object):
         assert spec_n.fields[0][0] == self.valuedescr
         assert isinstance(spec_n.fields[0][1], NotSpecNode)
 
-
+    def test_virtual_simple_optimize_loop(self):
+        loop = self._get_virtual_simple_loop()
+        opt = LoopOptimizer([OptimizeVirtuals()])
+        opt.optimize_loop(loop)
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i1, 1)
+        i3 = int_add(i0, i1)
+        jump(i3, i2)
+        """
+        self.assert_equal(loop, expected)
 
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize3):

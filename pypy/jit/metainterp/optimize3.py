@@ -2,7 +2,7 @@ from pypy.rlib.objectmodel import r_dict
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import Const, Box, AbstractValue
 from pypy.jit.metainterp.optimize import av_eq, av_hash, sort_descrs
-from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode, \
+from pypy.jit.metainterp.specnode3 import VirtualInstanceSpecNode, \
      NotSpecNode, FixedClassSpecNode
 
    
@@ -116,6 +116,29 @@ class LoopSpecializer(object):
                 return specnode
         return NotSpecNode()
 
+    def newinputargs(self):
+        if self.loop.inputargs is not None:
+            # closing a loop
+            assert len(self.loop.inputargs) == len(self.specnodes)
+            for i in range(len(self.specnodes)):
+                box = self.loop.inputargs[i]
+                self.specnodes[i].mutate_nodes(self.nodes[box])
+            return self.expanded_version_of(self.loop.inputargs)
+        else:
+            # making a bridge
+            return None
+
+    def expanded_version_of(self, boxlist):
+        newboxlist = []
+        assert len(boxlist) == len(self.specnodes)
+        for i in range(len(boxlist)):
+            box = boxlist[i]
+            specnode = self.specnodes[i]
+            specnode.expand_boxlist(self.nodes[box], newboxlist)
+        return newboxlist
+
+
+
 class LoopOptimizer(object):
 
     def __init__(self, optlist):
@@ -147,6 +170,8 @@ class LoopOptimizer(object):
             return val
 
     def setval(self, box):
+        if box is None:
+            return
         assert box not in self.values
         assert not isinstance(box, Const)
         self.values[box] = self.newval(box)
@@ -154,12 +179,17 @@ class LoopOptimizer(object):
     def optimize_loop(self, loop):
         self._init(loop)
         self.spec.find_nodes()
-        self.optimize_operations()
+        self.spec.intersect_input_and_output()
+        newinputargs = self.spec.newinputargs()
+        newoperations = self.optimize_operations(newinputargs)
 
-    def optimize_operations(self):
-        for box in self.loop.inputargs:
+        self.loop.specnodes = self.spec.specnodes
+        self.loop.inputargs = newinputargs
+        self.loop.operations = newoperations
+
+    def optimize_operations(self, newinputargs):
+        for box in newinputargs:
             self.setval(box) #  startbox=True)
-
         newoperations = []
         for op in self.loop.operations:
             newop = op
@@ -171,8 +201,8 @@ class LoopOptimizer(object):
             if newop is not None:
                 self.setval(newop.result)
                 newoperations.append(newop)
-        print "Length of the loop:", len(newoperations)
-        self.loop.operations = newoperations
+        #print "Length of the loop:", len(newoperations)
+        return newoperations
 
     def new_arguments(self, op):
         newboxes = []
@@ -274,7 +304,7 @@ class AbstractOptimization(object):
         if func:
             func(self, spec, op)
 
-    def interesect_nodes(self, a, b, nodes):
+    def intersect_nodes(self, spec, a, b, nodes):
         return None
 
 
@@ -318,6 +348,7 @@ class OptimizeGuards(AbstractOptimization):
 class OptimizeVirtuals(AbstractOptimization):
 
     def init_node(self, node):
+        node.virtual = False
         node.known_class = None
         node.origfields = r_dict(av_eq, av_hash)
         node.curfields = r_dict(av_eq, av_hash)
@@ -393,6 +424,51 @@ class OptimizeVirtuals(AbstractOptimization):
 ##             return VirtualFixedListSpecNode(known_class_box, fields,
 ##                                             b.cursize)
         return VirtualInstanceSpecNode(known_class_box, fields)
+
+    # ---------------------------------------
+
+    def jump(self, opt, op):
+        args = opt.spec.expanded_version_of(op.args)
+        for arg in args:
+            if arg in opt.spec.nodes:
+                assert not opt.spec.nodes[arg].virtual
+        #self.cleanup_field_caches(newoperations)
+        op = op.clone()
+        op.args = args
+        return op
+
+    def guard_class(self, opt, op):
+        node = opt.spec.getnode(op.args[0])
+        if node.known_class is not None:
+            assert op.args[1].equals(node.known_class.source)
+            return None
+        return op
+
+    def new_with_vtable(self, opt, op):
+        node = opt.spec.getnode(op.result)
+        if not node.escaped:
+            node.virtual = True
+            assert node.known_class is not None
+            return None
+        return op
+
+    def getfield_gc(self, opt, op):
+        node = opt.spec.getnode(op.args[0])
+        descr = op.descr
+        assert isinstance(descr, AbstractValue)
+        if node.virtual:
+            assert descr in node.curfields
+            return None
+        return op
+
+    def setfield_gc(self, opt, op):
+        node = opt.spec.getnode(op.args[0])
+        valuenode = opt.spec.getnode(op.args[1])
+        descr = op.descr
+        if node.virtual:
+            node.curfields[descr] = valuenode
+            return None
+        return op
 
 
 # -------------------------------------------------------------------
