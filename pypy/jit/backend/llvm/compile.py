@@ -598,18 +598,24 @@ class LLVMJITCompiler(object):
         lltype.free(indices, flavor='raw')
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
-    def _generate_array_gep(self, v_array, v_index, arraydescr):
-        assert isinstance(arraydescr, ArrayDescr)
+    def _generate_gep(self, v_array, v_index, ty, const_index_array):
         array = llvm_rffi.LLVMBuildBitCast(self.builder,
                                            self.getptrarg(v_array),
-                                           arraydescr.ty_array_ptr, "")
+                                           ty, "")
         indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 3,
                                 flavor='raw')
         indices[0] = self.cpu.const_zero
-        indices[1] = self.cpu.const_array_index_array
+        indices[1] = const_index_array
         indices[2] = self.getintarg(v_index)
         location = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 3, "")
         lltype.free(indices, flavor='raw')
+        return location
+
+    def _generate_array_gep(self, v_array, v_index, arraydescr):
+        assert isinstance(arraydescr, ArrayDescr)
+        location = self._generate_gep(v_array, v_index,
+                                      arraydescr.ty_array_ptr,
+                                      self.cpu.const_array_index_array)
         ty_val = self.cpu.types_by_index[arraydescr.itemsize_index]
         return location, ty_val
 
@@ -649,47 +655,29 @@ class LLVMJITCompiler(object):
         self._generate_str_unicode_len(op, self.cpu.ty_unicode_ptr,
                                        self.cpu.const_unicode_index_length)
 
-    def _generate_string_unicode_gep(self, v_string, v_index,
-                                     ty, const_index_array):
-        array = llvm_rffi.LLVMBuildBitCast(self.builder,
-                                           self.getptrarg(v_string),
-                                           ty, "")
-        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 3,
-                                flavor='raw')
-        indices[0] = self.cpu.const_zero
-        indices[1] = const_index_array
-        indices[2] = self.getintarg(v_index)
-        location = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 3, "")
-        lltype.free(indices, flavor='raw')
-        return location
-
     def generate_STRGETITEM(self, op):
-        loc = self._generate_string_unicode_gep(
-            op.args[0], op.args[1],
-            self.cpu.ty_string_ptr,
-            self.cpu.const_string_index_array)
+        loc = self._generate_gep(op.args[0], op.args[1],
+                                 self.cpu.ty_string_ptr,
+                                 self.cpu.const_string_index_array)
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     def generate_UNICODEGETITEM(self, op):
-        loc = self._generate_string_unicode_gep(
-            op.args[0], op.args[1],
-            self.cpu.ty_unicode_ptr,
-            self.cpu.const_unicode_index_array)
+        loc = self._generate_gep(op.args[0], op.args[1],
+                                 self.cpu.ty_unicode_ptr,
+                                 self.cpu.const_unicode_index_array)
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     def generate_STRSETITEM(self, op):
-        loc = self._generate_string_unicode_gep(
-            op.args[0], op.args[1],
-            self.cpu.ty_string_ptr,
-            self.cpu.const_string_index_array)
+        loc = self._generate_gep(op.args[0], op.args[1],
+                                 self.cpu.ty_string_ptr,
+                                 self.cpu.const_string_index_array)
         value_ref = self.getchararg(op.args[2])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
     def generate_UNICODESETITEM(self, op):
-        loc = self._generate_string_unicode_gep(
-            op.args[0], op.args[1],
-            self.cpu.ty_unicode_ptr,
-            self.cpu.const_unicode_index_array)
+        loc = self._generate_gep(op.args[0], op.args[1],
+                                 self.cpu.ty_unicode_ptr,
+                                 self.cpu.const_unicode_index_array)
         value_ref = self.getunichararg(op.args[2])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
