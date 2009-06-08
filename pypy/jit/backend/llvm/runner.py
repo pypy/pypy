@@ -3,14 +3,15 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import ConstInt, AbstractDescr, INT
+from pypy.jit.metainterp.history import BoxInt, BoxPtr
 from pypy.jit.backend import model
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
-from pypy.jit.metainterp.history import TreeLoop
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp import history
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86 import symbolic     # xxx
 
-TreeLoop._llvm_compiled_index = -1
+history.TreeLoop._llvm_compiled_index = -1
 
 
 class LLVMCPU(model.AbstractCPU):
@@ -263,19 +264,61 @@ class LLVMCPU(model.AbstractCPU):
         lltype.free(param_types, flavor='raw')
         ty_funcptr = llvm_rffi.LLVMPointerType(ty_func, 0)
         #
-        result_mask = -1
         if RESULT is lltype.Void:
-            pass
+            result_mask = 0
         elif isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
-            pass
+            result_mask = -2
         else:
             result_size = symbolic.get_size(RESULT,
                                             self.translate_support_code)
             if result_size < self.size_of_int:
                 result_mask = (1 << (result_size*8)) - 1
+            else:
+                result_mask = -1
         descr = CallDescr(ty_funcptr, result_mask)
         self._descr_caches['call', ARGS, RESULT] = descr
         return descr
+
+    # ------------------------------
+    # do_xxx methods
+
+    def _new_box(self, ptr):
+        if ptr:
+            return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+        return BoxInt(0)
+
+    def _get_loop_for_call(self, argnum, calldescr, ptr):
+        loop = calldescr._generated_mp
+        if loop is None:
+            args = [BoxInt() for i in range(argnum + 1)]
+            result = self._new_box(ptr)
+            operations = [
+                ResOperation(rop.CALL, args, result, calldescr),
+                ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+                ResOperation(rop.FAIL, [result], None)]
+            operations[1].suboperations = [ResOperation(rop.FAIL, [], None)]
+            loop = history.TreeLoop('call')
+            loop.inputargs = args
+            loop.operations = operations
+            self.compile_operations(loop)
+            calldescr._generated_mp = loop
+        return loop
+
+    def do_call(self, args, calldescr):
+        assert isinstance(calldescr, CallDescr)
+        num_args = len(args) - 1
+        ptr = (calldescr.result_mask == -2)
+        loop = self._get_loop_for_call(num_args, calldescr, ptr)
+        history.set_future_values(self, args)
+        self.execute_operations(loop)
+        # Note: if an exception is set, the rest of the code does a bit of
+        # nonsense but nothing wrong (the return value should be ignored)
+        if calldescr.result_mask == 0:
+            return None
+        elif ptr:
+            return BoxPtr(self.get_latest_value_ptr(0))
+        else:
+            return BoxInt(self.get_latest_value_int(0))
 
 
 class FieldDescr(AbstractDescr):
@@ -284,9 +327,10 @@ class FieldDescr(AbstractDescr):
         self.size = size      # set to -1 to mark a pointer field
 
 class CallDescr(AbstractDescr):
-    def __init__(self, ty_function_ptr, result_mask=-1):
+    def __init__(self, ty_function_ptr, result_mask):
         self.ty_function_ptr = ty_function_ptr
-        self.result_mask = result_mask
+        self.result_mask = result_mask     # -2 to mark a ptr result
+        self._generated_mp = None
 
 # ____________________________________________________________
 
@@ -799,7 +843,7 @@ class LLVMJITCompiler(object):
                                       func, arglist, nb_args, "")
         lltype.free(arglist, flavor='raw')
         if op.result is not None:
-            if calldescr.result_mask != -1:
+            if calldescr.result_mask >= 0:
                 mask = self.cpu._make_const_int(calldescr.result_mask)
                 res = llvm_rffi.LLVMBuildAnd(self.builder,
                                              res, mask, "")
