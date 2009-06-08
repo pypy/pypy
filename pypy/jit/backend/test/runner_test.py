@@ -607,6 +607,20 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
         assert len(a) == 342
 
+    def test_new_string(self):
+        r1 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ptr')
+        r2 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ptr')
+        assert r1.value != r2.value
+        a = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r1.value)
+        assert len(a.chars) == 342
+
+    def test_new_unicode(self):
+        r1 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ptr')
+        r2 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ptr')
+        assert r1.value != r2.value
+        a = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), r1.value)
+        assert len(a.chars) == 342
+
 
 class OOtypeBackendTest(BaseBackendTest):
 

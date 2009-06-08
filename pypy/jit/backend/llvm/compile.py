@@ -695,20 +695,46 @@ class LLVMJITCompiler(object):
         value_ref = self.getintarg(op.args[0])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
-    def generate_NEW_ARRAY(self, op):
-        arraydescr = op.descr
-        assert isinstance(arraydescr, ArrayDescr)
+    def _generate_new_array(self, op, ty_array, const_item_size,
+                            const_index_array, const_index_length):
         length_ref = self.getintarg(op.args[0])
-        size_ref = llvm_rffi.LLVMBuildMul(
-            self.builder, length_ref,
-            self.cpu._make_const_int(arraydescr.itemsize), "")
+        if const_item_size == self.cpu.const_one:
+            arraysize_ref = length_ref
+        else:
+            arraysize_ref = llvm_rffi.LLVMBuildMul(self.builder,
+                                                   length_ref,
+                                                   const_item_size,
+                                                   "")
+        size_ref = llvm_rffi.LLVMBuildAdd(self.builder,
+                                          const_index_array,
+                                          arraysize_ref,
+                                          "")
         res = self._generate_new(size_ref)
-        loc = self._generate_len_gep(res, arraydescr.ty_array_ptr,
-                                     self.cpu.const_array_index_length)
+        loc = self._generate_len_gep(res, ty_array, const_index_length)
         llvm_rffi.LLVMBuildStore(self.builder,
                                  length_ref,
                                  loc, "")
         self.vars[op.result] = res
+
+    def generate_NEW_ARRAY(self, op):
+        arraydescr = op.descr
+        assert isinstance(arraydescr, ArrayDescr)
+        self._generate_new_array(op, arraydescr.ty_array_ptr,
+                                 self.cpu._make_const_int(arraydescr.itemsize),
+                                 self.cpu.const_array_index_array,
+                                 self.cpu.const_array_index_length)
+
+    def generate_NEWSTR(self, op):
+        self._generate_new_array(op, self.cpu.ty_string_ptr,
+                                 self.cpu.const_one,
+                                 self.cpu.const_string_index_array,
+                                 self.cpu.const_string_index_length)
+
+    def generate_NEWUNICODE(self, op):
+        self._generate_new_array(op, self.cpu.ty_unicode_ptr,
+                            self.cpu._make_const_int(self.cpu.size_of_unicode),
+                                 self.cpu.const_unicode_index_array,
+                                 self.cpu.const_unicode_index_length)
 
 # ____________________________________________________________
 
