@@ -26,11 +26,13 @@ def get_array_token(T, translate_support_code):
     if translate_support_code:
         basesize = llmemory.sizeof(T, 0)
         if isinstance(T, lltype.Struct):
-            itemsize = llmemory.sizeof(getattr(T, T._arrayfld).OF)
-            ofs_length = llmemory.offsetof(T, T._arrayfld)
+            SUBARRAY = getattr(T, T._arrayfld)
+            itemsize = llmemory.sizeof(SUBARRAY.OF)
+            ofs_length = (llmemory.offsetof(T, T._arrayfld) +
+                          llmemory.ArrayLengthOffset(SUBARRAY))
         else:
             itemsize = llmemory.sizeof(T.OF)
-            ofs_length = 0
+            ofs_length = llmemory.ArrayLengthOffset(T)
     else:
         if isinstance(T, lltype.Struct):
             assert T._arrayfld is not None, "%r is not variable-sized" % (T,)

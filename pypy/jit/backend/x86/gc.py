@@ -26,6 +26,7 @@ class GcLLDescription:
 class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
+    array_length_ofs = 0
 
     def __init__(self, gcdescr, cpu):
         # grab a pointer to the Boehm 'malloc' function
@@ -292,7 +293,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.fielddescr_tid = cpu.fielddescrof(self.GCClass.HDR, 'tid')
-        self._array_length_ofs = -1
+        self.array_length_ofs = -1
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
@@ -312,7 +313,7 @@ class GcLLDescr_framework(GcLLDescription):
             return llop.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 type_id, num_elem, basesize, itemsize,
-                self._array_length_ofs, True, False)
+                self.array_length_ofs, True, False)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
             [lltype.Signed] * 4, llmemory.GCREF))
@@ -354,10 +355,10 @@ class GcLLDescr_framework(GcLLDescription):
         assert translate_support_code, "required with the framework GC"
         basesize, itemsize, ofs_length = symbolic.get_array_token(A, True)
         assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        if self._array_length_ofs == -1:
-            self._array_length_ofs = ofs_length
+        if self.array_length_ofs == -1:
+            self.array_length_ofs = ofs_length
         else:
-            assert self._array_length_ofs == ofs_length    # all the same
+            assert self.array_length_ofs == ofs_length    # all the same
         if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
             ptr = True
         else:

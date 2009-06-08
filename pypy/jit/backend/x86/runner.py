@@ -406,8 +406,10 @@ class CPU386(object):
     # ------------------- backend-specific ops ------------------------
 
     def do_arraylen_gc(self, args, arraydescr):
+        ofs = self.gc_ll_descr.array_length_ofs
         gcref = args[0].getptr(llmemory.GCREF)
-        return BoxInt(rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[0])
+        length = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs/WORD]
+        return BoxInt(length)
 
     def do_getarrayitem_gc(self, args, arraydescr):
         field = args[1].getint()

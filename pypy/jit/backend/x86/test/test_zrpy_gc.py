@@ -231,7 +231,13 @@ def test_compile_hybrid_6():
         while n > 0:
             myjitdriver.can_enter_jit(n=n, x=x, l=l)
             myjitdriver.jit_merge_point(n=n, x=x, l=l)
-            l = [n, n, n]
+            if n < 200:
+                l = [n, n, n]
+            if n < 100:
+                assert len(l) == 3
+                assert l[0] == n
+                assert l[1] == n
+                assert l[2] == n
             n -= x.foo
         assert len(l) == 3
         assert l[0] == 2

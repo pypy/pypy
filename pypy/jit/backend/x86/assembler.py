@@ -587,8 +587,9 @@ class Assembler386(object):
         self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
 
     def genop_arraylen_gc(self, op, arglocs, resloc):
+        ofs = self.cpu.gc_ll_descr.array_length_ofs
         base_loc, ofs_loc = arglocs
-        self.mc.MOV(resloc, addr_add_const(base_loc, 0))     # XXX fix this 0
+        self.mc.MOV(resloc, addr_add_const(base_loc, ofs))
 
     def genop_strgetitem(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
@@ -679,7 +680,7 @@ class Assembler386(object):
         self.implement_guard(addr, op, self.mc.JNE)
 
     def genop_guard_guard_class(self, op, ign_1, addr, locs, ign_2):
-        offset = 0    # XXX for now, the vtable ptr is at the start of the obj
+        offset = self.cpu.vtable_offset
         self.mc.CMP(mem(locs[0], offset), locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
 
