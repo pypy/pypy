@@ -7,7 +7,7 @@ from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86 import symbolic     # xxx
-from pypy.jit.backend.llvm.runner import CallDescr, FieldDescr
+from pypy.jit.backend.llvm.runner import CallDescr, FieldDescr, ArrayDescr
 
 # ____________________________________________________________
 
@@ -473,24 +473,16 @@ class LLVMJITCompiler(object):
                                           self.getptrarg(v_structure),
                                           indices, 1, "")
         lltype.free(indices, flavor='raw')
-        if fielddescr.size < 0:   # pointer field
-            ty_val = self.cpu.ty_char_ptr
-            ty = self.cpu.ty_char_ptr_ptr
-        elif fielddescr.size == symbolic.get_size(lltype.Signed,
-                                              self.cpu.translate_support_code):
-            ty_val = self.cpu.ty_int
-            ty = self.cpu.ty_int_ptr
-        elif fielddescr.size == 1:
-            ty_val = self.cpu.ty_char
-            ty = self.cpu.ty_char_ptr
-        else:
-            raise BadSizeError
+        ty_val = self.cpu.types_by_index[fielddescr.size_index]
+        ty = self.cpu.types_ptr_by_index[fielddescr.size_index]
         location = llvm_rffi.LLVMBuildBitCast(self.builder, location, ty, "")
         return location, ty_val
 
     def generate_GETFIELD_GC(self, op):
         loc, _ = self._generate_field_gep(op.args[0], op.descr)
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    generate_GETFIELD_GC_PURE = generate_GETFIELD_GC
 
     def generate_SETFIELD_GC(self, op):
         loc, tyval = self._generate_field_gep(op.args[0], op.descr)
@@ -571,12 +563,54 @@ class LLVMJITCompiler(object):
             self.getptrarg(op.args[0]),
             self.cpu.const_null_charptr, "")
 
+    def generate_ARRAYLEN_GC(self, op):
+        arraydescr = op.descr
+        assert isinstance(arraydescr, ArrayDescr)
+        array = llvm_rffi.LLVMBuildBitCast(self.builder,
+                                           self.getptrarg(op.args[0]),
+                                           arraydescr.ty_array_ptr, "")
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 2,
+                                flavor='raw')
+        indices[0] = self.cpu.const_zero
+        indices[1] = self.cpu.const_array_index_length
+        loc = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 2, "")
+        lltype.free(indices, flavor='raw')
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    def _generate_array_gep(self, v_array, v_index, arraydescr):
+        assert isinstance(arraydescr, ArrayDescr)
+        array = llvm_rffi.LLVMBuildBitCast(self.builder,
+                                           self.getptrarg(v_array),
+                                           arraydescr.ty_array_ptr, "")
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 3,
+                                flavor='raw')
+        indices[0] = self.cpu.const_zero
+        indices[1] = self.cpu.const_array_index_array
+        indices[2] = self.getintarg(v_index)
+        location = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 3, "")
+        lltype.free(indices, flavor='raw')
+        ty_val = self.cpu.types_by_index[arraydescr.itemsize_index]
+        return location, ty_val
+
+    def generate_GETARRAYITEM_GC(self, op):
+        loc, _ = self._generate_array_gep(op.args[0], op.args[1], op.descr)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    generate_GETARRAYITEM_GC_PURE = generate_GETARRAYITEM_GC
+
+    def generate_SETARRAYITEM_GC(self, op):
+        loc, tyval = self._generate_array_gep(op.args[0], op.args[1], op.descr)
+        if tyval == self.cpu.ty_char_ptr:
+            value_ref = self.getptrarg(op.args[2])
+        elif tyval == self.cpu.ty_char:
+            value_ref = self.getchararg(op.args[2])
+        else:
+            value_ref = self.getintarg(op.args[2])
+        llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):
-    pass
-
-class BadSizeError(Exception):
     pass
 
 all_operations = {}

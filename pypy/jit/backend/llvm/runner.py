@@ -18,6 +18,10 @@ class LLVMCPU(model.AbstractCPU):
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
     POINTER_VALUE = rffi.CFixedArray(llmemory.GCREF, 1)
 
+    SIZE_GCPTR = 0
+    SIZE_INT   = 1
+    SIZE_CHAR  = 2
+
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
@@ -25,12 +29,19 @@ class LLVMCPU(model.AbstractCPU):
         self.compiled_functions = []
         self.fail_ops = []
         self.in_out_args = []
-        self._descr_caches = {}
+        self._descr_caches = {
+            ('array', self.SIZE_GCPTR): ArrayDescr(self.SIZE_GCPTR),
+            ('array', self.SIZE_INT):   ArrayDescr(self.SIZE_INT),
+            ('array', self.SIZE_CHAR):  ArrayDescr(self.SIZE_CHAR),
+            }
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         if sys.maxint == 2147483647:
             self.size_of_int = 4
         else:
             self.size_of_int = 8
+        basesize, _, ofs_length = symbolic.get_array_token(
+            lltype.GcArray(lltype.Signed), self.translate_support_code)
+        self._fixed_array_shape = basesize, ofs_length
 
     def setup_once(self):
         if not we_are_translated():
@@ -52,6 +63,41 @@ class LLVMCPU(model.AbstractCPU):
         self.const_one  = self._make_const_int(1)
         self.const_minint = self._make_const_int(-sys.maxint-1)
         self.const_null_charptr = self._make_const(0, self.ty_char_ptr)
+        #
+        self.types_by_index = [self.ty_char_ptr,     # SIZE_GCPTR
+                               self.ty_int,          # SIZE_INT
+                               self.ty_char]         # SIZE_CHAR
+        self.types_ptr_by_index = [self.ty_char_ptr_ptr,   # SIZE_GCPTR
+                                   self.ty_int_ptr,        # SIZE_INT
+                                   self.ty_char_ptr]       # SIZE_CHAR
+        pad1 = self._fixed_array_shape[1]
+        pad2 = (self._fixed_array_shape[0] - self._fixed_array_shape[1]
+                - self.size_of_int)
+        self.const_array_index_length = self._make_const_int(pad1)
+        self.const_array_index_array = self._make_const_int(pad1 + 1 + pad2)
+        for i in range(len(self.types_by_index)):
+            # build the type "struct{pad1.., length, pad2.., array{type}}"
+            typeslist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
+                                      pad1+pad2+2, flavor='raw')
+            # add the first padding
+            for n in range(pad1):
+                typeslist[n] = self.ty_char
+            # add the length field
+            typeslist[pad1] = self.ty_int
+            # add the second padding
+            for n in range(pad1+1, pad1+1+pad2):
+                typeslist[n] = self.ty_char
+            # add the array field
+            typeslist[pad1+1+pad2] = llvm_rffi.LLVMArrayType(
+                self.types_by_index[i], 0)
+            # done
+            ty_array = llvm_rffi.LLVMStructType(typeslist,
+                                                pad1+pad2+2,
+                                                1)
+            lltype.free(typeslist, flavor='raw')
+            ty_array_ptr = llvm_rffi.LLVMPointerType(ty_array, 0)
+            arraydescr = self._descr_caches['array', i]
+            arraydescr.ty_array_ptr = ty_array_ptr
         #
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
                                 flavor='raw')
@@ -230,19 +276,37 @@ class LLVMCPU(model.AbstractCPU):
             # indirect casting because the above doesn't work with ll2ctypes
             return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
 
+    def _get_size_index(self, TYPE):
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+            return self.SIZE_GCPTR
+        else:
+            size = symbolic.get_size(TYPE, self.translate_support_code)
+            if size == symbolic.get_size(lltype.Signed,
+                                         self.translate_support_code):
+                return self.SIZE_INT
+            elif size == 1:
+                return self.SIZE_CHAR
+            else:
+                raise BadSizeError(S, fieldname, size)
+
     def fielddescrof(self, S, fieldname):
         try:
             return self._descr_caches['field', S, fieldname]
         except KeyError:
             pass
-        ofs, size = symbolic.get_field_token(S, fieldname,
-                                             self.translate_support_code)
-        if (isinstance(getattr(S, fieldname), lltype.Ptr) and
-            getattr(S, fieldname).TO._gckind == 'gc'):
-            size = -1
-        descr = FieldDescr(ofs, size)
+        ofs, _ = symbolic.get_field_token(S, fieldname,
+                                          self.translate_support_code)
+        size_index = self._get_size_index(getattr(S, fieldname))
+        descr = FieldDescr(ofs, size_index)
         self._descr_caches['field', S, fieldname] = descr
         return descr
+
+    def arraydescrof(self, A):
+        basesize, _, ofs_length = symbolic.get_array_token(A,
+                                               self.translate_support_code)
+        assert self._fixed_array_shape == (basesize, ofs_length)
+        itemsize_index = self._get_size_index(A.OF)
+        return self._descr_caches['array', itemsize_index]
 
     def calldescrof(self, FUNC, ARGS, RESULT):
         try:
@@ -317,9 +381,15 @@ class LLVMCPU(model.AbstractCPU):
 
 
 class FieldDescr(AbstractDescr):
-    def __init__(self, offset, size):
+    def __init__(self, offset, size_index):
         self.offset = offset
-        self.size = size      # set to -1 to mark a pointer field
+        self.size_index = size_index    # index in cpu.types_by_index
+
+class ArrayDescr(AbstractDescr):
+    def __init__(self, itemsize_index):
+        self.itemsize_index = itemsize_index   # index in cpu.types_by_index
+        self.ty_array_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
+        # ^^^ set by setup_once()
 
 class CallDescr(AbstractDescr):
     def __init__(self, ty_function_ptr, result_mask):
@@ -328,6 +398,9 @@ class CallDescr(AbstractDescr):
         self._generated_mp = None
 
 # ____________________________________________________________
+
+class BadSizeError(Exception):
+    pass
 
 import pypy.jit.metainterp.executor
 pypy.jit.metainterp.executor.make_execute_list(LLVMCPU)

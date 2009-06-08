@@ -1,5 +1,5 @@
 
-import sys, random
+import py, sys, random
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
                                          ConstInt, ConstPtr, BoxObj,
                                          ConstObj)
@@ -384,6 +384,55 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.OONONNULL, [null_box], 'int')
         assert r.value == 0
 
+    def test_array(self):
+        a_box, A = self.alloc_array_of(lltype.Signed, 342)
+        arraydescr = self.cpu.arraydescrof(A)
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 342
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(310),
+                                                         BoxInt(7441)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
+                                   'int', descr=arraydescr)
+        assert r.value == 7441
+        #
+        a_box, A = self.alloc_array_of(lltype.Char, 11)
+        arraydescr = self.cpu.arraydescrof(A)
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 11
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(4),
+                                                         BoxInt(150)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(3),
+                                                         BoxInt(160)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(4)],
+                                   'int', descr=arraydescr)
+        assert r.value == 150
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(3)],
+                                   'int', descr=arraydescr)
+        assert r.value == 160
+        #
+        if isinstance(A, lltype.GcArray):
+            A = lltype.Ptr(A)
+        b_box, B = self.alloc_array_of(A, 3)
+        arraydescr = self.cpu.arraydescrof(B)
+        r = self.execute_operation(rop.ARRAYLEN_GC, [b_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 3
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [b_box, BoxInt(1),
+                                                         a_box],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [b_box, BoxInt(1)],
+                                   'ptr', descr=arraydescr)
+        assert r.value == a_box.value
+
 
 class LLtypeBackendTest(BaseBackendTest):
 
@@ -431,6 +480,13 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def null_instance(self):
         return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+
+    def alloc_array_of(self, ITEM, length):
+        cpu = self.cpu
+        A = lltype.GcArray(ITEM)
+        a = lltype.malloc(A, length)
+        a_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, a))
+        return a_box, A
 
 
     def test_casts(self):
@@ -486,3 +542,6 @@ class OOtypeBackendTest(BaseBackendTest):
 
     def null_instance(self):
         return BoxObj(ootype.NULL)
+
+    def alloc_array_of(self, ITEM, length):
+        py.test.skip("implement me")

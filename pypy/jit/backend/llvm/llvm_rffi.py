@@ -123,6 +123,14 @@ LLVMFunctionType = llexternal('LLVMFunctionType',
                                rffi.UINT,                   # param count
                                rffi.INT],                   # flag: is_vararg
                               LLVMTypeRef)
+LLVMStructType = llexternal('LLVMStructType',
+                            [rffi.CArrayPtr(LLVMTypeRef),   # element types
+                             rffi.UINT,                     # element count
+                             rffi.INT],                     # flag: packed
+                            LLVMTypeRef)
+LLVMArrayType = llexternal('LLVMArrayType', [LLVMTypeRef,   # element type
+                                             rffi.UINT],    # element count
+                           LLVMTypeRef)
 LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
                                                  rffi.UINT],   # address space
                              LLVMTypeRef)
