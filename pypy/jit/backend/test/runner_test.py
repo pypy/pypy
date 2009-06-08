@@ -575,6 +575,27 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.x == chr(190)
         assert s.y == chr(150)
 
+    def test_new_with_vtable(self):
+        cpu = self.cpu
+        t_box, T_box = self.alloc_instance(self.T)
+        sizedescr = cpu.sizeof(self.T)
+        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr',
+                                    descr=sizedescr)
+        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr',
+                                    descr=sizedescr)
+        assert r1.value != r2.value
+        descr1 = cpu.fielddescrof(self.S, 'chr1')
+        descr2 = cpu.fielddescrof(self.S, 'chr2')
+        self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(150)],
+                               'void', descr=descr2)
+        self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(190)],
+                               'void', descr=descr1)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(self.T), r1.value)
+        assert s.parent.chr1 == chr(190)
+        assert s.parent.chr2 == chr(150)
+        t = lltype.cast_opaque_ptr(lltype.Ptr(self.T), t_box.value)
+        assert s.parent.parent.typeptr == t.parent.parent.typeptr
+
 
 class OOtypeBackendTest(BaseBackendTest):
 

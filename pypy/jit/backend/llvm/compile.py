@@ -676,6 +676,12 @@ class LLVMJITCompiler(object):
         lltype.free(arglist, flavor='raw')
         self.vars[op.result] = res
 
+    def generate_NEW_WITH_VTABLE(self, op):
+        self.generate_NEW(op)
+        loc = self._generate_field_gep(op.result, self.cpu.vtable_descr)
+        value_ref = self.getintarg(op.args[0])
+        llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):

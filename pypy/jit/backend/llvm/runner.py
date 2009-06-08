@@ -55,6 +55,7 @@ class LLVMCPU(model.AbstractCPU):
         basesize, _, ofs_length = symbolic.get_array_token(
             rstr.UNICODE, self.translate_support_code)
         self._unicode_shape = basesize, ofs_length
+        self.vtable_descr = self.fielddescrof(rclass.OBJECT, 'typeptr')
 
     def setup_once(self):
         if not we_are_translated():
