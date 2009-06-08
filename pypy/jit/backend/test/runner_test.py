@@ -439,6 +439,13 @@ class BaseBackendTest(Runner):
         assert r.value == 6
         r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(5)], 'int')
         assert r.value == 254
+        r = self.execute_operation(rop.STRSETITEM, [s_box, BoxInt(4),
+                                                    BoxInt(153)], 'void')
+        assert r is None
+        r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(5)], 'int')
+        assert r.value == 254
+        r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(4)], 'int')
+        assert r.value == 153
 
     def test_unicode_basic(self):
         u_box = self.alloc_unicode(u"hello\u1234")
@@ -447,6 +454,15 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(5)],
                                    'int')
         assert r.value == 0x1234
+        r = self.execute_operation(rop.UNICODESETITEM, [u_box, BoxInt(4),
+                                                        BoxInt(31313)], 'void')
+        assert r is None
+        r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(5)],
+                                   'int')
+        assert r.value == 0x1234
+        r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(4)],
+                                   'int')
+        assert r.value == 31313
 
 
 class LLtypeBackendTest(BaseBackendTest):
@@ -541,6 +557,23 @@ class LLtypeBackendTest(BaseBackendTest):
         r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
         assert r.value == 1
         lltype.free(x, flavor='raw')
+
+    def test_new_plain_struct(self):
+        cpu = self.cpu
+        S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
+        sizedescr = cpu.sizeof(S)
+        r1 = self.execute_operation(rop.NEW, [], 'ptr', descr=sizedescr)
+        r2 = self.execute_operation(rop.NEW, [], 'ptr', descr=sizedescr)
+        assert r1.value != r2.value
+        xdescr = cpu.fielddescrof(S, 'x')
+        ydescr = cpu.fielddescrof(S, 'y')
+        self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(150)],
+                               'void', descr=ydescr)
+        self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(190)],
+                               'void', descr=xdescr)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1.value)
+        assert s.x == chr(190)
+        assert s.y == chr(150)
 
 
 class OOtypeBackendTest(BaseBackendTest):

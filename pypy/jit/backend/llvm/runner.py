@@ -154,6 +154,24 @@ class LLVMCPU(model.AbstractCPU):
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
         #
+        # temporary (Boehm only)
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        compilation_info = ExternalCompilationInfo(libraries=['gc'])
+        self.malloc_fn_ptr = rffi.llexternal("GC_malloc",
+                                             [rffi.SIZE_T],
+                                             llmemory.GCREF,
+                                             compilation_info=compilation_info,
+                                             sandboxsafe=True,
+                                             _nowrapper=True)
+        assert rffi.sizeof(rffi.SIZE_T) == self.size_of_int
+        param_types = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 1,
+                                    flavor='raw')
+        param_types[0] = self.ty_int
+        self.ty_malloc_fn = llvm_rffi.LLVMPointerType(
+            llvm_rffi.LLVMFunctionType(self.ty_char_ptr, param_types, 1, 0),
+            0)
+        lltype.free(param_types, flavor='raw')
+        #
         self.ee = llvm_rffi.LLVM_EE_Create(self.module)
         if not we_are_translated():
             llvm_rffi.set_teardown_function(self._teardown)
@@ -343,6 +361,15 @@ class LLVMCPU(model.AbstractCPU):
             else:
                 raise BadSizeError(S, fieldname, size)
 
+    def sizeof(self, S):
+        try:
+            return self._descr_caches['size', S]
+        except KeyError:
+            pass
+        descr = SizeDescr(symbolic.get_size(S, self.translate_support_code))
+        self._descr_caches['size', S] = descr
+        return descr
+
     def fielddescrof(self, S, fieldname):
         try:
             return self._descr_caches['field', S, fieldname]
@@ -433,6 +460,10 @@ class LLVMCPU(model.AbstractCPU):
         else:
             return BoxInt(self.get_latest_value_int(0))
 
+
+class SizeDescr(AbstractDescr):
+    def __init__(self, size):
+        self.size = size
 
 class FieldDescr(AbstractDescr):
     def __init__(self, offset, size_index):

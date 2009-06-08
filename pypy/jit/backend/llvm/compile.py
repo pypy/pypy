@@ -7,7 +7,8 @@ from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86 import symbolic     # xxx
-from pypy.jit.backend.llvm.runner import CallDescr, FieldDescr, ArrayDescr
+from pypy.jit.backend.llvm.runner import SizeDescr, CallDescr
+from pypy.jit.backend.llvm.runner import FieldDescr, ArrayDescr
 
 # ____________________________________________________________
 
@@ -661,6 +662,19 @@ class LLVMJITCompiler(object):
                                  self.cpu.const_unicode_index_array)
         value_ref = self.getunichararg(op.args[2])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
+    def generate_NEW(self, op):
+        sizedescr = op.descr
+        assert isinstance(sizedescr, SizeDescr)
+        malloc_func = self.cpu._make_const(self.cpu.malloc_fn_ptr,
+                                           self.cpu.ty_malloc_fn)
+        arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 1,
+                                flavor='raw')
+        arglist[0] = self.cpu._make_const_int(sizedescr.size)
+        res = llvm_rffi.LLVMBuildCall(self.builder, malloc_func,
+                                      arglist, 1, "")
+        lltype.free(arglist, flavor='raw')
+        self.vars[op.result] = res
 
 # ____________________________________________________________
 
