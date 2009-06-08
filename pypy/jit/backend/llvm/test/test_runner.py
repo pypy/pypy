@@ -16,4 +16,3 @@ class TestLLVM(LLtypeBackendTest):
         py.test.skip("in-progress")
 
     test_executor = _skip
-    test_ooops_non_gc = _skip

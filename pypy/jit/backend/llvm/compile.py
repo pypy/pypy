@@ -227,10 +227,15 @@ class LLVMJITCompiler(object):
                                         self.cpu.ty_char_ptr_ptr)
         else:
             ty = llvm_rffi.LLVMTypeOf(value_ref)
-            assert (ty != self.cpu.ty_int and
-                    ty != self.cpu.ty_bit and
-                    ty != self.cpu.ty_char and
-                    ty != self.cpu.ty_unichar)
+            if ty == self.cpu.ty_int:
+                value_ref = llvm_rffi.LLVMBuildIntToPtr(self.builder,
+                                                        value_ref,
+                                                        self.cpu.ty_char_ptr,
+                                                        "")
+            else:
+                assert (ty != self.cpu.ty_bit and
+                        ty != self.cpu.ty_char and
+                        ty != self.cpu.ty_unichar)
             return value_ref
 
     for _opname, _llvmname in [('INT_ADD', 'Add'),
