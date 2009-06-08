@@ -440,6 +440,14 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(5)], 'int')
         assert r.value == 254
 
+    def test_unicode_basic(self):
+        u_box = self.alloc_unicode(u"hello\u1234")
+        r = self.execute_operation(rop.UNICODELEN, [u_box], 'int')
+        assert r.value == 6
+        r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(5)],
+                                   'int')
+        assert r.value == 0x1234
+
 
 class LLtypeBackendTest(BaseBackendTest):
 
@@ -502,6 +510,13 @@ class LLtypeBackendTest(BaseBackendTest):
         s_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
         return s_box
 
+    def alloc_unicode(self, unicode):
+        u = rstr.mallocunicode(len(unicode))
+        for i in range(len(unicode)):
+            u.chars[i] = unicode[i]
+        u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        return u_box
+
 
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory
@@ -561,4 +576,7 @@ class OOtypeBackendTest(BaseBackendTest):
         py.test.skip("implement me")
 
     def alloc_string(self, string):
+        py.test.skip("implement me")
+
+    def alloc_unicode(self, unicode):
         py.test.skip("implement me")

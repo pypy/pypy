@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import runicode
 from pypy.jit.metainterp.history import AbstractDescr, INT
 from pypy.jit.metainterp.history import BoxInt, BoxPtr
 from pypy.jit.backend import model
@@ -39,12 +40,19 @@ class LLVMCPU(model.AbstractCPU):
             self.size_of_int = 4
         else:
             self.size_of_int = 8
+        if runicode.MAXUNICODE > 0xffff:
+            self.size_of_unicode = 4
+        else:
+            self.size_of_unicode = 2
         basesize, _, ofs_length = symbolic.get_array_token(
             lltype.GcArray(lltype.Signed), self.translate_support_code)
         self._fixed_array_shape = basesize, ofs_length
         basesize, _, ofs_length = symbolic.get_array_token(
             rstr.STR, self.translate_support_code)
         self._string_shape = basesize, ofs_length
+        basesize, _, ofs_length = symbolic.get_array_token(
+            rstr.UNICODE, self.translate_support_code)
+        self._unicode_shape = basesize, ofs_length
 
     def setup_once(self):
         if not we_are_translated():
@@ -55,6 +63,10 @@ class LLVMCPU(model.AbstractCPU):
             self.ty_int = llvm_rffi.LLVMInt32Type()
         else:
             self.ty_int = llvm_rffi.LLVMInt64Type()
+        if self.size_of_unicode == 2:
+            self.ty_unichar = llvm_rffi.LLVMInt16Type()
+        else:
+            self.ty_unichar = llvm_rffi.LLVMInt32Type()
         self.ty_void = llvm_rffi.LLVMVoidType()
         self.ty_bit = llvm_rffi.LLVMInt1Type()
         self.ty_char = llvm_rffi.LLVMInt8Type()
@@ -88,6 +100,13 @@ class LLVMCPU(model.AbstractCPU):
          self.const_string_index_array) = \
                  self._build_ty_array_ptr(shape_basesize,
                                           self.ty_char,
+                                          shape_length)
+        (shape_basesize, shape_length) = self._unicode_shape
+        (self.ty_unicode_ptr,
+         self.const_unicode_index_length,
+         self.const_unicode_index_array) = \
+                 self._build_ty_array_ptr(shape_basesize,
+                                          self.ty_unichar,
                                           shape_length)
         #
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
@@ -200,6 +219,10 @@ class LLVMCPU(model.AbstractCPU):
     def _make_const_char(self, value):
         assert (value & ~255) == 0, "value is not in range(256)"
         return llvm_rffi.LLVMConstInt(self.ty_char, value, True)
+
+    def _make_const_unichar(self, value):
+        #xxx assert something about 'value'
+        return llvm_rffi.LLVMConstInt(self.ty_unichar, value, True)
 
     def _make_const_bit(self, value):
         assert (value & ~1) == 0, "value is not 0 or 1"
