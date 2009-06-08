@@ -19,9 +19,10 @@ class LLVMCPU(model.AbstractCPU):
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
     POINTER_VALUE = rffi.CFixedArray(llmemory.GCREF, 1)
 
-    SIZE_GCPTR = 0
-    SIZE_INT   = 1
-    SIZE_CHAR  = 2
+    SIZE_GCPTR   = 0
+    SIZE_INT     = 1
+    SIZE_CHAR    = 2
+    SIZE_UNICHAR = 3
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
@@ -31,9 +32,10 @@ class LLVMCPU(model.AbstractCPU):
         self.fail_ops = []
         self.in_out_args = []
         self._descr_caches = {
-            ('array', self.SIZE_GCPTR): ArrayDescr(self.SIZE_GCPTR),
-            ('array', self.SIZE_INT):   ArrayDescr(self.SIZE_INT),
-            ('array', self.SIZE_CHAR):  ArrayDescr(self.SIZE_CHAR),
+            ('array', self.SIZE_GCPTR):   ArrayDescr(self.SIZE_GCPTR),
+            ('array', self.SIZE_INT):     ArrayDescr(self.SIZE_INT),
+            ('array', self.SIZE_CHAR):    ArrayDescr(self.SIZE_CHAR),
+            ('array', self.SIZE_UNICHAR): ArrayDescr(self.SIZE_UNICHAR),
             }
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         if sys.maxint == 2147483647:
@@ -74,17 +76,25 @@ class LLVMCPU(model.AbstractCPU):
         self.ty_char_ptr_ptr = llvm_rffi.LLVMPointerType(self.ty_char_ptr, 0)
         self.ty_int_ptr = llvm_rffi.LLVMPointerType(self.ty_int, 0)
         self.ty_int_ptr_ptr = llvm_rffi.LLVMPointerType(self.ty_int_ptr, 0)
+        self.ty_unichar_ptr = llvm_rffi.LLVMPointerType(self.ty_unichar, 0)
         self.const_zero = self._make_const_int(0)
         self.const_one  = self._make_const_int(1)
         self.const_minint = self._make_const_int(-sys.maxint-1)
         self.const_null_charptr = self._make_const(0, self.ty_char_ptr)
         #
+        from pypy.jit.backend.llvm.compile import LLVMJITCompiler
         self.types_by_index = [self.ty_char_ptr,     # SIZE_GCPTR
                                self.ty_int,          # SIZE_INT
-                               self.ty_char]         # SIZE_CHAR
+                               self.ty_char,         # SIZE_CHAR
+                               self.ty_unichar]      # SIZE_UNICHAR
         self.types_ptr_by_index = [self.ty_char_ptr_ptr,   # SIZE_GCPTR
                                    self.ty_int_ptr,        # SIZE_INT
-                                   self.ty_char_ptr]       # SIZE_CHAR
+                                   self.ty_char_ptr,       # SIZE_CHAR
+                                   self.ty_unichar_ptr]    # SIZE_UNICHAR
+        self.getarg_by_index = [LLVMJITCompiler.getptrarg,     # SIZE_GCPTR
+                                LLVMJITCompiler.getintarg,     # SIZE_INT
+                                LLVMJITCompiler.getchararg,    # SIZE_CHAR
+                                LLVMJITCompiler.getunichararg] # SIZE_UNICHAR
         (shape_basesize, shape_length) = self._fixed_array_shape
         for i in range(len(self.types_by_index)):
             arraydescr = self._descr_caches['array', i]
@@ -327,6 +337,9 @@ class LLVMCPU(model.AbstractCPU):
                 return self.SIZE_INT
             elif size == 1:
                 return self.SIZE_CHAR
+            elif size == symbolic.get_size(lltype.UniChar,
+                                           self.translate_support_code):
+                return self.SIZE_UNICHAR
             else:
                 raise BadSizeError(S, fieldname, size)
 
