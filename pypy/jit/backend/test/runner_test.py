@@ -291,6 +291,19 @@ class BaseBackendTest(Runner):
                                      'int', descr=fielddescr)
         assert res.value == 39082
         #
+        fielddescr1 = self.cpu.fielddescrof(self.S, 'chr1')
+        fielddescr2 = self.cpu.fielddescrof(self.S, 'chr2')
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(250)],
+                               'void', descr=fielddescr2)
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(133)],
+                               'void', descr=fielddescr1)
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr2)
+        assert res.value == 250
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr1)
+        assert res.value == 133
+        #
         u_box, U_box = self.alloc_instance(self.U)
         fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
@@ -357,6 +370,8 @@ class LLtypeBackendTest(BaseBackendTest):
     S = lltype.GcForwardReference()
     S.become(lltype.GcStruct('S', ('parent', rclass.OBJECT),
                                   ('value', lltype.Signed),
+                                  ('chr1', lltype.Char),
+                                  ('chr2', lltype.Char),
                                   ('next', lltype.Ptr(S))))
     T = lltype.GcStruct('T', ('parent', S),
                              ('next', lltype.Ptr(S)))
@@ -418,7 +433,9 @@ class OOtypeBackendTest(BaseBackendTest):
     def get_funcbox(cls, cpu, func_ptr):
         return BoxObj(ootype.cast_to_object(func_ptr))
 
-    S = ootype.Instance('S', ootype.ROOT, {'value': ootype.Signed})
+    S = ootype.Instance('S', ootype.ROOT, {'value': ootype.Signed,
+                                           'chr1': ootype.Char,
+                                           'chr2': ootype.Char})
     S._add_fields({'next': S})
     T = ootype.Instance('T', S)
     U = ootype.Instance('U', T)

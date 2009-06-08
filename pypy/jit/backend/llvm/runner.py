@@ -137,6 +137,10 @@ class LLVMCPU(model.AbstractCPU):
     def _make_const_int(self, value):
         return llvm_rffi.LLVMConstInt(self.ty_int, value, True)
 
+    def _make_const_char(self, value):
+        assert (value & ~255) == 0, "value is not in range(256)"
+        return llvm_rffi.LLVMConstInt(self.ty_char, value, True)
+
     def _make_const_bit(self, value):
         assert (value & ~1) == 0, "value is not 0 or 1"
         return llvm_rffi.LLVMConstInt(self.ty_bit, value, True)
@@ -421,7 +425,7 @@ class LLVMJITCompiler(object):
         ty = llvm_rffi.LLVMTypeOf(value_ref)
         if ty == self.cpu.ty_int:
             return value_ref
-        elif ty == self.cpu.ty_bit:
+        elif ty == self.cpu.ty_bit or ty == self.cpu.ty_char:
             return llvm_rffi.LLVMBuildZExt(self.builder, value_ref,
                                            self.cpu.ty_int, "")
         else:
@@ -440,9 +444,31 @@ class LLVMJITCompiler(object):
         ty = llvm_rffi.LLVMTypeOf(value_ref)
         if ty == self.cpu.ty_bit:
             return value_ref
-        elif ty == self.cpu.ty_int:
+        elif ty == self.cpu.ty_int or ty == self.cpu.ty_char:
             return llvm_rffi.LLVMBuildTrunc(self.builder, value_ref,
                                             self.cpu.ty_bit, "")
+        else:
+            raise AssertionError("type is not an int nor a bit")
+
+    def getchararg(self, v):
+        try:
+            value_ref = self.vars[v]
+        except KeyError:
+            assert isinstance(v, ConstInt)
+            return self.cpu._make_const_char(v.value)
+        else:
+            return self._cast_to_char(value_ref)
+
+    def _cast_to_char(self, value_ref):
+        ty = llvm_rffi.LLVMTypeOf(value_ref)
+        if ty == self.cpu.ty_char:
+            return value_ref
+        elif ty == self.cpu.ty_int:
+            return llvm_rffi.LLVMBuildTrunc(self.builder, value_ref,
+                                            self.cpu.ty_char, "")
+        elif ty == self.cpu.ty_bit:
+            return llvm_rffi.LLVMBuildZExt(self.builder, value_ref,
+                                           self.cpu.ty_char, "")
         else:
             raise AssertionError("type is not an int nor a bit")
 
@@ -454,7 +480,9 @@ class LLVMJITCompiler(object):
                                         self.cpu.ty_char_ptr_ptr)
         else:
             ty = llvm_rffi.LLVMTypeOf(value_ref)
-            assert ty != self.cpu.ty_int and ty != self.cpu.ty_bit
+            assert (ty != self.cpu.ty_int and
+                    ty != self.cpu.ty_bit and
+                    ty != self.cpu.ty_char)
             return value_ref
 
     for _opname, _llvmname in [('INT_ADD', 'Add'),
@@ -620,7 +648,8 @@ class LLVMJITCompiler(object):
         self._generate_guard(op, equal, False)
 
     def generate_GUARD_CLASS(self, op):
-        loc = self._generate_field_gep(op.args[0], self.cpu.fielddescr_vtable)
+        loc, _ = self._generate_field_gep(op.args[0],
+                                          self.cpu.fielddescr_vtable)
         cls = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
         equal = llvm_rffi.LLVMBuildICmp(self.builder,
                                         llvm_rffi.Predicate.EQ,
@@ -717,26 +746,32 @@ class LLVMJITCompiler(object):
                                           indices, 1, "")
         lltype.free(indices, flavor='raw')
         if fielddescr.size < 0:   # pointer field
+            ty_val = self.cpu.ty_char_ptr
             ty = self.cpu.ty_char_ptr_ptr
-        else:
-            assert fielddescr.size == symbolic.get_size(lltype.Signed,  # XXX
-                                              self.cpu.translate_support_code)
+        elif fielddescr.size == symbolic.get_size(lltype.Signed,
+                                              self.cpu.translate_support_code):
+            ty_val = self.cpu.ty_int
             ty = self.cpu.ty_int_ptr
-        return llvm_rffi.LLVMBuildBitCast(self.builder, location, ty, "")
+        elif fielddescr.size == 1:
+            ty_val = self.cpu.ty_char
+            ty = self.cpu.ty_char_ptr
+        else:
+            raise BadSizeError
+        location = llvm_rffi.LLVMBuildBitCast(self.builder, location, ty, "")
+        return location, ty_val
 
     def generate_GETFIELD_GC(self, op):
-        loc = self._generate_field_gep(op.args[0], op.descr)
-        # XXX zero-extension for char fields
-        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
-                                                       loc, "")
+        loc, _ = self._generate_field_gep(op.args[0], op.descr)
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     def generate_SETFIELD_GC(self, op):
-        loc = self._generate_field_gep(op.args[0], op.descr)
-        if llvm_rffi.LLVMTypeOf(loc) == self.cpu.ty_char_ptr_ptr:
+        loc, tyval = self._generate_field_gep(op.args[0], op.descr)
+        if tyval == self.cpu.ty_char_ptr:
             value_ref = self.getptrarg(op.args[1])
+        elif tyval == self.cpu.ty_char:
+            value_ref = self.getchararg(op.args[1])
         else:
             value_ref = self.getintarg(op.args[1])
-            # XXX mask for char fields
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
     def generate_CALL(self, op):
@@ -787,6 +822,9 @@ class LLVMJITCompiler(object):
 # ____________________________________________________________
 
 class MissingOperation(Exception):
+    pass
+
+class BadSizeError(Exception):
     pass
 
 all_operations = {}
