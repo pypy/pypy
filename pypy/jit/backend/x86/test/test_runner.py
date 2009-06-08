@@ -292,10 +292,10 @@ class TestX86(LLtypeBackendTest):
         #assert u.value == 5
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(1)], 'void',
                                ofsc1)
-        self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(2)], 'void',
-                               ofsc2)
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(3)], 'void',
                                ofsc3)
+        self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(2)], 'void',
+                               ofsc2)
         c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc1)
         assert c.value == 1
         c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc2)
