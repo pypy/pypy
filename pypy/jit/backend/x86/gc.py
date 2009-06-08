@@ -293,7 +293,8 @@ class GcLLDescr_framework(GcLLDescription):
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.fielddescr_tid = cpu.fielddescrof(self.GCClass.HDR, 'tid')
-        self.array_length_ofs = -1
+        _, _, self.array_length_ofs = symbolic.get_array_token(
+            lltype.GcArray(lltype.Signed), True)
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
@@ -355,10 +356,7 @@ class GcLLDescr_framework(GcLLDescription):
         assert translate_support_code, "required with the framework GC"
         basesize, itemsize, ofs_length = symbolic.get_array_token(A, True)
         assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        if self.array_length_ofs == -1:
-            self.array_length_ofs = ofs_length
-        else:
-            assert self.array_length_ofs == ofs_length    # all the same
+        # assert ofs_length == self.array_length_ofs --- but it's symbolics...
         if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
             ptr = True
         else:
