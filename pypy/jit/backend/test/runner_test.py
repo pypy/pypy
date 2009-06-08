@@ -350,7 +350,41 @@ class BaseBackendTest(Runner):
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
 
-            
+    def test_ooops(self):
+        u1_box, U_box = self.alloc_instance(self.U)
+        u2_box, U_box = self.alloc_instance(self.U)
+        r = self.execute_operation(rop.OOIS, [u1_box, u1_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNOT, [u2_box, u2_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOIS, [u1_box, u2_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOISNOT, [u2_box, u1_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNULL, [u1_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OONONNULL, [u2_box], 'int')
+        assert r.value == 1
+        #
+        null_box = self.null_instance()
+        r = self.execute_operation(rop.OOIS, [null_box, null_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOIS, [u1_box, null_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOIS, [null_box, u2_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOISNOT, [null_box, null_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOISNOT, [u2_box, null_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNOT, [null_box, u1_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNULL, [null_box], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OONONNULL, [null_box], 'int')
+        assert r.value == 0
+
+
 class LLtypeBackendTest(BaseBackendTest):
 
     type_system = 'lltype'
@@ -394,6 +428,9 @@ class LLtypeBackendTest(BaseBackendTest):
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_T_addr))
         return t_box, T_box
+
+    def null_instance(self):
+        return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
 
 
     def test_casts(self):
@@ -446,3 +483,6 @@ class OOtypeBackendTest(BaseBackendTest):
         t_box = BoxObj(ootype.cast_to_object(t))
         T_box = ConstObj(ootype.cast_to_object(cls))
         return t_box, T_box
+
+    def null_instance(self):
+        return BoxObj(ootype.NULL)

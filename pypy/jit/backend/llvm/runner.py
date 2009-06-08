@@ -863,6 +863,30 @@ class LLVMJITCompiler(object):
                                           self.cpu.ty_char_ptr, "")
         self.vars[op.result] = res
 
+    def generate_OOIS(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.EQ,
+            self.getptrarg(op.args[0]),
+            self.getptrarg(op.args[1]), "")
+
+    def generate_OOISNOT(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.NE,
+            self.getptrarg(op.args[0]),
+            self.getptrarg(op.args[1]), "")
+
+    def generate_OOISNULL(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.EQ,
+            self.getptrarg(op.args[0]),
+            self.cpu.const_null_charptr, "")
+
+    def generate_OONONNULL(self, op):
+        self.vars[op.result] = llvm_rffi.LLVMBuildICmp(
+            self.builder, llvm_rffi.Predicate.NE,
+            self.getptrarg(op.args[0]),
+            self.cpu.const_null_charptr, "")
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):
