@@ -281,7 +281,7 @@ class BaseBackendTest(Runner):
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
 
-    def test_field(self):
+    def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
@@ -384,7 +384,7 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.OONONNULL, [null_box], 'int')
         assert r.value == 0
 
-    def test_array(self):
+    def test_array_basic(self):
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
         arraydescr = self.cpu.arraydescrof(A)
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
@@ -432,6 +432,13 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [b_box, BoxInt(1)],
                                    'ptr', descr=arraydescr)
         assert r.value == a_box.value
+
+    def test_string_basic(self):
+        s_box = self.alloc_string("hello\xfe")
+        r = self.execute_operation(rop.STRLEN, [s_box], 'int')
+        assert r.value == 6
+        r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(5)], 'int')
+        assert r.value == 254
 
 
 class LLtypeBackendTest(BaseBackendTest):
@@ -487,6 +494,13 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.malloc(A, length)
         a_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, a))
         return a_box, A
+
+    def alloc_string(self, string):
+        s = rstr.mallocstr(len(string))
+        for i in range(len(string)):
+            s.chars[i] = string[i]
+        s_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
+        return s_box
 
 
     def test_casts(self):
@@ -544,4 +558,7 @@ class OOtypeBackendTest(BaseBackendTest):
         return BoxObj(ootype.NULL)
 
     def alloc_array_of(self, ITEM, length):
+        py.test.skip("implement me")
+
+    def alloc_string(self, string):
         py.test.skip("implement me")

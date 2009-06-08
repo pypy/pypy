@@ -608,6 +608,40 @@ class LLVMJITCompiler(object):
             value_ref = self.getintarg(op.args[2])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
+    def generate_STRLEN(self, op):
+        array = llvm_rffi.LLVMBuildBitCast(self.builder,
+                                           self.getptrarg(op.args[0]),
+                                           self.cpu.ty_string_ptr, "")
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 2,
+                                flavor='raw')
+        indices[0] = self.cpu.const_zero
+        indices[1] = self.cpu.const_string_index_length
+        loc = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 2, "")
+        lltype.free(indices, flavor='raw')
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    def _generate_string_gep(self, v_string, v_index):
+        array = llvm_rffi.LLVMBuildBitCast(self.builder,
+                                           self.getptrarg(v_string),
+                                           self.cpu.ty_string_ptr, "")
+        indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 3,
+                                flavor='raw')
+        indices[0] = self.cpu.const_zero
+        indices[1] = self.cpu.const_string_index_array
+        indices[2] = self.getintarg(v_index)
+        location = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 3, "")
+        lltype.free(indices, flavor='raw')
+        return location
+
+    def generate_STRGETITEM(self, op):
+        loc = self._generate_string_gep(op.args[0], op.args[1])
+        self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
+
+    def generate_STRSETITEM(self, op):
+        loc = self._generate_string_gep(op.args[0], op.args[1])
+        value_ref = self.getchararg(op.args[2])
+        llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):

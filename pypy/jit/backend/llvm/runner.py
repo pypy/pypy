@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.history import AbstractDescr, INT
 from pypy.jit.metainterp.history import BoxInt, BoxPtr
@@ -42,6 +42,9 @@ class LLVMCPU(model.AbstractCPU):
         basesize, _, ofs_length = symbolic.get_array_token(
             lltype.GcArray(lltype.Signed), self.translate_support_code)
         self._fixed_array_shape = basesize, ofs_length
+        basesize, _, ofs_length = symbolic.get_array_token(
+            rstr.STR, self.translate_support_code)
+        self._string_shape = basesize, ofs_length
 
     def setup_once(self):
         if not we_are_translated():
@@ -70,34 +73,22 @@ class LLVMCPU(model.AbstractCPU):
         self.types_ptr_by_index = [self.ty_char_ptr_ptr,   # SIZE_GCPTR
                                    self.ty_int_ptr,        # SIZE_INT
                                    self.ty_char_ptr]       # SIZE_CHAR
-        pad1 = self._fixed_array_shape[1]
-        pad2 = (self._fixed_array_shape[0] - self._fixed_array_shape[1]
-                - self.size_of_int)
-        self.const_array_index_length = self._make_const_int(pad1)
-        self.const_array_index_array = self._make_const_int(pad1 + 1 + pad2)
+        (shape_basesize, shape_length) = self._fixed_array_shape
         for i in range(len(self.types_by_index)):
-            # build the type "struct{pad1.., length, pad2.., array{type}}"
-            typeslist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
-                                      pad1+pad2+2, flavor='raw')
-            # add the first padding
-            for n in range(pad1):
-                typeslist[n] = self.ty_char
-            # add the length field
-            typeslist[pad1] = self.ty_int
-            # add the second padding
-            for n in range(pad1+1, pad1+1+pad2):
-                typeslist[n] = self.ty_char
-            # add the array field
-            typeslist[pad1+1+pad2] = llvm_rffi.LLVMArrayType(
-                self.types_by_index[i], 0)
-            # done
-            ty_array = llvm_rffi.LLVMStructType(typeslist,
-                                                pad1+pad2+2,
-                                                1)
-            lltype.free(typeslist, flavor='raw')
-            ty_array_ptr = llvm_rffi.LLVMPointerType(ty_array, 0)
             arraydescr = self._descr_caches['array', i]
-            arraydescr.ty_array_ptr = ty_array_ptr
+            (arraydescr.ty_array_ptr,
+             self.const_array_index_length,
+             self.const_array_index_array) = \
+                    self._build_ty_array_ptr(shape_basesize,
+                                             self.types_by_index[i],
+                                             shape_length)
+        (shape_basesize, shape_length) = self._string_shape
+        (self.ty_string_ptr,
+         self.const_string_index_length,
+         self.const_string_index_array) = \
+                 self._build_ty_array_ptr(shape_basesize,
+                                          self.ty_char,
+                                          shape_length)
         #
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
                                 flavor='raw')
@@ -160,6 +151,33 @@ class LLVMCPU(model.AbstractCPU):
                 self._make_const(ll_inst.typeptr, self.ty_char_ptr))
         setattr(self, 'const_%s_error_value' % prefix,
                 self._make_const(ll_inst, self.ty_char_ptr))
+
+    def _build_ty_array_ptr(self, basesize, ty_item, ofs_length):
+        pad1 = ofs_length
+        pad2 = basesize - ofs_length - self.size_of_int
+        assert pad1 >= 0 and pad2 >= 0
+        index_length = self._make_const_int(pad1)
+        index_array = self._make_const_int(pad1 + 1 + pad2)
+        # build the type "struct{pad1.., length, pad2.., array{type}}"
+        typeslist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
+                                  pad1+pad2+2, flavor='raw')
+        # add the first padding
+        for n in range(pad1):
+            typeslist[n] = self.ty_char
+        # add the length field
+        typeslist[pad1] = self.ty_int
+        # add the second padding
+        for n in range(pad1+1, pad1+1+pad2):
+            typeslist[n] = self.ty_char
+        # add the array field
+        typeslist[pad1+1+pad2] = llvm_rffi.LLVMArrayType(ty_item, 0)
+        # done
+        ty_array = llvm_rffi.LLVMStructType(typeslist,
+                                            pad1+pad2+2,
+                                            1)
+        lltype.free(typeslist, flavor='raw')
+        ty_array_ptr = llvm_rffi.LLVMPointerType(ty_array, 0)
+        return (ty_array_ptr, index_length, index_array)
 
     # ------------------------------
     # Compilation
