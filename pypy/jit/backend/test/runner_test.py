@@ -596,6 +596,17 @@ class LLtypeBackendTest(BaseBackendTest):
         t = lltype.cast_opaque_ptr(lltype.Ptr(self.T), t_box.value)
         assert s.parent.parent.typeptr == t.parent.parent.typeptr
 
+    def test_new_array(self):
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        r1 = self.execute_operation(rop.NEW_ARRAY, [BoxInt(342)],
+                                    'ptr', descr=arraydescr)
+        r2 = self.execute_operation(rop.NEW_ARRAY, [BoxInt(342)],
+                                    'ptr', descr=arraydescr)
+        assert r1.value != r2.value
+        a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
+        assert len(a) == 342
+
 
 class OOtypeBackendTest(BaseBackendTest):
 

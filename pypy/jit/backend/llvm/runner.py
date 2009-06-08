@@ -32,10 +32,14 @@ class LLVMCPU(model.AbstractCPU):
         self.fail_ops = []
         self.in_out_args = []
         self._descr_caches = {
-            ('array', self.SIZE_GCPTR):   ArrayDescr(self.SIZE_GCPTR),
-            ('array', self.SIZE_INT):     ArrayDescr(self.SIZE_INT),
-            ('array', self.SIZE_CHAR):    ArrayDescr(self.SIZE_CHAR),
-            ('array', self.SIZE_UNICHAR): ArrayDescr(self.SIZE_UNICHAR),
+            ('array', self.SIZE_GCPTR):
+                               ArrayDescr(llmemory.GCREF, self.SIZE_GCPTR),
+            ('array', self.SIZE_INT):
+                               ArrayDescr(lltype.Signed,  self.SIZE_INT),
+            ('array', self.SIZE_CHAR):
+                               ArrayDescr(lltype.Char,    self.SIZE_CHAR),
+            ('array', self.SIZE_UNICHAR):
+                               ArrayDescr(lltype.UniChar, self.SIZE_UNICHAR),
             }
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         if sys.maxint == 2147483647:
@@ -472,7 +476,8 @@ class FieldDescr(AbstractDescr):
         self.size_index = size_index    # index in cpu.types_by_index
 
 class ArrayDescr(AbstractDescr):
-    def __init__(self, itemsize_index):
+    def __init__(self, TYPE, itemsize_index):
+        self.itemsize = llmemory.sizeof(TYPE)
         self.itemsize_index = itemsize_index   # index in cpu.types_by_index
         self.ty_array_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
         # ^^^ set by setup_once()

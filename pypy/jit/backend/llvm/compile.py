@@ -586,16 +586,20 @@ class LLVMJITCompiler(object):
             self.getptrarg(op.args[0]),
             self.cpu.const_null_charptr, "")
 
-    def _generate_len(self, op, ty, const_index_length):
+    def _generate_len_gep(self, array_ref, ty, const_index_length):
         array = llvm_rffi.LLVMBuildBitCast(self.builder,
-                                           self.getptrarg(op.args[0]),
-                                           ty, "")
+                                           array_ref, ty, "")
         indices = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 2,
                                 flavor='raw')
         indices[0] = self.cpu.const_zero
         indices[1] = const_index_length
         loc = llvm_rffi.LLVMBuildGEP(self.builder, array, indices, 2, "")
         lltype.free(indices, flavor='raw')
+        return loc
+
+    def _generate_len(self, op, ty, const_index_length):
+        loc = self._generate_len_gep(self.getptrarg(op.args[0]),
+                                     ty, const_index_length)
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     def generate_ARRAYLEN_GC(self, op):
@@ -668,17 +672,21 @@ class LLVMJITCompiler(object):
         value_ref = self.getunichararg(op.args[2])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
-    def generate_NEW(self, op):
-        sizedescr = op.descr
-        assert isinstance(sizedescr, SizeDescr)
+    def _generate_new(self, size_ref):
         malloc_func = self.cpu._make_const(self.cpu.malloc_fn_ptr,
                                            self.cpu.ty_malloc_fn)
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), 1,
                                 flavor='raw')
-        arglist[0] = self.cpu._make_const_int(sizedescr.size)
+        arglist[0] = size_ref
         res = llvm_rffi.LLVMBuildCall(self.builder, malloc_func,
                                       arglist, 1, "")
         lltype.free(arglist, flavor='raw')
+        return res
+
+    def generate_NEW(self, op):
+        sizedescr = op.descr
+        assert isinstance(sizedescr, SizeDescr)
+        res = self._generate_new(self.cpu._make_const_int(sizedescr.size))
         self.vars[op.result] = res
 
     def generate_NEW_WITH_VTABLE(self, op):
@@ -686,6 +694,21 @@ class LLVMJITCompiler(object):
         loc = self._generate_field_gep(op.result, self.cpu.vtable_descr)
         value_ref = self.getintarg(op.args[0])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
+
+    def generate_NEW_ARRAY(self, op):
+        arraydescr = op.descr
+        assert isinstance(arraydescr, ArrayDescr)
+        length_ref = self.getintarg(op.args[0])
+        size_ref = llvm_rffi.LLVMBuildMul(
+            self.builder, length_ref,
+            self.cpu._make_const_int(arraydescr.itemsize), "")
+        res = self._generate_new(size_ref)
+        loc = self._generate_len_gep(res, arraydescr.ty_array_ptr,
+                                     self.cpu.const_array_index_length)
+        llvm_rffi.LLVMBuildStore(self.builder,
+                                 length_ref,
+                                 loc, "")
+        self.vars[op.result] = res
 
 # ____________________________________________________________
 
