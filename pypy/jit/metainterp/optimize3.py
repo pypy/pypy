@@ -1,9 +1,11 @@
 from pypy.rlib.objectmodel import r_dict
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import Const, Box, AbstractValue
-from pypy.jit.metainterp.optimize import av_eq, av_hash
+from pypy.jit.metainterp.optimize import av_eq, av_hash, sort_descrs
+from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode, \
+     NotSpecNode, FixedClassSpecNode
 
-
+   
 class InstanceNode(object):
     def __init__(self, source, escaped=True):
         self.source = source
@@ -16,6 +18,7 @@ class InstanceNode(object):
         #if self.virtual:           flags += 'v'
         #if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
+        
 
 
 class InstanceValue(object):
@@ -90,6 +93,28 @@ class LoopSpecializer(object):
             for arg in op.suboperations[0].args:
                 self.getnode(arg)
 
+    def recursively_find_escaping_values(self):
+        pass # for now
+
+    def intersect_input_and_output(self):
+        # Step (3)
+        self.recursively_find_escaping_values()
+        jump = self.loop.operations[-1]
+        assert jump.opnum == rop.JUMP
+        specnodes = []
+        for i in range(len(self.loop.inputargs)):
+            enternode = self.nodes[self.loop.inputargs[i]]
+            leavenode = self.getnode(jump.args[i])
+            #specnodes.append(enternode.intersect(leavenode, self.nodes))
+            specnodes.append(self.intersect_nodes(enternode, leavenode, self.nodes))
+        self.specnodes = specnodes
+
+    def intersect_nodes(self, a, b, nodes):
+        for opt in self.optlist:
+            specnode = opt.intersect_nodes(self, a, b, nodes)
+            if specnode is not None:
+                return specnode
+        return NotSpecNode()
 
 class LoopOptimizer(object):
 
@@ -249,6 +274,9 @@ class AbstractOptimization(object):
         if func:
             func(self, spec, op)
 
+    def interesect_nodes(self, a, b, nodes):
+        return None
+
 
     # hooks for LoopOptimizer
     # -------------------------
@@ -264,23 +292,7 @@ class AbstractOptimization(object):
         return op
 
 
-class TrackClass(AbstractOptimization):
-
-    def init_node(self, node):
-        node.known_class = None
-
-    def find_nodes_new_with_vtable(self, spec, op):
-        box = op.result
-        node = spec.newnode(box, escaped=False)
-        node.known_class = spec.newnode(op.args[0])
-        spec.nodes[box] = node
-
-    def find_nodes_guard_class(self, spec, op):
-        node = spec.getnode(op.args[0])
-        if node.known_class is None:
-            node.known_class = spec.newnode(op.args[1])
-
-    # -----------------------------
+class OptimizeGuards(AbstractOptimization):
 
     def init_value(self, val):
         val.cls = None
@@ -292,9 +304,6 @@ class TrackClass(AbstractOptimization):
             return
         val.cls = opt.newval(op.args[1].constbox())
         return op
-
-
-class OptimizeGuards(AbstractOptimization):
 
     def guard_value(self, opt, op):
         val = opt.getval(op.args[0])
@@ -309,8 +318,20 @@ class OptimizeGuards(AbstractOptimization):
 class OptimizeVirtuals(AbstractOptimization):
 
     def init_node(self, node):
+        node.known_class = None
         node.origfields = r_dict(av_eq, av_hash)
         node.curfields = r_dict(av_eq, av_hash)
+
+    def find_nodes_new_with_vtable(self, spec, op):
+        box = op.result
+        node = spec.newnode(box, escaped=False)
+        node.known_class = spec.newnode(op.args[0])
+        spec.nodes[box] = node
+
+    def find_nodes_guard_class(self, spec, op):
+        node = spec.getnode(op.args[0])
+        if node.known_class is None:
+            node.known_class = spec.newnode(op.args[1])
 
     def find_nodes_setfield_gc(self, spec, op):
         instnode = spec.getnode(op.args[0])
@@ -336,6 +357,42 @@ class OptimizeVirtuals(AbstractOptimization):
 ##             self.dependency_graph.append((instnode, fieldnode))
             instnode.origfields[fielddescr] = fieldnode
         spec.nodes[resbox] = fieldnode
+
+    def intersect_nodes(self, spec, a, b, nodes):
+        if not b.known_class:
+            return NotSpecNode()
+        if a.known_class:
+            if not a.known_class.source.equals(b.known_class.source):
+                #raise CancelInefficientLoop
+                return NotSpecNode()
+            known_class_box = a.known_class.source
+        else:
+            known_class_box = b.known_class.source
+        if b.escaped:
+            if a.known_class is None:
+                return NotSpecNode()
+##             if isinstance(known_class_box, FixedList):
+##                 return NotSpecNode()
+            return FixedClassSpecNode(known_class_box)
+        
+        assert a is not b
+        fields = []
+        d = b.curfields
+        lst = d.keys()
+        sort_descrs(lst)
+        for ofs in lst:
+            node = d[ofs]
+            if ofs not in a.origfields:
+                box = node.source.clonebox()
+                a.origfields[ofs] = InstanceNode(box, escaped=False)
+                a.origfields[ofs].known_class = node.known_class
+                nodes[box] = a.origfields[ofs]
+            specnode = spec.intersect_nodes(a.origfields[ofs], node, nodes)
+            fields.append((ofs, specnode))
+##         if isinstance(known_class_box, FixedList):
+##             return VirtualFixedListSpecNode(known_class_box, fields,
+##                                             b.cursize)
+        return VirtualInstanceSpecNode(known_class_box, fields)
 
 
 # -------------------------------------------------------------------

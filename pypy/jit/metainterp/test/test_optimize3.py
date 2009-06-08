@@ -10,7 +10,9 @@ from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize3 import AbstractOptimization
 from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
-     LoopSpecializer, OptimizeGuards, OptimizeVirtuals, TrackClass
+     LoopSpecializer, OptimizeGuards, OptimizeVirtuals
+from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode, \
+     NotSpecNode
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
 
@@ -151,7 +153,7 @@ class BaseTestOptimize3(object):
         guard_class(p0, ConstClass(node_vtable))
           fail()
         """
-        loop = self.optimize(ops, [TrackClass()])
+        loop = self.optimize(ops, [OptimizeGuards()])
         self.assert_equal(loop, expected)
 
 
@@ -203,7 +205,7 @@ class BaseTestOptimize3(object):
 
     def test_virtual_simple_find_nodes(self):
         loop = self._get_virtual_simple_loop()
-        spec = LoopSpecializer([TrackClass(), OptimizeVirtuals()])
+        spec = LoopSpecializer([OptimizeVirtuals()])
         spec._init(loop)
         spec.find_nodes()
 
@@ -223,6 +225,21 @@ class BaseTestOptimize3(object):
         assert spec.nodes[p0].origfields[self.valuedescr] is spec.nodes[i1]
         assert len(spec.nodes[p1].origfields) == 0
         assert spec.nodes[p1].curfields[self.valuedescr] is spec.nodes[i2]
+
+    def test_virtual_simple_intersect_input_and_output(self):
+        loop = self._get_virtual_simple_loop()
+        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+        spec.intersect_input_and_output()
+        
+        assert len(spec.specnodes) == 2
+        spec_sum, spec_n = spec.specnodes
+        assert isinstance(spec_sum, NotSpecNode)
+        assert isinstance(spec_n, VirtualInstanceSpecNode)
+        assert spec_n.known_class.value == self.node_vtable_adr
+        assert spec_n.fields[0][0] == self.valuedescr
+        assert isinstance(spec_n.fields[0][1], NotSpecNode)
 
 
 
