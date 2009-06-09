@@ -1,6 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import runicode
 from pypy.jit.metainterp.history import AbstractDescr, INT
 from pypy.jit.metainterp.history import BoxInt, BoxPtr
@@ -31,15 +31,23 @@ class LLVMCPU(model.AbstractCPU):
         self.compiled_functions = []
         self.fail_ops = []
         self.in_out_args = []
+        if translate_support_code:
+            get_size = llmemory.sizeof
+        else:
+            get_size = rffi.sizeof
+        sizeof_GCREF   = get_size(llmemory.GCREF)
+        sizeof_Signed  = get_size(lltype.Signed )
+        sizeof_Char    = get_size(lltype.Char   )
+        sizeof_UniChar = get_size(lltype.UniChar)
         self._descr_caches = {
             ('array', self.SIZE_GCPTR):
-                               ArrayDescr(llmemory.GCREF, self.SIZE_GCPTR),
+                               ArrayDescr(sizeof_GCREF, self.SIZE_GCPTR),
             ('array', self.SIZE_INT):
-                               ArrayDescr(lltype.Signed,  self.SIZE_INT),
+                               ArrayDescr(sizeof_Signed,  self.SIZE_INT),
             ('array', self.SIZE_CHAR):
-                               ArrayDescr(lltype.Char,    self.SIZE_CHAR),
+                               ArrayDescr(sizeof_Char,    self.SIZE_CHAR),
             ('array', self.SIZE_UNICHAR):
-                               ArrayDescr(lltype.UniChar, self.SIZE_UNICHAR),
+                               ArrayDescr(sizeof_UniChar, self.SIZE_UNICHAR),
             }
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         if sys.maxint == 2147483647:
@@ -52,13 +60,16 @@ class LLVMCPU(model.AbstractCPU):
             self.size_of_unicode = 2
         basesize, _, ofs_length = symbolic.get_array_token(
             lltype.GcArray(lltype.Signed), self.translate_support_code)
-        self._fixed_array_shape = basesize, ofs_length
+        self.array_index_array = basesize
+        self.array_index_length = ofs_length
         basesize, _, ofs_length = symbolic.get_array_token(
             rstr.STR, self.translate_support_code)
-        self._string_shape = basesize, ofs_length
+        self.string_index_array = basesize
+        self.string_index_length = ofs_length
         basesize, _, ofs_length = symbolic.get_array_token(
             rstr.UNICODE, self.translate_support_code)
-        self._unicode_shape = basesize, ofs_length
+        self.unicode_index_array = basesize
+        self.unicode_index_length = ofs_length
         self.vtable_descr = self.fielddescrof(rclass.OBJECT, 'typeptr')
 
     def setup_once(self):
@@ -99,35 +110,26 @@ class LLVMCPU(model.AbstractCPU):
                                 LLVMJITCompiler.getintarg,     # SIZE_INT
                                 LLVMJITCompiler.getchararg,    # SIZE_CHAR
                                 LLVMJITCompiler.getunichararg] # SIZE_UNICHAR
-        (shape_basesize, shape_length) = self._fixed_array_shape
         for i in range(len(self.types_by_index)):
             arraydescr = self._descr_caches['array', i]
             (arraydescr.ty_array_ptr,
-             self.array_index_length,
-             self.array_index_array,
              self.const_array_index_length,
              self.const_array_index_array) = \
-                    self._build_ty_array_ptr(shape_basesize,
+                    self._build_ty_array_ptr(self.array_index_array,
                                              self.types_by_index[i],
-                                             shape_length)
-        (shape_basesize, shape_length) = self._string_shape
+                                             self.array_index_length)
         (self.ty_string_ptr,
-         self.string_index_length,
-         self.string_index_array,
          self.const_string_index_length,
          self.const_string_index_array) = \
-                 self._build_ty_array_ptr(shape_basesize,
+                 self._build_ty_array_ptr(self.string_index_array,
                                           self.ty_char,
-                                          shape_length)
-        (shape_basesize, shape_length) = self._unicode_shape
+                                          self.string_index_length)
         (self.ty_unicode_ptr,
-         self.unicode_index_length,
-         self.unicode_index_array,
          self.const_unicode_index_length,
          self.const_unicode_index_array) = \
-                 self._build_ty_array_ptr(shape_basesize,
+                 self._build_ty_array_ptr(self.unicode_index_array,
                                           self.ty_unichar,
-                                          shape_length)
+                                          self.unicode_index_length)
         #
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 0,
                                 flavor='raw')
@@ -213,10 +215,8 @@ class LLVMCPU(model.AbstractCPU):
         pad1 = ofs_length
         pad2 = basesize - ofs_length - self.size_of_int
         assert pad1 >= 0 and pad2 >= 0
-        index_length = pad1
-        index_array = pad1 + 1 + pad2
-        const_index_length = self._make_const_int(index_length)
-        const_index_array = self._make_const_int(index_array)
+        const_index_length = self._make_const_int(pad1)
+        const_index_array = self._make_const_int(pad1 + 1 + pad2)
         # build the type "struct{pad1.., length, pad2.., array{type}}"
         typeslist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
                                   pad1+pad2+2, flavor='raw')
@@ -236,8 +236,7 @@ class LLVMCPU(model.AbstractCPU):
                                             1)
         lltype.free(typeslist, flavor='raw')
         ty_array_ptr = llvm_rffi.LLVMPointerType(ty_array, 0)
-        return (ty_array_ptr, index_length, index_array,
-                const_index_length, const_index_array)
+        return (ty_array_ptr, const_index_length, const_index_array)
 
     # ------------------------------
     # Compilation
@@ -269,12 +268,12 @@ class LLVMCPU(model.AbstractCPU):
         assert (value & ~1) == 0, "value is not 0 or 1"
         return llvm_rffi.LLVMConstInt(self.ty_bit, value, True)
 
+    @specialize.argtype(1)
     def _make_const(self, value, ty_result):
         value_as_signed = rffi.cast(lltype.Signed, value)
         llvmconstint = self._make_const_int(value_as_signed)
         llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, ty_result)
         return llvmconstptr
-    _make_const._annspecialcase_ = 'specialize:argtype(1)'
 
     def _lltype2llvmtype(self, TYPE):
         if TYPE is lltype.Void:
@@ -398,7 +397,8 @@ class LLVMCPU(model.AbstractCPU):
     def arraydescrof(self, A):
         basesize, _, ofs_length = symbolic.get_array_token(A,
                                                self.translate_support_code)
-        assert self._fixed_array_shape == (basesize, ofs_length)
+        assert self.array_index_array == basesize
+        assert self.array_index_length == ofs_length
         itemsize_index = self._get_size_index(A.OF)
         return self._descr_caches['array', itemsize_index]
 
@@ -434,6 +434,192 @@ class LLVMCPU(model.AbstractCPU):
 
     # ------------------------------
     # do_xxx methods
+
+    def do_arraylen_gc(self, args, arraydescr):
+        array = args[0].getptr_base()
+        p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+        res = len(p)
+        return BoxInt(res)
+
+    def do_strlen(self, args, descr=None):
+        s = args[0].getptr_base()
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
+        res = len(p.chars)
+        return BoxInt(res)
+
+    def do_strgetitem(self, args, descr=None):
+        s = args[0].getptr_base()
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
+        res = ord(p.chars[args[1].getint()])
+        return BoxInt(res)
+
+    def do_unicodelen(self, args, descr=None):
+        s = args[0].getptr_base()
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
+        res = len(p.chars)
+        return BoxInt(res)
+
+    def do_unicodegetitem(self, args, descr=None):
+        s = args[0].getptr_base()
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
+        res = ord(p.chars[args[1].getint()])
+        return BoxInt(res)
+
+    def do_getarrayitem_gc(self, args, arraydescr):
+        array = args[0].getptr_base()
+        index = args[1].getint()
+        assert isinstance(arraydescr, ArrayDescr)
+        itemsize_index = arraydescr.itemsize_index
+        if itemsize_index == self.SIZE_GCPTR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(llmemory.GCREF)), array)
+            res = p[index]
+            return BoxPtr(res)
+        elif itemsize_index == self.SIZE_INT:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+            res = p[index]
+        elif itemsize_index == self.SIZE_CHAR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Char)), array)
+            res = ord(p[index])
+        elif itemsize_index == self.SIZE_UNICHAR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.UniChar)), array)
+            res = ord(p[index])
+        else:
+            raise BadSizeError
+        return BoxInt(res)
+
+    @specialize.argtype(1)
+    def _do_getfield(self, struct, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        size_index = fielddescr.size_index
+        if size_index == self.SIZE_GCPTR:
+            p = rffi.cast(rffi.CArrayPtr(llmemory.GCREF), struct)
+            res = p[fielddescr.offset / rffi.sizeof(llmemory.GCREF)]
+            return BoxPtr(res)
+        elif size_index == self.SIZE_INT:
+            p = rffi.cast(rffi.CArrayPtr(lltype.Signed), struct)
+            res = p[fielddescr.offset / rffi.sizeof(lltype.Signed)]
+        elif size_index == self.SIZE_CHAR:
+            p = rffi.cast(rffi.CArrayPtr(lltype.Char), struct)
+            res = ord(p[fielddescr.offset / rffi.sizeof(lltype.Char)])
+        elif size_index == self.SIZE_UNICHAR:
+            p = rffi.cast(rffi.CArrayPtr(lltype.UniChar), struct)
+            res = ord(p[fielddescr.offset / rffi.sizeof(lltype.UniChar)])
+        else:
+            raise BadSizeError
+        return BoxInt(res)
+
+    def do_getfield_gc(self, args, fielddescr):
+        struct = args[0].getptr_base()
+        return self._do_getfield(struct, fielddescr)
+
+    def do_getfield_raw(self, args, fielddescr):
+        struct = args[0].getaddr(self)
+        return self._do_getfield(struct, fielddescr)
+
+    def do_new(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, sizedescr.size))
+        return BoxPtr(res)
+
+    def do_new_with_vtable(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, sizedescr.size))
+        self._do_setfield(res, args[0], self.vtable_descr)
+        return BoxPtr(res)
+
+    def _allocate_new_array(self, args, item_size, index_array, index_length):
+        length = args[0].getint()
+        #try:
+        size = index_array + length * item_size
+        #except OverflowError:
+        #    ...
+        res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, size))
+        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+        p[index_length / rffi.sizeof(lltype.Signed)] = length
+        return BoxPtr(res)
+
+    def do_new_array(self, args, arraydescr):
+        assert isinstance(arraydescr, ArrayDescr)
+        return self._allocate_new_array(args, arraydescr.itemsize,
+                                        self.array_index_array,
+                                        self.array_index_length)
+
+    def do_setarrayitem_gc(self, args, arraydescr):
+        array = args[0].getptr_base()
+        index = args[1].getint()
+        assert isinstance(arraydescr, ArrayDescr)
+        itemsize_index = arraydescr.itemsize_index
+        if itemsize_index == self.SIZE_GCPTR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(llmemory.GCREF)), array)
+            res = args[2].getptr_base()
+            p[index] = res
+        elif itemsize_index == self.SIZE_INT:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+            res = args[2].getint()
+            p[index] = res
+        elif itemsize_index == self.SIZE_CHAR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Char)), array)
+            res = chr(args[2].getint())
+            p[index] = res
+        elif itemsize_index == self.SIZE_UNICHAR:
+            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.UniChar)), array)
+            res = unichr(args[2].getint())
+            p[index] = res
+        else:
+            raise BadSizeError
+
+    @specialize.argtype(1)
+    def _do_setfield(self, struct, v_value, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        size_index = fielddescr.size_index
+        if size_index == self.SIZE_GCPTR:
+            p = rffi.cast(rffi.CArrayPtr(llmemory.GCREF), struct)
+            res = v_value.getptr_base()
+            p[fielddescr.offset / rffi.sizeof(llmemory.GCREF)] = res
+        elif size_index == self.SIZE_INT:
+            p = rffi.cast(rffi.CArrayPtr(lltype.Signed), struct)
+            res = v_value.getint()
+            p[fielddescr.offset / rffi.sizeof(lltype.Signed)] = res
+        elif size_index == self.SIZE_CHAR:
+            p = rffi.cast(rffi.CArrayPtr(lltype.Char), struct)
+            res = chr(v_value.getint())
+            p[fielddescr.offset / rffi.sizeof(lltype.Char)] = res
+        elif size_index == self.SIZE_UNICHAR:
+            p = rffi.cast(rffi.CArrayPtr(lltype.UniChar), struct)
+            res = unichr(v_value.getint())
+            p[fielddescr.offset / rffi.sizeof(lltype.UniChar)] = res
+        else:
+            raise BadSizeError
+
+    def do_setfield_gc(self, args, fielddescr):
+        struct = args[0].getptr_base()
+        self._do_setfield(struct, args[1], fielddescr)
+
+    def do_setfield_raw(self, args, fielddescr):
+        struct = args[0].getaddr(self)
+        self._do_setfield(struct, args[1], fielddescr)
+
+    def do_newstr(self, args, descr=None):
+        return self._allocate_new_array(args, 1,
+                                        self.string_index_array,
+                                        self.string_index_length)
+
+    def do_newunicode(self, args, descr=None):
+        return self._allocate_new_array(args, self.size_of_unicode,
+                                        self.unicode_index_array,
+                                        self.unicode_index_length)
+
+    def do_strsetitem(self, args, descr=None):
+        s = args[0].getptr_base()
+        res = chr(args[2].getint())
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
+        p.chars[args[1].getint()] = res
+
+    def do_unicodesetitem(self, args, descr=None):
+        s = args[0].getptr_base()
+        res = unichr(args[2].getint())
+        p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
+        p.chars[args[1].getint()] = res
 
     def _new_box(self, ptr):
         if ptr:
@@ -473,30 +659,6 @@ class LLVMCPU(model.AbstractCPU):
         else:
             return BoxInt(self.get_latest_value_int(0))
 
-    def _allocate_new_array(self, args, ty_array, item_size,
-                            index_array, index_length):
-        length = args[0].value
-        #try:
-        size = length * item_size + index_array
-        #except OverflowError:
-        #    ...
-        res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, size))
-        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-        p[index_length / rffi.sizeof(lltype.Signed)] = length
-        return BoxPtr(res)
-
-    def do_newstr(self, args, descr=None):
-        return self._allocate_new_array(args, self.ty_string_ptr,
-                                        1,
-                                        self.string_index_array,
-                                        self.string_index_length)
-
-    def do_newunicode(self, args, descr=None):
-        return self._allocate_new_array(args, self.ty_unicode_ptr,
-                                        self.size_of_unicode,
-                                        self.unicode_index_array,
-                                        self.unicode_index_length)
-
 
 class SizeDescr(AbstractDescr):
     def __init__(self, size):
@@ -508,8 +670,8 @@ class FieldDescr(AbstractDescr):
         self.size_index = size_index    # index in cpu.types_by_index
 
 class ArrayDescr(AbstractDescr):
-    def __init__(self, TYPE, itemsize_index):
-        self.itemsize = llmemory.sizeof(TYPE)
+    def __init__(self, itemsize, itemsize_index):
+        self.itemsize = itemsize
         self.itemsize_index = itemsize_index   # index in cpu.types_by_index
         self.ty_array_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
         # ^^^ set by setup_once()

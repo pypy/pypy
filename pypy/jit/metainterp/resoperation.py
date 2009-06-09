@@ -192,11 +192,11 @@ class rop(object):
     STRSETITEM             = 137
     UNICODESETITEM         = 138
     NEWUNICODE             = 139
-    RUNTIMENEW             = 140
+    RUNTIMENEW             = 140     # ootype operation
 
     _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
     CALL = 150
-    OOSEND = 151
+    OOSEND = 151                     # ootype operation
     #
     _OVF_FIRST = 152
     INT_ADD_OVF            = 152

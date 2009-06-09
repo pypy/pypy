@@ -121,13 +121,13 @@ class AbstractCPU(object):
     def do_getfield_raw(self, args, fielddescr):
         raise NotImplementedError
 
-    def do_new(self, args, size):
+    def do_new(self, args, sizedescr):
         raise NotImplementedError
 
-    def do_new_with_vtable(self, args, size):
+    def do_new_with_vtable(self, args, sizedescr):
         raise NotImplementedError
     
-    def do_new_array(self, args, size):
+    def do_new_array(self, args, arraydescr):
         raise NotImplementedError
     
     def do_setarrayitem_gc(self, args, arraydescr):
