@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import runicode
 from pypy.jit.metainterp.history import AbstractDescr, INT
@@ -25,7 +26,7 @@ class LLVMCPU(model.AbstractCPU):
     SIZE_UNICHAR = 3
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
-                 annmixlevel=None):
+                 annmixlevel=None, gcdescr=None):
         self.rtyper = rtyper
         self.translate_support_code = translate_support_code
         self.compiled_functions = []
@@ -35,20 +36,13 @@ class LLVMCPU(model.AbstractCPU):
             get_size = llmemory.sizeof
         else:
             get_size = rffi.sizeof
-        sizeof_GCREF   = get_size(llmemory.GCREF)
-        sizeof_Signed  = get_size(lltype.Signed )
-        sizeof_Char    = get_size(lltype.Char   )
-        sizeof_UniChar = get_size(lltype.UniChar)
-        self._descr_caches = {
-            ('array', self.SIZE_GCPTR):
-                               ArrayDescr(sizeof_GCREF, self.SIZE_GCPTR),
-            ('array', self.SIZE_INT):
-                               ArrayDescr(sizeof_Signed,  self.SIZE_INT),
-            ('array', self.SIZE_CHAR):
-                               ArrayDescr(sizeof_Char,    self.SIZE_CHAR),
-            ('array', self.SIZE_UNICHAR):
-                               ArrayDescr(sizeof_UniChar, self.SIZE_UNICHAR),
-            }
+        self._arraydescrs = [
+            ArrayDescr(get_size(llmemory.GCREF), self.SIZE_GCPTR),    # 0
+            ArrayDescr(get_size(lltype.Signed),  self.SIZE_INT),      # 1
+            ArrayDescr(get_size(lltype.Char),    self.SIZE_CHAR),     # 2
+            ArrayDescr(get_size(lltype.UniChar), self.SIZE_UNICHAR),  # 3
+            ]
+        self._descr_caches = {}
         self.fielddescr_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         if sys.maxint == 2147483647:
             self.size_of_int = 4
@@ -71,6 +65,19 @@ class LLVMCPU(model.AbstractCPU):
         self.unicode_index_array = basesize
         self.unicode_index_length = ofs_length
         self.vtable_descr = self.fielddescrof(rclass.OBJECT, 'typeptr')
+        self._ovf_error_instance = self._get_prebuilt_error(OverflowError)
+        self._zer_error_instance = self._get_prebuilt_error(ZeroDivisionError)
+        #
+        # temporary (Boehm only)
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        compilation_info = ExternalCompilationInfo(libraries=['gc'])
+        self.malloc_fn_ptr = rffi.llexternal("GC_malloc",
+                                             [rffi.SIZE_T],
+                                             llmemory.GCREF,
+                                             compilation_info=compilation_info,
+                                             sandboxsafe=True,
+                                             _nowrapper=True)
+        assert rffi.sizeof(rffi.SIZE_T) == self.size_of_int
 
     def setup_once(self):
         if not we_are_translated():
@@ -111,7 +118,7 @@ class LLVMCPU(model.AbstractCPU):
                                 LLVMJITCompiler.getchararg,    # SIZE_CHAR
                                 LLVMJITCompiler.getunichararg] # SIZE_UNICHAR
         for i in range(len(self.types_by_index)):
-            arraydescr = self._descr_caches['array', i]
+            arraydescr = self._arraydescrs[i]
             (arraydescr.ty_array_ptr,
              self.const_array_index_length,
              self.const_array_index_array) = \
@@ -144,7 +151,10 @@ class LLVMCPU(model.AbstractCPU):
         self.f_mul_ovf = llvm_rffi.LLVM_Intrinsic_mul_ovf(self.module,
                                                           self.ty_int)
         if we_are_translated():
-            XXX - fix-me
+            addr = llop.get_exception_addr(llmemory.Address)
+            self.exc_type = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
+            addr = llop.get_exc_value_addr(llmemory.Address)
+            self.exc_value = rffi.cast(rffi.CArrayPtr(llmemory.GCREF), addr)
         else:
             self.exc_type = lltype.malloc(rffi.CArray(lltype.Signed), 1,
                                           zero=True, flavor='raw')
@@ -163,19 +173,10 @@ class LLVMCPU(model.AbstractCPU):
         self.const_backup_exc_value = self._make_const(self.backup_exc_value,
                                                        self.ty_char_ptr_ptr)
         #
-        self._setup_prebuilt_error('ovf', OverflowError)
-        self._setup_prebuilt_error('zer', ZeroDivisionError)
+        self._setup_prebuilt_error('ovf')
+        self._setup_prebuilt_error('zer')
         #
         # temporary (Boehm only)
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        compilation_info = ExternalCompilationInfo(libraries=['gc'])
-        self.malloc_fn_ptr = rffi.llexternal("GC_malloc",
-                                             [rffi.SIZE_T],
-                                             llmemory.GCREF,
-                                             compilation_info=compilation_info,
-                                             sandboxsafe=True,
-                                             _nowrapper=True)
-        assert rffi.sizeof(rffi.SIZE_T) == self.size_of_int
         param_types = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef), 1,
                                     flavor='raw')
         param_types[0] = self.ty_int
@@ -191,7 +192,8 @@ class LLVMCPU(model.AbstractCPU):
     def _teardown(self):
         llvm_rffi.LLVMDisposeExecutionEngine(self.ee)
 
-    def _setup_prebuilt_error(self, prefix, Class):
+    def _get_prebuilt_error(self, Class):
+        "NOT_RPYTHON"
         if self.rtyper is not None:   # normal case
             bk = self.rtyper.annotator.bookkeeper
             clsdef = bk.getuniqueclassdef(Class)
@@ -202,13 +204,18 @@ class LLVMCPU(model.AbstractCPU):
             ll_inst = lltype.malloc(rclass.OBJECT)
             ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
                                             immortal=True)
-        setattr(self, '_%s_error_type' % prefix,
+        return ll_inst
+
+    @specialize.arg(1)
+    def _setup_prebuilt_error(self, prefix):
+        ll_inst = getattr(self, '_' + prefix + '_error_instance')
+        setattr(self, '_' + prefix + '_error_type',
                 rffi.cast(lltype.Signed, ll_inst.typeptr))
-        setattr(self, '_%s_error_value' % prefix,
+        setattr(self, '_' + prefix + '_error_value',
                 lltype.cast_opaque_ptr(llmemory.GCREF, ll_inst))
-        setattr(self, 'const_%s_error_type' % prefix,
+        setattr(self, 'const_' + prefix + '_error_type',
                 self._make_const(ll_inst.typeptr, self.ty_char_ptr))
-        setattr(self, 'const_%s_error_value' % prefix,
+        setattr(self, 'const_' + prefix + '_error_value',
                 self._make_const(ll_inst, self.ty_char_ptr))
 
     def _build_ty_array_ptr(self, basesize, ty_item, ofs_length):
@@ -241,7 +248,7 @@ class LLVMCPU(model.AbstractCPU):
     # ------------------------------
     # Compilation
 
-    def compile_operations(self, loop):
+    def compile_operations(self, loop, _guard_op=None):
         from pypy.jit.backend.llvm.compile import LLVMJITCompiler
         compiler = LLVMJITCompiler(self, loop)
         compiler.compile()
@@ -268,7 +275,7 @@ class LLVMCPU(model.AbstractCPU):
         assert (value & ~1) == 0, "value is not 0 or 1"
         return llvm_rffi.LLVMConstInt(self.ty_bit, value, True)
 
-    @specialize.argtype(1)
+    @specialize.arglltype(1)
     def _make_const(self, value, ty_result):
         value_as_signed = rffi.cast(lltype.Signed, value)
         llvmconstint = self._make_const_int(value_as_signed)
@@ -358,17 +365,17 @@ class LLVMCPU(model.AbstractCPU):
             return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
 
     def _get_size_index(self, TYPE):
-        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-            return self.SIZE_GCPTR
-        else:
-            size = symbolic.get_size(TYPE, self.translate_support_code)
-            if size == symbolic.get_size(lltype.Signed,
-                                         self.translate_support_code):
+        if isinstance(TYPE, lltype.Ptr):
+            if TYPE.TO._gckind == 'gc':
+                return self.SIZE_GCPTR
+            else:
                 return self.SIZE_INT
-            elif size == 1:
+        else:
+            if TYPE == lltype.Signed:
+                return self.SIZE_INT
+            elif TYPE == lltype.Char:
                 return self.SIZE_CHAR
-            elif size == symbolic.get_size(lltype.UniChar,
-                                           self.translate_support_code):
+            elif TYPE == lltype.UniChar:
                 return self.SIZE_UNICHAR
             else:
                 raise BadSizeError(S, fieldname, size)
@@ -400,7 +407,7 @@ class LLVMCPU(model.AbstractCPU):
         assert self.array_index_array == basesize
         assert self.array_index_length == ofs_length
         itemsize_index = self._get_size_index(A.OF)
-        return self._descr_caches['array', itemsize_index]
+        return self._arraydescrs[itemsize_index]
 
     def calldescrof(self, FUNC, ARGS, RESULT):
         try:

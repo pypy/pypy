@@ -115,6 +115,7 @@ LLVMDumpModule = llexternal('LLVMDumpModule', [LLVMModuleRef], lltype.Void)
 
 LLVMInt1Type = llexternal('LLVMInt1Type', [], LLVMTypeRef)
 LLVMInt8Type = llexternal('LLVMInt8Type', [], LLVMTypeRef)
+LLVMInt16Type = llexternal('LLVMInt16Type', [], LLVMTypeRef)
 LLVMInt32Type = llexternal('LLVMInt32Type', [], LLVMTypeRef)
 LLVMInt64Type = llexternal('LLVMInt64Type', [], LLVMTypeRef)
 LLVMFunctionType = llexternal('LLVMFunctionType',
