@@ -751,6 +751,13 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
+        #
+        x = cpu.do_newstr([BoxInt(5)])
+        y = cpu.do_cast_ptr_to_int([x])
+        assert isinstance(y, BoxInt)
+        z = cpu.do_cast_int_to_ptr([y])
+        assert isinstance(z, BoxPtr)
+        assert z.value == x.value
 
 
 class OOtypeBackendTest(BaseBackendTest):

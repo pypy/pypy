@@ -659,6 +659,16 @@ class LLVMCPU(model.AbstractCPU):
         else:
             return BoxInt(self.get_latest_value_int(0))
 
+    def do_cast_int_to_ptr(self, args, descr=None):
+        int = args[0].getint()
+        res = rffi.cast(llmemory.GCREF, int)
+        return BoxPtr(res)
+
+    def do_cast_ptr_to_int(self, args, descr=None):
+        ptr = args[0].getptr_base()
+        res = rffi.cast(lltype.Signed, ptr)
+        return BoxInt(res)
+
 
 class SizeDescr(AbstractDescr):
     def __init__(self, size):
