@@ -84,7 +84,6 @@ class LLVMCPU(model.AbstractCPU):
         self.ty_unichar_ptr = llvm_rffi.LLVMPointerType(self.ty_unichar, 0)
         self.const_zero = self._make_const_int(0)
         self.const_one  = self._make_const_int(1)
-        self.const_minint = self._make_const_int(-sys.maxint-1)
         self.const_null_charptr = self._make_const(0, self.ty_char_ptr)
         #
         from pypy.jit.backend.llvm.compile import LLVMJITCompiler

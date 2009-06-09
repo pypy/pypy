@@ -332,14 +332,10 @@ class LLVMJITCompiler(object):
         self._generate_ovf_op(op, self.cpu.f_mul_ovf)
 
     def generate_INT_NEG_OVF(self, op):
-        arg = self.getintarg(op.args[0])
-        self.vars[op.result] = llvm_rffi.LLVMBuildNeg(self.builder, arg, "")
-        ovf = llvm_rffi.LLVMBuildICmp(self.builder,
-                                      llvm_rffi.Predicate.EQ,
-                                      arg,
-                                      self.cpu.const_minint,
-                                      "")
-        self._generate_set_ovf(ovf)
+        self._generate_ovf_test(self.cpu.f_sub_ovf,
+                                self.cpu.const_zero,
+                                self.getintarg(op.args[0]),
+                                op.result)
 
     def generate_INT_LSHIFT_OVF(self, op):
         arg0 = self.getintarg(op.args[0])
