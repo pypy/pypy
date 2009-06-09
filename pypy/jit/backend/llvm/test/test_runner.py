@@ -11,8 +11,3 @@ class TestLLVM(LLtypeBackendTest):
     def setup_class(cls):
         cls.cpu = LLVMCPU(None)
         cls.cpu.setup_once()
-
-    def _skip(self):
-        py.test.skip("in-progress")
-
-    test_executor = _skip

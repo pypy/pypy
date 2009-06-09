@@ -103,6 +103,8 @@ class LLVMCPU(model.AbstractCPU):
         for i in range(len(self.types_by_index)):
             arraydescr = self._descr_caches['array', i]
             (arraydescr.ty_array_ptr,
+             self.array_index_length,
+             self.array_index_array,
              self.const_array_index_length,
              self.const_array_index_array) = \
                     self._build_ty_array_ptr(shape_basesize,
@@ -110,6 +112,8 @@ class LLVMCPU(model.AbstractCPU):
                                              shape_length)
         (shape_basesize, shape_length) = self._string_shape
         (self.ty_string_ptr,
+         self.string_index_length,
+         self.string_index_array,
          self.const_string_index_length,
          self.const_string_index_array) = \
                  self._build_ty_array_ptr(shape_basesize,
@@ -117,6 +121,8 @@ class LLVMCPU(model.AbstractCPU):
                                           shape_length)
         (shape_basesize, shape_length) = self._unicode_shape
         (self.ty_unicode_ptr,
+         self.unicode_index_length,
+         self.unicode_index_array,
          self.const_unicode_index_length,
          self.const_unicode_index_array) = \
                  self._build_ty_array_ptr(shape_basesize,
@@ -207,8 +213,10 @@ class LLVMCPU(model.AbstractCPU):
         pad1 = ofs_length
         pad2 = basesize - ofs_length - self.size_of_int
         assert pad1 >= 0 and pad2 >= 0
-        index_length = self._make_const_int(pad1)
-        index_array = self._make_const_int(pad1 + 1 + pad2)
+        index_length = pad1
+        index_array = pad1 + 1 + pad2
+        const_index_length = self._make_const_int(index_length)
+        const_index_array = self._make_const_int(index_array)
         # build the type "struct{pad1.., length, pad2.., array{type}}"
         typeslist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
                                   pad1+pad2+2, flavor='raw')
@@ -228,7 +236,8 @@ class LLVMCPU(model.AbstractCPU):
                                             1)
         lltype.free(typeslist, flavor='raw')
         ty_array_ptr = llvm_rffi.LLVMPointerType(ty_array, 0)
-        return (ty_array_ptr, index_length, index_array)
+        return (ty_array_ptr, index_length, index_array,
+                const_index_length, const_index_array)
 
     # ------------------------------
     # Compilation
@@ -463,6 +472,30 @@ class LLVMCPU(model.AbstractCPU):
             return BoxPtr(self.get_latest_value_ptr(0))
         else:
             return BoxInt(self.get_latest_value_int(0))
+
+    def _allocate_new_array(self, args, ty_array, item_size,
+                            index_array, index_length):
+        length = args[0].value
+        #try:
+        size = length * item_size + index_array
+        #except OverflowError:
+        #    ...
+        res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, size))
+        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+        p[index_length / rffi.sizeof(lltype.Signed)] = length
+        return BoxPtr(res)
+
+    def do_newstr(self, args, descr=None):
+        return self._allocate_new_array(args, self.ty_string_ptr,
+                                        1,
+                                        self.string_index_array,
+                                        self.string_index_length)
+
+    def do_newunicode(self, args, descr=None):
+        return self._allocate_new_array(args, self.ty_unicode_ptr,
+                                        self.size_of_unicode,
+                                        self.unicode_index_array,
+                                        self.unicode_index_length)
 
 
 class SizeDescr(AbstractDescr):
