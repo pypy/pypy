@@ -249,12 +249,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
             d = {}
             source = """if 1: 
-                def _run_UWS_%s(self, space, scope_w):
+                def _run(self, space, scope_w):
                     return self.behavior(%s)
-                \n""" % (label, ', '.join(self.run_args))
+                \n""" % (', '.join(self.run_args),)
             exec compile2(source) in self.miniglobals, d
-            d['_run'] = d['_run_UWS_%s' % label]
-            del d['_run_UWS_%s' % label]
 
             activation_cls = type("BuiltinActivation_UwS_%s" % label,
                              (BuiltinActivation,), d)
