@@ -47,7 +47,7 @@ class GcLLDescr_boehm(GcLLDescription):
         basesize, itemsize, ofs_length = symbolic.get_array_token(A,
                                                        translate_support_code)
         assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        assert ofs_length == 0
+        # assert ofs_length == 0 --- but it's symbolic...
         if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
             ptr = True
         else:
