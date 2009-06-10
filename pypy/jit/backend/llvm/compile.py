@@ -539,6 +539,7 @@ class LLVMJITCompiler(object):
                                       func, arglist, nb_args, "")
         lltype.free(arglist, flavor='raw')
         if op.result is not None:
+            assert calldescr.res_index >= 0
             self.vars[op.result] = res
 
     generate_CALL_PURE = generate_CALL

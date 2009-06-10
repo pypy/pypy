@@ -632,20 +632,23 @@ class LLVMCPU(object):
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         p.chars[args[1].getint()] = res
 
-    def _new_box(self, ptr):
-        if ptr:
-            return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
-        return BoxInt(0)
-
-    def _get_loop_for_call(self, argnum, calldescr, ptr):
+    def _get_loop_for_call(self, argnum, calldescr):
         loop = calldescr._generated_mp
         if loop is None:
             args = [BoxInt() for i in range(argnum + 1)]
-            result = self._new_box(ptr)
+            if calldescr.res_index < 0:
+                result = None
+            elif calldescr.res_index == self.SIZE_GCPTR:
+                result = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+            else:
+                result = BoxInt(0)
+            result_list = []
+            if result is not None:
+                result_list.append(result)
             operations = [
                 ResOperation(rop.CALL, args, result, calldescr),
                 ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-                ResOperation(rop.FAIL, [result], None)]
+                ResOperation(rop.FAIL, result_list, None)]
             operations[1].suboperations = [ResOperation(rop.FAIL, [], None)]
             loop = history.TreeLoop('call')
             loop.inputargs = args
@@ -658,15 +661,14 @@ class LLVMCPU(object):
         assert isinstance(calldescr, CallDescr)
         num_args = len(calldescr.args_indices)
         assert num_args == len(args) - 1
-        ptr = (calldescr.res_index == self.SIZE_GCPTR)
-        loop = self._get_loop_for_call(num_args, calldescr, ptr)
+        loop = self._get_loop_for_call(num_args, calldescr)
         history.set_future_values(self, args)
         self.execute_operations(loop)
         # Note: if an exception is set, the rest of the code does a bit of
         # nonsense but nothing wrong (the return value should be ignored)
         if calldescr.res_index < 0:
             return None
-        elif ptr:
+        elif calldescr.res_index == self.SIZE_GCPTR:
             return BoxPtr(self.get_latest_value_ptr(0))
         else:
             return BoxInt(self.get_latest_value_int(0))
