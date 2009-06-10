@@ -312,6 +312,14 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'ptr', descr=fielddescr2)
         assert res.value == u_box.value
+        #
+        null_const = self.null_instance().constbox()
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, null_const],
+                                     'void', descr=fielddescr2)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'ptr', descr=fielddescr2)
+        assert res.value == null_const.value
 
     def test_passing_guards(self):
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),

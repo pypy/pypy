@@ -225,7 +225,7 @@ class LLVMJITCompiler(object):
             value_ref = self.vars[v]
         except KeyError:
             return self.cpu._make_const(v.getaddr(self.cpu),
-                                        self.cpu.ty_char_ptr_ptr)
+                                        self.cpu.ty_char_ptr)
         else:
             ty = llvm_rffi.LLVMTypeOf(value_ref)
             if ty == self.cpu.ty_int:
