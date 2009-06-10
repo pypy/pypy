@@ -432,6 +432,48 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [b_box, BoxInt(1)],
                                    'ptr', descr=arraydescr)
         assert r.value == a_box.value
+        #
+        # Unsigned should work the same as Signed
+        a_box, A = self.alloc_array_of(lltype.Unsigned, 342)
+        arraydescr = self.cpu.arraydescrof(A)
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 342
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(310),
+                                                         BoxInt(7441)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
+                                   'int', descr=arraydescr)
+        assert r.value == 7441
+        #
+        # Bool should work the same as Char
+        a_box, A = self.alloc_array_of(lltype.Bool, 311)
+        arraydescr = self.cpu.arraydescrof(A)
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 311
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(304),
+                                                         BoxInt(1)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(303),
+                                                         BoxInt(0)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(302),
+                                                         BoxInt(1)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(304)],
+                                   'int', descr=arraydescr)
+        assert r.value == 1
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(303)],
+                                   'int', descr=arraydescr)
+        assert r.value == 0
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(302)],
+                                   'int', descr=arraydescr)
+        assert r.value == 1
 
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")

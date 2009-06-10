@@ -366,14 +366,14 @@ class LLVMCPU(object):
             else:
                 return self.SIZE_INT
         else:
-            if TYPE == lltype.Signed:
+            if TYPE == lltype.Signed or TYPE == lltype.Unsigned:
                 return self.SIZE_INT
-            elif TYPE == lltype.Char:
+            elif TYPE == lltype.Char or TYPE == lltype.Bool:
                 return self.SIZE_CHAR
             elif TYPE == lltype.UniChar:
                 return self.SIZE_UNICHAR
             else:
-                raise BadSizeError(S, fieldname, size)
+                raise BadSizeError(TYPE)
 
     def sizeof(self, S):
         try:
