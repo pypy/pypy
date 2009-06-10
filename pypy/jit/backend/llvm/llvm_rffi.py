@@ -14,6 +14,8 @@ dirname = os.path.join(cachename, 'libs')
 libname = os.path.join(dirname, 'pypy_cache_llvm.so')
 cname = os.path.join(os.path.dirname(__file__), 'demo1.c')
 cppname = os.path.join(os.path.dirname(__file__), 'demo2.cpp')
+o1name = os.path.join(dirname, 'demo1.o')
+o2name = os.path.join(dirname, 'demo2.o')
 
 if (not os.path.isfile(libname) or
         os.path.getmtime(cname) > os.path.getmtime(libname) or
@@ -29,17 +31,24 @@ if (not os.path.isfile(libname) or
         if err:
             raise Exception("gcc command failed")
 
-    o1name = os.path.join(dirname, 'demo1.o')
-    o2name = os.path.join(dirname, 'demo2.o')
     do("g++ -g -c '%s' -o '%s' `%s --cppflags`" % (cname, o1name, llvm_config))
     do("g++ -g -c '%s' -o '%s' `%s --cppflags`" % (cppname, o2name, llvm_config))
     do("g++ -g -shared '%s' '%s' -o '%s'" % (o1name, o2name, libname) +
        " `%s --cflags --ldflags --libs jit engine`" % llvm_config)
 
-compilation_info = ExternalCompilationInfo(
+ctypes_compilation_info = ExternalCompilationInfo(
     library_dirs = [dirname],
     libraries    = ['pypy_cache_llvm'],
 )
+
+compilation_info = ExternalCompilationInfo.from_linker_flags(
+    os.popen("%s --ldflags --libs jit engine" % llvm_config, 'r').read())
+
+compilation_info = compilation_info.merge(ExternalCompilationInfo(
+    link_extra = [o1name, o2name],
+    ))
+
+compilation_info._with_ctypes = ctypes_compilation_info
 
 _teardown = None
 

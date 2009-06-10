@@ -5,7 +5,6 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import runicode
 from pypy.jit.metainterp.history import AbstractDescr, INT
 from pypy.jit.metainterp.history import BoxInt, BoxPtr
-from pypy.jit.backend import model
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -14,7 +13,7 @@ from pypy.jit.backend.x86 import symbolic     # xxx
 history.TreeLoop._llvm_compiled_index = -1
 
 
-class LLVMCPU(model.AbstractCPU):
+class LLVMCPU(object):
     is_oo = False
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
@@ -358,6 +357,7 @@ class LLVMCPU(model.AbstractCPU):
 
     @staticmethod
     def cast_int_to_adr(x):
+        assert x == 0 or x > (1<<20) or x < (-1<<20)
         if we_are_translated():
             return rffi.cast(llmemory.Address, x)
         else:
@@ -694,10 +694,13 @@ class ArrayDescr(AbstractDescr):
         # ^^^ set by setup_once()
 
 class CallDescr(AbstractDescr):
+    ty_function_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
+    result_mask = -1
+    _generated_mp = None
+    #
     def __init__(self, ty_function_ptr, result_mask):
         self.ty_function_ptr = ty_function_ptr
         self.result_mask = result_mask     # -2 to mark a ptr result
-        self._generated_mp = None
 
 # ____________________________________________________________
 

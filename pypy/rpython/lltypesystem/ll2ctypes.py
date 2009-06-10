@@ -819,11 +819,14 @@ def get_ctypes_callable(funcptr, calling_conv):
     
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
-    try:
-        eci = _eci_cache[old_eci]
-    except KeyError:
-        eci = old_eci.compile_shared_lib()
-        _eci_cache[old_eci] = eci
+    if hasattr(old_eci, '_with_ctypes'):
+        eci = old_eci._with_ctypes
+    else:
+        try:
+            eci = _eci_cache[old_eci]
+        except KeyError:
+            eci = old_eci.compile_shared_lib()
+            _eci_cache[old_eci] = eci
 
     libraries = list(eci.libraries + eci.frameworks)
 

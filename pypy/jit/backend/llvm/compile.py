@@ -318,8 +318,8 @@ class LLVMJITCompiler(object):
                                           self.cpu.const_zero,
                                           "")
         else:
-            # value_ref: ty_int
-            res = LLVMBuildNot(self.builder, value_ref, "")
+            # value_ref: ty_bit
+            res = llvm_rffi.LLVMBuildNot(self.builder, value_ref, "")
         self.vars[op.result] = res
 
     def generate_INT_ADD_OVF(self, op):
