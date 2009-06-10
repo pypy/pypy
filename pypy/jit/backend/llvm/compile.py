@@ -84,6 +84,7 @@ class LLVMJITCompiler(object):
 
     def done_generating_function(self):
         llvm_rffi.LLVMDisposeBuilder(self.builder)
+        llvm_rffi.LLVMDumpValue(self.compiling_func)   # xxx for debugging
         #
         func_addr = llvm_rffi.LLVM_EE_getPointerToFunction(self.cpu.ee,
                                                            self.compiling_func)
@@ -516,32 +517,28 @@ class LLVMJITCompiler(object):
     def generate_CALL(self, op):
         calldescr = op.descr
         assert isinstance(calldescr, CallDescr)
+        ty_function_ptr = self.cpu.get_calldescr_ty_function_ptr(calldescr)
         v = op.args[0]
         if isinstance(v, Const):
-            func = self.cpu._make_const(v.getint(), calldescr.ty_function_ptr)
+            func = self.cpu._make_const(v.getint(), ty_function_ptr)
         else:
             func = self.getintarg(v)
             func = llvm_rffi.LLVMBuildIntToPtr(self.builder,
                                                func,
-                                               calldescr.ty_function_ptr, "")
+                                               ty_function_ptr, "")
         nb_args = len(op.args) - 1
         arglist = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), nb_args,
                                 flavor='raw')
         for i in range(nb_args):
             v = op.args[1 + i]
-            if v.type == INT:
-                value_ref = self.getintarg(v)
-            else:
-                value_ref = self.getptrarg(v)
+            index = calldescr.args_indices[i]
+            getarg = self.cpu.getarg_by_index[index]
+            value_ref = getarg(self, v)
             arglist[i] = value_ref
         res = llvm_rffi.LLVMBuildCall(self.builder,
                                       func, arglist, nb_args, "")
         lltype.free(arglist, flavor='raw')
         if op.result is not None:
-            if calldescr.result_mask >= 0:
-                mask = self.cpu._make_const_int(calldescr.result_mask)
-                res = llvm_rffi.LLVMBuildAnd(self.builder,
-                                             res, mask, "")
             self.vars[op.result] = res
 
     generate_CALL_PURE = generate_CALL

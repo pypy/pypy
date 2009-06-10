@@ -99,3 +99,12 @@ def test_loop_2():
     cpu.set_future_value_int(1, 60)
     cpu.execute_operations(loop2)
     assert cpu.get_latest_value_int(0) == 1443    # should see the change
+
+def test_descrof():
+    cpu = LLVMCPU(None)
+    # just to check that we can call them before setup_once():
+    from pypy.rpython.lltypesystem import lltype, rclass
+    cpu.sizeof(rclass.OBJECT)
+    cpu.fielddescrof(rclass.OBJECT, 'typeptr')
+    cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    cpu.calldescrof(lltype.FuncType([], lltype.Signed), (), lltype.Signed)

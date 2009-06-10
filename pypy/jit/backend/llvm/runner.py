@@ -251,7 +251,6 @@ class LLVMCPU(object):
         from pypy.jit.backend.llvm.compile import LLVMJITCompiler
         compiler = LLVMJITCompiler(self, loop)
         compiler.compile()
-        llvm_rffi.LLVMDumpModule(self.module)   # xxx for debugging
 
     def _ensure_in_args(self, count):
         while len(self.in_out_args) < count:
@@ -280,14 +279,6 @@ class LLVMCPU(object):
         llvmconstint = self._make_const_int(value_as_signed)
         llvmconstptr = llvm_rffi.LLVMConstIntToPtr(llvmconstint, ty_result)
         return llvmconstptr
-
-    def _lltype2llvmtype(self, TYPE):
-        if TYPE is lltype.Void:
-            return self.ty_void
-        elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-            return self.ty_char_ptr
-        else:
-            return self.ty_int
 
     def _get_var_type(self, v):
         if v.type == INT:
@@ -410,34 +401,42 @@ class LLVMCPU(object):
         return self._arraydescrs[itemsize_index]
 
     def calldescrof(self, FUNC, ARGS, RESULT):
-        try:
-            return self._descr_caches['call', ARGS, RESULT]
-        except KeyError:
-            pass
-        #
-        param_types = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
-                                    len(ARGS), flavor='raw')
-        for i in range(len(ARGS)):
-            param_types[i] = self._lltype2llvmtype(ARGS[i])
-        ty_func = llvm_rffi.LLVMFunctionType(self._lltype2llvmtype(RESULT),
-                                             param_types, len(ARGS), 0)
-        lltype.free(param_types, flavor='raw')
-        ty_funcptr = llvm_rffi.LLVMPointerType(ty_func, 0)
-        #
+        args_indices = [self._get_size_index(ARG) for ARG in ARGS]
         if RESULT is lltype.Void:
-            result_mask = 0
-        elif isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
-            result_mask = -2
+            res_index = -1
         else:
-            result_size = symbolic.get_size(RESULT,
-                                            self.translate_support_code)
-            if result_size < self.size_of_int:
-                result_mask = (1 << (result_size*8)) - 1
-            else:
-                result_mask = -1
-        descr = CallDescr(ty_funcptr, result_mask)
-        self._descr_caches['call', ARGS, RESULT] = descr
+            res_index = self._get_size_index(RESULT)
+        #
+        key = ('call', tuple(args_indices), res_index)
+        try:
+            descr = self._descr_caches[key]
+        except KeyError:
+            descr = CallDescr(args_indices, res_index)
+            self._descr_caches[key] = descr
         return descr
+
+    def get_calldescr_ty_function_ptr(self, calldescr):
+        if not calldescr.ty_function_ptr:
+            #
+            args_indices = calldescr.args_indices
+            param_types = lltype.malloc(rffi.CArray(llvm_rffi.LLVMTypeRef),
+                                        len(args_indices), flavor='raw')
+            for i in range(len(args_indices)):
+                param_types[i] = self.types_by_index[args_indices[i]]
+            #
+            res_index = calldescr.res_index
+            if res_index < 0:
+                ty_result = self.ty_void
+            else:
+                ty_result = self.types_by_index[res_index]
+            #
+            ty_func = llvm_rffi.LLVMFunctionType(ty_result, param_types,
+                                                 len(args_indices), 0)
+            lltype.free(param_types, flavor='raw')
+            ty_funcptr = llvm_rffi.LLVMPointerType(ty_func, 0)
+            calldescr.ty_function_ptr = ty_funcptr
+            #
+        return calldescr.ty_function_ptr
 
     # ------------------------------
     # do_xxx methods
@@ -652,14 +651,15 @@ class LLVMCPU(object):
 
     def do_call(self, args, calldescr):
         assert isinstance(calldescr, CallDescr)
-        num_args = len(args) - 1
-        ptr = (calldescr.result_mask == -2)
+        num_args = len(calldescr.args_indices)
+        assert num_args == len(args) - 1
+        ptr = (calldescr.res_index == self.SIZE_GCPTR)
         loop = self._get_loop_for_call(num_args, calldescr, ptr)
         history.set_future_values(self, args)
         self.execute_operations(loop)
         # Note: if an exception is set, the rest of the code does a bit of
         # nonsense but nothing wrong (the return value should be ignored)
-        if calldescr.result_mask == 0:
+        if calldescr.res_index < 0:
             return None
         elif ptr:
             return BoxPtr(self.get_latest_value_ptr(0))
@@ -695,12 +695,13 @@ class ArrayDescr(AbstractDescr):
 
 class CallDescr(AbstractDescr):
     ty_function_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
-    result_mask = -1
+    args_indices = [0]   # dummy value to make annotation happy
+    res_index = 0
     _generated_mp = None
     #
-    def __init__(self, ty_function_ptr, result_mask):
-        self.ty_function_ptr = ty_function_ptr
-        self.result_mask = result_mask     # -2 to mark a ptr result
+    def __init__(self, args_indices, res_index):
+        self.args_indices = args_indices
+        self.res_index = res_index
 
 # ____________________________________________________________
 

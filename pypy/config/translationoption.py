@@ -116,7 +116,7 @@ translation_optiondescription = OptionDescription(
                suggests=[("translation.gc", "boehm"),         # for now
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "minimal", "x86"],
+                 ["auto", "minimal", "x86", "llvm"],
                  default="auto", cmdline="--jit-backend"),
 
     # misc

@@ -148,6 +148,7 @@ LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
 LLVMVoidType = llexternal('LLVMVoidType', [], LLVMTypeRef)
 
 LLVMTypeOf = llexternal('LLVMTypeOf', [LLVMValueRef], LLVMTypeRef)
+LLVMDumpValue = llexternal('LLVMDumpValue', [LLVMValueRef], lltype.Void)
 LLVMConstNull = llexternal('LLVMConstNull', [LLVMTypeRef], LLVMValueRef)
 LLVMConstInt = llexternal('LLVMConstInt', [LLVMTypeRef,     # type
                                            rffi.ULONGLONG,  # value
