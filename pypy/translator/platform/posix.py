@@ -86,14 +86,15 @@ class BasePosix(Platform):
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', self.cflags + list(eci.compile_extra)),
             ('LDFLAGS', self.link_flags + list(eci.link_extra)),
-            ('CC', self.cc)
+            ('CC', self.cc),
+            ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ]
         for args in definitions:
             m.definition(*args)
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 

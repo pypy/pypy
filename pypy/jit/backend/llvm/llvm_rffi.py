@@ -46,6 +46,7 @@ compilation_info = ExternalCompilationInfo.from_linker_flags(
 
 compilation_info = compilation_info.merge(ExternalCompilationInfo(
     link_extra = [o1name, o2name],
+    use_cpp_linker = True,
     ))
 
 compilation_info._with_ctypes = ctypes_compilation_info

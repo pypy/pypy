@@ -20,6 +20,7 @@ class ExternalCompilationInfo(object):
                    'export_symbols', 'compile_extra', 'link_extra',
                    'frameworks', 'link_files']
     _DUPLICATES_OK = ['compile_extra', 'link_extra']
+    _EXTRA_ATTRIBUTES = ['use_cpp_linker', 'platform']
 
     def __init__(self,
                  pre_include_bits        = [],
@@ -35,6 +36,7 @@ class ExternalCompilationInfo(object):
                  link_extra              = [],
                  frameworks              = [],
                  link_files              = [],
+                 use_cpp_linker          = False,
                  platform                = None):
         """
         pre_include_bits: list of pieces of text that should be put at the top
@@ -80,12 +82,16 @@ class ExternalCompilationInfo(object):
         link_files: list of file names which will be directly passed to the
         linker
 
+        use_cpp_linker: a flag to tell if g++ should be used instead of gcc
+        when linking (a bit custom so far)
+
         platform: an object that can identify the platform
         """
         for name in self._ATTRIBUTES:
             value = locals()[name]
             assert isinstance(value, (list, tuple))
             setattr(self, name, tuple(value))
+        self.use_cpp_linker = use_cpp_linker
         if platform is None:
             from pypy.translator.platform import platform
         self.platform = platform
@@ -155,8 +161,8 @@ class ExternalCompilationInfo(object):
     from_config_tool = classmethod(from_config_tool)
 
     def _value(self):
-        return tuple([getattr(self, x) for x in self._ATTRIBUTES]
-                     + [self.platform])
+        return tuple([getattr(self, x)
+                          for x in self._ATTRIBUTES + self._EXTRA_ATTRIBUTES])
 
     def __hash__(self):
         return hash(self._value())
@@ -170,10 +176,9 @@ class ExternalCompilationInfo(object):
 
     def __repr__(self):
         info = []
-        for attr in self._ATTRIBUTES:
+        for attr in self._ATTRIBUTES + self._EXTRA_ATTRIBUTES:
             val = getattr(self, attr)
             info.append("%s=%s" % (attr, repr(val)))
-        info.append("platform=%s" % repr(self.platform))
         return "<ExternalCompilationInfo (%s)>" % ", ".join(info)
 
     def merge(self, *others):
@@ -203,6 +208,10 @@ class ExternalCompilationInfo(object):
                             s.add(elem)
                             attr.append(elem)
                 attrs[name] = attr
+        use_cpp_linker = self.use_cpp_linker
+        for other in others:
+            use_cpp_linker = use_cpp_linker or other.use_cpp_linker
+        attrs['use_cpp_linker'] = use_cpp_linker
         for other in others:
             if other.platform != self.platform:
                 raise Exception("Mixing ECI for different platforms %s and %s"%
@@ -220,7 +229,7 @@ class ExternalCompilationInfo(object):
 
     def _copy_attributes(self):
         d = {}
-        for attr in self._ATTRIBUTES:
+        for attr in self._ATTRIBUTES + self._EXTRA_ATTRIBUTES:
             d[attr] = getattr(self, attr)
         return d
 

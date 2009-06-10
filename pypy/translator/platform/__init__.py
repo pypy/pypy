@@ -121,8 +121,8 @@ class Platform(object):
         library_dirs = self._libdirs(eci.library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        return (library_dirs + libraries + self.link_flags +
-                link_files + list(eci.link_extra))
+        return (library_dirs + self.link_flags +
+                link_files + list(eci.link_extra) + libraries)
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
@@ -134,7 +134,11 @@ class Platform(object):
                 exe_name += '.' + self.exe_ext
         else:
             exe_name += '.' + self.so_ext
-        return self._link(self.cc, ofiles, self._link_args_from_eci(eci),
+        if eci.use_cpp_linker:
+            cc_link = 'g++'      # XXX hard-coded so far
+        else:
+            cc_link = self.cc
+        return self._link(cc_link, ofiles, self._link_args_from_eci(eci),
                           standalone, exe_name)
 
     # below are some detailed informations for platforms
