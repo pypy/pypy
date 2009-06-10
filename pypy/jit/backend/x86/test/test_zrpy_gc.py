@@ -47,6 +47,7 @@ def get_test(main):
 
 
 def compile_and_run(f, gc, **kwds):
+    from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
     from pypy.translator.c import genc
@@ -56,7 +57,7 @@ def compile_and_run(f, gc, **kwds):
     t.config.translation.gcconfig.debugprint = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
-    t.buildannotator().build_types(f, [int])
+    t.buildannotator().build_types(f, [s_list_of_strings])
     t.buildrtyper().specialize()
     if kwds['jit']:
         apply_jit(t, CPUClass=CPU386)

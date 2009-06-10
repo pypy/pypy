@@ -9,6 +9,6 @@ class Jit386Mixin(CCompiledMixin):
 
 class TestSList(Jit386Mixin, ListTests):
     # for the individual tests see
-    # ====> ../../test/test_slist.py
+    # ====> ../../../test/test_slist.py
     pass
 
