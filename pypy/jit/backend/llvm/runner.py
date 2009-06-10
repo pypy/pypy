@@ -51,8 +51,12 @@ class LLVMCPU(object):
             self.size_of_unicode = 4
         else:
             self.size_of_unicode = 2
+        self.gcarray_gcref   = lltype.GcArray(llmemory.GCREF)
+        self.gcarray_signed  = lltype.GcArray(lltype.Signed)
+        self.gcarray_char    = lltype.GcArray(lltype.Char)
+        self.gcarray_unichar = lltype.GcArray(lltype.UniChar)
         basesize, _, ofs_length = symbolic.get_array_token(
-            lltype.GcArray(lltype.Signed), self.translate_support_code)
+            self.gcarray_signed, self.translate_support_code)
         self.array_index_array = basesize
         self.array_index_length = ofs_length
         basesize, _, ofs_length = symbolic.get_array_token(
@@ -395,8 +399,9 @@ class LLVMCPU(object):
     def arraydescrof(self, A):
         basesize, _, ofs_length = symbolic.get_array_token(A,
                                                self.translate_support_code)
-        assert self.array_index_array == basesize
-        assert self.array_index_length == ofs_length
+        if isinstance(basesize, int):   # else Symbolics, can't be compared...
+            assert self.array_index_array == basesize
+            assert self.array_index_length == ofs_length
         itemsize_index = self._get_size_index(A.OF)
         return self._arraydescrs[itemsize_index]
 
@@ -443,7 +448,7 @@ class LLVMCPU(object):
 
     def do_arraylen_gc(self, args, arraydescr):
         array = args[0].getptr_base()
-        p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+        p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
         res = len(p)
         return BoxInt(res)
 
@@ -477,17 +482,17 @@ class LLVMCPU(object):
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
         if itemsize_index == self.SIZE_GCPTR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(llmemory.GCREF)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_gcref), array)
             res = p[index]
             return BoxPtr(res)
         elif itemsize_index == self.SIZE_INT:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
             res = p[index]
         elif itemsize_index == self.SIZE_CHAR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Char)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_char), array)
             res = ord(p[index])
         elif itemsize_index == self.SIZE_UNICHAR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.UniChar)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_unichar), array)
             res = ord(p[index])
         else:
             raise BadSizeError
@@ -556,19 +561,19 @@ class LLVMCPU(object):
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
         if itemsize_index == self.SIZE_GCPTR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(llmemory.GCREF)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_gcref), array)
             res = args[2].getptr_base()
             p[index] = res
         elif itemsize_index == self.SIZE_INT:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Signed)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
             res = args[2].getint()
             p[index] = res
         elif itemsize_index == self.SIZE_CHAR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.Char)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_char), array)
             res = chr(args[2].getint())
             p[index] = res
         elif itemsize_index == self.SIZE_UNICHAR:
-            p = rffi.cast(lltype.Ptr(lltype.GcArray(lltype.UniChar)), array)
+            p = rffi.cast(lltype.Ptr(self.gcarray_unichar), array)
             res = unichr(args[2].getint())
             p[index] = res
         else:
