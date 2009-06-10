@@ -707,8 +707,8 @@ class CallDescr(AbstractDescr):
     _generated_mp = None
     #
     def __init__(self, args_indices, res_index):
-        self.args_indices = args_indices
-        self.res_index = res_index
+        self.args_indices = args_indices   # indices in cpu.types_by_index
+        self.res_index = res_index         # index in cpu.types_by_index, or -1
 
 # ____________________________________________________________
 
