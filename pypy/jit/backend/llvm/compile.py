@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.jit.metainterp.history import ConstInt, INT
+from pypy.jit.metainterp.history import Const, INT
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
@@ -145,8 +145,8 @@ class LLVMJITCompiler(object):
         try:
             value_ref = self.vars[v]
         except KeyError:
-            assert isinstance(v, ConstInt)
-            return self.cpu._make_const_int(v.value)
+            assert isinstance(v, Const)
+            return self.cpu._make_const_int(v.getint())
         else:
             return self._cast_to_int(value_ref)
 
@@ -162,8 +162,8 @@ class LLVMJITCompiler(object):
         try:
             value_ref = self.vars[v]
         except KeyError:
-            assert isinstance(v, ConstInt)
-            return self.cpu._make_const_bit(v.value)
+            assert isinstance(v, Const)
+            return self.cpu._make_const_bit(v.getint())
         else:
             return self._cast_to_bit(value_ref)
 
@@ -179,8 +179,8 @@ class LLVMJITCompiler(object):
         try:
             value_ref = self.vars[v]
         except KeyError:
-            assert isinstance(v, ConstInt)
-            return self.cpu._make_const_char(v.value)
+            assert isinstance(v, Const)
+            return self.cpu._make_const_char(v.getint())
         else:
             return self._cast_to_char(value_ref)
 
@@ -201,8 +201,8 @@ class LLVMJITCompiler(object):
         try:
             value_ref = self.vars[v]
         except KeyError:
-            assert isinstance(v, ConstInt)
-            return self.cpu._make_const_unichar(v.value)
+            assert isinstance(v, Const)
+            return self.cpu._make_const_unichar(v.getint())
         else:
             return self._cast_to_unichar(value_ref)
 
@@ -420,9 +420,9 @@ class LLVMJITCompiler(object):
 
     def generate_GUARD_EXCEPTION(self, op):
         v = op.args[0]
-        assert isinstance(v, ConstInt)
+        assert isinstance(v, Const)
         # etype, expectedtype: ty_char_ptr
-        expectedtype = self.cpu._make_const(v.value, self.cpu.ty_char_ptr)
+        expectedtype = self.cpu._make_const(v.getint(), self.cpu.ty_char_ptr)
         etype = llvm_rffi.LLVMBuildLoad(self.builder,
                                         self.cpu.const_exc_type, "")
         eisequal = llvm_rffi.LLVMBuildICmp(self.builder,
@@ -517,8 +517,8 @@ class LLVMJITCompiler(object):
         calldescr = op.descr
         assert isinstance(calldescr, CallDescr)
         v = op.args[0]
-        if isinstance(v, ConstInt):
-            func = self.cpu._make_const(v.value, calldescr.ty_function_ptr)
+        if isinstance(v, Const):
+            func = self.cpu._make_const(v.getint(), calldescr.ty_function_ptr)
         else:
             func = self.getintarg(v)
             func = llvm_rffi.LLVMBuildIntToPtr(self.builder,

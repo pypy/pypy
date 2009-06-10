@@ -6,7 +6,6 @@ soon as possible (at least in a simple case).
 """
 import weakref
 import py
-py.test.skip("in-progress")
 from pypy.rlib import rgc
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.llvm.runner import LLVMCPU
@@ -63,7 +62,7 @@ def compile_and_run(f, gc, **kwds):
     cbuilder.compile()
     #
     data = cbuilder.cmdexec('')
-    return data.strip()
+    return data.splitlines()[-1].strip()
 
 
 def test_compile_boehm():
