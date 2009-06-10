@@ -1005,3 +1005,18 @@ class TestLL2Ctypes(object):
         ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
         v = lltype2ctypes(ref)
         assert isinstance(v, ctypes.c_void_p)
+
+    def test_gcref_null(self):
+        ref = lltype.nullptr(llmemory.GCREF.TO)
+        v = lltype2ctypes(ref)
+        assert isinstance(v, ctypes.c_void_p)
+
+    def test_cast_null_gcref(self):
+        ref = lltype.nullptr(llmemory.GCREF.TO)
+        value = rffi.cast(lltype.Signed, ref)
+        assert value == 0
+
+    def test_cast_null_fakeaddr(self):
+        ref = llmemory.NULL
+        value = rffi.cast(lltype.Signed, ref)
+        assert value == 0

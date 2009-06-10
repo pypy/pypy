@@ -524,6 +524,8 @@ def lltype2ctypes(llobj, normalize=True):
 
     if isinstance(T, lltype.Ptr):
         if not llobj:   # NULL pointer
+            if T == llmemory.GCREF:
+                return ctypes.c_void_p(0)
             return get_ctypes_type(T)()
 
         if T is base_ptr_lltype():
@@ -946,7 +948,7 @@ def force_cast(RESTYPE, value):
     if not isinstance(RESTYPE, lltype.LowLevelType):
         raise TypeError("rffi.cast() first arg should be a TYPE")
     if isinstance(value, llmemory.fakeaddress):
-        value = value.ptr
+        value = value.ptr or 0
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
