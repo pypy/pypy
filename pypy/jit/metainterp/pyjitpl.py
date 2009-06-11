@@ -1279,7 +1279,7 @@ class MetaInterp(object):
             assert False
         self.history.record(rop.JUMP, exits, None)
         target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
-        assert target_loop is loops[0]
+        #assert target_loop is loops[0]
 
     def compile_exit_frame_with_exception(self, valuebox):
         # temporarily put a JUMP to a pseudo-loop

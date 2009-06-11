@@ -372,6 +372,8 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loops match.
+    if isinstance(resumekey, ResumeFromInterpDescr):
+        return None # XXX disable compiling bridges from interpreter
     new_loop = create_empty_loop(metainterp)
     new_loop.operations = metainterp.history.operations
     metainterp_sd = metainterp.staticdata

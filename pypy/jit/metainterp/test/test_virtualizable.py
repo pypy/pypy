@@ -439,7 +439,6 @@ class ImplicitVirtualizableTests:
                         assert isinstance(op.args[1], history.BoxInt)
 
     def test_virtual_obj_on_always_virtual(self):
-        py.test.skip("Bugs!")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 
@@ -476,7 +475,6 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtual_obj_on_always_virtual_more_bridges(self):
-        py.test.skip("Bugs!")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 
@@ -607,17 +605,45 @@ class ImplicitVirtualizableTests:
         assert res == -17
         self.check_loops(getfield_gc=0, setfield_gc=0, call=0)
 
+    def test_virtualizable_field_only_read(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
+                              virtualizables = ['frame'])
 
-class TestOOtype(ExplicitVirtualizableTests,
-                ImplicitVirtualizableTests,
-                OOJitMixin):
-    pass
+        class Frame(object):
+            def __init__(self):
+                self.xyz = 3
+            _virtualizable2_ = True
+
+        class SubFrame(Frame):
+            pass
+
+        def f(n):
+            frame = SubFrame()
+
+            while n > 0:
+                jitdriver.can_enter_jit(frame=frame, n=n)
+                jitdriver.jit_merge_point(frame=frame, n=n)
+                n -= frame.xyz
+            return n
+
+        res = self.meta_interp(f, [53])
+        assert res == -1
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  LLJitMixin):
     pass
 
+
+class TestOOtype(ExplicitVirtualizableTests,
+                ImplicitVirtualizableTests,
+                OOJitMixin):
+
+    def skip(self):
+        py.test.skip('in-progress')
+
+    test_virtual_obj_on_always_virtual = skip
+    test_virtual_obj_on_always_virtual_more_bridges = skip
 
 class TestOptimize2LLtype(ImplicitVirtualizableTests, LLJitMixin):
 
@@ -634,7 +660,8 @@ class TestOptimize2LLtype(ImplicitVirtualizableTests, LLJitMixin):
     test_no_virtual_on_virtualizable = skip
     test_virtualizable_hierarchy = skip
     test_non_virtual_on_always_virtual = skip
-
+    test_virtual_obj_on_always_virtual_more_bridges = skip
+    test_virtual_obj_on_always_virtual = skip
 
 class TestOptimize2OOtype(ImplicitVirtualizableTests, OOJitMixin):
 
@@ -651,3 +678,5 @@ class TestOptimize2OOtype(ImplicitVirtualizableTests, OOJitMixin):
     test_no_virtual_on_virtualizable = skip
     test_virtualizable_hierarchy = skip
     test_non_virtual_on_always_virtual = skip
+    test_virtual_obj_on_always_virtual_more_bridges = skip
+    test_virtual_obj_on_always_virtual = skip
