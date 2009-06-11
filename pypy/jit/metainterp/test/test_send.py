@@ -387,7 +387,6 @@ class SendTests:
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        py.test.skip("Loop from interp disabled")
         self.check_tree_loop_count(2)
 
     def test_three_classes(self):
@@ -418,7 +417,6 @@ class SendTests:
             return n
         res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
         assert res == f(55)
-        py.test.skip("Loop from interp disabled")
         self.check_tree_loop_count(2)
 
     def test_bug1(self):

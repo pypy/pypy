@@ -127,14 +127,6 @@ class AbstractMethDescr(AbstractDescr):
         return self.jitcodes[oocls]
 
 
-class ExpandArgsFrom(AbstractValue):
-    def __init__(self, specnode, ofs):
-        self.specnode = specnode
-        self.ofs      = ofs
-
-    def __repr__(self):
-        return "!"
-
 class Const(AbstractValue):
     __slots__ = ()
 
@@ -547,8 +539,7 @@ class TreeLoop(Base):
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
         for box in self.inputargs:
-            if not isinstance(box, ExpandArgsFrom):
-                assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
+            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
         seen = dict.fromkeys(self.inputargs)
         assert len(seen) == len(self.inputargs), (
                "duplicate Box in the Loop.inputargs")

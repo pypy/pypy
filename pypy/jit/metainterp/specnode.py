@@ -1,5 +1,4 @@
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ExpandArgsFrom
 from pypy.jit.metainterp import executor
 
 class SpecNode(object):
@@ -10,7 +9,7 @@ class SpecNode(object):
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         resultlist.append(valuebox)
 
-    def adapt_to(self, instnode, modif_list):
+    def adapt_to(self, instnode, offsets):
         instnode.escaped = True
 
     def mutate_nodes(self, instnode):
@@ -20,6 +19,9 @@ class SpecNode(object):
         raise NotImplementedError
 
     def matches(self, other):
+        raise NotImplementedError
+
+    def compute_number_of_nodes(self):
         raise NotImplementedError
 
 class NotSpecNode(SpecNode):
@@ -34,6 +36,14 @@ class NotSpecNode(SpecNode):
     def matches(self, other):
         # NotSpecNode matches everything
         return True
+
+    def compute_number_of_nodes(self):
+        return 1
+
+class MatchEverythingSpecNode(SpecNode):
+
+    def compute_number_of_nodes(self):
+        return 0
 
 #class SpecNodeWithBox(NotSpecNode):
 #    # XXX what is this class used for?
@@ -69,6 +79,9 @@ class FixedClassSpecNode(SpecNode):
             return False
         return instnode.cls.source.equals(self.known_class)
 
+    def compute_number_of_nodes(self):
+        return 1
+
 ##class FixedListSpecNode(FixedClassSpecNode):
 
 ##    def equals(self, other):
@@ -90,7 +103,7 @@ class SpecNodeWithFields(FixedClassSpecNode):
         FixedClassSpecNode.mutate_nodes(self, instnode)
         curfields = r_dict(av_eq, av_hash)
         for ofs, subspecnode in self.fields:
-            if subspecnode is not None:
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
                 subinstnode = instnode.origfields[ofs]
                 # should really be there
                 subspecnode.mutate_nodes(subinstnode)
@@ -125,26 +138,22 @@ class SpecNodeWithFields(FixedClassSpecNode):
 
     def expand_boxlist(self, instnode, newboxlist):
         for ofs, subspecnode in self.fields:
-            if subspecnode is not None:
-                if ofs in instnode.curfields:
-                    subinstnode = instnode.curfields[ofs]
-                else:
-                    subinstnode = subspecnode.sourcenode
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                subinstnode = instnode.curfields[ofs]  # should really be there
                 subspecnode.expand_boxlist(subinstnode, newboxlist)
-            else:
-                newboxlist.append(ExpandArgsFrom(self, ofs))
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         for ofs, subspecnode in self.fields:
             from pypy.jit.metainterp.history import AbstractDescr
             assert isinstance(ofs, AbstractDescr)
-            fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
-                                        [valuebox], ofs)
-            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
+                                            [valuebox], ofs)
+                subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
-    def adapt_to(self, instnode, modif_list):
+    def adapt_to(self, instnode, offsets):
         for ofs, subspecnode in self.fields:
-            subspecnode.adapt_to(instnode.curfields[ofs], modif_list)
+            subspecnode.adapt_to(instnode.curfields[ofs], offsets)
 
     def compute_number_of_nodes(self):
         counter = 0
@@ -159,8 +168,8 @@ class VirtualizedSpecNode(SpecNodeWithFields):
             return False
         assert len(self.fields) == len(other.fields)
         for i in range(len(self.fields)):
-            if (self.fields[i][1] is None or
-                other.fields[i][1] is None):
+            if (isinstance(self.fields[i][1], MatchEverythingSpecNode) or
+                isinstance(other.fields[i][1], MatchEverythingSpecNode)):
                 continue
             assert self.fields[i][0].equals(other.fields[i][0])
             if not self.fields[i][1].equals(other.fields[i][1]):
@@ -169,10 +178,11 @@ class VirtualizedSpecNode(SpecNodeWithFields):
 
     def matches(self, instnode):
         for key, value in self.fields:
-            if key not in instnode.curfields:
-                continue
-            if value is not None and not value.matches(instnode.curfields[key]):
-                return False
+            if not isinstance(value, MatchEverythingSpecNode):
+                if key not in instnode.curfields:
+                    return False
+                if value is not None and not value.matches(instnode.curfields[key]):
+                    return False
         return True
     
     def expand_boxlist(self, instnode, newboxlist):
@@ -183,33 +193,31 @@ class VirtualizedSpecNode(SpecNodeWithFields):
         resultlist.append(valuebox)
         SpecNodeWithFields.extract_runtime_data(self, cpu, valuebox, resultlist)
 
-    def adapt_to(self, instnode, modif_list):
-        from pypy.jit.metainterp.optimize import InstanceNode
-        
+    def adapt_to(self, instnode, offsets_relative_to):
         instnode.escaped = True
         fields = []
-        instnode.cls = InstanceNode(self.known_class, const=True)
+        offsets_so_far = 0
         for ofs, subspecnode in self.fields:
-            if subspecnode is None:
-                if ofs in instnode.curfields and ofs in instnode.origfields:
+            if isinstance(subspecnode, MatchEverythingSpecNode):
+                node = None
+                if ofs in instnode.curfields:
                     node = instnode.curfields[ofs]
                     orignode = instnode.origfields[ofs]
                     subspecnode = orignode.intersect(node, {})
-                    subspecnode.sourcenode = orignode
-                    modif_list.append((self, ofs, subspecnode))
-                    subspecnode.adapt_to(node, modif_list)
-                    subspecnode.mutate_nodes(orignode)
                 elif ofs in instnode.origfields:
                     node = instnode.origfields[ofs]
                     subspecnode = node.intersect(node, {})
-                    subspecnode.sourcenode = node
-                    modif_list.append((self, ofs, subspecnode))
-                    subspecnode.adapt_to(node, modif_list)
-            elif ofs in instnode.curfields:                
-                subspecnode.adapt_to(instnode.curfields[ofs], modif_list)
-            elif ofs in instnode.origfields:
-                subspecnode.adapt_to(instnode.origfields[ofs], modif_list)
+                    orignode = node
+                if node is not None:
+                    subspecnode.mutate_nodes(orignode)
+                    offsets_relative_to.append((subspecnode, ofs, instnode,
+                                                offsets_so_far, orignode))
+            else:
+                subspecnode.adapt_to(instnode.curfields[ofs],
+                                     offsets_relative_to)
+                offsets_so_far += subspecnode.compute_number_of_nodes()
             fields.append((ofs, subspecnode))
+
         self.fields = fields
 
 # class DelayedSpecNode(VirtualizedSpecNode):
@@ -279,9 +287,9 @@ class VirtualizableSpecNode(VirtualizedSpecNode):
             return False
         return VirtualizedSpecNode.equals(self, other)        
 
-    def adapt_to(self, instnode, modif_list):
+    def adapt_to(self, instnode, offsets):
         instnode.virtualized = True
-        VirtualizedSpecNode.adapt_to(self, instnode, modif_list)
+        VirtualizedSpecNode.adapt_to(self, instnode, offsets)
 
 class VirtualizableListSpecNode(VirtualizedSpecNode):
 
@@ -301,20 +309,20 @@ class VirtualizableListSpecNode(VirtualizedSpecNode):
         arraydescr = cls.arraydescr
         check_descr(arraydescr)
         for ofs, subspecnode in self.fields:
-            if subspecnode is not None:
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
                 fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
                                             [valuebox, ofs], arraydescr)
                 subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
-    def adapt_to(self, instnode, modif_list):
+    def adapt_to(self, instnode, offsets):
         instnode.virtualized = True
-        VirtualizedSpecNode.adapt_to(self, instnode, modif_list)
+        VirtualizedSpecNode.adapt_to(self, instnode, offsets)
 
 class VirtualSpecNode(SpecNodeWithFields):
 
-    def adapt_to(self, instnode, modif_list):
+    def adapt_to(self, instnode, offsets):
         instnode.virtual = True
-        SpecNodeWithFields.adapt_to(self, instnode, modif_list)
+        SpecNodeWithFields.adapt_to(self, instnode, offsets)
 
     def mutate_nodes(self, instnode):
         SpecNodeWithFields.mutate_nodes(self, instnode)

@@ -2,10 +2,11 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt, BoxPtr,
                                          ResOperation, AbstractDescr,
                                          Options, AbstractValue, ConstPtr,
-                                         ConstObj, ExpandArgsFrom)
+                                         ConstObj)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
    VirtualInstanceSpecNode, VirtualizableSpecNode, NotSpecNode,
-   VirtualFixedListSpecNode, VirtualizableListSpecNode)
+   VirtualFixedListSpecNode, VirtualizableListSpecNode,
+   MatchEverythingSpecNode)
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -180,14 +181,11 @@ class InstanceNode(object):
                     self.origfields[ofs].cls = node.cls
                     nodes[box] = self.origfields[ofs]
                 specnode = self.origfields[ofs].intersect(node, nodes)
-                specnode.sourcenode = self.origfields[ofs]
             elif ofs in self.origfields:
                 node = self.origfields[ofs]
                 specnode = node.intersect(node, nodes)
-                specnode.sourcenode = node
             else:
-                node = None
-                specnode = None
+                specnode = MatchEverythingSpecNode()
             fields.append((ofs, specnode))
         if isinstance(known_class, FixedList):
             return VirtualizableListSpecNode(known_class, fields)
@@ -232,9 +230,9 @@ def optimize_bridge(options, old_loops, loop, cpu=None):
                 if node.startbox:
                     node.cls = None
                     assert not node.virtual
-            perfect_specializer.adapt_for_match(old_loop)
+            ofs = perfect_specializer.adapt_for_match(old_loop)
             perfect_specializer.optimize_loop()
-#            perfect_specializer.update_loop(ofs, old_loop)
+            perfect_specializer.update_loop(ofs, old_loop)
             return old_loop
     return None     # no loop matches
 
@@ -606,9 +604,9 @@ class PerfectSpecializer(object):
                 return True
             # this means field comes from a virtualizable but is never
             # written.
-#            node = InstanceNode(box)
-#            self.nodes[box] = node
-            instnode.curfields[ofs] = instnode.origfields[ofs]
+            node = InstanceNode(box)
+            self.nodes[box] = node
+            instnode.curfields[ofs] = node
             return True
         #if ofs in instnode.cleanfields:
         #    self.nodes[box] = instnode.cleanfields[ofs]
@@ -850,67 +848,18 @@ class PerfectSpecializer(object):
                 return False
         return True
 
-    def update_single_args(self, args, modifications):
-        newargs = []
-        for arg in args:
-            if isinstance(arg, ExpandArgsFrom):
-                for specnode, ofs, subspecnode in modifications:
-                    if specnode is arg.specnode and ofs == arg.ofs:
-                        l = []
-                        subspecnode.expand_boxlist(subspecnode.sourcenode, l)
-                        newargs += l
-                        break
-                else:
-                    newargs.append(arg)
-            else:
-                newargs.append(arg)
-        return newargs
-
-    def update_args(self, loop, modifications):
-        loop.inputargs = self.update_single_args(loop.inputargs, modifications)
-        jmp = loop.operations[-1]
-        assert jmp.opnum == rop.JUMP
-        assert jmp.jump_target is loop
-        jmp.args = self.update_single_args(jmp.args, modifications)
-        memo = {}
-        rebuildops = []
-        for specnode, ofs, subspecnode in modifications:
-            instnode = subspecnode.sourcenode
-            fieldbox = self.prepare_rebuild_ops(instnode, rebuildops, memo)
-            box = specnode.sourcenode.source
-            if isinstance(specnode, VirtualizableListSpecNode):
-                op = ResOperation(rop.SETARRAYITEM_GC,
-                                  [box, ofs, fieldbox],
-                                  None, descr=specnode.known_class.arraydescr)
-            else:
-                assert isinstance(specnode, VirtualizableSpecNode)
-                assert isinstance(ofs, AbstractDescr)
-                op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
-                                  None, descr=ofs)
-            rebuildops.append(op)
-        for op in loop.operations:
-            # XXX go through suboperations as well
-            if op.is_guard():
-                if op.suboperations[-1].opnum == rop.FAIL:
-                    op.suboperations = (op.suboperations[:-1] + rebuildops +
-                                        [op.suboperations[-1]])
-                elif op.suboperations[-1].jump_target is loop:
-                    jmp = op.suboperations[-1]
-                    jmp.args = self.update_single_args(jmp.args, modifications)
-    
     def adapt_for_match(self, old_loop):
-        from pypy.jit.metainterp.compile import TerminatingLoop
-        
         jump_op = self.loop.operations[-1]
         assert jump_op.opnum == rop.JUMP
         self.specnodes = old_loop.specnodes
-        modifications = []
+        all_offsets = []
         for i in range(len(old_loop.specnodes)):
             old_specnode = old_loop.specnodes[i]
             new_instnode = self.getnode(jump_op.args[i])
-            old_specnode.adapt_to(new_instnode, modifications)
-        if modifications:
-            self.update_args(old_loop, modifications)
+            offsets = []
+            old_specnode.adapt_to(new_instnode, offsets)
+            all_offsets.append(offsets)
+        return all_offsets
 
     def _patch(self, origargs, newargs):
         i = 0
@@ -936,39 +885,39 @@ class PerfectSpecializer(object):
         if jump.opnum == rop.JUMP and jump.jump_target is loop:
             jump.args = self._patch(jump.args, inpargs)
 
-#     def update_loop(self, offsets, loop):
-#         if loop.operations is None:  # special loops 'done_with_this_frame'
-#             return                   # and 'exit_frame_with_exception'
-#         j = 0
-#         new_inputargs = []
-#         prev_ofs = 0
-#         rebuild_ops = []
-#         memo = {}
-#         for i in range(len(offsets)):
-#             for specnode, descr, parentnode, rel_ofs, node in offsets[i]:
-#                 while parentnode.source != loop.inputargs[j]:
-#                     j += 1
-#                 ofs = j + rel_ofs + 1
-#                 new_inputargs.extend([None] * (ofs - prev_ofs))
-#                 prev_ofs = ofs
-#                 boxlist = []
-#                 specnode.expand_boxlist(node, boxlist)
-#                 new_inputargs.extend(boxlist)
-#                 box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
-#                 if (parentnode.cls and
-#                     isinstance(parentnode.cls.source, FixedList)):
-#                     cls = parentnode.cls.source
-#                     assert isinstance(cls, FixedList)
-#                     rebuild_ops.append(ResOperation(rop.SETARRAYITEM_GC,
-#                       [parentnode.source, descr, box], None,
-#                       cls.arraydescr))
-#                 else:
-#                     assert isinstance(descr, AbstractDescr)
-#                     rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
-#                       [parentnode.source, box], None, descr))
-#         new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
-#         loop.inputargs = self._patch(loop.inputargs, new_inputargs)
-#         self._patch_loop(loop.operations, new_inputargs, rebuild_ops, loop)
+    def update_loop(self, offsets, loop):
+        if loop.operations is None:  # special loops 'done_with_this_frame'
+            return                   # and 'exit_frame_with_exception'
+        j = 0
+        new_inputargs = []
+        prev_ofs = 0
+        rebuild_ops = []
+        memo = {}
+        for i in range(len(offsets)):
+            for specnode, descr, parentnode, rel_ofs, node in offsets[i]:
+                while parentnode.source != loop.inputargs[j]:
+                    j += 1
+                ofs = j + rel_ofs + 1
+                new_inputargs.extend([None] * (ofs - prev_ofs))
+                prev_ofs = ofs
+                boxlist = []
+                specnode.expand_boxlist(node, boxlist)
+                new_inputargs.extend(boxlist)
+                box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
+                if (parentnode.cls and
+                    isinstance(parentnode.cls.source, FixedList)):
+                    cls = parentnode.cls.source
+                    assert isinstance(cls, FixedList)
+                    rebuild_ops.append(ResOperation(rop.SETARRAYITEM_GC,
+                      [parentnode.source, descr, box], None,
+                      cls.arraydescr))
+                else:
+                    assert isinstance(descr, AbstractDescr)
+                    rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
+                      [parentnode.source, box], None, descr))
+        new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
+        loop.inputargs = self._patch(loop.inputargs, new_inputargs)
+        self._patch_loop(loop.operations, new_inputargs, rebuild_ops, loop)
 
 def get_in_list(dict, boxes_or_consts):
     result = []

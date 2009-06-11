@@ -444,7 +444,6 @@ class ExceptionTests:
         assert res == 3
 
     def test_bridge_from_interpreter_exc(self):
-        py.test.skip("Disabled")
         mydriver = JitDriver(reds = ['n'], greens = [])
 
         def f(n):

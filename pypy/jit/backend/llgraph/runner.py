@@ -12,7 +12,7 @@ from pypy.jit.metainterp.warmspot import unwrap
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
-from pypy.jit.metainterp.specnode import ExpandArgsFrom
+
 
 class MiniStats:
     pass
@@ -105,8 +105,6 @@ class BaseCPU(model.AbstractCPU):
                 var2index[box] = llimpl.compile_start_ptr_var(c)
             elif self.is_oo and isinstance(box, history.BoxObj):
                 var2index[box] = llimpl.compile_start_obj_var(c)
-            elif isinstance(box, ExpandArgsFrom):
-                pass
             else:
                 raise Exception("box is: %r" % (box,))
         self._compile_branch(c, loop.operations, var2index)
@@ -132,8 +130,6 @@ class BaseCPU(model.AbstractCPU):
                     llimpl.compile_add_ptr_const(c, x.value)
                 elif isinstance(x, history.ConstAddr):
                     llimpl.compile_add_int_const(c, x.getint())
-                elif isinstance(x, ExpandArgsFrom):
-                    pass
                 elif self.is_oo and isinstance(x, history.ConstObj):
                     llimpl.compile_add_ptr_const(c, x.value, ootype.Object)
                 else:
