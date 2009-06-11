@@ -91,7 +91,6 @@ class CPU386(object):
             
             self.current_interpreter._store_exception = _store_exception
         TP = lltype.GcArray(llmemory.GCREF)
-        self.keepalives = []
         self._bootstrap_cache = {}
         self._guard_list = []
         self._compiled_ops = {}
@@ -237,11 +236,14 @@ class CPU386(object):
         # key is locations of arguments
         key = loop._x86_compiled
         try:
-            return self._bootstrap_cache[key]
+            return self._bootstrap_cache[key]     # XXX instead of a dict,
+                                                  # just set 'func' as an
+                                                  # attribute of 'loop'
         except KeyError:
             arglocs = loop.arglocs
             addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
                                                           arglocs,
+                                                          loop.inputargs,
                                                           loop._x86_stack_depth)
             # passing arglist as the only arg
             func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
@@ -253,12 +255,12 @@ class CPU386(object):
             return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
         return BoxInt(0)
     
-    def _get_loop_for_call(self, argnum, calldescr, ptr):
+    def _get_loop_for_call(self, args, calldescr, ptr):
         try:
             return self.generated_mps[calldescr]
         except KeyError:
             pass
-        args = [BoxInt() for i in range(argnum + 1)]
+        args = [arg.clonebox() for arg in args]
         result = self._new_box(ptr)
         operations = [
             ResOperation(rop.CALL, args, result, calldescr),
@@ -284,30 +286,26 @@ class CPU386(object):
         self._guard_index = guard_index # for tests
         op = self._guard_list[guard_index]
         if verbose:
-            print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
+            print "Leaving at: %d" % self.assembler.fail_boxes_int[
+                len(op.args)]
         return op
 
     def set_future_value_int(self, index, intvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
-        self.assembler.fail_boxes[index] = intvalue
+        self.assembler.fail_boxes_int[index] = intvalue
 
     def set_future_value_ptr(self, index, ptrvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
-        if not we_are_translated():
-            self.keepalives.append(ptrvalue)
-        else:
-            pass    # Boehm looks inside fail_boxes (XXX)
-        intvalue = self.cast_gcref_to_int(ptrvalue)
-        self.assembler.fail_boxes[index] = intvalue
+        self.assembler.fail_boxes_ptr[index] = ptrvalue
 
     def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes[index]
+        return self.assembler.fail_boxes_int[index]
 
     def get_latest_value_ptr(self, index):
-        intvalue = self.assembler.fail_boxes[index]
-        ptrvalue = self.cast_int_to_gcref(intvalue)
-        # clear after reading (-1 instead of 0, to crash if still used)
-        self.assembler.fail_boxes[index] = -1
+        ptrvalue = self.assembler.fail_boxes_ptr[index]
+        # clear after reading
+        self.assembler.fail_boxes_ptr[index] = lltype.nullptr(
+            llmemory.GCREF.TO)
         return ptrvalue
 
     def execute_call(self, loop, func, verbose):
@@ -325,8 +323,6 @@ class CPU386(object):
             #                 rffi.cast(lltype.Signed, func))
             res = func()
             #llop.debug_print(lltype.Void, "<<<< Back")
-            if not we_are_translated():
-                del self.keepalives[:]
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
@@ -575,7 +571,7 @@ class CPU386(object):
         assert isinstance(calldescr, ConstDescr3)
         num_args, size, ptr = self.unpack_calldescr(calldescr)
         assert num_args == len(args) - 1
-        loop = self._get_loop_for_call(num_args, calldescr, ptr)
+        loop = self._get_loop_for_call(args, calldescr, ptr)
         history.set_future_values(self, args)
         self.execute_operations(loop, verbose=False)
         # Note: if an exception is set, the rest of the code does a bit of

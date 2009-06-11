@@ -1,7 +1,7 @@
 import sys, os
 import ctypes
 from pypy.jit.backend.x86 import symbolic
-from pypy.jit.metainterp.history import Const, Box, BoxPtr
+from pypy.jit.metainterp.history import Const, Box, BoxPtr, PTR
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -99,14 +99,21 @@ class Assembler386(object):
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
         self.logger = x86Logger()
+        self.fail_boxes_int = lltype.malloc(lltype.GcArray(lltype.Signed),
+                                            MAX_FAIL_BOXES, zero=True)
+        self.fail_boxes_ptr = lltype.malloc(lltype.GcArray(llmemory.GCREF),
+                                            MAX_FAIL_BOXES, zero=True)
 
     def make_sure_mc_exists(self):
         if self.mc is None:
             from pypy.jit.backend.x86.runner import ConstDescr3
 
-            self.fail_boxes = lltype.malloc(rffi.CArray(lltype.Signed),
-                                            MAX_FAIL_BOXES, flavor='raw')
-            self.fail_box_addr = self.cpu.cast_ptr_to_int(self.fail_boxes)
+            rffi.cast(lltype.Signed, self.fail_boxes_int)   # workaround
+            rffi.cast(lltype.Signed, self.fail_boxes_ptr)   # workaround
+            self.fail_box_int_addr = rffi.cast(lltype.Signed,
+                lltype.direct_arrayitems(self.fail_boxes_int))
+            self.fail_box_ptr_addr = rffi.cast(lltype.Signed,
+                lltype.direct_arrayitems(self.fail_boxes_ptr))
 
             self.logger.create_log()
             # we generate the loop body in 'mc'
@@ -206,28 +213,38 @@ class Assembler386(object):
                 op.longevity = None
                 self.sanitize_tree(op.suboperations)
 
-    def assemble_bootstrap_code(self, jumpaddr, arglocs, framesize):
+    def assemble_bootstrap_code(self, jumpaddr, arglocs, args, framesize):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
         #if self.gcrootmap:
         self.mc.PUSH(ebp)
         self.mc.MOV(ebp, esp)
         self.mc.SUB(esp, imm(framesize * WORD))
-        # This uses XCHG to put zeroes in fail_boxes after reading them,
-        # just in case they are pointers.
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
-                self.mc.XOR(ecx, ecx)
-                self.mc.XCHG(ecx,
-                             addr_add(imm(self.fail_box_addr), imm(i*WORD)))
+                if args[i].type == PTR:
+                    # This uses XCHG to put zeroes in fail_boxes_ptr after
+                    # reading them
+                    self.mc.XOR(ecx, ecx)
+                    self.mc.XCHG(ecx, addr_add(imm(self.fail_box_ptr_addr),
+                                               imm(i*WORD)))
+                else:
+                    self.mc.MOV(ecx, addr_add(imm(self.fail_box_int_addr),
+                                              imm(i*WORD)))
                 self.mc.MOV(loc, ecx)
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if isinstance(loc, REG):
-                self.mc.XOR(loc, loc)
-                self.mc.XCHG(loc,
-                             addr_add(imm(self.fail_box_addr), imm(i*WORD)))
+                if args[i].type == PTR:
+                    # This uses XCHG to put zeroes in fail_boxes_ptr after
+                    # reading them
+                    self.mc.XOR(loc, loc)
+                    self.mc.XCHG(loc, addr_add(imm(self.fail_box_ptr_addr),
+                                               imm(i*WORD)))
+                else:
+                    self.mc.MOV(loc, addr_add(imm(self.fail_box_int_addr),
+                                              imm(i*WORD)))
         self.mc.JMP(rel32(jumpaddr))
         self.mc.done()
         return addr
@@ -723,15 +740,23 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), loc)
+                if op.args[i].type == PTR:
+                    base = self.fail_box_ptr_addr
+                else:
+                    base = self.fail_box_int_addr
+                self.mc.MOV(addr_add(imm(base), imm(i*WORD)), loc)
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, REG):
+                if op.args[i].type == PTR:
+                    base = self.fail_box_ptr_addr
+                else:
+                    base = self.fail_box_int_addr
                 self.mc.MOV(eax, loc)
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), eax)
+                self.mc.MOV(addr_add(imm(base), imm(i*WORD)), eax)
         if self.debug_markers:
             self.mc.MOV(eax, imm(pos))
-            self.mc.MOV(addr_add(imm(self.fail_box_addr),
+            self.mc.MOV(addr_add(imm(self.fail_box_int_addr),
                                  imm(len(locs) * WORD)),
                                  eax)
         if exc:
