@@ -572,12 +572,46 @@ class GenericMovingGCTests(GenericGCTests):
             p.x = r.x
             return p.x
         def f():
-            q = lltype.malloc(P)
-            q.x = 0
             i = 0
             while i < 40:
                 g()
                 i += 1
+        def fix_graph_of_g(translator):
+            from pypy.translator.translator import graphof
+            from pypy.objspace.flow.model import Constant
+            layoutbuilder = framework.TransformerLayoutBuilder()
+            layoutbuilder.delay_encoding()
+            translator._jit2gc = {
+                'layoutbuilder': layoutbuilder,
+                }
+            type_id = layoutbuilder.get_type_id(P)
+            #
+            # now fix the do_malloc_fixedsize_clear in the graph of g
+            graph = graphof(translator, g)
+            for op in graph.startblock.operations:
+                if op.opname == 'do_malloc_fixedsize_clear':
+                    op.args = [Constant(type_id, lltype.Signed),
+                               Constant(llmemory.sizeof(P), lltype.Signed),
+                               Constant(True, lltype.Bool),  # can_collect
+                               Constant(False, lltype.Bool), # has_finalizer
+                               Constant(False, lltype.Bool)] # contains_weakptr
+                    break
+            else:
+                assert 0, "oups, not found"
+        run = self.runner(f, mixlevelstuff=fix_graph_of_g)
+        run([])
+
+    def test_do_malloc_operations_in_call(self):
+        P = lltype.GcStruct('P', ('x', lltype.Signed))
+        def g():
+            llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
+        def f():
+            q = lltype.malloc(P)
+            q.x = 1
+            i = 0
+            while i < 40:
+                g()
+                i += q.x
         def fix_graph_of_g(translator):
             from pypy.translator.translator import graphof
             from pypy.objspace.flow.model import Constant
