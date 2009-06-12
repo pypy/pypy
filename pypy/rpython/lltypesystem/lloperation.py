@@ -387,8 +387,8 @@ LL_OPERATIONS = {
     'promote_virtualizable':LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
-    'do_malloc_fixedsize_clear': LLOp(),
-    'do_malloc_varsize_clear': LLOp(),
+    'do_malloc_fixedsize_clear': LLOp(canunwindgc=True),
+    'do_malloc_varsize_clear': LLOp(canunwindgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
 
     # __________ GC operations __________
