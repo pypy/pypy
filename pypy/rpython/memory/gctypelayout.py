@@ -242,6 +242,11 @@ class TypeLayoutBuilder(object):
                 encode_type_shape(self, info, TYPE)
             del self._pending_type_shapes
 
+    def delay_encoding(self):
+        # used by the JIT
+        self._pending_type_shapes = []
+        self.can_encode_type_shape = False
+
     def offsets2table(self, offsets, TYPE):
         if len(offsets) == 0:
             TYPE = lltype.Void    # we can share all zero-length arrays

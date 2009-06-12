@@ -611,22 +611,26 @@ class FrameworkGCTransformer(GCTransformer):
         op = hop.spaceop
         [v_typeid, v_size, v_can_collect,
          v_has_finalizer, v_contains_weakptr] = op.args
+        livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_size, v_can_collect,
                    v_has_finalizer, v_contains_weakptr],
                   resultvar=op.result)
+        self.pop_roots(hop, livevars)
 
     def gct_do_malloc_varsize_clear(self, hop):
         # used by the JIT (see the x86 backend)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
          v_offset_to_length, v_can_collect, v_has_finalizer] = op.args
+        livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_varsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_length, v_size, v_itemsize,
                    v_offset_to_length, v_can_collect, v_has_finalizer],
                   resultvar=op.result)
+        self.pop_roots(hop, livevars)
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
