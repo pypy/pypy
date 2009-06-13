@@ -16,11 +16,8 @@ from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.rlib.objectmodel import r_dict
 
-VOID = 0
-PTR = 1
-INT = 2
-
 history.TreeLoop._x86_compiled = 0
+history.TreeLoop._x86_bootstrap_code = 0
 
 class ConstDescr3(AbstractDescr):
     call_loop = None
@@ -227,21 +224,15 @@ class CPU386(object):
 
     def get_bootstrap_code(self, loop):
         # key is locations of arguments
-        key = loop._x86_compiled
-        try:
-            return self._bootstrap_cache[key]     # XXX instead of a dict,
-                                                  # just set 'func' as an
-                                                  # attribute of 'loop'
-        except KeyError:
+        addr = loop._x86_bootstrap_code
+        if not addr:
             arglocs = loop.arglocs
             addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
                                                           arglocs,
                                                           loop.inputargs,
                                                           loop._x86_stack_depth)
-            # passing arglist as the only arg
-            func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-            self._bootstrap_cache[key] = func
-            return func
+        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+        return func
 
     def _new_box(self, ptr):
         if ptr:
@@ -250,6 +241,7 @@ class CPU386(object):
     
     def _get_loop_for_call(self, args, calldescr, ptr):
         if calldescr.call_loop is not None:
+            assert calldescr.shape == ([arg.type == history.PTR for arg in args[1:]], ptr)
             return calldescr.call_loop
         args = [arg.clonebox() for arg in args]
         result = self._new_box(ptr)
@@ -499,7 +491,7 @@ class CPU386(object):
             v = rffi.cast(rffi.USHORT, vbox.getint())
             rffi.cast(rffi.CArrayPtr(rffi.USHORT), gcref)[ofs/2] = v
         elif size == WORD:
-            if ptr and lltype.typeOf(gcref) == llmemory.GCREF:
+            if ptr:
                 ptr = vbox.getptr(llmemory.GCREF)
                 self.gc_ll_descr.do_write_barrier(gcref, ptr)
                 a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
@@ -617,6 +609,13 @@ class CPU386(object):
             counter += 1
         return counter, basesize, ptr
 
+    @staticmethod
+    def _is_ptr(TP):
+        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc':
+            return True
+        else:
+            return False
+
     def calldescrof(self, functype, argtypes, resulttype):
         cachekey = ('call', functype, tuple(argtypes), resulttype)
         try:
@@ -632,12 +631,11 @@ class CPU386(object):
             size = 0
         else:
             size = symbolic.get_size(resulttype, self.translate_support_code)
-        if isinstance(resulttype, lltype.Ptr) and resulttype.TO._gckind == 'gc':
-            ptr = True
-        else:
-            ptr = False
+        ptr = self._is_ptr(resulttype)
         descr = ConstDescr3(len(argtypes), size, ptr)
+        shape = ([self._is_ptr(arg) for arg in argtypes], ptr)
         self._descr_caches[cachekey] = descr
+        descr.shape = shape
         return descr
 
     @staticmethod
