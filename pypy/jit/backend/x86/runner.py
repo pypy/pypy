@@ -430,16 +430,19 @@ class CPU386(object):
         gcref = args[0].getptr(llmemory.GCREF)
         shift, ofs, ptr = self.unpack_arraydescr(arraydescr)
         size = 1 << shift
+        vbox = args[2]
         if size == 1:
-            v = args[2].getint()
+            v = vbox.getint()
             rffi.cast(rffi.CArrayPtr(lltype.Char), gcref)[ofs + field] = chr(v)
         elif size == WORD:
-            a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
             if not ptr:
-                a[ofs/WORD + field] = args[2].getint()
+                a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
+                a[ofs/WORD + field] = vbox.getint()
             else:
-                p = args[2].getptr(llmemory.GCREF)
-                a[ofs/WORD + field] = self.cast_gcref_to_int(p)
+                ptr = vbox.getptr(llmemory.GCREF)
+                self.gc_ll_descr.do_write_barrier(gcref, ptr)
+                a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
+                a[ofs/WORD + field] = self.cast_gcref_to_int(ptr)
         else:
             raise NotImplementedError("size = %d" % size)
 
@@ -505,7 +508,7 @@ class CPU386(object):
             v = rffi.cast(rffi.USHORT, vbox.getint())
             rffi.cast(rffi.CArrayPtr(rffi.USHORT), gcref)[ofs/2] = v
         elif size == WORD:
-            if ptr:
+            if ptr and lltype.typeOf(gcref) == llmemory.GCREF:
                 ptr = vbox.getptr(llmemory.GCREF)
                 self.gc_ll_descr.do_write_barrier(gcref, ptr)
                 a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)

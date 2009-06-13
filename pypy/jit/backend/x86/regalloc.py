@@ -1048,10 +1048,13 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op, ignored):
-        scale, ofs, _ = self._unpack_arraydescr(op.descr)
+        scale, ofs, ptr = self._unpack_arraydescr(op.descr)
         base_loc  = self.make_sure_var_in_reg(op.args[0], op.args)
         value_loc = self.make_sure_var_in_reg(op.args[2], op.args)
         ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
+        if ptr:
+            gc_ll_descr = self.assembler.cpu.gc_ll_descr
+            gc_ll_descr.gen_write_barrier(self.assembler, base_loc, value_loc)
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
                                  imm(scale), imm(ofs)])

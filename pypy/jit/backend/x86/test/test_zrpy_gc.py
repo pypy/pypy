@@ -247,3 +247,74 @@ def test_compile_hybrid_6():
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
+
+def test_compile_hybrid_7():
+    py.test.skip("still crashing")
+    # Array of pointers (test the write barrier for setarrayitem_gc)
+    class X:
+        def __init__(self, x):
+            self.x = x
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'l'])
+    def main(n, x):
+        l = [X(123)]
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x=x, l=l)
+            myjitdriver.jit_merge_point(n=n, x=x, l=l)
+            if n < 1900:
+                assert l[0].x == 123
+                l = [None] * 16
+                l[0] = X(123)
+                l[1] = X(n)
+                l[2] = X(n+10)
+                l[3] = X(n+20)
+                l[4] = X(n+30)
+                l[5] = X(n+40)
+                l[6] = X(n+50)
+                l[7] = X(n+60)
+                l[8] = X(n+70)
+                l[9] = X(n+80)
+                l[10] = X(n+90)
+                l[11] = X(n+100)
+                l[12] = X(n+110)
+                l[13] = X(n+120)
+                l[14] = X(n+130)
+                l[15] = X(n+140)
+            if n < 1800:
+                assert len(l) == 16
+                assert l[0].x == 123
+                assert l[1].x == n
+                assert l[2].x == n+10
+                assert l[3].x == n+20
+                assert l[4].x == n+30
+                assert l[5].x == n+40
+                assert l[6].x == n+50
+                assert l[7].x == n+60
+                assert l[8].x == n+70
+                assert l[9].x == n+80
+                assert l[10].x == n+90
+                assert l[11].x == n+100
+                assert l[12].x == n+110
+                assert l[13].x == n+120
+                assert l[14].x == n+130
+                assert l[15].x == n+140
+            n -= x.foo
+        assert len(l) == 16
+        assert l[0].x == 123
+        assert l[1].x == 2
+        assert l[2].x == 12
+        assert l[3].x == 22
+        assert l[4].x == 32
+        assert l[5].x == 42
+        assert l[6].x == 52
+        assert l[7].x == 62
+        assert l[8].x == 72
+        assert l[9].x == 82
+        assert l[10].x == 92
+        assert l[11].x == 102
+        assert l[12].x == 112
+        assert l[13].x == 122
+        assert l[14].x == 132
+        assert l[15].x == 142
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20
