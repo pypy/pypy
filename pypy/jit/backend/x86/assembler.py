@@ -800,11 +800,7 @@ class Assembler386(object):
         for i in range(len(op.args) - 1, 0, -1):
             v = op.args[i]
             loc = arglocs[i]
-            if not isinstance(loc, MODRM):
-                self.mc.PUSH(loc)
-            else:
-                # we need to add a bit, ble
-                self.mc.PUSH(stack_pos(loc.position))
+            self.mc.PUSH(loc)
             extra_on_stack += 1
         if isinstance(op.args[0], Const):
             x = rel32(op.args[0].getint())
