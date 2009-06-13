@@ -105,7 +105,6 @@ class JitDriver:
         for v in self.virtualizables:
             assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
-        self._params = PARAMETERS.copy()
         if hasattr(self, 'on_enter_jit'):
             self._make_on_enter_jit_wrappers()
         self._make_extregistryentries()
@@ -125,7 +124,7 @@ class JitDriver:
         # special-cased by ExtRegistryEntry
         # (internal, must receive a constant 'name')
         assert name in PARAMETERS
-        self._params[name] = value
+        getattr(self.state, 'set_param_' + name)(value)
 
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""

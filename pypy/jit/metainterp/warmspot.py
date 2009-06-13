@@ -136,6 +136,8 @@ class WarmRunnerDesc:
         self.rewrite_can_enter_jit()
         self.add_profiler_finish()
         self.metainterp_sd.finish_setup(self)
+        # hook back for set_param
+        self.jitdriver.state = self.state
 
     def finish(self):
         if self.cpu.translate_support_code:
