@@ -22,15 +22,9 @@ INT = 2
 
 history.TreeLoop._x86_compiled = 0
 
-def const_descr_eq(a, b):
-    return (a.v0 == b.v0 and
-            a.v1 == b.v1 and
-            a.flag2 == b.flag2)
-
-def const_descr_hash(a):
-    return a.v0 + (a.v1 << 2) + int(a.flag2 << 4)
-
 class ConstDescr3(AbstractDescr):
+    call_loop = None
+    
     def __init__(self, v0, v1, flag2):
         self.v0 = v0
         self.v1 = v1
@@ -101,7 +95,6 @@ class CPU386(object):
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
-        self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
         self._descr_caches = {}
         self.gc_ll_descr = get_ll_description(gcdescr, self)
         self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
@@ -256,10 +249,8 @@ class CPU386(object):
         return BoxInt(0)
     
     def _get_loop_for_call(self, args, calldescr, ptr):
-        try:
-            return self.generated_mps[calldescr]
-        except KeyError:
-            pass
+        if calldescr.call_loop is not None:
+            return calldescr.call_loop
         args = [arg.clonebox() for arg in args]
         result = self._new_box(ptr)
         operations = [
@@ -271,7 +262,7 @@ class CPU386(object):
         loop.inputargs = args
         loop.operations = operations
         self.compile_operations(loop)
-        self.generated_mps[calldescr] = loop
+        calldescr.call_loop = loop
         return loop
 
     def execute_operations(self, loop, verbose=False):
