@@ -179,13 +179,13 @@ class AsmStackRootWalker(BaseRootWalker):
         gcmapend2   = self._extra_gcmapend()
         if gcmapstart2 != gcmapend2:
             # we have a non-empty JIT-produced table to look in
-            item = search_in_gcmap(gcmapstart2, gcmapend2, retaddr)
+            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
             if item:
                 self._shape_decompressor.setaddr(item.address[1])
                 return
             # maybe the JIT-produced table is not sorted?
             sort_gcmap(gcmapstart2, gcmapend2)
-            item = search_in_gcmap(gcmapstart2, gcmapend2, retaddr)
+            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
             if item:
                 self._shape_decompressor.setaddr(item.address[1])
                 return
@@ -260,6 +260,15 @@ def search_in_gcmap(gcmapstart, gcmapend, retaddr):
     # compressed range that includes 'retaddr'.
     if retaddr > item.address[0] and item.signed[1] < 0:
         return item     # ok
+    else:
+        return llmemory.NULL    # failed
+
+def search_in_gcmap2(gcmapstart, gcmapend, retaddr):
+    # same as 'search_in_gcmap', but without range checking support
+    # (item.signed[1] is an address in this case, not a signed at all!)
+    item = binary_search(gcmapstart, gcmapend, retaddr)
+    if item.address[0] == retaddr:
+        return item     # found
     else:
         return llmemory.NULL    # failed
 
