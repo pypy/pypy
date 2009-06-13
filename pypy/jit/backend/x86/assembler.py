@@ -847,6 +847,12 @@ class Assembler386(object):
                 if (isinstance(v, BoxPtr) and
                     regalloc.longevity[v][1] > regalloc.position):
                     gclocs.append(val)
+            #alllocs = []
+            #for loc in gclocs:
+            #    assert isinstance(loc, MODRM)
+            #    alllocs.append(str(loc.position))
+            #print self.mc.tell()
+            #print ", ".join(alllocs)
             shape = self.gcrootmap.encode_callshape(gclocs)
             self.gcrootmap.put(rffi.cast(llmemory.Address, self.mc.tell()),
                                shape)

@@ -283,7 +283,10 @@ class RegAlloc(object):
             if arg not in self.reg_bindings:
                 assert arg in self.stack_bindings
                 assert arg not in self.dirty_stack
+        old_regalloc = self.assembler._regalloc
+        self.assembler._regalloc = self
         self._walk_operations(operations)
+        self.assembler._regalloc = old_regalloc
 
     def _walk_operations(self, operations):
         i = 0

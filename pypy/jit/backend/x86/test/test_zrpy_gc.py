@@ -249,7 +249,6 @@ def test_compile_hybrid_6():
     assert int(res) == 20
 
 def test_compile_hybrid_7():
-    py.test.skip("still crashing")
     # Array of pointers (test the write barrier for setarrayitem_gc)
     class X:
         def __init__(self, x):
