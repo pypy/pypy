@@ -44,15 +44,6 @@ class ConstDescr3(AbstractDescr):
             return False
         return self.sort_key() == other.sort_key()
 
-    def __hash__(self):
-        return hash(self._v())
-
-    def __eq__(self, other):
-        return self.__class__ is other.__class__ and self._v() == other._v()
-
-    def __ne__(self, other):
-        return not self == other
-
     def __repr__(self):
         return '<ConstDescr3 %s, %s, %s>' % (self.v0, self.v1, self.flag2)
 
