@@ -222,6 +222,7 @@ class CPU386(object):
                                                           arglocs,
                                                           loop.inputargs,
                                                           loop._x86_stack_depth)
+            loop._x86_bootstrap_code = addr
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
         return func
 
