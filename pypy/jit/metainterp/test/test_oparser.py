@@ -64,18 +64,3 @@ def test_descr_setfield():
     stuff = Xyz()
     loop = parse(x, None, locals())
     assert loop.operations[0].descr is stuff
-
-def test_vdesc():
-    class Xyz(AbstractDescr):
-        pass
-
-    x = """
-    [p0]
-    guard_nonvirtualized(p0, vdesc=stuff)
-       fail()
-    """
-    stuff = Xyz()
-    loop = parse(x, None, locals())
-    assert loop.operations[0].vdesc is stuff
-    
-    

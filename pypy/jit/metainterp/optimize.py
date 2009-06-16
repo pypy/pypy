@@ -53,7 +53,6 @@ class InstanceNode(object):
         self.escaped = escaped
         self.startbox = startbox
         self.virtual = False
-        self.virtualized = False
         self.const = const
         self.nonzero = False     # NB. never set to True so far
         self.cls = None
@@ -63,7 +62,6 @@ class InstanceNode(object):
         #self.dirtyfields = r_dict(av_eq, av_hash)
         #self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
-        self.vdesc = None # for virtualizables
         self.allfields = None
 
     def is_nonzero(self):
@@ -78,45 +76,45 @@ class InstanceNode(object):
         memo[self] = None
         if self.startbox:
             self.escaped = True
-        if not self.virtualized:
+        if 1: ## not self.virtualized:
             for node in self.curfields.values():
                 node.escape_if_startbox(memo, cpu)
-        else:
-            for key, node in self.curfields.items():
-                if self.vdesc is not None and av_list_in(self.vdesc, key):
-                    node.initialize_virtualizable(cpu)
-                node.escape_if_startbox(memo, cpu)
-            # we also need to escape fields that are only read, never written,
-            # if they're not marked specifically as ones that does not escape
-            for key, node in self.origfields.items():
-                if key not in self.curfields:
-                    if self.vdesc is not None and av_list_in(self.vdesc, key):
-                        node.initialize_virtualizable(cpu)
-                    node.escape_if_startbox(memo, cpu)
+##        else:
+##            for key, node in self.curfields.items():
+##                if self.vdesc is not None and av_list_in(self.vdesc, key):
+##                    node.initialize_virtualizable(cpu)
+##                node.escape_if_startbox(memo, cpu)
+##            # we also need to escape fields that are only read, never written,
+##            # if they're not marked specifically as ones that does not escape
+##            for key, node in self.origfields.items():
+##                if key not in self.curfields:
+##                    if self.vdesc is not None and av_list_in(self.vdesc, key):
+##                        node.initialize_virtualizable(cpu)
+##                    node.escape_if_startbox(memo, cpu)
     
-    def initialize_virtualizable(self, cpu):
-        self.virtualized = True
-        if self.cls is None or not isinstance(self.cls.source, FixedList):
-            # XXX this is of course wrong, but let's at least not
-            #     explode
-            self.allfields = self.origfields.keys()
-            if self.cls is None:
-                self.cls = InstanceNode(FixedClass(), const=True)
-        else:
-            fx = self.cls.source
-            assert isinstance(fx, FixedList)
-            ad = fx.arraydescr
-            lgtbox = cpu.do_arraylen_gc([self.source], ad)
-            self.allfields = [ConstInt(i) for i in range(lgtbox.getint())]
+##    def initialize_virtualizable(self, cpu):
+##        self.virtualized = True
+##        if self.cls is None or not isinstance(self.cls.source, FixedList):
+##            # XXX this is of course wrong, but let's at least not
+##            #     explode
+##            self.allfields = self.origfields.keys()
+##            if self.cls is None:
+##                self.cls = InstanceNode(FixedClass(), const=True)
+##        else:
+##            fx = self.cls.source
+##            assert isinstance(fx, FixedList)
+##            ad = fx.arraydescr
+##            lgtbox = cpu.do_arraylen_gc([self.source], ad)
+##            self.allfields = [ConstInt(i) for i in range(lgtbox.getint())]
 
     def add_to_dependency_graph(self, other, dep_graph):
         dep_graph.append((self, other))
         for ofs, node in self.origfields.items():
             if ofs in other.curfields:
                 node.add_to_dependency_graph(other.curfields[ofs], dep_graph)
-            if (self.virtualized and self.vdesc is not None and
-                av_list_in(self.vdesc, ofs)):
-                node.add_to_dependency_graph(other.origfields[ofs], dep_graph)
+##            if (self.virtualized and self.vdesc is not None and
+##                av_list_in(self.vdesc, ofs)):
+##                node.add_to_dependency_graph(other.origfields[ofs], dep_graph)
 
     def intersect(self, other, nodes):
         if not other.cls:
@@ -128,15 +126,16 @@ class InstanceNode(object):
             known_class = self.cls.source
         else:
             known_class = other.cls.source
-        if (other.escaped and not other.virtualized):# and
-            assert not self.virtualized
+        if (other.escaped): ## and not other.virtualized):# and
             #not self.expanded_fields):
+            ## assert not self.virtualized
             if self.cls is None:
                 return NotSpecNode()
             if isinstance(known_class, FixedList):
                 return NotSpecNode()
             return FixedClassSpecNode(known_class)
-        if not other.escaped:
+        else:
+##        if not other.escaped:
             assert self is not other
             fields = []
             d = other.curfields
@@ -165,31 +164,31 @@ class InstanceNode(object):
         #    if isinstance(known_class, FixedList):
         #        return DelayedFixedListSpecNode(known_class, fields)
         #    return DelayedSpecNode(known_class, fields)
-        assert other.virtualized
-        assert self is other
-        offsets = self.allfields
-        if offsets is None:
-            return None
-        sort_descrs(offsets)
-        fields = []
-        for ofs in offsets:
-            if ofs in other.curfields:
-                node = other.curfields[ofs]
-                if ofs not in self.origfields:
-                    box = node.source.clonebox()
-                    self.origfields[ofs] = InstanceNode(box, escaped=False)
-                    self.origfields[ofs].cls = node.cls
-                    nodes[box] = self.origfields[ofs]
-                specnode = self.origfields[ofs].intersect(node, nodes)
-            elif ofs in self.origfields:
-                node = self.origfields[ofs]
-                specnode = node.intersect(node, nodes)
-            else:
-                specnode = MatchEverythingSpecNode()
-            fields.append((ofs, specnode))
-        if isinstance(known_class, FixedList):
-            return VirtualizableListSpecNode(known_class, fields)
-        return VirtualizableSpecNode(known_class, fields)
+##        assert other.virtualized
+##        assert self is other
+##        offsets = self.allfields
+##        if offsets is None:
+##            return None
+##        sort_descrs(offsets)
+##        fields = []
+##        for ofs in offsets:
+##            if ofs in other.curfields:
+##                node = other.curfields[ofs]
+##                if ofs not in self.origfields:
+##                    box = node.source.clonebox()
+##                    self.origfields[ofs] = InstanceNode(box, escaped=False)
+##                    self.origfields[ofs].cls = node.cls
+##                    nodes[box] = self.origfields[ofs]
+##                specnode = self.origfields[ofs].intersect(node, nodes)
+##            elif ofs in self.origfields:
+##                node = self.origfields[ofs]
+##                specnode = node.intersect(node, nodes)
+##            else:
+##                specnode = MatchEverythingSpecNode()
+##            fields.append((ofs, specnode))
+##        if isinstance(known_class, FixedList):
+##            return VirtualizableListSpecNode(known_class, fields)
+##        return VirtualizableSpecNode(known_class, fields)
 
     def __repr__(self):
         flags = ''
@@ -197,7 +196,7 @@ class InstanceNode(object):
         if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
         if self.virtual:           flags += 'v'
-        if self.virtualized:       flags += 'V'
+##        if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
 def optimize_loop(options, old_loops, loop, cpu=None):
@@ -383,16 +382,16 @@ class PerfectSpecializer(object):
                 #self.nodes[instnode.source] = InstanceNode(op.args[1],
                 #                                           const=True)
                 continue
-            elif opnum == rop.GUARD_NONVIRTUALIZED:
-                instnode = self.getnode(op.args[0])
-                if instnode.startbox:
-                    instnode.virtualized = True
-                if instnode.cls is None:
-                    instnode.cls = InstanceNode(op.args[1], const=True)
-                    if op.vdesc:
-                        instnode.vdesc = op.vdesc.virtuals
-                        instnode.allfields = op.vdesc.fields
-                continue
+##            elif opnum == rop.GUARD_NONVIRTUALIZED:
+##                instnode = self.getnode(op.args[0])
+##                if instnode.startbox:
+##                    instnode.virtualized = True
+##                if instnode.cls is None:
+##                    instnode.cls = InstanceNode(op.args[1], const=True)
+##                    if op.vdesc:
+##                        instnode.vdesc = op.vdesc.virtuals
+##                        instnode.allfields = op.vdesc.fields
+##                continue
             elif op.is_always_pure():
                 is_pure = True
                 for arg in op.args:
@@ -441,7 +440,7 @@ class PerfectSpecializer(object):
         while not done:
             done = True
             for instnode, fieldnode in self.dependency_graph:
-                if instnode.escaped and not instnode.virtualized:
+                if instnode.escaped:  ## and not instnode.virtualized:
                     if not fieldnode.escaped:
                         fieldnode.escaped = True
                         done = False
@@ -512,20 +511,20 @@ class PerfectSpecializer(object):
                 rebuild_ops.append(op)
             return box
         memo[box] = None
-        if instnode.virtualized:
-            for ofs, node in instnode.curfields.items():
-                fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
-                if instnode.cls and isinstance(instnode.cls.source, FixedList):
-                    ld = instnode.cls.source
-                    assert isinstance(ld, FixedList)
-                    op = ResOperation(rop.SETARRAYITEM_GC,
-                                      [box, ofs, fieldbox],
-                                      None, descr=ld.arraydescr)
-                else:
-                    assert isinstance(ofs, AbstractDescr)
-                    op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
-                                      None, descr=ofs)
-                rebuild_ops.append(op)
+##        if instnode.virtualized:
+##            for ofs, node in instnode.curfields.items():
+##                fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
+##                if instnode.cls and isinstance(instnode.cls.source, FixedList):
+##                    ld = instnode.cls.source
+##                    assert isinstance(ld, FixedList)
+##                    op = ResOperation(rop.SETARRAYITEM_GC,
+##                                      [box, ofs, fieldbox],
+##                                      None, descr=ld.arraydescr)
+##                else:
+##                    assert isinstance(ofs, AbstractDescr)
+##                    op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
+##                                      None, descr=ofs)
+##                rebuild_ops.append(op)
         return box
 
     def optimize_guard(self, op):
@@ -540,9 +539,9 @@ class PerfectSpecializer(object):
                 continue
             self.prepare_rebuild_ops(self.nodes[box], rebuild_ops, memo, box)
         # XXX sloooooow!
-        for node in self.nodes.values():
-            if node.virtualized:
-                self.prepare_rebuild_ops(node, rebuild_ops, memo)
+##        for node in self.nodes.values():
+##            if node.virtualized:
+##                self.prepare_rebuild_ops(node, rebuild_ops, memo)
 
 #         # start of code for dirtyfields support
 #         for node in self.nodes.values():
@@ -599,15 +598,15 @@ class PerfectSpecializer(object):
         if instnode.virtual:
             assert ofs in instnode.curfields
             return True # this means field is never actually
-        elif instnode.virtualized:
-            if ofs in instnode.curfields:
-                return True
-            # this means field comes from a virtualizable but is never
-            # written.
-            node = InstanceNode(box)
-            self.nodes[box] = node
-            instnode.curfields[ofs] = node
-            return True
+##        elif instnode.virtualized:
+##            if ofs in instnode.curfields:
+##                return True
+##            # this means field comes from a virtualizable but is never
+##            # written.
+##            node = InstanceNode(box)
+##            self.nodes[box] = node
+##            instnode.curfields[ofs] = node
+##            return True
         #if ofs in instnode.cleanfields:
         #    self.nodes[box] = instnode.cleanfields[ofs]
         #    return True
@@ -618,7 +617,7 @@ class PerfectSpecializer(object):
 
     def optimize_setfield(self, instnode, ofs, valuenode, valuebox):
         assert isinstance(ofs, AbstractValue)
-        if instnode.virtual or instnode.virtualized:
+        if instnode.virtual: ## or instnode.virtualized:
             instnode.curfields[ofs] = valuenode
             return True
         else:
@@ -687,12 +686,12 @@ class PerfectSpecializer(object):
                 instnode.const = True
                 newoperations.append(self.optimize_guard(op))
                 continue
-            elif opnum == rop.GUARD_NONVIRTUALIZED:
-                instnode = self.nodes[op.args[0]]
-                if instnode.virtualized or instnode.virtual:
-                    continue
-                newoperations.append(self.optimize_guard(op))
-                continue
+##            elif opnum == rop.GUARD_NONVIRTUALIZED:
+##                instnode = self.nodes[op.args[0]]
+##                if instnode.virtualized or instnode.virtual:
+##                    continue
+##                newoperations.append(self.optimize_guard(op))
+##                continue
             elif opnum == rop.GETFIELD_GC:
                 instnode = self.nodes[op.args[0]]
                 if self.optimize_getfield(instnode, op.descr, op.result):

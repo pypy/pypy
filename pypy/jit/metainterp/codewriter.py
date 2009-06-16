@@ -1174,28 +1174,7 @@ class BytecodeMaker(object):
         pass     # for now
 
     def serialize_op_promote_virtualizable(self, op):
-        STRUCTTYPE = deref(op.args[0].concretetype)
-        argname = op.args[1].value
-        FIELDTYPE = fieldType(STRUCTTYPE, argname)
-        if FIELDTYPE != lltype.Void:
-            TOPSTRUCT = heaptracker.cast_vable_type(STRUCTTYPE)
-            metainterp_sd = self.codewriter.metainterp_sd
-            vdescs = metainterp_sd._virtualizabledescs
-            try:
-                virtualizabledesc = vdescs[TOPSTRUCT]
-            except KeyError:
-                from pypy.jit.metainterp import virtualizable
-                virtualizabledesc = virtualizable.VirtualizableDesc(
-                    self.cpu, TOPSTRUCT, STRUCTTYPE)
-                virtualizabledesc.hash = len(metainterp_sd._virtualizabledescs)
-                vdescs[TOPSTRUCT] = virtualizabledesc
-                metainterp_sd._can_have_virtualizables = virtualizabledesc
-                #             ^^^ stays None if this code is never seen
-            guard_field = self.cpu.fielddescrof(STRUCTTYPE, argname)
-            self.emit('guard_nonvirtualized')
-            self.emit(self.var_position(op.args[0]))
-            self.emit(self.get_position(virtualizabledesc))
-            self.emit(self.get_position(guard_field))
+        pass
 
     serialize_op_oostring  = handle_builtin_call
     serialize_op_oounicode = handle_builtin_call

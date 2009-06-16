@@ -406,9 +406,6 @@ class LLVMJITCompiler(object):
                                         self.getintarg(op.args[1]), "")
         self._generate_guard(op, equal, False)
 
-    def generate_GUARD_NONVIRTUALIZED(self, op):
-        pass      # xxx ignored
-
     def generate_GUARD_NO_EXCEPTION(self, op):
         # etype: ty_char_ptr
         etype = llvm_rffi.LLVMBuildLoad(self.builder,

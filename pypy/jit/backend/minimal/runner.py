@@ -177,8 +177,6 @@ class BaseCPU(model.AbstractCPU):
             expected_value = argboxes[1].getint()
             if value != expected_value:
                 raise GuardFailed
-        elif opnum == rop.GUARD_NONVIRTUALIZED:
-            pass    # XXX
         elif opnum == rop.GUARD_NO_EXCEPTION:
             if self.current_exc_inst:
                 raise GuardFailed

@@ -114,7 +114,6 @@ TYPES = {
     'guard_class'     : (('ptr', 'ptr'), None),
     'guard_no_exception'   : ((), None),
     'guard_exception'      : (('ptr',), 'ptr'),
-    'guard_nonvirtualized' : (('ptr', 'ptr'), None),
     'newstr'          : (('int',), 'ptr'),
     'strlen'          : (('ptr',), 'int'),
     'strgetitem'      : (('ptr', 'int'), 'int'),
@@ -552,18 +551,6 @@ class Frame(object):
     def op_guard_value_inverse(self, _, value, expected_value):
         if value == expected_value:
             raise GuardFailed
-
-    def op_guard_nonvirtualized(self, for_accessing_field,
-                                value, expected_class=None):
-        # XXX
-        # We completely ignore guard_nonvirtualized
-        # right now, nobody can devirtualize a virtualizable anyway
-        # and we abuse guard_nonvirtualized for propagating properties
-        return
-        if expected_class is not None:
-            self.op_guard_class(-1, value, expected_class)
-        if heaptracker.cast_vable(value).vable_rti:
-            raise GuardFailed    # some other code is already in control
 
     def op_guard_no_exception(self, _):
         if _last_exception:

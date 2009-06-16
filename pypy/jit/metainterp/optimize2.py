@@ -22,9 +22,7 @@ class InstanceNode(object):
         self.cleanfields = {}
         self.origfields = {}
         self.arrayfields = {}
-        self.virtualized = False
         self.allocated_in_loop = False
-        self.vdesc = None
         self.escaped = escaped
         self.virtual = False
         self.size = None
@@ -35,7 +33,6 @@ class InstanceNode(object):
         #if self.startbox:          flags += 's'
         if self.const:             flags += 'c'
         if self.virtual:           flags += 'v'
-        if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
 class Specializer(object):
@@ -126,13 +123,6 @@ class Specializer(object):
             newboxes.append(box)
         return newboxes
 
-    def _guard_for_node(self, node):
-        gop = ResOperation(rop.GUARD_NONVIRTUALIZED,
-                           [node.source], None)
-        gop.vdesc = node.vdesc
-        gop.suboperations = [ResOperation(rop.FAIL, [], None)]
-        return gop
-
     def rebuild_virtual(self, ops, node):
         assert node.virtual
         if node.cls is not None:
@@ -164,35 +154,10 @@ class Specializer(object):
 
     def rebuild_virtuals(self, ops, args):
         self.already_build_nodes = {}
-        rebuild = False
         for arg in args:
             node = self.getnode(arg)
             if node.virtual:
                 self.rebuild_virtual(ops, node)
-            if node.virtualized:
-                rebuild = True
-        # modification in place. Reason for this is explained in mirror
-        # in optimize.py
-        # XXX in general, it's probably not correct, but should work
-        #     because we always pass frame anyway
-        if rebuild:
-            for node, d in self.additional_stores.iteritems():
-                for field, fieldnode in d.iteritems():
-                    if fieldnode.virtual:
-                        self.rebuild_virtual(ops, fieldnode)
-                    gop = self._guard_for_node(node)
-                    ops.append(gop)
-                    ops.append(ResOperation(rop.SETFIELD_GC,
-                               [node.source, fieldnode.source], None, field))
-            for node, d in self.additional_setarrayitems.iteritems():
-                for field, (fieldnode, descr) in d.iteritems():
-                    box = fieldnode.source
-                    if fieldnode.virtual:
-                        self.rebuild_virtual(ops, fieldnode)
-                    gop = self._guard_for_node(node)
-                    ops.append(gop) 
-                    ops.append(ResOperation(rop.SETARRAYITEM_GC,
-                              [node.source, ConstInt(field), box], None, descr))
 
     def optimize_operations(self):
         self.additional_stores = {}
@@ -275,134 +240,7 @@ class ConsecutiveGuardClassRemoval(object):
         spec.nodes[op.result] = InstanceNode(ConstInt(0), const=True)
         return True
 
-class SimpleVirtualizableOpt(object):
-    @staticmethod
-    def find_nodes_setfield_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.descr
-        if field not in instnode.vdesc.virtuals:
-            return False
-        node = spec.getnode(op.args[1])
-        instnode.cleanfields[field] = node
-        return True
 
-    @staticmethod
-    def find_nodes_getfield_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.descr
-        if field not in instnode.vdesc.virtuals:
-            return False
-        node = instnode.cleanfields.get(field, None)
-        if node:
-            spec.nodes[op.result] = node
-            node.virtualized = True
-            return True
-        node = spec.getnode(op.result)
-        instnode.cleanfields[field] = node
-        node.virtualized = True
-        return False
-
-    @staticmethod
-    def find_nodes_setarrayitem_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.args[1].getint()
-        node = spec.getnode(op.args[2])
-        instnode.arrayfields[field] = node
-        return True
-
-    @staticmethod
-    def find_nodes_getarrayitem_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.args[1].getint()
-        node = instnode.arrayfields.get(field, None)
-        if node is not None:
-            spec.nodes[op.result] = node
-            return True
-        instnode.arrayfields[field] = node
-        return False
-
-    @staticmethod
-    def find_nodes_guard_nonvirtualized(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.allocated_in_loop:
-            instnode.virtualized = True
-            instnode.vdesc = op.vdesc
-        return False
-
-    @staticmethod
-    def optimize_guard_nonvirtualized(op, spec):
-        return True
-
-    @staticmethod
-    def optimize_getfield_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.descr
-        if field not in instnode.vdesc.virtuals:
-            return False
-        node = instnode.cleanfields.get(field, None)
-        if node is not None:
-            spec.nodes[op.result] = node
-            return True
-        node = spec.getnode(op.result)
-        instnode.cleanfields[field] = node
-        return False
-
-    @staticmethod
-    def optimize_setfield_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        field = op.descr
-        if field not in instnode.vdesc.virtuals:
-            return False
-        node = spec.getnode(op.args[1])
-        instnode.cleanfields[field] = node
-        # we never set it here
-        d = spec.additional_stores.setdefault(instnode, {})
-        d[field] = node
-        return True
-
-    @staticmethod
-    def optimize_getarrayitem_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        if not spec.getnode(op.args[1]).const:
-            raise VirtualizedListAccessedWithVariableArg()
-        field = spec.getnode(op.args[1]).source.getint()
-        node = instnode.arrayfields.get(field, None)
-        if node is not None:
-            spec.nodes[op.result] = node
-            return True
-        node = spec.getnode(op.result)
-        instnode.arrayfields[field] = node
-        return False
-
-    @staticmethod
-    def optimize_setarrayitem_gc(op, spec):
-        instnode = spec.getnode(op.args[0])
-        if not instnode.virtualized:
-            return False
-        argnode = spec.getnode(op.args[1])
-        if not argnode.const:
-            raise VirtualizedListAccessedWithVariableArg()
-        fieldnode = spec.getnode(op.args[2])
-        field = argnode.source.getint()
-        instnode.arrayfields[field] = fieldnode
-        d = spec.additional_setarrayitems.setdefault(instnode, {})
-        d[field] = (fieldnode, op.descr)
-        return True
-        
 class SimpleVirtualOpt(object):
     @staticmethod
     def optimize_new_with_vtable(op, spec):
@@ -461,8 +299,7 @@ class SimpleVirtualOpt(object):
         return True
     
 
-specializer = Specializer([SimpleVirtualizableOpt(),
-                           SimpleVirtualOpt(),
+specializer = Specializer([SimpleVirtualOpt(),
                            ConsecutiveGuardClassRemoval()])
 
 def optimize_loop(options, old_loops, loop, cpu=None, spec=specializer):

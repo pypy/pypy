@@ -9,12 +9,6 @@ def optimize_loop(options, old_loops, loop, cpu=None):
         assert len(old_loops) == 1
         return old_loops[0]
     else:
-        newoperations = []
-        for op in loop.operations:
-            if op.opnum == rop.GUARD_NONVIRTUALIZED:
-                continue
-            newoperations.append(op)
-        loop.operations = newoperations
         return None
 
 def optimize_bridge(options, old_loops, loop, cpu=None):

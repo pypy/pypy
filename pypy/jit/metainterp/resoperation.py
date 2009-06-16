@@ -9,9 +9,6 @@ class ResOperation(object):
     suboperations = None
     optimized = None
 
-    # for 'guard_nonvirtualizable'
-    vdesc = None
-
     # for x86 backend and guards
     inputargs = None
 
@@ -39,7 +36,6 @@ class ResOperation(object):
     def clone(self):
         res = ResOperation(self.opnum, self.args, self.result, self.descr)
         res.jump_target = self.jump_target
-        res.vdesc = self.vdesc
         return res
 
     def __repr__(self):
@@ -115,7 +111,6 @@ class rop(object):
     GUARD_VALUE            = 10
     GUARD_CLASS            = 11
     _GUARD_FOLDABLE_LAST   = 11
-    GUARD_NONVIRTUALIZED   = 12
     GUARD_NO_EXCEPTION     = 13
     GUARD_EXCEPTION        = 14
     _GUARD_LAST = 19 # ----- end of guard operations -----

@@ -701,14 +701,6 @@ class Assembler386(object):
         self.mc.CMP(mem(locs[0], offset), locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
 
-    #def genop_discard_guard_nonvirtualized(self, op):
-    #    STRUCT = op.args[0].concretetype.TO
-    #    offset, size = symbolic.get_field_token(STRUCT, 'vable_rti')
-    #    assert size == WORD
-    #    self.load(eax, op.args[0])
-    #    self.mc.CMP(mem(eax, offset), imm(0))
-    #    self.implement_guard(op, self.mc.JNE)
-
     def implement_guard_recovery(self, guard_op, regalloc, ovf=False):
         oldmc = self.mc
         self.mc = self.mc2

@@ -709,11 +709,6 @@ class RegAlloc(object):
         self.assembler.generate_failure(op, locs, self.exc)
         self.eventually_free_vars(op.args)
 
-    def consider_guard_nonvirtualized(self, op, ignored):
-        # XXX implement it
-        self.eventually_free_var(op.args[0])
-        self.eventually_free_vars(op.inputargs)
-
     def consider_guard_no_exception(self, op, ignored):
         box = TempBox()
         loc = self.force_allocate_reg(box, [])

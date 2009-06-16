@@ -9,12 +9,10 @@ from pypy.jit.metainterp.history import ConstAddr, BoxPtr, TreeLoop,\
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.optimize2 import (optimize_loop,
-     ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualizableOpt,
-     SimpleVirtualOpt)
+     ConsecutiveGuardClassRemoval, Specializer, SimpleVirtualOpt)
 from pypy.jit.metainterp.test.test_optimize import ANY
 
 from pypy.jit.metainterp.test.oparser import parse
-from pypy.jit.metainterp.virtualizable import VirtualizableDesc
 
 def equaloplists(oplist1, oplist2):
     #saved = Box._extended_display
@@ -74,7 +72,6 @@ class LLtypeMixin(object):
     list_desc = cpu.fielddescrof(XY, 'inst_list')
     list_node_desc = cpu.fielddescrof(XY, 'inst_item_list')
     other_field_desc = cpu.fielddescrof(XY, 'inst_other_field')
-    vdesc = VirtualizableDesc(cpu, XY, XY)
     xy_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
 
     namespace = locals()
@@ -113,7 +110,6 @@ class OOtypeMixin(object):
     list_desc = cpu.fielddescrof(XY, 'olist')
     list_node_desc = cpu.fielddescrof(XY, 'oitem_list')
     other_field_desc = cpu.fielddescrof(XY, 'oother_field')
-    vdesc = VirtualizableDesc(cpu, XY, XY)
     xy_vtable = ootype.runtimeClass(XY)
 
     namespace = locals()
@@ -189,50 +185,6 @@ class BaseTestOptimize2(object):
                                         [ConsecutiveGuardClassRemoval()]),
                           expected)
 
-    def test_basic_virtualizable(self):
-        pre_op = """
-        [p0]
-        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
-            fail()
-        i1 = getfield_gc(p0, descr=field_desc)
-        i2 = getfield_gc(p0, descr=field_desc)
-        i3 = int_add(i1, i2)
-        """
-        expected = """
-        [p0]
-        i1 = getfield_gc(p0, descr=field_desc)
-        i3 = int_add(i1, i1)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)
-
-    def test_virtualizable_setfield_rebuild_ops(self):
-        pre_op = """
-        [p0]
-        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
-            fail()
-        i1 = getfield_gc(p0, descr=field_desc)
-        i2 = getfield_gc(p0, descr=other_field_desc)
-        setfield_gc(p0, i2, descr=field_desc)
-        # ^^^ this should be gone
-        i3 = getfield_gc(p0, descr=field_desc)
-        # ^^^ this one as well
-        guard_true(i3)
-            fail(p0)
-        """
-        expected = """
-        [p0]
-        i1 = getfield_gc(p0, descr=field_desc)
-        i2 = getfield_gc(p0, descr=other_field_desc)
-        guard_true(i2)
-            guard_nonvirtualized(p0)
-                fail()
-            setfield_gc(p0, i2, descr=field_desc)
-            fail(p0)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)
-
     def test_const_guard_value(self):
         pre_op = """
         []
@@ -249,103 +201,6 @@ class BaseTestOptimize2(object):
             fail()
         """
         self.assert_equal(self.optimize(pre_op, []), pre_op)
-
-    def test_virtualized_list_on_virtualizable(self):
-        pre_op = """
-        [p0]
-        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
-            fail()
-        p1 = getfield_gc(p0, descr=list_desc)
-        setarrayitem_gc(p1, 0, 1, descr=array_descr)
-        i1 = getarrayitem_gc(p1, 0)
-        i2 = int_add(i1, i1)
-        i3 = int_is_true(i2)
-        guard_true(i3)
-            fail()
-        """
-        pre_op = self.parse(pre_op)
-        # cheat
-        pre_op.operations[-2].result.value = 1
-        expected = """
-        [p0]
-        p1 = getfield_gc(p0, descr=list_desc)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)        
-
-
-    def test_virtualized_list_on_virtualizable_2(self):
-        pre_op = """
-        [p0, i0]
-        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
-            fail()
-        p1 = getfield_gc(p0, descr=list_desc)
-        setarrayitem_gc(p1, 0, i0, descr=array_descr)
-        i1 = getarrayitem_gc(p1, 0)
-        i2 = int_add(i1, i1)
-        i3 = int_is_true(i2)
-        guard_true(i3)
-            fail(p0)
-        """
-        pre_op = self.parse(pre_op)
-        expected = """
-        [p0, i0]
-        p1 = getfield_gc(p0, descr=list_desc)
-        i2 = int_add(i0, i0)
-        i3 = int_is_true(i2)
-        guard_true(i3)
-            guard_nonvirtualized(p1)
-                fail()
-            setarrayitem_gc(p1, 0, i0, descr=array_descr)
-            fail(p0)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)        
-
-    def test_virtualized_list_on_virtualizable_3(self):
-        pre_op = """
-        [p0, i0, i1]
-        guard_nonvirtualized(p0, ConstClass(xy_vtable), vdesc=vdesc)
-            fail()
-        p1 = getfield_gc(p0, descr=list_desc)
-        setarrayitem_gc(p1, 0, i0, descr=array_descr)
-        i2 = getarrayitem_gc(p1, 0)
-        setarrayitem_gc(p1, 0, i1, descr=array_descr)
-        i3 = getarrayitem_gc(p1, 0)
-        i4 = int_add(i2, i3)
-        i5 = int_is_true(i4)
-        guard_true(i5)
-            fail(p0)
-        """
-        expected = """
-        [p0, i0, i1]
-        p1 = getfield_gc(p0, descr=list_desc)
-        i4 = int_add(i0, i1)
-        i5 = int_is_true(i4)
-        guard_true(i5)
-            guard_nonvirtualized(p1)
-                fail()
-            setarrayitem_gc(p1, 0, i1, descr=array_descr)
-            fail(p0)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)
-
-    def test_newly_allocated_virtualizable_is_not_virtualized(self):
-        pre_op = """
-        []
-        p0 = new_with_vtable(ConstClass(xy_vtable))
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        setfield_gc(p0, 3, descr=field_desc)
-        """
-        expected = """
-        []
-        p0 = new_with_vtable(ConstClass(xy_vtable))
-        setfield_gc(p0, 3, descr=field_desc)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt()]),
-                          expected)
 
     def test_escape_analysis(self):
         ops = """
@@ -385,20 +240,6 @@ class BaseTestOptimize2(object):
         optimize_loop(None, [], loop, self.cpu, spec=spec)
         assert not spec.nodes[loop.operations[0].result].escaped
 
-    def test_escape_analysis_on_virtualizable(self):
-        ops = """
-        [p0]
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        i1 = getfield_gc(p0, descr=field_desc)
-        setfield_gc(p0, i1, descr=field_desc)
-        i2 = int_add(i1, i1)
-        """
-        spec = Specializer([SimpleVirtualizableOpt()])
-        loop = self.parse(ops)
-        optimize_loop(None, [], loop, self.cpu, spec=spec)
-        assert not spec.nodes[loop.operations[0].result].escaped
-
     def test_simple_virtual(self):
         pre_op = """
         []
@@ -412,28 +253,6 @@ class BaseTestOptimize2(object):
         fail(1)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
-                          expected)
-
-    def test_virtual_with_virtualizable(self):
-        pre_op = """
-        [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, 1, descr=nodedescr)
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        p2 = getfield_gc(p0, descr=list_node_desc)
-        setarrayitem_gc(p2, 0, p1)
-        p3 = getarrayitem_gc(p2, 0)
-        i3 = getfield_gc(p3, descr=nodedescr)
-        fail(i3)
-        """
-        expected = """
-        [p0]
-        p2 = getfield_gc(p0, descr=list_node_desc)
-        fail(1)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
-                                                 SimpleVirtualOpt()]),
                           expected)
 
     def test_rebuild_ops(self):
@@ -452,76 +271,6 @@ class BaseTestOptimize2(object):
             fail(p1)
         """
         self.assert_equal(self.optimize(pre_op, [SimpleVirtualOpt()]),
-                          expected)
-
-
-    def test_virtual_with_virtualizable_escapes(self):
-        pre_op = """
-        [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, 1, descr=nodedescr)
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        p2 = getfield_gc(p0, descr=list_node_desc)
-        setarrayitem_gc(p2, 0, p1)
-        p3 = getarrayitem_gc(p2, 0)
-        fail(p3)
-        """
-        expected = """
-        [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, 1, descr=nodedescr)
-        p2 = getfield_gc(p0, descr=list_node_desc)
-        fail(p1)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
-                                                 SimpleVirtualOpt()]),
-                          expected)
-
-    def test_virtualizable_double_read(self):
-        pre_op = """
-        [p0]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        p1 = getfield_gc(p0, descr=list_node_desc)
-        setarrayitem_gc(p1, 0, p3)
-        p2 = getfield_gc(p0, descr=list_node_desc)
-        p4 = getarrayitem_gc(p2, 0)
-        fail(p4)
-        """
-        expected = """
-        [p0]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        p1 = getfield_gc(p0, descr=list_node_desc)
-        fail(p3)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
-                                                 SimpleVirtualOpt()]),
-                          expected)
-
-
-    def test_virtualizable_fail_forces(self):
-        pre_op = """
-        [p0]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        guard_nonvirtualized(p0, vdesc=vdesc)
-            fail()
-        p1 = getfield_gc(p0, descr=list_node_desc)
-        setarrayitem_gc(p1, 0, p3)
-        fail(p0)
-        """
-        expected = """
-        [p0]
-        p1 = getfield_gc(p0, descr=list_node_desc)
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        guard_nonvirtualized(p1)
-            fail()
-        setarrayitem_gc(p1, 0, p3)        
-        fail(p0)
-        """
-        self.assert_equal(self.optimize(pre_op, [SimpleVirtualizableOpt(),
-                                                 SimpleVirtualOpt()]),
                           expected)
 
     def test_virtual_without_vtable(self):

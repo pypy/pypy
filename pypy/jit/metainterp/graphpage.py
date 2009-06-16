@@ -16,7 +16,7 @@ def display_loops(loops, errmsg=None, highlight_loops=()):
     graphs = [(loop, loop in highlight_loops) for loop in loops]
     for graph, highlight in graphs:
         for op in graph.get_operations():
-            if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
+            if op.is_guard():
                 graphs.append((SubGraph(op.suboperations), highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
@@ -64,7 +64,7 @@ class ResOpGen(object):
             self.block_starters[graphindex] = {0: True}
         for graphindex, graph in enumerate(self.graphs):
             for i, op in enumerate(graph.get_operations()):
-                if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
+                if op.is_guard():
                     self.mark_starter(graphindex, i+1)
 
     def set_errmsg(self, errmsg):
@@ -138,7 +138,7 @@ class ResOpGen(object):
         while True:
             op = operations[opindex]
             lines.append(repr(op))
-            if op.is_guard() and op.opnum != rop.GUARD_NONVIRTUALIZED:
+            if op.is_guard():
                 tgt = op.suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),
