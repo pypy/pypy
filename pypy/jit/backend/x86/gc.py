@@ -233,6 +233,7 @@ class GcRootMap_asmgcc:
                  0]
         for loc in gclocs:
             assert isinstance(loc, MODRM)
+            assert loc.is_relative_to_ebp()
             shape.append(self.LOC_EBP_BASED | (-4 * (1 + loc.position)))
         return shape
 
@@ -427,9 +428,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def gen_write_barrier(self, assembler, base_reg, value_reg):
         from pypy.jit.backend.x86.regalloc import REGS
-        SAVE_ME = [reg for reg in REGS
-                       if reg != base_reg and reg != value_reg]
-        bytes_count = 9 + 2 * len(SAVE_ME)
+        bytes_count = 11
         #
         if isinstance(value_reg, IMM32):
             if value_reg.value == 0:
@@ -452,24 +451,16 @@ class GcLLDescr_framework(GcLLDescription):
         mc.write('\x74')             # JZ label_end
         mc.write(chr(bytes_count))
         start = mc.tell()
-        for reg in SAVE_ME:
-            mc.PUSH(reg)             # len(SAVE_ME) bytes
+        mc.PUSHAD()                  # 1 byte
         mc.PUSH(value_reg)           # 1 or 5 bytes
         mc.PUSH(base_reg)            # 1 or 5 bytes
         funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
         funcaddr = rffi.cast(lltype.Signed, funcptr)
         mc.CALL(rel32(funcaddr))     # 5 bytes
-        if isinstance(base_reg, REG):
-            mc.POP(base_reg)         # 1 byte
-        else:
-            mc.POP(SAVE_ME[0])
-        if isinstance(value_reg, REG):
-            mc.POP(value_reg)        # 1 byte
-        else:
-            mc.POP(SAVE_ME[0])
-        for i in range(len(SAVE_ME)-1, -1, -1):
-            mc.POP(SAVE_ME[i])       # len(SAVE_ME) bytes
-                              # total: 9+(4?)+(4?)+2*len(SAVE_ME) bytes
+        mc.POP(eax)                  # 1 byte
+        mc.POP(eax)                  # 1 byte
+        mc.POPAD()                   # 1 byte
+                              # total: 11+(4?)+(4?) bytes
         assert mc.tell() == start + bytes_count
 
 # ____________________________________________________________

@@ -331,12 +331,18 @@ PUSH.mode1(MODRM, ['\xFF', orbyte(6<<3), modrm(1)])
 PUSHF = Instruction()
 PUSHF.mode0(['\x9C'])
 
+PUSHAD = Instruction()
+PUSHAD.mode0(['\x60'])
+
 POP = Instruction()
 POP.mode1(REG,   [register(1), '\x58'])
 POP.mode1(MODRM, ['\x8F', orbyte(0<<3), modrm(1)])
 
 POPF = Instruction()
 POPF.mode0(['\x9D'])
+
+POPAD = Instruction()
+POPAD.mode0(['\x61'])
 
 IMUL = Instruction()
 IMUL.mode1(MODRM,  ['\xF7', orbyte(5<<3), modrm(1)])
