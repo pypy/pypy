@@ -451,7 +451,7 @@ class GcLLDescr_framework(GcLLDescription):
         mc.write('\x74')             # JZ label_end
         mc.write(chr(bytes_count))
         start = mc.tell()
-        mc.PUSHAD()                  # 1 byte
+        mc.PUSHA()                   # 1 byte
         mc.PUSH(value_reg)           # 1 or 5 bytes
         mc.PUSH(base_reg)            # 1 or 5 bytes
         funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
@@ -459,7 +459,7 @@ class GcLLDescr_framework(GcLLDescription):
         mc.CALL(rel32(funcaddr))     # 5 bytes
         mc.POP(eax)                  # 1 byte
         mc.POP(eax)                  # 1 byte
-        mc.POPAD()                   # 1 byte
+        mc.POPA()                    # 1 byte
                               # total: 11+(4?)+(4?) bytes
         assert mc.tell() == start + bytes_count
 
