@@ -366,15 +366,6 @@ class Assembler386(object):
     genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
     genop_guard_int_add_ovf = _binaryop_ovf("ADD", True)
 
-    def genop_guard_int_neg_ovf(self, op, guard_op, addr, arglocs, result_loc):
-        self.mc.NEG(result_loc)
-        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
-            self.mc.JO(rel32(addr))
-        elif guard_op.opnum == rop.GUARD_EXCEPTION:
-            self.mc.JNO(rel32(addr))
-        else:
-            raise AssertionError
-
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
     genop_int_eq = _cmpop("E", "E")
@@ -425,27 +416,6 @@ class Assembler386(object):
         if loc2 is ecx:
             loc2 = cl
         self.mc.SHR(loc, loc2)
-
-    def genop_guard_int_lshift_ovf(self, op, guard_op, addr, arglocs, resloc):
-        loc, loc2, tmploc = arglocs
-        if loc2 is ecx:
-            loc2 = cl
-        # xxx a bit inefficient
-        self.mc.MOV(tmploc, loc)
-        self.mc.SHL(tmploc, loc2)
-        self.mc.SAR(tmploc, loc2)
-        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
-            self.mc.CMP(tmploc, loc)
-            self.mc.JNE(rel32(addr))
-            self.mc.SHL(loc, loc2)
-        elif guard_op.opnum == rop.GUARD_EXCEPTION:
-            # xxx even more inefficient
-            self.mc.SUB(tmploc, loc)
-            self.mc.SHL(loc, loc2)
-            self.mc.CMP(tmploc, imm8(0))
-            self.mc.JE(rel32(addr))
-        else:
-            raise AssertionError
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]

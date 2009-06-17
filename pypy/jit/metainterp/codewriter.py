@@ -661,6 +661,37 @@ class BytecodeMaker(object):
                                         self.var_position(op.args[1]))
         self.default_serialize_op(op, 'int_floordiv')
 
+    def serialize_op_int_lshift_ovf(self, op):
+        self.default_serialize_op(op, 'int_lshift')
+        renaming_list = range(0, self.free_vars*2, 2)
+        #
+        v_tmp1 = Variable()
+        v_tmp1.concretetype = lltype.Signed
+        self.emit('int_rshift', self.var_position(op.result),
+                                self.var_position(op.args[1]))
+        self.register_var(v_tmp1)
+        #
+        v_tmp2 = Variable()
+        v_tmp2.concretetype = lltype.Bool
+        self.emit('int_ne', self.var_position(v_tmp1),
+                            self.var_position(op.args[0]))
+        self.register_var(v_tmp2)
+        #
+        common_case = object()
+        self.emit("goto_if_not",
+                  tlabel(common_case),
+                  self.var_position(v_tmp2),
+                  len(renaming_list), *renaming_list)
+        #
+        self.emit("overflow_error")
+        #
+        self.emit(label(common_case))
+
+    def serialize_op_int_neg_ovf(self, op):
+        self.emit('int_sub_ovf', self.var_position(Constant(0)),
+                                 self.var_position(op.args[0]))
+        self.register_var(op.result)
+
     def serialize_op_hint(self, op):
         hints = op.args[1].value
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:

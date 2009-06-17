@@ -209,14 +209,6 @@ class BaseBackendTest(Runner):
             (rop.INT_MUL_OVF, [(minint/2, 2, minint),
                                (-2, -(minint/2), minint),
                                (minint/2, -2, boom)]),
-            (rop.INT_NEG_OVF, [(-sys.maxint, 0, sys.maxint),
-                               (sys.maxint, 0, -sys.maxint),
-                               (minint, 0, boom)]),
-            (rop.INT_LSHIFT_OVF, [(0x1f87611, 6, 0x7e1d8440),
-                                  (-0x1f87611, 6, -0x7e1d8440),
-                                  (sys.maxint//8+1, 3, boom),
-                                  (minint//2-1, 1, boom),
-                                  (0, 345, 0)]),
             ]:
             v1 = BoxInt(testcases[0][0])
             v2 = BoxInt(testcases[0][1])
@@ -247,8 +239,6 @@ class BaseBackendTest(Runner):
                     ]
                 ops[1].suboperations = [ResOperation(rop.FAIL, [v_res], None)]
             #
-            if opnum == rop.INT_NEG_OVF:
-                del ops[0].args[1]
             loop = TreeLoop('name')
             loop.operations = ops
             loop.inputargs = [v1, v2]

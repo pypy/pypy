@@ -419,6 +419,28 @@ class ExceptionTests:
         res = self.meta_interp(f, [809644098, 16, 0], optimizer=Optimizer)
         assert res == f(809644098, 16, 0)
 
+    def test_int_neg_ovf(self):
+        import sys
+        from pypy.jit.metainterp.simple_optimize import Optimizer
+        
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'y', 'm'])
+        def f(y, n):
+            m = 0
+            while n < 115:
+                myjitdriver.can_enter_jit(n=n, y=y, m=m)
+                myjitdriver.jit_merge_point(n=n, y=y, m=m)
+                y -= 1
+                try:
+                    ovfcheck(-y)
+                except OverflowError:
+                    m += 1
+                    y += 1
+                n += 1
+            return m
+
+        res = self.meta_interp(f, [-sys.maxint-1+100, 0], optimizer=Optimizer)
+        assert res == 16
+
     def test_reraise_through_portal(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
 

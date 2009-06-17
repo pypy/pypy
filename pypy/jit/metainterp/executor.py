@@ -204,27 +204,6 @@ def do_int_mul_ovf(cpu, args, descr=None):
         cpu.clear_exception()
     return BoxInt(z)
 
-def do_int_neg_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    try:
-        z = ovfcheck(-x)
-    except OverflowError:
-        cpu.set_overflow_error()
-        z = 0
-    else:
-        cpu.clear_exception()
-    return BoxInt(z)
-
-def do_int_lshift_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
-    try:
-        z = ovfcheck(x << y)
-    except OverflowError:
-        cpu.set_overflow_error()
-        z = 0
-    return BoxInt(z)
-
 # ____________________________________________________________
 
 

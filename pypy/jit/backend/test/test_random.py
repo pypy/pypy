@@ -244,9 +244,6 @@ class AbstractOvfOperation(AbstractOperation):
 class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):
     pass
 
-class UnaryOvfOperation(AbstractOvfOperation, UnaryOperation):
-    pass
-
 class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
         v = builder.get_bool_var(r)
@@ -327,12 +324,6 @@ for _op in [rop.INT_ADD_OVF,
             rop.INT_MUL_OVF,
             ]:
     OPERATIONS.append(BinaryOvfOperation(_op))
-
-OPERATIONS.append(BinaryOvfOperation(rop.INT_LSHIFT_OVF, LONG_BIT-1))
-
-for _op in [rop.INT_NEG_OVF,
-            ]:
-    OPERATIONS.append(UnaryOvfOperation(_op))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 

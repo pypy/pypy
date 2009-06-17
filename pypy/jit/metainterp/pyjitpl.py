@@ -267,8 +267,7 @@ class MIFrame(object):
                 self.execute(rop.%s, [b1, b2])
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf',
-                    'int_lshift_ovf']:
+    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
@@ -282,14 +281,6 @@ class MIFrame(object):
             @arguments("box")
             def opimpl_%s(self, b):
                 self.execute(rop.%s, [b])
-        ''' % (_opimpl, _opimpl.upper())).compile()
-
-    for _opimpl in ['int_neg_ovf',
-                    ]:
-        exec py.code.Source('''
-            @arguments("box")
-            def opimpl_%s(self, b):
-                return self.execute_with_exc(rop.%s, [b])
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     @arguments()
@@ -321,11 +312,15 @@ class MIFrame(object):
         # typically not included in the livelist.
 
     def follow_jump(self):
+        _op_goto_if_not = self.metainterp.staticdata._op_goto_if_not
+        assert ord(self.bytecode[self.pc]) == _op_goto_if_not
         self.pc += 1          # past the bytecode for 'goto_if_not'
         target = self.load_3byte()  # load the 'target' argument
         self.pc = target      # jump
 
     def dont_follow_jump(self):
+        _op_goto_if_not = self.metainterp.staticdata._op_goto_if_not
+        assert ord(self.bytecode[self.pc]) == _op_goto_if_not
         self.pc += 1          # past the bytecode for 'goto_if_not'
         self.load_3byte()     # past the 'target' argument
         self.load_int()       # past the 'box' argument
@@ -397,6 +392,7 @@ class MIFrame(object):
     def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
         negbox = self.metainterp.execute_and_record(
             rop.INT_LT, [indexbox, ConstInt(0)])
+        # XXXXXXXXXXXXXXXXXXXXX fix me
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
@@ -410,6 +406,7 @@ class MIFrame(object):
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(
             rop.INT_NE, [box, ConstInt(0)])
+        # XXXXXXXXXXXXXXXXXXXXX fix me
         nonzerobox = self.implement_guard_value(pc, nonzerobox)
         if nonzerobox.getint():
             return False
@@ -428,6 +425,7 @@ class MIFrame(object):
             rop.INT_AND, [tmp1, box2])                    # tmp2=-1
         tmp3 = self.metainterp.execute_and_record(
             rop.INT_EQ, [tmp2, ConstInt(-1)])             # tmp3?
+        # XXXXXXXXXXXXXXXXXXXXX fix me
         tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
         if not tmp4.getint():
             return False
@@ -436,10 +434,25 @@ class MIFrame(object):
             self.metainterp.cpu.set_overflow_error()
             return self.metainterp.handle_exception()
 
+    @arguments()
+    def opimpl_overflow_error(self):
+        # xxx indirect
+        cpu = self.metainterp.cpu
+        cpu.set_overflow_error()
+        etype = cpu.get_exception()
+        evalue = cpu.get_exc_value()
+        cpu.clear_exception()
+        #
+        ts = self.metainterp.staticdata.ts
+        return self.metainterp.finishframe_exception(
+            ts.get_exception_box(etype),
+            ts.get_exc_value_box(evalue))
+
     @arguments("orgpc", "box")
     def opimpl_int_abs(self, pc, box):
         nonneg = self.metainterp.execute_and_record(
             rop.INT_GE, [box, ConstInt(0)])
+        # XXXXXXXXXXXXXXXXXXXXX fix me
         nonneg = self.implement_guard_value(pc, nonneg)
         if nonneg.getint():
             self.make_result_box(box)
@@ -895,6 +908,8 @@ class MetaInterpStaticData(object):
             self.profiler = profile()
         else:
             self.profiler = EmptyProfiler()
+
+        self._op_goto_if_not = self.find_opcode('goto_if_not')
 
     def _freeze_(self):
         return True

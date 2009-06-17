@@ -811,15 +811,6 @@ class RegAlloc(object):
     consider_int_invert = consider_int_neg
     consider_bool_not = consider_int_neg
 
-    def consider_int_neg_ovf(self, op, guard_op):
-        res = self.force_result_in_reg(op.result, op.args[0], [])
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [res], res,
-                                overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
-        self.eventually_free_var(guard_op.result)
-
     def consider_int_lshift(self, op, ignored):
         if isinstance(op.args[1], Const):
             loc2 = convert_to_imm(op.args[1])
@@ -831,22 +822,6 @@ class RegAlloc(object):
 
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
-
-    def consider_int_lshift_ovf(self, op, guard_op):
-        if isinstance(op.args[1], Const):
-            loc2 = convert_to_imm(op.args[1])
-        else:
-            loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
-        tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [op.args[1], op.result])
-        self.eventually_free_vars(op.args)
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [loc1, loc2, tmploc],
-                                loc1, overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
-        self.eventually_free_var(tmpvar)
 
     def _consider_int_div_or_mod(self, op, resultreg, trashreg):
         l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
