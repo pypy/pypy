@@ -4,7 +4,7 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
-     ConstAddr, ConstObj, ConstPtr
+     ConstAddr, ConstObj, ConstPtr, Box
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
@@ -13,6 +13,39 @@ _cache = {}
 
 class ParseError(Exception):
     pass
+
+
+class Boxes(object):
+    pass
+
+class ExtendedTreeLoop(TreeLoop):
+
+    def getboxes(self):
+        def opboxes(operations):
+            for op in operations:
+                yield op.result
+                for box in op.args:
+                    yield box
+                if op.suboperations:
+                    for box in opboxes(op.suboperations):
+                        yield box
+        def allboxes():
+            for box in self.inputargs:
+                yield box
+            for box in opboxes(self.operations):
+                yield box
+
+        boxes = Boxes()
+        for box in allboxes():
+            if isinstance(box, Box):
+                name = str(box)
+                setattr(boxes, name, box)
+        return boxes
+
+    def setvalues(self, **kwds):
+        boxes = self.getboxes()
+        for name, value in kwds.iteritems():
+            getattr(boxes, name).value = value
 
 class OpParser(object):
     def __init__(self, descr, cpu, namespace, type_system):
@@ -36,6 +69,7 @@ class OpParser(object):
         else:
             raise ParseError("Unknown variable type: %s" % elem)
         _cache[elem] = box
+        box._str = elem
         return box
 
     def parse_header_line(self, line):
@@ -129,7 +163,7 @@ class OpParser(object):
         num, ops = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
-        loop = TreeLoop("loop")
+        loop = ExtendedTreeLoop("loop")
         loop.operations = ops
         loop.inputargs = inpargs
         return loop

@@ -64,3 +64,32 @@ def test_descr_setfield():
     stuff = Xyz()
     loop = parse(x, None, locals())
     assert loop.operations[0].descr is stuff
+
+def test_boxname():
+    x = """
+    [i42]
+    i50 = int_add(i42, 1)
+    """
+    loop = parse(x, None, {})
+    assert str(loop.inputargs[0]) == 'i42'
+    assert str(loop.operations[0].result) == 'i50'
+
+def test_getboxes():
+    x = """
+    [i0]
+    i1 = int_add(i0, 10)
+    """
+    loop = parse(x, None, {})
+    boxes = loop.getboxes()
+    assert boxes.i0 is loop.inputargs[0]
+    assert boxes.i1 is loop.operations[0].result
+    
+def test_setvalues():
+    x = """
+    [i0]
+    i1 = int_add(i0, 10)
+    """
+    loop = parse(x, None, {})
+    loop.setvalues(i0=32, i1=42)
+    assert loop.inputargs[0].value == 32
+    assert loop.operations[0].result.value == 42

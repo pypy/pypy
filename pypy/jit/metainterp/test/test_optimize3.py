@@ -202,15 +202,12 @@ class BaseTestOptimize3(object):
         jump(i3, p1)
         """
         loop = self.parse(ops)
-        # cheat
-        loop.inputargs[1].value = self.nodebox.value # p0
-        loop.operations[1].result.value = 20         # i1
-        loop.operations[2].result.value = 19         # i2
-        loop.operations[3].result.value = 20         # i3
-        loop.operations[4].result = self.nodebox2    # p1
-        loop.operations[5].args[0] = self.nodebox2   # p1
-        loop.operations[6].args[1] = self.nodebox2   # p1
-        loop.operations[6].jump_target = loop
+        loop.setvalues(i0 = 0,
+                       p0 = self.nodebox.value,
+                       i1 = 20,
+                       i2 = 19,
+                       i3 = 20,
+                       p1 = self.nodebox2.value)
         return loop
 
     def test_virtual_simple_find_nodes(self):
@@ -219,22 +216,18 @@ class BaseTestOptimize3(object):
         spec._init(loop)
         spec.find_nodes()
 
-        i0, p0 = loop.inputargs
-        i1 = loop.operations[1].result
-        i2 = loop.operations[2].result
-        i3 = loop.operations[3].result
-        p1 = loop.operations[4].result
-        assert spec.nodes[i0] is not spec.nodes[i3]
-        assert spec.nodes[p0] is not spec.nodes[p1]
-        assert spec.nodes[p0].known_class.source.value == self.node_vtable_adr
-        assert not spec.nodes[p0].escaped
-        assert spec.nodes[p1].known_class.source.value == self.node_vtable_adr
-        assert not spec.nodes[p1].escaped
+        b = loop.getboxes()
+        assert spec.nodes[b.i0] is not spec.nodes[b.i3]
+        assert spec.nodes[b.p0] is not spec.nodes[b.p1]
+        assert spec.nodes[b.p0].known_class.source.value == self.node_vtable_adr
+        assert not spec.nodes[b.p0].escaped
+        assert spec.nodes[b.p1].known_class.source.value == self.node_vtable_adr
+        assert not spec.nodes[b.p1].escaped
 
-        assert len(spec.nodes[p0].curfields) == 0
-        assert spec.nodes[p0].origfields[self.valuedescr] is spec.nodes[i1]
-        assert len(spec.nodes[p1].origfields) == 0
-        assert spec.nodes[p1].curfields[self.valuedescr] is spec.nodes[i2]
+        assert len(spec.nodes[b.p0].curfields) == 0
+        assert spec.nodes[b.p0].origfields[self.valuedescr] is spec.nodes[b.i1]
+        assert len(spec.nodes[b.p1].origfields) == 0
+        assert spec.nodes[b.p1].curfields[self.valuedescr] is spec.nodes[b.i2]
 
     def test_virtual_simple_intersect_input_and_output(self):
         loop = self._get_virtual_simple_loop()
