@@ -663,7 +663,8 @@ class BytecodeMaker(object):
 
     def serialize_op_int_lshift_ovf(self, op):
         self.default_serialize_op(op, 'int_lshift')
-        renaming_list = range(0, self.free_vars*2, 2)
+        saved_free_vars = self.free_vars
+        renaming_list = range(0, saved_free_vars*2, 2)
         #
         v_tmp1 = Variable()
         v_tmp1.concretetype = lltype.Signed
@@ -686,6 +687,7 @@ class BytecodeMaker(object):
         self.emit("overflow_error")
         #
         self.emit(label(common_case))
+        self.free_vars = saved_free_vars
 
     def serialize_op_int_neg_ovf(self, op):
         self.emit('int_sub_ovf', self.var_position(Constant(0)),
