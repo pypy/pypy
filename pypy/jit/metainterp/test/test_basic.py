@@ -419,12 +419,17 @@ class BasicTests:
         assert res == 0
 
     def test_abs(self):
-        def f(x):
-            return abs(x)
-        res = self.interp_operations(f, [-17])
-        assert res == 17
-        res = self.interp_operations(f, [4141])
-        assert res == 4141
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                t += abs(i)
+                i += 1
+            return t
+        res = self.meta_interp(f, [-5])
+        assert res == 5+4+3+2+1+0+1+2+3+4+5+6+7+8+9
 
     def test_print(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -597,7 +602,6 @@ class BasicTests:
         assert res == -667
 
     def test_div_overflow(self):
-        py.test.skip("fails")
         import sys
         from pypy.rpython.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])

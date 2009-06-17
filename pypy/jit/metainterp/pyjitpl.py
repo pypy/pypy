@@ -392,7 +392,7 @@ class MIFrame(object):
     def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
         negbox = self.metainterp.execute_and_record(
             rop.INT_LT, [indexbox, ConstInt(0)])
-        # XXXXXXXXXXXXXXXXXXXXX fix me
+        # xxx inefficient
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
@@ -406,14 +406,14 @@ class MIFrame(object):
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(
             rop.INT_NE, [box, ConstInt(0)])
-        # XXXXXXXXXXXXXXXXXXXXX fix me
+        # xxx inefficient
         nonzerobox = self.implement_guard_value(pc, nonzerobox)
         if nonzerobox.getint():
             return False
         else:
             # division by zero!
             self.metainterp.cpu.set_zero_division_error()
-            return self.metainterp.handle_exception()
+            return self.metainterp.raise_this_error()
 
     @arguments("orgpc", "box", "box")
     def opimpl_check_div_overflow(self, pc, box1, box2):
@@ -425,34 +425,25 @@ class MIFrame(object):
             rop.INT_AND, [tmp1, box2])                    # tmp2=-1
         tmp3 = self.metainterp.execute_and_record(
             rop.INT_EQ, [tmp2, ConstInt(-1)])             # tmp3?
-        # XXXXXXXXXXXXXXXXXXXXX fix me
+        # xxx inefficient
         tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
         if not tmp4.getint():
             return False
         else:
             # division overflow!
             self.metainterp.cpu.set_overflow_error()
-            return self.metainterp.handle_exception()
+            return self.metainterp.raise_this_error()
 
     @arguments()
     def opimpl_overflow_error(self):
-        # xxx indirect
-        cpu = self.metainterp.cpu
-        cpu.set_overflow_error()
-        etype = cpu.get_exception()
-        evalue = cpu.get_exc_value()
-        cpu.clear_exception()
-        #
-        ts = self.metainterp.staticdata.ts
-        return self.metainterp.finishframe_exception(
-            ts.get_exception_box(etype),
-            ts.get_exc_value_box(evalue))
+        self.metainterp.cpu.set_overflow_error()
+        return self.metainterp.raise_this_error()
 
     @arguments("orgpc", "box")
     def opimpl_int_abs(self, pc, box):
         nonneg = self.metainterp.execute_and_record(
             rop.INT_GE, [box, ConstInt(0)])
-        # XXXXXXXXXXXXXXXXXXXXX fix me
+        # xxx inefficient
         nonneg = self.implement_guard_value(pc, nonneg)
         if nonneg.getint():
             self.make_result_box(box)
@@ -1043,6 +1034,14 @@ class MetaInterp(object):
             raise self.staticdata.ExitFrameWithExceptionObj(excvaluebox.getobj())
         else:
             raise self.staticdata.ExitFrameWithExceptionPtr(excvaluebox.getptr_base())
+
+    def raise_this_error(self):
+        etype = self.cpu.get_exception()
+        evalue = self.cpu.get_exc_value()
+        self.cpu.clear_exception()
+        return self.finishframe_exception(
+            self.staticdata.ts.get_exception_box(etype),
+            self.staticdata.ts.get_exc_value_box(evalue))
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
