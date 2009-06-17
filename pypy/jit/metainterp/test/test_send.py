@@ -367,6 +367,10 @@ class SendTests:
             return x.value
         res = self.meta_interp(f, [len(cases)])
         assert res == 110
+        # The generated loops don't contain a new_with_vtable at all.  This
+        # is true if we replace "if cases[y]" above with "if not cases[y]"
+        # -- so there is no good reason that it fails.
+        self.check_loops(new_with_vtable=0)
         self.check_loop_count(2)
 
     def test_three_cases(self):
