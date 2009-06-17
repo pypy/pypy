@@ -48,12 +48,13 @@ class ExtendedTreeLoop(TreeLoop):
             getattr(boxes, name).value = value
 
 class OpParser(object):
-    def __init__(self, descr, cpu, namespace, type_system):
+    def __init__(self, descr, cpu, namespace, type_system, boxkinds):
         self.descr = descr
         self.vars = {}
         self.cpu = cpu
         self.consts = namespace
         self.type_system = type_system
+        self.boxkinds = boxkinds or {}
 
     def box_for_var(self, elem):
         try:
@@ -67,7 +68,12 @@ class OpParser(object):
             # pointer
             box = BoxPtr()
         else:
-            raise ParseError("Unknown variable type: %s" % elem)
+            for prefix, boxclass in self.boxkinds.iteritems():
+                if elem.startswith(prefix):
+                    box = boxclass()
+                    break
+            else:
+                raise ParseError("Unknown variable type: %s" % elem)
         _cache[elem] = box
         box._str = elem
         return box
@@ -196,5 +202,6 @@ class OpParser(object):
         inpargs = self.parse_header_line(line[1:-1])
         return base_indent, inpargs
 
-def parse(descr, cpu=None, namespace={}, type_system='lltype'):
-    return OpParser(descr, cpu, namespace, type_system).parse()
+def parse(descr, cpu=None, namespace={}, type_system='lltype',
+          boxkinds=None):
+    return OpParser(descr, cpu, namespace, type_system, boxkinds).parse()
