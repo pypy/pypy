@@ -790,7 +790,7 @@ class TestLLtype(BasicTests, LLJitMixin):
             b = p1 is not p2
             c = bool(p1)
             d = not bool(p2)
-            return a + b + c + d
+            return 1000*a + 100*b + 10*c + d
         x = lltype.malloc(TP, flavor='raw')
         expected = f(x, x)
         assert self.interp_operations(f, [x, x]) == expected
