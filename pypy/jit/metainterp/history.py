@@ -623,6 +623,7 @@ class Stats(object):
         if expected is not None:
             assert insns == expected
         for insn, expected_count in check.items():
+            getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
             assert insns.get(insn, 0) == expected_count
         return insns
 
@@ -635,6 +636,7 @@ class Stats(object):
         if expected is not None:
             assert insns == expected
         for insn, expected_count in check.items():
+            getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
             assert insns.get(insn, 0) == expected_count
         return insns
 

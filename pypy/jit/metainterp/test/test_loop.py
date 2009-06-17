@@ -169,8 +169,8 @@ class LoopTest:
         res = self.meta_interp(f, [5, 8])
         assert res == 42
         self.check_loop_count(1)
-        # the 'char_eq' and following 'guard' should be constant-folded
-        self.check_loops(char_eq=0, guard_true=1, guard_false=0)
+        # the 'int_eq' and following 'guard' should be constant-folded
+        self.check_loops(int_eq=0, guard_true=1, guard_false=0)
         if self.basic:
             found = 0
             for op in get_stats().loops[0]._all_operations():
