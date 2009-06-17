@@ -596,6 +596,35 @@ class BasicTests:
         res = self.interp_operations(f, [0])
         assert res == -667
 
+    def test_div_overflow(self):
+        py.test.skip("fails")
+        import sys
+        from pypy.rpython.lltypesystem.lloperation import llop
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                try:
+                    res += llop.int_floordiv_ovf(lltype.Signed,
+                                                 -sys.maxint-1, x)
+                    x += 5
+                except OverflowError:
+                    res += 100
+                y -= 1
+            return res
+        res = self.meta_interp(f, [-41, 16])
+        assert res == ((-sys.maxint-1) // (-41) +
+                       (-sys.maxint-1) // (-36) +
+                       (-sys.maxint-1) // (-31) +
+                       (-sys.maxint-1) // (-26) +
+                       (-sys.maxint-1) // (-21) +
+                       (-sys.maxint-1) // (-16) +
+                       (-sys.maxint-1) // (-11) +
+                       (-sys.maxint-1) // (-6) +
+                       100 * 8)
+
     def test_isinstance(self):
         class A:
             pass
