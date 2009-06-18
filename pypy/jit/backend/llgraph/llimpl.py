@@ -723,9 +723,13 @@ class OOFrame(Frame):
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
     def op_setarrayitem_gc(self, typedescr, obj, index, objnewvalue):
+        from pypy.jit.metainterp.warmspot import unwrap
         array = ootype.cast_from_object(typedescr.ARRAY, obj)
-        #newvalue = ootype.cast_from_object(typedescr.TYPE, objnewvalue)
-        array.ll_setitem_fast(index, objnewvalue)
+        if ootype.typeOf(objnewvalue) == ootype.Object:
+            newvalue = ootype.cast_from_object(typedescr.TYPE, objnewvalue)
+        else:
+            newvalue = objnewvalue
+        array.ll_setitem_fast(index, newvalue)
 
     def op_arraylen_gc(self, typedescr, obj):
         array = ootype.cast_from_object(typedescr.ARRAY, obj)
