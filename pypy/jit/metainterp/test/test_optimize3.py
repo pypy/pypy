@@ -94,9 +94,10 @@ class BaseTestOptimize3(object):
         loop.operations = operations
         return loop
 
-    def parse(self, s):
+    def parse(self, s, boxkinds=None):
         return parse(s, self.cpu, self.namespace,
-                     type_system=self.type_system)
+                     type_system=self.type_system,
+                     boxkinds=boxkinds)
 
     def optimize(self, lst, optlist=None):
         if not isinstance(lst, TreeLoop):
@@ -256,6 +257,43 @@ class BaseTestOptimize3(object):
         """
         self.assert_equal(loop, expected)
 
+    def _get_virtual_escape_loop(self):
+        ops = """
+        [sum, n1]
+        guard_class(n1, ConstClass(node_vtable))
+            fail()
+        escape(n1)
+        v = getfield_gc(n1, descr=valuedescr)
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(n2, v2, descr=valuedescr)
+        escape(n2)
+        jump(sum2, n2)
+        """
+        loop = self.parse(ops, boxkinds={'sum': BoxInt,
+                                         'v': BoxInt,
+                                         'n': BoxPtr})
+        loop.setvalues(sum  = 0,
+                       n1   = self.nodebox.value,
+                       v    = 20,
+                       v2   = 19,
+                       sum2 = 20,
+                       n2   = self.nodebox2.value)
+        return loop
+
+    def test_virtual_escape_find_nodes(self):
+        loop = self._get_virtual_escape_loop()
+        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+
+        b = loop.getboxes()
+        assert spec.nodes[b.n1].known_class.source.value == self.node_vtable_adr
+        assert spec.nodes[b.n1].escaped
+        assert spec.nodes[b.n2].known_class.source.value == self.node_vtable_adr
+        assert spec.nodes[b.n2].escaped
+    
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize3):
     pass

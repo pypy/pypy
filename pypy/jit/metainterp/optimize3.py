@@ -291,6 +291,8 @@ class AbstractOptimization(object):
         methname = 'find_nodes_' + methname
         if hasattr(self, methname):
             return getattr(self, methname).im_func
+        elif hasattr(self, 'find_nodes_default_op'):
+            return self.find_nodes_default_op.im_func
         return None
 
     # hooks for LoopSpecializer
@@ -352,6 +354,16 @@ class OptimizeVirtuals(AbstractOptimization):
         node.known_class = None
         node.origfields = r_dict(av_eq, av_hash)
         node.curfields = r_dict(av_eq, av_hash)
+
+    def find_nodes_default_op(self, spec, op):
+        if not op.has_no_side_effect():
+            #spec.first_escaping_op = False
+            for box in op.args:
+                if isinstance(box, Box):
+                    spec.getnode(box).escaped = True
+
+    def find_nodes_jump(self, spec, op):
+        pass
 
     def find_nodes_new_with_vtable(self, spec, op):
         box = op.result

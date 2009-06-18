@@ -111,7 +111,10 @@ class OpParser(object):
         try:
             opnum = getattr(rop, opname.upper())
         except AttributeError:
-            raise ParseError("unknown op: %s" % opname)
+            if opname == 'escape':
+                opnum = -123
+            else:
+                raise ParseError("unknown op: %s" % opname)
         endnum = line.rfind(')')
         if endnum == -1:
             raise ParseError("invalid line: %s" % line)
