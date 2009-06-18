@@ -12,7 +12,7 @@ from pypy.jit.metainterp.optimize3 import AbstractOptimization
 from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
      LoopSpecializer, OptimizeGuards, OptimizeVirtuals
 from pypy.jit.metainterp.specnode3 import VirtualInstanceSpecNode, \
-     NotSpecNode
+     NotSpecNode, FixedClassSpecNode
 from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
 
@@ -293,7 +293,20 @@ class BaseTestOptimize3(object):
         assert spec.nodes[b.n1].escaped
         assert spec.nodes[b.n2].known_class.source.value == self.node_vtable_adr
         assert spec.nodes[b.n2].escaped
-    
+
+    def test_virtual_escape_intersect_input_and_output(self):
+        loop = self._get_virtual_escape_loop()
+        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+        spec.intersect_input_and_output()
+
+        assert len(spec.specnodes) == 2
+        spec_sum, spec_n = spec.specnodes
+        assert isinstance(spec_sum, NotSpecNode)
+        assert type(spec_n) is FixedClassSpecNode
+        assert spec_n.known_class.value == self.node_vtable_adr
+
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize3):
     pass
