@@ -321,7 +321,10 @@ class ConstObj(Const):
        return self.value
 
     def get_(self):
-        return ootype.ooidentityhash(self.value) # XXX: check me
+        if self.value:
+            return ootype.ooidentityhash(self.value) # XXX: check me
+        else:
+            return 0
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_obj(j, self.value)
@@ -474,7 +477,10 @@ class BoxObj(Box):
         return self.value
 
     def get_(self):
-        return ootype.ooidentityhash(self.value) # XXX: check me
+        if self.value:
+            return ootype.ooidentityhash(self.value) # XXX: check me
+        else:
+            return 0
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_obj(j, self.value)
