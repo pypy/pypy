@@ -1045,7 +1045,8 @@ class _view(object):
         return not (self == other)
 
     def __eq__(self, other):
-        assert isinstance(other, (_view, _callable))
+        if not isinstance(other, _view):
+            return False
         a = self._inst
         b = other._inst
         return a.__class__ == b.__class__ and a == b
