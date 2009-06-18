@@ -307,6 +307,23 @@ class BaseTestOptimize3(object):
         assert type(spec_n) is FixedClassSpecNode
         assert spec_n.known_class.value == self.node_vtable_adr
 
+    def test_virtual_escape_optimize_loop(self):
+        loop = self._get_virtual_escape_loop()
+        opt = LoopOptimizer([OptimizeVirtuals()])
+        opt.optimize_loop(loop)
+        expected = """
+        [sum, n1]
+        escape(n1)
+        v = getfield_gc(n1, descr=valuedescr)
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(n2, v2, descr=valuedescr)
+        escape(n2)
+        jump(sum2, n2)
+        """
+        self.assert_equal(loop, expected)
+
 
 class TestLLtype(LLtypeMixin, BaseTestOptimize3):
     pass
