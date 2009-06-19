@@ -13,8 +13,47 @@ from pypy.jit.metainterp.optimize3 import optimize_loop, LoopOptimizer,\
      LoopSpecializer, OptimizeGuards, OptimizeVirtuals
 from pypy.jit.metainterp.specnode3 import VirtualInstanceSpecNode, \
      NotSpecNode, FixedClassSpecNode
-from pypy.jit.metainterp.test.test_optimize import equaloplists, ANY
 from pypy.jit.metainterp.test.oparser import parse
+
+def equaloplists(oplist1, oplist2):
+    print '-'*20, 'Comparing lists', '-'*20
+    for op1, op2 in zip(oplist1, oplist2):
+        txt1 = str(op1)
+        txt2 = str(op2)
+        while txt1 or txt2:
+            print '%-39s| %s' % (txt1[:39], txt2[:39])
+            txt1 = txt1[39:]
+            txt2 = txt2[39:]
+        assert op1.opnum == op2.opnum
+        assert len(op1.args) == len(op2.args)
+        for x, y in zip(op1.args, op2.args):
+            assert x == y # or y == x     # for ANY object :-(
+        assert op1.result == op2.result
+        assert op1.descr == op2.descr
+        if op1.suboperations:
+            assert equaloplists(op1.suboperations, op2.suboperations)
+    assert len(oplist1) == len(oplist2)
+    print '-'*57
+    #finally:
+    #    Box._extended_display = saved
+    return True
+
+
+def test_equaloplists():
+    ops = """
+    [i0]
+    i1 = int_add(i0, 1)
+    guard_true(i1)
+        i2 = int_add(i1, 1)
+        fail(i2)
+    jump(i1)
+    """
+    loop1 = parse(ops)
+    loop2 = parse(ops)
+    loop3 = parse(ops.replace("i2 = int_add", "i2 = int_sub"))
+    assert equaloplists(loop1.operations, loop2.operations)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
 
 
 def test_AbstractOptimization():
@@ -46,6 +85,7 @@ def test_AbstractOptimization():
     myopt2.find_nodes_for_op(None, op)
     assert not hasattr(op, 'found')
 
+    
 
 class LLtypeMixin(object):
     type_system = 'lltype'
@@ -444,18 +484,12 @@ class RebuildOps(BaseVirtualTest):
         v2 = int_sub(v, 1)
         sum2 = int_add(sum, v)
         guard_true(v2)
-            # XXX not checked
             n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
             setfield_gc(n2, v2, descr=valuedescr)
             fail(sum2, n2)
         jump(sum2, v2)
         """
         self.assert_equal(loop, expected)
-        # XXX: it seems that guard_true.suboperations is not checked
-        # check it manually
-        assert loop.operations[-2].suboperations[0].opnum == rop.NEW_WITH_VTABLE
-        assert loop.operations[-2].suboperations[1].opnum == rop.SETFIELD_GC
-        assert loop.operations[-2].suboperations[2].opnum == rop.FAIL
 
 def create_tests(ns):
     for name, value in ns.items():
