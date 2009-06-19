@@ -289,7 +289,7 @@ class VirtualSimpleLoop(BaseVirtualTest):
         self.assert_equal(loop, expected)
 
 
-class VirtualEscape(BaseVirtualTest):
+class VirtualEscape1(BaseVirtualTest):
 
     def getloop(self):
         ops = """
@@ -344,6 +344,63 @@ class VirtualEscape(BaseVirtualTest):
         """
         self.assert_equal(loop, expected)
 
+
+class VirtualEscape2(BaseVirtualTest):
+
+    def getloop(self):
+        ops = """
+        [sum, n1]
+        guard_class(n1, ConstClass(node_vtable))
+            fail()
+        escape(n1)
+        v = getfield_gc(n1, descr=valuedescr)
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        escape(n1)
+        n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(n2, v2, descr=valuedescr)
+        jump(sum2, n2)
+        """
+        loop = self.parse(ops, boxkinds={'sum': BoxInt,
+                                         'v': BoxInt,
+                                         'n': BoxPtr})
+        loop.setvalues(sum  = 0,
+                       n1   = self.nodebox.value,
+                       v    = 20,
+                       v2   = 19,
+                       sum2 = 20,
+                       n2   = self.nodebox2.value)
+        return loop
+
+    def check_find_nodes(self, spec, loop):
+        b = loop.getboxes()
+        assert spec.nodes[b.n1].known_class.source.value == self.node_vtable_adr
+        assert spec.nodes[b.n1].escaped
+        assert spec.nodes[b.n2].known_class.source.value == self.node_vtable_adr
+
+    def check_intersect_input_and_output(self, spec, loop):
+        b = loop.getboxes()
+        assert spec.nodes[b.n2].escaped
+        assert len(spec.specnodes) == 2
+        spec_sum, spec_n = spec.specnodes
+        assert isinstance(spec_sum, NotSpecNode)
+        assert type(spec_n) is FixedClassSpecNode
+        assert spec_n.known_class.value == self.node_vtable_adr
+
+    def check_optimize_loop(self, opt, loop):
+        expected = """
+        [sum, n1]
+        escape(n1)
+        v = getfield_gc(n1, descr=valuedescr)
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        escape(n1)
+        n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(n2, v2, descr=valuedescr)
+        jump(sum2, n2)
+        """
+        self.assert_equal(loop, expected)
+        
 
 
 def create_tests(ns):

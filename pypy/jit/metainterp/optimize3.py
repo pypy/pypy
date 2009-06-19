@@ -18,7 +18,6 @@ class InstanceNode(object):
         #if self.virtual:           flags += 'v'
         #if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
-        
 
 
 class InstanceValue(object):
@@ -52,7 +51,8 @@ class LoopSpecializer(object):
         self.optlist = optlist
         self.nodes = None
         self.loop = None
-
+        self.dependency_graph = [] # XXX: it's used only by OptimizeVirtuals
+        
     def _init(self, loop):
         self.nodes = {}
         self.loop = loop
@@ -94,7 +94,9 @@ class LoopSpecializer(object):
                 self.getnode(arg)
 
     def recursively_find_escaping_values(self):
-        pass # for now
+        for opt in self.optlist:
+            opt.recursively_find_escaping_values(self)
+
 
     def intersect_input_and_output(self):
         # Step (3)
@@ -306,6 +308,9 @@ class AbstractOptimization(object):
         if func:
             func(self, spec, op)
 
+    def recursively_find_escaping_values(self, spec):
+        pass
+
     def intersect_nodes(self, spec, a, b, nodes):
         return None
 
@@ -382,7 +387,7 @@ class OptimizeVirtuals(AbstractOptimization):
         fieldnode = spec.getnode(op.args[1])
         assert isinstance(fielddescr, AbstractValue)
         instnode.curfields[fielddescr] = fieldnode
-##         self.dependency_graph.append((instnode, fieldnode))
+        spec.dependency_graph.append((instnode, fieldnode))
 
     def find_nodes_getfield_gc(self, spec, op):
         instnode = spec.getnode(op.args[0])
@@ -394,12 +399,43 @@ class OptimizeVirtuals(AbstractOptimization):
         elif fielddescr in instnode.origfields:
             fieldnode = instnode.origfields[fielddescr]
         else:
-            fieldnode = InstanceNode(resbox, escaped=False)
+            fieldnode = spec.newnode(resbox, escaped=False)
 ##             if instnode.startbox:
 ##                 fieldnode.startbox = True
-##             self.dependency_graph.append((instnode, fieldnode))
+            spec.dependency_graph.append((instnode, fieldnode))
             instnode.origfields[fielddescr] = fieldnode
         spec.nodes[resbox] = fieldnode
+
+    def add_to_dependency_graph(self, a, b, dep_graph):
+        dep_graph.append((a, b))
+        for ofs, node in a.origfields.items():
+            if ofs in b.curfields:
+                self.add_to_dependency_graph(node, b.curfields[ofs], dep_graph)
+
+    def recursively_find_escaping_values(self, spec):
+        end_args = spec.loop.operations[-1].args
+        assert len(spec.loop.inputargs) == len(end_args)
+        memo = {}
+        for i in range(len(end_args)):
+            end_box = end_args[i]
+##             if isinstance(end_box, Box):
+##                 spec.nodes[end_box].escape_if_startbox(memo, spec.cpu)
+        for i in range(len(end_args)):
+            box = spec.loop.inputargs[i]
+            other_box = end_args[i]
+            if isinstance(other_box, Box):
+                self.add_to_dependency_graph(spec.nodes[box],
+                                             spec.nodes[other_box],
+                                             spec.dependency_graph)
+        # XXX find efficient algorithm, we're too fried for that by now
+        done = False
+        while not done:
+            done = True
+            for instnode, fieldnode in spec.dependency_graph:
+                if instnode.escaped:
+                    if not fieldnode.escaped:
+                        fieldnode.escaped = True
+                        done = False
 
     def intersect_nodes(self, spec, a, b, nodes):
         if not b.known_class:
@@ -427,7 +463,7 @@ class OptimizeVirtuals(AbstractOptimization):
             node = d[ofs]
             if ofs not in a.origfields:
                 box = node.source.clonebox()
-                a.origfields[ofs] = InstanceNode(box, escaped=False)
+                a.origfields[ofs] = spec.newnode(box, escaped=False)
                 a.origfields[ofs].known_class = node.known_class
                 nodes[box] = a.origfields[ofs]
             specnode = spec.intersect_nodes(a.origfields[ofs], node, nodes)
