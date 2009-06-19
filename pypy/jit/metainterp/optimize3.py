@@ -264,7 +264,6 @@ class LoopOptimizer(object):
         newop = op.clone()
         newop.args = self.new_arguments(newop)
         newop.suboperations = oplist + [op_fail]
-
         return newop
 
     def rebuild_ops(self, op):
