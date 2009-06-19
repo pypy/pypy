@@ -1,6 +1,7 @@
 from pypy.rlib.objectmodel import r_dict
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.history import Const, Box, AbstractValue
+from pypy.jit.metainterp.history import Const, Box, AbstractValue,\
+     AbstractDescr, ConstObj
 from pypy.jit.metainterp.optimize import av_eq, av_hash, sort_descrs
 from pypy.jit.metainterp.specnode3 import VirtualInstanceSpecNode, \
      NotSpecNode, FixedClassSpecNode
@@ -150,11 +151,12 @@ class LoopOptimizer(object):
         self.values = None  # box --> InstanceValue
         
 
-    def _init(self, loop):
+    def _init(self, loop, cpu):
         self.spec._init(loop)
         self.fixedops = {}
         self.values = {}
         self.loop = loop
+        self.cpu = cpu
 
     def newval(self, *args, **kwds): # XXX RPython
         val = InstanceValue(*args, **kwds)
@@ -178,8 +180,8 @@ class LoopOptimizer(object):
         assert not isinstance(box, Const)
         self.values[box] = self.newval(box)
 
-    def optimize_loop(self, loop):
-        self._init(loop)
+    def optimize_loop(self, loop, cpu):
+        self._init(loop, cpu)
         self.spec.find_nodes()
         self.spec.intersect_input_and_output()
         newinputargs = self.spec.newinputargs()
@@ -254,14 +256,36 @@ class LoopOptimizer(object):
                     break
             else:
                 return None
-        op.args = self.new_arguments(op)
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
-        op_fail.args = self.new_arguments(op_fail)
-        # modification in place. Reason for this is explained in mirror
-        # in optimize.py
-        op.suboperations = [op_fail]
-        return op
+        assert op_fail.opnum == rop.FAIL
+        oplist = self.rebuild_ops(op_fail)
+        op_fail.args = self.new_arguments(op_fail) # modify in place, see optimize.py
+        newop = op.clone()
+        newop.args = self.new_arguments(newop)
+        newop.suboperations = oplist + [op_fail]
+
+        return newop
+
+    def rebuild_ops(self, op):
+        oplist = []
+        memo = {}
+        for box in op.args:
+            if isinstance(box, Const) or box not in self.spec.nodes:
+                continue
+            node = self.spec.getnode(box)
+            self.rebuild_box(oplist, memo, node, box)
+        return oplist
+
+    def rebuild_box(self, oplist, memo, node, box):
+        if not isinstance(box, Box):
+            return box
+        if box in memo:
+            return box
+        memo[box] = None
+        for opt in self.optlist:
+            opt.rebuild_box(self, oplist, memo, node, box)
+        return box
 
 
 # -------------------------------------------------------------------
@@ -327,6 +351,9 @@ class AbstractOptimization(object):
     
     def handle_default_op(self, spec, op):
         return op
+
+    def rebuild_box(self, oplist, node, box):
+        pass
 
 
 class OptimizeGuards(AbstractOptimization):
@@ -475,6 +502,47 @@ class OptimizeVirtuals(AbstractOptimization):
 
     # ---------------------------------------
 
+    def _new_obj(self, cpu, clsbox, resbox):
+##         if isinstance(clsbox, FixedList):
+##             ad = clsbox.arraydescr
+##             sizebox = ConstInt(node.cursize)
+##             op = ResOperation(rop.NEW_ARRAY, [sizebox], box,
+##                               descr=ad)
+        if cpu.is_oo and isinstance(clsbox, ConstObj):
+            # it's probably a ootype new
+            cls = clsbox.getobj()
+            typedescr = cpu.class_sizes[cls]
+            return ResOperation(rop.NEW_WITH_VTABLE, [clsbox], resbox,
+                                descr=typedescr)
+        else:
+            assert not cpu.is_oo
+            vtable = clsbox.getint()
+            if cpu.translate_support_code:
+                vtable_addr = cpu.cast_int_to_adr(vtable)
+                size = cpu.class_sizes[vtable_addr]
+            else:
+                size = cpu.class_sizes[vtable]
+            return ResOperation(rop.NEW_WITH_VTABLE, [clsbox], resbox,
+                                descr=size)
+
+    def rebuild_box(self, opt, oplist, memo, node, box):
+        if not node.virtual:
+            return
+        clsbox = node.known_class.source
+        oplist.append(self._new_obj(opt.cpu, clsbox, box))
+        opt.setval(box) # make sure that the value for this box exists
+        for descr, node in node.curfields.items():
+            fieldbox = opt.rebuild_box(oplist, memo, node, node.source)
+##             if isinstance(clsbox, FixedList):
+##                 op = ResOperation(rop.SETARRAYITEM_GC,
+##                                   [box, descr, fieldbox],
+##                                   None, descr=clsbox.arraydescr)
+##             else:
+            assert isinstance(descr, AbstractDescr)
+            op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
+                              None, descr=descr)
+            oplist.append(op)
+
     def jump(self, opt, op):
         args = opt.spec.expanded_version_of(op.args)
         for arg in args:
@@ -534,7 +602,7 @@ def optimize_loop(options, old_loops, loop, cpu=None, opt=None):
         assert len(old_loops) == 1
         return old_loops[0]
     else:
-        opt.optimize_loop(loop)
+        opt.optimize_loop(loop, cpu)
         return None
 
 def optimize_bridge(options, old_loops, loop, cpu=None, spec=None):

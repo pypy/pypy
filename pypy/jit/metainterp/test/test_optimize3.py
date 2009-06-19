@@ -63,6 +63,8 @@ class LLtypeMixin(object):
     nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodesize = cpu.sizeof(NODE)
     valuedescr = cpu.fielddescrof(NODE, 'value')
+
+    cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE)}
     namespace = locals()
 
 class OOtypeMixin(object):
@@ -83,6 +85,7 @@ class OOtypeMixin(object):
     valuedescr = cpu.fielddescrof(NODE, 'value')
     nodesize = cpu.typedescrof(NODE)
 
+    cpu.class_sizes = {node_vtable_adr: cpu.typedescrof(NODE)}
     namespace = locals()
 
 class BaseTestOptimize3(object):
@@ -228,7 +231,7 @@ class BaseVirtualTest(BaseTestOptimize3):
     def test_optimize_loop(self):
         loop = self.getloop()
         opt = LoopOptimizer([OptimizeVirtuals()])
-        opt.optimize_loop(loop)
+        opt.optimize_loop(loop, self.cpu)
         self.check_optimize_loop(opt, loop)
 
 
@@ -402,6 +405,57 @@ class VirtualEscape2(BaseVirtualTest):
         self.assert_equal(loop, expected)
         
 
+class RebuildOps(BaseVirtualTest):
+
+    def getloop(self):
+        ops = """
+        [sum, n1]
+        guard_class(n1, ConstClass(node_vtable))
+            fail()
+        v = getfield_gc(n1, descr=valuedescr)
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(n2, v2, descr=valuedescr)
+        guard_true(v2)
+            fail(sum2, n2)
+        jump(sum2, n2)
+        """
+        loop = self.parse(ops, boxkinds={'sum': BoxInt,
+                                         'v': BoxInt,
+                                         'n': BoxPtr})
+        loop.setvalues(sum  = 0,
+                       n1   = self.nodebox.value,
+                       v    = 20,
+                       v2   = 19,
+                       sum2 = 20,
+                       n2   = self.nodebox2.value)
+        return loop
+
+    def test_find_nodes(self):
+        pass
+
+    def test_intersect_input_and_output(self):
+        pass
+
+    def check_optimize_loop(self, opt, loop):
+        expected = """
+        [sum, v]
+        v2 = int_sub(v, 1)
+        sum2 = int_add(sum, v)
+        guard_true(v2)
+            # XXX not checked
+            n2 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+            setfield_gc(n2, v2, descr=valuedescr)
+            fail(sum2, n2)
+        jump(sum2, v2)
+        """
+        self.assert_equal(loop, expected)
+        # XXX: it seems that guard_true.suboperations is not checked
+        # check it manually
+        assert loop.operations[-2].suboperations[0].opnum == rop.NEW_WITH_VTABLE
+        assert loop.operations[-2].suboperations[1].opnum == rop.SETFIELD_GC
+        assert loop.operations[-2].suboperations[2].opnum == rop.FAIL
 
 def create_tests(ns):
     for name, value in ns.items():
