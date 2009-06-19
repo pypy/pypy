@@ -115,6 +115,8 @@ class BaseTestOptimize3(object):
                      self.parse(expected).operations)
 
 
+class CheckConstFold(BaseTestOptimize3):
+
     def test_constfold(self):
         for op in range(rop.INT_ADD, rop._COMPARISON_FIRST):
             try:
@@ -146,6 +148,9 @@ class BaseTestOptimize3(object):
         """
         loop = self.optimize(ops, [])
         self.assert_equal(loop, expected)
+
+
+class CheckOptimizeGuards(BaseTestOptimize3):
 
     def test_remove_guard_class(self):
         ops = """
@@ -190,7 +195,47 @@ class BaseTestOptimize3(object):
         loop = self.optimize(loop, [OptimizeGuards()])
         self.assert_equal(loop, expected)
 
-    def _get_virtual_simple_loop(self):
+
+class BaseVirtualTest(BaseTestOptimize3):
+
+    def getloop(self):
+        raise NotImplementedError
+
+    def check_find_nodes(self, spec, loop):
+        pass
+
+    def check_intersect_input_and_output(self, spec, loop):
+        pass
+
+    def check_optimize_loop(self, opt, loop):
+        pass
+
+    def test_find_nodes(self):
+        loop = self.getloop()
+        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+        self.check_find_nodes(spec, loop)
+
+    def test_intersect_input_and_output(self):
+        loop = self.getloop()
+        spec = LoopSpecializer([OptimizeVirtuals()])
+        spec._init(loop)
+        spec.find_nodes()
+        spec.intersect_input_and_output()
+        self.check_intersect_input_and_output(spec, loop)
+
+    def test_optimize_loop(self):
+        loop = self.getloop()
+        opt = LoopOptimizer([OptimizeVirtuals()])
+        opt.optimize_loop(loop)
+        self.check_optimize_loop(opt, loop)
+
+
+
+class VirtualSimpleLoop(BaseVirtualTest):
+
+    def getloop(self):
         ops = """
         [i0, p0]
         guard_class(p0, ConstClass(node_vtable))
@@ -211,12 +256,7 @@ class BaseTestOptimize3(object):
                        p1 = self.nodebox2.value)
         return loop
 
-    def test_virtual_simple_find_nodes(self):
-        loop = self._get_virtual_simple_loop()
-        spec = LoopSpecializer([OptimizeVirtuals()])
-        spec._init(loop)
-        spec.find_nodes()
-
+    def check_find_nodes(self, spec, loop):
         b = loop.getboxes()
         assert spec.nodes[b.i0] is not spec.nodes[b.i3]
         assert spec.nodes[b.p0] is not spec.nodes[b.p1]
@@ -230,13 +270,7 @@ class BaseTestOptimize3(object):
         assert len(spec.nodes[b.p1].origfields) == 0
         assert spec.nodes[b.p1].curfields[self.valuedescr] is spec.nodes[b.i2]
 
-    def test_virtual_simple_intersect_input_and_output(self):
-        loop = self._get_virtual_simple_loop()
-        spec = LoopSpecializer([OptimizeVirtuals()])
-        spec._init(loop)
-        spec.find_nodes()
-        spec.intersect_input_and_output()
-        
+    def check_intersect_input_and_output(self, spec, loop):
         assert len(spec.specnodes) == 2
         spec_sum, spec_n = spec.specnodes
         assert isinstance(spec_sum, NotSpecNode)
@@ -245,10 +279,7 @@ class BaseTestOptimize3(object):
         assert spec_n.fields[0][0] == self.valuedescr
         assert isinstance(spec_n.fields[0][1], NotSpecNode)
 
-    def test_virtual_simple_optimize_loop(self):
-        loop = self._get_virtual_simple_loop()
-        opt = LoopOptimizer([OptimizeVirtuals()])
-        opt.optimize_loop(loop)
+    def check_optimize_loop(self, opt, loop):
         expected = """
         [i0, i1]
         i2 = int_sub(i1, 1)
@@ -257,7 +288,10 @@ class BaseTestOptimize3(object):
         """
         self.assert_equal(loop, expected)
 
-    def _get_virtual_escape_loop(self):
+
+class VirtualEscape(BaseVirtualTest):
+
+    def getloop(self):
         ops = """
         [sum, n1]
         guard_class(n1, ConstClass(node_vtable))
@@ -282,35 +316,21 @@ class BaseTestOptimize3(object):
                        n2   = self.nodebox2.value)
         return loop
 
-    def test_virtual_escape_find_nodes(self):
-        loop = self._get_virtual_escape_loop()
-        spec = LoopSpecializer([OptimizeVirtuals()])
-        spec._init(loop)
-        spec.find_nodes()
-
+    def check_find_nodes(self, spec, loop):
         b = loop.getboxes()
         assert spec.nodes[b.n1].known_class.source.value == self.node_vtable_adr
         assert spec.nodes[b.n1].escaped
         assert spec.nodes[b.n2].known_class.source.value == self.node_vtable_adr
         assert spec.nodes[b.n2].escaped
 
-    def test_virtual_escape_intersect_input_and_output(self):
-        loop = self._get_virtual_escape_loop()
-        spec = LoopSpecializer([OptimizeVirtuals()])
-        spec._init(loop)
-        spec.find_nodes()
-        spec.intersect_input_and_output()
-
+    def check_intersect_input_and_output(self, spec, loop):
         assert len(spec.specnodes) == 2
         spec_sum, spec_n = spec.specnodes
         assert isinstance(spec_sum, NotSpecNode)
         assert type(spec_n) is FixedClassSpecNode
         assert spec_n.known_class.value == self.node_vtable_adr
 
-    def test_virtual_escape_optimize_loop(self):
-        loop = self._get_virtual_escape_loop()
-        opt = LoopOptimizer([OptimizeVirtuals()])
-        opt.optimize_loop(loop)
+    def check_optimize_loop(self, opt, loop):
         expected = """
         [sum, n1]
         escape(n1)
@@ -325,8 +345,21 @@ class BaseTestOptimize3(object):
         self.assert_equal(loop, expected)
 
 
-class TestLLtype(LLtypeMixin, BaseTestOptimize3):
-    pass
 
-class TestOOtype(OOtypeMixin, BaseTestOptimize3):
-    pass
+def create_tests(ns):
+    for name, value in ns.items():
+        if (isinstance(value, type) and
+            issubclass(value, BaseTestOptimize3) and
+            not name.startswith('Base')):
+                
+            src = py.code.Source("""
+                class Test%(name)sLLtype(%(name)s, LLtypeMixin, BaseTestOptimize3):
+                    pass
+
+                class Test%(name)sOOtype(%(name)s, OOtypeMixin, BaseTestOptimize3):
+                    pass
+                """ % {'name': name})
+            exec src.compile() in ns
+                                 
+
+create_tests(globals())
