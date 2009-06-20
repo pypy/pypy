@@ -329,3 +329,22 @@ class TestLLtype_Object(VirtualTests, LLJitMixin):
         return p
 
 # ____________________________________________________________
+
+
+class Optimize3Mixin(object):
+
+    def meta_interp(self, *args, **kwds):
+        from pypy.jit.metainterp.optimize3 import Optimizer
+        kwds['optimizer'] = Optimizer
+        return super(Optimize3Mixin, self).meta_interp(*args, **kwds)
+
+class TestLLtype_Instance3(Optimize3Mixin, TestLLtype_Instance):
+
+    def skip(self):
+        py.test.skip('in progress')
+
+    test_two_loops_with_virtual = skip
+    test_two_loops_with_escaping_virtual = skip
+    test_immutable_constant_getfield = skip
+    test_virtual_on_virtual = skip
+    test_bridge_from_interpreter = skip
