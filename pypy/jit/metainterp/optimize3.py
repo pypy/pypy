@@ -52,12 +52,13 @@ class LoopSpecializer(object):
         self.optlist = optlist
         self.nodes = None
         self.loop = None
-        self.dependency_graph = [] # XXX: it's used only by OptimizeVirtuals
+        self.dependency_graph = None
         
     def _init(self, loop):
         self.nodes = {}
         self.loop = loop
-
+        self.dependency_graph = [] # XXX: it's used only by OptimizeVirtuals
+        
     def newnode(self, *args, **kwds): # XXX RPython
         node = InstanceNode(*args, **kwds)
         for opt in self.optlist:
@@ -73,6 +74,7 @@ class LoopSpecializer(object):
             return node
 
     def find_nodes(self):
+        assert not self.nodes
         for box in self.loop.inputargs:
             self.nodes[box] = self.newnode(box, escaped=False,)
                                            #startbox=True)
@@ -192,6 +194,14 @@ class LoopOptimizer(object):
         self.loop.operations = newoperations
 
     def optimize_operations(self, newinputargs):
+        assert not self.values
+        # create values for boxes that have been virtualized away,
+        # i.e. those boxes whose node.source points to somewhere else
+        for box, node in self.spec.nodes.iteritems():
+            if box is not node.source:
+                self.setval(box)
+                self.getval(box).box = node.source
+
         for box in newinputargs:
             self.setval(box) #  startbox=True)
         newoperations = []
@@ -351,7 +361,7 @@ class AbstractOptimization(object):
     def handle_default_op(self, spec, op):
         return op
 
-    def rebuild_box(self, oplist, node, box):
+    def rebuild_box(self, opt, oplist, memo, node, box):
         pass
 
 
@@ -589,6 +599,7 @@ class OptimizeVirtuals(AbstractOptimization):
 # -------------------------------------------------------------------
 
 OPTLIST = [
+    OptimizeVirtuals(),
     OptimizeGuards(),
     ]
 

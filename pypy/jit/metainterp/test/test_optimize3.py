@@ -232,9 +232,7 @@ class CheckOptimizeGuards(BaseTestOptimize3):
         jump(0)
         """
         loop = self.parse(ops)
-        # cheat
-        loop.operations[1].result.value = 1
-        loop.operations[3].result.value = 3
+        loop.setvalues(i0 = 0, i1 = 1, i2 = 3)
         loop = self.optimize(loop, [OptimizeGuards()])
         self.assert_equal(loop, expected)
 
@@ -274,6 +272,35 @@ class BaseVirtualTest(BaseTestOptimize3):
         opt.optimize_loop(loop, self.cpu)
         self.check_optimize_loop(opt, loop)
 
+
+class MallocRemoval(BaseVirtualTest):
+
+    def getloop(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
+        setfield_gc(p0, i0, descr=valuedescr)
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        loop = self.parse(ops)
+        loop.setvalues(i0 = 40, i1 = 40, i2 = 41)
+        return loop
+
+    def test_find_nodes(self):
+        pass
+
+    def test_intersect_input_and_output(self):
+        pass
+
+    def check_optimize_loop(self, opt, loop):
+        expected = """
+        [i0]
+        i2 = int_add(i0, 1)
+        jump(i2)
+        """
+        self.assert_equal(loop, expected)
 
 
 class VirtualSimpleLoop(BaseVirtualTest):
@@ -490,6 +517,9 @@ class RebuildOps(BaseVirtualTest):
         jump(sum2, v2)
         """
         self.assert_equal(loop, expected)
+
+
+
 
 def create_tests(ns):
     for name, value in ns.items():
