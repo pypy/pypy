@@ -35,11 +35,7 @@ XY = lltype.GcStruct(
 XY._adtmeths['access'].initialize(XY, ['inst_x', 'inst_node', 'inst_l'])
 
 xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-xy_vtable.name = lltype.malloc(rclass.OBJECT_VTABLE.name.TO, 3, immortal=True)
-xy_vtable.name[0] = 'X'
-xy_vtable.name[1] = 'Y'
-xy_vtable.name[2] = '\x00'
-heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable)
+heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
 
 XYSUB = lltype.GcStruct(
     'XYSUB',
@@ -50,15 +46,7 @@ XYSUB = lltype.GcStruct(
 XYSUB._adtmeths['access'].initialize(XYSUB, ['z'], PARENT=XY)
 
 xysub_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-xysub_vtable.name = lltype.malloc(rclass.OBJECT_VTABLE.name.TO, 6,
-                                  immortal=True)
-xysub_vtable.name[0] = 'X'
-xysub_vtable.name[1] = 'Y'
-xysub_vtable.name[2] = 'S'
-xysub_vtable.name[3] = 'U'
-xysub_vtable.name[4] = 'B'
-xysub_vtable.name[5] = '\x00'
-heaptracker.set_testing_vtable_for_gcstruct(XYSUB, xysub_vtable)
+heaptracker.set_testing_vtable_for_gcstruct(XYSUB, xysub_vtable, 'XYSUB')
 
 # ____________________________________________________________
 

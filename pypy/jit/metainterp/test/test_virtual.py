@@ -318,7 +318,7 @@ NODE2 = lltype.GcStruct('NODE2', ('parent', rclass.OBJECT),
                                  ('extra', lltype.Signed))
 
 vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-heaptracker.set_testing_vtable_for_gcstruct(NODE2, vtable2)
+heaptracker.set_testing_vtable_for_gcstruct(NODE2, vtable2, 'NODE2')
 
 class TestLLtype_Object(VirtualTests, LLJitMixin):
     _new_op = 'new_with_vtable'

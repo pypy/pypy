@@ -76,9 +76,14 @@ def setup_cache_gcstruct2vtable(cpu):
             cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
         cpu._cache_gcstruct2vtable = cache
 
-def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable):
+def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed
     # structures in case they are GcStruct inheriting from OBJECT.
+    namez = name + '\x00'
+    vtable.name = lltype.malloc(rclass.OBJECT_VTABLE.name.TO, len(namez),
+                                immortal=True)
+    for i in range(len(namez)):
+        vtable.name[i] = namez[i]
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
 def populate_type_cache(graphs, cpu):
