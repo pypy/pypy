@@ -630,7 +630,9 @@ class Stats(object):
             assert insns == expected
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
-            assert insns.get(insn, 0) == expected_count
+            found = insns.get(insn, 0)
+            assert found == expected_count, (
+                "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
     def check_loops(self, expected=None, **check):
@@ -643,7 +645,9 @@ class Stats(object):
             assert insns == expected
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
-            assert insns.get(insn, 0) == expected_count
+            found = insns.get(insn, 0)
+            assert found == expected_count, (
+                "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
     def check_consistency(self):
