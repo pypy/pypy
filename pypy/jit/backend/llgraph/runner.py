@@ -116,11 +116,12 @@ class BaseCPU(model.AbstractCPU):
     def _compile_branch(self, c, operations, var2index):
         for op in operations:
             llimpl.compile_add(c, op.opnum)
-            if isinstance(op.descr, Descr):
-                llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
-            if self.is_oo and isinstance(op.descr, (OODescr, MethDescr)):
+            descr = op.descr
+            if isinstance(descr, Descr):
+                llimpl.compile_add_descr(c, descr.ofs, descr.type)
+            if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
-                c._obj.externalobj.operations[-1].descr = op.descr
+                c._obj.externalobj.operations[-1].descr = descr
             for x in op.args:
                 if isinstance(x, history.Box):
                     llimpl.compile_add_var(c, var2index[x])
@@ -282,6 +283,7 @@ class LLtypeCPU(BaseCPU):
         return history.BoxInt(llimpl.do_unicodegetitem(0, string, index))
 
     def do_getarrayitem_gc(self, args, arraydescr):
+        assert isinstance(arraydescr, Descr)
         array = args[0].getptr_base()
         index = args[1].getint()
         if arraydescr.type == 'p':
@@ -291,6 +293,7 @@ class LLtypeCPU(BaseCPU):
                                                                self.memo_cast))
 
     def do_getfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, Descr)
         struct = args[0].getptr_base()
         if fielddescr.type == 'p':
             return history.BoxPtr(llimpl.do_getfield_gc_ptr(struct,
@@ -300,6 +303,7 @@ class LLtypeCPU(BaseCPU):
                                                             fielddescr.ofs,
                                                             self.memo_cast))
     def do_getfield_raw(self, args, fielddescr):
+        assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.type == 'p':
             return history.BoxPtr(llimpl.do_getfield_raw_ptr(struct,
@@ -324,6 +328,7 @@ class LLtypeCPU(BaseCPU):
         return history.BoxPtr(llimpl.do_new_array(size.ofs, count))
 
     def do_setarrayitem_gc(self, args, arraydescr):
+        assert isinstance(arraydescr, Descr)
         array = args[0].getptr_base()
         index = args[1].getint()
         if arraydescr.type == 'p':
@@ -335,6 +340,7 @@ class LLtypeCPU(BaseCPU):
                                           self.memo_cast)
 
     def do_setfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, Descr)
         struct = args[0].getptr_base()
         if fielddescr.type == 'p':
             newvalue = args[1].getptr_base()
@@ -345,6 +351,7 @@ class LLtypeCPU(BaseCPU):
                                       self.memo_cast)
 
     def do_setfield_raw(self, args, fielddescr):
+        assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.type == 'p':
             newvalue = args[1].getptr_base()
@@ -375,6 +382,7 @@ class LLtypeCPU(BaseCPU):
         llimpl.do_unicodesetitem(0, string, index, newvalue)
 
     def do_call(self, args, calldescr):
+        assert isinstance(calldescr, Descr)
         func = args[0].getint()
         for arg in args[1:]:
             if (isinstance(arg, history.BoxPtr) or

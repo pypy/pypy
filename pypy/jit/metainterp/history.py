@@ -24,6 +24,8 @@ def getkind(TYPE):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
+        if TYPE in (lltype.Float, lltype.SingleFloat):
+            raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
         if rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed):
             raise NotImplementedError("type %s is too large" % TYPE)
@@ -112,6 +114,8 @@ class AbstractValue(object):
         return '%s' % self
 
 class AbstractDescr(AbstractValue):
+    __slots__ = ()
+
     def handle_fail_op(self, metainterp, fail_op):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
