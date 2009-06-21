@@ -280,6 +280,14 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res is True
 
+    def test_tuple_eq_list(self):
+        def f(n):
+            lst1 = [1, n]
+            lst1.append(3)
+            return (lst1, 52) == ([1, 53, 3], n-1)
+        res = self.interpret(f, [53])
+        assert res is True
+
     TUPLES = [
         ((1,2),  (2,3),   -1),
         ((1,2),  (1,3),   -1),

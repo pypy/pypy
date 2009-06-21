@@ -292,32 +292,27 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
     rtype_inplace_add = rtype_add
 
     def rtype_eq((r_tup1, r_tup2), hop):
-        # XXX assumes that r_tup2 is convertible to r_tup1
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         ll_eq = r_tup1.get_ll_eq_function()
         return hop.gendirectcall(ll_eq, v_tuple1, v_tuple2)
 
     def rtype_ge((r_tup1, r_tup2), hop):
-        # XXX assumes that r_tup2 is convertible to r_tup1
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         ll_ge = r_tup1.get_ll_ge_function()
         return hop.gendirectcall(ll_ge, v_tuple1, v_tuple2)
 
     def rtype_gt((r_tup1, r_tup2), hop):
-        # XXX assumes that r_tup2 is convertible to r_tup1
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         ll_gt = r_tup1.get_ll_gt_function()
         return hop.gendirectcall(ll_gt, v_tuple1, v_tuple2)
 
     def rtype_le((r_tup1, r_tup2), hop):
-        # XXX assumes that r_tup2 is convertible to r_tup1
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         ll_le = r_tup1.get_ll_le_function()
         return hop.gendirectcall(ll_le, v_tuple1, v_tuple2)
 
     def rtype_lt((r_tup1, r_tup2), hop):
-        # XXX assumes that r_tup2 is convertible to r_tup1
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         ll_lt = r_tup1.get_ll_lt_function()
         return hop.gendirectcall(ll_lt, v_tuple1, v_tuple2)
 
