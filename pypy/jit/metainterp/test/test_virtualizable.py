@@ -5,9 +5,10 @@ from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, hint
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
-from pypy.jit.metainterp.test.test_vable_optimize import XY, xy_vtable
+from pypy.rpython.lltypesystem.rvirtualizable2 import VirtualizableAccessor
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.jit.metainterp import history
+from pypy.jit.metainterp import history, heaptracker
+from pypy.jit.metainterp.test.test_optimize import NODE
 
 promote_virtualizable = lloperation.llop.promote_virtualizable
 debug_print = lloperation.llop.debug_print
@@ -16,14 +17,29 @@ debug_print = lloperation.llop.debug_print
 
 class ExplicitVirtualizableTests:
 
+    XY = lltype.GcStruct(
+        'XY',
+        ('parent', rclass.OBJECT),
+        ('vable_base', llmemory.Address),
+        ('vable_rti', VABLERTIPTR),
+        ('inst_x', lltype.Signed),
+        ('inst_l', lltype.Ptr(lltype.GcArray(lltype.Signed))),
+        ('inst_node', lltype.Ptr(NODE)),
+        hints = {'virtualizable2': True,
+                 'virtuals':()},
+        adtmeths = {'access': VirtualizableAccessor()})
+    XY._adtmeths['access'].initialize(XY, ['inst_x', 'inst_node', 'inst_l'])
+
+    xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
+
     def _freeze_(self):
         return True
 
-    @staticmethod
-    def setup():
-        xy = lltype.malloc(XY)
+    def setup(self):
+        xy = lltype.malloc(self.XY)
         xy.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
-        xy.parent.typeptr = xy_vtable
+        xy.parent.typeptr = self.xy_vtable
         return xy
 
     def test_preexisting_access(self):
@@ -608,46 +624,12 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0, call=0)
 
 
-class TestOOtype(ExplicitVirtualizableTests,
-                ImplicitVirtualizableTests,
-                OOJitMixin):
-    pass
+#class TestOOtype(ExplicitVirtualizableTests,
+#                 ImplicitVirtualizableTests,
+#                 OOJitMixin):
+#    pass
 
 class TestLLtype(ExplicitVirtualizableTests,
-                 ImplicitVirtualizableTests,
+                 #ImplicitVirtualizableTests,
                  LLJitMixin):
     pass
-
-
-class TestOptimize2LLtype(ImplicitVirtualizableTests, LLJitMixin):
-
-    def meta_interp(self, *args, **kwds):
-        from pypy.jit.metainterp.optimize2 import Optimizer
-        kwds['optimizer'] = Optimizer
-        return LLJitMixin.meta_interp(self, *args, **kwds)
-
-    def skip(self):
-        py.test.skip('in-progress')
-        
-    test_simple_implicit = skip
-    test_virtual_on_virtualizable = skip
-    test_no_virtual_on_virtualizable = skip
-    test_virtualizable_hierarchy = skip
-    test_non_virtual_on_always_virtual = skip
-
-
-class TestOptimize2OOtype(ImplicitVirtualizableTests, OOJitMixin):
-
-    def meta_interp(self, *args, **kwds):
-        from pypy.jit.metainterp.optimize2 import Optimizer
-        kwds['optimizer'] = Optimizer
-        return OOJitMixin.meta_interp(self, *args, **kwds)
-
-    def skip(self):
-        py.test.skip('in-progress')
-        
-    test_simple_implicit = skip
-    test_virtual_on_virtualizable = skip
-    test_no_virtual_on_virtualizable = skip
-    test_virtualizable_hierarchy = skip
-    test_non_virtual_on_always_virtual = skip
