@@ -707,6 +707,10 @@ class BytecodeMaker(object):
     def serialize_op_int_is_true(self, op):
         if isinstance(op.args[0], Constant):
             if op.args[0].value is objectmodel.malloc_zero_filled:
+                # always True for now
+                warmrunnerdesc = self.codewriter.metainterp_sd.warmrunnerdesc
+                if warmrunnerdesc is not None:
+                    assert warmrunnerdesc.gcdescr.malloc_zero_filled
                 self.var_positions[op.result] = self.var_position(Constant(1))
                 return
         self.emit('int_is_true', self.var_position(op.args[0]))
@@ -774,6 +778,7 @@ class BytecodeMaker(object):
 
     def serialize_op_zero_gc_pointers_inside(self, op):
         # XXX this is always a no-op for now
+        XXX     # not actually called?
         warmrunnerdesc = self.codewriter.metainterp_sd.warmrunnerdesc
         if warmrunnerdesc is not None:
             assert warmrunnerdesc.gcdescr.malloc_zero_filled

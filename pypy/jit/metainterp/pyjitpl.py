@@ -864,7 +864,7 @@ class MIFrame(object):
 class MetaInterpStaticData(object):
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 optimizer=None, profile=None):
+                 optimizer=None, profile=None, warmrunnerdesc=None):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
@@ -900,13 +900,14 @@ class MetaInterpStaticData(object):
         else:
             self.profiler = EmptyProfiler()
 
+        self.warmrunnerdesc = warmrunnerdesc
         self._op_goto_if_not = self.find_opcode('goto_if_not')
 
     def _freeze_(self):
         return True
 
-    def finish_setup(self, warmrunnerdesc):
-        self.warmrunnerdesc = warmrunnerdesc
+    def finish_setup(self):
+        warmrunnerdesc = self.warmrunnerdesc
         if warmrunnerdesc is not None:
             self.num_green_args = warmrunnerdesc.num_green_args
             self.state = warmrunnerdesc.state

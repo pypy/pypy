@@ -25,10 +25,7 @@ class SourceIterator:
         return arg
 
     def get_opname(self):
-        result = self.get(str, 0)
-        self.pc += len(
-            codewriter.encode_int(self.interpreter.find_opcode(result)))
-        return result
+        return self.get(str, 1)
 
     def getjitcode(self):
         return self.jitcode

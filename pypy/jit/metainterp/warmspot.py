@@ -135,7 +135,7 @@ class WarmRunnerDesc:
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.add_profiler_finish()
-        self.metainterp_sd.finish_setup(self)
+        self.metainterp_sd.finish_setup()
         # hook back for set_param
         self.jitdriver.state = self.state
 
@@ -187,7 +187,8 @@ class WarmRunnerDesc:
         self.metainterp_sd = MetaInterpStaticData(graph, graphs, cpu,
                                                   self.stats, opt,
                                                   optimizer=optimizer,
-                                                  profile=profile)
+                                                  profile=profile,
+                                                  warmrunnerdesc=self)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
