@@ -93,6 +93,7 @@ class CodeWriter(object):
         self.policy = policy
         self.ts = ts
         self.counter = 0
+        self.raise_analyzer = RaiseAnalyzer(self.rtyper.annotator.translator)
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
@@ -270,8 +271,6 @@ class BytecodeMaker(object):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
-        self.translator = self.cpu.rtyper.annotator.translator
-        self.raise_analyzer = RaiseAnalyzer(self.translator)
 
     def assemble(self):
         """Assemble the opcodes for self.bytecode."""
@@ -976,7 +975,7 @@ class BytecodeMaker(object):
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
             pure = getattr(func, "_pure_function_", False)
         try:
-            canraise = self.raise_analyzer.can_raise(op)
+            canraise = self.codewriter.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
             canraise = True  # if we need to look into the delayed ptr that is
                              # the portal, then it's certainly going to raise
