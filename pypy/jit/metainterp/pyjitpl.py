@@ -203,18 +203,6 @@ class MIFrame(object):
         assert isinstance(box, Box) or isinstance(box, Const)
         self.env.append(box)
 
-##    def starts_with_greens(self):
-##        green_opcode = self.metainterp._green_opcode
-##        if self.bytecode[self.pc] == green_opcode:
-##            self.greens = []
-##            while self.bytecode[self.pc] == green_opcode:
-##                self.pc += 1
-##                i = self.load_int()
-##                assert isinstance(self.env[i], Const)
-##                self.greens.append(i)
-##        else:
-##            self.greens = None
-
     # ------------------------------
 
     for _n in range(codewriter.MAX_MAKE_NEW_VARS):
@@ -223,7 +211,6 @@ class MIFrame(object):
         exec py.code.Source("""
             @arguments(%s)
             def opimpl_make_new_vars_%d(self, %s):
-                ##self.greens = None
                 if not we_are_translated():
                     check_args(%s)
                 self.env = [%s]
@@ -231,19 +218,9 @@ class MIFrame(object):
 
     @arguments("varargs")
     def opimpl_make_new_vars(self, newenv):
-        ##self.greens = None
         if not we_are_translated():
             check_args(*newenv)
         self.env = newenv
-
-##    @arguments("int")
-##    def opimpl_green(self, green):
-##        assert isinstance(self.env[green], Const)
-##        if not self.greens:
-##            self.greens = []
-##        self.greens.append(green)
-##        #if not we_are_translated():
-##        #    history.log.green(self.env[green])
 
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
@@ -745,8 +722,6 @@ class MIFrame(object):
         self.env = argboxes
         if not we_are_translated():
             self.metainterp._debug_history[-1][-1] = argboxes
-        #self.starts_with_greens()
-        #assert len(argboxes) == len(self.graph.getargs())
 
     def setup_resume_at_op(self, pc, nums, consts, liveboxes,
                            exception_target):
