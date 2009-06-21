@@ -105,8 +105,6 @@ class JitDriver:
         for v in self.virtualizables:
             assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
-        if hasattr(self, 'on_enter_jit'):
-            self._make_on_enter_jit_wrappers()
         self._make_extregistryentries()
 
     def _freeze_(self):
@@ -153,77 +151,6 @@ class JitDriver:
             self.set_param(name, value)
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    def compute_invariants(self, reds, *greens):
-        """This can compute a value or tuple that is passed as a green
-        argument 'invariants' to on_enter_jit().  It should in theory
-        only depend on the 'greens', but in practice it can peek at the
-        reds currently stored in 'self'.  This allows the extraction in
-        an interpreter-specific way of whatever red information that
-        ultimately depends on the greens only.
-        """
-    compute_invariants._annspecialcase_ = 'specialize:arg(0)'
-
-    def _emulate_method_calls(self, bk, livevars_s):
-        # annotate "self.on_enter_jit()" if it is defined.
-        # self.on_enter_jit(invariants, reds, *greenvars) is called with a
-        # copy of the value of the red variables in 'reds'.  The red variables
-        # can be modified in order to give hints to the JIT about the
-        # redboxes.
-        from pypy.annotation import model as annmodel
-        if hasattr(self, 'on_enter_jit'):
-            args_s = []
-            for name in self.greens + self.reds:
-                args_s.append(livevars_s['s_' + name])
-
-            key = "rlib.jit.JitDriver._on_enter_jit"
-            s_func = bk.immutablevalue(self._on_enter_jit_wrapper)
-            s_result = bk.emulate_pbc_call(key, s_func, args_s)
-            assert annmodel.s_None.contains(s_result)
-
-            key = "rlib.jit.JitDriver._compute_invariants"
-            s_func = bk.immutablevalue(self._compute_invariants_wrapper)
-            bk.emulate_pbc_call(key, s_func, args_s)
-
-    def _make_on_enter_jit_wrappers(self):
-        # build some unrolling wrappers around on_enter_jit() and
-        # compute_invariants() which takes all green and red arguments
-        # and puts the red ones in a fresh instance of the
-        # RedVarsHolder.  This logic is here in jit.py because it needs
-        # to be annotated and rtyped as a high-level function.
-
-        num_green_args = len(self.greens)
-        unroll_reds = unrolling_iterable(self.reds)
-
-        class RedVarsHolder:
-            def __init__(self, *redargs):
-                i = 0
-                for name in unroll_reds:
-                    setattr(self, name, redargs[i])
-                    i += 1
-
-        self._RedVarsHolder = RedVarsHolder
-
-        def _on_enter_jit_wrapper(*allargs):
-            # This is what theoretically occurs when we are entering the
-            # JIT.  In truth, compute_invariants() is called only once
-            # per set of greens and its result is cached.  On the other
-            # hand, on_enter_jit() is compiled into machine code and so
-            # it runs every time the execution jumps from the regular
-            # interpreter to the machine code.  Also note that changes
-            # to the attribute of RedVarsHolder are reflected back in
-            # the caller.
-            reds = RedVarsHolder(*allargs[num_green_args:])
-            greens = allargs[:num_green_args]
-            invariants = self.compute_invariants(reds, *greens)
-            return self.on_enter_jit(invariants, reds, *greens)
-        self._on_enter_jit_wrapper = _on_enter_jit_wrapper
-
-        def _compute_invariants_wrapper(*allargs):
-            reds = RedVarsHolder(*allargs[num_green_args:])
-            greens = allargs[:num_green_args]
-            return self.compute_invariants(reds, *greens)
-        self._compute_invariants_wrapper = _compute_invariants_wrapper
-
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
         # used as methods of a frozen object, but we can attach the
@@ -259,7 +186,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             raise JitHintError("%s expects the following keyword "
                                "arguments: %s" % (self.instance,
                                                   expected))
-        driver._emulate_method_calls(self.bookkeeper, kwds_s)
         for name in driver.greens:
             s_green_key = kwds_s['s_' + name]
             s_green_key.hash()      # force the hash cache to appear
