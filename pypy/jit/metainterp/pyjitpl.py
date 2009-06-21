@@ -72,10 +72,6 @@ class arguments(object):
                 elif argspec == "jumptargets":
                     num = self.load_int()
                     args += ([self.load_3byte() for i in range(num)], )
-                elif argspec == "bool":
-                    args += (self.load_bool(), )
-                elif argspec == "2byte":
-                    args += (self.load_int(), )
                 elif argspec == "varargs":
                     args += (self.load_varargs(), )
                 elif argspec == "constargs":
@@ -100,11 +96,6 @@ class arguments(object):
                     assert isinstance(methdescr,
                                       history.AbstractMethDescr)
                     args += (methdescr, )
-                elif argspec == "virtualizabledesc":
-                    from virtualizable import VirtualizableDesc
-                    virtualizabledesc = self.load_const_arg()
-                    assert isinstance(virtualizabledesc, VirtualizableDesc)
-                    args += (virtualizabledesc, )
                 else:
                     assert 0, "unknown argtype declaration: %r" % (argspec,)
             if DEBUG >= 2:
@@ -881,7 +872,6 @@ class MetaInterpStaticData(object):
             self.cpu.class_sizes = self._class_sizes
         else:
             self.cpu.class_sizes = None
-        self._virtualizabledescs = {}
         if optimizer is not None:
             self.optimize_loop = optimizer.optimize_loop
             self.optimize_bridge = optimizer.optimize_bridge
