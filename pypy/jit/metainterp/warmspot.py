@@ -473,6 +473,7 @@ class VirtualizableInfo:
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
         fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
+        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in fields]
         self.VTYPEPTR = VTYPEPTR
         self.index_in_boxes = index
         self.num_extra_boxes = len(fields)
@@ -481,13 +482,23 @@ class VirtualizableInfo:
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
-            for fieldname in unroll_fields:
+            for _, fieldname in unroll_fields:
                 x = getattr(virtualizable, fieldname)
                 boxes.append(wrap(cpu, x))
             return boxes
         #
-        unroll_fields = unrolling_iterable(fields)
+        def write_boxes(virtualizable, boxes):
+            assert len(boxes) >= field_count
+            i = 0
+            for FIELDTYPE, fieldname in unroll_fields:
+                x = unwrap(FIELDTYPE, boxes[i])
+                setattr(virtualizable, fieldname, x)
+                i = i + 1
+        #
+        field_count = len(fields)
+        unroll_fields = unrolling_iterable(zip(FIELDTYPES, fields))
         self.read_boxes = read_boxes
+        self.write_boxes = write_boxes
 
     def _freeze_(self):
         return True
@@ -635,7 +646,7 @@ def make_state_class(warmrunnerdesc):
             elif value > MAX_HASH_TABLE_BITS:
                 value = MAX_HASH_TABLE_BITS
             # the tables are initialized with the correct size only in
-            # attach_unoptimized_bridge_from_interp()
+            # create_tables_now()
             self.hashbits = value
             self.hashtablemask = 0
             self.mccounters = [0]

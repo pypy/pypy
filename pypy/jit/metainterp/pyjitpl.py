@@ -467,6 +467,8 @@ class MIFrame(object):
     @arguments("int", "box")
     def opimpl_setfield_vable(self, index, valuebox):
         self.metainterp.virtualizable_boxes[index] = valuebox
+        self.metainterp.synchronize_virtualizable()
+        # XXX only the index'th field needs to be synchronized, really
 
     def perform_call(self, jitcode, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and
@@ -1135,7 +1137,9 @@ class MetaInterp(object):
 
     def reached_can_enter_jit(self, live_arg_boxes):
         if self.staticdata.virtualizable_info is not None:
-            live_arg_boxes += self.virtualizable_boxes
+            # we use ':-1' to remove the last item, which is the virtualizable
+            # itself
+            live_arg_boxes += self.virtualizable_boxes[:-1]
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:
         # - if self.resumekey is a ResumeGuardDescr, it starts from a guard
@@ -1363,6 +1367,7 @@ class MetaInterp(object):
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
                                                         virtualizable)
             original_boxes += self.virtualizable_boxes
+            self.virtualizable_boxes.append(virtualizable_box)
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
@@ -1389,11 +1394,19 @@ class MetaInterp(object):
         if self.staticdata.virtualizable_info is not None:
             self.virtualizable_boxes = _consume_nums(vable_nums,
                                                      newboxes, consts)
+            self.synchronize_virtualizable()
+            #
         self.framestack = []
         for jitcode, pc, nums, exception_target in resume_info:
             f = self.newframe(jitcode)
             f.setup_resume_at_op(pc, nums, consts, newboxes,
                                            exception_target)
+
+    def synchronize_virtualizable(self):
+        vinfo = self.staticdata.virtualizable_info
+        virtualizable_box = self.virtualizable_boxes[-1]
+        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        vinfo.write_boxes(virtualizable, self.virtualizable_boxes)
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):
