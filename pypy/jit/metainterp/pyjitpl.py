@@ -464,6 +464,27 @@ class MIFrame(object):
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
 
+    def _get_arrayitem_vable_index(self, pc, arrayindex, indexbox):
+        indexbox = self.implement_guard_value(pc, indexbox)
+        vinfo = self.metainterp.staticdata.virtualizable_info
+        virtualizable_box = self.metainterp.virtualizable_boxes[-1]
+        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        return vinfo.get_index_in_array(virtualizable, arrayindex,
+                                        indexbox.getint())
+
+    @arguments("orgpc", "int", "box")
+    def opimpl_getarrayitem_vable(self, pc, arrayindex, indexbox):
+        self.metainterp.check_synchronized_virtualizable()
+        index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
+        resbox = self.metainterp.virtualizable_boxes[index]
+        self.make_result_box(resbox)
+    @arguments("orgpc", "int", "box", "box")
+    def opimpl_setarrayitem_vable(self, pc, arrayindex, indexbox, valuebox):
+        index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
+        self.metainterp.virtualizable_boxes[index] = valuebox
+        self.metainterp.synchronize_virtualizable()
+        # XXX only the index'th field needs to be synchronized, really
+
     def perform_call(self, jitcode, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and
             jitcode.calldescr is not None):
@@ -1359,7 +1380,7 @@ class MetaInterp(object):
     def initialize_virtualizable(self, original_boxes):
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
-            virtualizable_box = original_boxes[vinfo.index_in_boxes]
+            virtualizable_box = original_boxes[vinfo.index_of_virtualizable]
             virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
@@ -1418,11 +1439,12 @@ class MetaInterp(object):
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
             # xxx only write back the fields really modified
-            vbox = self.virtualizable_boxes[vinfo.num_extra_boxes]
-            for i in range(vinfo.num_extra_boxes):
+            vbox = self.virtualizable_boxes[vinfo.num_static_extra_boxes]
+            for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
                 self.execute_and_record(rop.SETFIELD_GC, [vbox, fieldbox],
-                                        descr=vinfo.field_descrs[i])
+                                        descr=vinfo.static_field_descrs[i])
+            # XXX use array_field_descrs too!
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):

@@ -23,12 +23,11 @@ class ExplicitVirtualizableTests:
         ('vable_base', llmemory.Address),
         ('vable_rti', VABLERTIPTR),
         ('inst_x', lltype.Signed),
-        ('inst_l', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         ('inst_node', lltype.Ptr(NODE)),
         hints = {'virtualizable2': True,
                  'virtuals':()},
         adtmeths = {'access': VirtualizableAccessor()})
-    XY._adtmeths['access'].initialize(XY, ['inst_x', 'inst_node', 'inst_l'])
+    XY._adtmeths['access'].initialize(XY, ['inst_x', 'inst_node'])
 
     xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
@@ -125,6 +124,56 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [18])
         assert res == 10180
         self.check_loops(getfield_gc=0, setfield_gc=0)
+
+    # ------------------------------
+
+    XY2 = lltype.GcStruct(
+        'XY2',
+        ('parent', rclass.OBJECT),
+        ('vable_base', llmemory.Address),
+        ('vable_rti', VABLERTIPTR),
+        ('inst_x', lltype.Signed),
+        ('inst_l1', lltype.Ptr(lltype.GcArray(lltype.Signed))),
+        ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
+        hints = {'virtualizable2': True,
+                 'virtuals':()},
+        adtmeths = {'access': VirtualizableAccessor()})
+    XY2._adtmeths['access'].initialize(XY, ['inst_x', 'inst_l1[*]',
+                                            'inst_l2[*]'])
+
+    xy2_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    heaptracker.set_testing_vtable_for_gcstruct(XY2, xy2_vtable, 'XY2')
+
+    def setup2(self):
+        xy2 = lltype.malloc(self.XY2)
+        xy2.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        xy2.parent.typeptr = self.xy2_vtable
+        return xy2
+
+    def test_access_list_fields(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
+                                virtualizables = ['xy2'])
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def f(n):
+            xy2 = self.setup2()
+            xy2.inst_x = 100
+            xy2.inst_l1 = lltype.malloc(ARRAY, 3)
+            xy2.inst_l1[0] = -9999999
+            xy2.inst_l1[1] = -9999999
+            xy2.inst_l1[2] = 3001
+            xy2.inst_l2 = lltype.malloc(ARRAY, 2)
+            xy2.inst_l2[0] = 80
+            xy2.inst_l2[1] = -9999999
+            while n > 0:
+                myjitdriver.can_enter_jit(xy2=xy2, n=n)
+                myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                xy2.inst_l1[2] += xy2.inst_l2[0]
+                n -= 1
+            return xy2.inst_l1[2]
+        res = self.meta_interp(f, [16])
+        assert res == 3001 + 16 * 80
+        self.check_loops(getfield_gc=0, setfield_gc=0,
+                         getarrayitem_gc=0, setarrayitem_gc=0)
 
 
 class ImplicitVirtualizableTests:

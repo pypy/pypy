@@ -471,47 +471,105 @@ class VirtualizableInfo:
         assert len(jitdriver.virtualizables) == 1    # for now
         [vname] = jitdriver.virtualizables
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
+        self.index_of_virtualizable = index
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
-        self.fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
-        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in self.fields]
         self.VTYPEPTR = VTYPEPTR
-        self.index_in_boxes = index
-        self.num_extra_boxes = len(self.fields)
-        self.field_to_extra_box = dict([(name, i)
-                                      for (i, name) in enumerate(self.fields)])
-        self.extra_types = [history.getkind(TYPE) for TYPE in FIELDTYPES]
+        #
+        all_fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
+        static_fields = []
+        array_fields = []
+        for name in all_fields:
+            if name.endswith('[*]'):
+                array_fields.append(name[:-3])
+            else:
+                static_fields.append(name)
+        self.static_fields = static_fields
+        self.array_fields = array_fields
+        #
+        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in static_fields]
+        ARRAYITEMTYPES = []
+        for name in array_fields:
+            ARRAYPTR = getattr(VTYPEPTR.TO, name)
+            assert isinstance(ARRAYPTR, lltype.Ptr)
+            assert isinstance(ARRAYPTR.TO, lltype.GcArray)
+            ARRAYITEMTYPES.append(ARRAYPTR.TO.OF)
+        #
+        self.num_static_extra_boxes = len(static_fields)
+        self.static_field_to_extra_box = dict(
+            [(name, i) for (i, name) in enumerate(static_fields)])
+        self.array_field_counter = dict(
+            [(name, i) for (i, name) in enumerate(array_fields)])
+        self.static_extra_types = [history.getkind(TYPE)
+                                   for TYPE in FIELDTYPES]
+        self.arrayitem_extra_types = [history.getkind(ITEM)
+                                      for ITEM in ARRAYITEMTYPES]
         cpu = warmrunnerdesc.cpu
-        self.field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
-                             for name in self.fields]
+        self.static_field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
+                                    for name in static_fields]
+        self.array_field_descrs = [
+            cpu.arraydescrof(getattr(VTYPEPTR.TO, name).TO)
+            for name in array_fields]
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
-            for _, fieldname in unroll_fields:
+            for _, fieldname in unroll_static_fields:
                 x = getattr(virtualizable, fieldname)
                 boxes.append(wrap(cpu, x))
+            for _, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                for i in range(len(lst)):
+                    boxes.append(wrap(cpu, lst[i]))
             return boxes
         #
         def write_boxes(virtualizable, boxes):
-            assert len(boxes) >= self.num_extra_boxes
             i = 0
-            for FIELDTYPE, fieldname in unroll_fields:
+            for FIELDTYPE, fieldname in unroll_static_fields:
                 x = unwrap(FIELDTYPE, boxes[i])
                 setattr(virtualizable, fieldname, x)
                 i = i + 1
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(len(lst)):
+                    x = unwrap(ARRAYITEMTYPE, boxes[i])
+                    lst[j] = x
+                    i = i + 1
+            assert len(boxes) == i + 1
         #
         def check_boxes(virtualizable, boxes):
             # for debugging
-            assert len(boxes) >= self.num_extra_boxes
             i = 0
-            for FIELDTYPE, fieldname in unroll_fields:
+            for FIELDTYPE, fieldname in unroll_static_fields:
                 x = unwrap(FIELDTYPE, boxes[i])
                 assert getattr(virtualizable, fieldname) == x
                 i = i + 1
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(len(lst)):
+                    x = unwrap(ARRAYITEMTYPE, boxes[i])
+                    assert lst[j] == x
+                    i = i + 1
+            assert len(boxes) == i + 1
         #
-        unroll_fields = unrolling_iterable(zip(FIELDTYPES, self.fields))
+        def get_index_in_array(virtualizable, arrayindex, index):
+            index += self.num_static_extra_boxes
+            j = 0
+            for _, fieldname in unroll_array_fields:
+                if arrayindex == j:
+                    return index
+                lst = getattr(virtualizable, fieldname)
+                index += len(lst)
+                j = j + 1
+            else:
+                assert False, "invalid arrayindex"
+        #
+        unroll_static_fields = unrolling_iterable(zip(FIELDTYPES,
+                                                      static_fields))
+        unroll_array_fields = unrolling_iterable(zip(ARRAYITEMTYPES,
+                                                     array_fields))
         self.read_boxes = read_boxes
         self.write_boxes = write_boxes
         self.check_boxes = check_boxes
+        self.get_index_in_array = get_index_in_array
 
     def _freeze_(self):
         return True
@@ -601,11 +659,13 @@ def make_state_class(warmrunnerdesc):
     metainterp_sd = warmrunnerdesc.metainterp_sd
     vinfo = metainterp_sd.virtualizable_info
     if vinfo is None:
-        extra_vable_fields = []
+        vable_static_fields = []
+        vable_array_fields = []
     else:
-        extra_vable_fields = unrolling_iterable(vinfo.fields)
-        red_args_types = unrolling_iterable(list(red_args_types) +
-                                            vinfo.extra_types)
+        vable_static_fields = unrolling_iterable(
+            zip(vinfo.static_extra_types, vinfo.static_fields))
+        vable_array_fields = unrolling_iterable(
+            zip(vinfo.arrayitem_extra_types, vinfo.array_fields))
     #
     if num_green_args:
         MAX_HASH_TABLE_BITS = 28
@@ -630,27 +690,37 @@ def make_state_class(warmrunnerdesc):
                 i = i + 1
             return True
         def set_future_values(self, *redargs):
-            cpu = metainterp_sd.cpu
-            if vinfo is not None:
-                virtualizable = redargs[vinfo.index_in_boxes]
-                for vable_field_name in extra_vable_fields:
-                    x = getattr(virtualizable, vable_field_name)
-                    redargs = redargs + (x,)
-            j = 0
+            i = 0
             for typecode in red_args_types:
-                value = redargs[j]
-                if typecode == 'ptr':
-                    ptrvalue = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-                    cpu.set_future_value_ptr(j, ptrvalue)
-                elif typecode == 'obj':
-                    objvalue = ootype.cast_to_object(value)
-                    cpu.set_future_value_obj(j, objvalue)
-                elif typecode == 'int':
-                    intvalue = lltype.cast_primitive(lltype.Signed, value)
-                    cpu.set_future_value_int(j, intvalue)
-                else:
-                    assert False
-                j = j + 1
+                set_future_value(i, redargs[i], typecode)
+                i = i + 1
+            if vinfo is not None:
+                virtualizable = redargs[vinfo.index_of_virtualizable]
+                for typecode, fieldname in vable_static_fields:
+                    x = getattr(virtualizable, fieldname)
+                    set_future_value(i, x, typecode)
+                    i = i + 1
+                for typecode, fieldname in vable_array_fields:
+                    lst = getattr(virtualizable, fieldname)
+                    for j in range(len(lst)):
+                        x = lst[j]
+                        set_future_value(i, x, typecode)
+                        i = i + 1
+
+    def set_future_value(j, value, typecode):
+        cpu = metainterp_sd.cpu
+        if typecode == 'ptr':
+            ptrvalue = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+            cpu.set_future_value_ptr(j, ptrvalue)
+        elif typecode == 'obj':
+            objvalue = ootype.cast_to_object(value)
+            cpu.set_future_value_obj(j, objvalue)
+        elif typecode == 'int':
+            intvalue = lltype.cast_primitive(lltype.Signed, value)
+            cpu.set_future_value_int(j, intvalue)
+        else:
+            assert False
+    set_future_value._annspecialcase_ = 'specialize:arg(2)'
 
     class WarmEnterState:
         def __init__(self):

@@ -350,6 +350,7 @@ class BytecodeMaker(object):
         self.seen_blocks[block] = True
         self.free_vars = 0
         self.var_positions = {}
+        self.vable_array_vars = {}
         for arg in self.force_block_args_order(block):
             self.register_var(arg, verbose=False)
         self.emit(label(block))
@@ -792,11 +793,18 @@ class BytecodeMaker(object):
         if RESULT is lltype.Void:
             return
         # check for virtualizable
-        if self.is_virtualizable_getset(op):
+        try:
+            if self.is_virtualizable_getset(op):
+                vinfo = self.codewriter.metainterp_sd.virtualizable_info
+                index = vinfo.static_field_to_extra_box[op.args[1].value]
+                self.emit('getfield_vable', index)
+                self.register_var(op.result)
+                return
+        except VirtualizableArrayField:
+            # xxx hack hack hack
             vinfo = self.codewriter.metainterp_sd.virtualizable_info
-            index = vinfo.field_to_extra_box[op.args[1].value]
-            self.emit('getfield_vable', index)
-            self.register_var(op.result)
+            index = vinfo.array_field_counter[op.args[1].value]
+            self.vable_array_vars[op.result] = index
             return
         # check for deepfrozen structures that force constant-folding
         if deref(v_inst.concretetype)._hints.get('immutable'):
@@ -826,7 +834,7 @@ class BytecodeMaker(object):
         # check for virtualizable
         if self.is_virtualizable_getset(op):
             vinfo = self.codewriter.metainterp_sd.virtualizable_info
-            index = vinfo.field_to_extra_box[op.args[1].value]
+            index = vinfo.static_field_to_extra_box[op.args[1].value]
             self.emit('setfield_vable', index, self.var_position(v_value))
             return
         argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
@@ -847,10 +855,15 @@ class BytecodeMaker(object):
         # XXX check more carefully; for now assumes that every access of
         # an object of exactly the type VTYPEPTR is a virtualizable access
         vinfo = self.codewriter.metainterp_sd.virtualizable_info
-        if vinfo is not None:
-            return op.args[0].concretetype == vinfo.VTYPEPTR
-        else:
+        if vinfo is None:
             return False
+        if op.args[0].concretetype != vinfo.VTYPEPTR:
+            return False
+        if op.args[1].value in vinfo.static_field_to_extra_box:
+            return True
+        if op.args[1].value in vinfo.array_fields:
+            raise VirtualizableArrayField
+        return False
 
     def handle_getfield_typeptr(self, op):
         # special-casing for getting the typeptr of an object
@@ -866,6 +879,13 @@ class BytecodeMaker(object):
         assert ARRAY._gckind == 'gc'
         if self._array_of_voids(ARRAY):
             return
+        if op.args[0] in self.vable_array_vars:     # for virtualizables
+            self.emit('getarrayitem_vable',
+                      self.vable_array_vars[op.args[0]],
+                      self.var_position(op.args[1]))
+            self.register_var(op.result)
+            return
+        # normal case follows
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('getarrayitem_gc')
         self.emit(self.var_position(op.args[0]))
@@ -877,6 +897,12 @@ class BytecodeMaker(object):
         ARRAY = op.args[0].concretetype.TO
         assert ARRAY._gckind == 'gc'
         if self._array_of_voids(ARRAY):
+            return
+        if op.args[0] in self.vable_array_vars:     # for virtualizables
+            self.emit('setarrayitem_vable',
+                      self.vable_array_vars[op.args[0]],
+                      self.var_position(op.args[1]),
+                      self.var_position(op.args[2]))
             return
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('setarrayitem_gc')
@@ -1368,3 +1394,6 @@ def make_calling_stub(rtyper, graph):
     newstartblock.closeblock(Link([v_res], newgraph.returnblock))
     newgraph.ts_stub_for = graph
     return newgraph
+
+class VirtualizableArrayField(Exception):
+    pass
