@@ -1,24 +1,17 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.llinterp import LLException
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated, r_dict, instantiate
+from pypy.rlib.objectmodel import we_are_translated, r_dict
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_print
 
-from pypy.jit.metainterp import history, support, compile
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
-                                         BoxInt, BoxPtr, Options,
-                                         ConstObj, BoxObj)
+from pypy.jit.metainterp import history, compile
+from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
-                                             populate_type_cache)
+from pypy.jit.metainterp.heaptracker import populate_type_cache
 from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.metainterp import typesystem
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 
 # ____________________________________________________________
 
@@ -891,6 +884,7 @@ class MetaInterpStaticData(object):
         if profile is not None:
             self.profiler = profile()
         else:
+            from pypy.jit.metainterp.jitprof import EmptyProfiler
             self.profiler = EmptyProfiler()
 
         self.warmrunnerdesc = warmrunnerdesc

@@ -161,7 +161,7 @@ class WarmRunnerDesc:
                           translate_support_code=False, optimizer=None,
                           profile=None, **kwds):
         assert CPUClass is not None
-        opt = pyjitpl.Options(**kwds)
+        opt = history.Options(**kwds)
         self.stats = history.Stats()
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
