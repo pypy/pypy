@@ -102,7 +102,29 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10118
-        self.check_loops(getfield_gc=0, setfield_gc=0)                        
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
+    def test_synchronize_in_return(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
+                                virtualizables = ['xy'])
+        def g(xy, n):
+            while n > 0:
+                myjitdriver.can_enter_jit(xy=xy, n=n)
+                myjitdriver.jit_merge_point(xy=xy, n=n)
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                xy.inst_x += 1
+                n -= 1
+        def f(n):
+            xy = self.setup()
+            xy.inst_x = 10000
+            m = 10
+            while m > 0:
+                g(xy, n)
+                m -= 1
+            return xy.inst_x
+        res = self.meta_interp(f, [18])
+        assert res == 10180
+        self.check_loops(getfield_gc=0, setfield_gc=0)
 
 
 class ImplicitVirtualizableTests:

@@ -472,13 +472,17 @@ class VirtualizableInfo:
         [vname] = jitdriver.virtualizables
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
-        fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
-        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in fields]
+        self.fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
+        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in self.fields]
         self.VTYPEPTR = VTYPEPTR
         self.index_in_boxes = index
-        self.num_extra_boxes = len(fields)
+        self.num_extra_boxes = len(self.fields)
         self.field_to_extra_box = dict([(name, i)
-                                        for (i, name) in enumerate(fields)])
+                                      for (i, name) in enumerate(self.fields)])
+        self.extra_types = [history.getkind(TYPE) for TYPE in FIELDTYPES]
+        cpu = warmrunnerdesc.cpu
+        self.field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
+                             for name in self.fields]
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
@@ -488,17 +492,26 @@ class VirtualizableInfo:
             return boxes
         #
         def write_boxes(virtualizable, boxes):
-            assert len(boxes) >= field_count
+            assert len(boxes) >= self.num_extra_boxes
             i = 0
             for FIELDTYPE, fieldname in unroll_fields:
                 x = unwrap(FIELDTYPE, boxes[i])
                 setattr(virtualizable, fieldname, x)
                 i = i + 1
         #
-        field_count = len(fields)
-        unroll_fields = unrolling_iterable(zip(FIELDTYPES, fields))
+        def check_boxes(virtualizable, boxes):
+            # for debugging
+            assert len(boxes) >= self.num_extra_boxes
+            i = 0
+            for FIELDTYPE, fieldname in unroll_fields:
+                x = unwrap(FIELDTYPE, boxes[i])
+                assert getattr(virtualizable, fieldname) == x
+                i = i + 1
+        #
+        unroll_fields = unrolling_iterable(zip(FIELDTYPES, self.fields))
         self.read_boxes = read_boxes
         self.write_boxes = write_boxes
+        self.check_boxes = check_boxes
 
     def _freeze_(self):
         return True
@@ -584,6 +597,16 @@ def make_state_class(warmrunnerdesc):
     green_args_spec_names = unrolling_iterable(zip(
         warmrunnerdesc.green_args_spec, jitdriver.greens))
     red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
+    #
+    metainterp_sd = warmrunnerdesc.metainterp_sd
+    vinfo = metainterp_sd.virtualizable_info
+    if vinfo is None:
+        extra_vable_fields = []
+    else:
+        extra_vable_fields = unrolling_iterable(vinfo.fields)
+        red_args_types = unrolling_iterable(list(red_args_types) +
+                                            vinfo.extra_types)
+    #
     if num_green_args:
         MAX_HASH_TABLE_BITS = 28
     else:
@@ -606,7 +629,13 @@ def make_state_class(warmrunnerdesc):
                     return False
                 i = i + 1
             return True
-        def set_future_values(self, cpu, *redargs):
+        def set_future_values(self, *redargs):
+            cpu = metainterp_sd.cpu
+            if vinfo is not None:
+                virtualizable = redargs[vinfo.index_in_boxes]
+                for vable_field_name in extra_vable_fields:
+                    x = getattr(virtualizable, vable_field_name)
+                    redargs = redargs + (x,)
             j = 0
             for typecode in red_args_types:
                 value = redargs[j]
@@ -679,7 +708,6 @@ def make_state_class(warmrunnerdesc):
                 if self.hashtablemask == 0: # must really create the tables now
                     self.create_tables_now()
                     return
-                metainterp_sd = warmrunnerdesc.metainterp_sd
                 metainterp = MetaInterp(metainterp_sd)
                 loop = metainterp.compile_and_run_once(*args)
             else:
@@ -693,12 +721,10 @@ def make_state_class(warmrunnerdesc):
                         return
                 else:
                     # get the assembler and fill in the boxes
-                    cpu = warmrunnerdesc.metainterp_sd.cpu
-                    cell.set_future_values(cpu, *args[num_green_args:])
+                    cell.set_future_values(*args[num_green_args:])
                     loop = cell.bridge
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
-                metainterp_sd = warmrunnerdesc.metainterp_sd
                 metainterp_sd.profiler.start_running()
                 fail_op = metainterp_sd.cpu.execute_operations(loop)
                 metainterp_sd.profiler.end_running()
@@ -716,8 +742,7 @@ def make_state_class(warmrunnerdesc):
                     cell.next = nextcell.next
                     nextcell.next = firstcell
                     self.mcentrypoints[argshash] = nextcell
-                    cpu = warmrunnerdesc.metainterp_sd.cpu
-                    nextcell.set_future_values(cpu, *args[num_green_args:])
+                    nextcell.set_future_values(*args[num_green_args:])
                     return nextcell.bridge
                 cell = nextcell
             # not found at all, do profiling
@@ -727,7 +752,6 @@ def make_state_class(warmrunnerdesc):
             if n < 0:      # bound not reached
                 self.mccounters[argshash] = n
                 return None
-            metainterp_sd = warmrunnerdesc.metainterp_sd
             metainterp = MetaInterp(metainterp_sd)
             return metainterp.compile_and_run_once(*args)
         handle_hash_collision._dont_inline_ = True

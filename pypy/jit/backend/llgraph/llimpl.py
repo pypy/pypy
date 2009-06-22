@@ -811,6 +811,7 @@ _future_values = []
 def frame_clear(frame, loop):
     frame = _from_opaque(frame)
     loop = _from_opaque(loop)
+    assert len(_future_values) == len(loop.inputargs)
     frame.loop = loop
     frame.env = {}
     for i in range(len(loop.inputargs)):

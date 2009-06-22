@@ -462,6 +462,7 @@ class MIFrame(object):
 
     @arguments("int")
     def opimpl_getfield_vable(self, index):
+        self.metainterp.check_synchronized_virtualizable()
         resbox = self.metainterp.virtualizable_boxes[index]
         self.make_result_box(resbox)
     @arguments("int", "box")
@@ -1066,9 +1067,11 @@ class MetaInterp(object):
             assert resbox is None or isinstance(resbox, Box)
         # record the operation if not constant-folded away
         if not canfold:
-            self.history.record(opnum, argboxes, resbox, descr,
-                                self.framestack[-1].pc,
-                                self.framestack[-1].jitcode.name)
+            op = self.history.record(opnum, argboxes, resbox, descr)
+            if (not we_are_translated() and op is not None
+                and self.framestack):
+                op.pc = self.framestack[-1].pc
+                op.name = self.framestack[-1].jitcode.name
         return resbox
 
     def _interpret(self):
@@ -1262,6 +1265,7 @@ class MetaInterp(object):
         self.history.operations.pop()     # remove the JUMP
 
     def compile_done_with_this_frame(self, exitbox):
+        self.gen_store_back_in_virtualizable()
         # temporarily put a JUMP to a pseudo-loop
         sd = self.staticdata
         if sd.result_type == 'void':
@@ -1284,6 +1288,7 @@ class MetaInterp(object):
         assert target_loop is loops[0]
 
     def compile_exit_frame_with_exception(self, valuebox):
+        self.gen_store_back_in_virtualizable()
         # temporarily put a JUMP to a pseudo-loop
         self.history.record(rop.JUMP, [valuebox], None)
         if self.cpu.is_oo:
@@ -1402,11 +1407,28 @@ class MetaInterp(object):
             f.setup_resume_at_op(pc, nums, consts, newboxes,
                                            exception_target)
 
+    def check_synchronized_virtualizable(self):
+        if not we_are_translated():
+            vinfo = self.staticdata.virtualizable_info
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+            vinfo.check_boxes(virtualizable, self.virtualizable_boxes)
+
     def synchronize_virtualizable(self):
         vinfo = self.staticdata.virtualizable_info
         virtualizable_box = self.virtualizable_boxes[-1]
         virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
         vinfo.write_boxes(virtualizable, self.virtualizable_boxes)
+
+    def gen_store_back_in_virtualizable(self):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            # xxx only write back the fields really modified
+            vbox = self.virtualizable_boxes[vinfo.num_extra_boxes]
+            for i in range(vinfo.num_extra_boxes):
+                fieldbox = self.virtualizable_boxes[i]
+                self.execute_and_record(rop.SETFIELD_GC, [vbox, fieldbox],
+                                        descr=vinfo.field_descrs[i])
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):
