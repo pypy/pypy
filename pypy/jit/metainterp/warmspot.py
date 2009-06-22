@@ -131,6 +131,8 @@ class WarmRunnerDesc:
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
+        if self.jitdriver.virtualizables:
+            self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
         self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
@@ -463,6 +465,34 @@ class WarmRunnerDesc:
             call_final_function(self.translator, finish_profiler,
                                 annhelper = self.annhelper)
 
+class VirtualizableInfo:
+    def __init__(self, warmrunnerdesc):
+        jitdriver = warmrunnerdesc.jitdriver
+        assert len(jitdriver.virtualizables) == 1    # for now
+        [vname] = jitdriver.virtualizables
+        index = len(jitdriver.greens) + jitdriver.reds.index(vname)
+        VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
+        fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
+        self.VTYPEPTR = VTYPEPTR
+        self.index_in_boxes = index
+        self.num_extra_boxes = len(fields)
+        self.field_to_extra_box = dict([(name, i)
+                                        for (i, name) in enumerate(fields)])
+        #
+        def read_boxes(cpu, virtualizable):
+            boxes = []
+            for fieldname in unroll_fields:
+                x = getattr(virtualizable, fieldname)
+                boxes.append(wrap(cpu, x))
+            return boxes
+        #
+        unroll_fields = unrolling_iterable(fields)
+        self.read_boxes = read_boxes
+
+    def _freeze_(self):
+        return True
+
+
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
     assert op.opname == 'jit_marker'
@@ -485,6 +515,32 @@ def unwrap(TYPE, box):
     else:
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
+
+def wrap(cpu, value, in_const_box=False):
+    if isinstance(lltype.typeOf(value), lltype.Ptr):
+        if lltype.typeOf(value).TO._gckind == 'gc':
+            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+            if in_const_box:
+                return history.ConstPtr(value)
+            else:
+                return history.BoxPtr(value)
+        else:
+            adr = llmemory.cast_ptr_to_adr(value)
+            value = cpu.cast_adr_to_int(adr)
+            # fall through to the end of the function
+    elif isinstance(lltype.typeOf(value), ootype.OOType):
+        value = ootype.cast_to_object(value)
+        if in_const_box:
+            return history.ConstObj(value)
+        else:
+            return history.BoxObj(value)
+    else:
+        value = intmask(value)
+    if in_const_box:
+        return history.ConstInt(value)
+    else:
+        return history.BoxInt(value)
+wrap._annspecialcase_ = 'specialize:llargtype(1)'
 
 def equal_whatever(TYPE, x, y):
     if isinstance(TYPE, lltype.Ptr):

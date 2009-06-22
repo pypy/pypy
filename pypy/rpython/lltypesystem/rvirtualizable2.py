@@ -24,6 +24,7 @@ class VirtualizableAccessor(AbstractVirtualizableAccessor):
             # as long as no valid pointer has been put in the structure
             # by the JIT, accessing the fields should raise, in order
             # to prevent constant-folding
+            import py
             py.test.raises(lltype.UninitializedMemoryAccess, "getset.get")
             py.test.raises(lltype.UninitializedMemoryAccess, "getset.set")
             self.getsets[fieldname] = getset

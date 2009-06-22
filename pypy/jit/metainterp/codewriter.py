@@ -791,6 +791,13 @@ class BytecodeMaker(object):
         RESULT = op.result.concretetype
         if RESULT is lltype.Void:
             return
+        # check for virtualizable
+        if self.is_virtualizable_getset(op):
+            vinfo = self.codewriter.metainterp_sd.virtualizable_info
+            index = vinfo.field_to_extra_box[op.args[1].value]
+            self.emit('getfield_vable', index)
+            self.register_var(op.result)
+            return
         # check for deepfrozen structures that force constant-folding
         if deref(v_inst.concretetype)._hints.get('immutable'):
             pure = '_pure'
@@ -816,6 +823,12 @@ class BytecodeMaker(object):
         RESULT = v_value.concretetype
         if RESULT is lltype.Void:
             return
+        # check for virtualizable
+        if self.is_virtualizable_getset(op):
+            vinfo = self.codewriter.metainterp_sd.virtualizable_info
+            index = vinfo.field_to_extra_box[op.args[1].value]
+            self.emit('setfield_vable', index, self.var_position(v_value))
+            return
         argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
         self.emit('setfield_%s' % (argname,))
         self.emit(self.var_position(v_inst))
@@ -829,6 +842,15 @@ class BytecodeMaker(object):
     def is_typeptr_getset(self, op):
         return (op.args[1].value == 'typeptr' and
                 deref(op.args[0].concretetype)._hints.get('typeptr'))
+
+    def is_virtualizable_getset(self, op):
+        # XXX check more carefully; for now assumes that every access of
+        # an object of exactly the type VTYPEPTR is a virtualizable access
+        vinfo = self.codewriter.metainterp_sd.virtualizable_info
+        if vinfo is not None:
+            return op.args[0].concretetype == vinfo.VTYPEPTR
+        else:
+            return False
 
     def handle_getfield_typeptr(self, op):
         # special-casing for getting the typeptr of an object

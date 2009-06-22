@@ -43,7 +43,6 @@ class ExplicitVirtualizableTests:
         return xy
 
     def test_preexisting_access(self):
-        py.test.skip("bugs")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
                                 virtualizables = ['xy'])
         def f(n):

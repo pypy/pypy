@@ -460,6 +460,14 @@ class MIFrame(object):
     def opimpl_setfield_raw(self, box, fielddesc, valuebox):
         self.execute(rop.SETFIELD_RAW, [box, valuebox], descr=fielddesc)
 
+    @arguments("int")
+    def opimpl_getfield_vable(self, index):
+        resbox = self.metainterp.virtualizable_boxes[index]
+        self.make_result_box(resbox)
+    @arguments("int", "box")
+    def opimpl_setfield_vable(self, index, valuebox):
+        self.metainterp.virtualizable_boxes[index] = valuebox
+
     def perform_call(self, jitcode, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and
             jitcode.calldescr is not None):
@@ -729,13 +737,7 @@ class MIFrame(object):
             check_args(*liveboxes)
         self.pc = pc
         self.exception_target = exception_target
-        self.env = []
-        for num in nums:
-            if num >= 0:
-                box = liveboxes[num]
-            else:
-                box = consts[~num]
-            self.env.append(box)
+        self.env = _consume_nums(nums, liveboxes, consts)
         if DEBUG >= 2:
             values = ' '.join([box.repr_rpython() for box in self.env])
             log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
@@ -761,7 +763,8 @@ class MIFrame(object):
     def generate_guard(self, pc, opnum, box, extraargs=[]):
         if isinstance(box, Const):    # no need for a guard
             return
-        if isinstance(self.metainterp.history, history.BlackHole):
+        metainterp = self.metainterp
+        if isinstance(metainterp.history, history.BlackHole):
             return
         saved_pc = self.pc
         self.pc = pc
@@ -771,30 +774,22 @@ class MIFrame(object):
         liveboxes = []
         consts = []
         memo = {}
-        for frame in self.metainterp.framestack:
-            nums = []
-            for framebox in frame.env:
-                assert framebox is not None
-                if isinstance(framebox, Box):
-                    try:
-                        num = memo[framebox]
-                    except KeyError:
-                        num = len(liveboxes)
-                        memo[framebox] = num
-                        liveboxes.append(framebox)
-                else:
-                    num = ~len(consts)
-                    consts.append(framebox)
-                nums.append(num)
+        if metainterp.staticdata.virtualizable_info is None:
+            vable_nums = None
+        else:
+            vable_nums = _generate_nums(metainterp.virtualizable_boxes,
+                                        memo, liveboxes, consts)
+        for frame in metainterp.framestack:
+            nums = _generate_nums(frame.env, memo, liveboxes, consts)
             resume_info.append((frame.jitcode, frame.pc, nums,
                                 frame.exception_target))
         if box is not None:
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        guard_op = self.metainterp.history.record(opnum, moreargs, None)
-        resumedescr = compile.ResumeGuardDescr(resume_info, consts,
-            self.metainterp.history, len(self.metainterp.history.operations)-1)
+        guard_op = metainterp.history.record(opnum, moreargs, None)
+        resumedescr = compile.ResumeGuardDescr(resume_info, vable_nums, consts,
+            metainterp.history, len(metainterp.history.operations)-1)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
         self.pc = saved_pc
@@ -827,7 +822,37 @@ class MIFrame(object):
 
 # ____________________________________________________________
 
+def _generate_nums(frameboxes, memo, liveboxes, consts):
+    nums = []
+    for framebox in frameboxes:
+        assert framebox is not None
+        if isinstance(framebox, Box):
+            try:
+                num = memo[framebox]
+            except KeyError:
+                num = len(liveboxes)
+                memo[framebox] = num
+                liveboxes.append(framebox)
+        else:
+            num = ~len(consts)
+            consts.append(framebox)
+        nums.append(num)
+    return nums
+
+def _consume_nums(nums, liveboxes, consts):
+    env = []
+    for num in nums:
+        if num >= 0:
+            box = liveboxes[num]
+        else:
+            box = consts[~num]
+        env.append(box)
+    return env
+
+# ____________________________________________________________
+
 class MetaInterpStaticData(object):
+    virtualizable_info = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
                  optimizer=None, profile=None, warmrunnerdesc=None):
@@ -1109,6 +1134,8 @@ class MetaInterp(object):
             return self.designate_target_loop(gmp)
 
     def reached_can_enter_jit(self, live_arg_boxes):
+        if self.staticdata.virtualizable_info is not None:
+            live_arg_boxes += self.virtualizable_boxes
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:
         # - if self.resumekey is a ResumeGuardDescr, it starts from a guard
@@ -1274,34 +1301,8 @@ class MetaInterp(object):
 
     def _initialize_from_start(self, original_boxes, num_green_args, *args):
         if args:
-            value = args[0]
-            if isinstance(lltype.typeOf(value), lltype.Ptr):
-                if lltype.typeOf(value).TO._gckind == 'gc':
-                    value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-                    if num_green_args > 0:
-                        cls = ConstPtr
-                    else:
-                        cls = BoxPtr
-                else:
-                    adr = llmemory.cast_ptr_to_adr(value)
-                    value = self.cpu.cast_adr_to_int(adr)
-                    if num_green_args > 0:
-                        cls = ConstInt
-                    else:
-                        cls = BoxInt
-            elif isinstance(lltype.typeOf(value), ootype.OOType):
-                value = ootype.cast_to_object(value)
-                if num_green_args > 0:
-                    cls = ConstObj
-                else:
-                    cls = BoxObj
-            else:
-                if num_green_args > 0:
-                    cls = ConstInt
-                else:
-                    cls = BoxInt
-                value = intmask(value)
-            box = cls(value)
+            from pypy.jit.metainterp.warmspot import wrap
+            box = wrap(self.cpu, args[0], num_green_args > 0)
             original_boxes.append(box)
             self._initialize_from_start(original_boxes, num_green_args-1,
                                         *args[1:])
@@ -1318,6 +1319,7 @@ class MetaInterp(object):
         f = self.newframe(self.staticdata.portal_code)
         f.pc = 0
         f.env = original_boxes[:]
+        self.initialize_virtualizable(original_boxes)
         return original_boxes
 
     def initialize_state_from_guard_failure(self, guard_failure):
@@ -1347,8 +1349,20 @@ class MetaInterp(object):
             # the BlackHole is invalid because it doesn't start with
             # guard_failure.key.guard_op.suboperations, but that's fine
         self.rebuild_state_after_failure(resumedescr.resume_info,
+                                         resumedescr.vable_nums,
                                          resumedescr.consts,
                                          guard_failure.args)
+
+    def initialize_virtualizable(self, original_boxes):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            virtualizable_box = original_boxes[vinfo.index_in_boxes]
+            virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+            # The field 'virtualizable_boxes' is not even present
+            # if 'virtualizable_info' is None.  Check for that first.
+            self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
+                                                        virtualizable)
+            original_boxes += self.virtualizable_boxes
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
@@ -1368,9 +1382,13 @@ class MetaInterp(object):
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
             return False
 
-    def rebuild_state_after_failure(self, resume_info, consts, newboxes):
+    def rebuild_state_after_failure(self, resume_info, vable_nums, consts,
+                                    newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
+        if self.staticdata.virtualizable_info is not None:
+            self.virtualizable_boxes = _consume_nums(vable_nums,
+                                                     newboxes, consts)
         self.framestack = []
         for jitcode, pc, nums, exception_target in resume_info:
             f = self.newframe(jitcode)

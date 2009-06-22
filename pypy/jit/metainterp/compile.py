@@ -240,8 +240,10 @@ del _loop
 
 
 class ResumeGuardDescr(AbstractDescr):
-    def __init__(self, resume_info, consts, history, history_guard_index):
+    def __init__(self, resume_info, vable_nums, consts,
+                 history, history_guard_index):
         self.resume_info = resume_info
+        self.vable_nums = vable_nums      # None if no virtualizable
         self.counter = 0
         self.history = history
         assert history_guard_index >= 0

@@ -7,3 +7,5 @@
 * kill empty pairs setup_exception_block/teardown_exception_block
 
 * long term: memory management of the compiled code (free old code)
+
+* 'resume_info' should be shared (see pyjitpl.py)
