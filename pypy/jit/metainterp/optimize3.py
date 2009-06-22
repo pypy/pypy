@@ -182,6 +182,13 @@ class LoopOptimizer(object):
         assert not isinstance(box, Const)
         self.values[box] = self.newval(box)
 
+    def assertval(self, box, box2):
+        if box in self.values:
+            assert self.values[box].box is box2
+        else:
+            self.setval(box)
+            self.values[box].box = box2
+
     def optimize_loop(self, loop, cpu):
         self._init(loop, cpu)
         self.spec.find_nodes()
@@ -195,13 +202,7 @@ class LoopOptimizer(object):
 
     def optimize_operations(self, newinputargs):
         assert not self.values
-        # create values for boxes that have been virtualized away,
-        # i.e. those boxes whose node.source points to somewhere else
-        for box, node in self.spec.nodes.iteritems():
-            if box is not node.source:
-                self.setval(box)
-                self.getval(box).box = node.source
-
+        
         for box in newinputargs:
             self.setval(box) #  startbox=True)
         newoperations = []
@@ -404,7 +405,7 @@ class OptimizeVirtuals(AbstractOptimization):
                     spec.getnode(box).escaped = True
 
     def find_nodes_jump(self, spec, op):
-        pass
+        pass # this makes find_nodes_default_op not called
 
     def find_nodes_new_with_vtable(self, spec, op):
         box = op.result
@@ -582,7 +583,9 @@ class OptimizeVirtuals(AbstractOptimization):
         descr = op.descr
         assert isinstance(descr, AbstractValue)
         if node.virtual:
-            assert descr in node.curfields
+            fieldnode = node.curfields[descr]
+            resbox = op.result
+            opt.assertval(resbox, fieldnode.source)
             return None
         return op
 
