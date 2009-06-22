@@ -1439,12 +1439,23 @@ class MetaInterp(object):
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
             # xxx only write back the fields really modified
-            vbox = self.virtualizable_boxes[vinfo.num_static_extra_boxes]
+            vbox = self.virtualizable_boxes[-1]
             for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
                 self.execute_and_record(rop.SETFIELD_GC, [vbox, fieldbox],
                                         descr=vinfo.static_field_descrs[i])
-            # XXX use array_field_descrs too!
+            i = vinfo.num_static_extra_boxes
+            virtualizable = vbox.getptr(vinfo.VTYPEPTR)
+            for k in range(vinfo.num_arrays):
+                abox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
+                                         descr=vinfo.array_field_descrs[k])
+                for j in range(vinfo.get_array_length(virtualizable, k)):
+                    itembox = self.virtualizable_boxes[i]
+                    i += 1
+                    self.execute_and_record(rop.SETARRAYITEM_GC,
+                                            [abox, ConstInt(j), itembox],
+                                            descr=vinfo.array_descrs[k])
+            assert i + 1 == len(self.virtualizable_boxes)
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):

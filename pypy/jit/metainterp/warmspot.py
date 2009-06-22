@@ -495,6 +495,7 @@ class VirtualizableInfo:
             ARRAYITEMTYPES.append(ARRAYPTR.TO.OF)
         #
         self.num_static_extra_boxes = len(static_fields)
+        self.num_arrays = len(array_fields)
         self.static_field_to_extra_box = dict(
             [(name, i) for (i, name) in enumerate(static_fields)])
         self.array_field_counter = dict(
@@ -506,9 +507,10 @@ class VirtualizableInfo:
         cpu = warmrunnerdesc.cpu
         self.static_field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
                                     for name in static_fields]
-        self.array_field_descrs = [
-            cpu.arraydescrof(getattr(VTYPEPTR.TO, name).TO)
-            for name in array_fields]
+        self.array_field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
+                                   for name in array_fields]
+        self.array_descrs = [cpu.arraydescrof(getattr(VTYPEPTR.TO, name).TO)
+                             for name in array_fields]
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
@@ -559,8 +561,16 @@ class VirtualizableInfo:
                 lst = getattr(virtualizable, fieldname)
                 index += len(lst)
                 j = j + 1
-            else:
-                assert False, "invalid arrayindex"
+            assert False, "invalid arrayindex"
+        #
+        def get_array_length(virtualizable, arrayindex):
+            j = 0
+            for _, fieldname in unroll_array_fields:
+                if arrayindex == j:
+                    lst = getattr(virtualizable, fieldname)
+                    return len(lst)
+                j = j + 1
+            assert False, "invalid arrayindex"
         #
         unroll_static_fields = unrolling_iterable(zip(FIELDTYPES,
                                                       static_fields))
@@ -570,6 +580,7 @@ class VirtualizableInfo:
         self.write_boxes = write_boxes
         self.check_boxes = check_boxes
         self.get_index_in_array = get_index_in_array
+        self.get_array_length = get_array_length
 
     def _freeze_(self):
         return True
