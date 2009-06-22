@@ -85,7 +85,6 @@ class ExplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_two_paths_access(self):
-        py.test.skip("bugs")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
                                 virtualizables = ['xy'])
         def f(n):
