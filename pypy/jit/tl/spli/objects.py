@@ -23,6 +23,13 @@ class SPLIObject(object):
     def call(self, args):
         raise InvalidOperation
 
+class Bool(SPLIObject):
+
+    def __init__(self, value):
+        self.value = value
+
+    def is_true(self):
+        return self.value
 
 class Int(SPLIObject):
 
@@ -32,6 +39,8 @@ class Int(SPLIObject):
     def add(self, other):
         return Int(self.value + other.value)
 
+    def cmp_lt(self, other):
+        return Bool(self.value < other.value)
 
 class Str(SPLIObject):
 

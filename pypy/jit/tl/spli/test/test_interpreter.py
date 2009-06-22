@@ -3,8 +3,8 @@ from pypy.jit.tl.spli import interpreter, objects
 
 class TestSPLIInterpreter:
 
-    def eval(self, func):
-        return interpreter.spli_run_from_cpython_code(func.func_code)
+    def eval(self, func, args=[]):
+        return interpreter.spli_run_from_cpython_code(func.func_code, args)
 
     def test_int_add(self):
         def f():
@@ -29,3 +29,21 @@ class TestSPLIInterpreter:
         v = self.eval(f)
         assert isinstance(v, objects.Str)
         assert v.value == "Hello, SPLI world!"
+
+    def test_comparison(self):
+        def f(i):
+            return i < 10
+
+        v = self.eval(f, [0])
+        assert isinstance(v, objects.Bool)
+        assert v.value == True
+
+    def test_while_loop(self):
+        def f():
+            i = 0
+            while i < 100:
+                i = i + 1
+            return i
+
+        v = self.eval(f)
+        assert v.value == 100
