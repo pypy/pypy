@@ -77,6 +77,7 @@ class SPLIFrame(object):
         self.stack_depth += 1
 
     def pop(self):
+        self.value_stack[self.stack_depth] = None
         self.stack_depth -= 1
         val = self.value_stack[self.stack_depth]
         return val
