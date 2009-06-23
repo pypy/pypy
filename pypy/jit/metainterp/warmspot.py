@@ -636,7 +636,7 @@ def wrap(cpu, value, in_const_box=False):
         return history.ConstInt(value)
     else:
         return history.BoxInt(value)
-wrap._annspecialcase_ = 'specialize:llargtype(1)'
+wrap._annspecialcase_ = 'specialize:ll'
 
 def equal_whatever(TYPE, x, y):
     if isinstance(TYPE, lltype.Ptr):
@@ -734,7 +734,7 @@ def make_state_class(warmrunnerdesc):
             cpu.set_future_value_int(j, intvalue)
         else:
             assert False
-    set_future_value._annspecialcase_ = 'specialize:arg(2)'
+    set_future_value._annspecialcase_ = 'specialize:ll_and_arg(2)'
 
     class WarmEnterState:
         def __init__(self):
