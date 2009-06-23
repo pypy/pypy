@@ -911,6 +911,19 @@ class BytecodeMaker(object):
         self.emit(self.var_position(op.args[1]))
         self.emit(self.var_position(op.args[2]))
 
+    def serialize_op_getarraysize(self, op):
+        ARRAY = op.args[0].concretetype.TO
+        assert ARRAY._gckind == 'gc'
+        if op.args[0] in self.vable_array_vars:     # for virtualizables
+            self.emit('arraylen_vable',
+                      self.vable_array_vars[op.args[0]])
+            self.register_var(op.result)
+            return
+        # normal case follows
+        self.emit('arraylen_gc')
+        self.emit(self.var_position(op.args[0]))
+        self.register_var(op.result)
+
     def serialize_op_getinteriorarraysize(self, op):
         # XXX only supports strings and unicodes for now
         assert len(op.args) == 2

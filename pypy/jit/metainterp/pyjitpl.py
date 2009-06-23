@@ -484,6 +484,13 @@ class MIFrame(object):
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
+    @arguments("int")
+    def opimpl_arraylen_vable(self, arrayindex):
+        vinfo = self.metainterp.staticdata.virtualizable_info
+        virtualizable_box = self.metainterp.virtualizable_boxes[-1]
+        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        result = vinfo.get_array_length(virtualizable, arrayindex)
+        self.make_result_box(ConstInt(result))
 
     def perform_call(self, jitcode, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and

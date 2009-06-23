@@ -201,7 +201,33 @@ class ExplicitVirtualizableTests:
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
         assert res == 10360
-        self.check_loops(getfield_gc=0, setfield_gc=0)
+        self.check_loops(getfield_gc=0, setfield_gc=0,
+                         getarrayitem_gc=0)
+
+    def test_array_length(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
+                                virtualizables = ['xy2'])
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def g(xy2, n):
+            while n > 0:
+                myjitdriver.can_enter_jit(xy2=xy2, n=n)
+                myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                xy2.inst_l1[1] += len(xy2.inst_l2)
+                n -= 1
+        def f(n):
+            xy2 = self.setup2()
+            xy2.inst_x = 2
+            xy2.inst_l1 = lltype.malloc(ARRAY, 2)
+            xy2.inst_l1[0] = 1941309
+            xy2.inst_l1[1] = 2941309
+            xy2.inst_l2 = lltype.malloc(ARRAY, 1)
+            xy2.inst_l2[0] = 10000
+            g(xy2, n)
+            return xy2.inst_l1[1]
+        res = self.meta_interp(f, [18])
+        assert res == 2941309 + 18
+        self.check_loops(getfield_gc=0, setfield_gc=0,
+                         getarrayitem_gc=0, arraylen_gc=0)
 
 
 class ImplicitVirtualizableTests:
