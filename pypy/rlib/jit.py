@@ -122,7 +122,7 @@ class JitDriver:
         # special-cased by ExtRegistryEntry
         # (internal, must receive a constant 'name')
         assert name in PARAMETERS
-        getattr(self.state, 'set_param_' + name)(value)
+        #getattr(self.state, 'set_param_' + name)(value)   -- ignored
 
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
