@@ -1170,6 +1170,12 @@ class BytecodeMaker(object):
                                             'getarrayitem_gc_pure')
         #
         if oopspec_name == 'list.setitem':
+            if args[0] in self.vable_array_vars:     # virtualizable array
+                self.emit('setarrayitem_vable',
+                          self.vable_array_vars[args[0]],
+                          self.var_position(args[1]),
+                          self.var_position(args[2]))
+                return True
             index = self.prepare_list_getset(op, arraydescr, args)
             if index is None:
                 return False
@@ -1183,6 +1189,11 @@ class BytecodeMaker(object):
         #
         if (oopspec_name == 'list.len' or
             oopspec_name == 'list.len_foldable'):
+            if args[0] in self.vable_array_vars:     # virtualizable array
+                self.emit('arraylen_vable',
+                          self.vable_array_vars[args[0]])
+                self.register_var(op.result)
+                return True
             self.emit('arraylen_gc')
             self.emit(self.var_position(args[0]))
             self.emit(self.get_position(arraydescr))
@@ -1192,6 +1203,12 @@ class BytecodeMaker(object):
         return False
 
     def handle_list_getitem(self, op, arraydescr, args, opname):
+        if args[0] in self.vable_array_vars:     # virtualizable array
+            self.emit('getarrayitem_vable',
+                      self.vable_array_vars[args[0]],
+                      self.var_position(args[1]))
+            self.register_var(op.result)
+            return True
         index = self.prepare_list_getset(op, arraydescr, args)
         if index is None:
             return False
@@ -1300,7 +1317,13 @@ class BytecodeMaker(object):
             i = self.const_position(v.value)
             return i * 2 + 1
         else:
-            return self.var_positions[v]
+            try:
+                return self.var_positions[v]
+            except KeyError:
+                if v not in self.vable_array_vars:
+                    raise
+                raise Exception("trying to use a virtualizable's array in "
+                                "an unsupported way")
 
     def emit(self, *stuff):
         self.assembler.extend(stuff)

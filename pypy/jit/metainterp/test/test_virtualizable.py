@@ -261,11 +261,9 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
 
-    def test_virtualizable_with_virtual_list(self):
-        py.test.skip("in-progress")
+    def test_virtualizable_with_array(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'frame', 'x'],
                                 virtualizables = ['frame'])
-
 
         class Frame(object):
             _virtualizable2_ = ['l[*]', 's']
@@ -285,6 +283,7 @@ class ImplicitVirtualizableTests:
                 x += frame.l[frame.s]
                 frame.s += 1
                 x += frame.l[frame.s]
+                x += len(frame.l)
                 frame.s -= 1
             return x
 

@@ -469,8 +469,11 @@ class MIFrame(object):
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
         virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
-        return vinfo.get_index_in_array(virtualizable, arrayindex,
-                                        indexbox.getint())
+        index = indexbox.getint()
+        if index < 0:
+            index += vinfo.get_array_length(virtualizable, arrayindex)
+        assert 0 <= index < vinfo.get_array_length(virtualizable, arrayindex)
+        return vinfo.get_index_in_array(virtualizable, arrayindex, index)
 
     @arguments("orgpc", "int", "box")
     def opimpl_getarrayitem_vable(self, pc, arrayindex, indexbox):
