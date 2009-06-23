@@ -354,7 +354,9 @@ def set_opt_level(config, level):
     # set the GC (only meaningful with lltype)
     if config.translation.sandbox and gc == 'hybrid':
         gc = 'generation'
-    config.translation.suggest(gc=gc)
+    # but only set it if it wasn't already suggested to be something else
+    if config.translation._cfgimpl_value_owners['gc'] != 'suggested':
+        config.translation.suggest(gc=gc)
 
     # set the backendopts
     for word in words:
