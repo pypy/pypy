@@ -891,10 +891,10 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0, call=0)
 
 
-#class TestOOtype(ExplicitVirtualizableTests,
-#                 ImplicitVirtualizableTests,
-#                 OOJitMixin):
-#    pass
+class TestOOtype(#ExplicitVirtualizableTests,
+                 ImplicitVirtualizableTests,
+                 OOJitMixin):
+    pass
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

@@ -873,7 +873,7 @@ class BytecodeMaker(object):
         vinfo = self.codewriter.metainterp_sd.virtualizable_info
         if vinfo is None:
             return False
-        if op.args[0].concretetype != vinfo.VTYPEPTR:
+        if not vinfo.is_vtypeptr(op.args[0].concretetype):
             return False
         if op.args[1].value in vinfo.static_field_to_extra_box:
             return True

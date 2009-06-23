@@ -22,6 +22,8 @@ from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler
+from pypy.jit.metainterp.typesystem import deref, getlength
+from pypy.jit.metainterp.typesystem import getarrayitem, setarrayitem
 
 # ____________________________________________________________
 # Bootstrapping
@@ -468,16 +470,22 @@ class WarmRunnerDesc:
 class VirtualizableInfo:
     def __init__(self, warmrunnerdesc):
         jitdriver = warmrunnerdesc.jitdriver
+        cpu = warmrunnerdesc.cpu
+        self.is_oo = cpu.is_oo
         assert len(jitdriver.virtualizables) == 1    # for now
         [vname] = jitdriver.virtualizables
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
         self.index_of_virtualizable = index
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
-        while 'virtualizable2_accessor' not in VTYPEPTR.TO._hints:
-            VTYPEPTR = lltype.Ptr(VTYPEPTR.TO._first_struct()[1])
+        while 'virtualizable2_accessor' not in deref(VTYPEPTR)._hints:
+            if not self.is_oo:
+                VTYPEPTR = lltype.Ptr(VTYPEPTR.TO._first_struct()[1])
+            else:
+                VTYPEPTR = VTYPEPTR._superclass
         self.VTYPEPTR = VTYPEPTR
+        self.VTYPE = VTYPE = deref(VTYPEPTR)
         #
-        accessor = VTYPEPTR.TO._hints['virtualizable2_accessor']
+        accessor = VTYPE._hints['virtualizable2_accessor']
         all_fields = accessor.redirected_fields
         static_fields = []
         array_fields = []
@@ -489,13 +497,26 @@ class VirtualizableInfo:
         self.static_fields = static_fields
         self.array_fields = array_fields
         #
-        FIELDTYPES = [getattr(VTYPEPTR.TO, name) for name in static_fields]
-        ARRAYITEMTYPES = []
-        for name in array_fields:
-            ARRAYPTR = getattr(VTYPEPTR.TO, name)
-            assert isinstance(ARRAYPTR, lltype.Ptr)
-            assert isinstance(ARRAYPTR.TO, lltype.GcArray)
-            ARRAYITEMTYPES.append(ARRAYPTR.TO.OF)
+        if not self.is_oo:    # lltype
+            assert isinstance(VTYPEPTR, lltype.Ptr)
+            FIELDTYPES = [getattr(VTYPE, name) for name in static_fields]
+            ARRAYITEMTYPES = []
+            for name in array_fields:
+                ARRAYPTR = getattr(VTYPE, name)
+                assert isinstance(ARRAYPTR, lltype.Ptr)
+                assert isinstance(ARRAYPTR.TO, lltype.GcArray)
+                ARRAYITEMTYPES.append(ARRAYPTR.TO.OF)
+            self.array_descrs = [cpu.arraydescrof(getattr(VTYPE, name).TO)
+                                 for name in array_fields]
+        else:                 # ootype
+            FIELDTYPES = [VTYPE._field_type(name) for name in static_fields]
+            ARRAYITEMTYPES = []
+            for name in array_fields:
+                ARRAY = VTYPE._field_type(name)
+                assert isinstance(ARRAY, ootype.Array)
+                ARRAYITEMTYPES.append(ARRAY.ITEM)
+            self.array_descrs = [cpu.arraydescrof(VTYPE._field_type(name))
+                                 for name in array_fields]
         #
         self.num_static_extra_boxes = len(static_fields)
         self.num_arrays = len(array_fields)
@@ -507,13 +528,10 @@ class VirtualizableInfo:
                                    for TYPE in FIELDTYPES]
         self.arrayitem_extra_types = [history.getkind(ITEM)
                                       for ITEM in ARRAYITEMTYPES]
-        cpu = warmrunnerdesc.cpu
-        self.static_field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
+        self.static_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                     for name in static_fields]
-        self.array_field_descrs = [cpu.fielddescrof(VTYPEPTR.TO, name)
+        self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
-        self.array_descrs = [cpu.arraydescrof(getattr(VTYPEPTR.TO, name).TO)
-                             for name in array_fields]
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
@@ -522,8 +540,8 @@ class VirtualizableInfo:
                 boxes.append(wrap(cpu, x))
             for _, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for i in range(len(lst)):
-                    boxes.append(wrap(cpu, lst[i]))
+                for i in range(getlength(lst)):
+                    boxes.append(wrap(cpu, getarrayitem(lst, i)))
             return boxes
         #
         def write_boxes(virtualizable, boxes):
@@ -534,9 +552,9 @@ class VirtualizableInfo:
                 i = i + 1
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(len(lst)):
+                for j in range(getlength(lst)):
                     x = unwrap(ARRAYITEMTYPE, boxes[i])
-                    lst[j] = x
+                    setarrayitem(lst, j, x)
                     i = i + 1
             assert len(boxes) == i + 1
         #
@@ -549,9 +567,9 @@ class VirtualizableInfo:
                 i = i + 1
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(len(lst)):
+                for j in range(getlength(lst)):
                     x = unwrap(ARRAYITEMTYPE, boxes[i])
-                    assert lst[j] == x
+                    assert getarrayitem(lst, j) == x
                     i = i + 1
             assert len(boxes) == i + 1
         #
@@ -562,7 +580,7 @@ class VirtualizableInfo:
                 if arrayindex == j:
                     return index
                 lst = getattr(virtualizable, fieldname)
-                index += len(lst)
+                index += getlength(lst)
                 j = j + 1
             assert False, "invalid arrayindex"
         #
@@ -571,7 +589,7 @@ class VirtualizableInfo:
             for _, fieldname in unroll_array_fields:
                 if arrayindex == j:
                     lst = getattr(virtualizable, fieldname)
-                    return len(lst)
+                    return getlength(lst)
                 j = j + 1
             assert False, "invalid arrayindex"
         #
@@ -588,9 +606,27 @@ class VirtualizableInfo:
     def _freeze_(self):
         return True
 
+    def unwrap_virtualizable_box(self, virtualizable_box):
+        if not self.is_oo:
+            return virtualizable_box.getptr(self.VTYPEPTR)
+        else:
+            obj = virtualizable_box.getobj()
+            return ootype.cast_from_object(self.VTYPE, obj)
+
     def gencast(self, virtualizable):
-        return lltype.cast_pointer(self.VTYPEPTR, virtualizable)
+        if not self.is_oo:
+            return lltype.cast_pointer(self.VTYPEPTR, virtualizable)
+        else:
+            return virtualizable
     gencast._annspecialcase_ = 'specialize:ll'
+
+    def is_vtypeptr(self, TYPE):
+        if not self.is_oo:
+            # only the exact type is used e.g. by getfield/setfield
+            return TYPE == self.VTYPEPTR
+        else:
+            # ootype: any subtype may be used too
+            return ootype.isSubclass(TYPE, self.VTYPE)
 
 
 def decode_hp_hint_args(op):
@@ -723,7 +759,7 @@ def make_state_class(warmrunnerdesc):
                 for typecode, fieldname in vable_array_fields:
                     lst = getattr(virtualizable, fieldname)
                     for j in range(len(lst)):
-                        x = lst[j]
+                        x = getarrayitem(lst, j)
                         set_future_value(i, x, typecode)
                         i = i + 1
 

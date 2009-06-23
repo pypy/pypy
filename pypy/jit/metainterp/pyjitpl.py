@@ -468,7 +468,7 @@ class MIFrame(object):
         indexbox = self.implement_guard_value(pc, indexbox)
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
-        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         index = indexbox.getint()
         if index < 0:
             index += vinfo.get_array_length(virtualizable, arrayindex)
@@ -491,7 +491,7 @@ class MIFrame(object):
     def opimpl_arraylen_vable(self, arrayindex):
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
-        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         result = vinfo.get_array_length(virtualizable, arrayindex)
         self.make_result_box(ConstInt(result))
 
@@ -1391,7 +1391,7 @@ class MetaInterp(object):
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
             virtualizable_box = original_boxes[vinfo.index_of_virtualizable]
-            virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
@@ -1436,13 +1436,13 @@ class MetaInterp(object):
         if not we_are_translated():
             vinfo = self.staticdata.virtualizable_info
             virtualizable_box = self.virtualizable_boxes[-1]
-            virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             vinfo.check_boxes(virtualizable, self.virtualizable_boxes)
 
     def synchronize_virtualizable(self):
         vinfo = self.staticdata.virtualizable_info
         virtualizable_box = self.virtualizable_boxes[-1]
-        virtualizable = virtualizable_box.getptr(vinfo.VTYPEPTR)
+        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         vinfo.write_boxes(virtualizable, self.virtualizable_boxes)
 
     def gen_store_back_in_virtualizable(self):
@@ -1455,7 +1455,7 @@ class MetaInterp(object):
                 self.execute_and_record(rop.SETFIELD_GC, [vbox, fieldbox],
                                         descr=vinfo.static_field_descrs[i])
             i = vinfo.num_static_extra_boxes
-            virtualizable = vbox.getptr(vinfo.VTYPEPTR)
+            virtualizable = vinfo.unwrap_virtualizable_box(vbox)
             for k in range(vinfo.num_arrays):
                 abox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
                                          descr=vinfo.array_field_descrs[k])
