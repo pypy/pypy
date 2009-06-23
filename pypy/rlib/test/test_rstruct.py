@@ -10,6 +10,17 @@ class BaseTestRStruct(BaseRtypingTest):
         assert fn() == 3
         assert self.interpret(fn, []) == 3
 
+    def test_unpack_2(self):
+        py.test.skip("Fails")
+        data = struct.pack('iiii', 0, 1, 2, 4)
+        
+        def fn():
+            a, b, c, d = runpack('iiii', data)
+            return a * 1000 + b * 100 + c * 10 + d
+
+        assert fn() == 124
+        assert self.interpret(fn, []) == 124
+
 class TestLLType(BaseTestRStruct, LLRtypeMixin):
     pass
 
