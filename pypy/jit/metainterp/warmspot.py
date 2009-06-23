@@ -475,7 +475,8 @@ class VirtualizableInfo:
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
         self.VTYPEPTR = VTYPEPTR
         #
-        all_fields = VTYPEPTR.TO._adtmeths['access'].redirected_fields
+        accessor = VTYPEPTR.TO._hints['virtualizable2_accessor']
+        all_fields = accessor.redirected_fields
         static_fields = []
         array_fields = []
         for name in all_fields:

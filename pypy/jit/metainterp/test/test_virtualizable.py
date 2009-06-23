@@ -24,10 +24,9 @@ class ExplicitVirtualizableTests:
         ('vable_rti', VABLERTIPTR),
         ('inst_x', lltype.Signed),
         ('inst_node', lltype.Ptr(NODE)),
-        hints = {'virtualizable2': True,
-                 'virtuals':()},
-        adtmeths = {'access': VirtualizableAccessor()})
-    XY._adtmeths['access'].initialize(XY, ['inst_x', 'inst_node'])
+        hints = {'virtualizable2_accessor': VirtualizableAccessor()})
+    XY._hints['virtualizable2_accessor'].initialize(
+        XY, ['inst_x', 'inst_node'])
 
     xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
@@ -135,11 +134,9 @@ class ExplicitVirtualizableTests:
         ('inst_x', lltype.Signed),
         ('inst_l1', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
-        hints = {'virtualizable2': True,
-                 'virtuals':()},
-        adtmeths = {'access': VirtualizableAccessor()})
-    XY2._adtmeths['access'].initialize(XY, ['inst_x', 'inst_l1[*]',
-                                            'inst_l2[*]'])
+        hints = {'virtualizable2_accessor': VirtualizableAccessor()})
+    XY2._hints['virtualizable2_accessor'].initialize(
+        XY2, ['inst_x', 'inst_l1[*]', 'inst_l2[*]'])
 
     xy2_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY2, xy2_vtable, 'XY2')
@@ -229,6 +226,8 @@ class ExplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0,
                          getarrayitem_gc=0, arraylen_gc=0)
 
+    # ------------------------------
+
 
 class ImplicitVirtualizableTests:
 
@@ -237,7 +236,8 @@ class ImplicitVirtualizableTests:
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = True
+            _virtualizable2_ = ['x', 'y']
+
             def __init__(self, x, y):
                 self.x = x
                 self.y = y
@@ -262,14 +262,13 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtualizable_with_virtual_list(self):
+        py.test.skip("in-progress")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'frame', 'x'],
                                 virtualizables = ['frame'])
 
 
         class Frame(object):
-            _virtualizable2_ = True
-
-            _always_virtual_ = ['l']
+            _virtualizable2_ = ['l[*]', 's']
 
             def __init__(self, l, s):
                 self.l = l
@@ -295,6 +294,7 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtualizable_with_list(self):
+        py.test.skip("redo or fix")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'frame', 'x'],
                                 virtualizables = ['frame'])
 
@@ -326,6 +326,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(setarrayitem_gc=1)
 
     def test_virtual_on_virtualizable(self):
+        py.test.skip("redo or fix")
         myjitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                                 virtualizables = ['frame'])
 
@@ -360,6 +361,7 @@ class ImplicitVirtualizableTests:
 
 
     def test_no_virtual_on_virtualizable(self):
+        py.test.skip("redo or fix")
         myjitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                                 virtualizables = ['frame'])
 
@@ -391,6 +393,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=1)
 
     def test_unequal_list_lengths_cannot_be_virtual(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -415,6 +418,7 @@ class ImplicitVirtualizableTests:
         assert res == f(20)
 
     def test_virtualizable_hierarchy(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -446,6 +450,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_non_virtual_on_always_virtual(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -486,6 +491,7 @@ class ImplicitVirtualizableTests:
         assert res == 0
 
     def test_external_pass(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 'z'],
                               virtualizables = ['frame'])
 
@@ -515,6 +521,7 @@ class ImplicitVirtualizableTests:
         assert res == f(10)
 
     def test_always_virtual_with_origfields(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -538,6 +545,7 @@ class ImplicitVirtualizableTests:
         assert res == 2
 
     def test_pass_always_virtual_to_bridge(self):
+        py.test.skip("redo or fix")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -578,6 +586,7 @@ class ImplicitVirtualizableTests:
                         assert isinstance(op.args[1], history.BoxInt)
 
     def test_virtual_obj_on_always_virtual(self):
+        py.test.skip("redo or fix")
         py.test.skip("Bugs!")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
@@ -615,6 +624,7 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtual_obj_on_always_virtual_more_bridges(self):
+        py.test.skip("redo or fix")
         py.test.skip("Bugs!")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
@@ -653,6 +663,7 @@ class ImplicitVirtualizableTests:
         assert res == f(60)
 
     def test_external_read(self):
+        py.test.skip("redo or fix")
         py.test.skip("Fails")
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
@@ -685,6 +696,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_external_write(self):
+        py.test.skip("redo or fix")
         py.test.skip("Fails")
         class Frame(object):
             _virtualizable2_ = True
@@ -713,6 +725,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_list_implicit(self):
+        py.test.skip("redo or fix")
         py.test.skip("in-progress")
         class Frame(object):
             _virtualizable2_ = True
@@ -730,6 +743,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0, call=0)
 
     def test_single_list_implicit(self):
+        py.test.skip("redo or fix")
         py.test.skip("in-progress")
         class Frame(object):
             _virtualizable2_ = True
@@ -753,6 +767,6 @@ class ImplicitVirtualizableTests:
 #    pass
 
 class TestLLtype(ExplicitVirtualizableTests,
-                 #ImplicitVirtualizableTests,
+                 ImplicitVirtualizableTests,
                  LLJitMixin):
     pass
