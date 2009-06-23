@@ -588,6 +588,10 @@ class VirtualizableInfo:
     def _freeze_(self):
         return True
 
+    def gencast(self, virtualizable):
+        return lltype.cast_pointer(self.VTYPEPTR, virtualizable)
+    gencast._annspecialcase_ = 'specialize:ll'
+
 
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
@@ -711,6 +715,7 @@ def make_state_class(warmrunnerdesc):
             if vinfo is not None:
                 virtualizable = redargs[vinfo.index_of_virtualizable -
                                         num_green_args]
+                virtualizable = vinfo.gencast(virtualizable)
                 for typecode, fieldname in vable_static_fields:
                     x = getattr(virtualizable, fieldname)
                     set_future_value(i, x, typecode)

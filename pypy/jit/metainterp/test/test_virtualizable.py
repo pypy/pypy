@@ -258,6 +258,51 @@ class ExplicitVirtualizableTests:
 
     # ------------------------------
 
+    XY2SUB = lltype.GcStruct(
+        'XY2SUB',
+        ('parent', XY2))
+
+    xy2sub_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    heaptracker.set_testing_vtable_for_gcstruct(XY2SUB, xy2sub_vtable,
+                                                'XY2SUB')
+
+    def setup2sub(self):
+        xy2 = lltype.malloc(self.XY2SUB)
+        xy2.parent.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        xy2.parent.parent.typeptr = self.xy2_vtable
+        return xy2
+
+    def test_subclass(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
+                                virtualizables = ['xy2'])
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def g(xy2, n):
+            while n > 0:
+                myjitdriver.can_enter_jit(xy2=xy2, n=n)
+                myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                xy2.parent.inst_l2[0] += xy2.parent.inst_x
+                n -= 1
+        def f(n):
+            xy2 = self.setup2sub()
+            xy2.parent.inst_x = 2
+            xy2.parent.inst_l1 = lltype.malloc(ARRAY, 2)
+            xy2.parent.inst_l1[0] = 1941309
+            xy2.parent.inst_l1[1] = 2941309
+            xy2.parent.inst_l2 = lltype.malloc(ARRAY, 1)
+            xy2.parent.inst_l2[0] = 10000
+            m = 10
+            while m > 0:
+                g(xy2, n)
+                m -= 1
+            return xy2.parent.inst_l2[0]
+        assert f(18) == 10360
+        res = self.meta_interp(f, [18])
+        assert res == 10360
+        self.check_loops(getfield_gc=0, setfield_gc=0,
+                         getarrayitem_gc=0)
+
+    # ------------------------------
+
 
 class ImplicitVirtualizableTests:
 
