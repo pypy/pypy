@@ -709,7 +709,8 @@ def make_state_class(warmrunnerdesc):
                 set_future_value(i, redargs[i], typecode)
                 i = i + 1
             if vinfo is not None:
-                virtualizable = redargs[vinfo.index_of_virtualizable]
+                virtualizable = redargs[vinfo.index_of_virtualizable -
+                                        num_green_args]
                 for typecode, fieldname in vable_static_fields:
                     x = getattr(virtualizable, fieldname)
                     set_future_value(i, x, typecode)
