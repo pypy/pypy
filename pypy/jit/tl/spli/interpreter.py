@@ -1,5 +1,5 @@
-from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as opcode
+from pypy.jit.tl.spli.pycode import Code
 from pypy.jit.tl.spli import objects
 import dis
 
@@ -17,21 +17,19 @@ compare_ops = [
     "cmp_exc_match",
 ]
 
-def wrap(arg):
-    if isinstance(arg, int):
-        return objects.Int(arg)
-    elif isinstance(arg, str):
-        return object.Str(arg)
-    else:
-        raise NotImplementedError("wrap of %s" % (arg,))
-
 def spli_run_from_cpython_code(co, args=[]):
-    pyco = pycode.PyCode._from_code(objects.DumbObjSpace(), co)
+    space = objects.DumbObjSpace()
+    pyco = Code._from_code(space, co)
     print dis.dis(co)
+    run(pyco, args, space)
+
+def run(pyco, args, space=None):
+    if space is None:
+        space = objects.DumbObjSpace()
     frame = SPLIFrame(pyco)
     for i, arg in enumerate(args):
-        frame.locals[i] = wrap(arg)
-    return frame.run()
+        frame.locals[i] = space.wrap(arg)
+    return frame.run()    
 
 class BlockUnroller(Exception):
     pass
@@ -77,9 +75,9 @@ class SPLIFrame(object):
         self.stack_depth += 1
 
     def pop(self):
-        self.value_stack[self.stack_depth] = None
         self.stack_depth -= 1
         val = self.value_stack[self.stack_depth]
+        self.value_stack[self.stack_depth] = None
         return val
 
     def peek(self):
