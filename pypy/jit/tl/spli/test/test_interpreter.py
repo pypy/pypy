@@ -1,6 +1,5 @@
 from pypy.jit.tl.spli import interpreter, objects
 
-
 class TestSPLIInterpreter:
 
     def eval(self, func, args=[]):
@@ -47,3 +46,4 @@ class TestSPLIInterpreter:
 
         v = self.eval(f)
         assert v.value == 100
+        

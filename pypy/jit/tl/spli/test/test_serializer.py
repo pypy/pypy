@@ -1,0 +1,20 @@
+
+from pypy.jit.tl.spli.serializer import serialize, deserialize
+from pypy.jit.tl.spli import interpreter
+
+class TestSerializer(object):
+
+    def eval(self, code, args=[]):
+        return interpreter.run(code, args)
+    
+    def test_basic(self):
+        def f():
+            return 1
+
+        coderepr = serialize(f.func_code)
+        code = deserialize(coderepr)
+        assert code.co_nlocals == 0
+        assert code.co_argcount == 0
+        assert code.co_stacksize == f.func_code.co_stacksize
+        assert self.eval(code).value == 1
+        

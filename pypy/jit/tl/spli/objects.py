@@ -7,9 +7,13 @@ class DumbObjSpace(ObjSpace):
     def wrap(self, x):
         if isinstance(x, int):
             return Int(x)
-        if isinstance(x, str):
+        elif isinstance(x, str):
             return Str(x)
+        else:
+            raise NotImplementedError("Wrapping %s" % x)
 
+    def new_interned_str(self, x):
+        return self.wrap(x)
 
 class InvalidOperation(Exception):
     pass
