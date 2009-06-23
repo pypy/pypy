@@ -473,6 +473,8 @@ class VirtualizableInfo:
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
         self.index_of_virtualizable = index
         VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
+        while 'virtualizable2_accessor' not in VTYPEPTR.TO._hints:
+            VTYPEPTR = lltype.Ptr(VTYPEPTR.TO._first_struct()[1])
         self.VTYPEPTR = VTYPEPTR
         #
         accessor = VTYPEPTR.TO._hints['virtualizable2_accessor']

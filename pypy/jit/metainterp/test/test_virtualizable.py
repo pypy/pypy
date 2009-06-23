@@ -292,6 +292,35 @@ class ImplicitVirtualizableTests:
         self.check_loops(getarrayitem_gc=0)
 
 
+    def test_subclass_of_virtualizable(self):
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        class SubFrame(Frame):
+            pass
+
+        def f(n):
+            Frame(0, 0)    # hack: make sure x and y are attached to Frame
+            frame = SubFrame(n, 0)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                frame.y += frame.x
+                frame.x -= 1
+            return frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
+
     def test_virtualizable_with_list(self):
         py.test.skip("redo or fix")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'frame', 'x'],
