@@ -271,6 +271,7 @@ class BytecodeMaker(object):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
+        self._tmphack = False
 
     def assemble(self):
         """Assemble the opcodes for self.bytecode."""
@@ -281,9 +282,21 @@ class BytecodeMaker(object):
         self.seen_blocks = {}
         self.dont_minimize_variables = 0
         self.pending_exception_handlers = []
-        self.make_bytecode_block(self.graph.startblock)
-        while self.pending_exception_handlers:
-            self.make_exception_handler(self.pending_exception_handlers.pop())
+        try:
+            self.make_bytecode_block(self.graph.startblock)
+            while self.pending_exception_handlers:
+                exc_handler = self.pending_exception_handlers.pop()
+                self.make_exception_handler(exc_handler)
+        except VirtualizableArrayField:
+            # using a virtualizable's array in an unsupported way -- give up
+            # (XXX temporary hack, improve...)
+            if self.portal:
+                raise
+            assert self._tmphack is False
+            self._tmphack = True
+            self.graph = make_calling_stub(self.codewriter.rtyper, self.graph)
+            self.assemble()
+            return
 
         labelpos = {}
         code = assemble(labelpos, self.codewriter.metainterp_sd,
@@ -920,8 +933,10 @@ class BytecodeMaker(object):
             self.register_var(op.result)
             return
         # normal case follows
+        arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('arraylen_gc')
         self.emit(self.var_position(op.args[0]))
+        self.emit(self.get_position(arraydescr))
         self.register_var(op.result)
 
     def serialize_op_getinteriorarraysize(self, op):
@@ -997,6 +1012,8 @@ class BytecodeMaker(object):
 
     def serialize_op_direct_call(self, op):
         kind = self.codewriter.policy.guess_call_kind(op)
+        if self._tmphack:
+            kind = 'residual'
         return getattr(self, 'handle_%s_call' % kind)(op)
 
     def serialize_op_indirect_call(self, op):
@@ -1320,10 +1337,9 @@ class BytecodeMaker(object):
             try:
                 return self.var_positions[v]
             except KeyError:
-                if v not in self.vable_array_vars:
-                    raise
-                raise Exception("trying to use a virtualizable's array in "
-                                "an unsupported way")
+                if v in self.vable_array_vars:
+                    raise VirtualizableArrayField
+                raise
 
     def emit(self, *stuff):
         self.assembler.extend(stuff)
