@@ -292,6 +292,9 @@ class BytecodeMaker(object):
             # (XXX temporary hack, improve...)
             if self.portal:
                 raise
+            history.log.WARNING('general usage of a virtualizable array, '
+                                'ignoring graph')
+            history.log.WARNING('  %s' % (self.graph,))
             assert self._tmphack is False
             self._tmphack = True
             self.graph = make_calling_stub(self.codewriter.rtyper, self.graph)
