@@ -34,37 +34,34 @@ class VirtualizableAccessor(AbstractVirtualizableAccessor):
 class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRepr):
 
     VirtualizableAccessor = VirtualizableAccessor
-    op_getfield = 'getfield'
-    op_setfield = 'setfield'
+##    op_getfield = 'getfield'
+##    op_setfield = 'setfield'
 
-    def _setup_instance_repr(self):
-        llfields = []
-        if self.top_of_virtualizable_hierarchy:
-            llfields.append(('vable_base', llmemory.Address))
-            llfields.append(('vable_rti', VABLERTIPTR))
-        InstanceRepr._setup_repr(self, llfields,
-                                 hints = {'virtualizable2': True,
-                                          'virtuals' : self.virtuals},
-                                 adtmeths = {'access': self.accessor})
+##    def _setup_instance_repr(self):
+##        llfields = []
+##        if self.top_of_virtualizable_hierarchy:
+##            llfields.append(('vable_base', llmemory.Address))
+##            llfields.append(('vable_rti', VABLERTIPTR))
+##        InstanceRepr._setup_repr(self, llfields,
+##                                 hints = {'virtualizable2': True,
+##                                          'virtuals' : self.virtuals},
+##                                 adtmeths = {'access': self.accessor})
 
-    def gencast(self, llops, vinst):
-        return llops.genop('cast_pointer', [vinst], resulttype=self)
-
-    def get_mangled_fields(self):
-        return [mangled_name for _, (mangled_name, _) in self.fields.items()]
+##    def gencast(self, llops, vinst):
+##        return llops.genop('cast_pointer', [vinst], resulttype=self)
 
     def get_field(self, attr):
         return self.fields[attr]
 
-    def is_in_fields(self, attr):
-        return attr in self.fields
+##    def is_in_fields(self, attr):
+##        return attr in self.fields
 
-    def set_vable(self, llops, vinst, force_cast=False):
-        if self.top_of_virtualizable_hierarchy:
-            if force_cast:
-                vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            cname = inputconst(lltype.Void, 'vable_rti')
-            vvalue = inputconst(VABLERTIPTR, lltype.nullptr(VABLERTIPTR.TO))
-            llops.genop('setfield', [vinst, cname, vvalue])
-        else:
-            self.rbase.set_vable(llops, vinst, force_cast=True)
+##    def set_vable(self, llops, vinst, force_cast=False):
+##        if self.top_of_virtualizable_hierarchy:
+##            if force_cast:
+##                vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
+##            cname = inputconst(lltype.Void, 'vable_rti')
+##            vvalue = inputconst(VABLERTIPTR, lltype.nullptr(VABLERTIPTR.TO))
+##            llops.genop('setfield', [vinst, cname, vvalue])
+##        else:
+##            self.rbase.set_vable(llops, vinst, force_cast=True)
