@@ -11,7 +11,6 @@ class BaseTestRStruct(BaseRtypingTest):
         assert self.interpret(fn, []) == 3
 
     def test_unpack_2(self):
-        py.test.skip("Fails")
         data = struct.pack('iiii', 0, 1, 2, 4)
         
         def fn():

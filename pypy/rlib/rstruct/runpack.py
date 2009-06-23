@@ -56,8 +56,9 @@ class FrozenUnpackIterator(FormatIterator):
                 self.formats.append((fmtdesc, 1, None))
 
     def align(self, mask):
-        fmt, rep, _ = self.formats.pop()
-        self.formats.append((fmt, rep, mask))
+        if self.formats:
+            fmt, rep, _ = self.formats.pop()
+            self.formats.append((fmt, rep, mask))
 
     def _create_unpacking_func(self):
         rg = range(len(self.formats))
