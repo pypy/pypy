@@ -124,6 +124,33 @@ class ExplicitVirtualizableTests:
         assert res == 10180
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
+    def test_virtualizable_and_greens(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'xy'],
+                                virtualizables = ['xy'])
+        def g(n):
+            xy = self.setup()
+            xy.inst_x = 10
+            m = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
+                myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                x = xy.inst_x
+                xy.inst_x = x + 1
+                m = (m+1) & 3     # the loop gets unrolled 4 times
+                n -= 1
+            return xy.inst_x
+        def f(n):
+            res = 0
+            k = 4
+            while k > 0:
+                res += g(n)
+                k -= 1
+            return res
+        res = self.meta_interp(f, [40])
+        assert res == 50 * 4
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
     # ------------------------------
 
     XY2 = lltype.GcStruct(
