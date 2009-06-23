@@ -352,8 +352,6 @@ def set_opt_level(config, level):
     gc = words.pop(0)
 
     # set the GC (only meaningful with lltype)
-    if config.translation.sandbox and gc == 'hybrid':
-        gc = 'generation'
     # but only set it if it wasn't already suggested to be something else
     if config.translation._cfgimpl_value_owners['gc'] != 'suggested':
         config.translation.suggest(gc=gc)
