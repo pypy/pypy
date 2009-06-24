@@ -598,17 +598,9 @@ class PerfectSpecializer(object):
                 specnode.expand_boxlist(node, boxlist)
                 new_inputargs.extend(boxlist)
                 box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
-                if (parentnode.cls and
-                    isinstance(parentnode.cls.source, FixedList)):
-                    cls = parentnode.cls.source
-                    assert isinstance(cls, FixedList)
-                    rebuild_ops.append(ResOperation(rop.SETARRAYITEM_GC,
-                      [parentnode.source, descr, box], None,
-                      cls.arraydescr))
-                else:
-                    assert isinstance(descr, AbstractDescr)
-                    rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
-                      [parentnode.source, box], None, descr))
+                assert isinstance(descr, AbstractDescr)
+                rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
+                  [parentnode.source, box], None, descr))
         new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
         loop.inputargs = self._patch(loop.inputargs, new_inputargs)
         self._patch_loop(loop.operations, new_inputargs, rebuild_ops, loop)
