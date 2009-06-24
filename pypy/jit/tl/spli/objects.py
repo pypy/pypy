@@ -18,40 +18,40 @@ class DumbObjSpace(ObjSpace):
     def new_interned_str(self, x):
         return self.wrap(x)
 
-class InvalidOperation(Exception):
-    pass
 
 class SPLIException(Exception):
     pass
 
+
 class W_TypeError(SPLIException):
     pass
+
 
 class SPLIObject(object):
 
     def add(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def call(self, args):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_lt(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_gt(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_eq(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_ne(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_ge(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def cmp_le(self, other):
-        raise InvalidOperation
+        raise W_TypeError
 
     def as_int(self):
         raise W_TypeError
@@ -60,10 +60,11 @@ class SPLIObject(object):
         raise W_TypeError
 
     def repr(self):
-        raise InvalidOperation
+        raise W_TypeError
 
     def is_true(self):
-        raise InvalidOperation
+        raise W_TypeError
+
 
 class Bool(SPLIObject):
 
