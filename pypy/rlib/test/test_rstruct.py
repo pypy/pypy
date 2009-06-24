@@ -20,6 +20,13 @@ class BaseTestRStruct(BaseRtypingTest):
         assert fn() == 124
         assert self.interpret(fn, []) == 124
 
+    def test_unpack_single(self):
+        data = struct.pack('i', 123)
+        def fn():
+            return runpack('i', data)
+        assert fn() == 123
+        assert self.interpret(fn, []) == 123
+
 class TestLLType(BaseTestRStruct, LLRtypeMixin):
     pass
 

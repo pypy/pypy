@@ -91,7 +91,10 @@ class FrozenUnpackIterator(FormatIterator):
 
     def unpack(self, s):
         # NOT_RPYTHON
-        return unpack(self.fmt, s)
+        res = unpack(self.fmt, s)
+        if len(res) == 1:
+            return res[0]
+        return res
 
     def _freeze_(self):
         assert self.formats
