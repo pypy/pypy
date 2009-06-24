@@ -128,7 +128,7 @@ class SPLIFrame(object):
         raise Return(self.pop())
 
     def LOAD_CONST(self, const_index, next_instr, code):
-        self.push(self.code.co_consts_w[const_index])
+        self.push(code.co_consts_w[const_index])
         return next_instr
 
     def BINARY_ADD(self, _, next_instr, code):
