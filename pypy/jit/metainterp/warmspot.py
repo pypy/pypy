@@ -637,7 +637,7 @@ class VirtualizableInfo:
             return TYPE == self.VTYPEPTR
         else:
             # ootype: any subtype may be used too
-            if isinstance(TYPE, ootype.Instance) and isinstance(self.VTYPE, ootype.Instance):
+            if isinstance(TYPE, ootype.Instance):
                 return ootype.isSubclass(TYPE, self.VTYPE)
             else:
                 return TYPE == self.VTYPE
