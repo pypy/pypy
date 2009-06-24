@@ -615,12 +615,12 @@ class VirtualizableInfo:
             obj = virtualizable_box.getobj()
             return ootype.cast_from_object(self.VTYPE, obj)
 
-    def gencast(self, virtualizable):
+    def cast_to_vtype(self, virtualizable):
         if not self.is_oo:
             return lltype.cast_pointer(self.VTYPEPTR, virtualizable)
         else:
             return virtualizable
-    gencast._annspecialcase_ = 'specialize:ll'
+    cast_to_vtype._annspecialcase_ = 'specialize:ll'
 
     def is_vtypeptr(self, TYPE):
         if not self.is_oo:
@@ -760,7 +760,7 @@ def make_state_class(warmrunnerdesc):
             if vinfo is not None:
                 virtualizable = redargs[vinfo.index_of_virtualizable -
                                         num_green_args]
-                virtualizable = vinfo.gencast(virtualizable)
+                virtualizable = vinfo.cast_to_vtype(virtualizable)
                 for typecode, fieldname in vable_static_fields:
                     x = getattr(virtualizable, fieldname)
                     set_future_value(i, x, typecode)
