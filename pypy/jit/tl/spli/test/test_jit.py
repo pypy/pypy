@@ -10,7 +10,6 @@ class TestSPLIJit(JitMixin):
     type_system = 'lltype'
     CPUClass = runner.LLtypeCPU
     ts = LLTypeHelper()
-
     
     def interpret(self, f, args):
         coderepr = serializer.serialize(f.func_code)
@@ -29,7 +28,7 @@ class TestSPLIJit(JitMixin):
         d['space'] = space
         d['coderepr'] = coderepr
         exec source.compile() in d
-        self.meta_interp(d['bootstrap'], args)
+        return self.meta_interp(d['bootstrap'], args, listops=True)
     
     def test_basic(self):
         def f():

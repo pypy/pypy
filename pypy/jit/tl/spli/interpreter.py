@@ -77,6 +77,7 @@ class SPLIFrame(object):
         while True:
             jitdriver.jit_merge_point(code=code, instr_index=instr_index,
                                       frame=self)
+            self.stack_depth = hint(self.stack_depth, promote=True)
             op = ord(code[instr_index])
             instr_index += 1
             if op >= opcode.HAVE_ARGUMENT:
