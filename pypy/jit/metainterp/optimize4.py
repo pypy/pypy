@@ -3,8 +3,9 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt, BoxPtr,
                                          ResOperation, AbstractDescr,
                                          Options, AbstractValue, ConstPtr,
                                          ConstObj)
-from pypy.jit.metainterp.specnode import (FixedClassSpecNode, NotSpecNode,
-                                          VirtualInstanceSpecNode)
+from pypy.jit.metainterp.specnode4 import (FixedClassSpecNode,
+                                           prebuiltNotSpecNode,
+                                           VirtualInstanceSpecNode)
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -54,16 +55,16 @@ class InstanceNode(object):
 
     def intersect(self, other, nodes):
         if not other.cls:
-            return NotSpecNode()
+            return prebuiltNotSpecNode
         if self.cls:
             if not self.cls.source.equals(other.cls.source):
-                return NotSpecNode()
+                return prebuiltNotSpecNode
             known_class = self.cls.source
         else:
             known_class = other.cls.source
         if other.escaped:
             if self.cls is None:
-                return NotSpecNode()
+                return prebuiltNotSpecNode
             return FixedClassSpecNode(known_class)
         else:
             assert self is not other

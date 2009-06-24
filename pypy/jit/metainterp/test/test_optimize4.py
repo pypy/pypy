@@ -9,9 +9,10 @@ from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          ConstAddr, TreeLoop)
-from pypy.jit.metainterp.optimize4 import (PerfectSpecializer,
-    VirtualInstanceSpecNode, FixedClassSpecNode,
-    NotSpecNode)
+from pypy.jit.metainterp.optimize4 import PerfectSpecializer
+from pypy.jit.metainterp.specnode4 import (FixedClassSpecNode,
+                                           NotSpecNode,
+                                           VirtualInstanceSpecNode)
 
 cpu = runner.LLtypeCPU(None)
 

@@ -46,8 +46,10 @@ class BasicTest:
         res = ll_meta_interp(f, [17], CPUClass=self.CPUClass,
                              type_system=self.type_system)
         assert res == (17+14+11+8+7+6+5+4) * 10
+        from pypy.jit.metainterp import optimize4
         res = rpython_ll_meta_interp(f, [17], loops=2, CPUClass=self.CPUClass,
-                                     type_system=self.type_system)
+                                     type_system=self.type_system,
+                                     optimizer=optimize4)
         assert res == (17+14+11+8+7+6+5+4) * 10
 
 
