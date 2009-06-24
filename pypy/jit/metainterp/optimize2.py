@@ -299,8 +299,7 @@ class SimpleVirtualOpt(object):
         return True
     
 
-specializer = Specializer([SimpleVirtualOpt(),
-                           ConsecutiveGuardClassRemoval()])
+specializer = Specializer([ConsecutiveGuardClassRemoval()])
 
 def optimize_loop(options, old_loops, loop, cpu=None, spec=specializer):
     if old_loops:
