@@ -21,7 +21,7 @@ def spli_run_from_cpython_code(co, args=[]):
     space = objects.DumbObjSpace()
     pyco = Code._from_code(space, co)
     print dis.dis(co)
-    run(pyco, args, space)
+    return run(pyco, args, space)
 
 def run(pyco, args, space=None):
     if space is None:
