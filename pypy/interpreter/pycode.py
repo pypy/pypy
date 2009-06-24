@@ -116,7 +116,8 @@ class PyCode(eval.Code):
     def signature(self):
         return self._signature
     
-    def _from_code(space, code, hidden_applevel=False):
+    @classmethod
+    def _from_code(cls, space, code, hidden_applevel=False):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
@@ -127,12 +128,12 @@ class PyCode(eval.Code):
         num = 0
         for const in code.co_consts:
             if isinstance(const, types.CodeType): # from stable compiler
-                const = PyCode._from_code(space, const, hidden_applevel=hidden_applevel)
+                const = cls._from_code(space, const, hidden_applevel=hidden_applevel)
             newconsts_w[num] = space.wrap(const)
             num += 1
         # stick the underlying CPython magic value, if the code object
         # comes from there
-        return PyCode(space, code.co_argcount,
+        return cls(space, code.co_argcount,
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,
@@ -147,8 +148,6 @@ class PyCode(eval.Code):
                       list(code.co_freevars),
                       list(code.co_cellvars),
                       hidden_applevel, cpython_magic)
-
-    _from_code = staticmethod(_from_code)
 
     def _code_new_w(space, argcount, nlocals, stacksize, flags,
                     code, consts, names, varnames, filename,
