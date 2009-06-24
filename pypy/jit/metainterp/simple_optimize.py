@@ -9,6 +9,10 @@ def optimize_loop(options, old_loops, loop, cpu=None):
         assert len(old_loops) == 1
         return old_loops[0]
     else:
+        # copy loop operations here
+        # we need it since the backend can modify those lists, which make
+        # get_guard_op in compile.py invalid
+        loop.operations = loop.operations[:]
         return None
 
 def optimize_bridge(options, old_loops, loop, cpu=None):
