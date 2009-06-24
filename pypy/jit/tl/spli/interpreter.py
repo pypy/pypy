@@ -1,6 +1,10 @@
 from pypy.tool import stdlib_opcode as opcode
 from pypy.jit.tl.spli.pycode import Code
 from pypy.jit.tl.spli import objects
+from pypy.tool.stdlib_opcode import unrolling_opcode_descs
+from pypy.tool.stdlib_opcode import opcode_method_names
+from pypy.rlib.unroll import unrolling_iterable
+
 import dis
 
 compare_ops = [
@@ -10,12 +14,14 @@ compare_ops = [
     "cmp_ne",   # "!="
     "cmp_gt",   # ">"
     "cmp_ge",   # ">="
-    "cmp_in",
-    "cmp_not_in",
-    "cmp_is",
-    "cmp_is_not",
-    "cmp_exc_match",
+#    "cmp_in",
+#    "cmp_not_in",
+#    "cmp_is",
+#    "cmp_is_not",
+#    "cmp_exc_match",
 ]
+unrolling_compare_dispatch_table = unrolling_iterable(
+    enumerate(compare_ops))
 
 def spli_run_from_cpython_code(co, args=[]):
     space = objects.DumbObjSpace()
@@ -39,13 +45,15 @@ class Return(BlockUnroller):
     def __init__(self, value):
         self.value = value
 
+class MissingOpcode(Exception):
+    pass
 
 class SPLIFrame(object):
 
     def __init__(self, code):
         self.code = code
         self.value_stack = [None] * code.co_stacksize
-        self.locals = [None] * len(code.getvarnames())
+        self.locals = [None] * code.co_nlocals
 
     def run(self):
         self.stack_depth = 0
@@ -67,8 +75,13 @@ class SPLIFrame(object):
                 instr_index += 2
             else:
                 oparg = 0
-            meth = getattr(self, opcode.opcode_method_names[op])
-            instr_index = meth(oparg, instr_index)
+            for opdesc in unrolling_opcode_descs:
+                if op == opdesc.index:
+                    meth = getattr(self, opdesc.methodname)
+                    instr_index = meth(oparg, instr_index)
+                    break
+            else:
+                raise MissingOpcode(op)
 
     def push(self, value):
         self.value_stack[self.stack_depth] = value
@@ -126,5 +139,13 @@ class SPLIFrame(object):
     def COMPARE_OP(self, arg, next_instr):
         right = self.pop()
         left = self.pop()
-        self.push(getattr(left, compare_ops[arg])(right))
+        for num, name in unrolling_compare_dispatch_table:
+            if num == arg:
+                self.push(getattr(left, name)(right))
         return next_instr
+
+items = []
+for item in unrolling_opcode_descs._items:
+    if getattr(SPLIFrame, item.methodname, None) is not None:
+        items.append(item)
+unrolling_opcode_descs = unrolling_iterable(items)

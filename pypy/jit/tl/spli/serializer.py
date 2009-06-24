@@ -22,13 +22,15 @@ def serialize_const(const):
         raise NotSupportedFormat(str(const))
 
 def unserialize_const(c, start):
+    assert start >= 0
     if c[start] == 'd':
         end = start + int_lgt + 1
-        intval, = runpack('i', c[start + 1:end])
+        intval = runpack('i', c[start + 1:end])
         return Int(intval), end
     elif c[start] == 's':
         end_lgt = start + 1 + int_lgt
-        lgt, = runpack('i', c[start + 1:end_lgt])
+        lgt = runpack('i', c[start + 1:end_lgt])
+        assert lgt >= 0
         end_str = end_lgt + lgt
         return Str(c[end_lgt:end_str]), end_str
     elif c[start] == 'n':
@@ -57,10 +59,11 @@ def deserialize(coderepr, space=None):
         space = DumbObjSpace()
     header = coderepr[:header_lgt]
     argcount, nlocals, stacksize, flags, code_len = runpack(FMT, header)
+    assert code_len >= 0
     code = coderepr[header_lgt:(code_len + header_lgt)]
     consts = unserialize_consts(coderepr[code_len + header_lgt:])
     names = []
-    varnames = []
+    varnames = ["a", "b", "cde"] # help annotator, nobody ever reads it
     return Code(space, argcount, nlocals, stacksize, flags, code,
                 consts, names, varnames, 'file', 'code', 0,
                 0, [], [])

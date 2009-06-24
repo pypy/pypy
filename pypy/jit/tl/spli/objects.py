@@ -1,9 +1,10 @@
 from pypy.interpreter.baseobjspace import ObjSpace
-
+from pypy.rlib.objectmodel import specialize
 
 class DumbObjSpace(ObjSpace):
     """Implement just enough of the ObjSpace API to satisfy PyCode."""
 
+    @specialize.argtype(1)
     def wrap(self, x):
         if isinstance(x, int):
             return Int(x)
@@ -20,6 +21,11 @@ class DumbObjSpace(ObjSpace):
 class InvalidOperation(Exception):
     pass
 
+class SPLIException(Exception):
+    pass
+
+class W_TypeError(SPLIException):
+    pass
 
 class SPLIObject(object):
 
@@ -27,6 +33,24 @@ class SPLIObject(object):
         raise InvalidOperation
 
     def call(self, args):
+        raise InvalidOperation
+
+    def cmp_lt(self, other):
+        raise InvalidOperation
+
+    def cmp_gt(self, other):
+        raise InvalidOperation
+
+    def cmp_eq(self, other):
+        raise InvalidOperation
+
+    def cmp_ne(self, other):
+        raise InvalidOperation
+    
+    def cmp_ge(self, other):
+        raise InvalidOperation
+
+    def cmp_le(self, other):
         raise InvalidOperation
 
 class Bool(SPLIObject):
@@ -43,9 +67,13 @@ class Int(SPLIObject):
         self.value = value
 
     def add(self, other):
+        if not isinstance(other, Int):
+            raise W_TypeError
         return Int(self.value + other.value)
 
     def cmp_lt(self, other):
+        if not isinstance(other, Int):
+            raise W_TypeError
         return Bool(self.value < other.value)
 
 class Str(SPLIObject):
@@ -54,6 +82,8 @@ class Str(SPLIObject):
         self.value = value
 
     def add(self, other):
+        if not isinstance(other, Str):
+            raise W_TypeError
         return Str(self.value + other.value)
 
 class SPLINone(SPLIObject):
