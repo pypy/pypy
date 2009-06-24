@@ -1,4 +1,10 @@
 
+""" Usage:
+serialize.py python_file func_name output_file
+"""
+
+import autopath
+import py, sys
 from pypy.jit.tl.spli.objects import DumbObjSpace, Int, Str
 from pypy.jit.tl.spli.pycode import Code
 from pypy.rlib.rstruct.runpack import runpack
@@ -67,3 +73,16 @@ def deserialize(coderepr, space=None):
     return Code(space, argcount, nlocals, stacksize, flags, code,
                 consts, names, varnames, 'file', 'code', 0,
                 0, [], [])
+
+def main(argv):
+    if len(argv) != 4:
+        print __doc__
+        sys.exit(1)
+    mod = py.path.local(argv[1]).pyimport()
+    r = serialize(getattr(mod, argv[2]).func_code)
+    outfile = py.path.local(argv[3])
+    outfile.write(r)
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv)
