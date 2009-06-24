@@ -22,8 +22,7 @@ from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler
-from pypy.jit.metainterp.typesystem import deref#, getlength
-#from pypy.jit.metainterp.typesystem import getarrayitem, setarrayitem
+from pypy.jit.metainterp.typesystem import deref
 
 # ____________________________________________________________
 # Bootstrapping
@@ -629,7 +628,10 @@ class VirtualizableInfo:
             return TYPE == self.VTYPEPTR
         else:
             # ootype: any subtype may be used too
-            return ootype.isSubclass(TYPE, self.VTYPE)
+            if isinstance(TYPE, ootype.Instance) and isinstance(self.VTYPE, ootype.Instance):
+                return ootype.isSubclass(TYPE, self.VTYPE)
+            else:
+                return TYPE == self.VTYPE
 
 
 def decode_hp_hint_args(op):
