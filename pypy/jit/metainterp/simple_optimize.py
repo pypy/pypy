@@ -12,6 +12,7 @@ def optimize_loop(options, old_loops, loop, cpu=None):
         # copy loop operations here
         # we need it since the backend can modify those lists, which make
         # get_guard_op in compile.py invalid
+        # in fact, x86 modifies this list for moving GCs
         loop.operations = loop.operations[:]
         return None
 
