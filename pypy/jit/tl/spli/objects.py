@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.rlib.objectmodel import specialize
 
 class DumbObjSpace(ObjSpace):
@@ -12,6 +12,8 @@ class DumbObjSpace(ObjSpace):
             return Str(x)
         elif x is None:
             return spli_None
+        elif isinstance(x, Wrappable):
+            return x.__spacebind__(self)
         else:
             raise NotImplementedError("Wrapping %s" % x)
 
@@ -117,9 +119,12 @@ spli_None = SPLINone()
 
 class Function(SPLIObject):
 
-    def __init__(self, code):
+    def __init__(self, code, globs):
         self.code = code
+        self.globs = globs
 
     def call(self, args):
         from pypy.jit.tl.spli import interpreter
-        return interpreter.SPLIFrame(self.code).run()
+        frame = interpreter.SPLIFrame(self.code, None, self.globs)
+        frame.set_args(args)
+        return frame.run()

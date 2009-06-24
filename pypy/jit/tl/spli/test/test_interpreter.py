@@ -55,3 +55,16 @@ class TestSPLIInterpreter:
         def f():
             3 + "3"
         py.test.raises(objects.W_TypeError, self.eval, f)
+
+    def test_call(self):
+        code = compile("""
+def g():
+    return 4
+def f():
+    return g() + 3
+res = f()""", "<string>", "exec")
+        globs = {}
+        mod_res = interpreter.spli_run_from_cpython_code(code, [], globs, globs)
+        assert mod_res is objects.spli_None
+        assert len(globs) == 3
+        assert globs["res"].as_int() == 7

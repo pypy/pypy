@@ -29,16 +29,16 @@ jitdriver = JitDriver(greens = ['code', 'instr_index'],
                       reds = ['frame'],
                       virtualizables = ['frame'])
 
-def spli_run_from_cpython_code(co, args=[]):
+def spli_run_from_cpython_code(co, args=[], locs=None, globs=None):
     space = objects.DumbObjSpace()
     pyco = Code._from_code(space, co)
     print dis.dis(co)
-    return run(pyco, args, space)
+    return run(pyco, args, locs, globs, space)
 
-def run(pyco, args, space=None):
+def run(pyco, args, locs=None, globs=None, space=None):
     if space is None:
         space = objects.DumbObjSpace()
-    frame = SPLIFrame(pyco)
+    frame = SPLIFrame(pyco, locs, globs)
     for i, arg in enumerate(args):
         frame.locals[i] = space.wrap(arg)
     return frame.run()
@@ -58,11 +58,23 @@ class SPLIFrame(object):
 
     _virtualizable2_ = ['value_stack[*]', 'locals[*]', 'stack_depth']
 
-    def __init__(self, code):
+    def __init__(self, code, locs=None, globs=None):
         self.code = code
         self.value_stack = [None] * code.co_stacksize
         self.locals = [None] * code.co_nlocals
+        if locs is not None:
+            self.locals_dict = locs
+        else:
+            self.locals_dict = {}
+        if globs is not None:
+            self.globs = globs
+        else:
+            self.globs = {}
         self.stack_depth = 0
+
+    def set_args(self, args):
+        for i in range(len(args)):
+            self.locals[i] = args[i]
 
     def run(self):
         self.stack_depth = 0
@@ -109,6 +121,9 @@ class SPLIFrame(object):
         self.value_stack[self.stack_depth] = None
         return val
 
+    def pop_many(self, n):
+        return [self.pop() for i in range(n)]
+
     def peek(self):
         return self.value_stack[self.stack_depth - 1]
 
@@ -122,6 +137,21 @@ class SPLIFrame(object):
 
     def STORE_FAST(self, name_index, next_instr, code):
         self.locals[name_index] = self.pop()
+        return next_instr
+
+    def LOAD_NAME(self, name_index, next_instr, code):
+        name = self.code.co_names_w[name_index].as_str()
+        self.push(self.locals_dict[name])
+        return next_instr
+
+    def STORE_NAME(self, name_index, next_instr, code):
+        name = self.code.co_names_w[name_index].as_str()
+        self.locals_dict[name] = self.pop()
+        return next_instr
+
+    def LOAD_GLOBAL(self, name_index, next_instr, code):
+        name = self.code.co_names_w[name_index].as_str()
+        self.push(self.globs[name])
         return next_instr
 
     def RETURN_VALUE(self, _, next_instr, code):
@@ -160,6 +190,18 @@ class SPLIFrame(object):
             if num == arg:
                 self.push(getattr(left, name)(right))
         return next_instr
+
+    def MAKE_FUNCTION(self, _, next_instr, code):
+        func = objects.Function(self.pop(), self.globs)
+        self.push(func)
+        return next_instr
+
+    def CALL_FUNCTION(self, arg_count, next_instr, code):
+        args = self.pop_many(arg_count)
+        func = self.pop()
+        self.push(func.call(args))
+        return next_instr
+
 
 items = []
 for item in unrolling_opcode_descs._items:
