@@ -12,27 +12,6 @@ def deref(T):
     assert isinstance(T, ootype.OOType)
     return T
 
-def getlength(array):
-    if isinstance(array, ootype._array):
-        return array.ll_length()
-    else:
-        return len(array)      # assume a Ptr(GcArray)
-getlength._annspecialcase_ = 'specialize:ll'
-
-def getarrayitem(array, i):
-    if isinstance(array, ootype._array):
-        return array.ll_getitem_fast(i)
-    else:
-        return array[i]        # assume a Ptr(GcArray)
-getarrayitem._annspecialcase_ = 'specialize:ll'
-
-def setarrayitem(array, i, newvalue):
-    if isinstance(array, ootype._array):
-        array.ll_setitem_fast(i, newvalue)
-    else:
-        array[i] = newvalue    # assume a Ptr(GcArray)
-setarrayitem._annspecialcase_ = 'specialize:ll'
-
 def fieldType(T, name):
     if isinstance(T, lltype.Struct):
         return getattr(T, name)
@@ -103,6 +82,15 @@ class LLTypeHelper(TypeSystemHelper):
         if isinstance(box, history.BoxPtr):
             box.value = lltype.nullptr(llmemory.GCREF.TO)
 
+    def getlength(self, array):
+        return len(array)
+
+    def getarrayitem(self, array, i):
+        return array[i]
+
+    def setarrayitem(self, array, i, newvalue):
+        array[i] = newvalue
+
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -147,6 +135,15 @@ class OOTypeHelper(TypeSystemHelper):
     def clean_box(self, box):
         if isinstance(box, history.BoxObj):
             box.value = ootype.NULL
+
+    def getlength(self, array):
+        return array.ll_length()
+
+    def getarrayitem(self, array, i):
+        return array.ll_getitem_fast(i)
+
+    def setarrayitem(self, array, i, newvalue):
+        array.ll_setitem_fast(i, newvalue)
 
 
 llhelper = LLTypeHelper()

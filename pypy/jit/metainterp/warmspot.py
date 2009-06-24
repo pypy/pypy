@@ -22,8 +22,8 @@ from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler
-from pypy.jit.metainterp.typesystem import deref, getlength
-from pypy.jit.metainterp.typesystem import getarrayitem, setarrayitem
+from pypy.jit.metainterp.typesystem import deref#, getlength
+#from pypy.jit.metainterp.typesystem import getarrayitem, setarrayitem
 
 # ____________________________________________________________
 # Bootstrapping
@@ -533,6 +533,10 @@ class VirtualizableInfo:
         self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
         #
+        getlength = warmrunnerdesc.ts.getlength
+        getarrayitem = warmrunnerdesc.ts.getarrayitem
+        setarrayitem = warmrunnerdesc.ts.setarrayitem
+        #
         def read_boxes(cpu, virtualizable):
             boxes = []
             for _, fieldname in unroll_static_fields:
@@ -726,7 +730,11 @@ def make_state_class(warmrunnerdesc):
     else:
         MAX_HASH_TABLE_BITS = 1
     THRESHOLD_LIMIT = sys.maxint // 2
-
+    #
+    getlength = warmrunnerdesc.ts.getlength
+    getarrayitem = warmrunnerdesc.ts.getarrayitem
+    setarrayitem = warmrunnerdesc.ts.setarrayitem
+    #
     class MachineCodeEntryPoint(object):
         next = None    # linked list
         def __init__(self, bridge, *greenargs):
@@ -758,7 +766,7 @@ def make_state_class(warmrunnerdesc):
                     i = i + 1
                 for typecode, fieldname in vable_array_fields:
                     lst = getattr(virtualizable, fieldname)
-                    for j in range(len(lst)):
+                    for j in range(getlength(lst)):
                         x = getarrayitem(lst, j)
                         set_future_value(i, x, typecode)
                         i = i + 1
