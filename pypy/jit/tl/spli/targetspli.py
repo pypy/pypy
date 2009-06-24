@@ -18,6 +18,7 @@ def entry_point(argv):
     frame = interpreter.SPLIFrame(co)
     res = frame.run()
     print res.repr()
+    return 0
 
 def target(drver, args):
     return entry_point, None

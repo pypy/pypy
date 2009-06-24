@@ -59,6 +59,8 @@ class SPLIObject(object):
     def as_str(self):
         raise W_TypeError
 
+    def repr(self):
+        raise InvalidOperation
 
 class Bool(SPLIObject):
 
@@ -68,6 +70,8 @@ class Bool(SPLIObject):
     def is_true(self):
         return self.value
 
+    def repr(self):
+        return str(self.value)
 
 class Int(SPLIObject):
 
@@ -83,6 +87,8 @@ class Int(SPLIObject):
     def as_int(self):
         return self.value
 
+    def repr(self):
+        return str(self.value)
 
 class Str(SPLIObject):
 
@@ -95,6 +101,8 @@ class Str(SPLIObject):
     def add(self, other):
         return Str(self.value + other.as_str())
 
+    def repr(self):
+        return self.value
 
 class SPLINone(SPLIObject):
     pass
