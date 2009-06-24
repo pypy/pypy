@@ -10,7 +10,7 @@ from pypy.jit.tl.spli.pycode import Code
 from pypy.rlib.rstruct.runpack import runpack
 import struct
 
-FMT = 'iiiii'
+FMT = 'iiii'
 int_lgt = len(struct.pack('i', 0))
 header_lgt = int_lgt * len(FMT)
 
@@ -57,24 +57,18 @@ def unserialize_consts(constrepr):
 
 def serialize(code):
     header = struct.pack(FMT, code.co_argcount, code.co_nlocals,
-                         code.co_stacksize, code.co_flags, len(code.co_code))
-    constsrepr = (struct.pack('i', len(code.co_consts)) + 
+                         code.co_stacksize, len(code.co_code))
+    constsrepr = (struct.pack('i', len(code.co_consts)) +
                   "".join([serialize_const(const) for const in code.co_consts]))
     return header + code.co_code + constsrepr
 
-def deserialize(coderepr, space=None):
-    if space is None:
-        space = DumbObjSpace()
+def deserialize(coderepr):
     header = coderepr[:header_lgt]
-    argcount, nlocals, stacksize, flags, code_len = runpack(FMT, header)
+    argcount, nlocals, stacksize, code_len = runpack(FMT, header)
     assert code_len >= 0
     code = coderepr[header_lgt:(code_len + header_lgt)]
     consts = unserialize_consts(coderepr[code_len + header_lgt:])
-    names = []
-    varnames = ["a", "b", "cde"] # help annotator, nobody ever reads it
-    return Code(space, argcount, nlocals, stacksize, flags, code,
-                consts, names, varnames, 'file', 'code', 0,
-                0, [], [])
+    return Code(argcount, nlocals, stacksize, code, consts, [])
 
 def main(argv):
     if len(argv) != 4:

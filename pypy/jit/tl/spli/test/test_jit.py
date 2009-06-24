@@ -14,19 +14,17 @@ class TestSPLIJit(JitMixin):
     
     def interpret(self, f, args):
         coderepr = serializer.serialize(f.func_code)
-        space = objects.DumbObjSpace()
         arg_params = ", ".join(['arg%d' % i for i in range(len(args))])
         arg_ass = "\n    ".join(['frame.locals[%d] = arg%d' % (i, i) for
                                  i in range(len(args))])
         source = py.code.Source("""
         def bootstrap(%(arg_params)s):
-            co = serializer.deserialize(coderepr, space)
+            co = serializer.deserialize(coderepr)
             frame = interpreter.SPLIFrame(co)
             %(arg_ass)s
             return frame.run()
         """ % locals())
         d = globals().copy()
-        d['space'] = space
         d['coderepr'] = coderepr
         exec source.compile() in d
         return self.meta_interp(d['bootstrap'], args, listops=True,

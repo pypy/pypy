@@ -14,6 +14,8 @@ class DumbObjSpace(ObjSpace):
             return spli_None
         elif isinstance(x, Wrappable):
             return x.__spacebind__(self)
+        elif isinstance(x, SPLIObject):
+            return x # Already done.
         else:
             raise NotImplementedError("Wrapping %s" % x)
 

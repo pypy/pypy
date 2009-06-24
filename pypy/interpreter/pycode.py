@@ -117,7 +117,7 @@ class PyCode(eval.Code):
         return self._signature
     
     @classmethod
-    def _from_code(cls, space, code, hidden_applevel=False):
+    def _from_code(cls, space, code, hidden_applevel=False, code_hook=None):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
@@ -126,9 +126,11 @@ class PyCode(eval.Code):
         assert isinstance(code, types.CodeType)
         newconsts_w = [None] * len(code.co_consts)
         num = 0
+        if code_hook is None:
+            code_hook = cls._from_code
         for const in code.co_consts:
             if isinstance(const, types.CodeType): # from stable compiler
-                const = cls._from_code(space, const, hidden_applevel=hidden_applevel)
+                const = code_hook(space, const, hidden_applevel, code_hook)
             newconsts_w[num] = space.wrap(const)
             num += 1
         # stick the underlying CPython magic value, if the code object
