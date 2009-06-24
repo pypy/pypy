@@ -39,8 +39,7 @@ def run(pyco, args, locs=None, globs=None, space=None):
     if space is None:
         space = objects.DumbObjSpace()
     frame = SPLIFrame(pyco, locs, globs)
-    for i, arg in enumerate(args):
-        frame.locals[i] = space.wrap(arg)
+    frame.set_args([space.wrap(arg) for arg in args])
     return frame.run()
 
 class BlockUnroller(Exception):
