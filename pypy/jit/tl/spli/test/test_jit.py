@@ -5,7 +5,7 @@ from pypy.jit.tl.spli import interpreter, objects, serializer
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.backend.llgraph import runner
 from pypy.rpython.annlowlevel import llstr, hlstr
-from pypy.jit.metainterp.simple_optimize import Optimizer
+from pypy.jit.metainterp.optimize2 import Optimizer
 
 class TestSPLIJit(JitMixin):
     type_system = 'lltype'
