@@ -46,12 +46,19 @@ class SPLIObject(object):
 
     def cmp_ne(self, other):
         raise InvalidOperation
-    
+
     def cmp_ge(self, other):
         raise InvalidOperation
 
     def cmp_le(self, other):
         raise InvalidOperation
+
+    def as_int(self):
+        raise W_TypeError
+
+    def as_str(self):
+        raise W_TypeError
+
 
 class Bool(SPLIObject):
 
@@ -61,30 +68,33 @@ class Bool(SPLIObject):
     def is_true(self):
         return self.value
 
+
 class Int(SPLIObject):
 
     def __init__(self, value):
         self.value = value
 
     def add(self, other):
-        if not isinstance(other, Int):
-            raise W_TypeError
-        return Int(self.value + other.value)
+        return Int(self.value + other.as_int())
 
     def cmp_lt(self, other):
-        if not isinstance(other, Int):
-            raise W_TypeError
-        return Bool(self.value < other.value)
+        return Bool(self.value < other.as_int())
+
+    def as_int(self):
+        return self.value
+
 
 class Str(SPLIObject):
 
     def __init__(self, value):
         self.value = value
 
+    def as_str(self):
+        return self.value
+
     def add(self, other):
-        if not isinstance(other, Str):
-            raise W_TypeError
-        return Str(self.value + other.value)
+        return Str(self.value + other.as_str())
+
 
 class SPLINone(SPLIObject):
     pass
