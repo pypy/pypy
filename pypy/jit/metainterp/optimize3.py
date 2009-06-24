@@ -540,7 +540,10 @@ class OptimizeVirtuals(AbstractOptimization):
             return
         clsbox = node.known_class.source
         oplist.append(self._new_obj(opt.cpu, clsbox, box))
-        opt.setval(box) # make sure that the value for this box exists
+        # create the InstanceValue for this box, or reuse the old one if it
+        # already exists (e.g., if you rebuild the same box twice, in two
+        # different guards)
+        opt.assertval(box, box)
         for descr, node in node.curfields.items():
             fieldbox = opt.rebuild_box(oplist, memo, node, node.source)
 ##             if isinstance(clsbox, FixedList):
