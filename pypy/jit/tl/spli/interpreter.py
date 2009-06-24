@@ -4,6 +4,7 @@ from pypy.jit.tl.spli import objects
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import we_are_translated
 
 import dis
 
@@ -35,7 +36,7 @@ def run(pyco, args, space=None):
     frame = SPLIFrame(pyco)
     for i, arg in enumerate(args):
         frame.locals[i] = space.wrap(arg)
-    return frame.run()    
+    return frame.run()
 
 class BlockUnroller(Exception):
     pass
@@ -75,13 +76,17 @@ class SPLIFrame(object):
                 instr_index += 2
             else:
                 oparg = 0
-            for opdesc in unrolling_opcode_descs:
-                if op == opdesc.index:
-                    meth = getattr(self, opdesc.methodname)
-                    instr_index = meth(oparg, instr_index)
-                    break
+            if we_are_translated():
+                for opdesc in unrolling_opcode_descs:
+                    if op == opdesc.index:
+                        meth = getattr(self, opdesc.methodname)
+                        instr_index = meth(oparg, instr_index)
+                        break
+                else:
+                    raise MissingOpcode(op)
             else:
-                raise MissingOpcode(op)
+                meth = getattr(self, opcode_method_names[op])
+                instr_index = meth(oparg, instr_index)
 
     def push(self, value):
         self.value_stack[self.stack_depth] = value
