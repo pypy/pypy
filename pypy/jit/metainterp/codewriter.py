@@ -1302,7 +1302,9 @@ class BytecodeMaker(object):
         methdescr = self.codewriter.get_methdescr(SELFTYPE, methname, False)
         self.emit('residual_oosend_canraise')
         self.emit(self.get_position(methdescr))
-        self.emit_varargs(op.args[1:])
+        non_void_args = [arg for arg in op.args[1:]
+                         if arg.concretetype is not ootype.Void]
+        self.emit_varargs(non_void_args)
         self.register_var(op.result)
 
     def serialize_op_debug_assert(self, op):
