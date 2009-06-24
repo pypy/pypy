@@ -5,7 +5,7 @@ serialize.py python_file func_name output_file
 
 import autopath
 import py, sys
-from pypy.jit.tl.spli.objects import DumbObjSpace, Int, Str
+from pypy.jit.tl.spli.objects import DumbObjSpace, Int, Str, spli_None
 from pypy.jit.tl.spli.pycode import Code
 from pypy.rlib.rstruct.runpack import runpack
 import struct
@@ -40,7 +40,7 @@ def unserialize_const(c, start):
         end_str = end_lgt + lgt
         return Str(c[end_lgt:end_str]), end_str
     elif c[start] == 'n':
-        return None, start + 1
+        return spli_None, start + 1
     else:
         raise NotSupportedFormat(c[start])
 
