@@ -26,7 +26,8 @@ unrolling_compare_dispatch_table = unrolling_iterable(
     enumerate(compare_ops))
 
 jitdriver = JitDriver(greens = ['code', 'instr_index'],
-                      reds = ['frame'])
+                      reds = ['frame'],
+                      virtualizables = ['frame'])
 
 def spli_run_from_cpython_code(co, args=[]):
     space = objects.DumbObjSpace()
@@ -55,10 +56,13 @@ class MissingOpcode(Exception):
 
 class SPLIFrame(object):
 
+    _virtualizable2_ = ['value_stack[*]', 'locals[*]', 'stack_depth']
+
     def __init__(self, code):
         self.code = code
         self.value_stack = [None] * code.co_stacksize
         self.locals = [None] * code.co_nlocals
+        self.stack_depth = 0
 
     def run(self):
         self.stack_depth = 0
