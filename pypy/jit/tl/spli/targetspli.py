@@ -8,6 +8,14 @@ from pypy.rlib.streamio import open_file_as_stream
 
 space = objects.DumbObjSpace()
 
+def unwrap_arg(arg):
+    if arg.startswith('s:'):
+        return objects.Str(arg[2:])
+    elif arg.startswith('i:'):
+        return objects.Int(int(arg[2:]))
+    else:
+        raise NotImplementedError
+
 def entry_point(argv):
     if len(argv) < 2:
         print __doc__
@@ -16,6 +24,8 @@ def entry_point(argv):
     stream = open_file_as_stream(argv[1])
     co = serializer.deserialize(stream.readall(), space)
     frame = interpreter.SPLIFrame(co)
+    for n in range(len(args)):
+        frame.locals[n] = unwrap_arg(args[n])
     res = frame.run()
     print res.repr()
     return 0
