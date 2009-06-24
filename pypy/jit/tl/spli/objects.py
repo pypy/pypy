@@ -62,6 +62,9 @@ class SPLIObject(object):
     def repr(self):
         raise InvalidOperation
 
+    def is_true(self):
+        raise InvalidOperation
+
 class Bool(SPLIObject):
 
     def __init__(self, value):
@@ -105,7 +108,8 @@ class Str(SPLIObject):
         return self.value
 
 class SPLINone(SPLIObject):
-    pass
+    def repr(self):
+        return 'None'
 
 spli_None = SPLINone()
 

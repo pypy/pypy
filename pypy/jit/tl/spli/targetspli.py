@@ -33,5 +33,10 @@ def entry_point(argv):
 def target(drver, args):
     return entry_point, None
 
+def jitpolicy(driver):
+    """Returns the JIT policy to use when translating."""
+    from pypy.jit.metainterp.policy import JitPolicy
+    return JitPolicy()
+
 if __name__ == '__main__':
     entry_point(sys.argv)
