@@ -9,6 +9,8 @@ class DumbObjSpace(ObjSpace):
             return Int(x)
         elif isinstance(x, str):
             return Str(x)
+        elif x is None:
+            return spli_None
         else:
             raise NotImplementedError("Wrapping %s" % x)
 
@@ -53,6 +55,11 @@ class Str(SPLIObject):
 
     def add(self, other):
         return Str(self.value + other.value)
+
+class SPLINone(SPLIObject):
+    pass
+
+spli_None = SPLINone()
 
 
 class Function(SPLIObject):
