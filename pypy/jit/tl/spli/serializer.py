@@ -45,9 +45,10 @@ def unserialize_const(c, start):
         raise NotSupportedFormat(c[start])
 
 def unserialize_consts(constrepr):
-    pos = 0
+    pos = int_lgt
     consts_w = []
-    while pos < len(constrepr):
+    num = runpack('i', constrepr[:int_lgt])
+    for i in range(num):
         next_const, pos = unserialize_const(constrepr, pos)
         consts_w.append(next_const)
     return consts_w
@@ -57,7 +58,8 @@ def unserialize_consts(constrepr):
 def serialize(code):
     header = struct.pack(FMT, code.co_argcount, code.co_nlocals,
                          code.co_stacksize, code.co_flags, len(code.co_code))
-    constsrepr = "".join([serialize_const(const) for const in code.co_consts])
+    constsrepr = (struct.pack('i', len(code.co_consts)) + 
+                  "".join([serialize_const(const) for const in code.co_consts]))
     return header + code.co_code + constsrepr
 
 def deserialize(coderepr, space=None):
