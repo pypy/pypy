@@ -5,6 +5,7 @@ from pypy.jit.tl.spli import interpreter, objects, serializer
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.backend.llgraph import runner
 from pypy.rpython.annlowlevel import llstr, hlstr
+from pypy.jit.metainterp.simple_optimize import Optimizer
 
 class TestSPLIJit(JitMixin):
     type_system = 'lltype'
@@ -28,7 +29,8 @@ class TestSPLIJit(JitMixin):
         d['space'] = space
         d['coderepr'] = coderepr
         exec source.compile() in d
-        return self.meta_interp(d['bootstrap'], args, listops=True)
+        return self.meta_interp(d['bootstrap'], args, listops=True,
+                                optimizer=Optimizer)
     
     def test_basic(self):
         def f():
