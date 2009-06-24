@@ -52,6 +52,8 @@ class SpecNodeWithFields(FixedClassSpecNode):
         instnode.curfields = curfields
 
     def equals(self, other):
+        if not isinstance(other, SpecNodeWithFields):
+            return False
         if not self.known_class.equals(other.known_class):
             return False
         elif len(self.fields) != len(other.fields):

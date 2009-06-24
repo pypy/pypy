@@ -2,6 +2,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp import executor
 
 class SpecNode(object):
+    __slots__ = ()
 
     def expand_boxlist(self, instnode, newboxlist):
         newboxlist.append(instnode.source)
@@ -25,6 +26,8 @@ class SpecNode(object):
         raise NotImplementedError
 
 class NotSpecNode(SpecNode):
+    __slots__ = ()
+
     def mutate_nodes(self, instnode):
         instnode.cursize = -1
 
@@ -111,6 +114,8 @@ class SpecNodeWithFields(FixedClassSpecNode):
         instnode.curfields = curfields
 
     def equals(self, other):
+        if not isinstance(other, SpecNodeWithFields):
+            return False
         if not self.known_class.equals(other.known_class):
             return False
         elif len(self.fields) != len(other.fields):
