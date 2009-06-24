@@ -1,3 +1,4 @@
+import py
 from pypy.jit.tl.spli import interpreter, objects
 
 class TestSPLIInterpreter:
@@ -46,4 +47,11 @@ class TestSPLIInterpreter:
 
         v = self.eval(f)
         assert v.value == 100
-        
+
+    def test_invalid_adds(self):
+        def f():
+            "3" + 3
+        py.test.raises(objects.W_TypeError, self.eval, f)
+        def f():
+            3 + "3"
+        py.test.raises(objects.W_TypeError, self.eval, f)
