@@ -629,4 +629,6 @@ class Optimizer:
     optimize_loop = staticmethod(optimize_loop)
     optimize_bridge = staticmethod(optimize_bridge)
 
-
+    @staticmethod
+    def get_optimizer_name():
+        return __file__

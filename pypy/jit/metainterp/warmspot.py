@@ -129,6 +129,7 @@ class WarmRunnerDesc:
             policy = JitPolicy()
         self.set_translator(translator)
         self.build_meta_interp(**kwds)
+        self.set_optimizer_name()
         self.make_args_specification()
         self.rewrite_jit_merge_point()
         if self.jitdriver.virtualizables:
@@ -191,6 +192,14 @@ class WarmRunnerDesc:
                                                   optimizer=optimizer,
                                                   profile=profile,
                                                   warmrunnerdesc=self)
+
+
+    def set_optimizer_name(self):
+        import os.path
+        filename = self.metainterp_sd.get_optimizer_name()
+        _, filename = os.path.split(filename)
+        name, _ = os.path.splitext(filename)
+        self.jitdriver.optimizer_name = name
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)

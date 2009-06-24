@@ -6,6 +6,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'set_param':    'interp_jit.set_param',
+        'get_optimizer_name': 'interp_jit.get_optimizer_name',
     }
 
     def setup_after_space_initialization(self):

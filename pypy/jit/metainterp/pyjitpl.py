@@ -902,10 +902,12 @@ class MetaInterpStaticData(object):
         if optimizer is not None:
             self.optimize_loop = optimizer.optimize_loop
             self.optimize_bridge = optimizer.optimize_bridge
+            self.get_optimizer_name = optimizer.get_optimizer_name
         else:
             from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop
             self.optimize_bridge = optimize.optimize_bridge
+            self.get_optimizer_name = optimize.get_optimizer_name
 
         if self.cpu.is_oo:
             self.ts = typesystem.oohelper
