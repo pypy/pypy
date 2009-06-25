@@ -22,7 +22,7 @@ def entry_point(argv):
         os._exit(1)
     args = argv[2:]
     stream = open_file_as_stream(argv[1])
-    co = serializer.deserialize(stream.readall(), space)
+    co = serializer.deserialize(stream.readall())
     frame = interpreter.SPLIFrame(co)
     for n in range(len(args)):
         frame.locals[n] = unwrap_arg(args[n])
