@@ -15,11 +15,44 @@ from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.function import Function
 from pypy.interpreter.pyopcode import ExitFrame
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from opcode import opmap
+from pypy.rlib.objectmodel import we_are_translated
 
 PyFrame._virtualizable2_ = ['last_instr',
                             'valuestackdepth', 'valuestack_w[*]',
                             'fastlocals_w[*]',
                             ]
+
+JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
+
+def can_inline(next_instr, bytecode):
+    if we_are_translated():
+        bytecode = cast_base_ptr_to_instance(Pycode, bytecode)
+    co_code = bytecode.co_code
+    next_instr = 0
+    while next_instr < len(co_code):
+        opcode = ord(co_code[next_instr])
+        next_instr += 1
+        if opcode >= HAVE_ARGUMENT:
+            lo = ord(co_code[next_instr])
+            hi = ord(co_code[next_instr+1])
+            next_instr += 2
+            oparg = (hi << 8) | lo
+        else:
+            oparg = 0
+        while opcode == opcodedesc.EXTENDED_ARG.index:
+            opcode = ord(co_code[next_instr])
+            if opcode < HAVE_ARGUMENT:
+                raise BytecodeCorruption
+            lo = ord(co_code[next_instr+1])
+            hi = ord(co_code[next_instr+2])
+            next_instr += 3
+            oparg = (oparg << 16) | (hi << 8) | lo
+        if opcode == JUMP_ABSOLUTE:
+            return False
+    return True
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -34,7 +67,7 @@ class PyPyJitDriver(JitDriver):
 ##        blockstack = frame.blockstack
 ##        return (valuestackdepth, blockstack)
 
-pypyjitdriver = PyPyJitDriver()
+pypyjitdriver = PyPyJitDriver(can_inline = can_inline)
 
 class __extend__(PyFrame):
 
