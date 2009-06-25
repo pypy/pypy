@@ -100,22 +100,24 @@ def do_bool_not(cpu, args, descr=None):
     return ConstInt(not args[0].getint())
 
 def do_oononnull(cpu, args, descr=None):
-    if args[0].type == INT:
+    tp = args[0].type
+    if tp == INT:
         x = bool(args[0].getint())
-    elif args[0].type == PTR:
+    elif tp == PTR:
         x = bool(args[0].getptr_base())
     else:
-        assert args[0].type == OBJ
+        assert tp == OBJ
         x = bool(args[0].getobj())
     return ConstInt(x)
 
 def do_ooisnull(cpu, args, descr=None):
-    if args[0].type == INT:
+    tp = args[0].type
+    if tp == INT:
         x = bool(args[0].getint())
-    elif args[0].type == PTR:
+    elif tp == PTR:
         x = bool(args[0].getptr_base())
     else:
-        assert args[0].type == OBJ
+        assert tp == OBJ
         x = bool(args[0].getobj())
     return ConstInt(not x)
 
