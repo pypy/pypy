@@ -21,24 +21,24 @@ class MiniStats:
 class Descr(history.AbstractDescr):
     name = None
     ofs = -1
-    type = '?'
+    typeinfo = '?'
     
-    def __init__(self, ofs, type='?'):
+    def __init__(self, ofs, typeinfo='?'):
         self.ofs = ofs
-        self.type = type
+        self.typeinfo = typeinfo
 
     def __hash__(self):
-        return hash((self.ofs, self.type))
+        return hash((self.ofs, self.typeinfo))
 
     def __eq__(self, other):
         if not isinstance(other, Descr):
             return NotImplemented
-        return self.ofs == other.ofs and self.type == other.type
+        return self.ofs == other.ofs and self.typeinfo == other.typeinfo
 
     def __ne__(self, other):
         if not isinstance(other, Descr):
             return NotImplemented
-        return self.ofs != other.ofs or self.type != other.type
+        return self.ofs != other.ofs or self.typeinfo != other.typeinfo
 
     def sort_key(self):
         return self.ofs
@@ -59,8 +59,8 @@ class Descr(history.AbstractDescr):
 
     def __repr__(self):
         if self.name is not None:
-            return '<Descr %r, %r, %r>' % (self.ofs, self.type, self.name)
-        return '<Descr %r, %r>' % (self.ofs, self.type)
+            return '<Descr %r, %r, %r>' % (self.ofs, self.typeinfo, self.name)
+        return '<Descr %r, %r>' % (self.ofs, self.typeinfo)
 
 
 history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
@@ -118,7 +118,7 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.opnum)
             descr = op.descr
             if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.type)
+                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].descr = descr
@@ -286,7 +286,7 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(arraydescr, Descr)
         array = args[0].getptr_base()
         index = args[1].getint()
-        if arraydescr.type == 'p':
+        if arraydescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getarrayitem_gc_ptr(array, index))
         else:
             return history.BoxInt(llimpl.do_getarrayitem_gc_int(array, index,
@@ -295,7 +295,7 @@ class LLtypeCPU(BaseCPU):
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = args[0].getptr_base()
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getfield_gc_ptr(struct,
                                                             fielddescr.ofs))
         else:
@@ -305,7 +305,7 @@ class LLtypeCPU(BaseCPU):
     def do_getfield_raw(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getfield_raw_ptr(struct,
                                                              fielddescr.ofs))
         else:
@@ -331,7 +331,7 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(arraydescr, Descr)
         array = args[0].getptr_base()
         index = args[1].getint()
-        if arraydescr.type == 'p':
+        if arraydescr.typeinfo == 'p':
             newvalue = args[2].getptr_base()
             llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
@@ -342,7 +342,7 @@ class LLtypeCPU(BaseCPU):
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = args[0].getptr_base()
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             newvalue = args[1].getptr_base()
             llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
@@ -353,7 +353,7 @@ class LLtypeCPU(BaseCPU):
     def do_setfield_raw(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             newvalue = args[1].getptr_base()
             llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         else:
@@ -390,11 +390,11 @@ class LLtypeCPU(BaseCPU):
                 llimpl.do_call_pushptr(arg.getptr_base())
             else:
                 llimpl.do_call_pushint(arg.getint())
-        if calldescr.type == 'p':
+        if calldescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_call_ptr(func, self.memo_cast))
-        elif calldescr.type == 'i':
+        elif calldescr.typeinfo == 'i':
             return history.BoxInt(llimpl.do_call_int(func, self.memo_cast))
-        else:  # calldescr.type == 'v'  # void
+        else:  # calldescr.typeinfo == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
 
     def do_cast_int_to_ptr(self, args, descr=None):

@@ -599,7 +599,7 @@ class Frame(object):
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
     def op_getarrayitem_gc(self, arraydescr, array, index):
-        if arraydescr.type == 'p':
+        if arraydescr.typeinfo == 'p':
             return do_getarrayitem_gc_ptr(array, index)
         else:
             return do_getarrayitem_gc_int(array, index, self.memocast)
@@ -607,7 +607,7 @@ class Frame(object):
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
     def op_getfield_gc(self, fielddescr, struct):
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
         else:
             return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
@@ -615,7 +615,7 @@ class Frame(object):
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             return do_getfield_raw_ptr(struct, fielddescr.ofs)
         else:
             return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
@@ -630,20 +630,20 @@ class Frame(object):
         return result
 
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
-        if arraydescr.type == 'p':
+        if arraydescr.typeinfo == 'p':
             do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
 
     def op_setfield_gc(self, fielddescr, struct, newvalue):
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
             do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
                                self.memocast)
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.type == 'p':
+        if fielddescr.typeinfo == 'p':
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         else:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
@@ -651,12 +651,12 @@ class Frame(object):
 
     def op_call(self, calldescr, func, *args):
         _call_args[:] = args
-        if calldescr.type == 'v':
+        if calldescr.typeinfo == 'v':
             err_result = None
-        elif calldescr.type == 'p':
+        elif calldescr.typeinfo == 'p':
             err_result = lltype.nullptr(llmemory.GCREF.TO)
         else:
-            assert calldescr.type == 'i'
+            assert calldescr.typeinfo == 'i'
             err_result = 0
         return _do_call_common(func, self.memocast, err_result)
 
