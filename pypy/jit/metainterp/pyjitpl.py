@@ -453,13 +453,44 @@ class MIFrame(object):
     def opimpl_setfield_raw(self, box, fielddesc, valuebox):
         self.execute(rop.SETFIELD_RAW, [box, valuebox], descr=fielddesc)
 
-    @arguments("int")
-    def opimpl_getfield_vable(self, index):
+    def _nonstandard_virtualizable(self, pc, box):
+        # returns True if 'box' is actually not the "standard" virtualizable
+        # that is stored in metainterp.virtualizable_boxes[-1]
+        standard_box = self.metainterp.virtualizable_boxes[-1]
+        if standard_box is box:
+            return False
+        eqbox = self.metainterp.execute_and_record(rop.OOIS,
+                                                   [box, standard_box])
+        eqbox = self.implement_guard_value(pc, eqbox)
+        return not eqbox.getint()
+
+    def _get_virtualizable_field_descr(self, index):
+        vinfo = self.metainterp.staticdata.virtualizable_info
+        return vinfo.static_field_descrs[index]
+
+    def _get_virtualizable_array_field_descr(self, index):
+        vinfo = self.metainterp.staticdata.virtualizable_info
+        return vinfo.array_field_descrs[index]
+
+    def _get_virtualizable_array_descr(self, index):
+        vinfo = self.metainterp.staticdata.virtualizable_info
+        return vinfo.array_descrs[index]
+
+    @arguments("orgpc", "box", "int")
+    def opimpl_getfield_vable(self, pc, basebox, index):
+        if self._nonstandard_virtualizable(pc, basebox):
+            self.execute(rop.GETFIELD_GC, [basebox],
+                         descr=self._get_virtualizable_field_descr(index))
+            return
         self.metainterp.check_synchronized_virtualizable()
         resbox = self.metainterp.virtualizable_boxes[index]
         self.make_result_box(resbox)
-    @arguments("int", "box")
-    def opimpl_setfield_vable(self, index, valuebox):
+    @arguments("orgpc", "box", "int", "box")
+    def opimpl_setfield_vable(self, pc, basebox, index, valuebox):
+        if self._nonstandard_virtualizable(pc, basebox):
+            self.execute(rop.SETFIELD_GC, [basebox, valuebox],
+                         descr=self._get_virtualizable_field_descr(index))
+            return
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
@@ -475,20 +506,45 @@ class MIFrame(object):
         assert 0 <= index < vinfo.get_array_length(virtualizable, arrayindex)
         return vinfo.get_index_in_array(virtualizable, arrayindex, index)
 
-    @arguments("orgpc", "int", "box")
-    def opimpl_getarrayitem_vable(self, pc, arrayindex, indexbox):
+    @arguments("orgpc", "box", "int", "box")
+    def opimpl_getarrayitem_vable(self, pc, basebox, arrayindex, indexbox):
+        if self._nonstandard_virtualizable(pc, basebox):
+            arraybox = self.metainterp.execute_and_record(
+                rop.GETFIELD_GC, [basebox],
+                descr=self._get_virtualizable_array_field_descr(arrayindex))
+            self.execute(
+                rop.GETARRAYITEM_GC, [arraybox, indexbox],
+                descr=self._get_virtualizable_array_descr(arrayindex))
+            return
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
         resbox = self.metainterp.virtualizable_boxes[index]
         self.make_result_box(resbox)
-    @arguments("orgpc", "int", "box", "box")
-    def opimpl_setarrayitem_vable(self, pc, arrayindex, indexbox, valuebox):
+    @arguments("orgpc", "box", "int", "box", "box")
+    def opimpl_setarrayitem_vable(self, pc, basebox, arrayindex, indexbox,
+                                  valuebox):
+        if self._nonstandard_virtualizable(pc, basebox):
+            arraybox = self.metainterp.execute_and_record(
+                rop.GETFIELD_GC, [basebox],
+                descr=self._get_virtualizable_array_field_descr(arrayindex))
+            self.execute(
+                rop.SETARRAYITEM_GC, [arraybox, indexbox, valuebox],
+                descr=self._get_virtualizable_array_descr(arrayindex))
+            return
         index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
-    @arguments("int")
-    def opimpl_arraylen_vable(self, arrayindex):
+    @arguments("orgpc", "box", "int")
+    def opimpl_arraylen_vable(self, pc, basebox, arrayindex):
+        if self._nonstandard_virtualizable(pc, basebox):
+            arraybox = self.metainterp.execute_and_record(
+                rop.GETFIELD_GC, [basebox],
+                descr=self._get_virtualizable_array_field_descr(arrayindex))
+            self.execute(
+                rop.ARRAYLEN_GC, [arraybox],
+                descr=self._get_virtualizable_array_descr(arrayindex))
+            return
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)

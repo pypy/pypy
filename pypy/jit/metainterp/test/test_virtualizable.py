@@ -151,6 +151,28 @@ class ExplicitVirtualizableTests:
         assert res == 50 * 4
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
+    def test_double_frame(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy', 'other'],
+                                virtualizables = ['xy'])
+        def f(n):
+            xy = self.setup()
+            xy.inst_x = 10
+            other = self.setup()
+            other.inst_x = 15
+            while n > 0:
+                myjitdriver.can_enter_jit(xy=xy, n=n, other=other)
+                myjitdriver.jit_merge_point(xy=xy, n=n, other=other)
+                promote_virtualizable(lltype.Void, other, 'inst_x')
+                value = other.inst_x         # getfield_gc
+                other.inst_x = value + 1     # setfield_gc
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                xy.inst_x = value + 100      # virtualized away
+                n -= 1
+            return xy.inst_x
+        res = self.meta_interp(f, [20])
+        assert res == 134
+        self.check_loops(getfield_gc=1, setfield_gc=1)
+
     # ------------------------------
 
     XY2 = lltype.GcStruct(
@@ -282,6 +304,42 @@ class ExplicitVirtualizableTests:
         assert res == 2941309 + 18
         self.check_loops(getfield_gc=0, setfield_gc=0,
                          getarrayitem_gc=0, arraylen_gc=1, call=1)
+
+    def test_double_frame_array(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2', 'other'],
+                                virtualizables = ['xy2'])
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def f(n):
+            xy2 = self.setup2()
+            xy2.inst_x = 10
+            xy2.inst_l1 = lltype.malloc(ARRAY, 1)
+            xy2.inst_l1[0] = 1982731
+            xy2.inst_l2 = lltype.malloc(ARRAY, 1)
+            xy2.inst_l2[0] = 10000
+            other = self.setup2()
+            other.inst_x = 15
+            other.inst_l1 = lltype.malloc(ARRAY, 2)
+            other.inst_l1[0] = 189182
+            other.inst_l1[1] = 58421
+            other.inst_l2 = lltype.malloc(ARRAY, 2)
+            other.inst_l2[0] = 181
+            other.inst_l2[1] = 189
+            while n > 0:
+                myjitdriver.can_enter_jit(xy2=xy2, n=n, other=other)
+                myjitdriver.jit_merge_point(xy2=xy2, n=n, other=other)
+                promote_virtualizable(lltype.Void, other, 'inst_l2')
+                length = len(other.inst_l2)       # getfield_gc/arraylen_gc
+                value = other.inst_l2[0]          # getfield_gc/getarrayitem_gc
+                other.inst_l2[0] = value + length # getfield_gc/setarrayitem_gc
+                promote_virtualizable(lltype.Void, xy2, 'inst_l2')
+                xy2.inst_l2[0] = value + 100      # virtualized away
+                n -= 1
+            return xy2.inst_l2[0]
+        expected = f(20)
+        res = self.meta_interp(f, [20])
+        assert res == expected
+        self.check_loops(getfield_gc=3, setfield_gc=0,
+                         arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
 
     # ------------------------------
 

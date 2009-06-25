@@ -813,14 +813,16 @@ class BytecodeMaker(object):
             if self.is_virtualizable_getset(op):
                 vinfo = self.codewriter.metainterp_sd.virtualizable_info
                 index = vinfo.static_field_to_extra_box[op.args[1].value]
-                self.emit('getfield_vable', index)
+                self.emit('getfield_vable',
+                          self.var_position(v_inst),
+                          index)
                 self.register_var(op.result)
                 return
         except VirtualizableArrayField:
             # xxx hack hack hack
             vinfo = self.codewriter.metainterp_sd.virtualizable_info
-            index = vinfo.array_field_counter[op.args[1].value]
-            self.vable_array_vars[op.result] = index
+            arrayindex = vinfo.array_field_counter[op.args[1].value]
+            self.vable_array_vars[op.result] = (op.args[0], arrayindex)
             return
         # check for deepfrozen structures that force constant-folding
         if deref(v_inst.concretetype)._hints.get('immutable'):
@@ -851,7 +853,10 @@ class BytecodeMaker(object):
         if self.is_virtualizable_getset(op):
             vinfo = self.codewriter.metainterp_sd.virtualizable_info
             index = vinfo.static_field_to_extra_box[op.args[1].value]
-            self.emit('setfield_vable', index, self.var_position(v_value))
+            self.emit('setfield_vable',
+                      self.var_position(v_inst),
+                      index,
+                      self.var_position(v_value))
             return
         argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
         self.emit('setfield_%s' % (argname,))
@@ -868,8 +873,9 @@ class BytecodeMaker(object):
                 deref(op.args[0].concretetype)._hints.get('typeptr'))
 
     def is_virtualizable_getset(self, op):
-        # XXX check more carefully; for now assumes that every access of
-        # an object of exactly the type VTYPEPTR is a virtualizable access
+        # every access of an object of exactly the type VTYPEPTR is
+        # likely to be a virtualizable access, but we still have to
+        # check it in pyjitpl.py.
         vinfo = self.codewriter.metainterp_sd.virtualizable_info
         if vinfo is None:
             return False
@@ -896,8 +902,10 @@ class BytecodeMaker(object):
         if self._array_of_voids(ARRAY):
             return
         if op.args[0] in self.vable_array_vars:     # for virtualizables
+            (v_base, arrayindex) = self.vable_array_vars[op.args[0]]
             self.emit('getarrayitem_vable',
-                      self.vable_array_vars[op.args[0]],
+                      self.var_position(v_base),
+                      arrayindex,
                       self.var_position(op.args[1]))
             self.register_var(op.result)
             return
@@ -915,8 +923,10 @@ class BytecodeMaker(object):
         if self._array_of_voids(ARRAY):
             return
         if op.args[0] in self.vable_array_vars:     # for virtualizables
+            (v_base, arrayindex) = self.vable_array_vars[op.args[0]]
             self.emit('setarrayitem_vable',
-                      self.vable_array_vars[op.args[0]],
+                      self.var_position(v_base),
+                      arrayindex,
                       self.var_position(op.args[1]),
                       self.var_position(op.args[2]))
             return
@@ -931,8 +941,10 @@ class BytecodeMaker(object):
         ARRAY = op.args[0].concretetype.TO
         assert ARRAY._gckind == 'gc'
         if op.args[0] in self.vable_array_vars:     # for virtualizables
+            (v_base, arrayindex) = self.vable_array_vars[op.args[0]]
             self.emit('arraylen_vable',
-                      self.vable_array_vars[op.args[0]])
+                      self.var_position(v_base),
+                      arrayindex)
             self.register_var(op.result)
             return
         # normal case follows
@@ -1191,8 +1203,10 @@ class BytecodeMaker(object):
         #
         if oopspec_name == 'list.setitem':
             if args[0] in self.vable_array_vars:     # virtualizable array
+                (v_base, arrayindex) = self.vable_array_vars[args[0]]
                 self.emit('setarrayitem_vable',
-                          self.vable_array_vars[args[0]],
+                          self.var_position(v_base),
+                          arrayindex,
                           self.var_position(args[1]),
                           self.var_position(args[2]))
                 return True
@@ -1210,8 +1224,10 @@ class BytecodeMaker(object):
         if (oopspec_name == 'list.len' or
             oopspec_name == 'list.len_foldable'):
             if args[0] in self.vable_array_vars:     # virtualizable array
+                (v_base, arrayindex) = self.vable_array_vars[args[0]]
                 self.emit('arraylen_vable',
-                          self.vable_array_vars[args[0]])
+                          self.var_position(v_base),
+                          arrayindex)
                 self.register_var(op.result)
                 return True
             self.emit('arraylen_gc')
@@ -1224,8 +1240,10 @@ class BytecodeMaker(object):
 
     def handle_list_getitem(self, op, arraydescr, args, opname):
         if args[0] in self.vable_array_vars:     # virtualizable array
+            (v_base, arrayindex) = self.vable_array_vars[args[0]]
             self.emit('getarrayitem_vable',
-                      self.vable_array_vars[args[0]],
+                      self.var_position(v_base),
+                      arrayindex,
                       self.var_position(args[1]))
             self.register_var(op.result)
             return True
