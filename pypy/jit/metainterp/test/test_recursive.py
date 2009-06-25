@@ -129,8 +129,10 @@ class RecursiveTests:
             return n
 
         assert self.meta_interp(f, [0, 0], optimizer=Optimizer) == 42
+        self.check_loops(int_add = 1, call = 1)
         assert self.meta_interp(f, [0, 0], optimizer=Optimizer,
                                 inline=True) == 42
+        self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
