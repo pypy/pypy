@@ -3,7 +3,7 @@
 """
 
 import sys, autopath, os
-from pypy.jit.tl.spli import execution, serializer
+from pypy.jit.tl.spli import execution, serializer, objects
 from pypy.rlib.streamio import open_file_as_stream
 
 
@@ -22,7 +22,7 @@ def entry_point(argv):
     args = argv[2:]
     stream = open_file_as_stream(argv[1])
     co = serializer.deserialize(stream.readall())
-    w_args = [unwrap_arg(args[n]) for i in range(len(args))]
+    w_args = [unwrap_arg(args[i]) for i in range(len(args))]
     res = execution.run(co, w_args)
     print res.repr()
     return 0
