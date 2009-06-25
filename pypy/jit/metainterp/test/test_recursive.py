@@ -95,19 +95,14 @@ class RecursiveTests:
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
-    def test_inline(self):
+    def get_interpreter(self, codes):
         ADD = "0"
         JUMP_BACK = "1"
         CALL = "2"
 
-        code = "021"
-        subcode = "0"
-
         jitdriver = JitDriver(greens = ['code', 'i'], reds = ['n'])
-
-        codes = [code, subcode]
-        
-        def f(codenum, n):
+ 
+        def interpret(codenum, n):
             i = 0
             code = codes[codenum]
             while i < len(code):
@@ -117,7 +112,7 @@ class RecursiveTests:
                     n += 1
                     i += 1
                 elif op == CALL:
-                    n = f(1, n)
+                    n = interpret(1, n)
                     i += 1
                 elif op == JUMP_BACK:
                     if n > 20:
@@ -128,11 +123,21 @@ class RecursiveTests:
                     raise NotImplementedError
             return n
 
+        return interpret
+
+    def test_inline(self):
+
+        code = "021"
+        subcode = "0"
+
+        codes = ["021", "0"]
+        f = self.get_interpreter(codes)
+
         assert self.meta_interp(f, [0, 0], optimizer=Optimizer) == 42
         self.check_loops(int_add = 1, call = 1)
         assert self.meta_interp(f, [0, 0], optimizer=Optimizer,
                                 inline=True) == 42
-        self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)
+        self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)        
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
