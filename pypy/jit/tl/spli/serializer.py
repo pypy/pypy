@@ -4,7 +4,9 @@ serialize.py python_file func_name output_file
 """
 
 import autopath
-import py, sys
+import py
+import sys
+import types
 from pypy.jit.tl.spli.objects import DumbObjSpace, Int, Str, spli_None
 from pypy.jit.tl.spli.pycode import Code
 from pypy.rlib.rstruct.runpack import runpack
@@ -34,6 +36,8 @@ def serialize_const(const):
         return 's' + serialize_str(const)
     elif const is None:
         return 'n'
+    elif isinstance(const, types.CodeType):
+        return 'c' + serialize(const)
     else:
         raise NotSupportedFormat(str(const))
 
@@ -48,6 +52,8 @@ def unserialize_const(c, start):
         return Str(value), end
     elif c[start] == 'n':
         return spli_None, start + 1
+    elif c[start] == 'c':
+        return unserialize_code(c, start + 1)
     else:
         raise NotSupportedFormat(c[start])
 
@@ -58,7 +64,7 @@ def unserialize_consts(constrepr):
     for i in range(num):
         next_const, pos = unserialize_const(constrepr, pos)
         consts_w.append(next_const)
-    return consts_w
+    return consts_w, pos
 
 def unserialize_names(namesrepr, num):
     pos = 0
@@ -67,6 +73,20 @@ def unserialize_names(namesrepr, num):
         name, pos = unserialize_str(namesrepr, pos)
         names.append(name)
     return names, pos
+
+def unserialize_code(coderepr, start=0):
+    coderepr = coderepr[start:]
+    header = coderepr[:header_lgt]
+    argcount, nlocals, stacksize, code_len = runpack(FMT, header)
+    assert code_len >= 0
+    names_pos = code_len + header_lgt
+    code = coderepr[header_lgt:names_pos]
+    num = runpack('i', coderepr[names_pos:names_pos + int_lgt])
+    names, end_names = unserialize_names(coderepr[names_pos + int_lgt:], num)
+    const_start = names_pos + int_lgt + end_names
+    consts, pos = unserialize_consts(coderepr[const_start:])
+    pos = start + const_start + pos
+    return Code(argcount, nlocals, stacksize, code, consts, names), pos
 
 # ------------------- PUBLIC API ----------------------
 
@@ -79,24 +99,17 @@ def serialize(code):
                   "".join([serialize_const(const) for const in code.co_consts]))
     return header + code.co_code + namesrepr + constsrepr
 
-def deserialize(coderepr):
-    header = coderepr[:header_lgt]
-    argcount, nlocals, stacksize, code_len = runpack(FMT, header)
-    assert code_len >= 0
-    names_pos = code_len + header_lgt
-    code = coderepr[header_lgt:names_pos]
-    num = runpack('i', coderepr[names_pos:names_pos + int_lgt])
-    names, end_names = unserialize_names(coderepr[names_pos + int_lgt:], num)
-    consts = unserialize_consts(coderepr[names_pos + int_lgt + end_names:])
-    return Code(argcount, nlocals, stacksize, code, consts, names)
+def deserialize(data, start=0):
+    return unserialize_code(data)[0]
 
 def main(argv):
-    if len(argv) != 4:
+    if len(argv) != 3:
         print __doc__
         sys.exit(1)
-    mod = py.path.local(argv[1]).pyimport()
-    r = serialize(getattr(mod, argv[2]).func_code)
-    outfile = py.path.local(argv[3])
+    code_file = argv[1]
+    mod = py.path.local(code_file).read()
+    r = serialize(compile(mod, code_file, "exec"))
+    outfile = py.path.local(argv[2])
     outfile.write(r)
 
 if __name__ == '__main__':
