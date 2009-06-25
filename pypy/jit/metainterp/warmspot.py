@@ -32,6 +32,7 @@ PROFILE = False
 
 def apply_jit(translator, backend_name="auto", **kwds):
     from pypy.jit.metainterp import optimize4 as Optimizer
+    #from pypy.jit.metainterp.simple_optimize import Optimizer
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -48,7 +49,8 @@ def apply_jit(translator, backend_name="auto", **kwds):
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
-def ll_meta_interp(function, args, backendopt=False, type_system='lltype', **kwds):
+def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
+                   **kwds):
     interp, graph = get_interpreter(function, args,
                                     backendopt=backendopt,
                                     type_system=type_system,
@@ -141,6 +143,7 @@ class WarmRunnerDesc:
         self.add_profiler_finish()
         self.metainterp_sd.finish_setup()
         # hook back for set_param
+        self.make_can_inline_graph()
         self.jitdriver.state = self.state
 
     def finish(self):
@@ -237,6 +240,19 @@ class WarmRunnerDesc:
             maybe_enter_jit._always_inline_ = True
 
         self.maybe_enter_jit_fn = maybe_enter_jit
+
+    def make_can_inline_graph(self):
+        if self.jitdriver.can_inline is None:
+            self.jitdriver.can_inline_graph = None
+            return
+        annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
+        func = self.jitdriver.can_inline
+        FUNC, PTR = self.ts.get_FuncType(self.green_args_spec, lltype.Bool)
+        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+        s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+        graph = annhelper.getgraph(func, args_s, s_result)
+        self.can_inline_ptr = annhelper.graph2delayed(graph, FUNC)
+        annhelper.finish()
 
     def make_args_specification(self):
         graph, block, index = self.jit_merge_point_pos
@@ -443,6 +459,26 @@ class WarmRunnerDesc:
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
+
+        if self.jitdriver.can_inline is None:
+            def can_inline_callable(greenkey):
+                return True
+        else:
+            def unwrap_greenkey(greenkey):
+                greenargs = ()
+                i = 0
+                for TYPE in self.green_args_spec:
+                    value = unwrap(TYPE, greenkey[i])
+                    greenargs += (value,)
+                    i = i + 1
+                return greenargs
+            unwrap_greenkey._always_inline_ = True
+            
+            def can_inline_callable(greenkey):
+                args = unwrap_greenkey(greenkey)
+                return support.maybe_on_top_of_llinterp(rtyper, self.can_inline_ptr)(*args)
+
+        self.can_inline_callable = can_inline_callable
 
         ll_portal_runner._recursive_portal_call_ = True
 

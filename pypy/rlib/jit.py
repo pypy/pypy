@@ -94,7 +94,8 @@ class JitDriver:
     virtualizables = []
     optimizer_name = '<undefined>'
     
-    def __init__(self, greens=None, reds=None, virtualizables=None):
+    def __init__(self, greens=None, reds=None, virtualizables=None,
+                 can_inline=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -107,6 +108,7 @@ class JitDriver:
             assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
         self._make_extregistryentries()
+        self.can_inline = can_inline
 
     def _freeze_(self):
         return True

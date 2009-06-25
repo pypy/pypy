@@ -582,8 +582,11 @@ class MIFrame(object):
     @arguments("descr", "varargs")
     def opimpl_recursive_call(self, calldescr, varargs):
         if self.metainterp.staticdata.options.inline:
+            num_green_args = self.metainterp.staticdata.num_green_args
             portal_code = self.metainterp.staticdata.portal_code
-            return self.perform_call(portal_code, varargs[1:])
+            greenkey = varargs[1:num_green_args + 1]
+            if self.metainterp.staticdata.warmrunnerdesc.can_inline_callable(greenkey):
+                return self.perform_call(portal_code, varargs[1:])
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
     @arguments("descr", "varargs")

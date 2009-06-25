@@ -3,7 +3,7 @@ from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.simple_optimize import Optimizer
 from pypy.jit.metainterp.policy import StopAtXPolicy
-
+from pypy.rpython.annlowlevel import hlstr
 
 class RecursiveTests:
 
@@ -100,10 +100,14 @@ class RecursiveTests:
         JUMP_BACK = "1"
         CALL = "2"
 
-        jitdriver = JitDriver(greens = ['code', 'i'], reds = ['n'])
+        def can_inline(code, i):
+            code = hlstr(code)
+            return not JUMP_BACK in code
+
+        jitdriver = JitDriver(greens = ['code', 'i'], reds = ['n'],
+                              can_inline = can_inline)
  
-        def interpret(codenum, n):
-            i = 0
+        def interpret(codenum, n, i):
             code = codes[codenum]
             while i < len(code):
                 jitdriver.jit_merge_point(n=n, i=i, code=code)
@@ -112,7 +116,7 @@ class RecursiveTests:
                     n += 1
                     i += 1
                 elif op == CALL:
-                    n = interpret(1, n)
+                    n = interpret(1, n, 1)
                     i += 1
                 elif op == JUMP_BACK:
                     if n > 20:
@@ -126,18 +130,28 @@ class RecursiveTests:
         return interpret
 
     def test_inline(self):
-
         code = "021"
-        subcode = "0"
+        subcode = "00"
 
         codes = ["021", "0"]
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0], optimizer=Optimizer) == 42
+        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer) == 42
         self.check_loops(int_add = 1, call = 1)
-        assert self.meta_interp(f, [0, 0], optimizer=Optimizer,
+        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
                                 inline=True) == 42
-        self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)        
+        self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)
+
+    def test_inline_jitdriver_check(self):
+        code = "021"
+        subcode = "100"
+        codes = [code, subcode]
+
+        f = self.get_interpreter(codes)
+
+        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
+                                inline=True) == 42
+        self.check_loops(call = 1)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
