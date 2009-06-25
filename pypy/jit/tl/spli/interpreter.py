@@ -153,6 +153,11 @@ class SPLIFrame(object):
         self.push(self.globs[name])
         return next_instr
 
+    def STORE_GLOBAL(self, name_index, next_instr, code):
+        name = self.code.co_names[name_index]
+        self.globs[name] = self.pop()
+        return next_instr
+
     def RETURN_VALUE(self, _, next_instr, code):
         raise Return(self.pop())
 
