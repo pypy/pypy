@@ -173,6 +173,37 @@ class ExplicitVirtualizableTests:
         assert res == 134
         self.check_loops(getfield_gc=1, setfield_gc=1)
 
+    def test_external_access_while_tracing(self):
+        py.test.skip("in-progress")
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
+                                virtualizables = ['xy'])
+        class Outer:
+            pass
+        outer = Outer()
+        def ext():
+            xy = outer.xy
+            promote_virtualizable(lltype.Void, xy, 'inst_x')
+            return xy.inst_x
+        def f(n):
+            xy = self.setup()
+            xy.inst_x = 10
+            outer.xy = xy
+            m = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
+                myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                xy.inst_x = n + 100      # virtualized away
+                m += ext()
+                n -= 1
+            return m
+        assert f(20) == 100*20 + (20*21)/2
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
+        assert res == 100*20 + (20*21)/2
+        self.check_loops(call_pure=1, getfield_gc=1)
+        # XXX should also probably have residual operations checking that
+        # each call to ext() actually forces the virtualizable
+
     # ------------------------------
 
     XY2 = lltype.GcStruct(
