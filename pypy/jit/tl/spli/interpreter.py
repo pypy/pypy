@@ -139,17 +139,17 @@ class SPLIFrame(object):
         return next_instr
 
     def LOAD_NAME(self, name_index, next_instr, code):
-        name = self.code.co_names_w[name_index].as_str()
+        name = self.code.co_names[name_index]
         self.push(self.locals_dict[name])
         return next_instr
 
     def STORE_NAME(self, name_index, next_instr, code):
-        name = self.code.co_names_w[name_index].as_str()
+        name = self.code.co_names[name_index]
         self.locals_dict[name] = self.pop()
         return next_instr
 
     def LOAD_GLOBAL(self, name_index, next_instr, code):
-        name = self.code.co_names_w[name_index].as_str()
+        name = self.code.co_names[name_index]
         self.push(self.globs[name])
         return next_instr
 
