@@ -69,6 +69,11 @@ class SPLIObject(object):
     def is_true(self):
         raise W_TypeError
 
+    def as_interp_class(self, cls):
+        if not isinstance(self, cls):
+            raise W_TypeError
+        return self
+
 
 class Bool(SPLIObject):
 

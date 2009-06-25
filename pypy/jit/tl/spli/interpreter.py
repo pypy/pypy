@@ -1,6 +1,6 @@
 import os
 from pypy.tool import stdlib_opcode as opcode
-from pypy.jit.tl.spli import objects
+from pypy.jit.tl.spli import objects, pycode
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
@@ -183,7 +183,8 @@ class SPLIFrame(object):
         return next_instr
 
     def MAKE_FUNCTION(self, _, next_instr, code):
-        func = objects.Function(self.pop(), self.globs)
+        func_code = self.pop().as_interp_class(pycode.Code)
+        func = objects.Function(func_code, self.globs)
         self.push(func)
         return next_instr
 
