@@ -29,7 +29,7 @@ JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def can_inline(next_instr, bytecode):
     if we_are_translated():
-        bytecode = cast_base_ptr_to_instance(Pycode, bytecode)
+        bytecode = cast_base_ptr_to_instance(PyCode, bytecode)
     co_code = bytecode.co_code
     next_instr = 0
     while next_instr < len(co_code):
