@@ -11,7 +11,6 @@ class V(object):
 
 class BaseTest(BaseRtypingTest):
     def test_generate_promote_virtualizable(self):
-        py.test.skip("later")
         def fn(n):
             vinst = V(n)
             return vinst.v
@@ -23,8 +22,6 @@ class BaseTest(BaseRtypingTest):
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'promote_virtualizable'
         assert op_promote.args[0] is v_inst
-        TYPE = self.gettype(v_inst)
-        assert TYPE._hints['virtualizable2'] == True
 
     def test_accessor(self):
         class Base(object):

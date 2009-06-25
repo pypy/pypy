@@ -472,6 +472,7 @@ class InstanceRepr(AbstractInstanceRepr):
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
+            self.hook_access_field(vinst, cname, llops, flags)
             return llops.genop('getfield', [vinst, cname], resulttype=r)
         else:
             if self.classdef is None:
@@ -487,12 +488,16 @@ class InstanceRepr(AbstractInstanceRepr):
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
+            self.hook_access_field(vinst, cname, llops, flags)
             llops.genop('setfield', [vinst, cname, vvalue])
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True,
                                 flags=flags)
+
+    def hook_access_field(self, vinst, cname, llops, flags):
+        pass        # for virtualizables; see rvirtualizable2.py
 
     def new_instance(self, llops, classcallhop=None):
         """Build a new instance, without calling __init__."""

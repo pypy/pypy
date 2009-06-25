@@ -18,23 +18,13 @@ class VirtualizableAccessor(AbstractVirtualizableAccessor):
 class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRepr):
 
     VirtualizableAccessor = VirtualizableAccessor
-##    op_getfield = 'oogetfield'
-##    op_setfield = 'oosetfield'
 
-##    def _setup_instance_repr(self):
-##        InstanceRepr._setup_repr(self, hints = {'virtualizable2': True,
-##                                                'virtuals' : self.virtuals})
-
-##    def gencast(self, llops, vinst):
-##        raise NotImplementedError
+    def _setup_repr_llfields(self):
+        return None      # TODO
 
     def get_field(self, attr):
         mangled = mangle(attr, self.rtyper.getconfig())
         return mangled, self.allfields[mangled]
 
-##    def is_in_fields(self, attr):
-##        mangled = mangle(attr, self.rtyper.getconfig())
-##        return mangled in self.allfields
-
-##    def set_vable(self, llops, vinst, force_cast=False):
-##        pass # TODO
+    def set_vable(self, llops, vinst, force_cast=False):
+        pass # TODO
