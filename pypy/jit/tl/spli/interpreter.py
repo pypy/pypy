@@ -1,3 +1,4 @@
+import os
 from pypy.tool import stdlib_opcode as opcode
 from pypy.jit.tl.spli import objects
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
@@ -190,6 +191,15 @@ class SPLIFrame(object):
         args = self.pop_many(arg_count)
         func = self.pop()
         self.push(func.call(args))
+        return next_instr
+
+    def PRINT_ITEM(self, _, next_instr, code):
+        value = self.pop().repr().as_str()
+        os.write(1, value)
+        return next_instr
+
+    def PRINT_NEWLINE(self, _, next_instr, code):
+        os.write(1, '\n')
         return next_instr
 
 

@@ -23,8 +23,7 @@ def entry_point(argv):
     stream = open_file_as_stream(argv[1])
     co = serializer.deserialize(stream.readall())
     w_args = [unwrap_arg(args[i]) for i in range(len(args))]
-    res = execution.run(co, w_args)
-    print res.repr()
+    execution.run(co, w_args)
     return 0
 
 def target(drver, args):

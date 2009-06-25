@@ -1,12 +1,9 @@
-import dis
-
 from pypy.jit.tl.spli import interpreter, objects, pycode
 
 
 def run_from_cpython_code(co, args=[], locs=None, globs=None):
     space = objects.DumbObjSpace()
     pyco = pycode.Code._from_code(space, co)
-    print dis.dis(co)
     return run(pyco, [space.wrap(arg) for arg in args], locs, globs)
 
 def run(pyco, args, locs=None, globs=None):

@@ -2,6 +2,8 @@
 def f():
     return 1
 
+print f()
+
 def adder(a, b):
     return a + b
 

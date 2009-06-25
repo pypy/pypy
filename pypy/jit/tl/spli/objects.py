@@ -64,7 +64,7 @@ class SPLIObject(object):
         raise W_TypeError
 
     def repr(self):
-        raise W_TypeError
+        return Str("<SPLI object>")
 
     def is_true(self):
         raise W_TypeError
@@ -79,7 +79,12 @@ class Bool(SPLIObject):
         return self.value
 
     def repr(self):
-        return str(self.value)
+        if self.is_true():
+            name = "True"
+        else:
+            name = "False"
+        return Str(name)
+
 
 class Int(SPLIObject):
 
@@ -96,7 +101,8 @@ class Int(SPLIObject):
         return self.value
 
     def repr(self):
-        return str(self.value)
+        return Str(str(self.value))
+
 
 class Str(SPLIObject):
 
@@ -110,11 +116,13 @@ class Str(SPLIObject):
         return Str(self.value + other.as_str())
 
     def repr(self):
-        return self.value
+        return Str("'" + self.value + "'")
+
 
 class SPLINone(SPLIObject):
+
     def repr(self):
-        return 'None'
+        return Str('None')
 
 spli_None = SPLINone()
 

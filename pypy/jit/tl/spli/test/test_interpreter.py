@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.jit.tl.spli import execution, objects
 
 class TestSPLIInterpreter:
@@ -68,3 +69,25 @@ res = f()""", "<string>", "exec")
         assert mod_res is objects.spli_None
         assert len(globs) == 3
         assert globs["res"].as_int() == 7
+
+    def test_print(self):
+        def f(thing):
+            print thing
+        things = (
+            ("x", "'x'"),
+            (4, "4"),
+            (True, "True"),
+            (False, "False"),
+        )
+        def mock_os_write(fd, what):
+            assert fd == 1
+            buf.append(what)
+        save = os.write
+        os.write = mock_os_write
+        try:
+            for obj, res in things:
+                buf = []
+                assert self.eval(f, [obj]) is objects.spli_None
+                assert "".join(buf) == res + '\n'
+        finally:
+            os.write = save
