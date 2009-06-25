@@ -183,7 +183,7 @@ class ExplicitVirtualizableTests:
         def ext():
             xy = outer.xy
             promote_virtualizable(lltype.Void, xy, 'inst_x')
-            return xy.inst_x
+            return xy.inst_x + 2
         def f(n):
             xy = self.setup()
             xy.inst_x = 10
@@ -193,16 +193,18 @@ class ExplicitVirtualizableTests:
                 myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
                 myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
                 promote_virtualizable(lltype.Void, xy, 'inst_x')
-                xy.inst_x = n + 100      # virtualized away
-                m += ext()
+                xy.inst_x = n + 9998     # virtualized away
+                m += ext()               # 2x setfield_gc, 2x getfield_gc
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                xy.inst_x = 10           # virtualized away
                 n -= 1
             return m
-        assert f(20) == 100*20 + (20*21)/2
+        assert f(20) == 10000*20 + (20*21)/2
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
-        assert res == 100*20 + (20*21)/2
-        self.check_loops(call_pure=1, getfield_gc=1)
-        # XXX should also probably have residual operations checking that
-        # each call to ext() actually forces the virtualizable
+        assert res == 10000*20 + (20*21)/2
+        self.check_loops(call_pure=1, getfield_gc=2, setfield_gc=2)
+        # xxx for now a call that forces the virtualizable during tracing
+        # is supposed to always force it later too.
 
     # ------------------------------
 

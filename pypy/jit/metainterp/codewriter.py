@@ -1339,7 +1339,9 @@ class BytecodeMaker(object):
         pass     # for now
 
     def serialize_op_promote_virtualizable(self, op):
-        pass
+        vinfo = self.codewriter.metainterp_sd.virtualizable_info
+        assert vinfo is not None
+        assert vinfo.is_vtypeptr(op.args[0].concretetype)
 
     serialize_op_oostring  = handle_builtin_call
     serialize_op_oounicode = handle_builtin_call

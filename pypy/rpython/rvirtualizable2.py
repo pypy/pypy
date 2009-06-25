@@ -1,6 +1,7 @@
 import py
-from pypy.rpython.rmodel import inputconst
+from pypy.rpython.rmodel import inputconst, log
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rclass import AbstractInstanceRepr
 
 
@@ -12,20 +13,6 @@ class AbstractVirtualizableAccessor(object):
 
     def __repr__(self):
         return '<VirtualizableAccessor for %s>' % getattr(self, 'TYPE', '?')
-
-    def __getattr__(self, name):
-        if name.startswith('getset') and 'getsets' not in self.__dict__:
-            try:
-                self.prepare_getsets()
-            except AttributeError, e:
-                raise Exception("AttributeError: %s" % e)
-            return getattr(self, name)
-        else:
-            raise AttributeError("%s object has no attribute %r" % (
-                self.__class__.__name__, name))
-
-    def prepare_getsets(self):
-        raise NotImplementedError
 
     def _freeze_(self):
         return True
@@ -92,3 +79,27 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
         if not flags.get('access_directly'):
             if cname.value in self.my_redirected_fields:
                 llops.genop('promote_virtualizable', [vinst, cname])
+
+
+def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
+    # funcptr should be an ll or oo function pointer with a VTYPEPTR argument
+    c_funcptr = inputconst(lltype.typeOf(funcptr), funcptr)
+    count = 0
+    for graph in graphs:
+        for block in graph.iterblocks():
+            for i, op in enumerate(block.operations):
+                if (op.opname == 'promote_virtualizable' and
+                    match_virtualizable_type(op.args[0].concretetype,
+                                             VTYPEPTR)):
+                    op.opname = 'direct_call'
+                    op.args = [c_funcptr, op.args[0]]
+                    count += 1
+    log("replaced %d 'promote_virtualizable' with %r" % (count, funcptr))
+
+def match_virtualizable_type(TYPE, VTYPEPTR):
+    if isinstance(TYPE, ootype.Instance):
+        # ootype only: any subtype may be used
+        return ootype.isSubclass(TYPE, VTYPEPTR)
+    else:
+        # lltype, or ootype with a TYPE that is e.g. an ootype.Record
+        return TYPE == VTYPEPTR

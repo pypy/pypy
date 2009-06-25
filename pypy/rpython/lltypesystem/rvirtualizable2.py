@@ -7,28 +7,7 @@ from pypy.rpython.rvirtualizable2 import AbstractVirtualizable2InstanceRepr
 
 
 class VirtualizableAccessor(AbstractVirtualizableAccessor):
-
-    def prepare_getsets(self):
-        self.getsets = {}
-        STRUCT = self.TYPE
-        for fieldname in self.redirected_fields:
-            FIELDTYPE = getattr(STRUCT, fieldname)
-            GETTER = lltype.FuncType([lltype.Ptr(STRUCT)], FIELDTYPE)
-            SETTER = lltype.FuncType([lltype.Ptr(STRUCT), FIELDTYPE],
-                                     lltype.Void)
-            VABLE_GETSET = lltype.Struct('vable_getset',
-                                         ('get', lltype.Ptr(GETTER)),
-                                         ('set', lltype.Ptr(SETTER)),
-                                         hints={'immutable': True})
-            getset = lltype.malloc(VABLE_GETSET, flavor='raw', zero=False)
-            # as long as no valid pointer has been put in the structure
-            # by the JIT, accessing the fields should raise, in order
-            # to prevent constant-folding
-            import py
-            py.test.raises(lltype.UninitializedMemoryAccess, "getset.get")
-            py.test.raises(lltype.UninitializedMemoryAccess, "getset.set")
-            self.getsets[fieldname] = getset
-            setattr(self, 'getset_' + fieldname, getset)
+    pass
 
 
 class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRepr):

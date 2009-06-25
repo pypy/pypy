@@ -6,6 +6,7 @@ from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+from pypy.rpython import rvirtualizable2
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated, UnboxedValue, specialize
@@ -143,6 +144,9 @@ class WarmRunnerDesc:
         self.jitdriver.state = self.state
 
     def finish(self):
+        vinfo = self.metainterp_sd.virtualizable_info
+        if vinfo is not None:
+            vinfo.finish()
         if self.cpu.translate_support_code:
             self.annhelper.finish()
 
@@ -476,6 +480,7 @@ class WarmRunnerDesc:
 
 class VirtualizableInfo:
     def __init__(self, warmrunnerdesc):
+        self.warmrunnerdesc = warmrunnerdesc
         jitdriver = warmrunnerdesc.jitdriver
         cpu = warmrunnerdesc.cpu
         self.is_oo = cpu.is_oo
@@ -617,6 +622,27 @@ class VirtualizableInfo:
     def _freeze_(self):
         return True
 
+    def finish(self):
+        if self.is_oo:
+            return      # XXX implement me
+        #
+        def force_now(virtualizable):
+            rti = virtualizable.vable_rti
+            pass     # XXX in-progress
+        force_now._dont_inline_ = True
+        #
+        def force_if_necessary(virtualizable):
+            if virtualizable.vable_rti:
+                force_now(virtualizable)
+        force_if_necessary._always_inline_ = True
+        #
+        all_graphs = self.warmrunnerdesc.translator.graphs
+        ts = self.warmrunnerdesc.ts
+        (_, FUNCPTR) = ts.get_FuncType([self.VTYPEPTR], lltype.Void)
+        funcptr = self.warmrunnerdesc.helper_func(FUNCPTR, force_if_necessary)
+        rvirtualizable2.replace_promote_virtualizable_with_call(
+            all_graphs, self.VTYPEPTR, funcptr)
+
     def unwrap_virtualizable_box(self, virtualizable_box):
         if not self.is_oo:
             return virtualizable_box.getptr(self.VTYPEPTR)
@@ -632,15 +658,7 @@ class VirtualizableInfo:
     cast_to_vtype._annspecialcase_ = 'specialize:ll'
 
     def is_vtypeptr(self, TYPE):
-        if not self.is_oo:
-            # only the exact type is used e.g. by getfield/setfield
-            return TYPE == self.VTYPEPTR
-        else:
-            # ootype: any subtype may be used too
-            if isinstance(TYPE, ootype.Instance):
-                return ootype.isSubclass(TYPE, self.VTYPE)
-            else:
-                return TYPE == self.VTYPE
+        return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
 
 
 def decode_hp_hint_args(op):
