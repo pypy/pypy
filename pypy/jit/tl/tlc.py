@@ -217,7 +217,6 @@ def char2int(c):
     return t
 
 class Frame(object):
-    _virtualizable2_ = True
 
     def __init__(self, args, pc):
         assert isinstance(pc, int)
@@ -228,8 +227,8 @@ class Frame(object):
         
 def make_interp(supports_call, jitted=True):
     myjitdriver = JitDriver(greens = ['code', 'pc'],
-                            reds = ['frame', 'pool'],
-                            virtualizables = ['frame'])
+                            reds = ['frame', 'pool'])
+
     def interp(code='', pc=0, inputarg=0, pool=None):
         if not isinstance(code,str):
             raise TypeError("code '%s' should be a string" % str(code))
