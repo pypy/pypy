@@ -13,8 +13,9 @@ class TestSerializer(object):
 
         coderepr = serialize(f.func_code)
         code = deserialize(coderepr)
-        assert code.co_nlocals == 0
+        assert code.co_nlocals == f.func_code.co_nlocals
         assert code.co_argcount == 0
         assert code.co_stacksize == f.func_code.co_stacksize
+        assert code.co_names == []
         assert self.eval(code).value == 1
         

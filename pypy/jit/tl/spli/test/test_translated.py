@@ -11,7 +11,7 @@ class TestSPLITranslated(object):
         data = serialize(f.func_code)
         space = objects.DumbObjSpace()
         def run(a, b):
-            co = deserialize(data, space)
+            co = deserialize(data)
             frame = interpreter.SPLIFrame(co)
             frame.locals[0] = space.wrap(a)
             frame.locals[1] = space.wrap(b)
