@@ -581,6 +581,9 @@ class MIFrame(object):
 
     @arguments("descr", "varargs")
     def opimpl_recursive_call(self, calldescr, varargs):
+        if self.metainterp.staticdata.options.inline:
+            portal_code = self.metainterp.staticdata.portal_code
+            return self.perform_call(portal_code, varargs[1:])
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
     @arguments("descr", "varargs")

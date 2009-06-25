@@ -676,9 +676,10 @@ class CrashInJIT(Exception):
 # ----------------------------------------------------------------
 
 class Options:
-    def __init__(self, specialize=True, listops=False):
+    def __init__(self, specialize=True, listops=False, inline=False):
         self.specialize = specialize
         self.listops = listops
+        self.inline = inline
     def _freeze_(self):
         return True
 

@@ -95,6 +95,42 @@ class RecursiveTests:
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
+    def test_inline(self):
+        ADD = "0"
+        JUMP_BACK = "1"
+        CALL = "2"
+
+        code = "021"
+        subcode = "0"
+
+        jitdriver = JitDriver(greens = ['code', 'i'], reds = ['n'])
+
+        codes = [code, subcode]
+        
+        def f(codenum, n):
+            i = 0
+            code = codes[codenum]
+            while i < len(code):
+                jitdriver.jit_merge_point(n=n, i=i, code=code)
+                op = code[i]
+                if op == ADD:
+                    n += 1
+                    i += 1
+                elif op == CALL:
+                    n = f(1, n)
+                    i += 1
+                elif op == JUMP_BACK:
+                    if n > 20:
+                        return 42
+                    i -= 2
+                    jitdriver.can_enter_jit(n=n, i=i, code=code)
+                else:
+                    raise NotImplementedError
+            return n
+
+        assert self.meta_interp(f, [0, 0], optimizer=Optimizer) == 42
+        assert self.meta_interp(f, [0, 0], optimizer=Optimizer,
+                                inline=True) == 42
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
