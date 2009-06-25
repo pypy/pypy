@@ -580,6 +580,10 @@ class MIFrame(object):
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
     @arguments("descr", "varargs")
+    def opimpl_recursive_call(self, calldescr, varargs):
+        return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
+
+    @arguments("descr", "varargs")
     def opimpl_residual_call_noexception(self, calldescr, varargs):
         if not we_are_translated():
             self.metainterp._debug_history.append(['call',

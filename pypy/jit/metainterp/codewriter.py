@@ -1082,7 +1082,17 @@ class BytecodeMaker(object):
         self.emit_varargs([op.args[0]] + non_void_args)
         self.register_var(op.result)
 
-    handle_recursive_call = handle_residual_call     # for now
+    def handle_recursive_call(self, op):
+        self.minimize_variables()
+        args = op.args[1:]
+        calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
+                                                                args,
+                                                                op.result)
+        self.emit('recursive_call')
+        self.emit(self.get_position(calldescr))
+        self.emit_varargs([op.args[0]] + non_void_args)
+        self.register_var(op.result)
+
     handle_residual_indirect_call = handle_residual_call
 
     def handle_regular_indirect_call(self, op):
