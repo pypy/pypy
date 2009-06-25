@@ -126,7 +126,5 @@ class Function(SPLIObject):
         self.globs = globs
 
     def call(self, args):
-        from pypy.jit.tl.spli import interpreter
-        frame = interpreter.SPLIFrame(self.code, None, self.globs)
-        frame.set_args(args)
-        return frame.run()
+        from pypy.jit.tl.spli import execution
+        return execution.run(self.code, args, None, self.globs)

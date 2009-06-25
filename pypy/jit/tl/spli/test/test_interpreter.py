@@ -1,10 +1,10 @@
 import py
-from pypy.jit.tl.spli import interpreter, objects
+from pypy.jit.tl.spli import execution, objects
 
 class TestSPLIInterpreter:
 
     def eval(self, func, args=[]):
-        return interpreter.spli_run_from_cpython_code(func.func_code, args)
+        return execution.run_from_cpython_code(func.func_code, args)
 
     def test_int_add(self):
         def f():
@@ -64,7 +64,7 @@ def f():
     return g() + 3
 res = f()""", "<string>", "exec")
         globs = {}
-        mod_res = interpreter.spli_run_from_cpython_code(code, [], globs, globs)
+        mod_res = execution.run_from_cpython_code(code, [], globs, globs)
         assert mod_res is objects.spli_None
         assert len(globs) == 3
         assert globs["res"].as_int() == 7

@@ -1,11 +1,11 @@
 
 from pypy.jit.tl.spli.serializer import serialize, deserialize
-from pypy.jit.tl.spli import interpreter
+from pypy.jit.tl.spli import execution
 
 class TestSerializer(object):
 
     def eval(self, code, args=[]):
-        return interpreter.run(code, args)
+        return execution.run(code, args)
     
     def test_basic(self):
         def f():

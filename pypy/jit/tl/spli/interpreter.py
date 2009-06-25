@@ -1,5 +1,4 @@
 from pypy.tool import stdlib_opcode as opcode
-from pypy.jit.tl.spli.pycode import Code
 from pypy.jit.tl.spli import objects
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
@@ -7,7 +6,6 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.objectmodel import we_are_translated
 
-import dis
 
 compare_ops = [
     "cmp_lt",   # "<"
@@ -29,18 +27,6 @@ jitdriver = JitDriver(greens = ['code', 'instr_index'],
                       reds = ['frame'],
                       virtualizables = ['frame'])
 
-def spli_run_from_cpython_code(co, args=[], locs=None, globs=None):
-    space = objects.DumbObjSpace()
-    pyco = Code._from_code(space, co)
-    print dis.dis(co)
-    return run(pyco, args, locs, globs, space)
-
-def run(pyco, args, locs=None, globs=None, space=None):
-    if space is None:
-        space = objects.DumbObjSpace()
-    frame = SPLIFrame(pyco, locs, globs)
-    frame.set_args([space.wrap(arg) for arg in args])
-    return frame.run()
 
 class BlockUnroller(Exception):
     pass

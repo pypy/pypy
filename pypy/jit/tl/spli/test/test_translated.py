@@ -1,6 +1,6 @@
 
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.jit.tl.spli import interpreter, objects
+from pypy.jit.tl.spli import execution, objects
 from pypy.jit.tl.spli.serializer import serialize, deserialize
 
 class TestSPLITranslated(object):
@@ -12,10 +12,10 @@ class TestSPLITranslated(object):
         space = objects.DumbObjSpace()
         def run(a, b):
             co = deserialize(data)
-            frame = interpreter.SPLIFrame(co)
-            frame.locals[0] = space.wrap(a)
-            frame.locals[1] = space.wrap(b)
-            w_res = frame.run()
+            args = []
+            args.append(space.wrap(a))
+            args.append(space.wrap(b))
+            w_res = execution.run(co, args)
             assert isinstance(w_res, objects.Int)
             return w_res.value
 
