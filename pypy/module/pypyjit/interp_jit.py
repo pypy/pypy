@@ -36,18 +36,10 @@ def can_inline(next_instr, bytecode):
         opcode = ord(co_code[next_instr])
         next_instr += 1
         if opcode >= HAVE_ARGUMENT:
-            lo = ord(co_code[next_instr])
-            hi = ord(co_code[next_instr+1])
             next_instr += 2
-            oparg = (hi << 8) | lo
-        else:
-            oparg = 0
         while opcode == opcodedesc.EXTENDED_ARG.index:
             opcode = ord(co_code[next_instr])
-            lo = ord(co_code[next_instr+1])
-            hi = ord(co_code[next_instr+2])
             next_instr += 3
-            oparg = (oparg << 16) | (hi << 8) | lo
         if opcode == JUMP_ABSOLUTE:
             return False
     return True
