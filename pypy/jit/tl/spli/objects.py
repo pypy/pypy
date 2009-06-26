@@ -117,6 +117,9 @@ class Int(SPLIObject):
     def as_int(self):
         return self.value
 
+    def is_true(self):
+        return bool(self.value)
+
     def repr(self):
         return Str(str(self.value))
 

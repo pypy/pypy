@@ -15,8 +15,9 @@ class TestSPLIJit(JitMixin):
     def interpret(self, f, args):
         coderepr = serializer.serialize(f.func_code)
         arg_params = ", ".join(['arg%d' % i for i in range(len(args))])
-        arg_ass = "\n    ".join(['frame.locals[%d] = arg%d' % (i, i) for
+        arg_ass = ";".join(['frame.locals[%d] = space.wrap(arg%d)' % (i, i) for
                                  i in range(len(args))])
+        space = objects.DumbObjSpace()
         source = py.code.Source("""
         def bootstrap(%(arg_params)s):
             co = serializer.deserialize(coderepr)
@@ -26,6 +27,7 @@ class TestSPLIJit(JitMixin):
         """ % locals())
         d = globals().copy()
         d['coderepr'] = coderepr
+        d['space'] = space
         exec source.compile() in d
         return self.meta_interp(d['bootstrap'], args, listops=True,
                                 optimizer=Optimizer)
@@ -37,3 +39,17 @@ class TestSPLIJit(JitMixin):
                 i = i + 1
             return i
         self.interpret(f, [])
+
+    def test_bridge(self):
+        def f(a, b):
+            total = 0
+            i = 0
+            while i < 100:
+                if i & 1:
+                    total = total + a
+                else:
+                    total = total + b
+                i = i + 1
+            return total
+
+        self.interpret(f, [1, 10])

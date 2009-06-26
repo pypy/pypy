@@ -182,6 +182,9 @@ class SPLIFrame(object):
             next_instr += arg
         return next_instr
 
+    def JUMP_FORWARD(self, arg, next_instr, code):
+        return next_instr + arg
+
     def JUMP_ABSOLUTE(self, arg, next_instr, code):
         jitdriver.can_enter_jit(frame=self, code=code, instr_index=arg)
         return arg
