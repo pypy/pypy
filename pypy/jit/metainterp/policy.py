@@ -49,7 +49,7 @@ class JitPolicy(object):
     def guess_call_kind(self, op):
         if op.opname == 'direct_call':
             funcobj = get_funcobj(op.args[0].value)
-            if isinstance(funcobj, lltype.Ptr):
+            if isinstance(lltype.typeOf(funcobj), lltype.Ptr):
                 try:
                     funcobj._obj
                 except lltype.DelayedPointer:
