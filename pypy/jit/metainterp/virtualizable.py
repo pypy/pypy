@@ -203,7 +203,7 @@ class VirtualizableInfo:
             vable_rti._TYPE = self.VABLERTI   # hack for non-translated mode
             return vable_rti
 
-    def tracing_enter(self, virtualizable):
+    def clear_vable_rti(self, virtualizable):
         if virtualizable.vable_rti:
             self.force_now(virtualizable)
             assert not virtualizable.vable_rti
@@ -234,6 +234,20 @@ class VirtualizableInfo:
     force_now._dont_inline_ = True
 
 # ____________________________________________________________
+#
+# The 'vable_rti' field of a virtualizable is either NULL or points
+# to an instance of the following classes.  It is:
+#
+#   1. NULL if not in the JIT at all, except as described below.
+#
+#   2. always NULL when tracing is in progress.
+#
+#   3. 'tracing_vable_rti' during tracing when we do a residual call,
+#      calling random unknown other parts of the interpreter; it is
+#      reset to NULL as soon as something occurs to the virtualizable.
+#
+#   4. NULL for now when running the machine code with a virtualizable;
+#      later it will be a RunningVableRti().
 
 
 class AbstractVableRti(object):

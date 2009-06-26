@@ -1485,10 +1485,12 @@ class MetaInterp(object):
             self.initialize_virtualizable_enter()
 
     def initialize_virtualizable_enter(self):
+        # Switched from the interpreter (case 1 in the comment in
+        # virtualizable.py) to tracing mode (case 2): force vable_rti to NULL.
         vinfo = self.staticdata.virtualizable_info
         virtualizable_box = self.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-        vinfo.tracing_enter(virtualizable)
+        vinfo.clear_vable_rti(virtualizable)
 
     def before_residual_call(self):
         vinfo = self.staticdata.virtualizable_info
@@ -1538,10 +1540,16 @@ class MetaInterp(object):
                                     newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
-        if self.staticdata.virtualizable_info is not None:
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
             self.virtualizable_boxes = _consume_nums(vable_nums,
                                                      newboxes, consts)
-            self.initialize_virtualizable_enter()
+            # just jumped away from assembler (case 4 in the comment in
+            # virtualizable.py) into tracing (case 2); check that vable_rti
+            # is and stays NULL.
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            assert not virtualizable.vable_rti
             self.synchronize_virtualizable()
             #
         self.framestack = []
