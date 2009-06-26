@@ -49,11 +49,11 @@ class JitPolicy(object):
     def guess_call_kind(self, op):
         if op.opname == 'direct_call':
             funcobj = get_funcobj(op.args[0].value)
-            #if isinstance(funcobj, lltype.Ptr):
-            #    try:
-            #        funcobj._obj
-            #    except lltype.DelayedPointer:
-            #        return 'recursive'
+            if isinstance(funcobj, lltype.Ptr):
+                try:
+                    funcobj._obj
+                except lltype.DelayedPointer:
+                    return 'recursive'
             if (hasattr(funcobj, '_callable') and
                 getattr(funcobj._callable, '_recursive_portal_call_', False)):
                 return 'recursive'
