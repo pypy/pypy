@@ -32,7 +32,6 @@ PROFILE = False
 
 def apply_jit(translator, backend_name="auto", **kwds):
     from pypy.jit.metainterp import optimize4 as Optimizer
-    #from pypy.jit.metainterp.simple_optimize import Optimizer
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -464,18 +463,8 @@ class WarmRunnerDesc:
             def can_inline_callable(greenkey):
                 return True
         else:
-            def unwrap_greenkey(greenkey):
-                greenargs = ()
-                i = 0
-                for TYPE in self.green_args_spec:
-                    value = unwrap(TYPE, greenkey[i])
-                    greenargs += (value,)
-                    i = i + 1
-                return greenargs
-            unwrap_greenkey._always_inline_ = True
-            
             def can_inline_callable(greenkey):
-                args = unwrap_greenkey(greenkey)
+                args = self.state.unwrap_greenkey(greenkey)
                 return support.maybe_on_top_of_llinterp(rtyper, self.can_inline_ptr)(*args)
 
         self.can_inline_callable = can_inline_callable
