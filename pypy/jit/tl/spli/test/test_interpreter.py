@@ -91,3 +91,10 @@ res = f()""", "<string>", "exec")
                 assert "".join(buf) == res + '\n'
         finally:
             os.write = save
+
+    def test_binary_op(self):
+        def f(a, b):
+            return a & b - a
+
+        v = self.eval(f, [1, 2])
+        assert v.value == f(1, 2)

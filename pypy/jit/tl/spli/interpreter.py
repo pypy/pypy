@@ -158,6 +158,18 @@ class SPLIFrame(object):
         self.push(left.add(right))
         return next_instr
 
+    def BINARY_SUBTRACT(self, _, next_instr, code):
+        right = self.pop()
+        left = self.pop()
+        self.push(left.sub(right))
+        return next_instr
+
+    def BINARY_AND(self, _, next_instr, code):
+        right = self.pop()
+        left = self.pop()
+        self.push(left.and_(right))
+        return next_instr        
+
     def SETUP_LOOP(self, _, next_instr, code):
         return next_instr
 
