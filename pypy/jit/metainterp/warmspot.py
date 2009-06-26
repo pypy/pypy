@@ -31,7 +31,6 @@ from pypy.jit.metainterp.typesystem import deref
 PROFILE = False
 
 def apply_jit(translator, backend_name="auto", **kwds):
-    from pypy.jit.metainterp import optimize4 as Optimizer
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -42,7 +41,6 @@ def apply_jit(translator, backend_name="auto", **kwds):
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    optimizer=Optimizer,
                                     profile=profile,
                                     **kwds)
     warmrunnerdesc.finish()
