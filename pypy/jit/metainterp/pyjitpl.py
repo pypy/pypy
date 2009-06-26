@@ -586,6 +586,7 @@ class MIFrame(object):
             portal_code = self.metainterp.staticdata.portal_code
             greenkey = varargs[1:num_green_args + 1]
             if self.metainterp.staticdata.warmrunnerdesc.can_inline_callable(greenkey):
+                self.metainterp.in_recursion += 1
                 return self.perform_call(portal_code, varargs[1:])
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
@@ -765,6 +766,9 @@ class MIFrame(object):
         # may be completely skipped by the logic that replaces perform_call
         # with rop.CALL.  But in that case, no-one will check the flag anyway,
         # so it's fine.
+        if self.metainterp.in_recursion:
+            from pypy.jit.metainterp.warmspot import CannotInlineCanEnterJit
+            raise CannotInlineCanEnterJit()
         self.metainterp.seen_can_enter_jit = True
 
     @arguments("orgpc")
@@ -1057,6 +1061,7 @@ class MetaInterpGlobalData(object):
 # ____________________________________________________________
 
 class MetaInterp(object):
+    in_recursion = 0
     def __init__(self, staticdata):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
@@ -1072,6 +1077,8 @@ class MetaInterp(object):
 
     def finishframe(self, resultbox):
         frame = self.framestack.pop()
+        if frame.jitcode is self.staticdata.portal_code:
+            self.in_recursion -= 1
         if not we_are_translated():
             self._debug_history.append(['leave', frame.jitcode, None])
         if self.framestack:
@@ -1189,6 +1196,7 @@ class MetaInterp(object):
                 debug_print('~~~ LEAVE', self.history.extratext)
 
     def interpret(self):
+        self.in_recursion = 0
         if we_are_translated():
             self._interpret()
         else:

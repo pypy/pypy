@@ -119,6 +119,9 @@ def debug_checks():
 class JitException(Exception):
     _go_through_llinterp_uncaught_ = True     # ugh
 
+class CannotInlineCanEnterJit(JitException):
+    pass
+
 # ____________________________________________________________
 
 class WarmRunnerDesc:

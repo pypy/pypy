@@ -4,6 +4,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.simple_optimize import Optimizer
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
+from pypy.jit.metainterp.warmspot import CannotInlineCanEnterJit
 
 class RecursiveTests:
 
@@ -95,14 +96,19 @@ class RecursiveTests:
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
-    def get_interpreter(self, codes):
+    def get_interpreter(self, codes, always_inline=False):
         ADD = "0"
         JUMP_BACK = "1"
         CALL = "2"
+        EXIT = "3"
 
-        def can_inline(code, i):
-            code = hlstr(code)
-            return not JUMP_BACK in code
+        if always_inline:
+            def can_inline(*args):
+                return True
+        else:
+            def can_inline(code, i):
+                code = hlstr(code)
+                return not JUMP_BACK in code
 
         jitdriver = JitDriver(greens = ['code', 'i'], reds = ['n'],
                               can_inline = can_inline)
@@ -123,6 +129,8 @@ class RecursiveTests:
                         return 42
                     i -= 2
                     jitdriver.can_enter_jit(n=n, i=i, code=code)
+                elif op == EXIT:
+                    return n
                 else:
                     raise NotImplementedError
             return n
@@ -152,6 +160,21 @@ class RecursiveTests:
         assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
                                 inline=True) == 42
         self.check_loops(call = 1)
+
+    def test_inline_faulty_can_inline(self):
+        code = "021"
+        subcode = "301"
+        codes = [code, subcode]
+
+        f = self.get_interpreter(codes, always_inline=True)
+
+        try:
+            self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
+                             inline=True)
+        except CannotInlineCanEnterJit:
+            pass
+        else:
+            py.test.fail("DID NOT RAISE")
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
