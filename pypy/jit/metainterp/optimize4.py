@@ -350,7 +350,11 @@ class PerfectSpecializer(object):
                 continue
             self.prepare_rebuild_ops(self.nodes[box], rebuild_ops, memo, box)
 
-        newboxes = [self.nodes[arg].source for arg in op_fail.args]
+        newboxes = []
+        for box in op_fail.args:
+            if box in self.nodes:
+                box = self.nodes[box].source
+            newboxes.append(box)
         op_fail.args = newboxes
         # NB. we mutate op_fail in-place above.  That's bad.  Hopefully
         # it does not really matter because no-one is going to look again
