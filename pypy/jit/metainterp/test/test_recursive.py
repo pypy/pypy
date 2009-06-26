@@ -133,7 +133,7 @@ class RecursiveTests:
         code = "021"
         subcode = "00"
 
-        codes = ["021", "0"]
+        codes = [code, subcode]
         f = self.get_interpreter(codes)
 
         assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer) == 42
