@@ -8,7 +8,7 @@ from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
-from pypy.rlib.objectmodel import we_are_translated, UnboxedValue, specialize
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.rarithmetic import r_uint, intmask

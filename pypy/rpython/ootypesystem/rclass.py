@@ -190,7 +190,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.object_type = self.lowleveltype
         self.gcflavor = gcflavor
 
-    def _setup_repr(self, hints=None):
+    def _setup_repr(self, llfields=None, hints=None):
         if hints:
             self.lowleveltype._hints.update(hints)
 
@@ -212,6 +212,9 @@ class InstanceRepr(AbstractInstanceRepr):
 
         fields = {}
         fielddefaults = {}
+
+        if llfields:
+            fields.update(dict(llfields))
         
         selfattrs = self.classdef.attrs
 

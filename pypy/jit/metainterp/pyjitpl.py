@@ -1150,9 +1150,15 @@ class MetaInterp(object):
 
     @specialize.arg(1)
     def execute_and_record(self, opnum, argboxes, descr=None):
-        # execute the operation first
         history.check_descr(descr)
+        # residual calls require attention to keep virtualizables in-sync
+        require_attention = (opnum == rop.CALL or opnum == rop.CALL_PURE)
+        if require_attention:
+            self.before_residual_call()
+        # execute the operation
         resbox = executor.execute(self.cpu, opnum, argboxes, descr)
+        if require_attention:
+            require_attention = self.after_residual_call()
         # check if the operation can be constant-folded away
         canfold = False
         if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
@@ -1172,6 +1178,8 @@ class MetaInterp(object):
                 and self.framestack):
                 op.pc = self.framestack[-1].pc
                 op.name = self.framestack[-1].jitcode.name
+        if require_attention:
+            self.after_generate_residual_call()
         return resbox
 
     def _interpret(self):
@@ -1474,6 +1482,39 @@ class MetaInterp(object):
                                                         virtualizable)
             original_boxes += self.virtualizable_boxes
             self.virtualizable_boxes.append(virtualizable_box)
+            self.initialize_virtualizable_enter()
+
+    def initialize_virtualizable_enter(self):
+        vinfo = self.staticdata.virtualizable_info
+        virtualizable_box = self.virtualizable_boxes[-1]
+        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+        vinfo.tracing_enter(virtualizable)
+
+    def before_residual_call(self):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            vinfo.tracing_before_residual_call(virtualizable)
+
+    def after_residual_call(self):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            if vinfo.tracing_after_residual_call(virtualizable):
+                # This is before the residual call is actually generated.
+                # We first generate a store-everything-back.
+                self.gen_store_back_in_virtualizable()
+                return True    # must call after_generate_residual_call()
+        return False   # don't call after_generate_residual_call()
+
+    def after_generate_residual_call(self):
+        # Called after generating a residual call, and only if
+        # after_residual_call() returned True, i.e. if code in the residual
+        # call causes the virtualizable to escape.  Reload the modified
+        # fields of the virtualizable.
+        self.gen_load_fields_from_virtualizable()
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
@@ -1500,6 +1541,7 @@ class MetaInterp(object):
         if self.staticdata.virtualizable_info is not None:
             self.virtualizable_boxes = _consume_nums(vable_nums,
                                                      newboxes, consts)
+            self.initialize_virtualizable_enter()
             self.synchronize_virtualizable()
             #
         self.framestack = []
@@ -1520,6 +1562,27 @@ class MetaInterp(object):
         virtualizable_box = self.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         vinfo.write_boxes(virtualizable, self.virtualizable_boxes)
+
+    def gen_load_fields_from_virtualizable(self):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            vbox = self.virtualizable_boxes[-1]
+            for i in range(vinfo.num_static_extra_boxes):
+                fieldbox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
+                                        descr=vinfo.static_field_descrs[i])
+                self.virtualizable_boxes[i] = fieldbox
+            i = vinfo.num_static_extra_boxes
+            virtualizable = vinfo.unwrap_virtualizable_box(vbox)
+            for k in range(vinfo.num_arrays):
+                abox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
+                                         descr=vinfo.array_field_descrs[k])
+                for j in range(vinfo.get_array_length(virtualizable, k)):
+                    itembox = self.execute_and_record(rop.GETARRAYITEM_GC,
+                                                      [abox, ConstInt(j)],
+                                            descr=vinfo.array_descrs[k])
+                    self.virtualizable_boxes[i] = itembox
+                    i += 1
+            assert i + 1 == len(self.virtualizable_boxes)
 
     def gen_store_back_in_virtualizable(self):
         vinfo = self.staticdata.virtualizable_info

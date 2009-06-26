@@ -174,7 +174,6 @@ class ExplicitVirtualizableTests:
         self.check_loops(getfield_gc=1, setfield_gc=1)
 
     def test_external_access_while_tracing(self):
-        py.test.skip("in-progress")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
                                 virtualizables = ['xy'])
         class Outer:
@@ -202,7 +201,7 @@ class ExplicitVirtualizableTests:
         assert f(20) == 10000*20 + (20*21)/2
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
         assert res == 10000*20 + (20*21)/2
-        self.check_loops(call_pure=1, getfield_gc=2, setfield_gc=2)
+        self.check_loops(call=1, getfield_gc=2, setfield_gc=2)
         # xxx for now a call that forces the virtualizable during tracing
         # is supposed to always force it later too.
 

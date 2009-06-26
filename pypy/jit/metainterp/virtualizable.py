@@ -1,6 +1,9 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython import rvirtualizable2
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.typesystem import deref
 from pypy.jit.metainterp import history
@@ -13,6 +16,15 @@ class VirtualizableInfo:
         jitdriver = warmrunnerdesc.jitdriver
         cpu = warmrunnerdesc.cpu
         self.is_oo = cpu.is_oo
+        if not self.is_oo:
+            from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
+            self.VABLERTI = VABLERTIPTR
+            self.null_vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        else:
+            from pypy.rpython.ootypesystem.rvirtualizable2 import VABLERTI
+            self.VABLERTI = VABLERTI
+            self.null_vable_rti = ootype.make_null_instance(VABLERTI)
+        #
         assert len(jitdriver.virtualizables) == 1    # for now
         [vname] = jitdriver.virtualizables
         index = len(jitdriver.greens) + jitdriver.reds.index(vname)
@@ -155,14 +167,9 @@ class VirtualizableInfo:
         if self.is_oo:
             return      # XXX implement me
         #
-        def force_now(virtualizable):
-            rti = virtualizable.vable_rti
-            pass     # XXX in-progress
-        force_now._dont_inline_ = True
-        #
         def force_if_necessary(virtualizable):
             if virtualizable.vable_rti:
-                force_now(virtualizable)
+                self.force_now(virtualizable)
         force_if_necessary._always_inline_ = True
         #
         all_graphs = self.warmrunnerdesc.translator.graphs
@@ -188,3 +195,59 @@ class VirtualizableInfo:
 
     def is_vtypeptr(self, TYPE):
         return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
+
+    def cast_instance_to_base_ptr(self, vable_rti):
+        if we_are_translated():
+            return cast_instance_to_base_ptr(vable_rti)
+        else:
+            vable_rti._TYPE = self.VABLERTI   # hack for non-translated mode
+            return vable_rti
+
+    def tracing_enter(self, virtualizable):
+        if virtualizable.vable_rti:
+            self.force_now(virtualizable)
+            assert not virtualizable.vable_rti
+
+    def tracing_before_residual_call(self, virtualizable):
+        assert not virtualizable.vable_rti
+        ptr = self.cast_instance_to_base_ptr(tracing_vable_rti)
+        virtualizable.vable_rti = ptr
+
+    def tracing_after_residual_call(self, virtualizable):
+        if virtualizable.vable_rti:
+            # not modified by the residual call; assert that it is still
+            # set to 'tracing_vable_rti' and clear it.
+            ptr = self.cast_instance_to_base_ptr(tracing_vable_rti)
+            assert virtualizable.vable_rti == ptr
+            virtualizable.vable_rti = self.null_vable_rti
+            return False
+        else:
+            # marker "modified during residual call" set.
+            return True
+
+    def force_now(self, virtualizable):
+        rti = virtualizable.vable_rti
+        virtualizable.vable_rti = self.null_vable_rti
+        if we_are_translated():
+            rti = cast_base_ptr_to_instance(AbstractVableRti, rti)
+        rti.force_now(virtualizable)
+    force_now._dont_inline_ = True
+
+# ____________________________________________________________
+
+
+class AbstractVableRti(object):
+
+    def force_now(self, virtualizable):
+        raise NotImplementedError
+
+
+class TracingVableRti(AbstractVableRti):
+
+    def force_now(self, virtualizable):
+        # The values if the virtualizable are always correct during tracing.
+        # We only need to set a marker to tell that forcing occurred.
+        # As the caller resets vable_rti to NULL, it plays the role of marker.
+        pass
+
+tracing_vable_rti = TracingVableRti()
