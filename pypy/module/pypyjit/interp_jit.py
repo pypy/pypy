@@ -44,8 +44,6 @@ def can_inline(next_instr, bytecode):
             oparg = 0
         while opcode == opcodedesc.EXTENDED_ARG.index:
             opcode = ord(co_code[next_instr])
-            if opcode < HAVE_ARGUMENT:
-                raise BytecodeCorruption
             lo = ord(co_code[next_instr+1])
             hi = ord(co_code[next_instr+2])
             next_instr += 3
