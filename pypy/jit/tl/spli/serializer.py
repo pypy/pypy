@@ -7,7 +7,7 @@ import autopath
 import py
 import sys
 import types
-from pypy.jit.tl.spli.objects import DumbObjSpace, Int, Str, spli_None
+from pypy.jit.tl.spli.objects import Int, Str, spli_None
 from pypy.jit.tl.spli.pycode import Code
 from pypy.rlib.rstruct.runpack import runpack
 import struct
