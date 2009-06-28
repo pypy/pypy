@@ -729,19 +729,6 @@ class BasicTests:
 
         self.meta_interp(f, [40, 0])
 
-    def test_optimizer_name(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
-        def f(x, y):
-            res = 0
-            while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
-                res += x
-                y -= 1
-            return res
-        res = self.meta_interp(f, [6, 7])
-        assert myjitdriver.optimizer_name.startswith('optimize')
-
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

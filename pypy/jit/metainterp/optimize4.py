@@ -127,9 +127,6 @@ def optimize_bridge(options, old_loops, loop, cpu=None):
             return old_loop
     return None     # no loop matches
 
-def get_optimizer_name():
-    return __file__
-
 class PerfectSpecializer(object):
     _allow_automatic_node_creation = False
 

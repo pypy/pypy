@@ -123,8 +123,3 @@ def set_param(space, args):
                                  space.wrap("no JIT parameter '%s'" % (key,)))
 
 set_param.unwrap_spec = [ObjSpace, Arguments]
-
-
-def get_optimizer_name(space):
-    return space.wrap(pypyjitdriver.optimizer_name)
-get_optimizer_name.unwrap_spec = [ObjSpace]

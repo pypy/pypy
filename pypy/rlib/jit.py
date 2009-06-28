@@ -92,7 +92,6 @@ class JitDriver:
     """
 
     virtualizables = []
-    optimizer_name = '<undefined>'
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  can_inline=None):

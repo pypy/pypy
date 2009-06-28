@@ -24,7 +24,3 @@ class AppTestPyPyJIT:
                 i += 1
 
         assert list(gen(3)) == [0, 1, 4]
-
-    def test_get_optimizer_name(self):
-        import pypyjit
-        assert pypyjit.get_optimizer_name() == '<undefined>'
