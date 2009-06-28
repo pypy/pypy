@@ -1,11 +1,11 @@
 import sys
-from pypy.interpreter.miscutils import Stack
+from pypy.interpreter.miscutils import PseudoFrameStack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
 
 def new_framestack():
-    return Stack()
+    return PseudoFrameStack()
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
@@ -32,10 +32,7 @@ class ExecutionContext:
         if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("maximum recursion depth exceeded"))
-        try:
-            frame.f_back = self.framestack.top()
-        except IndexError:
-            frame.f_back = None
+        frame.f_back = self.framestack.top()
 
         if not frame.hide():
             self.framestack.push(frame)
@@ -78,14 +75,14 @@ class ExecutionContext:
         # the following interface is for pickling and unpickling
         def getstate(self, space):
             # we just save the framestack
-            items = [space.wrap(item) for item in self.framestack.items]
+            items = [space.wrap(item) for item in self.framestack.getitems()]
             return space.newtuple(items)
 
         def setstate(self, space, w_state):
             from pypy.interpreter.pyframe import PyFrame
-            items = [space.interp_w(PyFrame, w_item)
-                     for w_item in space.unpackiterable(w_state)]
-            self.framestack.items = items
+            topitem = space.getitem(w_state, space.wrap(-1))
+            self.framestack._top = topitem
+            self.framestack._depth = space.int_w(space.len(w_state))
         # coroutine: I think this is all, folks!
 
 
@@ -126,13 +123,12 @@ class ExecutionContext:
             self._trace(frame, 'c_exception', w_exc)
 
     def _llprofile(self, event, w_arg):
-        fr = self.framestack.items
         space = self.space
         w_callback = self.profilefunc
         if w_callback is not None:
             frame = None
-            if fr:
-                frame = fr[0]
+            if fr.bottom():
+                frame = fr.bottom()
             self.profilefunc(space, self.w_profilefuncarg, frame, event, w_arg)
 
     def call_trace(self, frame):
@@ -197,7 +193,7 @@ class ExecutionContext:
         if func is not None:
             if w_arg is None:
                 raise ValueError("Cannot call setllprofile with real None")
-            for frame in self.framestack.items:
+            for frame in self.framestack.getitems():
                 frame.is_being_profiled = True
         self.w_profilefuncarg = w_arg
 
