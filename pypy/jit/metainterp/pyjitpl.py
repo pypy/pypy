@@ -1151,8 +1151,10 @@ class MetaInterp(object):
     @specialize.arg(1)
     def execute_and_record(self, opnum, argboxes, descr=None):
         history.check_descr(descr)
-        # residual calls require attention to keep virtualizables in-sync
-        require_attention = (opnum == rop.CALL or opnum == rop.CALL_PURE)
+        # residual calls require attention to keep virtualizables in-sync.
+        # CALL_PURE doesn't need it because so far 'promote_virtualizable'
+        # as an operation is enough to make the called function non-pure.
+        require_attention = (opnum == rop.CALL or opnum == rop.OOSEND)
         if require_attention:
             self.before_residual_call()
         # execute the operation
@@ -1505,9 +1507,11 @@ class MetaInterp(object):
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             if vinfo.tracing_after_residual_call(virtualizable):
-                # This is before the residual call is actually generated.
-                # We first generate a store-everything-back.
-                self.gen_store_back_in_virtualizable()
+                # This is after the residual call is done, but before it
+                # is actually generated.  We first generate a store-
+                # everything-back, *without actually performing it now*
+                # as it contains the old values (before the call)!
+                self.gen_store_back_in_virtualizable_no_perform()
                 return True    # must call after_generate_residual_call()
         return False   # don't call after_generate_residual_call()
 
@@ -1613,6 +1617,30 @@ class MetaInterp(object):
                                             [abox, ConstInt(j), itembox],
                                             descr=vinfo.array_descrs[k])
             assert i + 1 == len(self.virtualizable_boxes)
+
+    def gen_store_back_in_virtualizable_no_perform(self):
+        vinfo = self.staticdata.virtualizable_info
+        # xxx only write back the fields really modified
+        vbox = self.virtualizable_boxes[-1]
+        for i in range(vinfo.num_static_extra_boxes):
+            fieldbox = self.virtualizable_boxes[i]
+            self.history.record(rop.SETFIELD_GC, [vbox, fieldbox], None,
+                                descr=vinfo.static_field_descrs[i])
+        i = vinfo.num_static_extra_boxes
+        virtualizable = vinfo.unwrap_virtualizable_box(vbox)
+        for k in range(vinfo.num_arrays):
+            abox = vinfo.BoxArray()
+            self.history.record(rop.GETFIELD_GC, [vbox], abox,
+                                descr=vinfo.array_field_descrs[k])
+            for j in range(vinfo.get_array_length(virtualizable, k)):
+                itembox = self.virtualizable_boxes[i]
+                i += 1
+                self.history.record(rop.SETARRAYITEM_GC,
+                                    [abox, ConstInt(j), itembox],
+                                    None,
+                                    descr=vinfo.array_descrs[k])
+        assert i + 1 == len(self.virtualizable_boxes)
+
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):

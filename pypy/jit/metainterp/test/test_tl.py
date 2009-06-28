@@ -149,12 +149,12 @@ class ToyLanguageTests:
         # This forces most methods of Stack to be ignored and treated as
         # residual calls.  It tests that the right thing occurs in this
         # case too.
-        py.test.skip("virtualizables: in-progress")
         self.test_tl_call(listops=False)
 
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):
-   pass
+    def test_tl_call_full_of_residuals(self):
+        py.test.skip("virtualizables: in-progress with ootype")
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):
     pass

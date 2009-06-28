@@ -173,7 +173,7 @@ class ExplicitVirtualizableTests:
         assert res == 134
         self.check_loops(getfield_gc=1, setfield_gc=1)
 
-    def test_external_access_while_tracing(self):
+    def test_external_read_while_tracing(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
                                 virtualizables = ['xy'])
         class Outer:
@@ -201,6 +201,37 @@ class ExplicitVirtualizableTests:
         assert f(20) == 10000*20 + (20*21)/2
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
         assert res == 10000*20 + (20*21)/2
+        self.check_loops(call=1, getfield_gc=2, setfield_gc=2)
+        # xxx for now a call that forces the virtualizable during tracing
+        # is supposed to always force it later too.
+
+    def test_external_write_while_tracing(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
+                                virtualizables = ['xy'])
+        class Outer:
+            pass
+        outer = Outer()
+        def ext():
+            xy = outer.xy
+            promote_virtualizable(lltype.Void, xy, 'inst_x')
+            xy.inst_x += 2
+        def f(n):
+            xy = self.setup()
+            xy.inst_x = 10
+            outer.xy = xy
+            m = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
+                myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                xy.inst_x = n + 9998     # virtualized away
+                ext()                    # 2x setfield_gc, 2x getfield_gc
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                m += xy.inst_x           # virtualized away
+                n -= 1
+            return m
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
+        assert res == f(20)
         self.check_loops(call=1, getfield_gc=2, setfield_gc=2)
         # xxx for now a call that forces the virtualizable during tracing
         # is supposed to always force it later too.

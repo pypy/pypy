@@ -20,10 +20,12 @@ class VirtualizableInfo:
             from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
             self.VABLERTI = VABLERTIPTR
             self.null_vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+            self.BoxArray = history.BoxPtr
         else:
             from pypy.rpython.ootypesystem.rvirtualizable2 import VABLERTI
             self.VABLERTI = VABLERTI
             self.null_vable_rti = ootype.make_null_instance(VABLERTI)
+            self.BoxArray = history.BoxObj
         #
         assert len(jitdriver.virtualizables) == 1    # for now
         [vname] = jitdriver.virtualizables
