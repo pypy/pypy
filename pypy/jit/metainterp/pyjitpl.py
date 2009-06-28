@@ -20,7 +20,7 @@ def check_args(*args):
         assert isinstance(arg, (Box, Const))
 
 # debug level: 0 off, 1 normal, 2 detailed
-DEBUG = 0
+DEBUG = 1
 
 def log(msg):
     if not we_are_translated():
@@ -991,6 +991,13 @@ class MetaInterpStaticData(object):
         self.warmrunnerdesc = warmrunnerdesc
         self._op_goto_if_not = self.find_opcode('goto_if_not')
 
+        optmodule = self.optimize_loop.__module__
+        optmodule = optmodule.split('.')[-1]
+        backendmodule = self.cpu.__module__
+        backendmodule = backendmodule.split('.')[-2]
+        self.jit_starting_line = 'JIT starting (%s, %s)' % (optmodule,
+                                                            backendmodule)
+
     def _freeze_(self):
         return True
 
@@ -1013,6 +1020,7 @@ class MetaInterpStaticData(object):
                     cs[key] = value
                 self.cpu.class_sizes = cs
             self.cpu.setup_once()
+            log(self.jit_starting_line)
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
