@@ -95,7 +95,6 @@ class ToyLanguageTests:
     def test_tl_base(self):
         res = self.meta_interp(self.main.im_func, [0, 6], listops=True)
         assert res == 5040
-        py.test.skip("waiting for virtualizables")
         self.check_loops({'int_mul':1, 'jump':1,
                           'int_sub':1, 'int_is_true':1, 'int_le':1,
                           'guard_false':1, 'guard_value':1})
@@ -103,12 +102,12 @@ class ToyLanguageTests:
     def test_tl_2(self):
         res = self.meta_interp(self.main.im_func, [1, 10], listops=True)
         assert res == self.main.im_func(1, 10)
-        py.test.skip("waiting for virtualizables")
         self.check_loops({'int_sub':1, 'int_le':1,
                          'int_is_true':1, 'guard_false':1, 'jump':1,
                           'guard_value':1})
 
     def test_tl_call(self):
+        py.test.skip("virtualizables: in-progress")
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
         from pypy.jit.metainterp.simple_optimize import Optimizer

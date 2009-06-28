@@ -55,7 +55,8 @@ class Stack(object):
 
 def make_interp(supports_call):
     myjitdriver = JitDriver(greens = ['pc', 'code'],
-                            reds = ['stack', 'inputarg'])
+                            reds = ['stack', 'inputarg'],
+                            virtualizables = ['stack'])
     def interp(code='', pc=0, inputarg=0):
         if not isinstance(code,str):
             raise TypeError("code '%s' should be a string" % str(code))
