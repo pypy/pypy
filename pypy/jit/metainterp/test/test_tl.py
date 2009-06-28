@@ -106,8 +106,7 @@ class ToyLanguageTests:
                          'int_is_true':1, 'guard_false':1, 'jump':1,
                           'guard_value':1})
 
-    def test_tl_call(self):
-        py.test.skip("virtualizables: in-progress")
+    def test_tl_call(self, listops=True):
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
         from pypy.jit.metainterp.simple_optimize import Optimizer
@@ -142,8 +141,17 @@ class ToyLanguageTests:
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
         
-        res = self.meta_interp(main, [0, 20], optimizer=Optimizer)
+        res = self.meta_interp(main, [0, 20], optimizer=Optimizer,
+                               listops=listops)
         assert res == 0
+
+    def test_tl_call_full_of_residuals(self):
+        # This forces most methods of Stack to be ignored and treated as
+        # residual calls.  It tests that the right thing occurs in this
+        # case too.
+        py.test.skip("virtualizables: in-progress")
+        self.test_tl_call(listops=False)
+
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):
    pass
