@@ -9,41 +9,6 @@ from pypy.rlib.rarithmetic import r_uint
 class RootStack:
     pass
 
-class PseudoFrameStack(RootStack):
-
-    def __init__(self):
-        self._top = None
-        self._depth = 0
-
-    def top(self, position=0):
-        next = self._top
-        while position > 0:
-            next = next.f_back
-            position -= 1
-        return next
-
-    def push(self, next):
-        assert next.f_back is self._top
-        self._top = next
-        self._depth += 1
-
-    def pop(self):
-        next = self._top
-        self._top = next.f_back
-        self._depth -= 1
-        return next
-
-    def depth(self):
-        return self._depth
-
-    def getitems(self):
-        items = []
-        next = self._top
-        while next is not None:
-            items.append(next)
-            next = next.f_back
-        return items
-
 class Stack(RootStack):
     """Utility class implementing a stack."""
 
