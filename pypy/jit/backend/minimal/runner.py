@@ -62,6 +62,8 @@ class BaseCPU(model.AbstractCPU):
 
     def execute_operations(self, loop):
         valueboxes = self._future_values
+        if len(loop.inputargs) == 0:
+            valueboxes = []
         if DEBUG:
             print "execute_operations: starting", loop
             for box in valueboxes:

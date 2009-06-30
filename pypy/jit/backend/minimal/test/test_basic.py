@@ -25,7 +25,8 @@ class BasicTests(test_basic.BasicTests):
 
 
 class TestOOtype(OOJitMixin, BasicTests):
-    pass
+    test_isinstance = BasicTests._skip
+    test_r_dict = BasicTests._skip
 
 class TestLLtype(LLJitMixin, BasicTests):
     pass
