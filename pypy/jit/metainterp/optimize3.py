@@ -624,9 +624,3 @@ def optimize_loop(options, old_loops, loop, cpu=None, opt=None):
 def optimize_bridge(options, old_loops, loop, cpu=None, spec=None):
     optimize_loop(options, [], loop, cpu, spec)
     return old_loops[0]
-
-class Optimizer:
-    optimize_loop = staticmethod(optimize_loop)
-    optimize_bridge = staticmethod(optimize_bridge)
-
-

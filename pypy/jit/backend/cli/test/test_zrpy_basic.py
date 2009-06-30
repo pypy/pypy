@@ -7,8 +7,8 @@ class CliTranslatedJitMixin(CliCompiledMixin):
     CPUClass = CliCPU
 
     def meta_interp(self, *args, **kwds):
-        from pypy.jit.metainterp.simple_optimize import Optimizer
-        kwds['optimizer'] = Optimizer
+        from pypy.jit.metainterp import simple_optimize
+        kwds['optimizer'] = simple_optimize
         return CliCompiledMixin.meta_interp(self, *args, **kwds)
 
 

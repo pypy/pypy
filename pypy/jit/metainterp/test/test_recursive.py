@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.jit.metainterp.simple_optimize import Optimizer
+from pypy.jit.metainterp import simple_optimize
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
 from pypy.jit.metainterp.warmspot import CannotInlineCanEnterJit
@@ -23,7 +23,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=Optimizer)
+        res = self.meta_interp(main, [20], optimizer=simple_optimize)
         assert res == main(20)
 
     def test_simple_recursion_with_exc(self):
@@ -49,7 +49,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=Optimizer)
+        res = self.meta_interp(main, [20], optimizer=simple_optimize)
         assert res == main(20)
 
     def test_recursion_three_times(self):
@@ -72,7 +72,7 @@ class RecursiveTests:
         print
         for i in range(1, 11):
             print '%3d %9d' % (i, f(i))
-        res = self.meta_interp(main, [10], optimizer=Optimizer)
+        res = self.meta_interp(main, [10], optimizer=simple_optimize)
         assert res == main(10)
         self.check_enter_count_at_most(10)
 
@@ -92,7 +92,7 @@ class RecursiveTests:
                 opaque(n, i)
                 i += 1
             return stack.pop()
-        res = self.meta_interp(f, [1], optimizer=Optimizer, repeat=2,
+        res = self.meta_interp(f, [1], optimizer=simple_optimize, repeat=2,
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
@@ -144,9 +144,9 @@ class RecursiveTests:
         codes = [code, subcode]
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer) == 42
+        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize) == 42
         self.check_loops(int_add = 1, call = 1)
-        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
+        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
                                 inline=True) == 42
         self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)
 
@@ -157,7 +157,7 @@ class RecursiveTests:
 
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
+        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
                                 inline=True) == 42
         self.check_loops(call = 1)
 
@@ -169,7 +169,7 @@ class RecursiveTests:
         f = self.get_interpreter(codes, always_inline=True)
 
         try:
-            self.meta_interp(f, [0, 0, 0], optimizer=Optimizer,
+            self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
                              inline=True)
         except CannotInlineCanEnterJit:
             pass

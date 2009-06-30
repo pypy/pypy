@@ -969,13 +969,10 @@ class MetaInterpStaticData(object):
             self.cpu.class_sizes = self._class_sizes
         else:
             self.cpu.class_sizes = None
-        if optimizer is not None:
-            self.optimize_loop = optimizer.optimize_loop
-            self.optimize_bridge = optimizer.optimize_bridge
-        else:
-            from pypy.jit.metainterp import optimize4 as optimize
-            self.optimize_loop = optimize.optimize_loop
-            self.optimize_bridge = optimize.optimize_bridge
+        if optimizer is None:
+            from pypy.jit.metainterp import optimize4 as optimizer
+        self.optimize_loop = optimizer.optimize_loop
+        self.optimize_bridge = optimizer.optimize_bridge
 
         if self.cpu.is_oo:
             self.ts = typesystem.oohelper

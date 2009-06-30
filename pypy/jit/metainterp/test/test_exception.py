@@ -3,6 +3,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.jit.metainterp import simple_optimize
 
 
 class ExceptionTests:
@@ -397,8 +398,6 @@ class ExceptionTests:
         assert res == 1
 
     def test_int_lshift_ovf(self):
-        from pypy.jit.metainterp.simple_optimize import Optimizer
-        
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y', 'm'])
         def f(x, y, n):
             m = 0
@@ -414,15 +413,14 @@ class ExceptionTests:
                 n += 1
             return m
 
-        res = self.meta_interp(f, [1, 1, 0], optimizer=Optimizer)
+        res = self.meta_interp(f, [1, 1, 0], optimizer=simple_optimize)
         assert res == f(1, 1, 0)
-        res = self.meta_interp(f, [809644098, 16, 0], optimizer=Optimizer)
+        res = self.meta_interp(f, [809644098, 16, 0],
+                               optimizer=simple_optimize)
         assert res == f(809644098, 16, 0)
 
     def test_int_neg_ovf(self):
         import sys
-        from pypy.jit.metainterp.simple_optimize import Optimizer
-        
         myjitdriver = JitDriver(greens = [], reds = ['n', 'y', 'm'])
         def f(y, n):
             m = 0
@@ -438,7 +436,8 @@ class ExceptionTests:
                 n += 1
             return m
 
-        res = self.meta_interp(f, [-sys.maxint-1+100, 0], optimizer=Optimizer)
+        res = self.meta_interp(f, [-sys.maxint-1+100, 0],
+                               optimizer=simple_optimize)
         assert res == 16
 
     def test_reraise_through_portal(self):
@@ -492,8 +491,6 @@ class ExceptionTests:
 
 
     def test_bridge_from_interpreter_exc_2(self):
-        from pypy.jit.metainterp.simple_optimize import Optimizer
-        
         mydriver = JitDriver(reds = ['n'], greens = [])
 
         def x(n):
@@ -523,7 +520,7 @@ class ExceptionTests:
                 return 8
 
         res = self.meta_interp(main, [41], repeat=7, policy=StopAtXPolicy(x),
-                               optimizer=Optimizer)
+                               optimizer=simple_optimize)
         assert res == 8
 
 class MyError(Exception):

@@ -109,7 +109,7 @@ class ToyLanguageTests:
     def test_tl_call(self, listops=True):
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
-        from pypy.jit.metainterp.simple_optimize import Optimizer
+        from pypy.jit.metainterp import simple_optimize
 
         code = compile('''
               PUSHARG
@@ -141,7 +141,7 @@ class ToyLanguageTests:
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
         
-        res = self.meta_interp(main, [0, 20], optimizer=Optimizer,
+        res = self.meta_interp(main, [0, 20], optimizer=simple_optimize,
                                listops=listops)
         assert res == 0
 

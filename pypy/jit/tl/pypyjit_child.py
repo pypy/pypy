@@ -1,9 +1,9 @@
 from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
-#from pypy.jit.metainterp.simple_optimize import Optimizer
-from pypy.jit.metainterp import optimize as Optimizer
-#from pypy.jit.metainterp.optimize2 import Optimizer
+#from pypy.jit.metainterp import simple_optimize as optimize
+from pypy.jit.metainterp import optimize
+#from pypy.jit.metainterp import optimize2 as optimize
 from pypy.module.pypyjit.policy import PyPyJitPolicy
 
 # Current output: http://paste.pocoo.org/show/106540/
@@ -42,7 +42,7 @@ def run_child(glob, loc):
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=LLtypeCPU,
-                             optimizer=Optimizer)
+                             optimizer=optimize)
 
 
 def run_child_ootype(glob, loc):
@@ -56,4 +56,4 @@ def run_child_ootype(glob, loc):
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=OOtypeCPU,
-                             optimizer=Optimizer)
+                             optimizer=optimize)

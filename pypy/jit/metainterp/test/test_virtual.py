@@ -334,8 +334,8 @@ class TestLLtype_Object(VirtualTests, LLJitMixin):
 class Optimize3Mixin(object):
 
     def meta_interp(self, *args, **kwds):
-        from pypy.jit.metainterp.optimize3 import Optimizer
-        kwds['optimizer'] = Optimizer
+        from pypy.jit.metainterp import optimize3
+        kwds['optimizer'] = optimize3
         return super(Optimize3Mixin, self).meta_interp(*args, **kwds)
 
 class TestLLtype_Instance3(Optimize3Mixin, TestLLtype_Instance):
