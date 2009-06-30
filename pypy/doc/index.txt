@@ -1,350 +1,59 @@
-=================================================
-PyPy - a Python_ implementation written in Python 
-=================================================
 
-.. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
+The PyPy project aims at producing a flexible and fast Python_
+implementation.  The guiding idea is to translate a Python-level
+description of the Python language itself to lower level languages.
+Rumors have it that the secret goal is being faster-than-C which is
+nonsense, isn't it?  `more...`_
 
-.. sectnum::
-.. contents:: :depth: 1
+Getting into PyPy ... 
+=============================================
 
+* `Release 1.1`_: the latest official release
 
-PyPy User Documentation
-===============================================
+* `PyPy Blog`_: news and status info about PyPy 
 
-`getting started`_ provides hands-on instructions 
-including a two-liner to run the PyPy Python interpreter 
-on your system, examples on advanced features and 
-entry points for using PyPy's translation tool chain. 
+* `Documentation`_: extensive documentation and papers_ about PyPy.  
 
-`FAQ`_ contains some frequently asked questions.
+* `Getting Started`_: Getting started and playing with PyPy. 
 
-New features of PyPy's Python Interpreter and 
-Translation Framework: 
+Mailing lists, bug tracker, IRC channel
+=============================================
 
-  * `What PyPy can do for your objects`_
-  * `Stackless and coroutines`_
-  * `JIT Generation in PyPy`_ 
-  * `Sandboxing Python code`_
+* `Development mailing list`_: development and conceptual
+  discussions. 
 
-`JavaScript backend`_ describes how to use the JavaScript backend to create
-AJAX-based web pages.
+* `Subversion commit mailing list`_: updates to code and
+  documentation. 
 
-`PyPy Prolog Interpreter`_ describes an implementation of 
-Prolog that makes use of our Translation Tool chain. 
+* `Development bug/feature tracker`_: filing bugs and feature requests. 
 
-Status_ of the project.
+* `Sprint mailing list`_: mailing list for organising upcoming sprints. 
 
+* **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
+  at #pypy on irc.freenode.net.  You are welcome to join and ask questions
+  (if they are not already developed in the FAQ_).
+  You can find logs of the channel here_.
 
-Project Documentation
-=====================================
+.. XXX play1? 
 
-PyPy was funded by the EU for several years. See the `web site of the EU
-project`_ for more details.
+Meeting PyPy developers
+=======================
 
-.. _`web site of the EU project`: http://pypy.org
+The PyPy developers are organising sprints and presenting results at
+conferences all year round. They will be happy to meet in person with
+anyone interested in the project.  Watch out for sprint announcements
+on the `development mailing list`_.
 
-architecture_ gives a complete view of PyPy's basic design. 
-
-`coding guide`_ helps you to write code for PyPy (especially also describes
-coding in RPython a bit). 
-
-`sprint reports`_ lists reports written at most of our sprints, from
-2003 to the present.
-
-`talks and related projects`_ lists presentations 
-and related projects. 
-
-`ideas for PyPy related projects`_ which might be a good way to get
-into PyPy.
-
-`PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
-introductions) that are available.
-
-`Technical reports`_ is a page that contains links to the
-reports that we submitted to the European Union.
-
-`development methodology`_ describes our sprint-driven approach.
-
-`license`_ contains licensing details (basically a straight MIT-license). 
-
-`Glossary`_ of PyPy words to help you align your inner self with
-the PyPy universe.
-
-
-Status
-===================================
-
-PyPy can be used to run Python programs on Linux, OS/X,
-Windows, on top of .NET, and on top of Java.
-It is recommended to try out the current Subversion HEAD,
-which contains `major improvements`__ since the last release.
-
-.. __: http://codespeak.net/pipermail/pypy-dev/2007q4/004103.html
-
-PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
-but platform-specific bugs tend to take longer before we notice and fix
-them.  Linux 64-bit machines are supported (though it may also take some
-time before we notice and fix bugs).
-
-PyPy's own tests `summary`_, daily updated, run through BuildBot infrastructure.
-
-`Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM (PowerPC machine).
-
-`Nightly compliance test runs for compiled pypy-c`_.
-
-information dating from early 2007: 
-
-`PyPy LOC statistics`_ shows LOC statistics about PyPy.
-
-`PyPy statistics`_ is a page with various statistics about the PyPy project.
-
-`compatibility matrix`_ is a diagram that shows which of the various features
-of the PyPy interpreter work together with which other features.
-
-
-Source Code Documentation
-===============================================
-
-`object spaces`_ discusses the object space interface 
-and several implementations. 
-
-`bytecode interpreter`_ explains the basic mechanisms 
-of the bytecode interpreter and virtual machine. 
-
-`interpreter optimizations`_ describes our various strategies for
-improving the performance of our interpreter, including alternative
-object implementations (for strings, dictionaries and lists) in the
-standard object space.
-
-`translation`_ is a detailed overview of our translation process.  The
-rtyper_ is the largest component of our translation process.
-
-`dynamic-language translation`_ is a paper that describes
-the translation process, especially the flow object space
-and the annotator in detail. This document is also part
-of the `EU reports`_.
-
-`low-level encapsulation`_ describes how our approach hides
-away a lot of low level details. This document is also part
-of the `EU reports`_.
-
-`translation aspects`_ describes how we weave different
-properties into our interpreter during the translation
-process. This document is also part of the `EU reports`_.
-
-`garbage collector`_ strategies that can be used by the virtual
-machines produced by the translation process.
-
-`parser`_ contains (outdated, unfinished) documentation about
-the parser.
-
-`rlib`_ describes some modules that can be used when implementing programs in
-RPython.
-
-`configuration documentation`_ describes the various configuration options that
-allow you to customize PyPy.
-
-`CLI backend`_ describes the details of the .NET backend.
-
-`JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
-from our Python interpreter.
-
-
-
+.. _Python: http://docs.python.org/index.html
+.. _`more...`: architecture.html#mission-statement 
+.. _`PyPy blog`: http://morepypy.blogspot.com/
+.. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
+.. _here: http://tismerysoft.de/pypy/irc-logs/pypy
+.. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
+.. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
+.. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
-.. _Glossary: glossary.html
-.. _`PyPy video documentation`: video-index.html
-.. _parser: parser.html
-.. _`development methodology`: dev_method.html
-.. _`sprint reports`: sprint-reports.html
-.. _`talks and related projects`: extradoc.html
-.. _`license`: ../../LICENSE
-.. _`Nightly compliance test runs for compiled pypy-c`: http://www2.openend.se/~pedronis/pypy-c-test/
-.. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
-.. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
-.. _`PyPy statistics`: http://codespeak.net/pypy/trunk/pypy/doc/statistic
-.. _`object spaces`: objspace.html 
-.. _`interpreter optimizations`: interpreter-optimizations.html 
-.. _`translation`: translation.html 
-.. _`dynamic-language translation`: dynamic-language-translation.html
-.. _`low-level encapsulation`: low-level-encapsulation.html
-.. _`translation aspects`: translation-aspects.html
-.. _`configuration documentation`: config/
-.. _`coding guide`: coding-guide.html 
-.. _`architecture`: architecture.html 
-.. _`JavaScript backend` : js/using.html
-.. _`getting started`: getting-started.html 
-.. _`theory`: theory.html
-.. _`bytecode interpreter`: interpreter.html 
-.. _`EU reports`: index-report.html
-.. _`Technical reports`: index-report.html
-.. _`summary`: http://codespeak.net:8099/summary
-.. _`ideas for PyPy related projects`: project-ideas.html
-.. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
-.. _`directory reference`: 
-.. _`rlib`: rlib.html
-.. _`Sandboxing Python code`: sandbox.html
-
-PyPy directory cross-reference 
-------------------------------
-
-Here is a fully referenced alphabetical two-level deep 
-directory overview of PyPy: 
-
-============================   =========================================== 
-Directory                      explanation/links
-============================   =========================================== 
-`annotation/`_                 `type inferencing code`_ for `RPython`_ programs 
-
-`bin/`_                        command-line scripts, mainly `py.py`_ and `translatorshell.py`_
-
-`config/`_                     handles the numerous options for building and running PyPy
-
-`doc/`_                        text versions of PyPy developer documentation
-
-`doc/config/`_                 documentation for the numerous translation options
-
-`doc/discussion/`_             drafts of ideas and documentation
-
-``doc/*/``                     other specific documentation topics or tools
-
-`interpreter/`_                `bytecode interpreter`_ and related objects
-                               (frames, functions, modules,...) 
-
-`interpreter/pyparser/`_       interpreter-level Python source parser
-
-`interpreter/astcompiler/`_    interpreter-level bytecode compiler, via an AST
-                               representation
-
-`jit/`_                        the `just-in-time compiler generator`_
-
-`lang/`_                       interpreters for non-Python languages, written in RPython_
-
-`lang/js/`_                    a JavaScript interpreter (in-progress)
-
-`lang/prolog/`_                a `Prolog interpreter`_
-
-`lib/`_                        PyPy's wholesale reimplementations of CPython modules_
-                               and experimental new application-level modules
-
-`lib/app_test/`_               tests for the reimplementations, running on top of CPython
-
-`lib/distributed/`_            distributed execution prototype, based on `transparent proxies`_
-
-`module/`_                     contains `mixed modules`_ implementing core modules with 
-                               both application and interpreter level code.
-                               Not all are finished and working.  Use the ``--withmod-xxx``
-                               or ``--allworkingmodules`` translation options.
-
-`objspace/`_                   `object space`_ implementations
-
-`objspace/trace.py`_           the `trace object space`_ monitoring bytecode and space operations
-
-`objspace/dump.py`_            the dump object space saves a large, searchable log file
-                               with all operations
-
-`objspace/taint.py`_           the `taint object space`_, providing object tainting
-
-`objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
-
-`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
-
-`objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
-
-`rlib/`_                       a `"standard library"`_ for RPython_ programs
-
-`rpython/`_                    the `RPython Typer`_ 
-
-`rpython/lltypesystem/`_       the `low-level type system`_ for C-like backends
-
-`rpython/ootypesystem/`_       the `object-oriented type system`_ for OO backends
-
-`rpython/memory/`_             the `garbage collector`_ construction framework
-
-`tool/`_                       various utilities and hacks used from various places 
-
-`tool/algo/`_                  general-purpose algorithmic and mathematic
-                               tools
-
-`tool/pytest/`_                support code for our `testing methods`_
-
-`translator/`_                 translation_ backends and support code
-
-`translator/backendopt/`_      general optimizations that run before a backend generates code
-
-`translator/c/`_               the `GenC backend`_, producing C code from an
-                               RPython program (generally via the rtyper_)
-
-`translator/cli/`_             the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
-
-`translator/goal/`_            our `main PyPy-translation scripts`_ live here
-
-`translator/js/`_              the `JavaScript backend`_
-
-`translator/jvm/`_             the Java backend
-
-`translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
-                               from fully annotated RPython programs 
-
-`translator/stackless/`_       the `Stackless Transform`_
-
-`translator/tool/`_            helper tools for translation, including the Pygame
-                               `graph viewer`_
-
-``*/test/``                    many directories have a test subdirectory containing test 
-                               modules (see `Testing in PyPy`_) 
-
-``_cache/``                    holds cache files from internally `translating application 
-                               level to interpreterlevel`_ code.   
-============================   =========================================== 
-
-.. _`bytecode interpreter`: interpreter.html
-.. _`translating application level to interpreterlevel`: geninterp.html
-.. _documentation: index.html
-.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
-.. _`mixed modules`: coding-guide.html#mixed-modules 
-.. _`modules`: coding-guide.html#modules 
-.. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
-.. _`object space`: objspace.html
-.. _FlowObjSpace: objspace.html#the-flow-object-space 
-.. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`taint object space`: objspace-proxies.html#taint
-.. _`thunk object space`: objspace-proxies.html#thunk
-.. _`transparent proxies`: objspace-proxies.html#tproxy
-.. _`What PyPy can do for your objects`: objspace-proxies.html
-.. _`Stackless and coroutines`: stackless.html
-.. _StdObjSpace: objspace.html#the-standard-object-space 
-.. _`abstract interpretation`: theory.html#abstract-interpretation
-.. _`rpython`: coding-guide.html#rpython 
-.. _`type inferencing code`: translation.html#the-annotation-pass 
-.. _`RPython Typer`: translation.html#rpython-typer 
-.. _`testing methods`: coding-guide.html#testing-in-pypy
-.. _`translation`: translation.html 
-.. _`GenC backend`: translation.html#genc 
-.. _`LLVM backend`: translation.html#llvm
-.. _`CLI backend`: cli-backend.html
-.. _`py.py`: getting-started.html#main-entry-point
-.. _`translatorshell.py`: getting-started.html#try-out-the-translator
-.. _JIT: jit/index.html
-.. _`JIT Generation in PyPy`: jit/index.html
-.. _`just-in-time compiler generator`: jit/index.html
-.. _`jit backends`: jit/backend.html
-.. _`hint-annotator`: jit/theory.html#hint-annotator
-.. _`timeshifter`: jit/theory.html#timeshifter
-.. _rtyper: rtyper.html
-.. _`low-level type system`: rtyper.html#low-level-type
-.. _`object-oriented type system`: rtyper.html#oo-type
-.. _`garbage collector`: garbage_collection.html
-.. _`Stackless Transform`: translation.html#the-stackless-transform
-.. _`PyPy Prolog Interpreter`: prolog-interpreter.html
-.. _`Prolog Interpreter`: prolog-interpreter.html
-.. _`main PyPy-translation scripts`: getting-started.html#translating-the-pypy-python-interpreter
-.. _`translate.py`: getting-started.html#translating-the-pypy-python-interpreter
-.. _`.NET`: http://www.microsoft.com/net/
-.. _Mono: http://www.mono-project.com/
-.. _`"standard library"`: rlib.html
-.. _`graph viewer`: getting-started.html#try-out-the-translator
-.. _`compatibility matrix`: image/compat-matrix.png
-
-.. include:: _ref.txt
-
+.. _`Documentation`: docindex.html 
+.. _`Getting Started`: getting-started.html
+.. _papers: extradoc.html
+.. _`Release 1.1`: release-1.1.0.html
