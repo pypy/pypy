@@ -282,6 +282,8 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
         code += "    w_obj%s = force(space, w_obj%s)\n" % (i, i)
     code += "    return space.%s(%s)" % (opname, nonspaceargs)
     exec py.code.Source(code).compile()
+
+    func.func_name = opname
     for special_method in special_methods:
         proxy_typedef_dict[special_method] = interp2app(
             func, unwrap_spec=[ObjSpace] + [W_Root] * arity)

@@ -27,8 +27,8 @@ generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
 
-As of the 1.0 release, RPython_ programs can be translated into the following
-languages/platforms: C/POSIX, LLVM/POSIX, CLI/.NET, Javascript
+As of the 1.1 release, RPython_ programs can be translated into the following
+languages/platforms: C/POSIX, CLI/.NET
 and Java/JVM (in addition, there's `a backend`_ that translates
 `application-level`_ into `interpreter-level`_ code, but this is a special
 case in several ways).
@@ -106,7 +106,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
-.. _`interactive interface`: getting-started.html#try-out-the-translator
+.. _`interactive interface`: getting-started-dev.html#try-out-the-translator
 .. _`translatorshell.py`: ../../pypy/bin/translatorshell.py
 
 .. _`flow model`:
@@ -287,8 +287,8 @@ discover the types of the objects.  This annotation pass is a form of type
 inference.  It operates on the control flow graphs built by the Flow
 Object Space.
 
-For a more comprehensive description of the annotation process, see section 4
-of `Compiling Dynamic Language Implementations`_.
+For a more comprehensive description of the annotation process, see the
+corresponding section of our `EU report about translation`_.
 
 The major goal of the annotator is to "annotate" each variable that
 appears in a flow graph.  An "annotation" describes all the possible
@@ -384,8 +384,6 @@ subclasses can have attributes of the same names with different,
 unrelated annotations if they are not used in a general way through the
 parent class.
 
-
-.. _`Compiling Dynamic Language Implementations`: dynamic-language-translation.html
 
 .. _`RPython typer`:
 
@@ -487,7 +485,7 @@ correspond to the increase in code-size which is to be expected should the
 function be inlined somewhere. This estimate is the sum of two numbers: for
 one every operations is assigned a specific weight, the default being a weight
 of one. Some operations are considered to be more effort than others,
-e.g. memory allocation and calls others are considered to be no effort at all
+e.g. memory allocation and calls; others are considered to be no effort at all
 (casts...). The size estimate is for one the sum of the weights of all
 operations occuring in the graph. This is called the "static instruction
 count". The other part of the size estimate of a graph is the "median
@@ -670,13 +668,13 @@ http://codespeak.net/pypy/trunk/pypy/translator/c/
 
 GenC is not really documented at the moment.  The basic principle of creating
 code from flow graphs is similar to the `Python back-end`_.  See also
-`Generating C code`_ in another draft.
+"Generating C code" in our `EU report about translation`_.
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
 implemented first.
 
-.. _`Generating C code`: dynamic-language-translation.html#generating-c-code
+.. _`EU report about translation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 A Historical Note
@@ -691,53 +689,12 @@ recently, the fact that preparing the graphs for source generation
 ("databasing") and actually generating the source are best considered
 separately has become clear.
 
-This process is reflected in the source somewhat; for example, the LLVM
-and C backends use different implementations of the graph preparation
-code, although there is no real reason for this.
-
 
 Other backends
 ==============
 
-.. _LLVM:
-
 Use the :config:`translation.backend` option to choose which backend to use.
 
-The LLVM Back-End
------------------
-
-http://codespeak.net/pypy/trunk/pypy/translator/llvm/
-
-For information on getting started on the LLVM (`low level virtual machine`_)
-backend - please see `here`_. 
-
-Similar to the task of GenC, GenLLVM translates a flow graph to low level LLVM
-bytecode.  LLVM's memory model is pretty similar to that of GenC's, and so the
-LLVM backend uses the same stages of the tool chain -- the annotator, the
-RTyper (targeting the low-level type system) and subsequent transformations,
-although the final preparations are done by different code (for historical,
-rather than fundamental, reasons).
-
-One of the reasons for targeting LLVM bytecodes is that the LLVM tools include
-excellent optimizers -- RPython programs, including the Standard Interpreter,
-compiled via LLVM are generally faster than when compiled via C.
-
-The LLVM backend is pretty well maintained, although fewer people have the
-necessary tools installed so it can take a bit longer to be fixed when a
-refactoring causes it to stop working.  It doesn't support all the features of
-GenC -- in particular it only supports the Boehm GC.
-
-The LLVM backend would not have been possible without all the people
-contributing to PyPy. Carl Friedrich did an amazing amount of groundwork during
-the first half of 2005. Carl Friedrich and Holger then initiated a revamped
-version based on the new `RPython Typer`_ flow graph. Significant progress was
-made during the Gothenburg sprint - and then the following 6 weeks Eric and
-Richard worked on it, achieving a standalone executable just prior to the
-Heidelberg sprint.  During the Heidelberg sprint Eric and Richard mainly
-worked on sharing the backend external code with GenC.
-
-.. _`low level virtual machine`: http://llvm.org/
-.. _`here`: getting-started.html#translating-the-flow-graph-to-llvm-code
 
 
 The Object-Oriented Backends
@@ -745,8 +702,8 @@ The Object-Oriented Backends
 
 The Object-Oriented backends target platforms that are less C-like and support
 classes, instance etc. If such a platform is targetted, the `OO type system` is
-used while rtyping. Of the OO backends, currently only gencli can translate the
-full PyPy, but the Java backend is getting close.
+used while rtyping. Of the OO backends, both gencli and genjava can translate
+the full Python interpreter.
 
 .. _`oo type system`: rtyper.html#oo-type
 
@@ -786,33 +743,6 @@ richards benchmarks.
 
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it
 also as part of the Summer of PyPy program.
-
-GenJS
-+++++
-
-GenJS targets JavaScript, or more properly ECMAScript.
-
-It is a little different to the other backends, in that it is not really a
-goal to ever translate the entire PyPy interpreter -- the most important JS
-implementations are browsers, and they probably wouldn't be too happy with the
-100+ megabyte JavaScript file that would result...
-
-Instead, the goal of GenJS is more directed towards allowing one to write
-Ajax_ web applications entirely in Python (the client side would have to be
-restricted to RPython_), and this was the subject of Maciej Fijalkowski's
-Summer Of Code 2006 project.
-
-.. _Ajax: http://en.wikipedia.org/wiki/Ajax
-
-The first version of GenJS was written by Eric van Riet Paap (Maciej's mentor
-for the Summer Of Code project) and now he and Maciej are collaborating on its
-further development.
-
-To read more about JS backend there is a `whatis document`_ and
-a `using document`_.
-
-.. _`whatis document`: js/whatis.html
-.. _`using document`: js/using.html
 
 .. _`Python again`:
 .. _`Python back-end`:

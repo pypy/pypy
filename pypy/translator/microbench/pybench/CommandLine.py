@@ -6,8 +6,8 @@
 
     TODO:
 
-    · Incorporate the changes made by (see Inbox)
-    · Add number range option using srange() 
+    - Incorporate the changes made by (see Inbox)
+    - Add number range option using srange() 
 
     Copyright (c) 1997-2001, Marc-Andre Lemburg; mailto:mal@lemburg.com
     Copyright (c) 2000-2001, eGenix.com Software GmbH; mailto:info@egenix.com
@@ -114,7 +114,7 @@ class Option:
     def __init__(self,name,help=None):
 
         if not name[:1] == '-':
-            raise TypeError,'option names must start with "-"'
+            raise TypeError('option names must start with "-"')
         if name[1:2] == '-':
             self.prefix = '--'
             self.name = name[2:]
@@ -280,12 +280,12 @@ class Application:
             # Process startup
             rc = self.startup()
             if rc is not None:
-                raise SystemExit,rc
+                raise SystemExit(rc)
             
             # Parse command line
             rc = self.parse()
             if rc is not None:
-                raise SystemExit,rc
+                raise SystemExit(rc)
             
             # Start application
             rc = self.main()
@@ -308,7 +308,7 @@ class Application:
                 traceback.print_exc(20)
             rc = 1
 
-        raise SystemExit,rc
+        raise SystemExit(rc)
 
     def add_option(self, option):
 
@@ -339,7 +339,7 @@ class Application:
             program. It defaults to 0 which usually means: OK.
 
         """
-        raise SystemExit, rc
+        raise SystemExit(rc)
 
     def parse(self):
 
@@ -409,7 +409,7 @@ class Application:
             else:
                 rc = handler(value)
                 if rc is not None:
-                    raise SystemExit, rc
+                    raise SystemExit(rc)
 
         # Apply final file check (for backward compatibility)
         rc = self.check_files(self.files)

@@ -14,6 +14,14 @@ from distutils.errors import *
 from distutils import util, dir_util, file_util, archive_util, dep_util
 from distutils import log
 
+def _easy_install_get_site_dirs():
+    # return a list of 'site' dirs for easy_install
+    from pkg_resources import normalize_path
+    sitedirs = filter(None,os.environ.get('PYTHONPATH','').split(os.pathsep))
+    sitedirs.append(os.path.join(sys.pypy_prefix, 'site-packages'))
+    sitedirs = map(normalize_path, sitedirs)
+    return sitedirs
+
 class Command:
     """Abstract base class for defining command classes, the "worker bees"
     of the Distutils.  A useful analogy for command classes is to think of
@@ -49,6 +57,10 @@ class Command:
 
     # -- Creation/initialization methods -------------------------------
 
+    def _easy_install_integration(self):
+        from setuptools.command import easy_install
+        easy_install.get_site_dirs = _easy_install_get_site_dirs
+        
     def __init__ (self, dist):
         """Create and initialize a new Command object.  Most importantly,
         invokes the 'initialize_options()' method, which is the real
@@ -62,6 +74,9 @@ class Command:
             raise TypeError, "dist must be a Distribution instance"
         if self.__class__ is Command:
             raise RuntimeError, "Command is an abstract class"
+
+        if self.__class__.__name__ == "easy_install":
+            self._easy_install_integration()
 
         self.distribution = dist
         self.initialize_options()

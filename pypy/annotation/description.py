@@ -701,6 +701,9 @@ class MethodDesc(Desc):
                                                           self.selfclassdef,
                                                           self.flags)
 
+    def getuniquegraph(self):
+        return self.funcdesc.getuniquegraph()
+
     def pycall(self, schedule, args, s_previous_result):
         from pypy.annotation.model import SomeInstance
         if self.selfclassdef is None:

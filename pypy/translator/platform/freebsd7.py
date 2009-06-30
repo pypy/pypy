@@ -10,6 +10,7 @@ class Freebsd7(posix.BasePosix):
     standalone_only = []
     shared_only = []
     so_ext = 'so'
+    make_cmd = 'gmake'
     
     def _args_for_shared(self, args):
         return ['-shared'] + args

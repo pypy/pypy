@@ -458,11 +458,6 @@ class SomeExternalObject(SomeObject):
     def can_be_none(self):
         return True
 
-class SomeExternalInstance(SomeExternalObject):
-    """Stands for an object of 'external' type, but with custom access to
-    attributes as well as methods
-    """
-
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
@@ -610,7 +605,6 @@ def annotation_to_lltype(s_val, info=None):
 ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map if ll is not NUMBER])
 
 def lltype_to_annotation(T):
-    from pypy.rpython.ootypesystem.bltregistry import ExternalType
     try:
         s = ll_to_annotation_map.get(T)
     except TypeError:

@@ -107,9 +107,7 @@ def SSI_to_SSA(graph):
 
     # sanity-check that the same name is never used several times in a block
     variables_by_name = {}
-    for block in flatten(graph):
-        if not isinstance(block, Block):
-            continue
+    for block in graph.iterblocks():
         vars = [op.result for op in block.operations]
         for link in block.exits:
             vars += link.getextravars()

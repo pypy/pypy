@@ -6,73 +6,100 @@ Here is a list of developers who have committed to the PyPy source
 code base, ordered by number of commits (which is certainly not a very
 appropriate measure but it's something)::
 
+
     Armin Rigo
     Samuele Pedroni
-    Michael Hudson
     Carl Friedrich Bolz
+    Maciek Fijalkowski
+    Michael Hudson
+    Antonio Cuni
     Christian Tismer
     Holger Krekel
     Eric van Riet Paap
-    Antonio Cuni
-    Anders Chrigstrom
-    Maciek Fijalkowski
     Richard Emslie
+    Anders Chrigstrom
     Aurelien Campeas
+    Amaury Forgeot d Arc
     Anders Lehmann
     Niklaus Haldimann
     Seo Sanghyeon
+    Leonardo Santagada
     Lawrence Oluyede
-    Alex Martelli
-    Ludovic Aubry
-    Adrien Di Mascio
-    Stephan Diehl
+    Jakub Gustak
     Guido Wesdorp
+    Niko Matsakis
+    Toon Verwaest
+    Alexander Schremmer
+    Ludovic Aubry
+    Alex Martelli
+    Stephan Diehl
+    Adrien Di Mascio
     Stefan Schwarzer
     Tomek Meka
     Patrick Maupin
-    Leonardo Santagada
-    Bob Ippolito
-    Laura Creighton
     Jacob Hallen
+    Laura Creighton
+    Camillo Bruni
+    Bob Ippolito
+    Simon Burton
+    Bruno Gola
+    Alexandre Fayolle
     Marius Gedminas
-    Niko Matsakis
-    Amaury Forgeot d Arc
     Guido van Rossum
     Valentino Volonghi
-    Alexander Schremmer
-    Alexandre Fayolle
-    Wanja Saatkamp
+    Adrian Kuhn
+    Anders Hammarquist
+    Paul deGrandis
     Gerald Klix
+    Wanja Saatkamp
+    Oscar Nierstrasz
     Eugene Oden
-    Dinu Gherman
+    Lukas Renggli
+    Bartosz SKOWRON
     Guenter Jantzen
+    Dinu Gherman
+    Georg Brandl
     Ben Young
     Nicolas Chauvat
-    Michael Twomey
+    Jean-Paul Calderone
     Rocco Moretti
-    Simon Burton
+    Michael Twomey
     Boris Feigin
+    Jared Grubb
     Olivier Dormond
-    Gintautas Miliauskas
     Stuart Williams
     Jens-Uwe Mager
+    Justas Sadzevicius
     Brian Dorsey
     Jonathan David Riehl
-    Anders Qvist
     Beatrice During
+    Elmo Mäntynen
     Andreas Friedge
+    Anders Qvist
     Alan McIntyre
     Bert Freudenberg
     Pieter Zieschang
-    Jean-Paul Calderone
-    Jacob Oscarson
     Ignas Mikalajunas
+    Jacob Oscarson
     Lutz Paelike
+    Benjamin Peterson
+    Michael Schneider
+    Artur Lisiecki
+    Lene Wagner
     Christopher Armstrong
-    Yusei Tahara
-    Andrew Thompson
-    Jacek Generowicz
     Joshua Gilbert
-    Anna Ravencroft
-    Martin Blais
+    Jacek Generowicz
+    Gasper Zejn
+    Stephan Busemann
+    Yusei Tahara
+    Godefroid Chappelle
+    Toby Watson
+    Andrew Thompson
+    Gintautas Miliauskas
+    Anders Sigfridsson
+    Neil Shepperd
     Michael Chermside
+    tav
+    Igor Trindade Oliveira
+    Martin Blais
+    Victor Stinner

@@ -489,6 +489,7 @@ FakeSpace.config.objspace.std = Config()
 FakeSpace.config.objspace.std.withdictmeasurement = False
 FakeSpace.config.objspace.std.withsharingdict = False
 FakeSpace.config.objspace.std.withsmalldicts = False
+FakeSpace.config.objspace.std.withcelldict = False
 FakeSpace.config.objspace.opcodes = Config()
 FakeSpace.config.objspace.opcodes.CALL_LIKELY_BUILTIN = False
 

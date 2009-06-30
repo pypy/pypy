@@ -117,8 +117,8 @@ def c_char_array_constant(s):
     where N is exactly len(s).  This is either a " "-delimited
     string or a { }-delimited array of small integers.
     '''
-    if s.endswith('\x00') and len(s) < 1024:
-        # C++ is stricted than C: we can only use a " " literal
+    if s.endswith('\x00') and 1 < len(s) < 1024:
+        # C++ is stricter than C: we can only use a " " literal
         # if the last character is NULL, because such a literal
         # always has an extra implicit NULL terminator.
         return c_string_constant(s[:-1])

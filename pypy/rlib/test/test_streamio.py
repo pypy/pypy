@@ -590,6 +590,83 @@ class TestCRLFFilterLLinterp(BaseTestCRLFFilter, LLRtypeMixin):
 class TestCRLFFilterOOinterp(BaseTestCRLFFilter, OORtypeMixin):
     pass
 
+class BaseTestTextCRLFFilter(BaseRtypingTest):
+    def test_simple(self):
+        packets = ["abc\r\n", "abc\r", "\nd\r\nef\r\ngh", "a\rbc\r", "def\n",
+                   "\r", "\n\r"]
+        expected = ["abc\n", "abc\n", "d\nef\ngh", "a\rbc\r", "def\n", "\n",
+                    "\r"]
+        crlf = streamio.TextCRLFFilter(TSource(packets))
+        def f():
+            blocks = []
+            while True:
+                block = crlf.read(100)
+                if not block:
+                    break
+                blocks.append(block)
+            assert blocks == expected
+        self.interpret(f, [])
+
+    def test_readline_and_seek(self):
+        packets = ["abc\r\n", "abc\r", "\nd\r\nef\r\ngh", "a\rbc\r", "def\n",
+                   "\r", "\n\r"]
+        expected = ["abc\n", "abc\n", "d\n","ef\n", "gha\rbc\rdef\n", "\n",
+                    "\r"]
+        crlf = streamio.TextCRLFFilter(TSource(packets))
+        def f():
+            lines = []
+            while True:
+                pos = crlf.tell()
+                line = crlf.readline()
+                if not line:
+                    break
+                crlf.seek(pos, 0)
+                line2 = crlf.readline()
+                assert line2 == line                         
+                lines.append(line)
+            assert lines == expected
+        self.interpret(f, [])
+
+    def test_seek_relative(self):
+        packets = ["abc\r\n", "abc\r", "\nd\r\nef\r"]
+        expected = ["abc\n", "abc\n", "d\n","ef\r"]
+
+        crlf = streamio.TextCRLFFilter(TSource(packets))
+        def f():
+            lines = []
+            while True:
+                pos = crlf.tell()
+                line = crlf.readline()
+                if not line:
+                    break
+                crlf.seek(0, 1)
+                lines.append(line)
+            assert lines == expected
+        self.interpret(f, [])
+
+    def test_write(self):
+        data = "line1\r\nline2\rline3\r\n"
+        crlf = streamio.TextCRLFFilter(TReaderWriter(data))
+        def f():
+            line = crlf.readline()
+            assert line == 'line1\n'
+            line = crlf.read(6)
+            assert line == 'line2\r'
+            pos = crlf.tell()
+            crlf.write('line3\n')
+            crlf.seek(pos,0)
+            line = crlf.readline()
+            assert line == 'line3\n'
+            line = crlf.readline()
+            assert line == ''
+        self.interpret(f, [])
+
+class TestTextCRLFFilterLLInterp(BaseTestTextCRLFFilter, LLRtypeMixin):
+    pass
+        
+class TestTextCRLFFilterOOInterp(BaseTestTextCRLFFilter, OORtypeMixin):
+    pass
+        
 class TestMMapFile(BaseTestBufferingInputStreamTests):
     tfn = None
     fd = None

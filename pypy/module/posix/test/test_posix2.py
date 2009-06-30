@@ -123,6 +123,12 @@ class AppTestPosix:
         finally:
             posix.stat_float_times(current)
 
+    def test_stat_result(self):
+        st = self.posix.stat_result((0, 0, 0, 0, 0, 0, 0, 41, 42.1, 43))
+        assert st.st_atime == 41
+        assert st.st_mtime == 42.1
+        assert st.st_ctime == 43
+
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)
@@ -280,9 +286,9 @@ class AppTestPosix:
 
     def test_utime(self):
         os = self.posix
-        import os.path
+        from os.path import join
         # XXX utimes & float support
-        path = os.path.join(self.pdir, "test_utime.txt")
+        path = join(self.pdir, "test_utime.txt")
         fh = open(path, "w")
         fh.write("x")
         fh.close()
@@ -358,6 +364,38 @@ class AppTestPosix:
         def test_os_sysconf_error(self):
             os = self.posix
             raises(ValueError, os.sysconf, "!@#$%!#$!@#")
+
+    if hasattr(os, 'fsync'):
+        def test_fsync(self):
+            os = self.posix
+            f = open(self.path2, "w")
+            try:
+                fd = f.fileno()
+                os.fsync(fd)
+            finally:
+                f.close()
+            try:
+                os.fsync(fd)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("os.fsync didn't raise")
+
+    if hasattr(os, 'fdatasync'):
+        def test_fdatasync(self):
+            os = self.posix
+            f = open(self.path2)
+            try:
+                fd = f.fileno()
+                os.fdatasync(fd)
+            finally:
+                f.close()
+            try:
+                os.fdatasync(fd)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("os.fdatasync didn't raise")
 
     def test_largefile(self):
         os = self.posix
@@ -435,6 +473,15 @@ class AppTestPosix:
         for fd in range(start, stop):
             raises(OSError, os.fstat, fd)   # should have been closed
 
+    if hasattr(os, 'chown'):
+        def test_chown(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.chown, self.path, os.getuid(), os.getgid())
+            f = open(self.path, "w")
+            f.write("this is a test")
+            f.close()
+            os.chown(self.path, os.getuid(), os.getgid())
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

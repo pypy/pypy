@@ -72,7 +72,11 @@ def setup_directory_structure(space):
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
     if conftest.option.runappdirect:
-        pass
+        import marshal, stat, struct, os, imp
+        code = py.code.Source(p.join("x.py").read()).compile()
+        s3 = marshal.dumps(code)
+        s2 = struct.pack("i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
+        p.join("x.pyc").write(imp.get_magic() + s2 + s3)
     else:
         w = space.wrap
         w_modname = w("compiled.x")
@@ -164,6 +168,22 @@ class AppTestImport:
         import pkg.a
         assert pkg == sys.modules.get('pkg')
         assert pkg.a == sys.modules.get('pkg.a')
+
+    def test_import_badcase(self):
+        def missing(name):
+            try:
+                __import__(name)
+            except ImportError:
+                pass
+            else:
+                raise Exception("import should not have succeeded: %r" %
+                                (name,))
+        missing("Sys")
+        missing("SYS")
+        missing("fuNCTionAl")
+        missing("pKg")
+        missing("pKg.a")
+        missing("pkg.A")
 
     def test_import_dotted_cache(self):
         import sys

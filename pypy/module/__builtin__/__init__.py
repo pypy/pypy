@@ -49,6 +49,7 @@ class Module(MixedModule):
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
+        '_find_module'  : 'app_misc.find_module',
         'reload'        : 'app_misc.reload',
 
         '__filestub'    : 'app_file_stub.file',

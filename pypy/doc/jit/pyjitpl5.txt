@@ -2,10 +2,20 @@
                               PyJitPl5
 ========================================================================
 
-Current information is available on blog posts (oldest first):
+The documentation about the current JIT is available as a
+first submitted article:
+
+* `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`__
+
+.. __: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit.pdf
+
+as well as blog posts (oldest first):
 
 * http://morepypy.blogspot.com/2008/06/hi-all-some-news-from-jit-front.html
 * http://morepypy.blogspot.com/2008/10/prolog-jit-masters-thesis-finished.html
 * http://morepypy.blogspot.com/2009/03/applying-tracing-jit-to-interpreter.html
 * http://morepypy.blogspot.com/2009/03/jit-bit-of-look-inside.html
 * http://morepypy.blogspot.com/2009/03/good-news-everyone.html
+* http://morepypy.blogspot.com/2009/04/roadmap-for-jit.html
+* http://morepypy.blogspot.com/2009/04/4-weeks-of-gdb.html
+* http://morepypy.blogspot.com/2009/05/icooolps-submissions.html

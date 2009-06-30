@@ -8,7 +8,7 @@ def interactive_console(mainmodule=None):
         from _pypy_irc_topic import some_topic
         text = "And now for something completely different: ``%s''" % (
             some_topic(),)
-        if len(text) >= 80:
+        while len(text) >= 80:
             i = text[:80].rfind(' ')
             print text[:i]
             text = text[i+1:]

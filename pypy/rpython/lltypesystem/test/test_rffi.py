@@ -5,7 +5,6 @@ from pypy.rpython.lltypesystem.rffi import *
 from pypy.rpython.lltypesystem.rffi import _keeper_for_type # crap
 from pypy.rlib.rposix import get_errno, set_errno
 from pypy.translator.c.test.test_genc import compile as compile_c
-from pypy.translator.llvm.test.runtest import compile_function as compile_llvm
 from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
@@ -742,26 +741,6 @@ class TestCRffi(BaseTestRffi):
 
     def test_generate_return_char_tests(self):
         py.test.skip("GenC does not handle char return values correctly")
-
-class TestLLVMRffi(BaseTestRffi):
-    def compile(self, func, args, **kwds):
-        # pfff....
-        if 'backendopt' in kwds:
-            kwds['optimize'] = kwds['backendopt']
-            del kwds['backendopt']
-        return compile_llvm(func, args, **kwds)
-
-    def test_nonmovingbuffer(self):
-        py.test.skip("Somewhat buggy...")
-
-    test_nonmoving = test_nonmovingbuffer
-
-    def test_nonmovingbuffer_semispace(self):
-        py.test.skip("LLVM backend error - unsupported operator")
-
-    def test_hashdefine(self):
-        py.test.skip("Macros cannot be called as llexternals by design, rffi does not have any special support for them")
-
 
 def test_enforced_args():
     from pypy.annotation.model import s_None

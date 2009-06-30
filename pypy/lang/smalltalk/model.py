@@ -20,7 +20,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants, error
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.objectmodel import instantiate
-from pypy.lang.smalltalk.tool.bitmanipulation import splitter
+from pypy.rlib.bitmanipulation import splitter
 
 class W_Object(object):
     """Root of Squeak model, abstract."""

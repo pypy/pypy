@@ -1,4 +1,3 @@
-from __future__ import generators
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
@@ -294,19 +293,15 @@ class FunctionCodeGenerator(object):
                     raise TypeError("exitswitch type not supported"
                                     "  Got %r" % (TYPE,))
 
-    def gen_link(self, link, linklocalvars=None):
+    def gen_link(self, link):
         "Generate the code to jump across the given Link."
         is_alive = {}
-        linklocalvars = linklocalvars or {}
         assignments = []
         for a1, a2 in zip(link.args, link.target.inputargs):
             a2type, a2typename = self.lltypes[id(a2)]
             if a2type is Void:
                 continue
-            if a1 in linklocalvars:
-                src = linklocalvars[a1]
-            else:
-                src = self.expr(a1)
+            src = self.expr(a1)
             dest = LOCALVAR % a2.name
             assignments.append((a2typename, dest, src))
         for line in gen_assignments(assignments):

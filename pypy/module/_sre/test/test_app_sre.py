@@ -2,6 +2,8 @@
 import autopath
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
+from pypy.conftest import gettestobjspace, option
+from py.__.test.outcome import Skipped
 
 def init_globals_hack(space):
     space.appexec([space.wrap(autopath.this_dir)], """(this_dir):
@@ -284,6 +286,10 @@ class AppTestGetlower:
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
+        try:
+            cls.space = gettestobjspace(usemodules=('_locale',))
+        except Skipped:
+            cls.space = gettestobjspace(usemodules=('_rawffi',))
         init_globals_hack(cls.space)
 
     def setup_method(self, method):
@@ -311,7 +317,7 @@ class AppTestGetlower:
                 sre_constants.SRE_FLAG_LOCALE)
         except locale.Error:
             # skip test
-            pass
+            skip("unsupported locale de_DE")
 
     def test_getlower_unicode(self):
         import sre_constants
@@ -540,6 +546,10 @@ class AppTestMarksStack:
 class AppTestOpcodes:
 
     def setup_class(cls):
+        try:
+            cls.space = gettestobjspace(usemodules=('_locale',))
+        except Skipped:
+            cls.space = gettestobjspace(usemodules=('_rawffi',))
         # This imports support_test_sre as the global "s"
         init_globals_hack(cls.space)
 
@@ -628,7 +638,7 @@ class AppTestOpcodes:
             locale.resetlocale() # is this the right way to rest the locale?
         except locale.Error:
             # skip test
-            pass
+            skip("locale error")
 
     def test_at_uni_boundary(self):
         UPPER_PI = u"\u03a0"
@@ -722,7 +732,7 @@ class AppTestOpcodes:
             s.void_locale()
         except locale.Error:
             # skip test
-            pass
+            skip("locale error")
 
     def test_any(self):
         opcodes = s.encode_literal("b") + [s.OPCODES["any"]] \

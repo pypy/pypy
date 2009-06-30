@@ -338,3 +338,11 @@ class AppCoState(BaseCoState):
 def return_main(space):
     return AppCoroutine._get_state(space).main
 return_main.unwrap_spec = [ObjSpace]
+
+def get_stack_depth_limit(space):
+    return space.wrap(rstack.get_stack_depth_limit())
+get_stack_depth_limit.unwrap_spec = [ObjSpace]
+
+def set_stack_depth_limit(space, limit):
+    rstack.set_stack_depth_limit(limit)
+set_stack_depth_limit.unwrap_spec = [ObjSpace, int]

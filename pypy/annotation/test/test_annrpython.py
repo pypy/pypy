@@ -425,6 +425,14 @@ class TestAnnotateTestCase:
             s_meth = s_example.getattr(iv(methname))
             assert isinstance(s_constmeth, annmodel.SomeBuiltin)
 
+    def test_str_splitlines(self):
+        a = self.RPythonAnnotator()
+        def f(a_str):
+            return a_str.splitlines()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeList)
+        assert s.listdef.listitem.resized
+
     def test_simple_slicing(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.simple_slice, [list])
@@ -2402,6 +2410,7 @@ class TestAnnotateTestCase:
         a.build_types(fun, [])
         a.annotate_helper_method(A, "helper", [])
         assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
+        assert a.bookkeeper.getdesc(A().helper).getuniquegraph()
 
     def test_chr_out_of_bounds(self):
         def g(n, max):
@@ -2736,30 +2745,6 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeInteger)
 
-    def test_unionof_some_external_builtin(self):
-        from pypy.rpython.ootypesystem.bltregistry import BasicExternal
-        
-        class A(BasicExternal):
-            pass
-
-        class B(A):
-            pass
-
-        class C(A):
-            pass
-
-        def f(x):
-            if x:
-                return B()
-            else:
-                return C()
-
-        P = policy.AnnotatorPolicy()
-        P.allow_someobjects = False
-        a = self.RPythonAnnotator(policy=P)
-        s = a.build_types(f, [bool])
-        assert isinstance(s, annmodel.SomeExternalInstance)        
-
     def test_instance_with_flags(self):
         py.test.skip("not supported any more")
         from pypy.rlib.jit import hint
@@ -3091,7 +3076,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.translator.config.translation.list_comprehension_operations = True
         py.test.raises(TooLateForChange, a.build_types, fn, [int])
-            
 
     def test_listitem_never_resize(self):
         from pypy.rlib.debug import check_annotation

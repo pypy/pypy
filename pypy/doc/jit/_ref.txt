@@ -1,8 +1,0 @@
-.. _`demo/jit/`: ../../../demo/jit
-.. _`demo/jit/f1.py`: ../../../demo/jit/f1.py
-.. _`rpython/rlist.py`: ../../../pypy/rpython/rlist.py
-.. _`pypy/jit/codegen/model.py`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/codegen/model.py
-.. _`pypy/jit/timeshifter/rvalue.py`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/timeshifter/rvalue.py
-.. _`pypy/jit/tl/targettiny1.py`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/tl/targettiny1.py
-.. _`pypy/jit/tl/tiny1.py`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/tl/tiny1.py
-.. _`pypy/jit/tl/tiny2.py`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/tl/tiny2.py

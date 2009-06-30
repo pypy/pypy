@@ -6,6 +6,5 @@ class Directory(py.test.collect.Directory):
         try:
             check_sdl_installation()
         except SDLNotInstalled, e:
-            raise
             py.test.skip("SDL not installed(?): %s" % (e,))
         return py.test.collect.Directory.collect(self)

@@ -309,11 +309,6 @@ class AppTestBuiltinApp:
         raises(RuntimeError, cmp, c1, c2)
 
     def test_cmp_cyclic(self):
-        import sys
-        if hasattr(sys, 'pypy_translation_info'):
-            if sys.pypy_translation_info.get('translation.stackless'):
-                skip("this consumes all memory with stackless")
-
         if not self.sane_lookup:
             skip("underlying Python implementation has insane dict lookup")
         a = []; a.append(a)

@@ -133,9 +133,6 @@ def print_error(msg):
     print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
 
 def set_unbuffered_io():
-    if os.name == 'nt':
-        raise NotImplementedError("binary stdin/stdout not implemented "
-                                  "on Windows")
     sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
     sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
     sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)

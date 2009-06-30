@@ -1,7 +1,18 @@
 # -*- coding: iso-8859-1 -*-
+from pypy.conftest import option
 
-class AppTestObject: 
+class AppTestObject:
+
+    def setup_class(cls):
+        import sys
+        cpython_behavior = (not option.runappdirect
+                            or not hasattr(sys, 'pypy_translation_info'))
+                
+        cls.w_cpython_behavior = cls.space.wrap(cpython_behavior)        
+    
     def test_hash_builtin(self):
+        if not self.cpython_behavior:
+            skip("on pypy-c id == hash is not guaranteed")
         import sys
         o = object()
         assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
@@ -23,7 +34,8 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
+        if self.cpython_behavior:
+            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):

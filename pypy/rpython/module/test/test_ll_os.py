@@ -35,6 +35,19 @@ def test_times():
     for value in times:
         assert isinstance(value, float)
 
+def test_utimes():
+    if os.name != 'nt':
+        py.test.skip('Windows specific feature')
+    # Windows support centiseconds
+    def f(fname, t1):
+        os.utime(fname, (t1, t1))
+
+    fname = udir.join('test_utimes.txt')
+    fname.ensure()
+    t1 = 1159195039.25
+    compile(f, (str, float))(str(fname), t1)
+    assert t1 == os.stat(str(fname)).st_mtime
+
 def test__getfullpathname():
     if os.name != 'nt':
         py.test.skip('nt specific function')
@@ -71,7 +84,13 @@ def test_execve():
 
     ll_execve = getllimpl(os.execve)
 
-    def run_execve(program, env):
+    def run_execve(program, args=None, env=None, do_path_lookup=False):
+        if args is None:
+            args = [program]
+        else:
+            args = [program] + args
+        if env is None:
+            env = {}
         # we cannot directly call ll_execve() because it replaces the
         # current process.
         fd_read, fd_write = os.pipe()
@@ -81,7 +100,10 @@ def test_execve():
             os.close(fd_read)
             os.dup2(fd_write, 1)     # stdout
             os.close(fd_write)
-            ll_execve(program, [program], env)
+            if do_path_lookup:
+                os.execvp(program, args)
+            else:
+                ll_execve(program, args, env)
             assert 0, "should not arrive here"
         else:
             # in the parent
@@ -96,15 +118,17 @@ def test_execve():
             return status, ''.join(child_stdout)
 
     # Test exit status and code
-    result, child_stdout = run_execve("/bin/true", {})
+    result, child_stdout = run_execve("/usr/bin/which", ["true"], do_path_lookup=True)
+    result, child_stdout = run_execve(child_stdout.strip()) # /bin/true or /usr/bin/true
     assert os.WIFEXITED(result)
     assert os.WEXITSTATUS(result) == 0
-    result, child_stdout = run_execve("/bin/false", {})
+    result, child_stdout = run_execve("/usr/bin/which", ["false"], do_path_lookup=True)
+    result, child_stdout = run_execve(child_stdout.strip()) # /bin/false or /usr/bin/false
     assert os.WIFEXITED(result)
     assert os.WEXITSTATUS(result) == 1
 
     # Test environment
-    result, child_stdout = run_execve("/usr/bin/env", EXECVE_ENV)
+    result, child_stdout = run_execve("/usr/bin/env", env=EXECVE_ENV)
     assert os.WIFEXITED(result)
     assert os.WEXITSTATUS(result) == 0
     assert dict([line.split('=') for line in child_stdout.splitlines()]) == EXECVE_ENV

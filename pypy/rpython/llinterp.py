@@ -893,6 +893,12 @@ class LLFrame(object):
     def op_stack_capture(self):
         raise NotImplementedError("stack_capture")
 
+    def op_get_stack_depth_limit(self):
+        raise NotImplementedError("get_stack_depth_limit")
+
+    def op_set_stack_depth_limit(self):
+        raise NotImplementedError("set_stack_depth_limit")
+
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():
         exec py.code.Source("""

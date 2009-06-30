@@ -196,7 +196,7 @@ class AppTest_Greenlet:
 
 # ____________________________________________________________
 #
-# The tests from py.magic.greenlet
+# The tests from greenlets.
 # For now, without the ones that involve threads
 #
 class AppTest_PyMagicTestGreenlet:

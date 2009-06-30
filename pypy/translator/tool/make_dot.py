@@ -1,8 +1,3 @@
-from __future__ import generators
- 
-"""
-"""
-
 import autopath, os
 import inspect, linecache
 from pypy.objspace.flow.model import *

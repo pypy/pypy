@@ -140,6 +140,153 @@ class AppTestPyFrame:
         assert len(l) == 1
         assert isinstance(l[0][1], Exception)
 
+    def test_trace_print_hidden(self):
+        import sys
+        l = []
+        def trace(a,b,c):
+            l.append((a,b,c))
+
+        def f():
+            print 'foo!'
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 1
+        assert l[0][1] == 'call'
+
+    def test_trace_return_exc(self):
+        import sys
+        l = []
+        def trace(a,b,c): 
+            if b in ('exception', 'return'):
+                l.append((b, c))
+            return trace
+
+        def g():
+            raise Exception            
+        def f():
+            try:
+                g()
+            except:
+                pass
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 4
+        assert l[0][0] == 'exception'
+        assert isinstance(l[0][1][1], Exception)
+        assert l[1] == ('return', None)
+        assert l[2][0] == 'exception'
+        assert isinstance(l[2][1][1], Exception)
+        assert l[3] == ('return', None)
+
+    def test_trace_raises_on_return(self):
+        import sys
+        def trace(frame, event, arg):
+            if event == 'return':
+                raise ValueError
+            else:
+                return trace
+
+        def f(): return 1
+
+        for i in xrange(sys.getrecursionlimit() + 1):
+            sys.settrace(trace)
+            try:
+                f()
+            except ValueError:
+                pass
+
+    def test_trace_try_finally(self):
+        import sys
+        l = []
+        def trace(frame, event, arg):
+            if event == 'exception':
+                l.append(arg)
+            return trace
+
+        def g():
+            try:
+                raise Exception
+            finally:
+                pass
+
+        def f():
+            try:
+                g()
+            except:
+                pass
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 2
+        assert issubclass(l[0][0], Exception)
+        assert issubclass(l[1][0], Exception)
+
+    def test_trace_raise_three_arg(self):
+        import sys
+        l = []
+        def trace(frame, event, arg):
+            if event == 'exception':
+                l.append(arg)
+            return trace
+
+        def g():
+            try:
+                raise Exception
+            except Exception, e:
+                import sys
+                raise Exception, e, sys.exc_info()[2]
+
+        def f():
+            try:
+                g()
+            except:
+                pass
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 2
+        assert issubclass(l[0][0], Exception)
+        assert issubclass(l[1][0], Exception)
+        
+
+    def test_trace_generator_finalisation(self):
+        # XXX expand to check more aspects
+        import sys
+        l = []
+        def trace(frame, event, arg):
+            if event == 'exception':
+                l.append(arg)
+            return trace
+
+        d = {}
+        exec """if 1:
+        def g():
+            try:
+                yield True
+            finally:
+                pass
+
+        def f():
+            try:
+                gen = g()
+                gen.next()
+                gen.close()
+            except:
+                pass
+        """ in d
+        f = d['f']
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 1
+        assert issubclass(l[0][0], GeneratorExit)
+
     def test_dont_trace_on_reraise(self):
         import sys
         l = []

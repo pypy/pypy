@@ -1,4 +1,4 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 from py.test import skip
 
 
@@ -115,3 +115,50 @@ class AppTest_Coroutine:
             pass
         co.bind(f)
         raises(ValueError, co.bind, f)
+
+
+class AppTestDirect:
+    def setup_class(cls):
+        if not option.runappdirect:
+            skip('pure appdirect test (run with -A)')
+        cls.space = gettestobjspace(usemodules=('_stackless',))
+
+    def test_stack_depth_limit(self):
+        import sys
+        import _stackless as stackless
+        st = stackless.get_stack_depth_limit()
+        try:
+            stackless.set_stack_depth_limit(1)
+            assert stackless.get_stack_depth_limit() == 1
+            try:
+                co = stackless.coroutine()
+                def f():
+                    pass
+                co.bind(f)
+                co.switch()
+            except RuntimeError:
+                pass
+        finally:
+            stackless.set_stack_depth_limit(st)
+
+class TestRandomThings:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('_stackless',))
+    
+    def test___del___handling(self):
+        space = self.space
+        w_l = space.newlist([])
+        coro = space.appexec([w_l], """(l):
+            from _stackless import coroutine
+            class MyCoroutine(coroutine):
+                def __del__(self):
+                    l.append(self.is_zombie)
+            return MyCoroutine()
+        """)
+        coro.__del__()
+        space.user_del_action.perform(space.getexecutioncontext(), None)
+        coro._kill_finally()
+        assert space.int_w(space.len(w_l)) == 1
+        res = space.is_true(space.getitem(w_l, space.wrap(0)))
+        assert res
+

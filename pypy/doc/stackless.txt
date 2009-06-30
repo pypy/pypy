@@ -30,7 +30,7 @@ the _stackless module by running it as follows::
     py.py --withmod-_stackless
 
 This is implemented internally using greenlets, so it only works on a
-platform where `Py lib greenlets`_ are supported.  A few features do
+platform where `greenlets`_ are supported.  A few features do
 not work this way, though, and really require a translated
 ``pypy-c``.
 
@@ -75,6 +75,12 @@ an initial recursion limit (which is 5000 in all pypy-c's, and 1000 in
 CPython).  It can be changed with ``sys.setrecursionlimit()``.  With a
 stackless PyPy, any value is acceptable - use ``sys.maxint`` for
 unlimited.
+
+In some cases, you can write Python code that causes interpreter-level
+infinite recursion -- i.e. infinite recursion without going via
+application-level function calls.  It is possible to limit that too,
+with ``_stackless.set_stack_depth_limit()``, or to unlimit it completely
+by setting it to ``sys.maxint``.
 
 
 Coroutines
@@ -253,10 +259,10 @@ to Coroutines, with a slightly different interface: greenlets put more
 emphasis on a tree structure.  The various greenlets of a program form a
 precise tree, which fully determines their order of execution.
 
-For usage reference, see the documentation of the `Py lib greenlets`_.
-The PyPy interface is identical.  You should use ``py.magic.greenlet``
-instead of ``stackless.greenlet`` directly, because the Py lib can now
-give you the latter when you ask for the former on top of PyPy.
+For usage reference, see the `documentation of the greenlets`_.
+The PyPy interface is identical.  You should use ``greenlet.greenlet``
+instead of ``stackless.greenlet`` directly, because the greenlet library
+can give you the latter when you ask for the former on top of PyPy.
 
 PyPy's greenlets do not suffer from the cyclic GC limitation that the
 CPython greenlets have: greenlets referencing each other via local
@@ -431,86 +437,10 @@ does not have full control over which of the objects currently reachable
 from a coroutine will be duplicated, and which will be shared with the
 original coroutine.
 
-For this reason, we implemented a direct cloning operation.  After some
-experiments, we determined that the following behavior is usually
-considered correct: when cloning a coroutine C, we duplicate exactly
-those objects that were created by C (i.e. while C was running).  The
-objects not created by C (e.g. pre-existing, or created outside) are not
-duplicated, but directly shared between C and its new copy.  This
-heuristic generally matches the intuition that the objects created by C
-are also the ones "owned" by C, in the sense that if C is cloned,
-the clone needs its own copy - to avoid mutating the same shared object
-in confliciting ways.  Conversely, objects of a more "global" nature, like
-modules and functions, which are typically created before the coroutine
-C started, should not be duplicated; this would result in unexpectedly
-invisible side-effects if they are mutated by the clone of C.
-
-The implementation of the above heuristic is based on support from the
-garbage collector.  For this reason, it is only available if both
-stackless and our own framework GC are compiled together in pypy-c::
-
-    cd pypy/translator/goal
-    python translate.py --stackless --gc=framework
-
-In this mode, our garbage collector is extended to support the notion of
-"pool": a pool is a linked list of allocated objects.  All objects
-allocated go to a "current" pool.  When the stackless module switches
-execution between two ClonableCoroutine objects, it switches the GC's
-current pool as well, so that the allocated objects end up segregated by
-coroutine.  Cloning is implemented by another GC extension which makes
-byte-level copies of allocated objects.  Pointers to objects inside the
-current pool cause the target objects to be recursively copied; pointers
-outside the current pool are simply shared.
-
-Two interfaces are available to clone a coroutine:
-
-* ``coro.clone()``
-
-    Clones a suspended coroutine, returning the new copy.
-
-* ``fork()``
-
-    This global function (from the ``_stackless`` module) clones the
-    currently running coroutine, returning the new copy - which, in this
-    case, is a children of the original coroutine (i.e. its parent is
-    the original coroutine).  When the parent or any other coroutine
-    eventually switches to the child, execution appears to return from
-    the same ``fork()`` call, this time with a ``None`` return value.
-
-
-Example
-~~~~~~~
-
-Forking is a natural way to implement backtracking.  Consider a
-coroutine other than the main one (the main coroutine cannot be cloned
-or forked) which issues a call to the following function::
-
-    def zero_or_one():
-        subcoro = fork()
-        if subcoro is not None:
-            try:
-                subcoro.switch()     # in the parent: run the child first
-            except Fail:
-                pass
-            return 1                 # then proceed with answer 1
-        else:
-            return 0                 # in the child: answer 0
-
-It clones the current coroutine, and switches to the new child.  In the
-latter, ``zero_or_one()`` returns 0, so the caller sees the value 0
-first.  But at any later point in time (even from a completely unrelated
-place, as long as it is still in the same coroutine) the caller may
-decide that 0 is not a suitable value, and backtrack and try again with
-the value 1.  To do so, it simply raises a Fail exception.  The
-exception stops the child coroutine, which comes back to the parent,
-where the Fail is caught and the value 1 is returned from
-``zero_or_one()``.
-
-The tests in `pypy/module/_stackless/test/test_clonable.py`_ contain an
-example using exactly the above function to search for a sequence of
-zeroes and ones that has a specific property, by trial-and-error.  This
-allow a style that looks similar to what is traditionally reserved to
-logic programming languages.
+For this reason, we implemented a direct cloning operation.  It has been
+deprecated for some time, however, as it was slightly buggy and relied
+on a specific (and deprecated) garbage collector.  It is not available
+out of the box right now, so we will not talk any more about this.
 
 
 Composability
@@ -679,7 +609,7 @@ scale automatically to larger programs.
 
 
 .. _`Stackless Python`: http://www.stackless.com
-.. _`Py lib greenlets`: http://codespeak.net/py/current/doc/greenlet.html
+.. _`documentation of the greenlets`: http://codespeak.net/svn/greenlet/trunk/doc/greenlet.txt
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
 .. include:: _ref.txt

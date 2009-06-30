@@ -161,10 +161,25 @@ class TestGateway:
         def g(space, b):
             return space.wrap(b)
         app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, bool])
+        app_g2 = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, bool])
+        assert app_g is app_g2
         w_app_g = space.wrap(app_g)
         assert self.space.eq_w(space.call_function(w_app_g, space.wrap(True)),
                                space.wrap(True))
 
+    def test_caching_methods(self):
+        class Base(gateway.Wrappable):
+            def f(self):
+                return 1
+
+        class A(Base):
+            pass
+        class B(Base):
+            pass
+        app_A = gateway.interp2app(A.f)
+        app_B = gateway.interp2app(B.f)
+        assert app_A is not app_B
+        
     def test_interp2app_unwrap_spec_nonnegint(self):
         space = self.space
         w = space.wrap
@@ -172,6 +187,9 @@ class TestGateway:
             return space.wrap(x * 6)
         app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
                                                    'nonnegint'])
+        app_g2 = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
+                                                   'nonnegint'])
+        assert app_g is app_g2
         w_app_g = space.wrap(app_g)
         assert self.space.eq_w(space.call_function(w_app_g, space.wrap(7)),
                                space.wrap(42))

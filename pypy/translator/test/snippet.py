@@ -666,6 +666,17 @@ def t_attrerror(x):
         return 567
 
 
+class Exc(Exception):
+    def __init__(self, v):
+        Exception.__init__(self, v)    
+
+def exception_subclass_sanity(x):
+    try:
+        raise Exc(x)
+    except Exception, e:
+        return e.args[0]
+    
+
 # --------------------(Currently) Non runnable Functions ---------------------
 
 def _somebug1(n=int):

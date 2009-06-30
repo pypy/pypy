@@ -12,7 +12,7 @@ class AppTestRCTime:
         assert isinstance(rctime.altzone, int)
         assert isinstance(rctime.daylight, int)
         assert isinstance(rctime.timezone, int)
-        assert isinstance(rctime.tzname, list)
+        assert isinstance(rctime.tzname, tuple)
         assert isinstance(rctime.__doc__, str)
     
     def test_sleep(self):
@@ -29,9 +29,12 @@ class AppTestRCTime:
 
     def test_time(self):
         import time as rctime
-        rctime.time()
+        t1 = rctime.time()
         assert isinstance(rctime.time(), float)
         assert rctime.time() != 0.0 # 0.0 means failure
+        rctime.sleep(0.02)
+        t2 = rctime.time()
+        assert t1 != t2       # the resolution should be at least 0.01 secs
 
     def test_ctime(self):
         import time as rctime

@@ -170,6 +170,7 @@ public class ll_os implements Constants {
     static public interface Libc extends Library {
         public int getpid();
         public int symlink(String path1, String path2);
+        public int access(String path, int mode);
     }
     static final Libc libc;
     static {
@@ -274,6 +275,30 @@ public class ll_os implements Constants {
         }
 
         return file;
+    }
+    
+    public boolean ll_os_access(String path, int mode) {
+        final int F_OK = 0;
+        final int X_OK = 1;
+        final int W_OK = 2;
+        final int R_OK = 4; // XXX can we load these from RPython somehow?
+        
+        File file = new File(path);
+
+        if (!file.exists())
+            return false;
+        
+        // These methods only exist in Java 1.6:    
+        //if ((mode & R_OK) != 0 && !file.canRead())
+        //    return false;
+        //
+        //if ((mode & W_OK) != 0 && !file.canWrite())
+        //    return false;
+        //
+        //if ((mode & X_OK) != 0 && !file.canExecute())
+        //    return false;
+        
+        return libc.access(path, mode) == 0; // note that 0==success
     }
 
     public int ll_os_open(String name, int flags, int mode)

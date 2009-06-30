@@ -159,7 +159,11 @@ except AttributeError:
             return self._get_code(mod_name)
 
         def get_data(self, pathname):
-            return open(pathname, "rb").read()
+            f = open(pathname, "rb")
+            try:
+                return f.read()
+            finally:
+                f.close()
 
         def get_filename(self, mod_name=None):
             mod_name = self._fix_name(mod_name)
@@ -252,6 +256,7 @@ except AttributeError:
             if isinstance(absolute_loader, _FileSystemLoader):
                 # Found in filesystem, so scan path hooks
                 # before accepting this one as the right one
+                absolute_loader.close()
                 loader = None
             else:
                 # Not found in filesystem, so use top-level loader
@@ -419,14 +424,17 @@ def run_module(mod_name, init_globals=None,
     loader = _get_loader(mod_name)
     if loader is None:
         raise ImportError("No module named " + mod_name)
-    code = loader.get_code(mod_name)
-    if code is None:
-        raise ImportError("No code object available for " + mod_name)
-    filename = _get_filename(loader, mod_name)
-    if run_name is None:
-        run_name = mod_name
-    return _run_module_code(code, init_globals, run_name,
-                            filename, loader, alter_sys)
+    try:
+        code = loader.get_code(mod_name)
+        if code is None:
+            raise ImportError("No code object available for " + mod_name)
+        filename = _get_filename(loader, mod_name)
+        if run_name is None:
+            run_name = mod_name
+        return _run_module_code(code, init_globals, run_name,
+                                filename, loader, alter_sys)
+    finally:
+        loader.close()
 
 
 if __name__ == "__main__":

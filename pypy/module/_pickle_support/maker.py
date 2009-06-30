@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError 
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
@@ -77,6 +78,27 @@ def xrangeiter_new(space, current, remaining, step):
     new_iter = W_XRangeIterator(space, current, remaining, step)
     return space.wrap(new_iter)
 xrangeiter_new.unwrap_spec = [ObjSpace, int, int, int]
+
+def builtin_code(space, identifier):
+    from pypy.interpreter import gateway
+    try:
+        return gateway.BuiltinCode.find(identifier)
+    except KeyError:
+        raise OperationError(space.w_RuntimeError, 
+                             space.wrap("cannot unpickle builtin code: "+
+                                        identifier))
+builtin_code.unwrap_spec = [ObjSpace, str]
+        
+def builtin_function(space, identifier):
+    from pypy.interpreter import function
+    try:
+        return function.Function.find(identifier)
+    except KeyError:
+        raise OperationError(space.w_RuntimeError, 
+                             space.wrap("cannot unpickle builtin function: "+
+                                        identifier))
+builtin_function.unwrap_spec = [ObjSpace, str]
+
 
 # ___________________________________________________________________
 # Helper functions for internal use

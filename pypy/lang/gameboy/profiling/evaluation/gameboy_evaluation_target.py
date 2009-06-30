@@ -1,5 +1,4 @@
 
-from pypy.lang.gameboy.debug import debug
 from pypy.lang.gameboy.profiling.evaluation.gameboy_evaluation_implementation import *
 import py
 import sys

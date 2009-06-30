@@ -472,12 +472,18 @@ namespace pypy.runtime
 
         public static bool Equal<T>(T t1, T t2) 
         { 
-            return t1.Equals(t2);
+            if (t1 == null)
+              return (t2 == null);
+            else
+              return t1.Equals(t2);
         }
 
         public static int GetHashCode<T>(T obj)
         {
-            return obj.GetHashCode();
+            if (obj == null)
+              return 0;
+            else
+              return obj.GetHashCode();
         }
 
         public static void throwInvalidBlockId(uint blockid)
@@ -1069,4 +1075,13 @@ namespace pypy.builtin
             System.Threading.Thread.Sleep((int)(seconds*1000));
         }
     }
+
+    public class rffi
+    {
+      public static int tolower(int chr)
+      {
+        return (int)Char.ToLower((char)chr);
+      }
+    }
+
 }

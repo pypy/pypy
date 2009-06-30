@@ -211,6 +211,7 @@ def make_encoder_wrapper(name):
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(len(uni))])
+    wrap_encoder.func_name = rname
     wrap_encoder.unwrap_spec = [ObjSpace, unicode, str]
     globals()[name] = wrap_encoder
 
@@ -224,6 +225,7 @@ def make_decoder_wrapper(name):
         result, consumed = func(string, len(string), errors,
                                 final, state.decode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    wrap_decoder.func_name = rname
     wrap_decoder.unwrap_spec = [ObjSpace, 'bufferstr', str, W_Root]
     globals()[name] = wrap_decoder
 

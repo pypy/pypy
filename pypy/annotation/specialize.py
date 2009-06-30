@@ -123,10 +123,10 @@ class MemoTable:
         example_args, example_value = self.table.iteritems().next()
         nbargs = len(example_args)
         # list of sets of possible argument values -- one set per argument index
-        sets = [{} for i in range(nbargs)]
+        sets = [set() for i in range(nbargs)]
         for args in self.table:
             for i in range(nbargs):
-                sets[i][args[i]] = True
+                sets[i].add(args[i])
 
         bookkeeper = self.funcdesc.bookkeeper
         annotator = bookkeeper.annotator
@@ -233,8 +233,8 @@ class MemoTable:
 
         # schedule this new graph for being annotated
         args_s = []
-        for set in sets:
-            values_s = [bookkeeper.immutablevalue(x) for x in set]
+        for arg_types in sets:
+            values_s = [bookkeeper.immutablevalue(x) for x in arg_types]
             args_s.append(unionof(*values_s))
         annotator.addpendinggraph(self.graph, args_s)
 

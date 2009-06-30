@@ -306,7 +306,7 @@ class CodeGenerator(ast.ASTVisitor):
         gen = FunctionCodeGenerator(self.space, node, isLambda,
                                     self.get_module(), initialnode)
         node.code.accept( gen )
-        gen.finish()
+        gen.finish(node)
         self.set_lineno(node)
         for default in node.defaults:
             default.accept( self )
@@ -330,7 +330,7 @@ class CodeGenerator(ast.ASTVisitor):
         gen = ClassCodeGenerator(self.space, node,
                                  self.get_module())
         node.code.accept( gen )
-        gen.finish()
+        gen.finish(node)
         self.set_lineno(node)
         self.emitop_obj('LOAD_CONST', self.space.wrap(node.name) )
         for base in node.bases:
@@ -631,7 +631,7 @@ class CodeGenerator(ast.ASTVisitor):
         inner = node.code
         assert isinstance(inner, ast.GenExprInner)
         inner.accept( gen )
-        gen.finish()
+        gen.finish(node)
         self.set_lineno(node)
         self._makeClosure(gen, 0)
         # precomputation of outmost iterable
@@ -761,6 +761,7 @@ class CodeGenerator(ast.ASTVisitor):
                 self.emitop_block('JUMP_IF_FALSE', next)
                 self.emit('POP_TOP')
             else:
+                self.set_lineno(body)
                 next = None
             self.emit('POP_TOP')
             if target:
@@ -1351,7 +1352,8 @@ class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, scope, func, isLambda, mod, initialnode=None):
         assert scope is not None
         self.scope = scope
-        self.localsfullyknown = self.scope.locals_fully_known()
+        self.localsfullyknown = self.scope.locals_fully_known() and \
+            not self.scope.has_exec
         self.module = mod
         if isLambda:
             name = "<lambda>"
@@ -1408,7 +1410,9 @@ class AbstractFunctionCode(CodeGenerator):
     def get_module(self):
         return self.module
 
-    def finish(self):
+    def finish(self, node=None):
+        if node:
+            self.set_lineno(node.flatten()[-1])
         if not self.isLambda:
             self.emitop_obj('LOAD_CONST', self.space.w_None)
         self.emit('RETURN_VALUE')
@@ -1472,7 +1476,7 @@ class AbstractClassCode(CodeGenerator):
     def get_module(self):
         return self.module
 
-    def finish(self):
+    def finish(self, node=None):
         self.emit('LOAD_LOCALS')
         self.emit('RETURN_VALUE')
 

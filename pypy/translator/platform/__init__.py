@@ -32,7 +32,10 @@ class CompilationError(Exception):
         self.err = err.replace('\r\n', '\n')
 
     def __repr__(self):
-        return "<CompilationError err=%s>" % safe_repr._repr(self.err)
+        if self.err:
+            return "<CompilationError err=%s>" % safe_repr._repr(self.err)
+        else:
+            return "<CompilationError out=%s>" % safe_repr._repr(self.out)
 
     __str__ = __repr__
 
@@ -100,9 +103,9 @@ class Platform(object):
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr)
             stderrlines = stderr.splitlines()
-            for line in stderrlines[:5]:
+            for line in stderrlines[:20]:
                 log.ERROR(line)
-            if len(stderrlines) > 5:
+            if len(stderrlines) > 20:
                 log.ERROR('...')
             raise CompilationError(stdout, stderr)
 

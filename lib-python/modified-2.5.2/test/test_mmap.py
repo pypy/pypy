@@ -195,9 +195,13 @@ def test_both():
             pass
         else:
             verify(0, "Able to resize readonly memory map")
-        del m, f
-        verify(open(TESTFN, "rb").read() == 'a'*mapsize,
+        m.close()
+        f.close()
+
+        f = open(TESTFN, "rb")
+        verify(f.read() == 'a'*mapsize,
                "Readonly memory map data file was modified")
+        f.close()
 
         print "  Opening mmap with size too big"
         import sys
@@ -247,8 +251,10 @@ def test_both():
         verify(m[:] == 'd' * mapsize,
                "Copy-on-write memory map data not written correctly.")
         m.flush()
-        verify(open(TESTFN, "rb").read() == 'c'*mapsize,
+        f2 = open(TESTFN, "rb")
+        verify(f2.read() == 'c'*mapsize,
                "Copy-on-write test data file should not be modified.")
+        f2.close()
         try:
             print "  Ensuring copy-on-write maps cannot be resized."
             m.resize(2*mapsize)
@@ -256,7 +262,9 @@ def test_both():
             pass
         else:
             verify(0, "Copy-on-write mmap resize did not raise exception.")
-        del m, f
+        m.close()
+        f.close()
+
         try:
             print "  Ensuring invalid access parameter raises exception."
             f = open(TESTFN, "r+b")
@@ -265,6 +273,8 @@ def test_both():
             pass
         else:
             verify(0, "Invalid access code should have raised exception.")
+            m.close()
+        f.close()
 
         if os.name == "posix":
             # Try incompatible flags, prot and access parameters.
@@ -276,12 +286,13 @@ def test_both():
                 pass
             else:
                 verify(0, "Incompatible parameters should raise ValueError.")
+                m.close()
             f.close()
     finally:
         try:
             os.unlink(TESTFN)
         except OSError:
-            pass
+            print 'Could not unlink', TESTFN
 
     print '  Try opening a bad file descriptor...'
     try:

@@ -8,10 +8,12 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app, Arguments
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform as compiler
 from pypy.rlib.rarithmetic import intmask, r_longlong
 import sys
 
-if sys.platform == "win32":
+
+if compiler.name == "msvc":
     libname = 'libbz2'
 else:
     libname = 'bz2'
@@ -265,7 +267,7 @@ def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
                            compresslevel=9):
     from pypy.rlib.streamio import decode_mode, open_path_helper
     from pypy.rlib.streamio import construct_stream_tower
-    os_flags, universal, reading, writing, basemode = decode_mode(mode)
+    os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     if reading and writing:
         raise OperationError(space.w_ValueError,
                              space.wrap("cannot open in read-write mode"))
@@ -281,7 +283,7 @@ def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
         assert writing
         bz2stream = WriteBZ2Filter(space, stream, compresslevel)
     stream = construct_stream_tower(bz2stream, buffering, universal, reading,
-                                    writing)
+                                    writing, binary)
     return stream
 
 

@@ -17,7 +17,7 @@ from pypy.objspace.std.longobject import SHIFT as long_bits
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, unicodehelper
 from pypy.rlib.rstruct import ieee
 
 from pypy.objspace.std.boolobject    import W_BoolObject
@@ -435,25 +435,12 @@ def unmarshal_pycode(space, u, tc):
     return space.wrap(code)
 register(TYPE_CODE, unmarshal_pycode)
 
-app = gateway.applevel(r'''
-    def PyUnicode_EncodeUTF8(data):
-        import _codecs
-        return _codecs.utf_8_encode(data)[0]
-
-    def PyUnicode_DecodeUTF8(data):
-        import _codecs
-        return _codecs.utf_8_decode(data)[0]
-''')
-
-PyUnicode_EncodeUTF8 = app.interphook('PyUnicode_EncodeUTF8')
-PyUnicode_DecodeUTF8 = app.interphook('PyUnicode_DecodeUTF8')
-
 def marshal_w__Unicode(space, w_unicode, m):
-    s = space.str_w(PyUnicode_EncodeUTF8(space, w_unicode))
+    s = space.str_w(unicodehelper.PyUnicode_EncodeUTF8(space, w_unicode))
     m.atom_str(TYPE_UNICODE, s)
 
 def unmarshal_Unicode(space, u, tc):
-    return PyUnicode_DecodeUTF8(space, space.wrap(u.get_str()))
+    return unicodehelper.PyUnicode_DecodeUTF8(space, space.wrap(u.get_str()))
 register(TYPE_UNICODE, unmarshal_Unicode)
 
 app = gateway.applevel(r'''

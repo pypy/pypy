@@ -1,7 +1,7 @@
 """
 Implementation of a part of the standard Python opcodes.
-The rest, dealing with variables in optimized ways, is in
-pyfastscope.py and pynestedscope.py.
+
+The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
 import sys
@@ -64,6 +64,9 @@ unrolling_compare_dispatch_table = unrolling_iterable(
 class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
+    
+    # for logbytecode:
+    last_opcode = -1
     
     ### opcode dispatch ###
 
@@ -141,7 +144,12 @@ class __extend__(pyframe.PyFrame):
                 # dispatch_bytecode(), causing the real exception to be
                 # raised after the exception handler block was popped.
                 try:
-                    ec.bytecode_trace(self)
+                    trace = self.w_f_trace
+                    self.w_f_trace = None
+                    try:
+                        ec.bytecode_trace(self)
+                    finally:
+                        self.w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
@@ -174,7 +182,13 @@ class __extend__(pyframe.PyFrame):
             opcode = ord(co_code[next_instr])
             next_instr += 1
             if space.config.objspace.logbytecodes:
-                space.bytecodecounts[opcode] = space.bytecodecounts.get(opcode, 0) + 1
+                space.bytecodecounts[opcode] += 1
+                try:
+                    probs = space.bytecodetransitioncount[self.last_opcode]
+                except KeyError:
+                    probs = space.bytecodetransitioncount[self.last_opcode] = {}
+                probs[opcode] = probs.get(opcode, 0) + 1
+                self.last_opcode = opcode
 
             if opcode >= HAVE_ARGUMENT:
                 lo = ord(co_code[next_instr])
@@ -293,9 +307,9 @@ class __extend__(pyframe.PyFrame):
 
     ################################################################
     ##  Implementation of the "operational" opcodes
-    ##  See also pyfastscope.py and pynestedscope.py for the rest.
+    ##  See also nestedscope.py for the rest.
     ##
-    
+
     #  the 'self' argument of opcode implementations is called 'f'
     #  for historical reasons
 
@@ -1074,7 +1088,7 @@ class SApplicationException(SuspendedUnroller):
     def __init__(self, operr):
         self.operr = operr
     def nomoreblocks(self):
-        raise self.operr
+        raise RaiseWithExplicitTraceback(self.operr)
 
     def state_unpack_variables(self, space):
         return [self.operr.w_type, self.operr.w_value]

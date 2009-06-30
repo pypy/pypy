@@ -103,7 +103,7 @@ def test_socketio():
             pass
     
     def entry_point(argv):
-        fd = os.open("tcp://google.com:80", os.O_RDONLY, 0777)
+        fd = os.open("tcp://codespeak.net:80", os.O_RDONLY, 0777)
         os.write(fd, 'GET /\n')
         print os.read(fd, 30)
         return 0
@@ -111,7 +111,7 @@ def test_socketio():
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('<HTML><HEAD>')
+    assert output.startswith('<!DOCTYPE')
 
 def test_oserror():
     def entry_point(argv):

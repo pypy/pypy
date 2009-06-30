@@ -29,6 +29,7 @@ class AppTestSHA(object):
         assert self.sha.digestsize == 20
         d = self.sha.sha()
         assert d.digest_size == 20
+        assert d.digestsize == 20
 
 
     def test_SHAType(self):

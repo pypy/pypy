@@ -7,7 +7,6 @@ from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.tool import isolate
@@ -106,7 +105,7 @@ class CBuilder(object):
     def __init__(self, translator, entrypoint, config, gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
-        self.entrypoint_name = self.entrypoint.func_name
+        self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
@@ -157,8 +156,13 @@ class CBuilder(object):
 
         # build entrypoint and eventually other things to expose
         pf = self.getentrypointptr()
-        pfname = db.get(pf)
-        self.c_entrypoint_name = pfname
+        if isinstance(pf, list):
+            for one_pf in pf:
+                db.get(one_pf)
+            self.c_entrypoint_name = None
+        else:
+            pfname = db.get(pf)
+            self.c_entrypoint_name = pfname
         db.complete()
 
         self.collect_compilation_info(db)
@@ -180,9 +184,7 @@ class CBuilder(object):
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
             name = self.config.translation.gctransformer
-            if self.config.translation.gcrootfinder == "llvmgc":
-                name = "%s+llvmgcroot" % (name,)
-            elif self.config.translation.gcrootfinder == "asmgcc":
+            if self.config.translation.gcrootfinder == "asmgcc":
                 name = "%s+asmgcroot" % (name,)
             return gc.name_to_gcpolicy[name]
         return self.gcpolicy
@@ -212,7 +214,6 @@ class CBuilder(object):
         if db is None:
             db = self.build_database()
         pf = self.getentrypointptr()
-        pfname = db.get(pf)
         if self.modulename is None:
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
@@ -232,6 +233,7 @@ class CBuilder(object):
                                                 self.eci,
                                                 defines = defines)
         else:
+            pfname = db.get(pf)
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
@@ -265,12 +267,13 @@ class ModuleWithCleanup(object):
     def __getattr__(self, name):
         mod = self.__dict__['mod']
         obj = getattr(mod, name)
+        parentself = self
         if callable(obj) and getattr(obj, '__module__', None) == mod.__name__:
             # The module must be kept alive with the function.
             # This wrapper avoids creating a cycle.
             class Wrapper:
                 def __init__(self, obj):
-                    self.mod = mod
+                    self.myself = parentself
                     self.func = obj
                 def __call__(self, *args, **kwargs):
                     return self.func(*args, **kwargs)
@@ -780,9 +783,9 @@ def gen_source_standalone(database, modulename, targetdir, eci,
 
     print >> fi, '#define Py_BUILD_CORE  /* for Windows: avoid pulling libs in */'
     print >> fi, '#include "pyconfig.h"'
-    print >> fi, '#include "src/g_prerequisite.h"'
 
     eci.write_c_header(fi)
+    print >> fi, '#include "src/g_prerequisite.h"'
 
     fi.close()
 
@@ -832,9 +835,9 @@ def gen_source(database, modulename, targetdir, eci, defines={}):
         print >> fi, '#define %s %s' % (key, value)
 
     print >> fi, '#include "pyconfig.h"'
-    print >> fi, '#include "src/g_prerequisite.h"'
 
     eci.write_c_header(fi)
+    print >> fi, '#include "src/g_prerequisite.h"'
 
     fi.close()
 

@@ -2,38 +2,19 @@
 Download one of the following release files: 
 =============================================
 
-:warning:
-
-    the 1.0 release is out of date.  We strongly recommend that you
-    use the latest stable version.  See `getting started`_.
-
-.. _`getting started`: getting-started.html#get-via-subversion
-
-PyPy 1.0 Sources:
+PyPy 1.1 Sources:
 -----------------
 
-* `pypy-1.0.0.tar.bz2`_ (sources, unix line endings) or
-* `pypy-1.0.0.tar.gz`_ (sources, unix line endings) or
-* `pypy-1.0.0.zip`_ (sources, windows line-endings) or
+* `pypy-1.1.0.tar.bz2`_ (sources, unix line endings) or
+* `pypy-1.1.0.tar.gz`_ (sources, unix line endings) or
+* `pypy-1.1.0.zip`_ (sources, windows line-endings)
 
-PyPy 1.0 prebuilt binaries:
-----------------------------
-* `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
-* `pypy-1.0.0-bin.tar.bz2`_ (precombiled binaries for linux, dynamic
-   executable)
-* `pypy-1.0.0-static-bin.tar.bz2`_ (precombiled binaries for linux, static
-   executable, GLIBC 2.5)
-* `pypy-1.0.0-minimal-bin.tar.bz2`_ (precompiled minimal binary for
-   linux, dynamic executable)
-* `pypy-1.0.0-minimal-bin-static.tar.bz2`_ (precompiled minimal binary for
-   linux, statix executable, GLIBC 2.5)
+.. _`pypy-1.1.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.1.0.tar.bz2
+.. _`pypy-1.1.0.zip`: http://codespeak.net/download/pypy/pypy-1.1.0.zip
+.. _`pypy-1.1.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.1.0.tar.gz
 
-.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
-.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
-.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
-.. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
-.. _`pypy-1.0.0-minimal-bin.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal-bin.tar.bz2
-.. _`pypy-1.0.0-minimal-bin-static.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal-static-bin.tar.bz2
-.. _`pypy-1.0.0-bin.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-bin.tar.bz2
-.. _`pypy-1.0.0-static-bin.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-static-bin.tar.bz2
+Prebuilt binaries
+~~~~~~~~~~~~~~~~~
 
+We do not provide prebuilt binaries yet (but would happily
+link to other people's pages with one version or another).

@@ -115,6 +115,8 @@ def XX(func, a, b, c, d, x, s, ac):
 class MD5Type:
     "An implementation of the MD5 hash function in pure Python."
 
+    digest_size = digestsize = 16
+
     def __init__(self):
         "Initialisation."
         
@@ -370,7 +372,8 @@ class MD5Type:
 # for consistency with the md5 module of the standard library.
 # ======================================================================
 
-digest_size = 16
+digest_size = digestsize = 16
+blocksize = 1
 
 def new(arg=None):
     """Return a new md5 crypto object.

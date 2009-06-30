@@ -299,11 +299,10 @@ def test_requirements_for_choice():
         OptionDescription("s", '', [
             ChoiceOption("type_system", "", ["ll", "oo"], "ll"),
             ChoiceOption("backend", "",
-                         ["c", "llvm", "cli"], "llvm",
+                         ["c", "cli"], "c",
                          requires={
                              "c": [("s.type_system", "ll"),
                                    ("toplevel", True)],
-                             "llvm": [("s.type_system", "ll")],
                              "cli": [("s.type_system", "oo")],
                          })
         ])
@@ -314,7 +313,7 @@ def test_requirements_for_choice():
 
 def test_choice_with_no_default():
     descr = OptionDescription("test", "", [
-        ChoiceOption("backend", "", ["c", "llvm"])])
+        ChoiceOption("backend", "", ["c", "cli"])])
     config = Config(descr)
     assert config.backend is None
     config.backend = "c"

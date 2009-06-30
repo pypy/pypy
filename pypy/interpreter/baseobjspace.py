@@ -79,7 +79,7 @@ class W_Root(object):
                 return default
             raise
 
-    def getrepr(self, space, info, moreinfo=''):
+    def getaddrstring(self, space):
         # XXX slowish
         w_id = space.id(self)
         w_4 = space.wrap(4)
@@ -96,7 +96,11 @@ class W_Root(object):
             if i == 0:
                 break
             w_id = space.rshift(w_id, w_4)
-        return space.wrap("<%s at 0x%s%s>" % (info, ''.join(addrstring),
+        return ''.join(addrstring)
+
+    def getrepr(self, space, info, moreinfo=''):
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<%s at 0x%s%s>" % (info, addrstring,
                                               moreinfo))
 
     def getslotvalue(self, index):
@@ -250,8 +254,9 @@ class ObjSpace(object):
         from pypy.interpreter.pyframe import PyFrame
         self.FrameClass = PyFrame    # can be overridden to a subclass
 
-#        if self.config.objspace.logbytecodes:
-#            self.bytecodecounts = {}
+        if self.config.objspace.logbytecodes:
+            self.bytecodecounts = [0] * 256
+            self.bytecodetransitioncount = {}
 
         if self.config.objspace.timing:
             self.timer = Timer()
@@ -298,8 +303,20 @@ class ObjSpace(object):
     def reportbytecodecounts(self):
         os.write(2, "Starting bytecode report.\n")
         fd = os.open('bytecode.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-        for opcode, count in self.bytecodecounts.items():
-            os.write(fd, str(opcode) + ", " + str(count) + "\n")
+        os.write(fd, "bytecodecounts = {\n")
+        for opcode in range(len(self.bytecodecounts)):
+            count = self.bytecodecounts[opcode]
+            if not count:
+                continue
+            os.write(fd, "    %s: %s,\n" % (opcode, count))
+        os.write(fd, "}\n")
+        os.write(fd, "bytecodetransitioncount = {\n")
+        for opcode, probs in self.bytecodetransitioncount.iteritems():
+            os.write(fd, "    %s: {\n" % (opcode, ))
+            for nextcode, count in probs.iteritems():
+                os.write(fd, "        %s: %s,\n" % (nextcode, count))
+            os.write(fd, "    },\n")
+        os.write(fd, "}\n")
         os.close(fd)
         os.write(2, "Reporting done.\n")
 
@@ -825,14 +842,15 @@ class ObjSpace(object):
         # module when it is loaded.
         return self.type(w_obj)
 
-    def eval(self, expression, w_globals, w_locals):
+    def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
         import types
         from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
             expression = compile(expression, '?', 'eval')
         if isinstance(expression, types.CodeType):
-            expression = PyCode._from_code(self, expression)
+            expression = PyCode._from_code(self, expression,
+                                          hidden_applevel=hidden_applevel)
         if not isinstance(expression, PyCode):
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
@@ -1000,6 +1018,11 @@ class ObjSpace(object):
             import warnings
             warnings.warn(msg, warningcls, stacklevel=2)
         """)
+
+    def resolve_target(self, w_obj):
+        """ A space method that can be used by special object spaces (like
+        thunk) to replace an object by another. """
+        return w_obj
 
 
 class AppExecCache(SpaceCache):

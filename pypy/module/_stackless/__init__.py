@@ -17,6 +17,8 @@ class Module(MixedModule):
         'greenlet'   : 'interp_greenlet.AppGreenlet',
         'usercostate': 'interp_composable_coroutine.W_UserCoState',
         '_return_main' : 'interp_coroutine.return_main',
+        'get_stack_depth_limit': 'interp_coroutine.get_stack_depth_limit',
+        'set_stack_depth_limit': 'interp_coroutine.set_stack_depth_limit',
     }
 
     def setup_after_space_initialization(self):

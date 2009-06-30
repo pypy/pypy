@@ -201,6 +201,7 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_char_isxxx = unsupported
     test_upper = unsupported
     test_lower = unsupported
+    test_splitlines = unsupported
     test_strformat = unsupported
     test_strformat_instance = unsupported
     test_strformat_nontuple = unsupported

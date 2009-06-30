@@ -3,6 +3,8 @@ from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
      SmallDictImplementation, SmallStrDictImplementation, MeasuringDictImplementation
+
+from pypy.objspace.std.celldict import ModuleDictImplementation
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject
 
@@ -56,6 +58,26 @@ class AppTest_DictSharing(test_dictobject.AppTest_DictObject):
         a = A()
         a.abc = 12
         a.__dict__.items() == [("abc", 12)]
+
+
+class AppTestModuleDict(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
+        cls.w_impl_used = cls.space.appexec([], """():
+            import __pypy__
+            def impl_used(obj):
+                assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
+            return impl_used
+        """)
+
+
+    def test_check_module_uses_module_dict(self):
+        m = type(__builtins__)("abc")
+        self.impl_used(m.__dict__)
+
+    def test_key_not_there(self):
+        d = type(__builtins__)("abc").__dict__
+        raises(KeyError, "d['def']")
 
 
 
@@ -233,3 +255,15 @@ class TestSmallStrDictImplementation(TestRDictImplementation):
 
     def get_impl(self):
         return self.ImplementionClass(self.space, self.string, self.string2)
+
+class TestModuleDictImplementation(TestRDictImplementation):
+    ImplementionClass = ModuleDictImplementation
+    EmptyClass = ModuleDictImplementation
+
+class TestModuleDictImplementationWithBuiltinNames(TestRDictImplementation):
+    ImplementionClass = ModuleDictImplementation
+    EmptyClass = ModuleDictImplementation
+
+    string = "int"
+    string2 = "isinstance"
+

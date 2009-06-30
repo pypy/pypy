@@ -217,3 +217,11 @@ class TestMD5Compare:
             d2 = m2c.hexdigest()
 
             assert d1 == d2
+
+
+def test_attributes():
+    assert pymd5.digest_size == 16
+    assert pymd5.digestsize == 16
+    assert pymd5.blocksize == 1
+    assert pymd5.md5().digest_size == 16
+    assert pymd5.md5().digestsize == 16

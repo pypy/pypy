@@ -13,6 +13,7 @@ timedout = False
 def childkill():
     global timedout
     timedout = True
+    sys.stderr.write("==== test running for %d seconds ====\n" % timeout)
     sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")
     try:
         os.kill(pid, signal.SIGTERM)

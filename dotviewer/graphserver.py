@@ -126,7 +126,7 @@ def listen_server(local_address, s1=None):
     print 'listening on %r...' % (s1.getsockname(),)
     while True:
         conn, addr = s1.accept()
-        print 'accepted connexion from %r' % (addr,)
+        print 'accepted connection from %r' % (addr,)
         sock_io = msgstruct.SocketIO(conn)
         handler_io = graphclient.spawn_local_handler()
         thread.start_new_thread(copy_all, (sock_io, handler_io))

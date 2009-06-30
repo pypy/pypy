@@ -460,12 +460,21 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 pass
         return S, fldname
 
+    def handle_unreachable(self, v_result):
+        from pypy.rpython.lltypesystem.rstr import string_repr
+        msg = "unreachable operation (from malloc.py)"
+        ll_msg = string_repr.convert_const(msg)
+        c_msg = Constant(ll_msg, lltype.typeOf(ll_msg))
+        return SpaceOperation("debug_fatalerror", [c_msg], v_result)
+
     def flowin_op(self, op, vars, newvarsmap):
         if op.opname in ("getfield", "getarrayitem"):
             S = op.args[0].concretetype.TO
             fldname = op.args[1].value
             key = self.key_for_field_access(S, fldname)
-            if key in self.accessed_substructs:
+            if key not in newvarsmap:
+                newop = self.handle_unreachable(op.result)
+            elif key in self.accessed_substructs:
                 c_name = Constant('data', lltype.Void)
                 newop = SpaceOperation("getfield",
                                        [newvarsmap[key], c_name],
@@ -480,8 +489,10 @@ class LLTypeMallocRemover(BaseMallocRemover):
             S = op.args[0].concretetype.TO
             fldname = op.args[1].value
             key = self.key_for_field_access(S, fldname)
-            assert key in newvarsmap
-            if key in self.accessed_substructs:
+            if key not in newvarsmap:
+                newop = self.handle_unreachable(op.result)
+                self.newops.append(newop)
+            elif key in self.accessed_substructs:
                 c_name = Constant('data', lltype.Void)
                 newop = SpaceOperation("setfield",
                                  [newvarsmap[key], c_name, op.args[2]],
@@ -516,11 +527,15 @@ class LLTypeMallocRemover(BaseMallocRemover):
                     opname = "direct_fieldptr"
                 else:
                     opname = "getsubstruct"
-                v = newvarsmap[S, fldname]
-                cname = Constant('data', lltype.Void)
-                newop = SpaceOperation(opname,
-                                       [v, cname],
-                                       op.result)
+                try:
+                    v = newvarsmap[S, fldname]
+                except KeyError:
+                    newop = self.handle_unreachable(op.result)
+                else:
+                    cname = Constant('data', lltype.Void)
+                    newop = SpaceOperation(opname,
+                                           [v, cname],
+                                           op.result)
                 self.newops.append(newop)
         elif op.opname in ("ptr_iszero", "ptr_nonzero"):
             # we know the pointer is not NULL if it comes from
@@ -552,6 +567,7 @@ class OOTypeMallocRemover(BaseMallocRemover):
     FIELD_ACCESS = dict.fromkeys(["oogetfield",
                                   "oosetfield",
                                   "oononnull",
+                                  "ooisnull",
                                   #"oois",  # ???
                                   #"instanceof", # ???
                                   ])
@@ -614,10 +630,10 @@ class OOTypeMallocRemover(BaseMallocRemover):
             # equivalent.  We can, and indeed must, use the same
             # flattened list of variables for both, as a "setfield"
             # via one pointer must be reflected in the other.
-        elif op.opname == "oononnull":
+        elif op.opname in ("ooisnull", "oononnull"):
             # we know the pointer is not NULL if it comes from
             # a successful malloc
-            c = Constant(True, lltype.Bool)
+            c = Constant(op.opname == "oononnull", lltype.Bool)
             newop = SpaceOperation('same_as', [c], op.result)
             self.newops.append(newop)
         else:

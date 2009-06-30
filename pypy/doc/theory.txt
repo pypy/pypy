@@ -81,7 +81,7 @@ PyPy contains two different implementations of multimethods: a `quite general
 one`_ written in RPython_ for the purposes of the StdObjSpace_, and a `short
 two-arguments-dispatching one`_ used internally by the annotator_.
 
-.. _`quite general one`: http://codespeak.net/svn/pypy/trunk/pypy/objspace/std/multimethod.py
+.. _`quite general one`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/multimethod.py
 .. _StdObjSpace: objspace.html#the-standard-object-space
-.. _`short two-arguments-dispatching one`: http://codespeak.net/svn/pypy/trunk/pypy/annotation/pairtype.py
+.. _`short two-arguments-dispatching one`: http://codespeak.net/svn/pypy/dist/pypy/tool/pairtype.py
 .. _annotator: translation.html#annotator

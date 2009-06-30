@@ -65,7 +65,7 @@ class AppTestFile(object):
         import os
         f = self.file(self.temppath, "w")
         try:
-            f.write("foo")
+            f.write("foo\nbaz\n")
         finally:
             f.close()
         try:
@@ -75,13 +75,13 @@ class AppTestFile(object):
         fd = os.open(self.temppath, os.O_WRONLY | os.O_CREAT)
         f2 = fdopen(fd, "a")
         f2.seek(0, 2)
-        f2.write("bar")
+        f2.write("bar\nboo")
         f2.close()
         # don't close fd, will get a whining __del__
         f = self.file(self.temppath, "r")
         try:
             s = f.read()
-            assert s == "foobar"
+            assert s == "foo\nbaz\nbar\nboo"
         finally:
             f.close()
 
@@ -145,7 +145,9 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         f = self.file(self.temppath, "r")
         f.seek(0L)
         f.readline()
-        assert f.tell() == 44L
+        pos = f.tell()
+        assert f.read(12L) == 'From: foo\n\n0'
+        f.seek(pos)
         assert f.read(12L) == 'From: foo\n\n0'
         f.close()
 

@@ -725,7 +725,7 @@ class Popen(object):
                 errread = errread.Detach()
                 errread = msvcrt.open_osfhandle(errread, 0)
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                errwrite = c2pwrite.handle # pass id to not close it
             elif isinstance(stderr, int):
                 errwrite = msvcrt.get_osfhandle(stderr)
             else:

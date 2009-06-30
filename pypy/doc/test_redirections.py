@@ -9,8 +9,9 @@ def checkexist(path):
 
 def checkredirection(oldname, newname):
     print "checking", newname
-    newpath = redir.dirpath(newname.split('#')[0])
-    checkexist(newpath)
+    if not newname.startswith('http://'):
+        newpath = redir.dirpath(newname.split('#')[0])
+        checkexist(newpath)
     # HACK: create the redirecting HTML file here...
     # XXX obscure fishing
     if py.test.config.option.generateredirections and '#' not in oldname:

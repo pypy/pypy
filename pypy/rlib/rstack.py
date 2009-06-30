@@ -208,3 +208,16 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
         return hop.genop('resume_state_invoke', [v_state, v_returning, v_raising],
                          hop.r_result)
         
+# ____________________________________________________________
+
+def get_stack_depth_limit():
+    if we_are_translated():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        return llop.get_stack_depth_limit(lltype.Signed)
+    raise RuntimeError("no stack depth limit in non-translated versions")
+
+def set_stack_depth_limit(limit):
+    if we_are_translated():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        return llop.set_stack_depth_limit(lltype.Void, limit)
+    raise RuntimeError("no stack depth limit in non-translated versions")

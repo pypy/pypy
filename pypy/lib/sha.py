@@ -117,6 +117,8 @@ K = [
 class sha:
     "An implementation of the MD5 hash function in pure Python."
 
+    digest_size = digestsize = 20
+
     def __init__(self):
         "Initialisation."
         

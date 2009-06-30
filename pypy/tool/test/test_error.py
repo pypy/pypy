@@ -69,22 +69,6 @@ def test_eval_someobject():
     
     py.test.raises(AnnotatorError, compile_function, f, [int])
 
-def test_basicexternal_attribute():
-    from pypy.rpython.ootypesystem.bltregistry import BasicExternal
-
-    class A(BasicExternal):
-        pass
-    
-    def f():
-        return A().f
-
-    py.test.raises(NoSuchAttrError, compile_function, f, [])
-
-    def g():
-        return A().g()
-
-    py.test.raises(NoSuchAttrError, compile_function, g, [])
-
 def test_someobject_from_call():
     def one(x):
         return str(x)

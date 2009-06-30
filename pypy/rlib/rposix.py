@@ -1,4 +1,4 @@
-import os, sys
+import os
 from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable, INT
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -42,24 +42,3 @@ def closerange(fd_low, fd_high):
             os.close(fd)
         except OSError:
             pass
-
-# An implementation of ftruncate for Windows
-if sys.platform == 'win32':
-    from pypy.rlib import rwin32
-
-    eci = ExternalCompilationInfo()
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.LONG,
-                                     compilation_info=eci)
-    SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
-                                   compilation_info=eci)
-
-    def ftruncate(fd, size):
-        # move to the position to be truncated
-        os.lseek(fd, size, 0)
-        # Truncate.  Note that this may grow the file!
-        handle = _get_osfhandle(fd)
-        if handle == -1:
-            raise IOError(get_errno(), "Invalid file handle")
-        if not SetEndOfFile(handle):
-            raise IOError("Could not truncate file")
-        return size

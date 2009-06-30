@@ -206,6 +206,15 @@ class BaseROTests:
         f.close()
         assert f.closed == True
 
+    def test_repr(self):
+        assert repr(self.file).startswith(
+            "<open file '%s', mode '%s' at 0x" % (
+                self.expected_filename, self.expected_mode))
+        self.file.close()
+        assert repr(self.file).startswith(
+            "<closed file '%s', mode '%s' at 0x" % (
+                self.expected_filename, self.expected_mode))
+        
 # ____________________________________________________________
 #
 #  Basic 'rb' mode
@@ -269,7 +278,7 @@ class TestWithCPython(BaseROTests):
 #  Files built with fdopen()
 
 class AppTestFdOpen(BaseROTests):
-    expected_filename  = None
+    expected_filename  = '<fdopen>'
     expected_mode      = 'rb'
     extra_args = ()
 
@@ -569,6 +578,7 @@ class AppTestAFewExtra:
 
     def test_repr_unicode_filename(self):
         f = open(unicode(self.temptestfile), 'w')
-        assert repr(f).startswith("<open file u'" + self.temptestfile)
+        assert repr(f).startswith("<open file " + 
+                                  repr(unicode(self.temptestfile)))
         f.close()
 

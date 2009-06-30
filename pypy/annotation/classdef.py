@@ -1,8 +1,6 @@
 """
 Type inference for user-defined classes.
 """
-
-from __future__ import generators
 from pypy.annotation.model import SomePBC, s_ImpossibleValue, unionof
 from pypy.annotation.model import SomeInteger, isdegenerated, SomeTuple,\
      SomeString

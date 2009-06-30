@@ -466,7 +466,7 @@ class DummyValueBuilder(object):
         except KeyError:
             # generate a dummy ptr to an immortal placeholder struct/array
             if TYPE._is_varsize():
-                p = lltype.malloc(TYPE, 0, immortal=True)
+                p = lltype.malloc(TYPE, 1, immortal=True)
             else:
                 p = lltype.malloc(TYPE, immortal=True)
             self.rtyper.cache_dummy_values[TYPE] = p

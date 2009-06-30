@@ -1,7 +1,6 @@
 
 from __future__ import generators
 from pypy.lang.gameboy.cpu import CPU
-from pypy.lang.gameboy.debug import debug
 
 
 class EvaluationCPU(CPU):

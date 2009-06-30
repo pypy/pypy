@@ -10,11 +10,10 @@ from pypy.interpreter import gateway, argument
 
 # this file automatically generates non-reimplementations of CPython
 # types that we do not yet implement in the standard object space
-# (files being the biggy)
 
 
 def fake_object(space, x):
-    if isinstance(x, file): 
+    if isinstance(x, file):
         debug_print("fake-wrapping interp file %s" % x)
     if isinstance(x, type):
         ft = fake_type(x)
@@ -61,10 +60,9 @@ def fake_type(cpy_type):
 
 def really_build_fake_type(cpy_type):
     "NOT_RPYTHON (not remotely so!)."
-    #assert not issubclass(cpy_type, file), cpy_type
     debug_print('faking %r'%(cpy_type,))
     kw = {}
-    
+
     if cpy_type.__name__ == 'SRE_Pattern':
         import re
         import __builtin__
@@ -92,20 +90,21 @@ def really_build_fake_type(cpy_type):
         for (key, w_value) in kwds_w.items():
             kwds[key] = space.unwrap(w_value)
         try:
-            r = apply(cpy_type.__new__, [cpy_type]+args, kwds)
+            r = cpy_type.__new__(*[cpy_type]+args, **kwds)
         except:
             wrap_exception(space)
             raise
         w_obj = space.allocate_instance(W_Fake, w_type)
         W_Fake.__init__(w_obj, space, r)
         return w_obj
+    fake__new__.func_name = "fake__new__" + cpy_type.__name__
 
     kw['__new__'] = gateway.interp2app(fake__new__,
                                        unwrap_spec=[baseobjspace.ObjSpace,
                                                     baseobjspace.W_Root,
                                                     argument.Arguments])
     if cpy_type.__base__ is not object:
-        assert cpy_type.__base__ is basestring
+        assert cpy_type.__base__ is basestring, cpy_type
         from pypy.objspace.std.basestringtype import basestring_typedef
         base = basestring_typedef
     else:
@@ -117,11 +116,7 @@ def really_build_fake_type(cpy_type):
             w_self.val = val
         def unwrap(w_self, space):
             return w_self.val
-                
-    # cannot write to W_Fake.__name__ in Python 2.2!
-    W_Fake = type(W_Object)('W_Fake%s'%(cpy_type.__name__.capitalize()),
-                            (W_Object,),
-                            dict(W_Fake.__dict__.items()))
+    W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
     return W_Fake
 
@@ -158,7 +153,7 @@ class CPythonFakeFrame(eval.Frame):
 
     def getfastscope(self):
         raise OperationError(self.space.w_TypeError,
-          self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))                           
+          self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))
     def run(self):
         code = self.fakecode
         assert isinstance(code, CPythonFakeCode)

@@ -36,64 +36,78 @@ copyrighted by one or more of the following people and organizations:
 
     Armin Rigo
     Samuele Pedroni
-    Michael Hudson
     Carl Friedrich Bolz
+    Maciek Fijalkowski
+    Michael Hudson
+    Antonio Cuni
     Christian Tismer
     Holger Krekel
     Eric van Riet Paap
-    Antonio Cuni
-    Anders Chrigstrom
-    Maciek Fijalkowski
     Richard Emslie
+    Anders Chrigstrom
     Aurelien Campeas
+    Amaury Forgeot d Arc
     Anders Lehmann
     Niklaus Haldimann
     Seo Sanghyeon
+    Leonardo Santagada
     Lawrence Oluyede
-    Alex Martelli
-    Ludovic Aubry
-    Adrien Di Mascio
-    Stephan Diehl
+    Jakub Gustak
     Guido Wesdorp
+    Niko Matsakis
+    Toon Verwaest
+    Alexander Schremmer
+    Ludovic Aubry
+    Alex Martelli
+    Stephan Diehl
+    Adrien Di Mascio
     Stefan Schwarzer
     Tomek Meka
     Patrick Maupin
-    Leonardo Santagada
-    Bob Ippolito
-    Laura Creighton
     Jacob Hallen
+    Laura Creighton
+    Camillo Bruni
+    Bob Ippolito
+    Simon Burton
+    Bruno Gola
+    Alexandre Fayolle
     Marius Gedminas
-    Niko Matsakis
-    Amaury Forgeot d Arc
     Guido van Rossum
     Valentino Volonghi
-    Alexander Schremmer
-    Alexandre Fayolle
-    Wanja Saatkamp
+    Adrian Kuhn
+    Anders Hammarquist
+    Paul deGrandis
     Gerald Klix
+    Wanja Saatkamp
+    Oscar Nierstrasz
     Eugene Oden
-    Dinu Gherman
+    Lukas Renggli
+    Bartosz SKOWRON
     Guenter Jantzen
+    Dinu Gherman
+    Georg Brandl
     Ben Young
     Nicolas Chauvat
-    Michael Twomey
+    Jean-Paul Calderone
     Rocco Moretti
-    Simon Burton
+    Michael Twomey
     Boris Feigin
+    Jared Grubb
     Olivier Dormond
-    Gintautas Miliauskas
     Stuart Williams
     Jens-Uwe Mager
+    Justas Sadzevicius
     Brian Dorsey
     Jonathan David Riehl
-    Anders Qvist
     Beatrice During
+    Elmo Mäntynen
     Andreas Friedge
+    Anders Qvist
     Alan McIntyre
     Bert Freudenberg
 
     Heinrich-Heine University, Germany 
-    Open End AB (formerly AB Strakt), Sweden  
+    Open End AB (formerly AB Strakt), Sweden
     merlinux GmbH, Germany 
     tismerysoft GmbH, Germany 
     Logilab Paris, France 
@@ -118,3 +132,20 @@ License for 'pypy/translator/jvm/src/jna.jar'
 The file 'pypy/translator/jvm/src/jna.jar' is licensed under the GNU
 Lesser General Public License of which you can find a copy here:
 http://www.gnu.org/licenses/lgpl.html
+
+License for 'pypy/translator/jvm/src/jasmin.jar'
+=============================================
+
+The file 'pypy/translator/jvm/src/jasmin.jar' is copyright (c) 1996-2004 Jon Meyer
+and distributed with permission.  The use of Jasmin by PyPy does not imply
+that PyPy is endorsed by Jon Meyer nor any of Jasmin's contributors.  Furthermore,
+the following disclaimer applies to Jasmin:
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

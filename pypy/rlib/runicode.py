@@ -1,5 +1,5 @@
 import sys
-from pypy.lang.smalltalk.tool.bitmanipulation import splitter
+from pypy.rlib.bitmanipulation import splitter
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -178,7 +178,7 @@ def str_decode_utf_8(s, size, errors, final=False,
                     result.append(r)
                 else:
                     # convert to UTF-16 if necessary
-                    if c < MAXUNICODE:
+                    if c <= MAXUNICODE:
                         result.append(UNICHR(c))
                     else:
                         # compute and append the two surrogates:

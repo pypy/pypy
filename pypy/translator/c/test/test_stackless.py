@@ -4,7 +4,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.rlib.rstack import stack_unwind, stack_frames_depth, stack_too_big
-from pypy.rlib.rstack import yield_current_frame_to_caller
+from pypy.rlib.rstack import yield_current_frame_to_caller, set_stack_depth_limit
 from pypy.config.config import Config
 import os
 
@@ -142,12 +142,14 @@ class TestStackless(StacklessTest):
         assert res == 42
 
     def test_auto_stack_unwind(self):
+        import sys
         def f(n):
             if n == 1:
                 return 1
             return (n+f(n-1)) % 1291
 
         def fn():
+            set_stack_depth_limit(sys.maxint)
             return f(10**6)
         res = self.wrap_stackless_function(fn)
         assert res == 704

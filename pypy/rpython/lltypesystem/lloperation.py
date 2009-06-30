@@ -436,16 +436,21 @@ LL_OPERATIONS = {
 
     # __________ stackless operation(s) __________
 
-    'yield_current_frame_to_caller': LLOp(canraise=(StackException,)),
+    'yield_current_frame_to_caller': LLOp(canraise=(StackException,
+                                                    RuntimeError)),
     #                               can always unwind, not just if stackless gc
 
     'resume_point':         LLOp(canraise=(Exception,)),
     'resume_state_create':  LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'resume_state_invoke':  LLOp(canraise=(Exception, StackException)),
-    'stack_frames_depth':   LLOp(sideeffects=False, canraise=(StackException, )),
-    'stack_switch':         LLOp(canraise=(StackException, )),
-    'stack_unwind':         LLOp(canraise=(StackException, )),
-    'stack_capture':        LLOp(canraise=(StackException, )),
+    'resume_state_invoke':  LLOp(canraise=(Exception, StackException,
+                                           RuntimeError)),
+    'stack_frames_depth':   LLOp(sideeffects=False, canraise=(StackException,
+                                                              RuntimeError)),
+    'stack_switch':         LLOp(canraise=(StackException, RuntimeError)),
+    'stack_unwind':         LLOp(canraise=(StackException, RuntimeError)),
+    'stack_capture':        LLOp(canraise=(StackException, RuntimeError)),
+    'get_stack_depth_limit':LLOp(sideeffects=False),
+    'set_stack_depth_limit':LLOp(),
 
     # __________ misc operations __________
 

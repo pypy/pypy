@@ -1,7 +1,7 @@
 import os
 import py
 
-from py.magic import greenlet
+from greenlet import greenlet
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.rstack import yield_current_heap_to_caller
 from pypy.translator.c.test.test_stackless import StacklessTest

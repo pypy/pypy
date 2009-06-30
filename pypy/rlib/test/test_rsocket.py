@@ -69,7 +69,8 @@ def test_gethostbyaddr():
     allnames = [name] + aliases
     for n in allnames:
         assert isinstance(n, str)
-    assert 'localhost' in allnames
+    if sys.platform != 'win32':
+        assert 'localhost' in allnames
     for a in address_list:
         if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
             break  # ok
@@ -195,18 +196,19 @@ def test_simple_udp():
     addr = INETAddress('127.0.0.1', port)
     assert addr.eq(s1.getsockname())
     s2 = RSocket(AF_INET, SOCK_DGRAM)
-    s2.connect(addr)
+    s2.bind(INETAddress('127.0.0.1', INADDR_ANY))
     addr2 = s2.getsockname()
 
     s1.sendto('?', 0, addr2)
     buf = s2.recv(100)
     assert buf == '?'
+    s2.connect(addr)
     count = s2.send('x'*99)
     assert 1 <= count <= 99
     buf, addr3 = s1.recvfrom(100)
     assert buf == 'x'*count
     print addr2, addr3
-    assert addr3.eq(addr2)
+    assert addr2.get_port() == addr3.get_port()
     s1.close()
     s2.close()
 
@@ -241,7 +243,7 @@ def test_nonblocking():
     s1, addr2 = sock.accept()
     s1.setblocking(False)
     assert addr.eq(s2.getpeername())
-    assert addr2.eq(s2.getsockname())
+    assert addr2.get_port() == s2.getsockname().get_port()
     assert addr2.eq(s1.getpeername())
 
     err = s2.connect_ex(addr)   # should now work

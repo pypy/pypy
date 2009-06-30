@@ -73,6 +73,11 @@ class AppTestUnicodeData:
                     pass
                 raises(KeyError, unicodedata.lookup, charname)
 
+    def test_bug_1704793(self): # from CPython
+        import sys, unicodedata
+        if sys.maxunicode == 65535:
+            raises(KeyError, unicodedata.lookup, "GOTHIC LETTER FAIHU")
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata

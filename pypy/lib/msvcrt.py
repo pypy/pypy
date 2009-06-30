@@ -17,4 +17,8 @@ get_osfhandle = _c._get_osfhandle
 get_osfhandle.argtypes = [ctypes.c_int]
 get_osfhandle.restype = ctypes.c_int
 
+setmode = _c._setmode
+setmode.argtypes = [ctypes.c_int, ctypes.c_int]
+setmode.restype = ctypes.c_int
+
 del ctypes

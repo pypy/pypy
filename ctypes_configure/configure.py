@@ -151,7 +151,7 @@ class _CWriter(object):
         return try_compile([self.path], eci)
 
         
-def configure(CConfig):
+def configure(CConfig, noerr=False):
     """Examine the local system by running the C compiler.
     The CConfig class contains CConfigEntry attribues that describe
     what should be inspected; configure() returns a dict mapping
@@ -179,7 +179,7 @@ def configure(CConfig):
         writer.close()
 
         eci = CConfig._compilation_info_
-        infolist = list(run_example_code(writer.path, eci))
+        infolist = list(run_example_code(writer.path, eci, noerr=noerr))
         assert len(infolist) == len(entries)
 
         resultinfo = {}
@@ -569,8 +569,8 @@ void dump(char* key, int value) {
 }
 """
 
-def run_example_code(filepath, eci):
-    executable = build_executable([filepath], eci)
+def run_example_code(filepath, eci, noerr=False):
+    executable = build_executable([filepath], eci, noerr=noerr)
     output = py.process.cmdexec(executable)
     section = None
     for line in output.splitlines():

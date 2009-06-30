@@ -54,6 +54,10 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
                "cProfile (to debug the speed of the translation process)",
                default=False,
                cmdline="--profile"),
+    BoolOption("pdb",
+               "Always run pdb even if the translation succeeds",
+               default=False,
+               cmdline="--pdb"),
     BoolOption("batch", "Don't run interactive helpers", default=False,
                cmdline="--batch", negation=False),
     IntOption("huge", "Threshold in the number of functions after which "
@@ -279,7 +283,8 @@ def main():
         debug(True)
         raise SystemExit(1)
     else:
-        debug(False)
+        if translateconfig.pdb:
+            debug(False)
 
 
 if __name__ == '__main__':

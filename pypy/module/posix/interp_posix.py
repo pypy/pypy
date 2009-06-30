@@ -5,10 +5,13 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-import os
-                          
+import os, sys
+_WIN = sys.platform == 'win32'
+
 def open(space, fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
@@ -83,6 +86,20 @@ def ftruncate(space, fd, length):
     except OSError, e: 
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, int, r_longlong]
+
+def fsync(space, fd):
+    try:
+        os.fsync(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fsync.unwrap_spec = [ObjSpace, int]
+
+def fdatasync(space, fd):
+    try:
+        os.fdatasync(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fdatasync.unwrap_spec = [ObjSpace, int]
 
 # ____________________________________________________________
 
@@ -348,11 +365,16 @@ class State:
     def __init__(self, space): 
         self.space = space
         self.w_environ = space.newdict()
+        if _WIN:
+            self.cryptProviderPtr = lltype.malloc(
+                rffi.CArray(HCRYPTPROV), 1, zero=True, flavor='raw')
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
+        if _WIN:
+            self.cryptProviderPtr[0] = HCRYPTPROV._default
         return True
 
 def get(space): 
@@ -808,3 +830,81 @@ def sysconf(space, w_num_or_name):
         num = space.int_w(w_num_or_name)
     return space.wrap(os.sysconf(num))
 sysconf.unwrap_spec = [ObjSpace, W_Root]
+
+def chown(space, path, uid, gid):
+    try:
+        os.chown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None
+chown.unwrap_spec = [ObjSpace, str, int, int]
+
+if _WIN:
+    from pypy.rlib import rwin32
+
+    eci = ExternalCompilationInfo(
+        includes = ['windows.h'],
+        libraries = ['advapi32'],
+        )
+
+    class CConfig:
+        _compilation_info_ = eci
+        PROV_RSA_FULL = rffi_platform.ConstantInteger(
+            "PROV_RSA_FULL")
+        CRYPT_VERIFYCONTEXT = rffi_platform.ConstantInteger(
+            "CRYPT_VERIFYCONTEXT")
+
+    globals().update(rffi_platform.configure(CConfig))
+
+    HCRYPTPROV = rwin32.ULONG_PTR
+
+    CryptAcquireContext = rffi.llexternal(
+        'CryptAcquireContextA',
+        [rffi.CArrayPtr(HCRYPTPROV),
+         rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
+        rwin32.BOOL,
+        calling_conv='win',
+        compilation_info=eci)
+
+    CryptGenRandom = rffi.llexternal(
+        'CryptGenRandom',
+        [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
+        rwin32.BOOL,
+        calling_conv='win',
+        compilation_info=eci)
+
+    def win32_urandom(space, n):
+        """urandom(n) -> str
+
+        Return a string of n random bytes suitable for cryptographic use.
+        """
+
+        if n < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative argument not allowed"))
+
+        provider = get(space).cryptProviderPtr[0]
+        if not provider:
+            # Acquire context.
+            # This handle is never explicitly released. The operating
+            # system will release it when the process terminates.
+            if not CryptAcquireContext(
+                get(space).cryptProviderPtr, None, None,
+                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
+                raise rwin32.lastWindowsError("CryptAcquireContext")
+
+            provider = get(space).cryptProviderPtr[0]
+
+        # Get random data
+        buf = lltype.malloc(rffi.CArray(rwin32.BYTE), n,
+                            zero=True, # zero seed
+                            flavor='raw')
+        try:
+            if not CryptGenRandom(provider, n, buf):
+                raise rwin32.lastWindowsError("CryptGenRandom")
+
+            return space.wrap(
+                rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n))
+        finally:
+            lltype.free(buf, flavor='raw')
+    win32_urandom.unwrap_spec = [ObjSpace, int]

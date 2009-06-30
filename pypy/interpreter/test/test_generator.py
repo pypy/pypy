@@ -1,5 +1,3 @@
-from __future__ import generators
-
 class AppTestGenerator:
 
     def test_generator(self):

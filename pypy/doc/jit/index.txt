@@ -21,27 +21,6 @@ Content
 
 - Notes_ about the current work in PyPy
 
-Older stuff
-------------------------------------------------------------
-
-*The following documentation is no longer up-to-date!*
-
-- Status_: using a pypy-c with a JIT
-
-- `How-to`_: make your own JIT compilers, with examples for tiny languages
-
-- Theory_: partial evaluation
-
-- How it all works: the Rainbow_ interpreter
-
-- Machine code Backends_
-
-------------------------------------------------------------
 
 .. _Overview: overview.html
-.. _Status: status.html
-.. _`How-to`: howto.html
-.. _Theory: theory.html
-.. _Rainbow: rainbow.html
-.. _Backends: backend.html
 .. _Notes: pyjitpl5.html

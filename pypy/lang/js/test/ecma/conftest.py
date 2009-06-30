@@ -11,24 +11,22 @@ interpreter.TEST = True
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
 
-class JSDirectory(py.test.collect.Directory):
+class EcmatestPlugin:
+    def pytest_addoption(self, parser):
+        parser.addoption('--ecma',
+               action="store_true", dest="ecma", default=False,
+               help="run js interpreter ecma tests"
+        )
 
-    def filefilter(self, path):
-        if not py.test.config.option.ecma:
-            return False 
-        if path.check(file=1):
-            return (path.basename not in exclusionlist)  and (path.ext == '.js')
+    def pytest_collect_file(self, path, parent):
+        if path.ext == ".js" and path.basename not in exclusionlist:
+            if not parent.config.option.ecma:
+                py.test.skip("ECMA tests disabled, run with --ecma")
+            return JSTestFile(path, parent=parent)
 
-    def join(self, name):
-        if not name.endswith('.js'):
-            return super(Directory, self).join(name)
-        p = self.fspath.join(name)
-        if p.check(file=1):
-            return JSTestFile(p, parent=self)
+ConftestPlugin = EcmatestPlugin
 
-
-
-class JSTestFile(py.test.collect.Module):
+class JSTestFile(py.test.collect.File):
     def init_interp(cls):
         if hasattr(cls, 'interp'):
             cls.testcases.PutValue(W_Array(), cls.interp.global_context)
@@ -48,9 +46,7 @@ class JSTestFile(py.test.collect.Module):
         self.name = fspath.purebasename
         self.fspath = fspath
           
-    def run(self):
-        if not py.test.config.option.ecma:
-            py.test.skip("ECMA tests disabled, run with --ecma")
+    def collect(self):
         if py.test.config.option.collectonly:
             return
         self.init_interp()
@@ -68,17 +64,15 @@ class JSTestFile(py.test.collect.Module):
         self.tc = self.interp.global_context.resolve_identifier('tc')
         testcount = testcases.GetValue().Get('length').GetValue().ToInt32()
         self.testcases = testcases
-        return range(testcount)
+        return [JSTestItem(number, parent=self) for number in range(testcount)]
 
-    def join(self, number):
-        return JSTestItem(number, parent = self)
 
 class JSTestItem(py.test.collect.Item):
     def __init__(self, number, parent=None):
         super(JSTestItem, self).__init__(str(number), parent)
         self.number = number
         
-    def run(self):
+    def runtest(self):
         ctx = JSTestFile.interp.global_context
         r3 = ctx.resolve_identifier('run_test').GetValue()
         w_test_number = W_Number(self.number)
@@ -92,4 +86,3 @@ class JSTestItem(py.test.collect.Item):
     def _getpathlineno(self):
         return self.parent.parent.fspath, 0 
 
-Directory = JSDirectory

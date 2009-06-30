@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from pybench import Test
 from string import join
 
@@ -466,7 +467,7 @@ if hasattr('', 'lower'):
 
         def test(self):
 
-            data = ('abc', '123', '   ', 'äöü', 'ß'*10)
+            data = ('abc', '123', '   ', 'Ã¤Ã¶Ã¼', 'ÃŸ'*10)
             len_data = len(data)
 
             for i in xrange(self.rounds):
@@ -555,7 +556,7 @@ if hasattr('', 'lower'):
         def calibrate(self):
 
             data = ('abc', '123', '   ', '\u1234\u2345\u3456', '\uFFFF'*10)
-            data = ('abc', '123', '   ', 'äöü', 'ß'*10)
+            data = ('abc', '123', '   ', 'Ã¤Ã¶Ã¼', 'ÃŸ'*10)
             len_data = len(data)
 
             for i in xrange(self.rounds):

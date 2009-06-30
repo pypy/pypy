@@ -468,6 +468,8 @@ class Video(iMemory):
             window.draw_clean_line(self.line)
 
     def draw_line(self):
+        # XXX We should check if this is necessary for each line.
+        self.update_palette()
         self.draw_window(self.background, self.line_y, self.line)
         self.draw_window(self.window, self.line_y, self.line)
         self.draw_sprites(self.line_y, self.line)
@@ -506,7 +508,6 @@ class Video(iMemory):
                     self.shown_sprites[highest], self.shown_sprites[index]
 
     def send_pixels_line_to_driver(self):
-        self.update_palette()
         for x in range(0, GAMEBOY_SCREEN_WIDTH):
             color = self.palette[self.line[SPRITE_SIZE + x]]
             self.driver.draw_gb_pixel(x, self.line_y, color)
@@ -551,7 +552,9 @@ class VideoDriver(object):
                 self.draw_gb_pixel(x, y, 0)
 
     def draw_gb_pixel(self, x, y, color):
+        old = self.pixels[y][x]
         self.pixels[y][x] = color
+        self.changed[y][x] = old != color
 
     def update_gb_display(self):
         self.update_display()
@@ -561,5 +564,9 @@ class VideoDriver(object):
         pass
 
     def create_pixels(self):
-        self.pixels = [[0] * self.width
+        # any non-valid color is fine
+        self.pixels = [[255] * self.width
                         for i in range(self.height)]
+        self.changed = [[True] * self.width
+                         for i in range(self.height)]
+                        

@@ -1,5 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
     
+# to get information about individual unicode chars look at:
+# http://www.fileformat.info/info/unicode/char/search.htm
+
 class Module(MixedModule):
     appleveldefs = {
     }

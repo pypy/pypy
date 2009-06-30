@@ -122,6 +122,16 @@ def test_merge_several():
     assert res == 6
 
 
+def test_merge_with_or():
+    def merge(n):
+        if n == 5:
+            return 4
+        elif n == 14 or n == 2:
+            return 16
+        else:
+            return 7
+    do_test_merge(merge, [5, 6, 14, 2, 3, 123])
+
 
 def test_dont_merge():
     def merge(n, m):

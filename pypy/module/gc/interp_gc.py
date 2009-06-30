@@ -43,9 +43,11 @@ def estimate_heap_size(space):
             lines = content.split("\n")
             for line in lines:
                 if line.startswith("VmSize:"):
+                    start = line.find(" ") # try to ignore tabs
+                    assert start > 0
                     stop = len(line) - 3
                     assert stop > 0
-                    result = int(line[len("VmSize:"):stop].strip(" ")) * 1024
+                    result = int(line[start:stop].strip(" ")) * 1024
                     return space.wrap(result)
     raise OperationError(space.w_RuntimeError,
                          space.wrap("can't estimate the heap size"))

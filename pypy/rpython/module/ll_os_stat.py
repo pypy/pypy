@@ -401,6 +401,11 @@ if sys.platform == 'win32':
         time = (ft / 10000000) - secs_between_epochs
         return time, nsec
 
+    def time_t_to_FILE_TIME(time, filetime):
+        ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
+        filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
+        filetime.c_dwLowDateTime = lltype.r_uint(ft & ((1 << 32) - 1))
+        
     def attribute_data_to_stat(info):
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)

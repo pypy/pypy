@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Ptr, ContainerType, RttiStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo, top_container
 from pypy.rpython.memory.gctransform import \
-     refcounting, boehm, framework, llvmgcroot, asmgcroot
+     refcounting, boehm, framework, asmgcroot
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -316,9 +316,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
         o = top_container(defnode.obj)
         return defnode.db.gctransformer.gc_field_values_for(o)
 
-class LLVMGcRootFrameworkGcPolicy(FrameworkGcPolicy):
-    transformerclass = llvmgcroot.LLVMGcRootFrameworkGCTransformer
-
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
 
@@ -328,7 +325,6 @@ name_to_gcpolicy = {
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
-    'framework+llvmgcroot': LLVMGcRootFrameworkGcPolicy,
     'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
 }
 

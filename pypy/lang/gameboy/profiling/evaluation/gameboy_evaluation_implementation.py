@@ -1,6 +1,5 @@
 #!/usr/bin/env python 
         
-from pypy.lang.gameboy.debug import debug
 from pypy.lang.gameboy.gameboy_implementation import *
 from pypy.lang.gameboy.debug.debug_socket_memory import *
 from pypy.lang.gameboy.profiling.evaluation.evaluation_cpu import EvaluationCPU

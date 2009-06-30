@@ -43,7 +43,6 @@ There are no longer hand-generated source
 pieces in pypy svn.
 """
 
-from __future__ import generators
 import autopath, os, sys, types
 import inspect
 import cPickle as pickle, __builtin__
@@ -72,7 +71,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.23'  # bump this for substantial changes
+GI_VERSION = '1.1.26'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -97,10 +96,10 @@ def eval_helper(self, typename, expr):
         'def %s(expr):\n'
         '    dic = space.newdict()\n'
         '    if "types." in expr:\n'
-        '        space.exec_("import types", dic, dic)\n'
+        '        space.exec_("import types", dic, dic, hidden_applevel=True)\n'
         '    else:\n'
-        '        space.exec_("", dic, dic)\n'
-        '    return space.eval(expr, dic, dic)' % (unique, ))
+        '        space.exec_("", dic, dic, hidden_applevel=True)\n'
+        '    return space.eval(expr, dic, dic, hidden_applevel=True)' % (unique, ))
     self.initcode.append1('%s = %s(%r)' % (name, unique, expr))
     return name
 
@@ -109,8 +108,8 @@ def unpickle_helper(self, name, value):
     self.initcode.append1(
         'def %s(value):\n'
         '    dic = space.newdict()\n'
-        '    space.exec_("import cPickle as pickle", dic, dic)\n'
-        '    return space.eval("pickle.loads(%%r)" %% value, dic, dic)' % unique)
+        '    space.exec_("import cPickle as pickle", dic, dic, hidden_applevel=True)\n'
+        '    return space.eval("pickle.loads(%%r)" %% value, dic, dic, hidden_applevel=True)' % unique)
     self.initcode.append1('%s = %s(%r)' % (
         name, unique, pickle.dumps(value, 2)) )
 
@@ -120,8 +119,8 @@ def long_helper(self, name, value):
     self.initcode.append1(
         'def %s(value):\n'
         '    dic = space.newdict()\n'
-        '    space.exec_("", dic, dic) # init __builtins__\n'
-        '    return space.eval(value, dic, dic)' % unique)
+        '    space.exec_("", dic, dic, hidden_applevel=True) # init __builtins__\n'
+        '    return space.eval(value, dic, dic, hidden_applevel=True)' % unique)
     self.initcode.append1('%s = %s(%r)' % (
         name, unique, repr(value) ) )
 
@@ -131,8 +130,8 @@ def bltinmod_helper(self, mod):
     self.initcode.append1(
         'def %s(name):\n'
         '    dic = space.newdict()\n'
-        '    space.exec_("import %%s" %% name, dic, dic)\n'
-        '    return space.eval("%%s" %% name, dic, dic)' % (unique, ))
+        '    space.exec_("import %%s" %% name, dic, dic, hidden_applevel=True)\n'
+        '    return space.eval("%%s" %% name, dic, dic, hidden_applevel=True)' % (unique, ))
     self.initcode.append1('%s = %s(%r)' % (name, unique, mod.__name__))
     return name
 
@@ -420,7 +419,7 @@ try:
     # see if we have space.builtin in this context
     space.builtin
 except AttributeError:
-    print "didn't get", %(bltin)r
+    print "didn\'t get", %(bltin)r
     def %(name)s(space, __args__):
         w_func = space.builtin.get(%(bltin)r)
         return space.call_args(w_func, __args__)
@@ -632,9 +631,10 @@ else:
         self.initcode.append1('%s = space.wrap(%s)' % (name, functionname))
         return name
 
-    def nameof_instancemethod(self, meth):
-        if meth.im_func.func_globals is None:
-            # built-in methods (bound or not) on top of PyPy
+    def nameof_instancemethod(self, meth):        
+        if (not hasattr(meth.im_func, 'func_globals') or
+            meth.im_func.func_globals is None):
+            # built-in methods (bound or not) on top of PyPy or possibly 2.4
             return self.nameof_builtin_method(meth)
         if meth.im_self is None:
             # no error checking here
@@ -973,16 +973,16 @@ else:
 
     def nameof_property(self, prop):
         origin = prop.__doc__ # XXX quite a hack
-        name = self.uniquename('gprop_' + origin)
         if not origin:
             raise ValueError("sorry, cannot build properties"
                              " without a helper in __doc__")
+        name = self.uniquename('gprop_' + origin)
         # property is lazy loaded app-level as well, trigger it*s creation
         self.initcode.append1('space.builtin.get("property") # pull it in')
         globname = self.nameof(self.moddict)
         self.initcode.append('space.setitem(%s, space.new_interned_str("__builtins__"), '
                              'space.builtin.w_dict)' % globname)
-        self.initcode.append('%s = space.eval("property(%s)", %s, %s)' %(
+        self.initcode.append('%s = space.eval("property(%s)", %s, %s. hidden_applevel=True)' %(
             name, origin, globname, globname) )
         self.initcode.append('space.delitem(%s, space.new_interned_str("__builtins__"))'
                              % globname)
@@ -1230,6 +1230,7 @@ else:
         def install_func(f_name, name):
             yield ''
             yield '  %s = %s' % (f_name, name)
+            yield '  %s.__name__ = %r' % (f_name, f_name)
             #import __builtin__
             #dic = __builtin__.__dict__
             #if dic.get(name):
@@ -1402,7 +1403,7 @@ else:
     RPY_SEP = "#*************************************************************"
 
     RPY_INIT_HEADER = RPY_SEP + '''
-#__name__ = %(modname)r
+__name__ = "_geninterp_"+%(modname)r
 _geninterp_ = True
 
 def init%(modname)s(space):
@@ -1535,7 +1536,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     newsrc = f.read()
     f.close()
     code = py.code.Source(newsrc).compile()
-    dic = {'__name__': modname}
+    dic = {}
     exec code in dic
     # now we just need to return the init function,
     # which then needs to be called with the space to return the dict.

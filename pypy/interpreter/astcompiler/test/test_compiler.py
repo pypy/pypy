@@ -1,6 +1,6 @@
 import py
 from pypy.interpreter.astcompiler import misc, pycodegen, opt
-from pypy.interpreter.pyparser.test.test_astbuilder import source2ast
+from pypy.interpreter.pyparser.test.support import source2ast
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
@@ -433,10 +433,9 @@ class TestCompiler:
 
     def test_return_lineno(self):
         # the point of this test is to check that there is no code associated
-        # with any line greater than 4.  The implicit return should not have
-        # any line number - otherwise it would probably show up at line 5,
-        # which is confusing because it's in the wrong branch of the "if"
-        # in the case where a == b.
+        # with any line greater than 4.
+        # The implict return will have the line number of the last statement
+        # so we check that that line contains exactly the implicit return None
         yield self.simple_test, """\
             def ireturn_example():    # line 1
                 global b              # line 2
@@ -446,8 +445,11 @@ class TestCompiler:
                     if 1: pass        # line 6
             import dis
             co = ireturn_example.func_code
-            x = [lineno for addr, lineno in dis.findlinestarts(co)]
-        """, 'x', [3, 4]
+            linestarts = list(dis.findlinestarts(co))
+            addrreturn = linestarts[-1][0]
+            x = [addrreturn == (len(co.co_code) - 4)]
+            x.extend([lineno for addr, lineno in linestarts])
+        """, 'x', [True, 3, 4, 6]
 
     def test_type_of_constants(self):
         yield self.simple_test, "x=[0, 0L]", 'type(x[1])', long

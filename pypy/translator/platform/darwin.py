@@ -5,10 +5,10 @@ from pypy.translator.platform import posix
 class Darwin(posix.BasePosix):
     name = "darwin"
     
-    link_flags = []
-    cflags = ['-O3', '-fomit-frame-pointer']
+    link_flags = ['-mmacosx-version-min=10.4']
+    cflags = ['-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
     standalone_only = ['-mdynamic-no-pic']
-    shared_only = ['-mmacosx-version-min=10.4']
+    shared_only = []
 
     so_ext = 'so'
     

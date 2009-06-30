@@ -57,7 +57,8 @@ class _IsLLPtrEntry(ExtRegistryEntry):
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
-               canraise=False, _nowrapper=False, calling_conv='c'):
+               canraise=False, _nowrapper=False, calling_conv='c',
+               oo_primitive=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -78,12 +79,16 @@ def llexternal(name, args, result, _callable=None,
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
         _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    kwds = {}
+    if oo_primitive:
+        kwds['oo_primitive'] = oo_primitive
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp
-                                 canraise=canraise)
+                                 canraise=canraise,
+                                 **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
 
@@ -215,6 +220,8 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
             if after:
                 after()
             # from now on we hold the GIL
+            if aroundstate is not None:
+                aroundstate.callback_counter += 1
             try:
                 result = callable(%s)
             except Exception, e:
@@ -225,6 +232,8 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
                     import traceback
                     traceback.print_exc()
                 result = errorcode
+            if aroundstate is not None:
+                aroundstate.callback_counter -= 1
             if before:
                 before()
             # here we don't hold the GIL any more. As in the wrapper() produced
@@ -245,6 +254,7 @@ class AroundState:
     def _freeze_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
+        self.callback_counter = 0
         return False
 aroundstate = AroundState()
 aroundstate._freeze_()
@@ -503,10 +513,9 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 def make_string_mappings(strtype):
     
     if strtype is str:
-        from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
+        from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
-        from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         TYPEP = CCHARP
         ll_char_type = lltype.Char
         emptystr = ''

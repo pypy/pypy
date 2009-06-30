@@ -44,6 +44,18 @@ class BaseTestCast:
     def test_int_to_longlong(self):
         self.check(to_longlong, [42])
 
+    def test_unsignedlonglong_to_unsigned1(self):
+        self.check(to_uint, [r_ulonglong(22)])
+        
+    def test_unsignedlonglong_to_unsigned2(self):
+        self.check(to_uint, [r_ulonglong(sys.maxint+1)])
+        
+    def test_unsignedlonglong_to_unsigned3(self):
+        self.check(to_uint, [r_ulonglong(1 << 64)])
+        
+    def test_unsignedlonglong_to_unsigned4(self):
+        self.check(to_uint, [r_ulonglong(18446744073709551615l)]) # max 64 bit num
+
     def test_uint_to_int(self):
         self.check(uint_to_int, [r_uint(sys.maxint+1)])
 

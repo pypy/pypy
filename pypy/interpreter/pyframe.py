@@ -115,9 +115,14 @@ class PyFrame(eval.Frame):
             # last_instr is -1.  After a generator suspends it points to
             # the YIELD_VALUE instruction.
             next_instr = self.last_instr + 1
-            w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                        executioncontext)
-            rstack.resume_point("execute_frame", self, executioncontext, returns=w_exitvalue)
+            try:
+                w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                            executioncontext)
+                rstack.resume_point("execute_frame", self, executioncontext,
+                                    returns=w_exitvalue)
+            except Exception:
+                executioncontext.return_trace(self, self.space.w_None)
+                raise
             executioncontext.return_trace(self, w_exitvalue)
             # on exit, we try to release self.last_exception -- breaks an
             # obvious reference cycle, so it helps refcounting implementations

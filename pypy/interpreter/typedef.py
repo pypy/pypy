@@ -3,7 +3,7 @@
 
 """
 import py
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, \
     DescrMismatch
@@ -133,7 +133,9 @@ no_hash_descr = interp2app(descr__hash__unhashable)
 
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
                                     weakrefable=False):
-    "NOT_RPYTHON: initialization-time only"    
+    "NOT_RPYTHON: initialization-time only"
+    if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
+        needsdel = False
     assert cls.typedef.acceptable_as_base_class
     key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
@@ -654,6 +656,18 @@ Code.typedef = TypeDef('internal-code',
     )
 Code.typedef.acceptable_as_base_class = False
 
+BuiltinCode.typedef = TypeDef('builtin-code',
+    __reduce__   = interp2app(BuiltinCode.descr__reduce__,
+                              unwrap_spec=['self', ObjSpace]),
+    co_name = interp_attrproperty('co_name', cls=BuiltinCode),
+    co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
+    co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
+    co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
+    co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
+    )
+BuiltinCode.typedef.acceptable_as_base_class = False
+
+
 Frame.typedef = TypeDef('internal-frame',
     f_code = GetSetProperty(Frame.fget_code),
     f_locals = GetSetProperty(Frame.fget_getdictscope),
@@ -740,7 +754,7 @@ getset_func_name = GetSetProperty(Function.fget_func_name,
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
 Function.typedef = TypeDef("function",
-    __new__ = interp2app(Function.descr_method__new__.im_func),
+    __new__ = interp2app(Function.descr_function__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
                           unwrap_spec=['self', Arguments],
                           descrmismatch='__call__'),
@@ -831,7 +845,7 @@ def always_none(self, obj):
     return None
 BuiltinFunction.typedef = TypeDef("builtin_function",**Function.typedef.rawdict)
 BuiltinFunction.typedef.rawdict.update({
-    '__new__': interp2app(BuiltinFunction.descr_method__new__.im_func),
+    '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
     '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
     })

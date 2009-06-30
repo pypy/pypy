@@ -1,5 +1,5 @@
 from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef

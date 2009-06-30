@@ -177,4 +177,8 @@ if __name__ == '__main__':
             chan = server(port)
         channels.append(chan)
 
-    mainloop(channels)
+    try:
+        mainloop(channels)
+    finally:
+        for channel in channels:
+                channel.s.close()

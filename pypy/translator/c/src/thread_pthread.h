@@ -80,11 +80,27 @@ int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
+long RPyThreadGetStackSize(void);
+long RPyThreadSetStackSize(long);
 
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
+
+/* The POSIX spec requires that use of pthread_attr_setstacksize
+   be conditional on _POSIX_THREAD_ATTR_STACKSIZE being defined. */
+#ifdef _POSIX_THREAD_ATTR_STACKSIZE
+# ifndef THREAD_STACK_SIZE
+#  define THREAD_STACK_SIZE   0   /* use default stack size */
+# endif
+/* for safety, ensure a viable minimum stacksize */
+# define THREAD_STACK_MIN    0x8000  /* 32kB */
+#else  /* !_POSIX_THREAD_ATTR_STACKSIZE */
+# ifdef THREAD_STACK_SIZE
+#  error "THREAD_STACK_SIZE defined but _POSIX_THREAD_ATTR_STACKSIZE undefined"
+# endif
+#endif
 
 /* XXX This implementation is considered (to quote Tim Peters) "inherently
    hosed" because:
@@ -105,6 +121,8 @@ long RPyThreadGetIdent(void)
 #endif
 }
 
+static long _pypythread_stacksize = 0;
+
 static void *bootstrap_pthread(void *func)
 {
   ((void(*)(void))func)();
@@ -118,12 +136,18 @@ long RPyThreadStart(void (*func)(void))
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
 	pthread_attr_t attrs;
 #endif
+#if defined(THREAD_STACK_SIZE)
+	size_t tss;
+#endif
 
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
 	pthread_attr_init(&attrs);
 #endif
 #ifdef THREAD_STACK_SIZE
-	pthread_attr_setstacksize(&attrs, THREAD_STACK_SIZE);
+	tss = (_pypythread_stacksize != 0) ? _pypythread_stacksize
+		: THREAD_STACK_SIZE;
+	if (tss != 0)
+		pthread_attr_setstacksize(&attrs, tss);
 #endif
 #if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !defined(__FreeBSD__)
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
@@ -154,6 +178,47 @@ long RPyThreadStart(void (*func)(void))
 #endif
 }
 
+long RPyThreadGetStackSize(void)
+{
+	return _pypythread_stacksize;
+}
+
+long RPyThreadSetStackSize(long newsize)
+{
+#if defined(THREAD_STACK_SIZE)
+	pthread_attr_t attrs;
+	size_t tss_min;
+	int rc;
+#endif
+
+	if (newsize == 0) {    /* set to default */
+		_pypythread_stacksize = 0;
+		return 0;
+	}
+
+#if defined(THREAD_STACK_SIZE)
+# if defined(PTHREAD_STACK_MIN)
+	tss_min = PTHREAD_STACK_MIN > THREAD_STACK_MIN ? PTHREAD_STACK_MIN
+		: THREAD_STACK_MIN;
+# else
+	tss_min = THREAD_STACK_MIN;
+# endif
+	if (newsize >= tss_min) {
+		/* validate stack size by setting thread attribute */
+		if (pthread_attr_init(&attrs) == 0) {
+			rc = pthread_attr_setstacksize(&attrs, newsize);
+			pthread_attr_destroy(&attrs);
+			if (rc == 0) {
+				_pypythread_stacksize = newsize;
+				return 0;
+			}
+		}
+	}
+	return -1;
+#else
+	return -2;
+#endif
+}
 
 /************************************************************/
 #ifdef USE_SEMAPHORES

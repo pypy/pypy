@@ -8,7 +8,6 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module._rawffi.tracker import Tracker
 
 class Module(MixedModule):
-    applevelname = '_rawffi'
 
     interpleveldefs = {
         'CDLL'               : 'interp_rawffi.W_CDLL',

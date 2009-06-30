@@ -29,6 +29,8 @@ def _get_msvc_env(vsver):
         return
 
     env = {}
+
+    stdout = stdout.replace("\r\n", "\n")
     for line in stdout.split("\n"):
         if '=' not in line:
             continue
@@ -87,8 +89,12 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.search('Version ([0-9]+)\.([0-9]+)', stderr)
-        self.version = int(''.join(r.groups())) / 10 - 60
+        r = re.search('[Vv]ersion\W([0-9]+)\.([0-9]+)', stderr)
+        if r is not None:
+            self.version = int(''.join(r.groups())) / 10 - 60
+        else:
+            # Probably not a msvc compiler...
+            self.version = 0
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
@@ -267,4 +273,11 @@ class MingwPlatform(posix.BasePosix):
 
     def _args_for_shared(self, args):
         return ['-shared'] + args
+
+    def include_dirs_for_libffi(self):
+        return []
+
+    def library_dirs_for_libffi(self):
+        return []
+
 

@@ -1,14 +1,14 @@
 import py
 
 # XXX importing/inheriting from an internal py lib class is hackish
-from py.__.doc.confrest import Project, Page, relpath
+from confrest_oldpy import Project, Page, relpath
 html = py.xml.html
 
 class PyPyPage(Page): 
     def fill_menubar(self):
         self.menubar = html.div(
             html.a("home", 
-                   href=self.get_doclink("home.html"), 
+                   href=self.get_doclink("index.html"), 
                    class_="menu"), 
             " ",
             html.a("blog", href="http://morepypy.blogspot.com", class_="menu"),
@@ -17,7 +17,7 @@ class PyPyPage(Page):
                    href=self.get_doclink("getting-started.html"),
                    class_="menu"), 
             " ",
-            html.a("documentation", href=self.get_doclink("index.html"),
+            html.a("documentation", href=self.get_doclink("docindex.html"),
                    class_="menu"),
             " ", 
             html.a("svn", href="https://codespeak.net/viewvc/pypy/trunk/",

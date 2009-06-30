@@ -1,43 +1,13 @@
-
 import py
 from pypy.conftest import gettestobjspace, option
 
-class PyPyOutput:
-    nfunc = 127
-    nprim = 107
-    optional_line = '\n.*'
-
-class CPythonOutput:
-    nfunc = 126
-    nprim = 106
-    optional_line = ''
-
-def match(method, pattern, string):
-    import re
-    if not re.match(pattern, string):
-        print method, 'differs:'
-        print 'Difference is here:'
-        print '     GOT:', string.rstrip('\n')
-        print 'EXPECTED:', pattern.rstrip('\n')
-        return False
-    return True
-
 class AppTestCProfile(object):
 
-    objspace_options = {}
-
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_lsprof',),
-                                **cls.objspace_options)
+        space = gettestobjspace(usemodules=('_lsprof',))
         cls.w_expected_output = space.wrap(expected_output)
         cls.space = space
         cls.w_file = space.wrap(__file__)
-        if option.runappdirect:
-            output = CPythonOutput.__dict__
-        else:
-            output = PyPyOutput.__dict__
-        cls.w_output = space.wrap(output)
-        cls.w_match = space.wrap(match)
 
     def test_direct(self):
         import _lsprof
@@ -149,32 +119,43 @@ class AppTestCProfile(object):
             for i, method in enumerate(methodnames):
                 got = res[i + 1]
                 expected = self.expected_output[method]
-                expected = expected % self.output
                 patterns = expected.splitlines()
-                lines = got.splitlines()
-                for pattern, line in zip(patterns, lines):
+                lines = set(got.splitlines())
+                lines.remove('') # ignore blank lines
+                for pattern in patterns:
+                    if not pattern:
+                        continue # ignore blank lines
                     pattern = pattern.replace('(', '\\(')
                     pattern = pattern.replace(')', '\\)')
                     pattern = pattern.replace('?', '\\?')
-                    if not self.match(method, pattern, line):
+                    pattern = pattern.replace(r'\\?', '?')
+                    pattern = pattern.replace(r'\\(', '(')
+                    pattern = pattern.replace(r'\\)', ')')
+                    repattern = re.compile('^' + pattern + '$')
+                    for line in lines:
+                        if repattern.match(line):
+                            lines.remove(line)
+                            break
+                    else:
+                        print 'NOT FOUND:', pattern.rstrip('\n')
                         print '--- GOT ---'
                         print got
                         print
                         print '--- EXPECTED ---'
                         print expected
                         assert False
-                assert len(patterns) == len(lines)
+                assert not lines
         finally:
             sys.path.pop(0)
 
 expected_output = {}
 expected_output['print_stats'] = """\
-         %(nfunc)d function calls (%(nprim)d primitive calls) in 1.000 CPU seconds
+         126 function calls (106 primitive calls) in 1.000 CPU seconds
 
    Ordered by: standard name
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    1.000    1.000 <string>:1(<module>)%(optional_line)s
+        1    0.000    0.000    1.000    1.000 <string>:1(<module>)
        28    0.028    0.001    0.028    0.001 profilee.py:110(__getattr__)
         1    0.270    0.270    1.000    1.000 profilee.py:25(testfunc)
      23/3    0.150    0.007    0.170    0.057 profilee.py:35(factorial)
@@ -184,9 +165,9 @@ expected_output['print_stats'] = """\
         2    0.000    0.000    0.140    0.070 profilee.py:84(helper2_indirect)
         8    0.312    0.039    0.400    0.050 profilee.py:88(helper2)
         8    0.064    0.008    0.080    0.010 profilee.py:98(subhelper)
+        4    0.000    0.000    0.000    0.000 {.*append.*}
+        1    0.000    0.000    0.000    0.000 {.*disable.*}
        12    0.000    0.000    0.012    0.001 {hasattr.*}
-        4    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
-        1    0.000    0.000    0.000    0.000 {method 'disable' of '.*' objects}
         8    0.000    0.000    0.000    0.000 {range.*}
         4    0.000    0.000    0.000    0.000 {sys.exc_info.*}
 
@@ -196,26 +177,26 @@ expected_output['print_stats'] = """\
 expected_output['print_callers'] = """\
    Ordered by: standard name
 
-Function                             *    was called by...
-                                     *        ncalls  tottime  cumtime
-<string>:1(<module>)                 *    <-%(optional_line)s
-profilee.py:110(__getattr__)         *    <-      16    0.016    0.016  profilee.py:98(subhelper)
-                                     *            12    0.012    0.012  {hasattr.*}
-profilee.py:25(testfunc)             *    <-       1    0.270    1.000  <string>:1(<module>)
-profilee.py:35(factorial)            *    <-       1    0.014    0.130  profilee.py:25(testfunc)
-                                     *          20/3    0.130    0.147  profilee.py:35(factorial)
-                                     *             2    0.006    0.040  profilee.py:84(helper2_indirect)
-profilee.py:48(mul)                  *    <-      20    0.020    0.020  profilee.py:35(factorial)
-profilee.py:55(helper)               *    <-       2    0.040    0.600  profilee.py:25(testfunc)
-profilee.py:73(helper1)              *    <-       4    0.116    0.120  profilee.py:55(helper)
-profilee.py:84(helper2_indirect)     *    <-       2    0.000    0.140  profilee.py:55(helper)
-profilee.py:88(helper2)              *    <-       6    0.234    0.300  profilee.py:55(helper)
-                                     *             2    0.078    0.100  profilee.py:84(helper2_indirect)
-profilee.py:98(subhelper)            *    <-       8    0.064    0.080  profilee.py:88(helper2)
+Function                     *    was called by...
+                             *        ncalls  tottime  cumtime
+<string>:1(<module>)         *    <-
+profilee.py:110(__getattr__) *    <-      16    0.016    0.016  profilee.py:98(subhelper)
+                             *            12    0.012    0.012  {hasattr.*}
+profilee.py:25(testfunc)     *    <-       1    0.270    1.000  <string>:1(<module>)
+profilee.py:35(factorial)    *    <-       1    0.014    0.130  profilee.py:25(testfunc)
+                             *          20/3    0.130    0.147  profilee.py:35(factorial)
+                             *             2    0.006    0.040  profilee.py:84(helper2_indirect)
+profilee.py:48(mul)          *    <-      20    0.020    0.020  profilee.py:35(factorial)
+profilee.py:55(helper)       *    <-       2    0.040    0.600  profilee.py:25(testfunc)
+profilee.py:73(helper1)      *    <-       4    0.116    0.120  profilee.py:55(helper)
+profilee.py:84(helper2_indirect) *<-       2    0.000    0.140  profilee.py:55(helper)
+profilee.py:88(helper2)      *    <-       6    0.234    0.300  profilee.py:55(helper)
+                             *             2    0.078    0.100  profilee.py:84(helper2_indirect)
+profilee.py:98(subhelper)    *    <-       8    0.064    0.080  profilee.py:88(helper2)
+{.*append.*}  * <-       4    0.000    0.000  profilee.py:73(helper1)
+{.*disable.*} * <-
 {hasattr.*}           * <-       4    0.000    0.004  profilee.py:73(helper1)
                       *          8    0.000    0.008  profilee.py:88(helper2)
-{method 'append' .*}  * <-       4    0.000    0.000  profilee.py:73(helper1)
-{method 'disable' .*} * <-
 {range.*}             * <-       8    0.000    0.000  profilee.py:98(subhelper)
 {sys.exc_info.*}      * <-       4    0.000    0.000  profilee.py:73(helper1)
 
@@ -226,7 +207,7 @@ expected_output['print_callees'] = """\
 
 Function                         * called...
                                  *     ncalls  tottime  cumtime
-<string>:1(<module>)             * ->       1    0.270    1.000  profilee.py:25(testfunc)%(optional_line)s
+<string>:1(<module>)             * ->       1    0.270    1.000  profilee.py:25(testfunc)
 profilee.py:110(__getattr__)     * ->
 profilee.py:25(testfunc)         * ->       1    0.014    0.130  profilee.py:35(factorial)
                                  *          2    0.040    0.600  profilee.py:55(helper)
@@ -236,8 +217,8 @@ profilee.py:48(mul)              * ->
 profilee.py:55(helper)           * ->       4    0.116    0.120  profilee.py:73(helper1)
                                  *          2    0.000    0.140  profilee.py:84(helper2_indirect)
                                  *          6    0.234    0.300  profilee.py:88(helper2)
-profilee.py:73(helper1)          * ->       4    0.000    0.004  {hasattr.*}
-                                 *          4    0.000    0.000  {method 'append' of 'list' objects}
+\\(profilee.py:73(helper1)\\)\\?          * ..       4    0.000    0.000  {.*append.*}
+\\(profilee.py:73(helper1)\\)\\?          * ..       4    0.000    0.004  {.*hasattr.*}
                                  *          4    0.000    0.000  {sys.exc_info.*}
 profilee.py:84(helper2_indirect) * ->       2    0.006    0.040  profilee.py:35(factorial)
                                  *          2    0.078    0.100  profilee.py:88(helper2)
@@ -245,9 +226,9 @@ profilee.py:88(helper2)          * ->       8    0.064    0.080  profilee.py:98(
                                  *          8    0.000    0.008  {hasattr.*}
 profilee.py:98(subhelper)        * ->      16    0.016    0.016  profilee.py:110(__getattr__)
                                  *          8    0.000    0.000  {range.*}
+{.*append.*}  * ->
+{.*disable.*} * ->
 {hasattr.*}           * ->      12    0.012    0.012  profilee.py:110(__getattr__)
-{method 'append' .*}  * ->
-{method 'disable' .*} * ->
 {range.*}             * ->
 {sys.exc_info.*}      * ->
 

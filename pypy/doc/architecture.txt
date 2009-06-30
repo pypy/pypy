@@ -77,8 +77,8 @@ is not necessary.  PyPy's goal is to give weight to this claim - at least
 as far as language implementation is concerned - showing an approach
 to the ``l * o * p`` problem that does not rely on standardization.
 
-The most ambitious part of this goal is to *generate Just-In-Time
-Compilers* in a language-independent way, instead of only translating
+The most ambitious part of this goal is to `generate Just-In-Time
+Compilers`_ in a language-independent way, instead of only translating
 the source interpreter into an interpreter for the target platform.
 This is an area of language implementation that is commonly considered
 very challenging because of the involved complexity.
@@ -139,7 +139,7 @@ behaviour of the function objects one gives it as input.  It can be
 considered as "freezing" a pre-imported RPython program into an
 executable form suitable for the target platform.
 
-The steps the translation process can be summarized as follows:
+The steps of the translation process can be summarized as follows:
 
 * The code object of each source functions is converted to a `control
   flow graph` by the `Flow Object Space`_.
@@ -150,17 +150,19 @@ The steps the translation process can be summarized as follows:
 
 * The information provided by the annotator is used by the RTyper_ to
   convert the high level operations of the control flow graphs into
-  operations closer to abstraction level of the target platform.
+  operations closer to the abstraction level of the target platform.
 
 * Optionally, `various transformations`_ can then be applied which, for
-  example, perform optimizations such as inlining or add capabilities
-  such as stackless_-style concurrency.
+  example, perform optimizations such as inlining, add capabilities
+  such as stackless_-style concurrency, or insert code for the
+  `garbage collector`_.
 
 * Then, the graphs are converted to source code for the target platform
   and compiled into an executable.
 
 This process is described in much more detail in the `document about
-the translation process`_.
+the translation process`_ and in the paper `Compiling dynamic language
+implementations`_.
 
 .. _`control flow graph`: translation.html#the-flow-model
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
@@ -168,6 +170,7 @@ the translation process`_.
 .. _RTyper: rtyper.html#overview
 .. _`various transformations`: translation.html#the-optional-transformations
 .. _`document about the translation process`: translation.html
+.. _`garbage collector`: garbage_collection.html
 
 
 .. _`standard interpreter`: 
@@ -228,30 +231,34 @@ index`_.  Of particular interest after reading this document might be:
    2006.
 
  * `The translation document`_: a detailed description of our
-   translation process.  You might also be interested in reading the
-   more theoretically-oriented paper `Compiling dynamic language
+   translation process.
+
+ * All our `Technical reports`_, including `Compiling dynamic language
    implementations`_.
 
- * All our `Technical reports`_.
+ * `JIT Generation in PyPy`_, describing how we produce a Just-in-time
+   Compiler from an interpreter.
 
-.. _`documentation index`: index.html
+.. _`documentation index`: docindex.html
 .. _`getting-started`: getting-started.html
 .. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`the translation document`: translation.html
-.. _`Compiling dynamic language implementations`: dynamic-language-translation.html
+.. _`Compiling dynamic language implementations`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 .. _`Technical reports`: index-report.html
 
 .. _`getting started`: getting-started.html
 .. _`Extreme Programming`: http://www.extremeprogramming.org/
 
 .. _fast: faq.html#how-fast-is-pypy
-.. _`very compliant`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
+.. _`very compliant`: http://codespeak.net:8099/summary?category=lib-python&branch=%3Ctrunk%3E
 
 .. _`RPython`: coding-guide.html#rpython
 
 .. _Python: http://docs.python.org/ref
 .. _Psyco: http://psyco.sourceforge.net
 .. _stackless: stackless.html
+.. _`generate Just-In-Time Compilers`: jit/index.html
+.. _`JIT Generation in PyPy`: jit/index.html
 
 .. include:: _ref.txt
 

@@ -145,6 +145,9 @@ class PyPyTarget(object):
             from pypy.config.pypyoption import enable_allworkingmodules
             enable_allworkingmodules(config)
 
+        if config.translation.type_system == 'ootype':
+            config.objspace.usemodules.suggest(rbench=True)
+
         if config.translation.thread:
             config.objspace.usemodules.thread = True
         elif config.objspace.usemodules.thread:

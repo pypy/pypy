@@ -92,7 +92,7 @@ def send_graph_messages(io, messages):
             if msg[0] == msgstruct.MSG_OK:
                 break
     except EOFError:
-        ioerror = ioerror or IOError("connexion unexpectedly closed "
+        ioerror = ioerror or IOError("connection unexpectedly closed "
                                      "(graphserver crash?)")
     if ioerror is not None:
         raise ioerror

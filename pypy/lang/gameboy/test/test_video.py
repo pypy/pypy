@@ -39,7 +39,6 @@ def test_reset():
     assert video.background.scroll_y == 0
     assert video.window.x == 0
     assert video.window.y == 0
-    assert video.window.line_y == 0
     assert video.background_palette == 0xFC
     assert video.object_palette_0 == 0xFF
     assert video.object_palette_1 == 0xFF
@@ -181,7 +180,8 @@ def test_control_window_draw_skip():
     video.write(0xFF40, 0x80+0x20)
     
     assert video.control.read() == 0x80+0x20
-    assert video.window.line_y == 144
+    # assert video.window.line_y == 144 # We don't jump, we just adjust and
+    #                                   # start drawing where we are.
  
 def test_control_reset1():
     video = get_video()   

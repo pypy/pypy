@@ -111,6 +111,10 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
+        if space.config.objspace.std.withcelldict:
+            from pypy.objspace.std.celldict import init_code
+            init_code(self)
+
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):

@@ -66,10 +66,11 @@ def impl_sub_atom(engine, s, before, length, after, sub, continuation):
         stopbefore = len(s) + 1
     else:
         startbefore = helper.unwrap_int(before)
-        stopbefore = startbefore + 1
         if startbefore < 0:
             startbefore = 0
             stopbefore = len(s) + 1
+        else:
+            stopbefore = startbefore + 1
     oldstate = engine.heap.branch()
     if not isinstance(sub, term.Var):
         s1 = helper.unwrap_atom(sub)

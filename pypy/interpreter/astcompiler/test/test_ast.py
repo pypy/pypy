@@ -1,5 +1,5 @@
 from pypy.interpreter.astcompiler import ast#_temp as ast
-from pypy.interpreter.pyparser.test.test_astbuilder import source2ast
+from pypy.interpreter.pyparser.test.support import source2ast
 
 class BaseVisitor(ast.ASTVisitor):
     def default(self, node):

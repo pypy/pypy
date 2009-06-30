@@ -11,11 +11,11 @@ def find_module(fullname,  path):
         if loader:
             return loader
     if path != None and type(path) == str:
-       pass
-       # XXX Check for frozen modules ?
+        pass
+        # XXX Check for frozen modules ?
     if path == None:
-       # XXX Check frozen
-       path = sys.path
+        # XXX Check frozen
+        path = sys.path
     path_hooks = sys.path_hooks
     importer_cache = sys.path_importer_cache 
     importer = None

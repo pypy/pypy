@@ -7,7 +7,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
+from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format
@@ -266,7 +266,7 @@ def mul__Unicode_ANY(space, w_uni, w_times):
     try:
         result_size = ovfcheck(length * times)
         result = u''.join([uni] * times)
-    except (OverflowError, MemoryError):
+    except OverflowError:
         raise OperationError(space.w_OverflowError, space.wrap('repeated string is too long'))
     return W_UnicodeObject(result)
 
@@ -850,7 +850,7 @@ def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
             totalsize = ovfcheck(totalsize + pad)
             totalsize = ovfcheck(totalsize + len(nextpart))
             result.append(u' ' * pad)
-        except (OverflowError, MemoryError):
+        except OverflowError:
             raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))
         result.append(nextpart)
         prevsize = 0

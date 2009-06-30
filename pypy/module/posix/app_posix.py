@@ -49,6 +49,19 @@ class stat_result:
     if "st_flags" in posix._statfields:
         st_flags = structseqfield(23, "user defined flags for file")
 
+    def __init__(self, *args, **kw):
+        super(stat_result, self).__init__(*args, **kw)
+
+        # If we have been initialized from a tuple,
+        # st_?time might be set to None. Initialize it
+        # from the int slots.
+        if self.st_atime is None:
+            self.__dict__['st_atime'] = self[7]
+        if self.st_mtime is None:
+            self.__dict__['st_mtime'] = self[8]
+        if self.st_ctime is None:
+            self.__dict__['st_ctime'] = self[9]
+
 
 def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
@@ -141,33 +154,98 @@ if osname == 'posix':
             raise Exception, e     # bare 'raise' does not work here :-(
 
 else:
+    # Windows implementations
+    
     # Supply os.popen() based on subprocess
     def popen(cmd, mode="r", bufsize=-1):
         """popen(command [, mode='r' [, bufsize]]) -> pipe
 
         Open a pipe to/from a command returning a file object."""
 
-        if not isinstance(cmd, str):
-            raise TypeError("invalid cmd type (%s, expected string)" %
-                            (type(cmd),))
+        cmd = _makecmd_string(cmd)
 
         if not mode.startswith('r') and not mode.startswith('w'):
             raise ValueError("invalid mode %r" % (mode,))
+
+        univ_nl = ('b' not in mode)
 
         import subprocess
         if mode.startswith('r'):
             proc = subprocess.Popen(cmd,
                                     shell=True,
                                     stdout=subprocess.PIPE,
-                                    bufsize=bufsize)
+                                    bufsize=bufsize,
+                                    universal_newlines=univ_nl)
             return _wrap_close(proc.stdout, proc)
         else:
             proc = subprocess.Popen(cmd,
                                     shell=True,
                                     stdin=subprocess.PIPE,
-                                    bufsize=bufsize)
+                                    bufsize=bufsize,
+                                    universal_newlines=univ_nl)
             return _wrap_close(proc.stdin, proc)
 
+    def popen2(cmd, mode="t", bufsize=-1):
+        ""
+
+        cmd = _makecmd_string(cmd)
+
+        if mode not in ('b', 't'):
+            raise ValueError("invalid mode %r" % (mode,))
+
+        import subprocess
+        
+        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             universal_newlines=(mode =='t'))
+        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p))
+
+    def popen3(cmd, mode="t", bufsize=-1):
+        ""
+
+        cmd = _makecmd_string(cmd)
+
+        if mode not in ('b', 't'):
+            raise ValueError("invalid mode %r" % (mode,))
+
+        import subprocess
+        
+        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             universal_newlines=(mode =='t'))
+        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p),
+                _wrap_close(p.stderr, p))
+
+    def popen4(cmd, mode="t", bufsize=-1):
+        ""
+
+        cmd = _makecmd_string(cmd)
+
+        if mode not in ('b', 't'):
+            raise ValueError("invalid mode %r" % (mode,))
+
+        import subprocess
+        
+        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT,
+                             universal_newlines=(mode =='t'))
+        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p))
+
+    # helper for making popen cmd a string object
+    def _makecmd_string(cmd):
+        if isinstance(cmd, unicode):
+            cmd = cmd.encode('ascii')
+
+        if not isinstance(cmd, str):
+            raise TypeError("invalid cmd type (%s, expected string)" %
+                            (type(cmd),))
+        return cmd
+        
     # A proxy for a file whose close waits for the process
     class _wrap_close(object):
         def __init__(self, stream, proc):

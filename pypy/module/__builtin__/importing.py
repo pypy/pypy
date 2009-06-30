@@ -25,7 +25,7 @@ def find_modtype(space, filepart):
     """
     # check the .py file
     pyfile = filepart + ".py"
-    if os.path.exists(pyfile):
+    if os.path.exists(pyfile) and case_ok(pyfile):
         pyfile_ts = os.stat(pyfile)[stat.ST_MTIME]
         pyfile_exists = True
     else:
@@ -40,14 +40,32 @@ def find_modtype(space, filepart):
     # check the .pyc file
     if space.config.objspace.usepycfiles:
         pycfile = filepart + ".pyc"    
-        if check_compiled_module(space, pycfile, pyfile_ts):
-            return PYCFILE     # existing and up-to-date .pyc file
+        if case_ok(pycfile):
+            if check_compiled_module(space, pycfile, pyfile_ts):
+                return PYCFILE     # existing and up-to-date .pyc file
 
     # no .pyc file, use the .py file if it exists
     if pyfile_exists:
         return PYFILE
     else:
         return NOFILE
+
+if sys.platform in ['linux2', 'freebsd']:
+    def case_ok(filename):
+        return True
+else:
+    # XXX that's slow
+    def case_ok(filename):
+        index = filename.rfind(os.sep)
+        if index < 0:
+            directory = os.curdir
+        else:
+            directory = filename[:index+1]
+            filename = filename[index+1:]
+        try:
+            return filename in os.listdir(directory)
+        except OSError:
+            return False
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     w = space.wrap
@@ -250,6 +268,7 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
         return first
 
 def load_part(space, w_path, prefix, partname, w_parent, tentative):
+    w_find_module = space.getattr(space.builtin, space.wrap("_find_module"))
     w = space.wrap
     modulename = '.'.join(prefix + [partname])
     w_modulename = w(modulename)
@@ -260,9 +279,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
     else:
         # Examin importhooks (PEP302) before doing the import
         if w_path is not None:
-            w_loader  = find_module(space, w_modulename, w_path) 
+            w_loader  = space.call_function(w_find_module, w_modulename, w_path)
         else:
-            w_loader  = find_module(space, w_modulename, space.w_None)
+            w_loader  = space.call_function(w_find_module, w_modulename,
+                                            space.w_None)
         if not space.is_w(w_loader, space.w_None):
             w_mod = space.call_method(w_loader, "load_module", w_modulename)
             #w_mod_ = check_sys_modules(space, w_modulename)
@@ -274,8 +294,9 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 
         if w_path is not None:
             for path in space.unpackiterable(w_path):
-                dir = os.path.join(space.str_w(path), partname)
-                if os.path.isdir(dir):
+                path = space.str_w(path)
+                dir = os.path.join(path, partname)
+                if os.path.isdir(dir) and case_ok(dir):
                     fn = os.path.join(dir, '__init__')
                     w_mod = try_import_mod(space, w_modulename, fn,
                                            w_parent, w(partname),
@@ -286,7 +307,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
                         msg = "Not importing directory " +\
                                 "'%s' missing __init__.py" % dir
                         space.warn(msg, space.w_ImportWarning)
-                fn = os.path.join(space.str_w(path), partname)
+                fn = dir
                 w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                        w(partname))
                 if w_mod is not None:
@@ -571,51 +592,4 @@ def write_compiled_module(space, co, cpathname, mtime):
             os.unlink(cpathname)
         except OSError:
             pass
-
-
-app = gateway.applevel(
-r"""    
-# Implement pep302
-
-IMP_HOOK = 9
-
-def find_module(fullname,  path):
-    import sys
-    meta_path = sys.meta_path
-    for hook in meta_path:
-        loader = hook.find_module(fullname,  path)
-        if loader:
-            return loader
-    if path != None and type(path) == str:
-        pass
-        # XXX Check for frozen modules ?
-    if path == None:
-        # XXX Check frozen
-        path = sys.path
-    path_hooks = sys.path_hooks
-    importer_cache = sys.path_importer_cache 
-    importer = None
-    for p in path:
-        if importer_cache.get(p,None):
-            importer = importer_cache.get(p)
-        else:
-            importer_cache[p] = None
-            importer = None
-            for hook in path_hooks:
-                try:
-                    importer = hook(p)
-                except ImportError:
-                    pass
-                else:
-                    break
-            if importer:
-                importer_cache[p] = importer
-        if importer:
-            loader = importer.find_module(fullname)
-            if loader:
-                return loader
-     #no hooks match - do normal import
-    """) 
-
-find_module = app.interphook('find_module')
 

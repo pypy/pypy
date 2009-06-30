@@ -201,3 +201,15 @@ def test_count_in_global2():
         y = y + 1
         c += 1
     
+def test_count_with_True():
+    x = 0
+    n = N
+    while x < n:
+        x = x + True
+
+increment = 1
+def test_count_with_global_increment():
+    x = 0
+    n = N
+    while x < n:
+        x = x + increment

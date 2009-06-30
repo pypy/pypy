@@ -72,7 +72,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
 
+        from pypy.objspace.std.celldict import get_global_cache
+
         class StdObjSpaceFrame(pyframe.PyFrame):
+            if self.config.objspace.std.withcelldict:
+                def __init__(self, space, code, w_globals, closure):
+                    pyframe.PyFrame.__init__(self, space, code, w_globals, closure)
+                    self.cache_for_globals = get_global_cache(space, code, w_globals)
+
+                from pypy.objspace.std.celldict import LOAD_GLOBAL
+
             if self.config.objspace.std.optimized_int_add:
                 if self.config.objspace.std.withsmallint:
                     def BINARY_ADD(f, oparg, *ignored):
@@ -580,10 +589,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.objspace.std.listobject import W_ListObject
             return W_ListObject(list_w)
 
-    def newdict(self, track_builtin_shadowing=False):
-        if self.config.objspace.opcodes.CALL_LIKELY_BUILTIN and track_builtin_shadowing:
+    def newdict(self, module=False):
+        if self.config.objspace.std.withmultidict and module:
             from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-            return W_DictMultiObject(self, wary=True)
+            return W_DictMultiObject(self, module=True)
         return self.DictObjectCls(self)
 
     def newslice(self, w_start, w_end, w_step):

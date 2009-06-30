@@ -64,7 +64,8 @@ def storage_type(T):
 
 STATE_HEADER = lltype.GcStruct('state_header',
                            ('f_back', lltype.Ptr(lltype.GcForwardReference())),
-                           ('f_restart', lltype.Signed))
+                           ('f_restart', lltype.Signed),
+                           ('f_depth', lltype.Signed))
 STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 null_state = lltype.nullptr(STATE_HEADER)

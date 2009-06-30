@@ -74,9 +74,11 @@ def test_with_extension(ext): # ext normally ".py"; perhaps ".pyw"
 sys.path.insert(0, os.curdir)
 try:
     test_with_extension(os.extsep + "py")
-    if sys.platform.startswith("win"):
-        for ext in ".PY", ".Py", ".pY", ".pyw", ".PYW", ".pYw":
-            test_with_extension(ext)
+    #--- on PyPy, we don't support .PY and other case-mismatching
+    #--- extensions, even on Windows
+    #if sys.platform.startswith("win"):
+    #    for ext in ".PY", ".Py", ".pY", ".pyw", ".PYW", ".pYw":
+    #        test_with_extension(ext)
 finally:
     del sys.path[0]
 
@@ -101,6 +103,9 @@ def test_module_with_large_stack(module):
     f = open(filename, 'r')
     py_compile.compile(filename)
     f.close()
+    #--- the following line is to check that the "exec" a few lines below
+    #--- manages to import the .pyc file alone.  We don't support it in
+    #--- PyPy in the default configuration.
     #os.unlink(filename)
 
     # need to be able to load from current dir

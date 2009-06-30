@@ -1,5 +1,5 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import unicodehelper
 
 def parsestr(space, encoding, s):
     # compiler.transformer.Transformer.decode_literal depends on what 
@@ -74,9 +74,9 @@ def parsestr(space, encoding, s):
         assert 0 <= bufp <= bufq
         w_substr = space.wrap(buf[bufp : bufq])
         if rawmode:
-            w_v = PyUnicode_DecodeRawUnicodeEscape(space, w_substr)
+            w_v = unicodehelper.PyUnicode_DecodeRawUnicodeEscape(space, w_substr)
         else:
-            w_v = PyUnicode_DecodeUnicodeEscape(space, w_substr)
+            w_v = unicodehelper.PyUnicode_DecodeUnicodeEscape(space, w_substr)
         return w_v
 
     need_encoding = (encoding is not None and
@@ -86,9 +86,9 @@ def parsestr(space, encoding, s):
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
-            w_u = PyUnicode_DecodeUTF8(space, space.wrap(substr))
+            w_u = unicodehelper.PyUnicode_DecodeUTF8(space, space.wrap(substr))
             #w_v = space.wrap(space.unwrap(w_u).encode(encoding)) this works
-            w_v = PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
+            w_v = unicodehelper.PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
             return w_v
         else:
             return space.wrap(substr)
@@ -193,28 +193,6 @@ def isxdigit(ch):
             ch >= 'a' and ch <= 'f' or
             ch >= 'A' and ch <= 'F')
 
-app = gateway.applevel(r'''
-    def PyUnicode_DecodeUnicodeEscape(data):
-        import _codecs
-        return _codecs.unicode_escape_decode(data)[0]
-
-    def PyUnicode_DecodeRawUnicodeEscape(data):
-        import _codecs
-        return _codecs.raw_unicode_escape_decode(data)[0]
-
-    def PyUnicode_DecodeUTF8(data):
-        import _codecs
-        return _codecs.utf_8_decode(data)[0]
-
-    def PyUnicode_AsEncodedString(data, encoding):
-        import _codecs
-        return _codecs.encode(data, encoding)
-''')
-
-PyUnicode_DecodeUnicodeEscape = app.interphook('PyUnicode_DecodeUnicodeEscape')
-PyUnicode_DecodeRawUnicodeEscape = app.interphook('PyUnicode_DecodeRawUnicodeEscape')
-PyUnicode_DecodeUTF8 = app.interphook('PyUnicode_DecodeUTF8')
-PyUnicode_AsEncodedString = app.interphook('PyUnicode_AsEncodedString')
 
 def decode_utf8(space, s, ps, end, encoding):
     assert ps >= 0
@@ -222,8 +200,8 @@ def decode_utf8(space, s, ps, end, encoding):
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
-    w_u = PyUnicode_DecodeUTF8(space, space.wrap(s[pt : ps]))
-    w_v = PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
+    w_u = unicodehelper.PyUnicode_DecodeUTF8(space, space.wrap(s[pt : ps]))
+    w_v = unicodehelper.PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
     v = space.str_w(w_v)
     return v, ps
 

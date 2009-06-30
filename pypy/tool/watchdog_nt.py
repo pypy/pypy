@@ -10,6 +10,7 @@ timedout = False
 def childkill(pid):
     global timedout
     timedout = True
+    sys.stderr.write("==== test running for %d seconds ====\n" % timeout)
     sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")
     ctypes.windll.kernel32.TerminateProcess(pid, 1)
 

@@ -63,6 +63,9 @@ def unpack_signed_int(data,index,size,le):
         number = int(-1*(max - number))
     return number
 
+INFINITY = 1e200 * 1e200
+NAN = INFINITY / INFINITY
+
 def unpack_float(data,index,size,le):
     bytes = [ord(b) for b in data[index:index+size]]
     if len(bytes) != size:
@@ -89,7 +92,13 @@ def unpack_float(data,index,size,le):
     e -= bias
     e += 1
     sign = bytes[-1] & 0x80
-    number = math.ldexp(mantissa,e)
+    if e == bias + 2:
+        if mantissa == 0.5:
+            number = INFINITY
+        else:
+            return NAN
+    else:
+        number = math.ldexp(mantissa,e)
     if sign : number *= -1
     return number
 
@@ -125,19 +134,12 @@ def pack_unsigned_int(number,size,le):
 def pack_char(char,size,le):
     return str(char)
 
-def sane_float(man,e):
-    # TODO: XXX Implement checks for floats
-    return True
+def isinf(x):
+    return x != 0.0 and x / 2 == x
+def isnan(v):
+    return v != v*1.0 or (v == 1.0 and v == 2.0)
 
 def pack_float(number, size, le):
-
-    if number < 0:
-        sign = 1
-        number *= -1
-    elif number == 0.0:
-        return "\x00" * size
-    else:
-        sign = 0
     if size == 4:
         bias = 127
         exp = 8
@@ -147,28 +149,44 @@ def pack_float(number, size, le):
         exp = 11
         prec = 52
 
-    man, e = math.frexp(number)
+    if isnan(number):
+        sign = 0x80
+        man, e = 1.5, bias + 1
+    else:
+        if number < 0:
+            sign = 0x80
+            number *= -1
+        elif number == 0.0:
+            return '\x00' * size
+        else:
+            sign = 0x00
+        if isinf(number):
+            man, e = 1.0, bias + 1
+        else:
+            man, e = math.frexp(number)
+
+    result = []
     if 0.5 <= man and man < 1.0:
         man *= 2
         e -= 1
-    if sane_float(man,e):
-        man -= 1
-        e += bias
-        mantissa = int(2**prec *(man) +0.5)
-        res=[]
-        if mantissa >> prec :
-            mantissa = 0
-            e += 1
+    man -= 1
+    e += bias
+    power_of_two = 1 << prec
+    mantissa = int(power_of_two * man + 0.5)
+    if mantissa >> prec :
+        mantissa = 0
+        e += 1
 
-        for i in range(size-2):
-            res += [ mantissa & 0xff]
-            mantissa >>= 8
-        res += [ (mantissa & (2**(15-exp)-1)) | ((e & (2**(exp-7)-1))<<(15-exp))]
-        res += [sign << 7 | e >> (exp - 7)]
-        if le == 'big':
-            res.reverse()
-        return ''.join([chr(x) for x in res])
-    # TODO: What todo with insane floats/doubles. handle in sanefloat?
+    for i in range(size-2):
+        result.append(chr(mantissa & 0xff))
+        mantissa >>= 8
+    x = (mantissa & ((1<<(15-exp))-1)) | ((e & ((1<<(exp-7))-1))<<(15-exp))
+    result.append(chr(x))
+    x = sign | e >> (exp - 7)
+    result.append(chr(x))
+    if le == 'big':
+        result.reverse()
+    return ''.join(result)
 
 big_endian_format = {
     'x':{ 'size' : 1, 'alignment' : 0, 'pack' : None, 'unpack' : None},

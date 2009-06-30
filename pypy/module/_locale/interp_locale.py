@@ -1,6 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import rposix
+from pypy.rlib.rarithmetic import intmask
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root
@@ -16,9 +17,14 @@ class CConfig:
     includes = ['locale.h', 'limits.h']
     if HAVE_LANGINFO:
         includes += ['langinfo.h']
+    if HAVE_LIBINTL:
+        includes += ['libintl.h']
+    if sys.platform == 'win32':
+        includes += ['windows.h']
     _compilation_info_ = ExternalCompilationInfo(
         includes=includes,
     )
+    HAVE_BIND_TEXTDOMAIN_CODESET = platform.Has('bind_textdomain_codeset')
     lconv = platform.Struct("struct lconv", [
             # Numeric (non-monetary) information.
             ("decimal_point", rffi.CCHARP),    # Decimal point character.
@@ -87,15 +93,26 @@ constant_names = (
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
 
+langinfo_names = []
+if HAVE_LANGINFO:
+    # some of these consts have an additional #ifdef directives
+    # should we support them?
+    langinfo_names.extend('RADIXCHAR THOUSEP CRNCYSTR D_T_FMT D_FMT T_FMT '
+                        'AM_STR PM_STR CODESET T_FMT_AMPM ERA ERA_D_FMT '
+                        'ERA_D_T_FMT ERA_T_FMT ALT_DIGITS YESEXPR NOEXPR '
+                        '_DATE_FMT'.split())
+    for i in range(1, 8):
+        langinfo_names.append("DAY_%d" % i)
+        langinfo_names.append("ABDAY_%d" % i)
+    for i in range(1, 13):
+        langinfo_names.append("MON_%d" % i)
+        langinfo_names.append("ABMON_%d" % i)
 
-langinfo_names = ('CODESET D_T_FMT D_FMT T_FMT RADIXCHAR THOUSEP '
-                  'YESEXPR NOEXPR CRNCYSTR AM_STR PM_STR').split(" ")
-for i in range(1, 8):
-    langinfo_names.append("DAY_%d" % i)
-    langinfo_names.append("ABDAY_%d" % i)
-for i in range(1, 13):
-    langinfo_names.append("MON_%d" % i)
-    langinfo_names.append("ABMON_%d" % i)
+if sys.platform == 'win32':
+    langinfo_names.extend('LOCALE_USER_DEFAULT LOCALE_SISO639LANGNAME '
+                      'LOCALE_SISO3166CTRYNAME LOCALE_IDEFAULTLANGUAGE '
+                      ''.split())
+
 
 for name in langinfo_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
@@ -119,8 +136,12 @@ for name in langinfo_names:
 
 locals().update(constants)
 
-def external(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
+HAVE_BIND_TEXTDOMAIN_CODESET = cConfig.HAVE_BIND_TEXTDOMAIN_CODESET
+
+def external(name, args, result, calling_conv='c'):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv=calling_conv)
 
 def make_error(space, msg):
     w_module = space.getbuiltinmodule('_locale')
@@ -157,38 +178,57 @@ setlocale.unwrap_spec = [ObjSpace, int, W_Root]
 _lconv = lltype.Ptr(cConfig.lconv)
 _localeconv = external('localeconv', [], _lconv)
 
-def _copy_grouping(text):
-    groups = [ ord(group) for group in text ]
+def _w_copy_grouping(space, text):
+    groups = [ space.wrap(ord(group)) for group in text ]
     if groups:
-        groups.append(0)
-    return groups
+        groups.append(space.wrap(0))
+    return space.newlist(groups)
 
 def localeconv(space):
     "() -> dict. Returns numeric and monetary locale-specific parameters."
     lp = _localeconv()
 
     # Numeric information
-    result = {
-        "decimal_point": rffi.charp2str(lp.c_decimal_point),
-        "thousands_sep": rffi.charp2str(lp.c_thousands_sep),
-        "grouping": _copy_grouping(rffi.charp2str(lp.c_grouping)),
-        "int_curr_symbol": rffi.charp2str(lp.c_int_curr_symbol),
-        "currency_symbol": rffi.charp2str(lp.c_currency_symbol),
-        "mon_decimal_point": rffi.charp2str(lp.c_mon_decimal_point),
-        "mon_thousands_sep": rffi.charp2str(lp.c_mon_thousands_sep),
-        "mon_grouping": _copy_grouping(rffi.charp2str(lp.c_mon_grouping)),
-        "positive_sign": rffi.charp2str(lp.c_positive_sign),
-        "negative_sign": rffi.charp2str(lp.c_negative_sign),
-        "int_frac_digits": lp.c_int_frac_digits,
-        "frac_digits": lp.c_frac_digits,
-        "p_cs_precedes": lp.c_p_cs_precedes,
-        "p_sep_by_space": lp.c_p_sep_by_space,
-        "n_cs_precedes": lp.c_n_cs_precedes,
-        "n_sep_by_space": lp.c_n_sep_by_space,
-        "p_sign_posn": lp.c_p_sign_posn,
-        "n_sign_posn": lp.c_n_sign_posn,
-    }
-    return space.wrap(result)
+    w_result = space.newdict()
+    w = space.wrap
+    space.setitem(w_result, w("decimal_point"),
+                  w(rffi.charp2str(lp.c_decimal_point)))
+    space.setitem(w_result, w("thousands_sep"),
+                  w(rffi.charp2str(lp.c_thousands_sep)))
+    space.setitem(w_result, w("grouping"),
+                  _w_copy_grouping(space, rffi.charp2str(lp.c_grouping)))
+    space.setitem(w_result, w("int_curr_symbol"),
+                  w(rffi.charp2str(lp.c_int_curr_symbol)))
+    space.setitem(w_result, w("currency_symbol"),
+                  w(rffi.charp2str(lp.c_currency_symbol)))
+    space.setitem(w_result, w("mon_decimal_point"),
+                  w(rffi.charp2str(lp.c_mon_decimal_point)))
+    space.setitem(w_result, w("mon_thousands_sep"),
+                  w(rffi.charp2str(lp.c_mon_thousands_sep)))
+    space.setitem(w_result, w("mon_grouping"),
+                  _w_copy_grouping(space, rffi.charp2str(lp.c_mon_grouping)))
+    space.setitem(w_result, w("positive_sign"),
+                  w(rffi.charp2str(lp.c_positive_sign)))
+    space.setitem(w_result, w("negative_sign"),
+                  w(rffi.charp2str(lp.c_negative_sign)))
+    space.setitem(w_result, w("int_frac_digits"),
+                  w(lp.c_int_frac_digits))
+    space.setitem(w_result, w("frac_digits"),
+                  w(lp.c_frac_digits))
+    space.setitem(w_result, w("p_cs_precedes"),
+                  w(lp.c_p_cs_precedes))
+    space.setitem(w_result, w("p_sep_by_space"),
+                  w(lp.c_p_sep_by_space))
+    space.setitem(w_result, w("n_cs_precedes"),
+                  w(lp.c_n_cs_precedes))
+    space.setitem(w_result, w("n_sep_by_space"),
+                  w(lp.c_n_sep_by_space))
+    space.setitem(w_result, w("p_sign_posn"),
+                  w(lp.c_p_sign_posn))
+    space.setitem(w_result, w("n_sign_posn"),
+                  w(lp.c_n_sign_posn))
+
+    return w_result
 
 localeconv.unwrap_spec = [ObjSpace]
 
@@ -218,8 +258,8 @@ def strcoll(space, w_s1, w_s2):
 
 strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-_strxfrm = external('strxfrm', [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T],
-                                                                rffi.SIZE_T)
+_strxfrm = external('strxfrm',
+                    [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
 def strxfrm(space, s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
@@ -230,7 +270,8 @@ def strxfrm(space, s):
     if n2 > n1:
         # more space needed
         lltype.free(buf, flavor="raw")
-        buf = lltype.malloc(rffi.CCHARP.TO, int(n2), flavor="raw", zero=True)
+        buf = lltype.malloc(rffi.CCHARP.TO, intmask(n2),
+                            flavor="raw", zero=True)
         _strxfrm(buf, rffi.str2charp(s), n2)
 
     val = rffi.charp2str(buf)
@@ -240,123 +281,179 @@ def strxfrm(space, s):
 
 strxfrm.unwrap_spec = [ObjSpace, str]
 
-_gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
+if HAVE_LANGINFO:
+    nl_item = rffi.INT
+    _nl_langinfo = external('nl_langinfo', [nl_item], rffi.CCHARP)
 
-def gettext(space, msg):
-    """gettext(msg) -> string
-    Return translation of msg."""
-    return space.wrap(rffi.charp2str(_gettext(rffi.str2charp(msg))))
+    def nl_langinfo(space, key):
+        """nl_langinfo(key) -> string
+        Return the value for the locale information associated with key."""
 
-gettext.unwrap_spec = [ObjSpace, str]
+        if key in constants.values():
+            result = _nl_langinfo(rffi.cast(nl_item, key))
+            return space.wrap(rffi.charp2str(result))
+        raise OperationError(space.w_ValueError,
+                             space.wrap("unsupported langinfo constant"))
 
-_dgettext = external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
+    nl_langinfo.unwrap_spec = [ObjSpace, int]
 
-def dgettext(space, w_domain, msg):
-    """dgettext(domain, msg) -> string
-    Return translation of msg in domain."""
-    if space.is_w(w_domain, space.w_None):
-        domain = None
-        result = _dgettext(domain, rffi.str2charp(msg))
-    else:
-        domain = space.str_w(w_domain)
-        result = _dgettext(rffi.str2charp(domain), rffi.str2charp(msg))
+#___________________________________________________________________
+# HAVE_LIBINTL dependence
 
-    return space.wrap(rffi.charp2str(result))
+if HAVE_LIBINTL:
+    _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
 
-dgettext.unwrap_spec = [ObjSpace, W_Root, str]
+    def gettext(space, msg):
+        """gettext(msg) -> string
+        Return translation of msg."""
+        return space.wrap(rffi.charp2str(_gettext(rffi.str2charp(msg))))
 
-_dcgettext = external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
-                                                                rffi.CCHARP)
+    gettext.unwrap_spec = [ObjSpace, str]
 
-def dcgettext(space, w_domain, msg, category):
-    """dcgettext(domain, msg, category) -> string
-    Return translation of msg in domain and category."""
+    _dgettext = external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
-    if space.is_w(w_domain, space.w_None):
-        domain = None
-        result = _dcgettext(domain, rffi.str2charp(msg),
-                            rffi.cast(rffi.INT, category))
-    else:
-        domain = space.str_w(w_domain)
-        result = _dcgettext(rffi.str2charp(domain), rffi.str2charp(msg),
-                            rffi.cast(rffi.INT, category))
+    def dgettext(space, w_domain, msg):
+        """dgettext(domain, msg) -> string
+        Return translation of msg in domain."""
+        if space.is_w(w_domain, space.w_None):
+            domain = None
+            result = _dgettext(domain, rffi.str2charp(msg))
+        else:
+            domain = space.str_w(w_domain)
+            result = _dgettext(rffi.str2charp(domain), rffi.str2charp(msg))
 
-    return space.wrap(rffi.charp2str(result))
-
-dcgettext.unwrap_spec = [ObjSpace, W_Root, str, int]
-
-
-_textdomain = external('textdomain', [rffi.CCHARP], rffi.CCHARP)
-
-def textdomain(space, w_domain):
-    """textdomain(domain) -> string
-    Set the C library's textdomain to domain, returning the new domain."""
-
-    if space.is_w(w_domain, space.w_None):
-        domain = None
-        result = _textdomain(domain)
-    else:
-        domain = space.str_w(w_domain)
-        result = _textdomain(rffi.str2charp(domain))
-
-    return space.wrap(rffi.charp2str(result))
-
-textdomain.unwrap_spec = [ObjSpace, W_Root]
-
-nl_item = rffi.INT
-_nl_langinfo = external('nl_langinfo', [nl_item], rffi.CCHARP)
-
-def nl_langinfo(space, key):
-    """nl_langinfo(key) -> string
-    Return the value for the locale information associated with key."""
-
-    if key in constants.values():
-        result = _nl_langinfo(rffi.cast(nl_item, key))
         return space.wrap(rffi.charp2str(result))
-    raise OperationError(space.w_ValueError, "unsupported langinfo constant")
 
-nl_langinfo.unwrap_spec = [ObjSpace, int]
+    dgettext.unwrap_spec = [ObjSpace, W_Root, str]
 
-_bindtextdomain = external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
+    _dcgettext = external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
 
-def bindtextdomain(space, domain, w_dir):
-    """bindtextdomain(domain, dir) -> string
-    Bind the C library's domain to dir."""
+    def dcgettext(space, w_domain, msg, category):
+        """dcgettext(domain, msg, category) -> string
+        Return translation of msg in domain and category."""
 
-    if space.is_w(w_dir, space.w_None):
-        dir = None
-        dirname = _bindtextdomain(rffi.str2charp(domain), dir)
-    else:
-        dir = space.str_w(w_dir)
-        dirname = _bindtextdomain(rffi.str2charp(domain), rffi.str2charp(dir))
+        if space.is_w(w_domain, space.w_None):
+            domain = None
+            result = _dcgettext(domain, rffi.str2charp(msg),
+                                rffi.cast(rffi.INT, category))
+        else:
+            domain = space.str_w(w_domain)
+            result = _dcgettext(rffi.str2charp(domain), rffi.str2charp(msg),
+                                rffi.cast(rffi.INT, category))
 
-    if not dirname:
-        errno = rposix.get_errno()
-        raise OperationError(space.w_OSError, errno)
-    return space.wrap(rffi.charp2str(dirname))
+        return space.wrap(rffi.charp2str(result))
 
-bindtextdomain.unwrap_spec = [ObjSpace, str, W_Root]
+    dcgettext.unwrap_spec = [ObjSpace, W_Root, str, int]
 
-_bind_textdomain_codeset = external('bind_textdomain_codeset',
+
+    _textdomain = external('textdomain', [rffi.CCHARP], rffi.CCHARP)
+
+    def textdomain(space, w_domain):
+        """textdomain(domain) -> string
+        Set the C library's textdomain to domain, returning the new domain."""
+
+        if space.is_w(w_domain, space.w_None):
+            domain = None
+            result = _textdomain(domain)
+        else:
+            domain = space.str_w(w_domain)
+            result = _textdomain(rffi.str2charp(domain))
+
+        return space.wrap(rffi.charp2str(result))
+
+    textdomain.unwrap_spec = [ObjSpace, W_Root]
+
+    _bindtextdomain = external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
+                                                                rffi.CCHARP)
+
+    def bindtextdomain(space, domain, w_dir):
+        """bindtextdomain(domain, dir) -> string
+        Bind the C library's domain to dir."""
+
+        if space.is_w(w_dir, space.w_None):
+            dir = None
+            dirname = _bindtextdomain(rffi.str2charp(domain), dir)
+        else:
+            dir = space.str_w(w_dir)
+            dirname = _bindtextdomain(rffi.str2charp(domain),
+                                        rffi.str2charp(dir))
+
+        if not dirname:
+            errno = rposix.get_errno()
+            raise OperationError(space.w_OSError, space.wrap(errno))
+        return space.wrap(rffi.charp2str(dirname))
+
+    bindtextdomain.unwrap_spec = [ObjSpace, str, W_Root]
+
+    _bind_textdomain_codeset = external('bind_textdomain_codeset',
                                     [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
-# TODO: platform dependent
-def bind_textdomain_codeset(space, domain, w_codeset):
-    """bind_textdomain_codeset(domain, codeset) -> string
-    Bind the C library's domain to codeset."""
+    if HAVE_BIND_TEXTDOMAIN_CODESET:
+        def bind_textdomain_codeset(space, domain, w_codeset):
+            """bind_textdomain_codeset(domain, codeset) -> string
+            Bind the C library's domain to codeset."""
 
-    if space.is_w(w_codeset, space.w_None):
-        codeset = None
-        result = _bind_textdomain_codeset(rffi.str2charp(domain), codeset)
-    else:
-        codeset = space.str_w(w_codeset)
-        result = _bind_textdomain_codeset(rffi.str2charp(domain),
-                                        rffi.str2charp(codeset))
-    
-    if not result:
-        return space.w_None
-    else:
-        return space.wrap(rffi.charp2str(result))
+            if space.is_w(w_codeset, space.w_None):
+                codeset = None
+                result = _bind_textdomain_codeset(
+                                            rffi.str2charp(domain), codeset)
+            else:
+                codeset = space.str_w(w_codeset)
+                result = _bind_textdomain_codeset(rffi.str2charp(domain),
+                                                rffi.str2charp(codeset))
 
-bind_textdomain_codeset.unwrap_spec = [ObjSpace, str, W_Root]
+            if not result:
+                return space.w_None
+            else:
+                return space.wrap(rffi.charp2str(result))
+
+        bind_textdomain_codeset.unwrap_spec = [ObjSpace, str, W_Root]
+
+#___________________________________________________________________
+# getdefaultlocale() implementation for Windows and MacOSX
+
+if sys.platform == 'win32':
+    from pypy.rlib import rwin32
+    LCID = LCTYPE = rwin32.DWORD
+    GetACP = external('GetACP',
+                      [], rffi.INT,
+                      calling_conv='win')
+    GetLocaleInfo = external('GetLocaleInfoA',
+                             [LCID, LCTYPE, rwin32.LPSTR, rffi.INT], rffi.INT,
+                             calling_conv='win')
+
+    def getdefaultlocale(space):
+        encoding = "cp%d" % GetACP()
+
+        BUFSIZE = 50
+        buf_lang = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
+        buf_country = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
+
+        try:
+            if (GetLocaleInfo(LOCALE_USER_DEFAULT,
+                              LOCALE_SISO639LANGNAME,
+                              buf_lang, BUFSIZE) and
+                GetLocaleInfo(LOCALE_USER_DEFAULT,
+                              LOCALE_SISO3166CTRYNAME,
+                              buf_country, BUFSIZE)):
+                lang = rffi.charp2str(buf_lang)
+                country = rffi.charp2str(buf_country)
+                return space.newtuple([space.wrap("%s_%s" % (lang, country)),
+                                       space.wrap(encoding)])
+
+            # If we end up here, this windows version didn't know about
+            # ISO639/ISO3166 names (it's probably Windows 95).  Return the
+            # Windows language identifier instead (a hexadecimal number)
+            elif GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTLANGUAGE,
+                               buf_lang, BUFSIZE):
+                lang = rffi.charp2str(buf_lang)
+                return space.newtuple([space.wrap("0x%s" % lang),
+                                       space.wrap(encoding)])
+            else:
+                return space.newtuple([space.w_None, space.wrap(encoding)])
+        finally:
+            lltype.free(buf_lang, flavor='raw')
+            lltype.free(buf_country, flavor='raw')
+elif sys.platform == 'darwin':
+    raise NotImplementedError()

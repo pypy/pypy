@@ -79,6 +79,13 @@ class JvmGeneratedSource(object):
         self.package = package
         self.compiled = False
         self.jasmin_files = None
+        
+        # Determine various paths:
+        self.thisdir = py.magic.autopath().dirpath()
+        self.rootdir = self.thisdir.join('src')
+        self.srcdir = self.rootdir.join('pypy')
+        self.jnajar = self.rootdir.join('jna.jar')
+        self.jasminjar = self.rootdir.join('jasmin.jar')        
 
         # Compute directory where .j files are
         self.javadir = self.tmpdir
@@ -109,13 +116,9 @@ class JvmGeneratedSource(object):
     def _compile_helper(self):
         # HACK: compile the Java helper classes.  Should eventually
         # use rte.py
-        thisdir = py.magic.autopath().dirpath()
-        rootdir = thisdir.join('src')
-        srcdir = rootdir.join('pypy')
-        javafiles = srcdir.listdir('*.java')
-        classfiles = srcdir.listdir('*.class')
-        jnajar = rootdir.join('jna.jar')
-
+        javafiles = self.srcdir.listdir('*.java')
+        classfiles = self.srcdir.listdir('*.class')
+        
         recompile = True
         if len(classfiles) == len(javafiles):
            last_modified_java = max([java.mtime() for java in javafiles])
@@ -128,20 +131,25 @@ class JvmGeneratedSource(object):
            javasrcs = [str(jf) for jf in javafiles]
            self._invoke([getoption('javac'),
                          '-nowarn',
-                         '-d', str(rootdir),
-                         '-classpath', str(jnajar)
+                         '-d', str(self.rootdir),
+                         '-classpath', str(self.jnajar)
                          ] + javasrcs,
                         True)
 
         # copy .class files to classdir
-        for classfile in srcdir.listdir('*.class'):
+        for classfile in self.srcdir.listdir('*.class'):
            classfile.copy(self.classdir.join('pypy'))
 
     def compile(self):
         """
         Compiles the .java sources into .class files, ready for execution.
         """
-        jascmd = [getoption('jasmin'), '-g', '-d', str(self.javadir)]
+        jascmd = [
+            getoption('java'), 
+            '-jar', str(self.jasminjar),
+            '-g', 
+            '-d', 
+            str(self.javadir)]
 
         def split_list(files):
             "Split the files list into manageable pieces"
@@ -189,7 +197,7 @@ class JvmGeneratedSource(object):
         cmd = [getoption('java'),
                '-Xmx256M', # increase the heapsize so the microbenchmarks run
                '-cp',
-               str(self.javadir),
+               str(self.javadir)+":"+str(self.jnajar),
                self.package+".Main"] + strargs
         print "Invoking java to run the code"
         stdout, stderr, retval = self._invoke(cmd, True)
@@ -225,7 +233,6 @@ def detect_missing_support_programs():
     def check(exechelper):
         if py.path.local.sysfind(exechelper) is None:
             py.test.skip("%s is not on your path" % exechelper)
-    check(getoption('jasmin'))
     check(getoption('javac'))
     check(getoption('java'))
 

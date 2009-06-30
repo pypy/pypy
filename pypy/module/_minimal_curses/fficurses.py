@@ -8,7 +8,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.module._minimal_curses import interp_curses
-from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 eci = ExternalCompilationInfo(

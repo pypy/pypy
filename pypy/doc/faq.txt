@@ -32,16 +32,21 @@ For further details see our `goal and architecture document`_ .
 Is PyPy a drop in replacement for CPython?
 ------------------------------------------
 
-Not completely, at least not yet.
+Almost!
 
 The mostly likely stumbling block for any given project is support for
-`extension modules`_.  PyPy supports a small but continually growing
-number of extension modules, so far mostly those found in the standard
-library.  The `threading`_ support is also not perfectly complete.
+`extension modules`_.  PyPy supports a continually growing
+number of extension modules, but so far mostly only those found in the
+standard library.
 
 The language features (including builtin types and functions) are very
 complete and well tested, so if your project does not use many
 extension modules there is a good chance that it will work with PyPy.
+
+We list the differences we know about in `cpython_differences`_.
+
+.. _`extension modules`: cpython_differences.html#extension-modules
+.. _`cpython_differences`: cpython_differences.html
 
 --------------------------------
 On what platforms does PyPy run?
@@ -93,8 +98,6 @@ modules can be found as follows:
 .. _`stackless-like microthreads`: stackless.html
 
 
-.. _`extension modules`:
-
 ------------------------------------
 Can I use CPython extension modules?
 ------------------------------------
@@ -128,43 +131,42 @@ How fast is PyPy?
 
 .. _whysoslow:
 
-As of August 2005, PyPy was successfully translated to C.  Compared to
-CPython, the version of PyPy that still runs on top of CPython is slower
-by a factor of 2000. The first translated version was roughly 300 times
-slower than CPython, a number which we decreased release after release
-to the current point, where PyPy is somewhere between 1 and 2, i.e. it
-is as fast as CPython in some cases, and up to twice as slow in other
-cases.  Note that the speed heavily depends on the options enabled at
-compile time.
+The answer to this question depends on how the PyPy interpreter is run. When
+optimized and translated to C, the PyPy interpreter runs somewhere between 1
+and 2 times slower than CPython. If the PyPy interpreter is run on top of
+CPython, i.e., without translation of any kind, then it is slower by a factor
+of 2000. Obtaining good measurements for the performance when run on the CLI or
+JVM is difficult, but it is safe to say that PyPy currently runs slower than
+IronPython (CLI) or Jython (JVM) for most tests.
 
-The integration of the work on the Just-In-Time compiler has just
-started; it is not yet ready enough to give useful speed-ups.  See
-status__.
+The work on the Just-In-Time compiler is currently at its fifth revision,
+but it looks like this revision is finally going to make it.  It is work
+in progress; see the `JIT documentation`_.
 
-.. __: jit/status.html
+.. _`JIT documentation`: jit/index.html
 
 
 .. _`prolog and javascript`:
 
------------------------------------------------------------------------
-What is this talk about a JavaScript and a Prolog interpreter in PyPy?
------------------------------------------------------------------------
+---------------------------------------------------------------
+Can PyPy support intepreters for other languages beyond Python?
+---------------------------------------------------------------
 
-Since a Python interpreter is a rather large and intricate thing, our tool suite
-has become quite advanced to support it. This resulted in people having the idea of using it
-to implement interpreters for other dynamic languages than Python and get a lot
-of things for free (translation to various languages, stackless features,
+The toolsuite that translates the PyPy interpreter is quite
+general and can be used to create optimized versions of interpreters
+for any language, not just Python.  Of course, these interpreters
+can make use of the same features that PyPy brings to Python:
+translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
-integers). Therefore people started to implement a JavaScript interpreter
-(Leonardo Santagada as his Summer of PyPy project) and a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Bachelor thesis). The JavaScript interpreter is
-undocumented at the moment, you can look at `its sources`_.
-Both projects are unfinished the moment (the Prolog interpreter being less
-unfinished).
+integers, etc. 
 
-.. _`its sources`: ../../pypy/lang/js
+Currently, we have preliminary versions of a JavaScript interpreter
+(Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
+(produced during a sprint).  All of them are unfinised at the moment.
+
 .. _`Prolog interpreter`: prolog-interpreter.html
-
+.. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 
 Development
 ========================================================================
@@ -187,7 +189,7 @@ many PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`project suggestions`: project-ideas.html
-.. _`contact us`: home.html
+.. _`contact us`: index.html
 .. _`mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 
 ----------------------------------------------------------------------
@@ -363,23 +365,14 @@ change over time as speed for normal Python code improves.
 Which backends are there?
 -------------------------
 
-Backends that can actually translate all of PyPy:
-
- * C_, LLVM_, CLI_, JVM_
-
-Somewhat mature backends:
-
-* Low level backends: C_, LLVM_
-* High level backends: CLI_, JVM_, JavaScript_
-
+Currently, there are backends for C_, the CLI_, and the JVM_.
+All of these can translate the entire PyPy interpreter.
 To learn more about backends take a look at the `translation document`_.
 
-.. _CLI: cli-backend.html
-.. _JavaScript: js/whatis.html
 .. _C: translation.html#the-c-back-end
-.. _LLVM: translation.html#the-llvm-back-end
-.. _`translation document`: translation.html
+.. _CLI: cli-backend.html
 .. _JVM: translation.html#genjvm
+.. _`translation document`: translation.html
 
 ----------------------
 How do I compile PyPy?

@@ -148,3 +148,14 @@ class ExpectTest:
 
     def test_two(self):
         import pypy
+
+def test_app_test_blow(testdir):
+    conftestpath.copy(testdir.tmpdir)
+    sorter = testdir.inline_runsource("""
+class AppTestBlow:
+    def test_one(self):
+        exec 'blow'
+    """)
+
+    ev, = sorter.getnamed("itemtestreport")
+    assert ev.failed

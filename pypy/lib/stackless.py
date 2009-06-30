@@ -16,7 +16,7 @@ import sys
 try:
     from _stackless import coroutine, greenlet
 except ImportError: # we are running from CPython
-    from py.magic import greenlet
+    from greenlet import greenlet
     try:
         from functools import partial
     except ImportError: # we are not running python 2.5
@@ -493,7 +493,7 @@ class tasklet(coroutine):
         coro_state = a, b, c, None
         coro_state, alive, tempval = rewrite_stackless_primitive(coro_state, self.alive, self.tempval)
         inst_dict = self.__dict__.copy()
-        del inst_dict['tempval']
+        inst_dict.pop('tempval', None)
         return self.__class__, (), (coro_state, alive, tempval, inst_dict)
 
     def __setstate__(self, (coro_state, alive, tempval, inst_dict)):

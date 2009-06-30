@@ -8,6 +8,7 @@ import py, os
 
 class BasePosix(Platform):
     exe_ext = ''
+    make_cmd = 'make'
 
     def __init__(self, cc=None):
         if cc is None:
@@ -109,7 +110,7 @@ class BasePosix(Platform):
         else:
             path = path_to_makefile
         log.execute('make in %s' % (path,))
-        returncode, stdout, stderr = _run_subprocess('make', ['-C', str(path)])
+        returncode, stdout, stderr = _run_subprocess(self.make_cmd, ['-C', str(path)])
         self._handle_error(returncode, stdout, stderr, path.join('make'))
 
 class Definition(object):

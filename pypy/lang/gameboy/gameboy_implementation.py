@@ -15,13 +15,16 @@ import time
 show_metadata = False # Extends the window with windows visualizing meta-data
 
 if constants.USE_RSDL:
-    from pypy.rlib.rsdl import RSDL, RSDL_helper, RMix
+    from pypy.rlib.rsdl import RSDL, RSDL_helper #, RMix
     from pypy.rpython.lltypesystem import lltype, rffi
-    delay = RSDL.Delay
     get_ticks = RSDL.GetTicks
+    def delay(secs):
+        return RSDL.Delay(int(secs * 1000))
 else:
     delay = time.sleep
 
+FPS = 1<<6 # About 1<<6 to make sure we have a clean distrubution of about
+           # 1<<6 frames per second
 
 from pypy.rlib.objectmodel import specialize
 
@@ -65,20 +68,18 @@ class GameBoyImplementation(GameBoy):
         return 0
     
     def emulate_cycle(self):
-        X = 1<<6 # About 1<<6 to make sure we have a clean distrubution of about
-                 # 1<<6 frames per second
         self.handle_events()
-        # Come back to this cycle every 1/X seconds
-        self.emulate(constants.GAMEBOY_CLOCK / X)
-        spent = int(time.time()) - self.sync_time
-        left = int(1000.0/X) + self.penalty - spent
+        # Come back to this cycle every 1/FPS seconds
+        self.emulate(constants.GAMEBOY_CLOCK / FPS)
+        spent = time.time() - self.sync_time
+        left = 1.0/FPS + self.penalty - spent
         if left > 0:
             delay(left)
-            self.penalty = 0
+            self.penalty = 0.0
         else:
             # Fade out penalties over time.
             self.penalty = left - self.penalty / 2
-        self.sync_time = int(time.time())
+        self.sync_time = time.time()
         
     
     def handle_execution_error(self, error): 
@@ -117,11 +118,11 @@ class GameBoyImplementation(GameBoy):
 
 class VideoDriverImplementation(VideoDriver):
     
-    COLOR_MAP = [0xFFFFFF, 0xCCCCCC, 0x666666, 0x000000]
+    COLOR_MAP = [(0xff, 0xff, 0xff), (0xCC, 0xCC, 0xCC), (0x66, 0x66, 0x66), (0, 0, 0)]
     
     def __init__(self, gameboy):
         VideoDriver.__init__(self)
-        self.scale = 2
+        self.scale = 4
 
         if show_metadata:
             self.create_meta_windows(gameboy)
@@ -129,6 +130,12 @@ class VideoDriverImplementation(VideoDriver):
     def create_screen(self):
         if constants.USE_RSDL:
             self.screen = RSDL.SetVideoMode(self.width*self.scale, self.height*self.scale, 32, 0)
+            fmt = self.screen.c_format
+            self.colors = []
+            for color in self.COLOR_MAP:
+                color = RSDL.MapRGB(fmt, *color)
+                self.colors.append(color)
+            self.blit_rect = RSDL_helper.mallocrect(0, 0, self.scale, self.scale)
  
     def create_meta_windows(self, gameboy):
         upper_meta_windows = [SpritesWindow(gameboy),
@@ -169,22 +176,20 @@ class VideoDriverImplementation(VideoDriver):
             self.draw_ascii_pixels()
 
     def draw_pixel(self, x, y, color):
-        color = self.COLOR_MAP[color]
+        color = self.colors[color]
         start_x = x * self.scale
         start_y = y * self.scale
-
-        if self.scale > 1:
-            for x in range(self.scale):
-                for y in range(self.scale):
-                    RSDL_helper.set_pixel(self.screen, start_x + x,
-                                          start_y + y, color)
-        else:
-            RSDL_helper.set_pixel(self.screen, start_x, start_y, color)
+        dstrect = self.blit_rect
+        rffi.setintfield(dstrect, 'c_x',  start_x)
+        rffi.setintfield(dstrect, 'c_y',  start_y)
+        RSDL.FillRect(self.screen, dstrect, color)
 
     def draw_pixels(self):
         for y in range(constants.GAMEBOY_SCREEN_HEIGHT):
             for x in range(constants.GAMEBOY_SCREEN_WIDTH):
-                self.draw_pixel(x, y, self.pixels[y][x])
+                if self.changed[y][x]:
+                    self.draw_pixel(x, y, self.pixels[y][x])
+                    self.changed[y][x] = False
 
     def draw_ascii_pixels(self):
             str = []
@@ -260,18 +265,20 @@ class SoundDriverImplementation(SoundDriver):
         SoundDriver.__init__(self)
         self.enabled       = False
         self.sampleRate    = 44100
-        self.chunksize     = 1024
+        self.buffersize    = 512
         self.channelCount  = 2
         self.bitsPerSample = 4
+        self.sampleSize    = self.bitsPerSample * self.channelCount
         self.create_sound_driver()
 
     def create_sound_driver(self):
-        if RMix.OpenAudio(self.sampleRate, RSDL.AUDIO_U8, 
-                          self.channelCount, self.chunksize) != 0:
-            error = rffi.charp2str(RSDL.GetError())
-            raise Exception(error)
-        else:
-            self.enabled = True
+        #if RMix.OpenAudio(self.sampleRate, RSDL.AUDIO_U8, 
+        #                  self.channelCount, self.chunksize) != 0:
+        #    error = rffi.charp2str(RSDL.GetError())
+        #    raise Exception(error)
+        #else:
+        #    self.enabled = True
+        pass
     
     def start(self):
         pass

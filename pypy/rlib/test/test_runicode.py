@@ -89,11 +89,24 @@ class TestDecoding(UnicodeTests):
             for encoding in "utf-8 latin-1 utf-16 utf-16-be utf-16-le".split():
                 self.checkdecode(unichr(i), encoding)
 
-    def test_random(self):
+    def test_first_10000(self):
         for i in range(10000):
-            uni = unichr(random.randrange(sys.maxunicode))
             for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
                 self.checkdecode(unichr(i), encoding)
+
+    def test_random(self):
+        for i in range(10000):
+            v = random.randrange(sys.maxunicode)
+            if 0xd800 <= v <= 0xdfff:
+                continue
+            uni = unichr(v)
+            for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
+                self.checkdecode(uni, encoding)                
+
+    def test_maxunicode(self):
+        uni = unichr(sys.maxunicode)
+        for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
+            self.checkdecode(uni, encoding)        
 
     def test_single_chars_utf8(self):
         for s in ["\xd7\x90", "\xd6\x96", "\xeb\x96\x95", "\xf0\x90\x91\x93"]:
@@ -156,11 +169,24 @@ class TestEncoding(UnicodeTests):
             for encoding in "utf-8 latin-1 utf-16 utf-16-be utf-16-le".split():
                 self.checkencode(unichr(i), encoding)
 
-    def test_random(self):
+    def test_first_10000(self):
         for i in range(10000):
-            uni = unichr(random.randrange(sys.maxunicode))
             for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
                 self.checkencode(unichr(i), encoding)
+
+    def test_random(self):
+        for i in range(10000):
+            v = random.randrange(sys.maxunicode)
+            if 0xd800 <= v <= 0xdfff:
+                continue
+            uni = unichr(v)
+            for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
+                self.checkencode(uni, encoding)                
+
+    def test_maxunicode(self):
+        uni = unichr(sys.maxunicode)
+        for encoding in "utf-8 utf-16 utf-16-be utf-16-le".split():
+            self.checkencode(uni, encoding)        
 
     def test_single_chars_utf8(self):
         # check every number of bytes per char

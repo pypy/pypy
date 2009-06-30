@@ -190,7 +190,7 @@ class JVMGenerator(Generator):
                                    abstract=abstract)
     
     def begin_function(self, funcname, argvars, argtypes, rettype,
-                       static=False, abstract=False):
+                       static=False, abstract=False, final=False):
         """
         funcname --- name of the function
         argvars --- list of objects passed to load() that represent arguments;
@@ -198,6 +198,7 @@ class JVMGenerator(Generator):
         argtypes --- JvmType for each argument [INCLUDING this]
         rettype --- JvmType for the return value
         static --- keyword, if true then a static func is generated
+        final --- keyword, if true then a final method is generated
 
         This function also defines the scope for variables passed to
         load()/store().
@@ -214,9 +215,9 @@ class JVMGenerator(Generator):
         # Prepare a map for the local variable indices we will add
         # Let the subclass do the rest of the work; note that it does
         # not need to know the argvars parameter, so don't pass it
-        self._begin_function(funcname, argtypes, rettype, static, abstract)
+        self._begin_function(funcname, argtypes, rettype, static, abstract, final)
 
-    def _begin_function(self, funcname, argtypes, rettype, static, abstract):
+    def _begin_function(self, funcname, argtypes, rettype, static, abstract, final):
         """
         Main implementation of begin_function.  The begin_function()
         does some generic handling of args.
@@ -592,9 +593,11 @@ class JVMGenerator(Generator):
             jvm.PYPYOS.load(self)
         
     def call_primitive(self, op, module, name):
+        from pypy.translator.simplify import get_functype
         callee = op.args[0].value
-        jargtypes, jrettype = self.db.types_for_signature(
-            callee._TYPE.ARGS, callee._TYPE.RESULT)
+        # it could be an rffi lltype, see test_primitive.test_rffi_ooprimitive
+        TYPE = get_functype(callee._TYPE)
+        jargtypes, jrettype = self.db.types_for_signature(TYPE.ARGS, TYPE.RESULT)
 
         # Determine what class the primitive is implemented in:
         if module == 'll_os':
@@ -862,7 +865,7 @@ class JasminGenerator(JVMGenerator):
         self.curclass.out('.field %s %s %s\n' % (
             " ".join(kw), fobj.field_name, fobj.jtype.descriptor))
 
-    def _begin_function(self, funcname, argtypes, rettype, static, abstract):
+    def _begin_function(self, funcname, argtypes, rettype, static, abstract, final):
 
         if not static: argtypes = argtypes[1:]
 
@@ -870,6 +873,8 @@ class JasminGenerator(JVMGenerator):
         kw = ['public']
         if static: kw.append('static')
         if abstract: kw.append('abstract')
+        if final: kw.append('final')
+        
         self.curclass.out('.method %s %s(%s)%s\n' % (
             " ".join(kw),
             funcname,

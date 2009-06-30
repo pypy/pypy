@@ -17,6 +17,7 @@ class TestCoroutineReconstruction:
             if n == 0:
                 coro.switch()
                 rstack.resume_point("f_0")
+                assert rstack.stack_frames_depth() == 9
                 return
             f(coro, n-1, 2*x)
             rstack.resume_point("f_1", coro, n, x)

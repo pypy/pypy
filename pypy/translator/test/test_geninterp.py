@@ -299,3 +299,8 @@ class TestGenRpyTestCase:
         fn = self.build_interpfunc(snippet.t_attrerror)
         result = fn(42)
         assert result == 567
+
+    def test_Exception_subclass(self):
+        fn = self.build_interpfunc(snippet.exception_subclass_sanity)
+        result = fn(7)
+        assert result == 7

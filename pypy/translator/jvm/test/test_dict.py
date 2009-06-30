@@ -9,6 +9,13 @@ class TestJvmDict(JvmTest, oodict.BaseTestDict):
     def test_recursive(self):
         py.test.skip("JVM doesn't support recursive dicts")
 
+    def test_None_set(self):
+        def fn(k):
+            m = {k:None}
+            del m[k]
+            return 22
+        assert self.interpret(fn, [5]) == 22
+
 class TestJvmEmptyDict(JvmTest, oodict.BaseTestEmptyDict):
     pass
 

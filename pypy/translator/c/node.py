@@ -1,4 +1,3 @@
-from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
      GcStruct, GcArray, RttiStruct, ContainerType, \
@@ -692,7 +691,11 @@ class FuncNode(ContainerNode):
         self.db = db
         self.T = T
         self.obj = obj
-        if getattr(obj, 'external', None) == 'C' and not db.need_sandboxing(obj):
+        callable = getattr(obj, '_callable', None)
+        if (callable is not None and
+            getattr(callable, 'c_name', None) is not None):
+            self.name = forcename or obj._callable.c_name
+        elif getattr(obj, 'external', None) == 'C' and not db.need_sandboxing(obj):
             self.name = forcename or self.basename()
         else:
             self.name = (forcename or
@@ -910,7 +913,7 @@ def weakrefnode_factory(db, T, obj):
     ptarget = obj._dereference()
     wrapper = db.gcpolicy.convert_weakref_to(ptarget)
     container = wrapper._obj
-    obj._converted_weakref = container     # hack for genllvm :-/
+    #obj._converted_weakref = container     # hack for genllvm :-/
     return db.getcontainernode(container, _dont_write_c_code=False)
 
 

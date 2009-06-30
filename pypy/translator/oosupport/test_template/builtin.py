@@ -123,6 +123,44 @@ class BaseTestBuiltin(BaseTestRbuiltin):
         assert stat.S_ISDIR(mode)
         mode = self.interpret(fn, [1])
         assert stat.S_ISDIR(mode)
+        
+    ACCESS_FLAGS = [os.F_OK, os.R_OK, os.W_OK, os.X_OK]
+    
+    def test_os_access(self):
+        def create_fn(filenm):
+            return lambda flag: os.access(filenm, flag)
+        def try_file(filenm):
+            for flag in self.ACCESS_FLAGS:
+                print filenm, flag
+                fn = create_fn(filenm)
+                act = self.interpret(fn, [flag])
+                assert act == fn(flag)
+        assert not os.access('some_file_that_does_not_exist', os.F_OK) # shouldn't exist
+        try_file('some_file_that_does_not_exist')
+        try_file('.')
+        
+        open('some_file_that_DID_not_exist', 'w').close()
+        os.chmod('some_file_that_DID_not_exist', 0)
+        assert os.access('some_file_that_DID_not_exist', os.F_OK) # should exist now
+        assert not os.access('some_file_that_DID_not_exist', os.W_OK) # should not be writable
+        try_file('some_file_that_DID_not_exist')
+        os.remove('some_file_that_DID_not_exist')
+
+    #def test_os_access_allowed(self):
+    #    def fn(flag):
+    #        return os.access('.', flag)
+    #    for flag in self.ACCESS_FLAGS:
+    #        print flag
+    #        act = self.interpret(fn, [flag])
+    #        assert act == fn(flag)
+    #
+    #def test_os_access_denied(self):
+    #    
+    #    def fn(flag):
+    #        return os.access('/', flag)
+    #    for flag in self.ACCESS_FLAGS:
+    #        act = self.interpret(fn, [flag])
+    #        assert act == fn(flag)
 
     def test_os_stat_oserror(self):
         def fn():
@@ -170,6 +208,24 @@ class BaseTestBuiltin(BaseTestRbuiltin):
                 exp_res = math.modf(x*y)
                 assert act_res.item0 == exp_res[0]
                 assert act_res.item1 == exp_res[1]
+
+
+    def test_rffi_primitive(self):
+        from pypy.rpython.lltypesystem import rffi, lltype
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        eci = ExternalCompilationInfo(
+            includes = ['ctype.h']
+        )
+        tolower = rffi.llexternal('tolower', [lltype.Signed], lltype.Signed,
+                                  compilation_info=eci,
+                                  oo_primitive='tolower')
+        assert tolower._ptr._obj.oo_primitive == 'tolower'
+
+        def fn(n):
+            return tolower(n)
+        res = self.interpret(fn, [ord('A')])
+        assert res == ord('a')
+
 
 class BaseTestTime(llBaseTestTime):
 

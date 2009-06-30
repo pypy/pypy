@@ -11,10 +11,10 @@
     version 1.0 as the final version.
 
     Still needed:
-    · more support for WinCE
-    · support for MS-DOS (PythonDX ?)
-    · support for Amiga and other still unsupported platforms running Python
-    · support for additional Linux distributions
+    - more support for WinCE
+    - support for MS-DOS (PythonDX ?)
+    - support for Amiga and other still unsupported platforms running Python
+    - support for additional Linux distributions
 
     Many thanks to all those who helped adding platform specific
     checks (in no particular order):
@@ -276,7 +276,7 @@ class _popen:
     def __init__(self,cmd,mode='r',bufsize=None):
 
         if mode != 'r':
-            raise ValueError,'popen()-emulation only supports read mode'
+            raise ValueError('popen()-emulation only supports read mode')
         import tempfile
         self.tmpfile = tmpfile = tempfile.mktemp()
         os.system(cmd + ' > %s' % tmpfile)
@@ -387,7 +387,7 @@ def _syscmd_ver(system='',release='',version='',
             pipe = popen(cmd)
             info = pipe.read()
             if pipe.close():
-                raise os.error,'command failed'
+                raise os.error('command failed')
             # XXX How can I supress shell errors from being written
             #     to stderr ?
         except os.error,why:

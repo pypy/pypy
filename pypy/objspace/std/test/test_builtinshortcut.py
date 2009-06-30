@@ -61,6 +61,24 @@ class AppTestBug:
         assert x == 'foo'
         assert 5 + 6.5 == 11.5
 
+    def test_unicode_string_compares(self):
+        assert u'a' == 'a'
+        assert 'a' == u'a'
+        assert not u'a' == 'b'
+        assert not 'a'  == u'b'
+        assert u'a' != 'b'
+        assert 'a'  != u'b'
+        assert not (u'a' == 5)
+        assert u'a' != 5
+        assert u'a' < 5 or u'a' > 5
+
+        s = chr(128)
+        u = unichr(128)
+        assert not s == u # UnicodeWarning
+        assert s != u
+        assert not u == s
+        assert u != s
+   
 
 class AppTestSet(test_set.AppTestAppSetTest):
     # this tests tons of funny comparison combinations that can easily go wrong

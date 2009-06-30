@@ -4,10 +4,10 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 
 
-CPYTHON_VERSION            = (2, 5, 2, "alpha", 42)
+CPYTHON_VERSION            = (2, 5, 2, "beta", 42)
 CPYTHON_API_VERSION        = 1012
 
-PYPY_VERSION               = (1, 0, 0, "alpha", '?')
+PYPY_VERSION               = (1, 1, 0, "beta", '?')
 # the last item is replaced by the svn revision ^^^
 
 TRIM_URL_UP_TO = 'svn/pypy/'

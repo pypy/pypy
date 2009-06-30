@@ -431,7 +431,8 @@ def test_0x09_0x19_0x29_0x39_add_HL():
 # ld_BCi_A
 def test_0x02():
     cpu = get_cpu();
-    cpu.bc.set_hi_lo(0xC2, 0x23);
+    cpu.bc.set_hi(0xC2)
+    cpu.bc.set_lo(0x23);
     cpu.a.set(0x12);
     cycle_test(cpu, 0x02, 2);
     assert cpu.read(cpu.bc.get()) == cpu.a.get()
@@ -451,7 +452,8 @@ def test_0x0A():
 # ld_DEi_A
 def test_0x12():
     cpu = get_cpu();
-    cpu.de.set_hi_lo(0xC2, 0x23);
+    cpu.de.set_hi(0xC2)
+    cpu.de.set_lo(0x23);
     cpu.a.set(0x12);
     cycle_test(cpu, 0x12, 2);
     assert cpu.read(cpu.de.get()) == cpu.a.get()
@@ -470,7 +472,8 @@ def test_0x1A_store_memory_at_de_in_a():
 # ldi_HLi_A
 def test_0x22():
     cpu = get_cpu();
-    cpu.hl.set_hi_lo(0xCD, 0xEF);
+    cpu.hl.set_hi(0xCD)
+    cpu.hl.set_lo(0xEF);
     cpu.a.set(0x12);
     cycle_test(cpu, 0x22, 2);
     assert cpu.read(0xCDEF) == cpu.a.get()
@@ -479,7 +482,8 @@ def test_0x22():
 # ldd_HLi_A
 def test_0x32():
     cpu = get_cpu();
-    cpu.hl.set_hi_lo(0xCD, 0xEF);
+    cpu.hl.set_hi(0xCD)
+    cpu.hl.set_lo(0xEF);
     cpu.a.set(0x12);
     cycle_test(cpu, 0x32, 2);
     assert cpu.read(0xCDEF) == cpu.a.get()
@@ -881,8 +885,9 @@ def test_0x98_0x9F_subtract_with_carry_a():
     cpu       = get_cpu()
     opCode    = 0x98
     value     = 0x12
-    registers = [cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.hli, cpu.a]
+    registers = ["b", "c", "d", "e", "h", "l", "hli", "a"]
     for register in registers:
+        register = cpu.__dict__[register]
         cpu.reset()
         cpu.a.set(value)
         register.set(value)
@@ -896,11 +901,11 @@ def test_0x98_0x9F_subtract_with_carry_a():
         cpu.flag.is_carry = True
         cpu.a.set(value+1)
         register.set(value)
-        numCycles= 1
+        numCycles = 1
         if register == cpu.hli:
             numCycles = 2
         cycle_test(cpu, opCode, numCycles)
-        if register == cpu.a:
+        if register is cpu.a:
             assert cpu.a.get() == 0xFF
         else:
             assert cpu.a.get() == 0

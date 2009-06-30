@@ -2,15 +2,9 @@ from pypy.conftest import gettestobjspace
 import os
 import py
 
-py.test.skip("Module not working yet")
-
-if os.name == "nt":
-    from py.test import skip
-    skip("Windows is not supported")
-
 class AppTestSSL:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl',))
+        space = gettestobjspace(usemodules=('_ssl', '_socket'))
         cls.space = space
 
     def test_init_module(self):
@@ -48,94 +42,94 @@ class AppTestSSL:
         _ssl.RAND_status()
     
     def test_RAND_egd(self):
-        import _ssl
+        import _ssl, os, stat
         if not hasattr(_ssl, "RAND_egd"):
             skip("RAND_egd is not available on this machine")
         raises(TypeError, _ssl.RAND_egd, 4)
-        
+
         # you need to install http://egd.sourceforge.net/ to test this
         # execute "egd.pl entropy" in the current dir
+        if (not os.access("entropy", 0) or
+            not stat.S_ISSOCK(os.stat("entropy").st_mode)):
+            skip("This test needs a running entropy gathering daemon")
         _ssl.RAND_egd("entropy")
-    
-    def test_connect(self):
-        import socket
-        
+
+class AppTestConnectedSSL:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        cls.space = space
+
+    def setup_method(self, method):
         # https://connect.sigen-ca.si/index-en.html
         ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
-        s.close()
-    
+
+        self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
+            import socket
+            s = socket.socket()
+            try:
+                s.connect(ADDR)
+            except:
+                skip("no network available or issues with connection")
+            return s
+            """)
+
+    def test_connect(self):
+        import socket
+        ss = socket.ssl(self.s)
+        self.s.close()
+
     def test_server(self):
         import socket
-        ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
+        ss = socket.ssl(self.s)
         assert isinstance(ss.server(), str)
-        s.close()
-    
+        self.s.close()
+
     def test_issuer(self):
         import socket
-        ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
+        ss = socket.ssl(self.s)
         assert isinstance(ss.issuer(), str)
-        s.close()
-        
+        self.s.close()
+
     def test_write(self):
         import socket
-        ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
+        ss = socket.ssl(self.s)
         raises(TypeError, ss.write, 123)
         num_bytes = ss.write("hello\n")
         assert isinstance(num_bytes, int)
         assert num_bytes >= 0
-        s.close()
-        
+        self.s.close()
+
     def test_read(self):
         import socket
-        ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
+        ss = socket.ssl(self.s)
         raises(TypeError, ss.read, "foo")
         ss.write("hello\n")
         data = ss.read()
         assert isinstance(data, str)
-        s.close()
+        self.s.close()
 
     def test_read_upto(self):
         import socket
-        ADDR = "connect.sigen-ca.si", 443
-        s = socket.socket()
-        try:
-            s.connect(ADDR)
-        except:
-            skip("no network available or issues with connection")
-        ss = socket.ssl(s)
+        ss = socket.ssl(self.s)
         raises(TypeError, ss.read, "foo")
         ss.write("hello\n")
         data = ss.read(10)
         assert isinstance(data, str)
         assert len(data) == 10
-        s.close()
+        self.s.close()
+
+class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
+    # Same tests, with a socket timeout
+    # to exercise the poll() calls
+
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        cls.space = space
+        cls.space.appexec([], """():
+            import socket; socket.setdefaulttimeout(1)
+            """)
+
+    def teardown_class(cls):
+        cls.space.appexec([], """():
+            import socket; socket.setdefaulttimeout(1)
+            """)

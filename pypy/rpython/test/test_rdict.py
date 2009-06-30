@@ -1,5 +1,5 @@
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem import lltype 
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem import rdict, rstr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -775,6 +775,21 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
             return d[llmemory.cast_ptr_to_adr(ptr)]
 
         py.test.raises(TypeError, self.interpret, func, [0])
+
+    def test_dict_of_voidp(self):
+        def func():
+            d = {}
+            handle = lltype.nullptr(rffi.VOIDP.TO)
+            # Use a negative key, so the dict implementation uses
+            # the value as a marker for empty entries
+            d[-1] = handle
+            return len(d)
+
+        assert self.interpret(func, []) == 1
+        from pypy.translator.c.test.test_genc import compile
+        f = compile(func, [])
+        res = f()
+        assert res == 1
 
     # ____________________________________________________________
 

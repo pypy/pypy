@@ -129,8 +129,8 @@ Low-Level Types
 ---------------
 
 The RPython Typer uses a standard low-level model which we believe can
-correspond rather directly to various target languages such as C and
-LLVM_.  This model is implemented in the first part of
+correspond rather directly to various target languages such as C.
+This model is implemented in the first part of
 `rpython/lltypesystem/lltype.py`_.
 
 The second part of `rpython/lltypesystem/lltype.py`_ is a runnable
@@ -438,7 +438,7 @@ Object Oriented Types
 ---------------------
 
 The standard `low-level type` model described above is fine for
-targeting low level backends such as C and LLVM, but it is not good
+targeting low level backends such as C, but it is not good
 enough for targeting higher level backends such as .NET CLI or Java
 JVM, so a new object oriented model has been introduced. This model is
 implemented in the first part of `rpython/ootypesystem/ootype.py`_.
@@ -791,5 +791,4 @@ you have to set the ``type_system`` parameter to the string
         assert res == ~3
 
 .. _annotator: translation.html#the-annotation-pass
-.. _llvm: translation.html#the-llvm-back-end
 .. include:: _ref.txt

@@ -1,48 +1,37 @@
 #!/usr/bin/env python 
-from __future__ import generators
         
-from pypy.lang.gameboy.ram import iMemory
-from pypy.lang.gameboy.gameboy_implementation import *
-from pypy.lang.gameboy.profiling.profiling_cpu import ProfilingCPU
-from pypy.lang.gameboy.debug import debug
-from pypy.lang.gameboy.debug.debug_socket_memory import *
+from pypy.lang.gameboy.gameboy import GameBoy
+from pypy.lang.gameboy.joypad import JoypadDriver
+from pypy.lang.gameboy.video import VideoDriver
+from pypy.lang.gameboy.sound import SoundDriver
+from pypy.lang.gameboy.timer import Clock
+from pypy.lang.gameboy import constants
+
+from pypy.rlib.objectmodel import specialize
 
 
 # GAMEBOY ----------------------------------------------------------------------
 
-class GameBoyProfilingImplementation(GameBoyImplementation):
+FPS = 1 << 6
+
+class GameBoyProfiler(GameBoy):
     
-    def __init__(self, op_codes):
-        GameBoyImplementation.__init__(self)
-        self.op_codes = op_codes
-        self.cycleLimit = cycleLimit
-        self.cpu = ProfilingCPU(self.interrupt, self)
-        self.cpu.cycle_limit = cycleLimit
-    
-    def handle_execution_error(self):
+    def __init__(self):
+        GameBoy.__init__(self)
         self.is_running = False
-        debug.print_results()
-    
 
-# CUSTOM DRIVER IMPLEMENTATIONS currently not used =============================
-      
-    
-# VIDEO DRIVER -----------------------------------------------------------------
 
-class VideoDriverDebugImplementation(VideoDriverImplementation):
-    pass
-        
-        
-# JOYPAD DRIVER ----------------------------------------------------------------
-
-class JoypadDriverDebugImplementation(JoypadDriverImplementation):
-    pass
-        
-        
-# SOUND DRIVER -----------------------------------------------------------------
-
-class SoundDriverDebugImplementation(SoundDriverImplementation):
-    pass
+    def create_drivers(self):
+        self.clock = Clock()
+        self.joypad_driver = JoypadDriver()
+        self.video_driver  = VideoDriver()
+        self.sound_driver  = SoundDriver()
     
+    def mainLoop(self, execution_seconds):
+        self.reset()
+        self.is_running = True
+        for i in range(int(execution_seconds * FPS)):
+            self.emulate_cycle()
     
-# ==============================================================================
+    def emulate_cycle(self):
+        self.emulate(constants.GAMEBOY_CLOCK / FPS)

@@ -19,7 +19,7 @@ from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import SomeGenericCallable
-from pypy.annotation.model import SomeExternalInstance, SomeUnicodeString
+from pypy.annotation.model import SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rlib import rarithmetic
@@ -820,20 +820,6 @@ class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
         if ext1.knowntype == ext2.knowntype:
             return SomeExternalObject(ext1.knowntype)
         return SomeObject()
-
-class __extend__(pairtype(SomeExternalInstance, SomeExternalInstance)):
-    def union((ext1, ext2)):
-        def commonsuperclass(cls1, cls2):
-            cls = cls2
-            while not issubclass(cls1, cls):
-                cls = cls.__bases__[0]
-            return cls
-        
-        from pypy.rpython.ootypesystem.bltregistry import BasicExternal
-        cls = commonsuperclass(ext1.knowntype, ext2.knowntype)
-        if cls is BasicExternal:
-            return SomeObject()
-        return SomeExternalInstance(cls)
 
 # ____________________________________________________________
 # annotation of low-level types

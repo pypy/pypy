@@ -942,11 +942,19 @@ public class PyPy implements Constants {
     // make the code generator smarter to avoid the duplicate code.
 
     public static boolean ll_remove(HashMap map, Object key) {
-        return map.remove(key) != null;
+        if (map.containsKey(key)) {
+            map.remove(key); // careful: we sometimes use null as a value
+            return true;
+        }
+        return false;
     }
 
     public static boolean ll_remove(CustomDict map, Object key) {
-        return map.remove(key) != null;
+        if (map.containsKey(key)) {
+            map.remove(key); // careful: we sometimes use null as a value
+            return true;
+        }
+        return false;
     }
     
     public static DictItemsIterator ll_get_items_iterator(HashMap map) {
@@ -1147,6 +1155,10 @@ public class PyPy implements Constants {
         if (Double.isInfinite(v))
             interlink.throwOverflowError();
         return v;
+    }
+    
+    public int tolower(int c) {
+        return Character.toLowerCase(c);
     }
 
     // ----------------------------------------------------------------------

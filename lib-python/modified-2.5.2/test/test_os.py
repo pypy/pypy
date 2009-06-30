@@ -422,7 +422,7 @@ class Win32ErrorTests(unittest.TestCase):
         self.assertRaises(OSError, os.utime, test_support.TESTFN, None)
 
     def test_access(self):
-        self.assertRaises(OSError, os.access, test_support.TESTFN, 0)
+        self.assertEqual(os.access(test_support.TESTFN, 0), False)
 
     def test_chmod(self):
         self.assertRaises(OSError, os.chmod, test_support.TESTFN, 0)

@@ -170,3 +170,35 @@ be relied upon, and the number should be seen purely as a magic cookie.
 A thread's identity may be reused for another thread after it exits."""
     ident = thread.get_ident()
     return space.wrap(ident)
+
+def stack_size(space, size=0):
+    """stack_size([size]) -> size
+
+Return the thread stack size used when creating new threads.  The
+optional size argument specifies the stack size (in bytes) to be used
+for subsequently created threads, and must be 0 (use platform or
+configured default) or a positive integer value of at least 32,768 (32k).
+If changing the thread stack size is unsupported, a ThreadError
+exception is raised.  If the specified size is invalid, a ValueError
+exception is raised, and the stack size is unmodified.  32k bytes
+is currently the minimum supported stack size value to guarantee
+sufficient stack space for the interpreter itself.
+
+Note that some platforms may have particular restrictions on values for
+the stack size, such as requiring a minimum stack size larger than 32kB or
+requiring allocation in multiples of the system memory page size
+- platform documentation should be referred to for more information
+(4kB pages are common; using multiples of 4096 for the stack size is
+the suggested approach in the absence of more specific information)."""
+    if size < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("size must be 0 or a positive value"))
+    old_size = thread.get_stacksize()
+    error = thread.set_stacksize(size)
+    if error == -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("size not valid: %d bytes" % size))
+    if error == -2:
+        raise wrap_thread_error(space, "setting stack size not supported")
+    return space.wrap(old_size)
+stack_size.unwrap_spec = [ObjSpace, int]

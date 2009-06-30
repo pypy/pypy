@@ -701,10 +701,9 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
  
  
 def str_splitlines__String_ANY(space, w_self, w_keepends):
-    data = w_self._value
     u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
+    data = w_self._value
     selflen = len(data)
-    
     strs_w = []
     i = j = 0
     while i < selflen:
@@ -723,7 +722,6 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
 
     if j < selflen:
         strs_w.append(sliced(space, data, j, len(data), w_self))
-
     return space.newlist(strs_w)
 
 def str_zfill__String_ANY(space, w_self, w_width):

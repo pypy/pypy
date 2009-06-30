@@ -70,6 +70,8 @@ declare_external('XML_GetErrorCode', [XML_Parser], c_int)
 declare_external('XML_StopParser', [XML_Parser, c_int], None)
 declare_external('XML_ErrorString', [c_int], c_char_p)
 declare_external('XML_SetBase', [XML_Parser, c_char_p], None)
+if XML_COMBINED_VERSION >= 19505:
+    declare_external('XML_UseForeignDTD', [XML_Parser, c_int], None)
 
 declare_external('XML_SetUnknownEncodingHandler', [XML_Parser, c_void_p,
                                                    c_void_p], None)
@@ -418,6 +420,14 @@ class XMLParserType(object):
 
     def SetParamEntityParsing(self, arg):
         XML_SetParamEntityParsing(self.itself, arg)
+
+    if XML_COMBINED_VERSION >= 19505:
+        def UseForeignDTD(self, arg=True):
+            if arg:
+                flag = XML_TRUE
+            else:
+                flag = XML_FALSE
+            XML_UseForeignDTD(self.itself, flag)
 
     def __getattr__(self, name):
         if name == 'buffer_text':

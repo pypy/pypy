@@ -132,3 +132,19 @@ class AppTestRangeListObject(object):
     def test_no_len_on_range_iter(self):
         iterable = range(10)
         raises(TypeError, len, iter(iterable))
+
+    def test_inplace_add(self):
+        r1 = r2 = range(5)
+        assert r1 is r2
+        r1 += [15]
+        assert r1 is r2
+        assert r1 == [0, 1, 2, 3, 4, 15]
+        assert r2 == [0, 1, 2, 3, 4, 15]
+
+    def test_inplace_mul(self):
+        r1 = r2 = range(3)
+        assert r1 is r2
+        r1 *= 2
+        assert r1 is r2
+        assert r1 == [0, 1, 2, 0, 1, 2]
+        assert r2 == [0, 1, 2, 0, 1, 2]

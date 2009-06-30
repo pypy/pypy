@@ -63,11 +63,6 @@ generate:
   - directly generate code on the fly by accessing the facilities
     exposed by the System.Reflection.Emit API.
 
-The second point is not feasible yet because at the moment there is no
-support for accessing system libraries, but in future it could lead to
-an interesting GenCLI feature, i.e. the ability of emitting dynamic
-code at runtime.
-
 
 Handling platform differences
 =============================
@@ -124,7 +119,7 @@ to do for completing the backend:
 Mapping primitive types
 -----------------------
 
-The `rtyper` give us a flow graph annotated with types belonging to
+The `rtyper`_ give us a flow graph annotated with types belonging to
 ootypesystem: in order to produce CLI code we need to translate these
 types into their Common Type System equivalents.
 
@@ -268,7 +263,7 @@ overflows, catch that exception and throw a new one::
 Translating flow graphs
 -----------------------
 
-As we saw previously in PyPy\ function and method bodies are
+As we saw previously in PyPy function and method bodies are
 represented by flow graphs that we need to translate CLI IL code. Flow
 graphs are expressed in a format that is very suitable for being
 translated to low level code, so that phase is quite straightforward,
@@ -312,7 +307,7 @@ sub-block then branches to the appropriate block::
       # block2
       ...
 
-    // IL
+  // IL
   block0: 
     .try {
         ...
@@ -344,7 +339,7 @@ exception handling machinery.
 Translating classes
 -------------------
 
-As we saw in section sec:ootypes, the semantic of ootypesystem classes
+As we saw previously, the semantic of ootypesystem classes
 is very similar to the .NET one, so the translation is mostly
 straightforward.
 
@@ -444,7 +439,7 @@ To make it working, download and unpack the source package of Python
 for .NET; the only version tested with PyPy is the 1.0-rc2, but it
 might work also with others. Then, you need to create a file named
 Python.Runtime.dll.config at the root of the unpacked archive; put the
-following lines inside the file::
+following lines inside the file (assuming you are using Python 2.4)::
 
   <configuration>
     <dllmap dll="python24" target="libpython2.4.so.1.0" os="!windows"/>

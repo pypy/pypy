@@ -105,7 +105,7 @@ as shown by the previous example.  Note that you do not need to
 specify the return type, because it is automatically inferenced by the
 annotator.
 
-.. _`Annotator`: dynamic-language-translation.html#annotator
+.. _`Annotator`: translation.html#annotator
 
 
 Namespaces

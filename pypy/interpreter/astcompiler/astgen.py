@@ -299,12 +299,12 @@ class NodeInfo:
 
 
     def _gen_insertnodes_func(self, buf):
-        print >> buf, "    def descr_insert_after(space, self, node, w_added_nodes):"
+        print >> buf, "    def descr_insert_after(self, space, node, w_added_nodes):"
         print >> buf, "        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]"
         print >> buf, "        index = self.nodes.index(node) + 1"
         print >> buf, "        self.nodes[index:index] = added_nodes"
         print >> buf
-        print >> buf, "    def descr_insert_before(space, self, node, w_added_nodes):"
+        print >> buf, "    def descr_insert_before(self, space, node, w_added_nodes):"
         print >> buf, "        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]"
         print >> buf, "        index = self.nodes.index(node)"
         print >> buf, "        self.nodes[index:index] = added_nodes"
@@ -440,8 +440,8 @@ class NodeInfo:
         for attr in self.argnames:
             print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
             if self.argprops[attr] == P_NESTED and attr == "nodes":
-                print >> buf, "                     insert_after=interp2app(%s.descr_insert_after.im_func, unwrap_spec=[ObjSpace, %s, Node, W_Root])," % (self.name, self.name)
-                print >> buf, "                     insert_before=interp2app(%s.descr_insert_before.im_func, unwrap_spec=[ObjSpace, %s, Node, W_Root])," % (self.name, self.name)
+                print >> buf, "                     insert_after=interp2app(%s.descr_insert_after, unwrap_spec=['self', ObjSpace, Node, W_Root])," % (self.name, )
+                print >> buf, "                     insert_before=interp2app(%s.descr_insert_before, unwrap_spec=['self', ObjSpace, Node, W_Root])," % (self.name, )
         print >> buf, "                    )"
         print >> buf, "%s.typedef.acceptable_as_base_class = False" % self.name
 
@@ -604,6 +604,7 @@ class ASTVisitor(object):
             child.accept(self)
 
     def _mutate_list(self, lst):
+        # XXX O(n^2)
         i = 0
         while i < len(lst):
             item = lst[i].mutate(self)

@@ -2,116 +2,98 @@
 Windows Hints
 =============
 
-The following text gives some hints about how to translate the PyPy interpreter
-under Windows. In general our experience with Windows is limited, so if you
-have suggestions about how this document can be improved, please contact us.
+Pypy is supported on Windows platforms, starting with Windows 2000.
+The following text gives some hints about how to translate the PyPy
+interpreter.
 
-Translating PyPy under Windows
-------------------------------
-
-PyPy can be translated also under Windows. We have tested the
-translation toolchain using Visual Studio .NET 2003. It could be
-possible that it works also with other configurations: if you succeed
-to compile PyPy with a C compiler other that Visual Studio .NET 2003,
-please report us.
-
-To build pypy-c you first need a PyPy compatible version of the Boehm
-collector for Windows and Visual Studio .NET 2003. You can either
-`build your own copy`_ or download a `pre-compiled binary package`_.
-
-.. _`build your own copy`:
-
-How to build the Boehm collector
-++++++++++++++++++++++++++++++++
-
-First of all, download the official `Boehm collector suite`_. At
-the time of writing (2007-02-09) this contains version gc6.7.
-
-Unpack this folder somewhere, for instance to ``d:\tmp``.  Change to
-this folder and copy the file ``NT_THREADS_MAKEFILE`` to
-``Makefile``::
-
-    d:
-    cd \tmp\gc6.5
-    copy NT_THREADS_MAKEFILE Makefile
-
-This file is the general-purpose gc dll makefile. For some internal
-reasons, this file's defaults are bad for PyPy. The early
-initialisation in DllMain() inhibits the changes necessary for
-PyPy. Use this script to do a patch: (assuming that you have
-``d:\pypy\dist\pypy\translator\goal`` -- please change the command
-according to the location of your PyPy installation)::
-
-    python d:\pypy\dist\pypy\translator\goal\win32\gc_patch_windows.py
-
-Now, your makefile is patched a little bit. See gc_patch_windows.py_
-for more details.
-
-Now you need to build your gc, either as a debug or as a release
-build. First of all, make sure that you have your environment prepared.
-Please note that you will need to use Microsoft's cmd, as cygwin bash
-doesn't correctly handle the batch file in the next step.
-
-With my setup, I have to do::
-
-    c:\Program Files\Microsoft Visual Studio .NET 2003\Vc7\bin\vcvars32.bat
-
-After that, you can either build a release or a debug gc. 
-
-After a successful build, you need to enable ``gc_pypy.dll`` for your
-compiler.  There are many ways to install this. The following
-recommendation just works without changing your environment
-variables. I think this is the easiest way possible, but this is a
-matter of taste. What I did is::
-
-    nmake CFG="gc - Win32 Release"
-
-After the build, you will find the ``gc_pypy.dll`` and ``gc_pypy.lib``
-files in the Release folder.
-
-Copy the file ``gc_pypy.dll`` to ``c:\windows\system32`` or any other
-folder that is always in your PATH variable.
-
-Also, copy ``gc_pypy.lib`` to (in my case) ``c:\Program files\Microsoft
-Visual Studio .NET 2003\Vc7\lib``.
-
-Finally, copy ``d:\tmp\gc6.7\include`` to ``c:\Program
-files\Microsoft Visual Studio .NET 2003\Vc7\include`` and rename this
-folder to ``gc``, so that ``gc/gc.h`` is valid.
-
-In case of a debug build also copy ``gc_pypy.pdb`` to your lib
-folder. This allows you to use source-level debugging.
-
-Summary transcript of the steps involved (please adjust paths)::
-
-    d:
-    cd \tmp\gc6.7
-    copy NT_THREADS_MAKEFILE Makefile
-    python d:\pypy\dist\pypy\translator\goal\win32\gc_patch_windows.py
-    "c:\Program files\Microsoft Visual Studio .NET 2003\Vc7\bin\vcvars32.bat"
-    nmake CFG="gc - Win32 Release"
-    copy Release\gc_pypy.dll c:\windows\system32
-    copy Release\gc_pypy.lib "c:\Program files\Microsoft Visual Studio .NET 2003\Vc7\lib"
-    mkdir "c:\Program files\Microsoft Visual Studio .NET 2003\Vc7\include\gc"
-    copy include "c:\Program files\Microsoft Visual Studio .NET 2003\Vc7\include\gc"
-
-.. _`pre-compiled binary package`:
-
-Installing the pre-compiled Boehm collector
-+++++++++++++++++++++++++++++++++++++++++++
-
-First, download and extract the file `gc-windows.zip`_. Then, copy the
-file ``gc_pypy.dll`` to ``c:\windows\system32`` or any other folder that is
-always in your PATH variable.
-
-Also, copy ``gc_pypy.lib`` to (in my case) ``c:\Program files\Microsoft
-Visual Studio .NET 2003\Vc7\lib``.
-
-Finally, copy the ``gc`` directory to ``c:\Program files\Microsoft
-Visual Studio .NET 2003\Vc7\include``.
+To build pypy-c you need a C compiler.  Microsoft Visual Studio is
+preferred, but can also use the minw32 port of gcc.
 
 
-.. _`Boehm collector suite`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc.tar.gz
-.. _gc_patch_windows.py:    ../../pypy/translator/goal/win32/gc_patch_windows.py
+Translating PyPy with Visual Studio
+-----------------------------------
 
-.. _`gc-windows.zip`: http://codespeak.net/~antocuni/gc-windows.zip
+We routinely test the translation toolchain using Visual Studio .NET
+2005, Professional Edition, and Visual Studio .NET 2008, Express
+Edition.  Other configurations may work as well.
+
+The compiler is all you need to build pypy-c, but it will miss some
+modules that relies on third-party libraries.  See below how to get
+and build them.
+
+Installing external packages
+----------------------------
+
+On Windows, there is no standard place where to download, build and
+install third-party libraries.  We chose to install them in the parent
+directory of the pypy checkout.  For example, if you installed pypy in
+``d:\pypy\trunk\`` (This directory contains a README file), the base
+directory is ``d:\pypy``.
+
+The Boehm garbage collector
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This library is needed if you plan to use the ``--gc=boehm`` translation
+option (this is the default at some optimization levels like ``-O1``,
+but unneeded for high-performance translations like ``-O2``).
+You may get it at
+http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc-7.1.tar.gz
+
+Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
+pypy. Unpack this folder in the base directory.  Then open a command
+prompt::
+
+    cd gc-7.1
+    nmake -f NT_THREADS_MAKEFILE
+    copy Release\gc.dll <somewhere in the PATH>
+
+The zlib compression library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
+the base directory.  Then compile::
+
+    cd zlib-1.2.3
+    nmake -f win32\Makefile.msc
+    copy zlib1.dll <somewhere in the PATH>\zlib.dll
+
+The bz2 compression library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Download http://bzip.org/1.0.5/bzip2-1.0.5.tar.gz and extract it in
+the base directory.  Then compile::
+
+    cd bzip2-1.0.5
+    nmake -f makefile.msc
+    
+The expat XML parser
+~~~~~~~~~~~~~~~~~~~~
+
+Download the source code of expat on sourceforge:
+http://sourceforge.net/projects/expat/ and extract it in the base
+directory.  Then open the project file ``expat.dsw`` with Visual
+Studio; follow the instruction for converting the project files,
+switch to the "Release" configuration, and build the solution (the
+``expat`` project is actually enough for pypy).
+
+Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
+your PATH.
+
+The OpenSSL library
+~~~~~~~~~~~~~~~~~~~
+
+OpenSSL needs a Perl interpreter to configure its makefile.  You may
+use the one distributed by ActiveState, or the one from cygwin.  In
+both case the perl interpreter must be found on the PATH.
+
+Get http://www.openssl.org/source/openssl-0.9.8k.tar.gz and extract it
+in the base directory. Then compile::
+
+    perl Configure VC-WIN32
+    ms\do_ms.bat
+    nmake -f ms\ntdll.mak install
+
+Using the mingw compiler
+------------------------
+
+XXX Write me

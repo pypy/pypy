@@ -299,6 +299,7 @@ class _TestCoroutine(StacklessTest):
         costate.hello_goodbye = 0
 
         def ep():
+            syncstate.default_costate = costate
             costate.hello_goodbye = 0
             c1 = C(4)
             c1.bind(T())

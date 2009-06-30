@@ -122,7 +122,7 @@ class TestPartial:
         p = self.thetype(hex)
         try:
             del p.__dict__
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
         else:
             raise AssertionError, 'partial object allowed __dict__ to be deleted'
@@ -132,6 +132,8 @@ class TestPartial:
         p = proxy(f)
         assert f.func == p.func
         f = None
+        import gc
+        gc.collect()
         py.test.raises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -217,7 +219,7 @@ class TestUpdateWrapper:
             pass
         functools.update_wrapper(wrapper, max)
         assert wrapper.__name__ == 'max'
-        assert wrapper.__doc__.startswith('max(')
+        assert wrapper.__doc__ == max.__doc__
 
 class TestWraps(TestUpdateWrapper):
 

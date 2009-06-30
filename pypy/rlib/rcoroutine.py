@@ -134,6 +134,10 @@ class SyncState(object):
         else:
             self.things_to_do = False
 
+    def _freeze_(self):
+        self.reset()
+        return False
+
 syncstate = SyncState()
 
 
@@ -281,16 +285,34 @@ class Coroutine(Wrappable):
             pass # maybe print a warning?
         self.kill()
 
+    __already_postponed = False
+    
     def __del__(self):
-        # provide the necessary clean-up if this coro is left
-        # with a frame.
+        # provide the necessary clean-up
         # note that AppCoroutine has to take care about this
         # as well, including a check for user-supplied __del__.
         # Additionally note that in the context of __del__, we are
         # not in the position to issue a switch.
         # we defer it completely.
-        if self.frame is not None and syncstate is not None:
+        
+        # it is necessary to check whether syncstate is None because CPython
+        # sets it to None when it cleans up the modules, which will lead to
+        # very strange effects
+
+        if not we_are_translated():
+            # we need to make sure that we postpone each coroutine only once on
+            # top of CPython, because this resurrects the coroutine and CPython
+            # calls __del__ again, thus postponing and resurrecting the
+            # coroutine once more :-(
+            if self.__already_postponed:
+                return
+            self.__already_postponed = True
+        if syncstate is not None:
             syncstate.postpone_deletion(self)
+
+    # coroutines need complete control over their __del__ behaviour. In
+    # particular they need to care about calling space.userdel themselves
+    handle_del_manually = True
 
     def _userdel(self):
         # override this for exposed coros

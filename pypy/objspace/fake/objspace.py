@@ -93,7 +93,7 @@ class FakeObjSpace(ObjSpace):
     newint            = make_dummy()
     newlong           = make_dummy()
     newfloat          = make_dummy()
-    def newdict(self, track_builtin_shadowing=False):
+    def newdict(self, module=False):
         return self.newfloat()
     newlist           = make_dummy()
     emptylist         = make_dummy()

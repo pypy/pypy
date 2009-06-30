@@ -1,13 +1,8 @@
 from pypy.conftest import gettestobjspace
-import os, sys, py
-
-def setup_module(mod):
-    if sys.platform != 'linux2':
-        py.test.skip("Linux only tests by now")
 
 class AppTestNested:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_rawffi','struct'))
+        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
         cls.space = space
 
     def test_inspect_structure(self):

@@ -187,3 +187,15 @@ class AppTestThread(GenericTestThread):
             pass
         else:
             raise Exception("could unexpectedly start 1000 threads")
+
+    def test_stack_size(self):
+        import thread
+        thread.stack_size(0)
+        res = thread.stack_size(0)
+        assert res == 0
+        res = thread.stack_size(1024*1024)
+        assert res == 0
+        res = thread.stack_size(2*1024*1024)
+        assert res == 1024*1024
+        res = thread.stack_size(0)
+        assert res == 2*1024*1024

@@ -13,6 +13,13 @@ def object_getattribute(space):
     return w_getattribute
 object_getattribute._annspecialcase_ = 'specialize:memo'
 
+def object_setattr(space):
+    "Utility that returns the app-level descriptor object.__setattr__."
+    w_src, w_setattr = space.lookup_in_type_where(space.w_object,
+                                                  '__setattr__')
+    return w_setattr
+object_setattr._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space, '?')
@@ -260,10 +267,14 @@ class DescrOperation:
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
-            if (w_left_src is not w_right_src    # XXX see binop_impl
+            # sse binop_impl
+            if (w_left_src is not w_right_src
                 and space.is_true(space.issubtype(w_typ2, w_typ1))):
-                w_obj1, w_obj2 = w_obj2, w_obj1
-                w_left_impl, w_right_impl = w_right_impl, w_left_impl
+                if (w_left_src and w_right_src and
+                    not space.abstract_issubclass_w(w_left_src, w_right_src) and
+                    not space.abstract_issubclass_w(w_typ1, w_right_src)):
+                    w_obj1, w_obj2 = w_obj2, w_obj1
+                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
         if w_left_impl is not None:
             if space.is_w(w_obj3, space.w_None):
                 w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2)
@@ -544,8 +555,11 @@ def _make_binop_impl(symbol, specialnames):
                     w_typ1 = space.w_basestring
                 # -- end of bug compatibility
                 if space.is_true(space.issubtype(w_typ2, w_typ1)):
-                    w_obj1, w_obj2 = w_obj2, w_obj1
-                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
+                    if (w_left_src and w_right_src and
+                   not space.abstract_issubclass_w(w_left_src, w_right_src) and
+                   not space.abstract_issubclass_w(w_typ1, w_right_src)):
+                        w_obj1, w_obj2 = w_obj2, w_obj1
+                        w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
         w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
         if w_res is not None:

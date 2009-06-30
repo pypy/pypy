@@ -42,11 +42,15 @@ BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
+long RPyThreadGetStackSize(void);
+long RPyThreadSetStackSize(long);
 
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
+
+static long _pypythread_stacksize = 0;
 
 /*
  * Return the thread Id instead of an handle. The Id is said to uniquely
@@ -81,7 +85,7 @@ long RPyThreadStart(void (*func)(void))
 	if (obj.done == NULL)
 		return -1;
 
-	rv = _beginthread(bootstrap, 0, &obj); /* use default stack size */
+	rv = _beginthread(bootstrap, _pypythread_stacksize, &obj);
 	if (rv == (unsigned long)-1) {
 		/* I've seen errno == EAGAIN here, which means "there are
 		 * too many threads".
@@ -95,6 +99,32 @@ long RPyThreadStart(void (*func)(void))
 	}
 	CloseHandle((HANDLE)obj.done);
 	return obj.id;
+}
+
+/************************************************************/
+
+/* minimum/maximum thread stack sizes supported */
+#define THREAD_MIN_STACKSIZE    0x8000      /* 32kB */
+#define THREAD_MAX_STACKSIZE    0x10000000  /* 256MB */
+
+long RPyThreadGetStackSize(void)
+{
+	return _pypythread_stacksize;
+}
+
+long RPyThreadSetStackSize(long newsize)
+{
+	if (newsize == 0) {    /* set to default */
+		_pypythread_stacksize = 0;
+		return 0;
+	}
+
+	/* check the range */
+	if (newsize >= THREAD_MIN_STACKSIZE && newsize < THREAD_MAX_STACKSIZE) {
+		_pypythread_stacksize = newsize;
+		return 0;
+	}
+	return -1;
 }
 
 /************************************************************/

@@ -8,7 +8,11 @@ try:
 except ImportError:
     import py; py.test.skip("no zlib module on this host Python")
 
-from pypy.module.zlib import interp_zlib
+try:
+    from pypy.module.zlib import interp_zlib
+except ImportError:
+    import py; py.test.skip("no zlib C library on this machine")
+ 
 from pypy.conftest import gettestobjspace
 
 def test_unsigned_to_signed_32bit():

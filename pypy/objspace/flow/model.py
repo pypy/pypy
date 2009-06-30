@@ -3,7 +3,6 @@
 # 
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
-from __future__ import generators
 import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.descriptor import roproperty

@@ -26,7 +26,6 @@ from pypy.rpython.numpy.rarray import ArrayRepr
 from pypy.rpython.numpy.aarray import SomeArray
 
 test_c_compile = True
-test_llvm_compile = False
 
 
 def access_array(item):

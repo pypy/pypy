@@ -16,7 +16,9 @@ encoding = 'utf-8'
 class UnicodeMethodsTest(unittest.TestCase):
 
     # update this, if the database changes
-    expectedchecksum = '9f6a3e76196a8327ccf95d2d6404880be2ab5c2f'
+    # (PyPy comment: the reason why we have a different checksum from CPython
+    # is that CPython is buggy! See http://bugs.python.org/issue4971
+    expectedchecksum = '6e487361ad9d178a58006cbab5b176a090bcd792'
 
     def test_method_checksum(self):
         h = hashlib.sha1()
@@ -75,7 +77,7 @@ class UnicodeDatabaseTest(unittest.TestCase):
 class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
     # update this, if the database changes
-    expectedchecksum = 'e5eaebf2eba2221e8b8ad0201edc179516fd322f'
+    expectedchecksum = '351aef336ecc9c454759a6514b0171e1df71f6e9'
 
     def test_function_checksum(self):
         data = []
@@ -86,7 +88,9 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
             data = [
                 # Properties
                 str(self.db.digit(char, -1)),
-                str(self.db.numeric(char, -1)),
+                # PyPy comment: we use repr here, because str(<float>) is
+                # platform dependant
+                repr(self.db.numeric(char, -1)),
                 str(self.db.decimal(char, -1)),
                 self.db.category(char),
                 self.db.bidirectional(char),

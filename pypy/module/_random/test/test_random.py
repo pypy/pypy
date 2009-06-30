@@ -72,6 +72,16 @@ class AppTestRandom:
         raises(TypeError, rnd.seed, 1, 2)
         raises(TypeError, type(rnd), [])
 
+    def test_seed_uses_the_time(self):
+        import _random
+        rnd = _random.Random()
+        rnd.seed()
+        state1 = rnd.getstate()
+        import time; time.sleep(1.1)     # must be at least 1 second here
+        rnd.seed()                       # (note that random.py overrides
+        state2 = rnd.getstate()          # seed() to improve the resolution)
+        assert state1 != state2
+
     def test_randbits(self):
         import math
         import _random

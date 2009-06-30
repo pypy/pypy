@@ -31,12 +31,17 @@ from pypy.rlib.objectmodel import keepalive_until_here
 posix = __import__(os.name)
 
 if sys.platform.startswith('win'):
+    _WIN32 = True
+else:
+    _WIN32 = False
+
+if _WIN32:
     underscore_on_windows = '_'
 else:
     underscore_on_windows = ''
 
 includes = []
-if not sys.platform.startswith('win'):
+if not _WIN32:
     # XXX many of these includes are not portable at all
     includes += ['dirent.h', 'sys/stat.h',
                  'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
@@ -60,7 +65,7 @@ class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=includes
     )
-    if not sys.platform.startswith('win'):
+    if not _WIN32:
         CLOCK_T = platform.SimpleType('clock_t', rffi.INT)
 
         TMS = platform.Struct(
@@ -83,7 +88,33 @@ class RegisterOs(BaseLazyRegistering):
     def __init__(self):
         self.configure(CConfig)
 
-        # we need an indirection via c functions to get macro calls working on llvm
+        # on some platforms, e.g. OS X Leopard, the following constants which
+        # may be defined in pyconfig.h triggers "legacy" behaviour for functions
+        # like setpgrp():
+        #
+        #   _POSIX_C_SOURCE 200112L
+        #   _XOPEN_SOURCE 600
+        #   _DARWIN_C_SOURCE 1
+        #
+        # since the translation currently includes pyconfig.h, the checkcompiles
+        # call below include the pyconfig.h file so that the same behaviour is
+        # present in both the check and the final translation...
+
+        if hasattr(os, 'getpgrp'):
+            self.GETPGRP_HAVE_ARG = platform.checkcompiles(
+                "getpgrp(0)",
+                '#include "pyconfig.h"\n#include <unistd.h>',
+                [platform.get_python_include_dir()]
+                )
+
+        if hasattr(os, 'setpgrp'):
+            self.SETPGRP_HAVE_ARG = platform.checkcompiles(
+                "setpgrp(0,0)",
+                '#include "pyconfig.h"\n#include <unistd.h>',
+                [platform.get_python_include_dir()]
+                )
+
+        # we need an indirection via c functions to get macro calls working on llvm XXX still?
         if hasattr(os, 'WCOREDUMP'):
             decl_snippet = """
             %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
@@ -106,7 +137,7 @@ class RegisterOs(BaseLazyRegistering):
                 separate_module_sources = ["\n".join(defs)]
             ))
 
-    # a simple, yet usefull factory
+    # a simple, yet useful factory
     def extdef_for_os_function_returning_int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
@@ -119,7 +150,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    def extdef_for_function_accepting_int(self, name, **kwds):
+    def extdef_for_os_function_accepting_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
             res = rffi.cast(rffi.LONG, c_func(arg))
@@ -131,7 +162,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], None, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    def extdef_for_function_accepting_2int(self, name, **kwds):
+    def extdef_for_os_function_accepting_2int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg, arg2):
             res = rffi.cast(rffi.LONG, c_func(arg, arg2))
@@ -143,7 +174,19 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int], None, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)        
 
-    def extdef_for_function_int_to_int(self, name, **kwds):
+    def extdef_for_os_function_accepting_0int(self, name, **kwds):
+        c_func = self.llexternal(name, [], rffi.INT, **kwds)
+        def c_func_llimpl():
+            res = rffi.cast(rffi.LONG, c_func())
+            if res == -1:
+                raise OSError(rposix.get_errno(), "%s failed" % name)
+        
+        c_func_llimpl.func_name = name + '_llimpl'
+
+        return extdef([], None, llimpl=c_func_llimpl,
+                      export_name='ll_os.ll_os_' + name)        
+
+    def extdef_for_os_function_int_to_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
             res = rffi.cast(rffi.LONG, c_func(arg))
@@ -265,6 +308,9 @@ class RegisterOs(BaseLazyRegistering):
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
 
+        # XXX note that on Windows, calls to os.utime() are ignored on
+        # directories.  Remove that hack over there once it's fixed here!
+
         if config['HAVE_UTIMES']:
             class CConfig:
                 _compilation_info_ = ExternalCompilationInfo(
@@ -300,18 +346,96 @@ class RegisterOs(BaseLazyRegistering):
                 lltype.free(l_utimbuf, flavor='raw')
                 return error
 
-        def os_utime_llimpl(path, tp):
-            # NB. this function is specialized; we get one version where
-            # tp is known to be None, and one version where it is known
-            # to be a tuple of 2 floats.
-            if tp is None:
-                error = os_utime(path, lltype.nullptr(UTIMBUFP.TO))
-            else:
-                actime, modtime = tp
-                error = os_utime_platform(path, actime, modtime)
-            error = rffi.cast(lltype.Signed, error)
-            if error == -1:
-                raise OSError(rposix.get_errno(), "os_utime failed")
+        # NB. this function is specialized; we get one version where
+        # tp is known to be None, and one version where it is known
+        # to be a tuple of 2 floats.
+        if not _WIN32:
+            def os_utime_llimpl(path, tp):
+                if tp is None:
+                    error = os_utime(path, lltype.nullptr(UTIMBUFP.TO))
+                else:
+                    actime, modtime = tp
+                    error = os_utime_platform(path, actime, modtime)
+                    error = rffi.cast(lltype.Signed, error)
+                if error == -1:
+                    raise OSError(rposix.get_errno(), "os_utime failed")
+        else:
+            from pypy.rlib import rwin32
+            from pypy.rpython.module.ll_os_stat import time_t_to_FILE_TIME
+
+            class CConfig:
+                _compilation_info_ = ExternalCompilationInfo(
+                    includes = ['windows.h'],
+                    )
+
+                FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
+                    'FILE_WRITE_ATTRIBUTES')
+                OPEN_EXISTING = platform.ConstantInteger(
+                    'OPEN_EXISTING')
+                FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
+                    'FILE_FLAG_BACKUP_SEMANTICS')
+            globals().update(platform.configure(CConfig))
+
+            CreateFile = rffi.llexternal(
+                'CreateFileA',
+                [rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD,
+                 rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
+                 rwin32.HANDLE],
+                rwin32.HANDLE,
+                calling_conv='win')
+
+            GetSystemTime = rffi.llexternal(
+                'GetSystemTime',
+                [lltype.Ptr(rwin32.SYSTEMTIME)],
+                lltype.Void,
+                calling_conv='win')
+
+            SystemTimeToFileTime = rffi.llexternal(
+                'SystemTimeToFileTime',
+                [lltype.Ptr(rwin32.SYSTEMTIME),
+                 lltype.Ptr(rwin32.FILETIME)],
+                rwin32.BOOL,
+                calling_conv='win')
+
+            SetFileTime = rffi.llexternal(
+                'SetFileTime',
+                [rwin32.HANDLE,
+                 lltype.Ptr(rwin32.FILETIME),
+                 lltype.Ptr(rwin32.FILETIME),
+                 lltype.Ptr(rwin32.FILETIME)],
+                rwin32.BOOL,
+                calling_conv = 'win')
+
+            def os_utime_llimpl(path, tp):
+                hFile = CreateFile(path, 
+                                   FILE_WRITE_ATTRIBUTES, 0, 
+                                   None, OPEN_EXISTING,
+                                   FILE_FLAG_BACKUP_SEMANTICS, 0)
+                if hFile == rwin32.INVALID_HANDLE_VALUE:
+                    raise rwin32.lastWindowsError()
+                ctime = lltype.nullptr(rwin32.FILETIME)
+                atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+                mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+                try:
+                    if tp is None:
+                        now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
+                        try:
+                            GetSystemTime(now)
+                            if (not SystemTimeToFileTime(now, atime) or
+                                not SystemTimeToFileTime(now, mtime)):
+                                raise rwin32.lastWindowsError()
+                        finally:
+                            lltype.free(now, flavor='raw')
+                    else:
+                        actime, modtime = tp
+                        time_t_to_FILE_TIME(actime, atime)
+                        time_t_to_FILE_TIME(modtime, mtime)
+                    if not SetFileTime(hFile, ctime, atime, mtime):
+                        raise rwin32.lastWindowsError()
+                finally:
+                    rwin32.CloseHandle(hFile)
+                    lltype.free(atime, flavor='raw')
+                    lltype.free(mtime, flavor='raw')
         os_utime_llimpl._annspecialcase_ = 'specialize:argtype(1)'
 
         s_string = SomeString()
@@ -490,19 +614,19 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'setuid')
     def register_os_setuid(self):
-        return self.extdef_for_function_accepting_int('setuid')
+        return self.extdef_for_os_function_accepting_int('setuid')
 
     @registering_if(os, 'seteuid')
     def register_os_seteuid(self):
-        return self.extdef_for_function_accepting_int('seteuid')
+        return self.extdef_for_os_function_accepting_int('seteuid')
 
     @registering_if(os, 'setgid')
     def register_os_setgid(self):
-        return self.extdef_for_function_accepting_int('setgid')
+        return self.extdef_for_os_function_accepting_int('setgid')
 
     @registering_if(os, 'setegid')
     def register_os_setegid(self):
-        return self.extdef_for_function_accepting_int('setegid')
+        return self.extdef_for_os_function_accepting_int('setegid')
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
@@ -518,12 +642,26 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):
-        return self.extdef_for_os_function_returning_int('getpgrp')
+        name = 'getpgrp'
+        if self.GETPGRP_HAVE_ARG:
+            c_func = self.llexternal(name, [rffi.INT], rffi.INT)
+            def c_func_llimpl():
+                res = rffi.cast(rffi.LONG, c_func(0))
+                if res == -1:
+                    raise OSError(rposix.get_errno(), "%s failed" % name)
+                return res
+
+            c_func_llimpl.func_name = name + '_llimpl'
+
+            return extdef([], int, llimpl=c_func_llimpl,
+                          export_name='ll_os.ll_os_' + name)
+        else:
+            return self.extdef_for_os_function_returning_int('getpgrp')
 
     @registering_if(os, 'setpgrp')
     def register_os_setpgrp(self):
         name = 'setpgrp'
-        if sys.platform.startswith('freebsd'):
+        if self.SETPGRP_HAVE_ARG:
             c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT)
             def c_func_llimpl():
                 res = rffi.cast(rffi.LONG, c_func(0, 0))
@@ -535,7 +673,7 @@ class RegisterOs(BaseLazyRegistering):
             return extdef([], None, llimpl=c_func_llimpl,
                           export_name='ll_os.ll_os_' + name)
         else:
-            return self.extdef_for_os_function_returning_int(name)
+            return self.extdef_for_os_function_accepting_0int(name)
 
     @registering_if(os, 'getppid')
     def register_os_getppid(self):
@@ -543,23 +681,23 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpgid')
     def register_os_getpgid(self):
-        return self.extdef_for_function_int_to_int('getpgid')
+        return self.extdef_for_os_function_int_to_int('getpgid')
 
     @registering_if(os, 'setpgid')
     def register_os_setpgid(self):
-        return self.extdef_for_function_accepting_2int('setpgid')
+        return self.extdef_for_os_function_accepting_2int('setpgid')
 
     @registering_if(os, 'setreuid')
     def register_os_setreuid(self):
-        return self.extdef_for_function_accepting_2int('setreuid')
+        return self.extdef_for_os_function_accepting_2int('setreuid')
 
     @registering_if(os, 'setregid')
     def register_os_setregid(self):
-        return self.extdef_for_function_accepting_2int('setregid')
+        return self.extdef_for_os_function_accepting_2int('setregid')
 
     @registering_if(os, 'getsid')
     def register_os_getsid(self):
-        return self.extdef_for_function_int_to_int('getsid')
+        return self.extdef_for_os_function_int_to_int('getsid')
 
     @registering_if(os, 'setsid')
     def register_os_setsid(self):
@@ -712,6 +850,33 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, r_longlong], s_None,
                       llimpl = ftruncate_llimpl,
                       export_name = "ll_os.ll_os_ftruncate")
+
+    @registering_if(os, 'fsync')
+    def register_os_fsync(self):
+        if not _WIN32:
+            os_fsync = self.llexternal('fsync', [rffi.INT], rffi.INT)
+        else:
+            os_fsync = self.llexternal('_commit', [rffi.INT], rffi.INT)
+
+        def fsync_llimpl(fd):
+            res = rffi.cast(rffi.LONG, os_fsync(rffi.cast(rffi.INT, fd)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "fsync failed")
+        return extdef([int], s_None,
+                      llimpl=fsync_llimpl,
+                      export_name="ll_os.ll_os_fsync")
+
+    @registering_if(os, 'fdatasync')
+    def register_os_fdatasync(self):
+        os_fdatasync = self.llexternal('fdatasync', [rffi.INT], rffi.INT)
+
+        def fdatasync_llimpl(fd):
+            res = rffi.cast(rffi.LONG, os_fdatasync(rffi.cast(rffi.INT, fd)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "fdatasync failed")
+        return extdef([int], s_None,
+                      llimpl=fdatasync_llimpl,
+                      export_name="ll_os.ll_os_fdatasync")
 
     @registering(os.access)
     def register_os_access(self):
@@ -987,6 +1152,19 @@ class RegisterOs(BaseLazyRegistering):
                       "ll_os.ll_os_pipe",
                       llimpl=os_pipe_llimpl)
 
+    @registering_if(os, 'chown')
+    def register_os_chown(self):
+        os_chown = self.llexternal('chown', [rffi.CCHARP, rffi.INT, rffi.INT],
+                                   rffi.INT)
+
+        def os_chown_llimpl(path, uid, gid):
+            res = os_chown(path, uid, gid)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "os_chown failed")
+
+        return extdef([str, int, int], None, "ll_os.ll_os_chown",
+                      llimpl=os_chown_llimpl)
+
     @registering_if(os, 'readlink')
     def register_os_readlink(self):
         os_readlink = self.llexternal('readlink',
@@ -1234,7 +1412,8 @@ class RegisterOs(BaseLazyRegistering):
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
-                                  compilation_info = eci)
+                                  compilation_info = eci,
+                                  threadsafe = False)
 
         def fork_llimpl():
             childpid = rffi.cast(lltype.Signed, os_fork())

@@ -1,25 +1,36 @@
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.libc import libc
-import pypy.rpython.rctypes.implementation # this defines rctypes magic
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from ctypes import *
-import ctypes.util
+from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.rlib import rpoll
+
 import sys
-import socket
-import select
 
-from ssl import SSL_CTX, SSL, X509, SSL_METHOD, X509_NAME
-from bio import BIO
+if sys.platform == 'win32':
+    libraries = ['libeay32', 'ssleay32', 'user32', 'advapi32', 'gdi32']
+else:
+    libraries = ['ssl', 'crypto']
 
-c_void = None
-libssl = cdll.LoadLibrary(ctypes.util.find_library("ssl"))
+eci = ExternalCompilationInfo(
+    libraries = libraries,
+    includes = ['openssl/ssl.h',
+                ],
+    export_symbols = ['SSL_load_error_strings'],
+    )
+
+eci = rffi_platform.configure_external_library(
+    'openssl', eci,
+    [dict(prefix='openssl-',
+          include_dir='inc32', library_dir='out32'),
+     ])
 
 ## user defined constants
 X509_NAME_MAXLEN = 256
-# these mirror ssl.h
+## # these mirror ssl.h
 PY_SSL_ERROR_NONE, PY_SSL_ERROR_SSL = 0, 1
 PY_SSL_ERROR_WANT_READ, PY_SSL_ERROR_WANT_WRITE = 2, 3
 PY_SSL_ERROR_WANT_X509_LOOKUP = 4
@@ -33,69 +44,56 @@ SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
 SOCKET_TOO_LARGE_FOR_SELECT, SOCKET_OPERATION_OK = 4, 5
 
+# WinSock does not use a bitmask in select, and uses
+# socket handles greater than FD_SETSIZE
+if sys.platform == 'win32':
+    MAX_FD_SIZE = None
+else:
+    from pypy.rlib._rsocket_rffi import FD_SETSIZE as MAX_FD_SIZE
+
+HAVE_RPOLL = True  # Even win32 has rpoll.poll
 
 class CConfig:
-    _header_ = """
-    #include <openssl/ssl.h>
-    #include <openssl/opensslv.h>
-    #include <openssl/bio.h>
-    #include <sys/types.h>
-    #include <sys/time.h>
-    #include <sys/poll.h>
-    """
-    OPENSSL_VERSION_NUMBER = ctypes_platform.ConstantInteger(
+    _compilation_info_ = eci
+
+    OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
         "OPENSSL_VERSION_NUMBER")
-    SSL_FILETYPE_PEM = ctypes_platform.ConstantInteger("SSL_FILETYPE_PEM")
-    SSL_OP_ALL = ctypes_platform.ConstantInteger("SSL_OP_ALL")
-    SSL_VERIFY_NONE = ctypes_platform.ConstantInteger("SSL_VERIFY_NONE")
-    SSL_ERROR_WANT_READ = ctypes_platform.ConstantInteger(
+    SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
+    SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
+    SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
+    SSL_ERROR_WANT_READ = rffi_platform.ConstantInteger(
         "SSL_ERROR_WANT_READ")
-    SSL_ERROR_WANT_WRITE = ctypes_platform.ConstantInteger(
+    SSL_ERROR_WANT_WRITE = rffi_platform.ConstantInteger(
         "SSL_ERROR_WANT_WRITE")
-    SSL_ERROR_ZERO_RETURN = ctypes_platform.ConstantInteger(
+    SSL_ERROR_ZERO_RETURN = rffi_platform.ConstantInteger(
         "SSL_ERROR_ZERO_RETURN")
-    SSL_ERROR_WANT_X509_LOOKUP = ctypes_platform.ConstantInteger(
+    SSL_ERROR_WANT_X509_LOOKUP = rffi_platform.ConstantInteger(
         "SSL_ERROR_WANT_X509_LOOKUP")
-    SSL_ERROR_WANT_CONNECT = ctypes_platform.ConstantInteger(
+    SSL_ERROR_WANT_CONNECT = rffi_platform.ConstantInteger(
         "SSL_ERROR_WANT_CONNECT")
-    SSL_ERROR_SYSCALL = ctypes_platform.ConstantInteger("SSL_ERROR_SYSCALL")
-    SSL_ERROR_SSL = ctypes_platform.ConstantInteger("SSL_ERROR_SSL")
-    FD_SETSIZE = ctypes_platform.ConstantInteger("FD_SETSIZE")
-    SSL_CTRL_OPTIONS = ctypes_platform.ConstantInteger("SSL_CTRL_OPTIONS")
-    BIO_C_SET_NBIO = ctypes_platform.ConstantInteger("BIO_C_SET_NBIO")
-    pollfd = ctypes_platform.Struct("struct pollfd",
-        [("fd", c_int), ("events", c_short), ("revents", c_short)])
-    nfds_t = ctypes_platform.SimpleType("nfds_t", c_uint)
-    POLLOUT = ctypes_platform.ConstantInteger("POLLOUT")
-    POLLIN = ctypes_platform.ConstantInteger("POLLIN")
+    SSL_ERROR_SYSCALL = rffi_platform.ConstantInteger("SSL_ERROR_SYSCALL")
+    SSL_ERROR_SSL = rffi_platform.ConstantInteger("SSL_ERROR_SSL")
+    SSL_CTRL_OPTIONS = rffi_platform.ConstantInteger("SSL_CTRL_OPTIONS")
+    BIO_C_SET_NBIO = rffi_platform.ConstantInteger("BIO_C_SET_NBIO")
 
-class cConfig:
-    pass
+for k, v in rffi_platform.configure(CConfig).items():
+    globals()[k] = v
 
-cConfig.__dict__.update(ctypes_platform.configure(CConfig))
+# opaque structures
+SSL_METHOD = rffi.VOIDP
+SSL_CTX = rffi.VOIDP
+SSL = rffi.VOIDP
+BIO = rffi.VOIDP
+X509 = rffi.VOIDP
+X509_NAME = rffi.VOIDP
 
-OPENSSL_VERSION_NUMBER = cConfig.OPENSSL_VERSION_NUMBER
-HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500fL
-SSL_FILETYPE_PEM = cConfig.SSL_FILETYPE_PEM
-SSL_OP_ALL = cConfig.SSL_OP_ALL
-SSL_VERIFY_NONE = cConfig.SSL_VERIFY_NONE
-SSL_ERROR_WANT_READ = cConfig.SSL_ERROR_WANT_READ
-SSL_ERROR_WANT_WRITE = cConfig.SSL_ERROR_WANT_WRITE
-SSL_ERROR_ZERO_RETURN = cConfig.SSL_ERROR_ZERO_RETURN
-SSL_ERROR_WANT_X509_LOOKUP = cConfig.SSL_ERROR_WANT_X509_LOOKUP
-SSL_ERROR_WANT_CONNECT = cConfig.SSL_ERROR_WANT_CONNECT
-SSL_ERROR_SYSCALL = cConfig.SSL_ERROR_SYSCALL
-SSL_ERROR_SSL = cConfig.SSL_ERROR_SSL
-FD_SETSIZE = cConfig.FD_SETSIZE
-SSL_CTRL_OPTIONS = cConfig.SSL_CTRL_OPTIONS
-BIO_C_SET_NBIO = cConfig.BIO_C_SET_NBIO
-POLLOUT = cConfig.POLLOUT
-POLLIN = cConfig.POLLIN
+SSL_CTX_P = rffi.CArrayPtr(SSL_CTX)
+BIO_P = rffi.CArrayPtr(BIO)
+SSL_P = rffi.CArrayPtr(SSL)
+X509_P = rffi.CArrayPtr(X509)
+X509_NAME_P = rffi.CArrayPtr(X509_NAME)
 
-pollfd = cConfig.pollfd
-nfds_t = cConfig.nfds_t
-
-arr_x509 = c_char * X509_NAME_MAXLEN
+HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
 constants = {}
 constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
@@ -108,73 +106,53 @@ constants["SSL_ERROR_WANT_CONNECT"] = PY_SSL_ERROR_WANT_CONNECT
 constants["SSL_ERROR_EOF"] = PY_SSL_ERROR_EOF
 constants["SSL_ERROR_INVALID_ERROR_CODE"] = PY_SSL_ERROR_INVALID_ERROR_CODE
 
-libssl.SSL_load_error_strings.restype = c_void
-libssl.SSL_library_init.restype = c_int
+def ssl_external(name, argtypes, restype, **kw):
+    kw['compilation_info'] = eci
+    globals()['libssl_' + name] = rffi.llexternal(
+        name, argtypes, restype, **kw)
+
+ssl_external('SSL_load_error_strings', [], lltype.Void)
+ssl_external('SSL_library_init', [], rffi.INT)
 if HAVE_OPENSSL_RAND:
-    libssl.RAND_add.argtypes = [c_char_p, c_int, c_double]
-    libssl.RAND_add.restype = c_void
-    libssl.RAND_status.restype = c_int
-    libssl.RAND_egd.argtypes = [c_char_p]
-    libssl.RAND_egd.restype = c_int
-libssl.SSL_CTX_new.argtypes = [POINTER(SSL_METHOD)]
-libssl.SSL_CTX_new.restype = POINTER(SSL_CTX)
-libssl.SSLv23_method.restype = POINTER(SSL_METHOD)
-libssl.SSL_CTX_use_PrivateKey_file.argtypes = [POINTER(SSL_CTX), c_char_p, c_int]
-libssl.SSL_CTX_use_PrivateKey_file.restype = c_int
-libssl.SSL_CTX_use_certificate_chain_file.argtypes = [POINTER(SSL_CTX), c_char_p]
-libssl.SSL_CTX_use_certificate_chain_file.restype = c_int
-libssl.SSL_CTX_ctrl.argtypes = [POINTER(SSL_CTX), c_int, c_int, c_void_p]
-libssl.SSL_CTX_ctrl.restype = c_int
-libssl.SSL_CTX_set_verify.argtypes = [POINTER(SSL_CTX), c_int, c_void_p]
-libssl.SSL_CTX_set_verify.restype = c_void
-libssl.SSL_new.argtypes = [POINTER(SSL_CTX)]
-libssl.SSL_new.restype = POINTER(SSL)
-libssl.SSL_set_fd.argtypes = [POINTER(SSL), c_int]
-libssl.SSL_set_fd.restype = c_int
-libssl.BIO_ctrl.argtypes = [POINTER(BIO), c_int, c_int, c_void_p]
-libssl.BIO_ctrl.restype = c_int
-libssl.SSL_get_rbio.argtypes = [POINTER(SSL)]
-libssl.SSL_get_rbio.restype = POINTER(BIO)
-libssl.SSL_get_wbio.argtypes = [POINTER(SSL)]
-libssl.SSL_get_wbio.restype = POINTER(BIO)
-libssl.SSL_set_connect_state.argtypes = [POINTER(SSL)]
-libssl.SSL_set_connect_state.restype = c_void
-libssl.SSL_connect.argtypes = [POINTER(SSL)]
-libssl.SSL_connect.restype = c_int
-libssl.SSL_get_error.argtypes = [POINTER(SSL), c_int]
-libssl.SSL_get_error.restype = c_int
-have_poll = False
-if hasattr(libc, "poll"):
-    have_poll = True
-    libc.poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
-    libc.poll.restype = c_int
-libssl.ERR_get_error.restype = c_int
-libssl.ERR_error_string.argtypes = [c_int, c_char_p]
-libssl.ERR_error_string.restype = c_char_p
-libssl.SSL_get_peer_certificate.argtypes = [POINTER(SSL)]
-libssl.SSL_get_peer_certificate.restype = POINTER(X509)
-libssl.X509_get_subject_name.argtypes = [POINTER(X509)]
-libssl.X509_get_subject_name.restype = POINTER(X509_NAME)
-libssl.X509_get_issuer_name.argtypes = [POINTER(X509)]
-libssl.X509_get_issuer_name.restype = POINTER(X509_NAME)
-libssl.X509_NAME_oneline.argtypes = [POINTER(X509_NAME), arr_x509, c_int]
-libssl.X509_NAME_oneline.restype = c_char_p
-libssl.X509_free.argtypes = [POINTER(X509)]
-libssl.X509_free.restype = c_void
-libssl.SSL_free.argtypes = [POINTER(SSL)]
-libssl.SSL_free.restype = c_void
-libssl.SSL_CTX_free.argtypes = [POINTER(SSL_CTX)]
-libssl.SSL_CTX_free.restype = c_void
-libssl.SSL_write.argtypes = [POINTER(SSL), c_char_p, c_int]
-libssl.SSL_write.restype = c_int
-libssl.SSL_pending.argtypes = [POINTER(SSL)]
-libssl.SSL_pending.restype = c_int
-libssl.SSL_read.argtypes = [POINTER(SSL), c_char_p, c_int]
-libssl.SSL_read.restype = c_int
+    ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_status', [], rffi.INT)
+    ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_new', [rffi.CArrayPtr(SSL_METHOD)], SSL_CTX_P)
+ssl_external('SSLv23_method', [], rffi.CArrayPtr(SSL_METHOD))
+ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX_P, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX_P, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_ctrl', [SSL_CTX_P, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
+ssl_external('SSL_CTX_set_verify', [SSL_CTX_P, rffi.INT, rffi.VOIDP], lltype.Void)
+ssl_external('SSL_new', [SSL_CTX_P], SSL_P)
+ssl_external('SSL_set_fd', [SSL_P, rffi.INT], rffi.INT)
+ssl_external('BIO_ctrl', [BIO_P, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
+ssl_external('SSL_get_rbio', [SSL_P], BIO_P)
+ssl_external('SSL_get_wbio', [SSL_P], BIO_P)
+ssl_external('SSL_set_connect_state', [SSL_P], lltype.Void)
+ssl_external('SSL_connect', [SSL_P], rffi.INT)
+ssl_external('SSL_get_error', [SSL_P, rffi.INT], rffi.INT)
+
+ssl_external('ERR_get_error', [], rffi.INT)
+ssl_external('ERR_error_string', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+ssl_external('SSL_get_peer_certificate', [SSL_P], X509_P)
+ssl_external('X509_get_subject_name', [X509_P], X509_NAME_P)
+ssl_external('X509_get_issuer_name', [X509_P], X509_NAME_P)
+ssl_external('X509_NAME_oneline', [X509_NAME_P, rffi.CCHARP, rffi.INT], rffi.CCHARP)
+ssl_external('X509_free', [X509_P], lltype.Void)
+ssl_external('SSL_free', [SSL_P], lltype.Void)
+ssl_external('SSL_CTX_free', [SSL_CTX_P], lltype.Void)
+ssl_external('SSL_write', [SSL_P, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_pending', [SSL_P], rffi.INT)
+ssl_external('SSL_read', [SSL_P, rffi.CCHARP, rffi.INT], rffi.INT)
+
+def ssl_error(space, msg):
+    w_module = space.getbuiltinmodule('_ssl')
+    w_exception = space.getattr(w_module, space.wrap('sslerror'))
+    return OperationError(w_exception, space.wrap(msg))
 
 def _init_ssl():
-    libssl.SSL_load_error_strings()
-    libssl.SSL_library_init()
+    libssl_SSL_load_error_strings()
+    libssl_SSL_library_init()
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
@@ -185,9 +163,11 @@ if HAVE_OPENSSL_RAND:
         Mix string into the OpenSSL PRNG state.  entropy (a float) is a lower
         bound on the entropy contained in string."""
 
-        buf = c_char_p(string)
-
-        libssl.RAND_add(buf, len(string), entropy)
+        buf = rffi.str2charp(string)
+        try:
+            libssl_RAND_add(buf, len(string), entropy)
+        finally:
+            rffi.free_charp(buf)
     RAND_add.unwrap_spec = [ObjSpace, str, float]
 
     def RAND_status(space):
@@ -197,7 +177,7 @@ if HAVE_OPENSSL_RAND:
         It is necessary to seed the PRNG with RAND_add() on some platforms before
         using the ssl() function."""
 
-        res = libssl.RAND_status()
+        res = libssl_RAND_status()
         return space.wrap(res)
     RAND_status.unwrap_spec = [ObjSpace]
 
@@ -208,12 +188,15 @@ if HAVE_OPENSSL_RAND:
         of bytes read.  Raises socket.sslerror if connection to EGD fails or
         if it does provide enough data to seed PRNG."""
 
-        socket_path = c_char_p(path)
-        bytes = libssl.RAND_egd(socket_path)
+        socket_path = rffi.str2charp(path)
+        try:
+            bytes = libssl_RAND_egd(socket_path)
+        finally:
+            rffi.free_charp(socket_path)
         if bytes == -1:
             msg = "EGD connection failed or EGD did not return"
             msg += " enough data to seed the PRNG"
-            raise OperationError(space.w_Exception, space.wrap(msg))
+            raise ssl_error(space, msg)
         return space.wrap(bytes)
     RAND_egd.unwrap_spec = [ObjSpace, str]
 
@@ -221,52 +204,48 @@ class SSLObject(Wrappable):
     def __init__(self, space):
         self.space = space
         self.w_socket = None
-        self.ctx = POINTER(SSL_CTX)()
-        self.ssl = POINTER(SSL)()
-        self.server_cert = POINTER(X509)()
-        self._server = arr_x509()
-        self._issuer = arr_x509()
+        self.ctx = lltype.malloc(SSL_CTX_P.TO, 1, flavor='raw')
+        self.ssl = lltype.malloc(SSL_P.TO, 1, flavor='raw')
+        self.server_cert = lltype.nullptr(X509_P.TO)
+        self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
+        self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
     
     def server(self):
-        return self.space.wrap(self._server.value)
+        return self.space.wrap(rffi.charp2str(self._server))
     server.unwrap_spec = ['self']
     
     def issuer(self):
-        return self.space.wrap(self._issuer.value)
+        return self.space.wrap(rffi.charp2str(self._issuer))
     issuer.unwrap_spec = ['self']
     
     def __del__(self):
         if self.server_cert:
-            libssl.X509_free(self.server_cert)
+            libssl_X509_free(self.server_cert)
         if self.ssl:
-            libssl.SSL_free(self.ssl)
+            libssl_SSL_free(self.ssl)
         if self.ctx:
-            libssl.SSL_CTX_free(self.ctx)
+            libssl_SSL_CTX_free(self.ctx)
     
     def write(self, data):
         """write(s) -> len
 
         Writes the string s into the SSL object.  Returns the number
         of bytes written."""
-        
         sockstate = check_socket_and_wait_for_timeout(self.space,
             self.w_socket, True)
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise OperationError(self.space.w_Exception,
-                self.space.wrap("The write operation timed out"))
+            raise ssl_error(self.space, "The write operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-            raise OperationError(self.space.w_Exception,
-                self.space.wrap("Underlying socket has been closed."))
+            raise ssl_error(self.space, "Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-            raise OperationError(self.space.w_Exception,
-                self.space.wrap("Underlying socket too large for select()."))
+            raise ssl_error(self.space, "Underlying socket too large for select().")
 
         num_bytes = 0
         while True:
             err = 0
             
-            num_bytes = libssl.SSL_write(self.ssl, data, len(data))
-            err = libssl.SSL_get_error(self.ssl, num_bytes)
+            num_bytes = libssl_SSL_write(self.ssl, data, len(data))
+            err = libssl_SSL_get_error(self.ssl, num_bytes)
         
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
@@ -278,11 +257,9 @@ class SSLObject(Wrappable):
                 sockstate = SOCKET_OPERATION_OK
         
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise OperationError(self.space.w_Exception,
-                    self.space.wrap("The connect operation timed out"))
+                raise ssl_error(self.space, "The write operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-                raise OperationError(self.space.w_Exception,
-                    self.space.wrap("Underlying socket has been closed."))
+                raise ssl_error(self.space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
         
@@ -295,8 +272,7 @@ class SSLObject(Wrappable):
             return self.space.wrap(num_bytes)
         else:
             errstr, errval = _ssl_seterror(self.space, self, num_bytes)
-            raise OperationError(self.space.w_Exception,
-                self.space.wrap("%s: %d" % (errstr, errval)))
+            raise ssl_error(self.space, "%s: %d" % (errstr, errval))
     write.unwrap_spec = ['self', 'bufferstr']
     
     def read(self, num_bytes=1024):
@@ -304,23 +280,21 @@ class SSLObject(Wrappable):
 
         Read up to len bytes from the SSL socket."""
 
-        count = libssl.SSL_pending(self.ssl)
+        count = libssl_SSL_pending(self.ssl)
         if not count:
             sockstate = check_socket_and_wait_for_timeout(self.space,
                 self.w_socket, False)
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise OperationError(self.space.w_Exception,
-                    self.space.wrap("The read operation timed out"))
+                raise ssl_error(self.space, "The read operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-                raise OperationError(self.space.w_Exception,
-                    self.space.wrap("Underlying socket too large for select()."))
-        
-        buf = create_string_buffer(num_bytes)
+                raise ssl_error(self.space, "Underlying socket too large for select().")
+
+        raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
         while True:
             err = 0
             
-            count = libssl.SSL_read(self.ssl, buf, num_bytes)
-            err = libssl.SSL_get_error(self.ssl, count)
+            count = libssl_SSL_read(self.ssl, raw_buf, num_bytes)
+            err = libssl_SSL_get_error(self.ssl, count)
         
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
@@ -332,8 +306,7 @@ class SSLObject(Wrappable):
                 sockstate = SOCKET_OPERATION_OK
         
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise OperationError(self.space.w_Exception,
-                    self.space.wrap("The read operation timed out"))
+                raise ssl_error(self.space, "The read operation timed out")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
         
@@ -344,22 +317,11 @@ class SSLObject(Wrappable):
                 
         if count <= 0:
             errstr, errval = _ssl_seterror(self.space, self, count)
-            raise OperationError(self.space.w_Exception,
-                self.space.wrap("%s: %d" % (errstr, errval)))
-        
-        if count != num_bytes:
-            # resize
-            data = buf.raw
-            assert count >= 0
-            try:
-                new_data = data[0:count]
-            except:
-                raise OperationError(self.space.w_MemoryException,
-                    self.space.wrap("error in resizing of the buffer."))
-            buf = create_string_buffer(count)
-            buf.raw = new_data
-            
-        return self.space.wrap(buf.value)
+            raise ssl_error(self.space, "%s: %d" % (errstr, errval))
+
+        result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        return self.space.wrap(result)
     read.unwrap_spec = ['self', int]
 
 
@@ -394,44 +356,41 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
     
 
     if ((key_file and not cert_file) or (not key_file and cert_file)):
-        raise OperationError(space.w_Exception,
-            space.wrap("Both the key & certificate files must be specified"))
+        raise ssl_error(space, "Both the key & certificate files must be specified")
 
-    ss.ctx = libssl.SSL_CTX_new(libssl.SSLv23_method()) # set up context
+    ss.ctx = libssl_SSL_CTX_new(libssl_SSLv23_method()) # set up context
     if not ss.ctx:
-        raise OperationError(space.w_Exception, space.wrap("SSL_CTX_new error"))
+        raise ssl_error(space, "SSL_CTX_new error")
 
     if key_file:
-        ret = libssl.SSL_CTX_use_PrivateKey_file(ss.ctx, key_file,
+        ret = libssl_SSL_CTX_use_PrivateKey_file(ss.ctx, key_file,
             SSL_FILETYPE_PEM)
         if ret < 1:
-            raise OperationError(space.w_Exception,
-                space.wrap("SSL_CTX_use_PrivateKey_file error"))
+            raise ssl_error(space, "SSL_CTX_use_PrivateKey_file error")
 
-        ret = libssl.SSL_CTX_use_certificate_chain_file(ss.ctx, cert_file)
-        libssl.SSL_CTX_ctrl(ss.ctx, SSL_CTRL_OPTIONS, SSL_OP_ALL, c_void_p())
+        ret = libssl_SSL_CTX_use_certificate_chain_file(ss.ctx, cert_file)
+        libssl_SSL_CTX_ctrl(ss.ctx, SSL_CTRL_OPTIONS, SSL_OP_ALL, None)
         if ret < 1:
-            raise OperationError(space.w_Exception,
-                space.wrap("SSL_CTX_use_certificate_chain_file error"))
+            raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
-    libssl.SSL_CTX_set_verify(ss.ctx, SSL_VERIFY_NONE, c_void_p()) # set verify level
-    ss.ssl = libssl.SSL_new(ss.ctx) # new ssl struct
-    libssl.SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
+    libssl_SSL_CTX_set_verify(ss.ctx, SSL_VERIFY_NONE, None) # set verify level
+    ss.ssl = libssl_SSL_new(ss.ctx) # new ssl struct
+    libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
 
     # If the socket is in non-blocking mode or timeout mode, set the BIO
     # to non-blocking mode (blocking is the default)
     if has_timeout:
         # Set both the read and write BIO's to non-blocking mode
-        libssl.BIO_ctrl(libssl.SSL_get_rbio(ss.ssl), BIO_C_SET_NBIO, 1, c_void_p())
-        libssl.BIO_ctrl(libssl.SSL_get_wbio(ss.ssl), BIO_C_SET_NBIO, 1, c_void_p())
-    libssl.SSL_set_connect_state(ss.ssl)
+        libssl_BIO_ctrl(libssl_SSL_get_rbio(ss.ssl), BIO_C_SET_NBIO, 1, None)
+        libssl_BIO_ctrl(libssl_SSL_get_wbio(ss.ssl), BIO_C_SET_NBIO, 1, None)
+    libssl_SSL_set_connect_state(ss.ssl)
 
     # Actually negotiate SSL connection
     # XXX If SSL_connect() returns 0, it's also a failure.
     sockstate = 0
     while True:
-        ret = libssl.SSL_connect(ss.ssl)
-        err = libssl.SSL_get_error(ss.ssl, ret)
+        ret = libssl_SSL_connect(ss.ssl)
+        err = libssl_SSL_get_error(ss.ssl, ret)
         
         if err == SSL_ERROR_WANT_READ:
             sockstate = check_socket_and_wait_for_timeout(space, w_sock, False)
@@ -441,14 +400,11 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
             sockstate = SOCKET_OPERATION_OK
         
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise OperationError(space.w_Exception,
-                space.wrap("The connect operation timed out"))
+            raise ssl_error(space, "The connect operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-            raise OperationError(space.w_Exception,
-                space.wrap("Underlying socket has been closed."))
+            raise ssl_error(space, "Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-            raise OperationError(space.w_Exception,
-                space.wrap("Underlying socket too large for select()."))
+            raise ssl_error(space, "Underlying socket too large for select().")
         elif sockstate == SOCKET_IS_NONBLOCKING:
             break
         
@@ -457,16 +413,15 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
         else:
             break
     
-    if ret < 0:
+    if ret <= 0:
         errstr, errval = _ssl_seterror(space, ss, ret)
-        raise OperationError(space.w_Exception,
-            space.wrap("%s: %d" % (errstr, errval)))
+        raise ssl_error(space, "%s: %d" % (errstr, errval))
     
-    ss.server_cert = libssl.SSL_get_peer_certificate(ss.ssl)
+    ss.server_cert = libssl_SSL_get_peer_certificate(ss.ssl)
     if ss.server_cert:
-        libssl.X509_NAME_oneline(libssl.X509_get_subject_name(ss.server_cert),
+        libssl_X509_NAME_oneline(libssl_X509_get_subject_name(ss.server_cert),
             ss._server, X509_NAME_MAXLEN)
-        libssl.X509_NAME_oneline(libssl.X509_get_issuer_name(ss.server_cert),
+        libssl_X509_NAME_oneline(libssl_X509_get_issuer_name(ss.server_cert),
             ss._issuer, X509_NAME_MAXLEN)
 
     ss.w_socket = w_sock
@@ -481,62 +436,50 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
     w_timeout = space.call_method(w_sock, "gettimeout")
     if space.is_w(w_timeout, space.w_None):
         return SOCKET_IS_BLOCKING
-    elif space.int_w(w_timeout) == 0.0:
+    elif space.float_w(w_timeout) == 0.0:
         return SOCKET_IS_NONBLOCKING
-    sock_timeout = space.int_w(w_timeout)
+    sock_timeout = space.float_w(w_timeout)
 
     # guard against closed socket
     try:
         space.call_method(w_sock, "fileno")
     except:
         return SOCKET_HAS_BEEN_CLOSED
-        
+
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
+
+    # see if the socket is ready
 
     # Prefer poll, if available, since you can poll() any fd
     # which can't be done with select().
-    if have_poll:
-        _pollfd = pollfd()
-        _pollfd.fd = sock_fd
+    if HAVE_RPOLL:
         if writing:
-            _pollfd.events = POLLOUT
+            fddict = {sock_fd: rpoll.POLLOUT}
         else:
-            _pollfd.events = POLLIN
+            fddict = {sock_fd: rpoll.POLLIN}
+
         # socket's timeout is in seconds, poll's timeout in ms
         timeout = int(sock_timeout * 1000 + 0.5)
-        rc = libc.poll(byref(_pollfd), 1, timeout)
-        if rc == 0:
-            return SOCKET_HAS_TIMED_OUT
-        else:
-            return SOCKET_OPERATION_OK
-    
-    if sock_fd >= FD_SETSIZE:
-        return SOCKET_TOO_LARGE_FOR_SELECT
-
-    # construct the arguments for select
-    sec = int(sock_timeout)
-    usec = int((sock_timeout - sec) * 1e6)
-    timeout = sec + usec * 0.000001
-    # see if the socket is ready
-    if writing:
-        ret = select.select([], [sock_fd], [], timeout)
-        r, w, e = ret
-        if not w:
-            return SOCKET_HAS_TIMED_OUT
-        else:
-            return SOCKET_OPERATION_OK
+        ready = rpoll.poll(fddict, timeout)
     else:
-        ret = select.select([sock_fd], [], [], timeout)
-        r, w, e = ret
-        if not r:
-            return SOCKET_HAS_TIMED_OUT
+        if MAX_FD_SIZE is not None and sock_fd >= MAX_FD_SIZE:
+            return SOCKET_TOO_LARGE_FOR_SELECT
+
+        if writing:
+            r, w, e = rpoll.select([], [sock_fd], [], sock_timeout)
+            ready = w
         else:
-            return SOCKET_OPERATION_OK
+            r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
+            ready = r
+    if ready:
+        return SOCKET_OPERATION_OK
+    else:
+        return SOCKET_HAS_TIMED_OUT
 
 def _ssl_seterror(space, ss, ret):
     assert ret <= 0
 
-    err = libssl.SSL_get_error(ss.ssl, ret)
+    err = libssl_SSL_get_error(ss.ssl, ret)
     errstr = ""
     errval = 0
 
@@ -556,7 +499,7 @@ def _ssl_seterror(space, ss, ret):
         errstr = "The operation did not complete (connect)"
         errval = PY_SSL_ERROR_WANT_CONNECT
     elif err == SSL_ERROR_SYSCALL:
-        e = libssl.ERR_get_error()
+        e = libssl_ERR_get_error()
         if e == 0:
             if ret == 0 or space.is_w(ss.w_socket, space.w_None):
                 errstr = "EOF occurred in violation of protocol"
@@ -568,19 +511,19 @@ def _ssl_seterror(space, ss, ret):
                 errstr = "Some I/O error occurred"
                 errval = PY_SSL_ERROR_SYSCALL
         else:
-            errstr = libssl.ERR_error_string(e, None)
+            errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
             errval = PY_SSL_ERROR_SYSCALL
     elif err == SSL_ERROR_SSL:
-        e = libssl.ERR_get_error()
+        e = libssl_ERR_get_error()
         errval = PY_SSL_ERROR_SSL
         if e != 0:
-            errstr = libssl.ERR_error_string(e, None)
+            errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
         else:
             errstr = "A failure in the SSL library occurred"
     else:
         errstr = "Invalid error code"
         errval = PY_SSL_ERROR_INVALID_ERROR_CODE
-        
+
     return errstr, errval
 
 

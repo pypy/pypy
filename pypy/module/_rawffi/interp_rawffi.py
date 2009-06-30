@@ -300,8 +300,7 @@ def unwrap_truncate_int(TP, space, w_arg):
         return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
-def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg):
-    letter, _, _ = tp
+def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap
     if letter == "d":
         push_func(add_arg, argdesc, space.float_w(w_arg))

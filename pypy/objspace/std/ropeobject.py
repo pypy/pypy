@@ -610,7 +610,10 @@ def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):
                                       _tabindent(last, tabsize)))
         last = splitted[i]
         expanded.append(last)
-    return W_RopeObject(rope.rebalance(expanded))
+    try:
+        return W_RopeObject(rope.rebalance(expanded))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))        
  
  
 def str_splitlines__Rope_ANY(space, w_self, w_keepends):

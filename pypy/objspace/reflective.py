@@ -137,8 +137,8 @@ def proxymaker(space, opname, parentfn):
         return None
 
     if opname == "newdict": # grr grr kwargs
-        def fn(track_builtin_shadowing=False):
-            w_obj = parentfn(track_builtin_shadowing)
+        def fn(module=False):
+            w_obj = parentfn(module)
             w_newobj = user_hook(w_obj)
             if w_newobj is not None:
                 return w_newobj

@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import inputconst, Repr
 from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
-     cast_primitive
+     cast_primitive, typeOf
 
 class AbstractStringRepr(Repr):
     pass
@@ -122,7 +122,7 @@ class __extend__(AbstractStringRepr):
             v_start = hop.inputconst(Signed, 0)
         if hop.nb_args > 3:
             v_end = hop.inputarg(Signed, arg=3)
-            if not hop.args_s[2].nonneg:
+            if not hop.args_s[3].nonneg:
                 raise TyperError("str.find() end must be proven non-negative")
         else:
             v_end = hop.gendirectcall(self.ll.ll_strlen, v_str)
@@ -149,7 +149,7 @@ class __extend__(AbstractStringRepr):
             v_start = hop.inputconst(Signed, 0)
         if hop.nb_args > 3:
             v_end = hop.inputarg(Signed, arg=3)
-            if not hop.args_s[2].nonneg:
+            if not hop.args_s[3].nonneg:
                 raise TyperError("str.count() end must be proven non-negative")
         else:
             v_end = hop.gendirectcall(self.ll.ll_strlen, v_str)
@@ -212,6 +212,20 @@ class __extend__(AbstractStringRepr):
             else:
                 raise TyperError("sep.join() of non-string list: %r" % r_lst)
             return hop.gendirectcall(llfn, v_str, v_length, v_items)
+
+    def rtype_method_splitlines(self, hop):
+        rstr = hop.args_r[0].repr
+        if hop.nb_args == 2:
+            args = hop.inputargs(rstr.repr, Bool)
+        else:
+            args = [hop.inputarg(rstr.repr, 0), hop.inputconst(Bool, False)]
+        try:
+            list_type = hop.r_result.lowleveltype.TO
+        except AttributeError:
+            list_type = hop.r_result.lowleveltype
+        cLIST = hop.inputconst(Void, list_type)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_splitlines, cLIST, *args)
 
     def rtype_method_split(self, hop):
         rstr = hop.args_r[0].repr
@@ -718,3 +732,36 @@ class AbstractLLHelpers:
             raise ValueError
 
         return parts_to_float(sign, before_point, after_point, exponent)
+
+    def ll_splitlines(cls, LIST, ll_str, keep_newlines):
+        from pypy.rpython.annlowlevel import hlstr
+        s = hlstr(ll_str)
+        STR = typeOf(ll_str)
+        strlen = len(s)
+        i = 0
+        j = 0
+        # The annotator makes sure this list is resizable.
+        res = LIST.ll_newlist(0)
+        while j < strlen:
+            while i < strlen and s[i] != '\n' and s[i] != '\r':
+                i += 1
+            eol = i
+            if i < strlen:
+                if s[i] == '\r' and i + 1 < strlen and s[i + 1] == '\n':
+                    i += 2
+                else:
+                    i += 1
+                if keep_newlines:
+                    eol = i
+            list_length = res.ll_length()
+            res._ll_resize_ge(list_length + 1)
+            item = cls.ll_stringslice_startstop(ll_str, j, eol)
+            res.ll_setitem_fast(list_length, item)
+            j = i
+        if j < strlen:
+            list_length = res.ll_length()
+            res._ll_resize_ge(list_length + 1)
+            item = cls.ll_stringslice_startstop(ll_str, j, strlen)
+            res.ll_setitem_fast(list_length, item)
+        return res
+    ll_splitlines = classmethod(ll_splitlines)

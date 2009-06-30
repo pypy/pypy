@@ -63,7 +63,7 @@ mapping the pseudo file handle given by the subprocess back to a
 file-like object in the controller, and reading from the file-like
 object.
 
-Translating an RPython program with sandboxing enables also uses a special flag
+Translating an RPython program with sandboxing enabled also uses a special flag
 that enables all sorts of C-level assertions against index-out-of-bounds
 accesses.
 
@@ -93,7 +93,14 @@ prompt.  In theory it's impossible to do anything bad or read a random
 file on the machine from this prompt. To pass a script as an argument you need
 to put it in a directory along with all its dependencies, and ask
 pypy_interact to export this directory (read-only) to the subprocess'
-virtual /tmp directory with the --tmp=DIR option.
+virtual /tmp directory with the ``--tmp=DIR`` option.  Example::
+
+   mkdir myexported
+   cp script.py myexported/
+   ./pypy_interact.py --tmp=myexported /some/path/pypy-c-sandbox /tmp/script.py
+
+This is safe to do even if script.py comes from some random
+untrusted source, e.g. if it is done by an HTTP server.
 
 To limit the used heapsize, use the ``--heapsize=N`` option to
 pypy_interact.py. You can also give a limit to the CPU time (real time) by
@@ -104,6 +111,6 @@ the controller crashes with an exception and the subprocess is killed.
 Other operations make the subprocess die directly with a "Fatal RPython
 error".  None of this is a security hole; it just means that if you try
 to run some random program, it risks getting killed depending on the
-Python built-in functions it tries to call.
-
-
+Python built-in functions it tries to call.  This is a matter of the
+sandboxing layer being incomplete so far, but it should not really be
+a problem in practice.

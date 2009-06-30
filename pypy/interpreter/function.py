@@ -156,7 +156,7 @@ class Function(Wrappable):
 
     # unwrapping is done through unwrap_specs in typedef.py
 
-    def descr_method__new__(space, w_subtype, w_code, w_globals, 
+    def descr_function__new__(space, w_subtype, w_code, w_globals, 
                             w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
@@ -196,27 +196,66 @@ class Function(Wrappable):
     def descr_function_repr(self):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
+
+    # delicate   
+    _all = {'': None}
+
+    def _freeze_(self):
+        from pypy.interpreter.gateway import BuiltinCode
+        if isinstance(self.code, BuiltinCode):
+            identifier = self.code.identifier
+            if Function._all.get(identifier, self) is not self:
+                print "builtin code identifier %s used twice: %s and %s" % (
+                    identifier, self, Function._all[identifier])
+            # we have been seen by other means so rtyping should not choke
+            # on us
+            Function._all[identifier] = self
+        return False
+
+    def find(identifier):
+        return Function._all[identifier]
+    find = staticmethod(find)
+
     def descr_function__reduce__(self, space):
+        from pypy.interpreter.gateway import BuiltinCode
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
+        code = self.code
+        if isinstance(code, BuiltinCode):
+            new_inst = mod.get('builtin_function')
+            return space.newtuple([new_inst,
+                                   space.newtuple([space.wrap(code.identifier)])])
+            
         new_inst = mod.get('func_new')
         w        = space.wrap
         if self.closure is None:
             w_closure = space.w_None
         else:
             w_closure = space.newtuple([w(cell) for cell in self.closure])
+        if self.w_doc is None:
+            w_doc = space.w_None
+        else:
+            w_doc = self.w_doc
+        if self.w_func_globals is None:
+            w_func_globals = space.w_None
+        else:
+            w_func_globals = self.w_func_globals
+        if self.w_func_dict is None:
+            w_func_dict = space.w_None
+        else:
+            w_func_dict = self.w_func_dict
 
         nt = space.newtuple
         tup_base = []
         tup_state = [
             w(self.name),
-            self.w_doc,
+            w_doc,
             w(self.code),
-            self.w_func_globals,
+            w_func_globals,
             w_closure,
             nt(self.defs_w[:]),
-            self.w_func_dict,
+            w_func_dict,
             self.w_module,
         ]
         return nt([new_inst, nt(tup_base), nt(tup_state)])
@@ -229,17 +268,23 @@ class Function(Wrappable):
 
         self.space = space
         self.name = space.str_w(w_name)
-        self.w_doc = w_doc
-        self.code = space.interp_w(PyCode, w_code)
-        self.w_func_globals = w_func_globals
-        if w_closure is not space.w_None:
+        self.code = space.interp_w(Code, w_code)
+        if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
             closure_w = space.unpackiterable(w_closure)
             self.closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         else:
             self.closure = None
-        self.defs_w    = space.unpackiterable(w_defs_w)
+        if space.is_w(w_doc, space.w_None):
+            w_doc = None
+        self.w_doc = w_doc
+        if space.is_w(w_func_globals, space.w_None):
+            w_func_globals = None
+        self.w_func_globals = w_func_globals
+        if space.is_w(w_func_dict, space.w_None):
+            w_func_dict = None
         self.w_func_dict = w_func_dict
+        self.defs_w    = space.unpackiterable(w_defs_w)
         self.w_module = w_module
 
     def fget_func_defaults(space, self):
@@ -513,7 +558,7 @@ class BuiltinFunction(Function):
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
 
-    def descr_method__new__(space, w_subtype, w_func):
+    def descr_builtinfunction__new__(space, w_subtype, w_func):
         func = space.interp_w(Function, w_func)
         bltin = space.allocate_instance(BuiltinFunction, w_subtype)
         BuiltinFunction.__init__(bltin, func)

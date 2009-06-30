@@ -868,7 +868,6 @@ class SharedKeyIteratorImplementation(IteratorImplementation):
         else:
             return None
 
-
 import time, py
 
 class DictInfo(object):
@@ -1041,8 +1040,11 @@ def report():
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    def __init__(w_self, space, wary=False, sharing=False):
-        if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and wary:
+    def __init__(w_self, space, module=False, sharing=False):
+        if space.config.objspace.std.withcelldict and module:
+            from pypy.objspace.std.celldict import ModuleDictImplementation
+            w_self.implementation = ModuleDictImplementation(space)
+        elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
             w_self.implementation = WaryDictImplementation(space)
         elif space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)

@@ -20,7 +20,13 @@ corresponding Unix manual entries for more information on calls."""
     'tmpfile'    : 'app_posix.tmpfile',
     'popen'      : 'app_posix.popen',
     }
-    
+    if os.name == 'nt':
+        appleveldefs.update({
+                'popen2' : 'app_posix.popen2',
+                'popen3' : 'app_posix.popen3',
+                'popen4' : 'app_posix.popen4',
+                })
+        
     interpleveldefs = {
     'open'      : 'interp_posix.open',
     'lseek'     : 'interp_posix.lseek',
@@ -55,8 +61,18 @@ corresponding Unix manual entries for more information on calls."""
     'utime'     : 'interp_posix.utime',
     '_statfields': 'interp_posix.getstatfields(space)',
     }
+
+    if os.name == 'nt':
+        interpleveldefs['urandom'] = 'interp_posix.win32_urandom'
+
+    if hasattr(os, 'chown'):
+        interpleveldefs['chown'] = 'interp_posix.chown'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+    if hasattr(os, 'fsync'):
+        interpleveldefs['fsync'] = 'interp_posix.fsync'
+    if hasattr(os, 'fdatasync'):
+        interpleveldefs['fdatasync'] = 'interp_posix.fdatasync'
     if hasattr(os, 'putenv'):
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
@@ -103,13 +119,6 @@ corresponding Unix manual entries for more information on calls."""
     for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
-
-    def setup_after_space_initialization(self):
-        """NOT_RPYTHON"""
-        space = self.space
-        config = space.config
-        if config.translating and config.translation.backend == "llvm":
-            space.delattr(self, space.wrap("execv"))
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

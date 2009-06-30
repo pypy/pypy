@@ -19,6 +19,7 @@ def _compareproxymethod(opname):
             raise OperationError(space.w_TypeError,
                                  space.wrap("expected dictproxy"))
         return getattr(space, opname)(w_obj1.w_dict, w_obj2)
+    compare.func_name = "dictproxy_compare_%s" % (opname, )
     return gateway.interp2app(compare)
 
 # ____________________________________________________________

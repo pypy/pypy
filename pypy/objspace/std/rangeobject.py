@@ -128,6 +128,14 @@ def repr__RangeList(space, w_rangelist):
         n += 1
     return space.wrap("[" + ", ".join(result) + "]")
 
+def inplace_add__RangeList_ANY(space, w_rangelist, w_iterable2):
+    space.inplace_add(w_rangelist.force(space), w_iterable2)
+    return w_rangelist
+
+def inplace_mul__RangeList_ANY(space, w_rangelist, w_number):
+    space.inplace_mul(w_rangelist.force(space), w_number)
+    return w_rangelist
+
 
 def list_pop__RangeList_ANY(space, w_rangelist, w_idx=-1):
     if w_rangelist.w_list is not None:

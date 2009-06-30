@@ -1,7 +1,8 @@
 
 from pypy.lang.gameboy import constants
 from pypy.lang.gameboy.interrupt import Interrupt
-from pypy.lang.gameboy.cpu_register import Register, DoubleRegister, \
+from pypy.lang.gameboy.cpu_register import Register, DoubleRegister,\
+                                           ReservedDoubleRegister,\
                                            FlagRegister, ImmediatePseudoRegister
 
 # ---------------------------------------------------------------------------
@@ -50,8 +51,8 @@ class CPU(object):
         self.hl   = DoubleRegister(self, self.h, self.l, constants.RESET_HL)
         
         self.hli  = ImmediatePseudoRegister(self, self.hl)
-        self.pc   = DoubleRegister(self, Register(self), Register(self), reset_value=constants.RESET_PC)
-        self.sp   = DoubleRegister(self, Register(self), Register(self), reset_value=constants.RESET_SP)
+        self.pc   = ReservedDoubleRegister(self, reset_value=constants.RESET_PC)
+        self.sp   = ReservedDoubleRegister(self, reset_value=constants.RESET_SP)
         
         self.a    = Register(self, constants.RESET_A)
         self.flag = FlagRegister(self, constants.RESET_F)
@@ -251,6 +252,7 @@ class CPU(object):
         
     def fetch_double_register(self, register):
         self.double_register_inverse_call(CPUFetchCaller(self), register)
+        self.cycles += 1
 
     def push(self, data, use_cycles=True):
         # Stack, 2 cycles
@@ -272,12 +274,11 @@ class CPU(object):
     def pop_double_register(self, register):
         # 3 cycles
         self.double_register_inverse_call(CPUPopCaller(self), register)
+        self.cycles += 1
         
     def double_register_inverse_call(self, getCaller, register):
-        b = getCaller.get() # 1 cycle
-        a = getCaller.get() # 1 cycle
-        register.set_hi_lo(a, b) # 2 cycles
-        self.cycles += 1
+        register.set_lo(getCaller.get()) # 2 cycles
+        register.set_hi(getCaller.get()) # 2 cycles
         
     def call(self, address, use_cycles=True):
         # 4 cycles
@@ -378,12 +379,14 @@ class CPU(object):
     def xor_a(self, getCaller, setCaller=None):
         # 1 cycle
         self.a.set( self.a.get() ^ getCaller.get())  # 1 cycle
-        self.flag.zero_check(self.a.get(), reset=True)
+        self.flag.reset()
+        self.flag.zero_check(self.a.get())
 
     def or_a(self, getCaller, setCaller=None):
         # 1 cycle
         self.a.set(self.a.get() | getCaller.get())  # 1 cycle
-        self.flag.zero_check(self.a.get(), reset=True)
+        self.flag.reset()
+        self.flag.zero_check(self.a.get())
 
     def inc_double_register(self, register):
         # INC rr
@@ -487,7 +490,8 @@ class CPU(object):
         # 1 cycle
         data = getCaller.get()
         s = ((data << 4) + (data >> 4)) & 0xFF
-        self.flag.zero_check(s, reset=True)
+        self.flag.reset()
+        self.flag.zero_check(s)
         setCaller.set(s)
 
     def test_bit(self, getCaller, setCaller, n):
@@ -685,9 +689,7 @@ class CPU(object):
 
     def ret(self):
         # RET 4 cycles
-        lo = self.pop() # 1 cycle
-        hi = self.pop() # 1 cycle
-        self.pc.set_hi_lo(hi, lo) # 2 cycles
+        self.double_register_inverse_call(CPUPopCaller(self), self.pc)
 
     def conditional_return(self, cc):
         # RET cc 2,5 cycles

@@ -37,7 +37,7 @@ for key in _CONSTANTS:
     setattr(LocaleConfigure, key, ConstantInteger(key))
 
 try:
-    locale_config = configure(LocaleConfigure)
+    locale_config = configure(LocaleConfigure, noerr=True)
 except Exception, e:
     # should probably be moved into configure()
     # as an optional feature

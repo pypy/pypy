@@ -387,8 +387,16 @@ optimizations previously implemented in the xreadlines module.""")
             head = "closed"
         else:
             head = "open"
-        repr_filename = self.space.str_w(self.space.repr(self.w_name))
-        info = "%s file %s, mode '%s'" % (head, repr_filename, self.mode)
+        if self.space.abstract_isinstance_w(self.w_name, self.space.w_str):
+            info = "%s file '%s', mode '%s'" % (
+                head,
+                self.space.str_w(self.w_name),
+                self.mode)
+        else:
+            info = "%s file %s, mode '%s'" % (
+                head,
+                self.space.str_w(self.space.repr(self.w_name)),
+                self.mode)
         return self.getrepr(self.space, info)
     file__repr__.unwrap_spec = ['self']
 

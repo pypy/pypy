@@ -469,19 +469,15 @@ NOT_REALLY_CONST = {
 
 # ______________________________________________________________________
 
-op_appendices = {}
-for _name, _exc in(
-    ('ovf', OverflowError),
-    ('idx', IndexError),
-    ('key', KeyError),
-    ('att', AttributeError),
-    ('typ', TypeError),
-    ('zer', ZeroDivisionError),
-    ('val', ValueError),
-    #('flo', FloatingPointError)
-    ):
-    op_appendices[_exc] = _name
-del _name, _exc
+op_appendices = {
+    OverflowError: 'ovf',
+    IndexError: 'idx',
+    KeyError: 'key',
+    AttributeError: 'att',
+    TypeError: 'typ',
+    ZeroDivisionError: 'zer',
+    ValueError: 'val',
+    }
 
 implicit_exceptions = {
     int: [ValueError],      # built-ins that can always raise exceptions

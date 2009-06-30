@@ -1,3 +1,4 @@
+import py
 
 from pypy.rlib.rzipfile import RZipFile
 from pypy.tool.udir import udir
@@ -5,6 +6,11 @@ from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo, ZipFile
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import os
 import time
+
+try:
+    from pypy.rlib import rzlib
+except ImportError, e:
+    py.test.skip("zlib not installed: %s " % (e, ))
 
 class BaseTestRZipFile(BaseRtypingTest):
 

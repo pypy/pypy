@@ -12,7 +12,6 @@ class Module(MixedModule):
     All functions in this module take a file descriptor fd as their first\n\
     argument. This can be an integer file descriptor, such as returned by\n\
     sys.stdin.fileno(), or a file object, such as sys.stdin itself."
-    applevel_name = "termios"
 
     appleveldefs = {
         'error'       : 'app_termios.error',

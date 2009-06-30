@@ -1,6 +1,5 @@
 import py
 from pypy.translator.backendopt.malloc import LLTypeMallocRemover, OOTypeMallocRemover
-from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
@@ -36,12 +35,16 @@ class BaseMallocRemovalTest(object):
         assert count2 == 0   # number of calls left
     check_malloc_removed = classmethod(check_malloc_removed)
 
-    def check(self, fn, signature, args, expected_result, must_be_removed=True):
+    def check(self, fn, signature, args, expected_result, must_be_removed=True,
+              inline=None):
         remover = self.MallocRemover()
         t = TranslationContext()
         t.buildannotator().build_types(fn, signature)
         t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, fn)
+        if inline is not None:
+            from pypy.translator.backendopt.inline import auto_inline_graphs
+            auto_inline_graphs(t, t.graphs, inline)
         if option.view:
             t.view()
         # to detect missing keepalives and broken intermediate graphs,
@@ -128,6 +131,26 @@ class BaseMallocRemovalTest(object):
             a.x = 12
             return a1.x
         self.check(fn6, [int], [1], 12, must_be_removed=False)
+
+    def test_bogus_cast_pointer(self):
+        class S:
+            pass
+        class T(S):
+            def f(self):
+                self.y += 1
+        def f(x):
+            T().y = 5
+            s = S()
+            s.x = 123
+            if x < 0:
+                s.f()
+            return s.x
+        graph = self.check(f, [int], [5], 123, inline=20)
+        found_operations = {}
+        for block in graph.iterblocks():
+            for op in block.operations:
+                found_operations[op.opname] = True
+        assert 'debug_fatalerror' in found_operations
 
 
 
@@ -383,19 +406,6 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
             return u[0].s.x
         graph = self.check(f, [int], [42], 42)
 
-    def test_bogus_cast_pointer(self):
-        py.test.skip("XXX fix me")
-        S = lltype.GcStruct("S", ('x', lltype.Signed))
-        T = lltype.GcStruct("T", ('s', S), ('y', lltype.Signed))
-        def f(x):
-            s = lltype.malloc(S)
-            s.x = 123
-            if x < 0:
-                t = lltype.cast_pointer(lltype.Ptr(T), s)
-                t.y += 1
-            return s.x
-        graph = self.check(f, [int], [5], 123)
-
 
 class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
     type_system = 'ootype'
@@ -423,4 +433,7 @@ class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
         # is turned into an oosend which prevents malloc removal to
         # work unless we inline first. See test_classattr in
         # test_inline.py
-        pass
+        py.test.skip("oosend prevents malloc removal")
+
+    def test_bogus_cast_pointer(self):
+        py.test.skip("oosend prevents malloc removal")

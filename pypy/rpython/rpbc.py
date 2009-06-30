@@ -722,7 +722,7 @@ class AbstractClassesPBCRepr(Repr):
             if self.lowleveltype is not Void:
                 assert 0, "XXX None-or-1-class instantation not implemented"
             assert isinstance(s_instance, annmodel.SomeInstance)
-            classdef = hop.s_result.classdef
+            classdef = s_instance.classdef
             s_init = classdef.classdesc.s_read_attribute('__init__')
             v_init = Constant("init-func-dummy")   # this value not really used
 

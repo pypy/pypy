@@ -226,6 +226,7 @@ def make_unary_instance_method(name):
     def unaryop(self, space):
         w_meth = self.getattr(space, space.wrap(name), True)
         return space.call_function(w_meth)
+    unaryop.func_name = name
     return unaryop
 
 def make_binary_returning_notimplemented_instance_method(name):
@@ -240,6 +241,7 @@ def make_binary_returning_notimplemented_instance_method(name):
             if w_meth is None:
                 return space.w_NotImplemented
             return space.call_function(w_meth, w_other)
+    binaryop.func_name = name
     return binaryop
 
 def make_binary_instance_method(name):
@@ -261,6 +263,7 @@ def make_binary_instance_method(name):
             return space.call_function(w_meth, w_b)
         else:
             return getattr(space, objspacename)(w_a, w_b)
+    binaryop.func_name = name
 
     def rbinaryop(self, space, w_other):
         w_a, w_b = _coerce_helper(space, self, w_other)
@@ -271,6 +274,7 @@ def make_binary_instance_method(name):
             return space.call_function(w_meth, w_other)
         else:
             return getattr(space, objspacename)(w_b, w_a)
+    rbinaryop.func_name = "r" + name
     return binaryop, rbinaryop
 
 def _coerce_helper(space, w_self, w_other):

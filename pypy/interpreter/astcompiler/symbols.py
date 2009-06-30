@@ -22,6 +22,7 @@ ROLE_PARAM    = 'P'    # function parameter
 class Scope:
     bare_exec = False
     import_star = False
+    has_exec = False
 
     def __init__(self, name, parent):
         self.name = name
@@ -373,8 +374,9 @@ class SymbolVisitor(ast.ASTVisitor):
         self.pop_scope()
 
     def visitExec(self, node):
+        parent = self.cur_scope()
+        parent.has_exec = True
         if not (node.globals or node.locals):
-            parent = self.cur_scope()
             parent.bare_exec = True
         ast.ASTVisitor.visitExec(self, node)
 

@@ -2,7 +2,7 @@
 
     The PyPy project is a worldwide collaborative effort and its
     members are organising sprints and presenting results at conferences
-    all year round.  The list of past events follows - see `our blog`_ 
+    all year round.  **This page is no longer maintained!**  See `our blog`_
     for upcoming events. 
 
 .. _`our blog`: http://morepypy.blogspot.com/

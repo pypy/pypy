@@ -403,6 +403,9 @@ class BuiltinCode(eval.Code):
         eval.Code.__init__(self, func.__name__)
         self.docstring = func.__doc__
 
+        self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
+                                        getattr(self_type, '__name__', '*'))
+
         # unwrap_spec can be passed to interp2app or
         # attached as an attribute to the function.
         # It is a list of types or singleton objects:
@@ -476,6 +479,19 @@ class BuiltinCode(eval.Code):
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
+
+    def descr__reduce__(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        builtin_code = mod.get('builtin_code')
+        return space.newtuple([builtin_code,
+                               space.newtuple([space.wrap(self.identifier)])])
+
+    def find(indentifier):
+        from pypy.interpreter.function import Function
+        return Function._all[indentifier].code
+    find = staticmethod(find)
 
     def signature(self):
         return self.sig
@@ -700,11 +716,13 @@ class interp2app(Wrappable):
     # Takes optionally an unwrap_spec, see BuiltinCode
 
     NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
+
+    instancecache = {}
     
-    def __init__(self, f, app_name=None, unwrap_spec = None,
-                 descrmismatch=None, as_classmethod=False):
+    def __new__(cls, f, app_name=None, unwrap_spec = None,
+                descrmismatch=None, as_classmethod=False):
+
         "NOT_RPYTHON"
-        Wrappable.__init__(self)
         # f must be a function whose name does NOT start with 'app_'
         self_type = None
         if hasattr(f, 'im_func'):
@@ -717,6 +735,18 @@ class interp2app(Wrappable):
                 raise ValueError, ("function name %r suspiciously starts "
                                    "with 'app_'" % f.func_name)
             app_name = f.func_name
+
+        if unwrap_spec is not None:
+            unwrap_spec_key = tuple(unwrap_spec)
+        else:
+            unwrap_spec_key = None
+        key = (f, self_type, unwrap_spec_key, descrmismatch, as_classmethod)
+        if key in cls.instancecache:
+            result = cls.instancecache[key]
+            assert result.__class__ is cls
+            return result
+        self = Wrappable.__new__(cls)
+        cls.instancecache[key] = self
         self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
                                  self_type = self_type,
                                  descrmismatch=descrmismatch)
@@ -724,6 +754,7 @@ class interp2app(Wrappable):
         self.name = app_name
         self.as_classmethod = as_classmethod
         self._staticdefs = list(f.func_defaults or ())
+        return self
 
     def _getdefaults(self, space):
         "NOT_RPYTHON"
@@ -756,6 +787,8 @@ class GatewayCache(SpaceCache):
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
         fn = Function(space, code, None, defs, forcename = gateway.name)
+        if not space.config.translating: # for tests and py.py
+            fn._freeze_()
         if gateway.as_classmethod:
             fn = ClassMethod(space.wrap(fn))
         return fn
@@ -808,8 +841,6 @@ class ApplevelClass:
         return Module(space, space.wrap(name), self.getwdict(space))
 
     def wget(self, space, name): 
-        if hasattr(space, '_applevelclass_hook'):   # XXX for the CPyObjSpace
-            return space._applevelclass_hook(self, name)
         w_globals = self.getwdict(space) 
         return space.getitem(w_globals, space.wrap(name))
 

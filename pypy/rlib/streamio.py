@@ -72,18 +72,22 @@ def replace_char_with_str(string, c, s):
 
 
 def open_file_as_stream(path, mode="r", buffering=-1):
-    os_flags, universal, reading, writing, basemode = decode_mode(mode)
+    os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     stream = open_path_helper(path, os_flags, basemode == "a")
     return construct_stream_tower(stream, buffering, universal, reading,
-                                  writing)
+                                  writing, binary)
 
+def _setfd_binary(fd):
+    pass
+    
 def fdopen_as_stream(fd, mode, buffering):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
-    os_flags, universal, reading, writing, basemode = decode_mode(mode)
+    os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    _setfd_binary(fd)
     stream = DiskFile(fd)
     return construct_stream_tower(stream, buffering, universal, reading,
-                                  writing)
+                                  writing, binary)
 
 def open_path_helper(path, os_flags, append):
     # XXX for now always return DiskFile
@@ -116,16 +120,16 @@ def decode_mode(mode):
             break
 
     flag = OS_MODE[basemode, plus]
-    if binary or universal:
-        flag |= O_BINARY
+    flag |= O_BINARY
 
     reading = basemode == 'r' or plus
     writing = basemode != 'r' or plus
 
-    return flag, universal, reading, writing, basemode
+    return flag, universal, reading, writing, basemode, binary
 
 
-def construct_stream_tower(stream, buffering, universal, reading, writing):
+def construct_stream_tower(stream, buffering, universal, reading, writing,
+                           binary):
     if buffering == 0:   # no buffering
         pass
     elif buffering == 1:   # line-buffering
@@ -147,6 +151,8 @@ def construct_stream_tower(stream, buffering, universal, reading, writing):
             stream = TextOutputFilter(stream)
         if reading:
             stream = TextInputFilter(stream)
+    elif not binary and os.linesep == '\r\n':
+        stream = TextCRLFFilter(stream)
     return stream
 
 
@@ -155,6 +161,38 @@ class StreamError(Exception):
         self.message = message
 
 StreamErrors = (OSError, StreamError)     # errors that can generally be raised
+
+
+if sys.platform == "win32":
+    from pypy.rlib import rwin32
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
+    from pypy.rpython.lltypesystem import rffi
+    import errno
+
+    _eci = ExternalCompilationInfo()
+    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.LONG,
+                                     compilation_info=_eci)
+    _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
+                               compilation_info=_eci)
+    SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
+                                   compilation_info=_eci)
+    def _setfd_binary(fd):
+        _setmode(fd, os.O_BINARY)
+
+    def ftruncate_win32(fd, size):
+        curpos = os.lseek(fd, 0, 1)
+        try:
+            # move to the position to be truncated
+            os.lseek(fd, size, 0)
+            # Truncate.  Note that this may grow the file!
+            handle = _get_osfhandle(fd)
+            if handle == -1:
+                raise OSError(errno.EBADF, "Invalid file handle")
+            if not SetEndOfFile(handle):
+                raise WindowsError(rwin32.GetLastError(),
+                                   "Could not truncate file")
+        finally:
+            os.lseek(fd, curpos, 0)
 
 
 class Stream(object):
@@ -207,6 +245,9 @@ class Stream(object):
     def truncate(self, size):
         raise NotImplementedError
 
+    def flush_buffers(self):
+        pass
+
     def flush(self):
         pass
 
@@ -253,8 +294,7 @@ class DiskFile(Stream):
 
     if sys.platform == "win32":
         def truncate(self, size):
-            from pypy.rlib.rposix import ftruncate
-            ftruncate(self.fd, size)
+            ftruncate_win32(self.fd, size)
     else:
         def truncate(self, size):
             os.ftruncate(self.fd, size)
@@ -788,6 +828,72 @@ class CRLFFilter(Stream):
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
+class TextCRLFFilter(Stream):
+
+    """Filtering stream for universal newlines.
+
+    TextInputFilter is more general, but this is faster when you don't
+    need tell/seek.
+    """
+
+    def __init__(self, base):
+        self.base = base
+        self.do_read = base.read
+        self.do_write = base.write
+        self.do_flush = base.flush_buffers
+        self.lfbuffer = ""
+
+    def read(self, n):
+        data = self.lfbuffer + self.do_read(n)
+        self.lfbuffer = ""
+        if data.endswith("\r"):
+            c = self.do_read(1)
+            if c and c[0] == '\n':
+                data = data + '\n'
+                self.lfbuffer = c[1:]
+            else:
+                self.lfbuffer = c
+
+        result = []
+        offset = 0
+        while True:
+            newoffset = data.find('\r\n', offset)
+            if newoffset < 0:
+                result.append(data[offset:])
+                break
+            result.append(data[offset:newoffset])
+            offset = newoffset + 2
+
+        return '\n'.join(result)
+
+    def tell(self):
+        pos = self.base.tell()
+        return pos - len(self.lfbuffer)
+
+    def seek(self, offset, whence):
+        if whence == 1:
+            offset -= len(self.lfbuffer)   # correct for already-read-ahead character
+        self.base.seek(offset, whence)
+        self.lfbuffer = ""
+
+    def flush_buffers(self):
+        if self.lfbuffer:
+            self.base.seek(-len(self.lfbuffer), 1)
+            self.lfbuffer = ""
+        self.do_flush()
+
+    def write(self, data):
+        data = replace_char_with_str(data, '\n', '\r\n')
+        self.flush_buffers()
+        self.do_write(data)
+
+    truncate = PassThrough("truncate", flush_buffers=True)
+    flush    = PassThrough("flush", flush_buffers=False)
+    flushable= PassThrough("flushable", flush_buffers=False)
+    close    = PassThrough("close", flush_buffers=False)
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
+    
 class TextInputFilter(Stream):
 
     """Filtering input stream for universal newline translation."""

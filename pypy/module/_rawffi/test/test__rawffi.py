@@ -528,6 +528,33 @@ class AppTestFfi:
         a1.free()
         del cb
 
+    def test_another_callback_in_stackless(self):
+        try:
+            import _stackless
+        except ImportError:
+            skip("only valid in a stackless pypy-c")
+
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        runcallback = lib.ptr('runcallback', ['P'], 'q')
+        def callback():
+            co = _stackless.coroutine()
+            def f():
+                pass
+            try:
+                co.bind(f)
+                co.switch()
+            except RuntimeError:
+                return 1<<42
+            return -5
+
+        cb = _rawffi.CallbackPtr(callback, [], 'q')
+        a1 = cb.byptr()
+        res = runcallback(a1)
+        assert res[0] == 1<<42
+        a1.free()
+        del cb
+
     def test_raising_callback(self):
         import _rawffi, sys
         import StringIO
@@ -548,6 +575,7 @@ class AppTestFfi:
             val = err.getvalue()
             assert 'ZeroDivisionError' in val
             assert 'callback' in val
+            assert res[0] == 0L
         finally:
             sys.stderr = orig
 
@@ -866,12 +894,12 @@ class AppTestAutoFree:
     def test_structure_autofree(self):
         import gc, _rawffi
         gc.collect()
+        gc.collect()
         S = _rawffi.Structure([('x', 'i')])
         oldnum = _rawffi._num_of_allocated_objects()
         s = S(autofree=True)
         s.x = 3
         s = None
-        gc.collect()
         gc.collect()
         assert oldnum == _rawffi._num_of_allocated_objects()
 

@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 import autopath
+from pypy.conftest import option
 from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
 
@@ -20,6 +21,10 @@ def test_stdout_exists(space):
     space.sys.get('__stdout__')
 
 class AppTestAppSysTests:
+
+    def setup_class(cls):
+        cls.w_appdirect = cls.space.wrap(option.runappdirect)
+    
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
@@ -70,19 +75,24 @@ class AppTestAppSysTests:
         else:
             raise AssertionError, "ZeroDivisionError not caught"
 
-def app_test_io(): 
-    import sys
-    assert isinstance(sys.stdout, file)
-    assert isinstance(sys.__stdout__, file)
-    assert isinstance(sys.stderr, file)
-    assert isinstance(sys.__stderr__, file)
-    assert isinstance(sys.stdin, file)
-    assert isinstance(sys.__stdin__, file)
+    def test_io(self): 
+        import sys
+        assert isinstance(sys.__stdout__, file)
+        assert isinstance(sys.__stderr__, file)
+        assert isinstance(sys.__stdin__, file)
+    
+        if self.appdirect and not isinstance(sys.stdin, file):
+            return
+
+        assert isinstance(sys.stdout, file)
+        assert isinstance(sys.stderr, file)
+        assert isinstance(sys.stdin, file)
 
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
         init_globals_via_builtins_hack(cls.space)
+        cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
     def test_original_displayhook(self):
         import __builtin__
@@ -247,12 +257,20 @@ class AppTestSysModulePortedFromCPython:
         # can't check more than the type, as the user might have changed it
         assert isinstance(sys.getdefaultencoding(), str)
 
-    def test_getdefaultencoding(self):
+    def test_setdefaultencoding(self):
+        if self.appdirect:
+            skip("not worth running appdirect")
+            
         encoding = sys.getdefaultencoding()
-        sys.setdefaultencoding("ascii")
         try:
+            sys.setdefaultencoding("ascii")
             assert sys.getdefaultencoding() == 'ascii'
             raises(UnicodeDecodeError, unicode, '\x80')
+
+            sys.setdefaultencoding("latin-1")
+            assert sys.getdefaultencoding() == 'latin-1'
+            assert unicode('\x80') == u'\u0080'
+            
         finally:
             sys.setdefaultencoding(encoding)
 
@@ -399,4 +417,4 @@ class AppTestSysModulePortedFromCPython:
         except IOError:
             pass
         sys.settrace(None)
-        assert found == ['call', 'line', 'exception']
+        assert found == ['call', 'line', 'exception', 'return']

@@ -169,7 +169,11 @@ class PyPyConsole(code.InteractiveConsole):
         # the following hacked file name is recognized specially by error.py
         hacked_filename = '<inline>\n' + source
         compiler = self.space.getexecutioncontext().compiler
-        
+
+        # CPython 2.6 turns console input into unicode
+        if isinstance(source, unicode):
+            source = source.encode(sys.stdin.encoding)
+
         def doit():
             # compile the provided input
             code = compiler.compile_command(source, hacked_filename, symbol,

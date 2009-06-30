@@ -2,8 +2,9 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform as compiler, CompilationError
 
-if sys.platform == "win32":
+if compiler.name == "msvc":
     libname = 'zlib'
 else:
     libname = 'z'
@@ -11,11 +12,12 @@ eci = ExternalCompilationInfo(
         libraries=[libname],
         includes=['zlib.h']
     )
-eci = rffi_platform.configure_external_library(
-    libname, eci,
-    [dict(prefix='zlib-'),
-     ])
-if not eci:
+try:
+    eci = rffi_platform.configure_external_library(
+        libname, eci,
+        [dict(prefix='zlib-'),
+         ])
+except CompilationError:
     raise ImportError("Could not find a zlib library")
 
 

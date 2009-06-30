@@ -22,3 +22,11 @@ class TestSHA:
     def disabled_too_slow_test_case_3(self):
         self.check("a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
+
+
+def test_attributes():
+    assert sha.digest_size == 20
+    assert sha.digestsize == 20
+    assert sha.blocksize == 1
+    assert sha.sha().digest_size == 20
+    assert sha.sha().digestsize == 20

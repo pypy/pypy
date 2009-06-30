@@ -50,7 +50,7 @@ class W_Array(W_DataShape):
             for num in range(iterlength):
                 w_item = items_w[num]
                 unwrap_value(space, push_elem, result.ll_buffer, num,
-                             self.itemtp, w_item)
+                             self.itemtp[0], w_item)
         return space.wrap(result)
 
     def descr_repr(self, space):
@@ -121,8 +121,8 @@ class W_ArrayInstance(W_DataInstance):
             raise segfault_exception(space, "setting element of freed array")
         if num >= self.length or num < 0:
             raise OperationError(space.w_IndexError, space.w_None)
-        unwrap_value(space, push_elem, self.ll_buffer, num, self.shape.itemtp,
-                     w_value)
+        unwrap_value(space, push_elem, self.ll_buffer, num,
+                     self.shape.itemtp[0], w_value)
 
     def descr_setitem(self, space, w_index, w_value):
         try:

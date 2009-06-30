@@ -190,7 +190,7 @@ class W_Integer(W_Real):
         return float(self.intval)
 
 class W_Eval(W_Root):
-    #this class is for objects which does more than
+    # this class is for objects which do more than
     # evaluate to themselves
     def eval_cf(self, ctx, caller, cont, elst=[], enum=0):
         #eval with continuation frame!

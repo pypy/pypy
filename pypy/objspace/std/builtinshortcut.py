@@ -50,6 +50,14 @@ for _name, _, _, _specialmethods in ObjSpace.MethodTable:
             % (_name,))
 
 
+def filter_out_conversions(typeorder):
+    res = {}
+    for cls, order in typeorder.iteritems():        
+        res[cls] = [(target_type, converter) for (target_type, converter) in
+                                                 order if converter is None]
+    return res
+
+
 def install(space, mm, fallback_mm=None):
     """Install a function <name>() on the space instance which invokes
     a shortcut for built-in types.  Returns the shortcutting multimethod
@@ -81,7 +89,7 @@ def install(space, mm, fallback_mm=None):
     expanded_order = space.model.get_typeorder_with_empty_usersubcls()
     if fallback_mm:
         mm = mm.merge_with(fallback_mm)
-    shortcut_method = mm.install_not_sliced(expanded_order)
+    shortcut_method = mm.install_not_sliced(filter_out_conversions(expanded_order))
 
     def operate(*args_w):
         try:

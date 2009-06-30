@@ -501,6 +501,22 @@ if hasattr(os, 'getpid'):
         f1 = compile(does_stuff, [])
         res = f1()
         assert res == os.getpid()
+        
+if hasattr(os, 'getpgrp'):
+    def test_os_getpgrp():
+        def does_stuff():
+            return os.getpgrp()
+        f1 = compile(does_stuff, [])
+        res = f1()
+        assert res == os.getpgrp()
+
+if hasattr(os, 'setpgrp'):
+    def test_os_setpgrp():
+        def does_stuff():
+            return os.setpgrp()
+        f1 = compile(does_stuff, [])
+        res = f1()
+        assert res == os.setpgrp()
 
 if hasattr(os, 'link'):
     def test_links():

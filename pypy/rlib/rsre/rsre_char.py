@@ -2,6 +2,7 @@
 Character categories and charsets.
 """
 import sys
+from pypy.rlib.rsre._rsre_platform import tolower, isalnum
 
 # Note: the unicode parts of this module require you to call
 # rsre.set_unicode_db() first, to select one of the modules
@@ -45,9 +46,10 @@ MAXREPEAT = 65535
 
 
 def getlower(char_ord, flags):
-    # XXX no platform-dependent locale support for now
     if flags & SRE_FLAG_UNICODE:
         char_ord = unicodedb.tolower(char_ord)
+    elif flags & SRE_FLAG_LOCALE:
+        return tolower(char_ord)
     else:
         if ord('A') <= char_ord <= ord('Z'):   # ASCII lower
             char_ord += ord('a') - ord('A')
@@ -101,7 +103,11 @@ def is_word(code):
 def is_uni_word(code):
     return unicodedb.isalnum(code) or code == underline
 
-is_loc_word = is_word      # XXX no support for platform locales anyway
+def is_loc_alnum(code):
+    return code < 256 and isalnum(code)
+
+def is_loc_word(code):
+    return code == underline or is_loc_alnum(code)
 
 def is_linebreak(code):
     return code == linebreak

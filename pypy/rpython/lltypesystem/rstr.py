@@ -664,6 +664,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, 0, 0, newlen)
         return newstr
 
+
     def ll_split_chr(LIST, s, c):
         chars = s.chars
         strlen = len(chars)

@@ -11,7 +11,7 @@ class Module(Wrappable):
     def __init__(self, space, w_name, w_dict=None):
         self.space = space
         if w_dict is None: 
-            w_dict = space.newdict(track_builtin_shadowing=True)
+            w_dict = space.newdict(module=True)
         self.w_dict = w_dict 
         self.w_name = w_name 
         if w_name is not None:

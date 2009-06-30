@@ -577,6 +577,17 @@ class AppTestMarshal:
         assert obj2b == obj2
         assert tail == 'END'
 
+    def test_unicode(self):
+        import marshal, sys
+
+        u = u'\uFFFF'
+        u1 = marshal.loads(marshal.dumps(u))
+        assert u == u1
+
+        u = unichr(sys.maxunicode)
+        u1 = marshal.loads(marshal.dumps(u))
+        assert u == u1        
+
 
 class AppTestMultiDict(object):
     def setup_class(cls):

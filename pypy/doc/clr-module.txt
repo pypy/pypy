@@ -7,12 +7,10 @@ PyPy.NET give you access to the surrounding .NET environment via the
 still missing and its interface might change in next versions, but
 it's still useful to experiment a bit with PyPy.NET.
 
-The main entry-point for the ``clr`` module is the ``load_cli_class``
-function: it takes the names of a .NET namespace and a class and
-returns an object that can be used and instantiated as a normal Python
-class but refers to the .NET one.
+PyPy.NET provides an import hook that lets you to import .NET namespaces
+seamlessly as they were normal Python modules.  Then, 
 
-The resulting class tries to behave as much as possible in the
+PyPY.NET native classes try to behave as much as possible in the
 "expected" way both for the developers used to .NET and for the ones
 used to Python.
 
@@ -31,22 +29,17 @@ they exist in both worlds:
 
   - .NET indexers are mapped to Python __getitem__ and __setitem__;
 
-Moreover, since the object returned by ``load_cli_class`` is a plain
-Python class, all the usual Python features such as bound and unbound
-methods are available as well.
+  - .NET enumerators are mapped to Python iterators.
 
-At the moment the only way to load a .NET class is to explicitly use
-``clr.load_cli_class``; in the future they will be automatically
-loaded when accessing .NET namespaces as they were Python modules, as
-IronPython does.
+Moreover, all the usual Python features such as bound and unbound
+methods are available as well.
 
 Example of usage
 ================
 
 Here is an example of interactive session using the ``clr`` module::
 
-    >>>> import clr
-    >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+    >>>> from System.Collections import ArrayList
     >>>> obj = ArrayList()
     >>>> obj.Add(1)
     0
@@ -75,16 +68,8 @@ some sort of collection.
 
 The opposite .NET to Python conversions happens for the values returned
 by the methods. Again, primitive types are converted in a
-straightforward way; for objects of non-primitive types there are two
-cases:
-
-  - if the object is already a Python one, return it "as-is";
-
-  - if the object is not a Python one, raise an exception.
-
-In the future, the second case will be handled much more carefully,
-allowing methods to return .NET objects that will be automatically
-wrapped into Python ones, but at the moment it's not possible.
+straightforward way; non-primitive types are wrapped in a Python object, 
+so that they can be treated as usual.
 
 Overload resolution
 ===================
@@ -94,8 +79,7 @@ overload for the given arguments; for example, consider the
 ``System.Math.Abs`` method::
 
 
-    >>>> import clr
-    >>>> Math = clr.load_cli_class('System', 'Math')
+    >>>> from System import Math
     >>>> Math.Abs(-42)
     42
     >>>> Math.Abs(-42.0)
@@ -107,3 +91,53 @@ in the second one we call the method ``System.Math.Abs(float64)``.
 
 If the system can't find a best overload for the given parameters, a
 TypeError exception is raised.
+
+
+Generic classes
+================
+
+Generic classes are fully supported.  To instantiate a generic class, you need
+to use the ``[]`` notation::
+
+    >>>> from System.Collections.Generic import List
+    >>>> mylist = List[int]()
+    >>>> mylist.Add(42)
+    >>>> mylist.Add(43)
+    >>>> mylist.Add("foo")
+    Traceback (most recent call last):
+      File "<console>", line 1, in <interactive>
+    TypeError: No overloads for Add could match
+    >>>> mylist[0]
+    42
+    >>>> for item in mylist: print item
+    42
+    43
+
+
+External assemblies and Windows Forms
+=====================================
+
+By default, you can only import .NET namespaces that belongs to already loaded
+assemblies.  To load additional .NET assemblies, you can use
+``clr.AddReferenceByPartialName``.  The following example loads
+``System.Windows.Forms`` and ``System.Drawing`` to display a simple Windows
+Form displaying the usual "Hello World" message::
+
+    >>>> import clr
+    >>>> clr.AddReferenceByPartialName("System.Windows.Forms")
+    >>>> clr.AddReferenceByPartialName("System.Drawing")
+    >>>> from System.Windows.Forms import Application, Form, Label
+    >>>> from System.Drawing import Point
+    >>>>
+    >>>> frm = Form()
+    >>>> frm.Text = "The first pypy-cli Windows Forms app ever"
+    >>>> lbl = Label()
+    >>>> lbl.Text = "Hello World!"
+    >>>> lbl.AutoSize = True
+    >>>> lbl.Location = Point(100, 100)
+    >>>> frm.Controls.Add(lbl)
+    >>>> Application.Run(frm)
+
+Unfortunately at the moment you can't do much more than this with Windows
+Forms, because we still miss support for delegates and so it's not possibile
+to handle events.

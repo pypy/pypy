@@ -26,9 +26,14 @@ def get_cpu(new=False):
         TEST_CPU = get_cpu(True)
     TEST_CPU.reset()
     return TEST_CPU
+    
+def get_double_register():
+    cpu = get_cpu()
+    return DoubleRegister(cpu, Register(cpu), Register(cpu))
 
 # ------------------------------------------------------------
 # TEST REGISTER
+
 def test_register_constructor():
     register = Register(get_cpu())
     assert register.get() == 0
@@ -103,7 +108,8 @@ def test_double_register_hilo():
     valueHi = 0x12
     valueLo = 0x34
     oldCycles = register.cpu.cycles
-    register.set_hi_lo(valueHi, valueLo)
+    register.set_hi(valueHi)
+    register.set_lo(valueLo)
     assert oldCycles-register.cpu.cycles == 2
     assert register.get_hi() == valueHi
     assert register.get_lo() == valueLo
@@ -161,4 +167,82 @@ def test_double_register_reset():
     assert register.get() == value+1;
     register.reset()
     assert register.get() == value
+
+   
+# TEST REGISTER SYNCING -----------------------------------------------------
+ 
+def test_register_sync():
+    double_register = get_double_register()
+    assert double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid
+    return double_register
     
+def test_register_sync_get():
+    double_register = test_register_sync()
+    
+    double_register.get()
+    
+    assert not double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid
+    
+    
+def test_register_sync_set():
+    double_register = test_register_sync()
+    
+    double_register.set(0xFFFF)
+    
+    assert not double_register.invalid
+    assert double_register.hi.invalid
+    assert double_register.lo.invalid
+    
+    return double_register
+    
+    
+def test_register_sync_set_get():
+    double_register = test_register_sync_set()
+    
+    assert double_register.get() == 0xFFFF
+    
+    assert not double_register.invalid
+    assert double_register.hi.invalid
+    assert double_register.lo.invalid
+    
+    
+def test_register_sync_set_get_hi():
+    double_register = test_register_sync_set()
+    
+    assert double_register.hi.get() == 0xFF
+    
+    assert not double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid
+ 
+  
+def test_register_sync_set_get_lo():
+    double_register = test_register_sync_set()
+    
+    assert double_register.lo.get() == 0xFF
+    
+    assert not double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid
+
+    
+def test_register_sync_set_hi():
+    double_register = test_register_sync()
+    double_register.hi.set(0x12)
+    
+    assert double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid
+         
+    
+def test_register_sync_set_lo():
+    double_register = test_register_sync()
+    double_register.lo.set(0x12)
+    
+    assert double_register.invalid
+    assert not double_register.hi.invalid
+    assert not double_register.lo.invalid

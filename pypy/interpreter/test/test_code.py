@@ -1,4 +1,3 @@
-
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 import py
@@ -174,7 +173,7 @@ class AppTestCodeIntrospection:
             "docstring"
             'stuff'
             56
-        """ in locals()
+"""
 
         # check for new flag, CO_NOFREE
         assert f.func_code.co_flags & 0x40
@@ -184,7 +183,7 @@ class AppTestCodeIntrospection:
             def g(y):
                 return x+y
             return g
-        """ in locals()
+"""
 
         # CO_NESTED
         assert f(4).func_code.co_flags & 0x10

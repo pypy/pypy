@@ -234,7 +234,10 @@ def sha_final(sha_info):
         dig.extend([ ((i>>56) & 0xff), ((i>>48) & 0xff), ((i>>40) & 0xff), ((i>>32) & 0xff), ((i>>24) & 0xff), ((i>>16) & 0xff), ((i>>8) & 0xff), (i & 0xff) ])
     return ''.join([chr(i) for i in dig])
 
-class sha512:
+class sha512(object):
+    digest_size = digestsize = SHA_DIGESTSIZE
+    block_size = SHA_BLOCKSIZE
+
     def __init__(self, s=None):
         self._sha = sha_init()
         if s:
@@ -249,11 +252,23 @@ class sha512:
     def hexdigest(self):
         return ''.join(['%.2x' % ord(i) for i in self.digest()])
 
+    def copy(self):
+        new = sha512.__new__(sha512)
+        new._sha = self._sha.copy()
+        return new
+
 class sha384(sha512):
+    digest_size = digestsize = 48
+
     def __init__(self, s=None):
         self._sha = sha384_init()
         if s:
             sha_update(self._sha, s)
+
+    def copy(self):
+        new = sha384.__new__(sha384)
+        new._sha = self._sha.copy()
+        return new
 
 def test():
     a_str = "just a test string"

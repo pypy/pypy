@@ -3,8 +3,6 @@ Some support for genxxx implementations of source generators.
 Another name could be genEric, but well...
 """
 
-from __future__ import generators
-
 import sys
 
 from pypy.objspace.flow.model import Block

@@ -3,7 +3,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 import sys
 
 class Module(MixedModule):
-    applevel_name = '_socket'
 
     appleveldefs = {
         'error'      : 'app_socket.error',

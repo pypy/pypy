@@ -6,6 +6,8 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
+if sys.platform == 'win32':
+    py.test.skip("No asmgcc on Windows")
 
 class AbstractTestAsmGCRoot:
     # the asmgcroot gc transformer doesn't generate gc_reload_possibly_moved

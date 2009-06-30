@@ -156,7 +156,7 @@ testmap = [
     RegrTest('test_bz2.py', usemodules='bz2'),
     RegrTest('test_calendar.py'),
     RegrTest('test_call.py', core=True),
-    RegrTest('test_capi.py', skip=True),
+    RegrTest('test_capi.py', skip="not applicable"),
     RegrTest('test_cd.py', skip=True),
     RegrTest('test_cfgparser.py'),
 
@@ -374,7 +374,7 @@ testmap = [
     RegrTest('test_slice.py', core=True),
     RegrTest('test_socket.py', usemodules='thread _weakref'),
 
-    RegrTest('test_socket_ssl.py', skip="no ssl support yet"),
+    RegrTest('test_socket_ssl.py', usemodules='_ssl'),
     RegrTest('test_socketserver.py', usemodules='thread'),
 
     RegrTest('test_softspace.py', core=True),

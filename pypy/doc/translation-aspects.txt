@@ -158,8 +158,8 @@ management, e.g. automatic reclamation of memory that is no longer used. The
 whole analysis toolchain also assumes that memory management is being taken
 care of -- only the backends have to concern themselves with that issue. For
 backends that target environments that have their own garbage collector, like
-Smalltalk or Javascript, this is not an issue. For other targets like C and
-LLVM the backend has to produce code that uses some sort of garbage collection.
+.NET or Java, this is not an issue. For other targets like C
+the backend has to produce code that uses some sort of garbage collection.
 
 This approach has several advantages. It makes it possible to target different
 platforms, with and without integrated garbage collection. Furthermore, the
@@ -458,7 +458,7 @@ References
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 
 .. [GREENLET] `Lightweight concurrent programming`_, py-lib Documentation 2003-2005
-.. _`Lightweight concurrent programming`: http://codespeak.net/py/current/doc/greenlet.html
+.. _`Lightweight concurrent programming`: http://codespeak.net/svn/greenlet/trunk/doc/greenlet.txt
 
 .. [STK] `Stackless Python`_, a Python implementation that does not use
          the C stack, Christian Tismer, 1999-2004
@@ -473,7 +473,7 @@ References
 
 .. [DLT] `Compiling dynamic language implementations`_,
          PyPy documentation (and EU deliverable D05.1), 2005
-.. _`Compiling dynamic language implementations`: dynamic-language-translation.html
+.. _`Compiling dynamic language implementations`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 .. [PVE] `Simple and Efficient Subclass Tests`_, Jonathan Bachrach, Draft submission to ECOOP-02, 2001
 .. _`Simple and Efficient Subclass Tests`: http://people.csail.mit.edu/jrb/pve/pve.pdf

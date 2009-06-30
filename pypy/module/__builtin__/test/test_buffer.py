@@ -36,6 +36,10 @@ class AppTestBuffer:
     def test_str(self):
         assert str(buffer('hello')) == 'hello'
 
+    def test_repr(self):
+        # from 2.5.2 lib tests
+        assert repr(buffer('hello')).startswith('<read-only buffer for 0x')
+
     def test_add(self):
         assert buffer('abc') + 'def' == 'abcdef'
         import array

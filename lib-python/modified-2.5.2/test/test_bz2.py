@@ -180,6 +180,7 @@ class BZ2FileTest(BaseTest):
         bz2f = BZ2File(self.filename, "r")
         self.assertRaises(IOError, bz2f.write, "a")
         self.assertRaises(IOError, bz2f.writelines, ["a"])
+        bz2f.close()
 
     def testSeekForward(self):
         # "Test BZ2File.seek(150, 0)"

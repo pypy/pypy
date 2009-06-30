@@ -521,6 +521,13 @@ class __extend__(SomeString):
     def method_lower(str):
         return SomeString()
 
+    def method_splitlines(str, s_keep_newlines=None):
+        s_list = getbookkeeper().newlist(str.basestringclass())
+        # Force the list to be resizable because ll_splitlines doesn't
+        # preallocate the list.
+        s_list.listdef.listitem.resize()
+        return s_list
+
     def method_decode(str, s_enc):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")

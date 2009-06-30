@@ -1,0 +1,2 @@
+Enable cell-dicts. This makes global lookups nearly as fast as the lookup of a
+local.

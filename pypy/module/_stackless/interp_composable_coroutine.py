@@ -31,3 +31,4 @@ W_UserCoState.typedef = TypeDef("usercostate",
     getcurrent = interp2app(W_UserCoState.w_getcurrent),
     spawn      = interp2app(W_UserCoState.w_spawn),
 )
+W_UserCoState.acceptable_as_base_class = False

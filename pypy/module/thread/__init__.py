@@ -7,13 +7,13 @@ class Module(MixedModule):
         'exit':                   'app_thread.exit',
         'exit_thread':            'app_thread.exit',   # obsolete synonym
         'error':                  'app_thread.error',
-        'stack_size':             'app_thread.stack_size',
     }
 
     interpleveldefs = {
         'start_new_thread':       'os_thread.start_new_thread',
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
+        'stack_size':             'os_thread.stack_size',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',

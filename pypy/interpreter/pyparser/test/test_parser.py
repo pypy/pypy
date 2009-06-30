@@ -1,7 +1,6 @@
 from pypy.interpreter.pyparser.asthelper import get_atoms
 from pypy.interpreter.pyparser.grammar import Parser
 from pypy.interpreter.pyparser import error
-from fakes import FakeSpace
 
 
 def test_symbols():

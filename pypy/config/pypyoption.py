@@ -28,7 +28,7 @@ working_modules.update(dict.fromkeys(
       "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "dyngram", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
-     "thread", "itertools"]
+     "thread", "itertools", "pyexpat", "_ssl"]
 ))
 
 working_oo_modules = default_modules.copy()
@@ -45,6 +45,10 @@ if sys.platform == "win32":
     del working_modules["fcntl"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
+
+    # The _locale module is probably incomplete,
+    # but enough for the tests to pass on Windows
+    working_modules["_locale"] = None
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
@@ -70,6 +74,8 @@ module_import_dependencies = {
 
     "zlib"      : ["pypy.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
+    "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
+    "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     }
 
 def get_module_validator(modname):
@@ -221,6 +227,13 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withmultidict",
                    "use dictionaries optimized for flexibility",
                    default=False),
+
+        BoolOption("withcelldict",
+                   "use dictionaries that are optimized for being used as module dicts",
+                   default=False,
+                   requires=[("objspace.std.withmultidict", True),
+                             ("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
+                             ("objspace.honor__builtins__", False)]),
 
         BoolOption("withsharingdict",
                    "use dictionaries that share the keys part",

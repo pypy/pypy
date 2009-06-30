@@ -11,7 +11,6 @@ This logic borrows a bit from pypy.annotation.annrpython, without the fixpoint
 computation part.
 """
 
-from __future__ import generators
 import os
 import py
 from pypy.tool.pairtype import pair

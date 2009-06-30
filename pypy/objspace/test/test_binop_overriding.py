@@ -86,8 +86,6 @@ class AppTestBinopCombinations:
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
     def test_overriding_base_binop_explict(self):
-        if not self.appdirect:        
-            skip("fails, issue412")
         class MulBase(object):
             def __init__(self, value):
                 self.value = value
@@ -118,8 +116,6 @@ class AppTestBinopCombinations:
         assert not fail
 
     def test_binop_combinations_sub(self):
-        if not self.appdirect:        
-            skip("fails, issue412")
         Base, do_test = self.helpers        
         class X(Base):
             pass

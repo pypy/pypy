@@ -2,7 +2,7 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 #from pypy.translator.c.test.test_genc import compile
 
-import time
+import time, sys
 
 class BaseTestTime(BaseRtypingTest):
     def test_time_time(self):
@@ -10,9 +10,10 @@ class BaseTestTime(BaseRtypingTest):
             return time.time()
         
         t0 = time.time()
-        res = self.interpret(fn, [])
+        res0 = self.interpret(fn, [])
         t1 = time.time()
-        assert t0 <= res <= t1
+        res1 = self.interpret(fn, [])
+        assert t0 <= res0 <= t1 <= res1
 
     def test_time_clock(self):
         def f():

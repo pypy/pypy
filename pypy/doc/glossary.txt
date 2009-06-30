@@ -79,7 +79,7 @@ links to more information.
 **lltypesystem**
    A `C-like type model <rtyper.html#low-level-types>`__ that contains
    structs and pointers.  A backend_ that uses this type system is also
-   called a low-level backend.  The C and LLVM backends use this
+   called a low-level backend.  The C backend uses this
    typesystem.
 
 .. _`low-level helper`:
@@ -116,8 +116,8 @@ links to more information.
 **ootypesystem**
    An `object oriented type model <rtyper.html#object-oriented-types>`__
    containing classes and instances.  A backend_ that uses this type system
-   is also called a high-level backend.  The JVM, Javascript and
-   CLI backends all use this typesystem.
+   is also called a high-level backend.  The JVM and CLI backends 
+   all use this typesystem.
 
 .. _`prebuilt constant`:
 
@@ -217,14 +217,14 @@ links to more information.
    in the `annotator pass`_ section.
 
 .. _applevel: coding-guide.html#application-level
-.. _`target language`: getting-started.html#trying-out-the-translator
+.. _`target language`: getting-started-dev.html#trying-out-the-translator
 .. _`just in time compiler`: jit/index.html
 .. _`the jit docs`: jit/index.html
 .. _`type inference article on Wikipedia`: http://en.wikipedia.org/wiki/Type_inference
 .. _`annotator pass`: translation.html#the-annotation-pass
 .. _`The RPython Typer`: translation.html#the-rpython-typer
-.. _`backends`: getting-started.html#trying-out-the-translator
-.. _Tool: getting-started.html#trying-out-the-translator
+.. _`backends`: getting-started-dev.html#trying-out-the-translator
+.. _Tool: getting-started-dev.html#trying-out-the-translator
 .. _`translation-aspects`: translation-aspects.html
 .. _`PyPy's garbage collectors`: garbage_collection.html
 .. _`Restricted Python`: coding-guide.html#restricted-python

@@ -3,7 +3,7 @@ import os
 from pypy.lang.smalltalk import constants
 from pypy.lang.smalltalk import model
 from pypy.rlib import objectmodel
-from pypy.lang.smalltalk.tool.bitmanipulation import splitter
+from pypy.rlib.bitmanipulation import splitter
 
 def chrs2int(b):
     assert len(b) == 4

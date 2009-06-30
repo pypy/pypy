@@ -65,7 +65,7 @@ def run_cmd(cmd):
 def run_pystone(executable='/usr/local/bin/python', n=''):
     from pypy.tool import autopath
     distdir = py.path.local(autopath.pypydir).dirpath()
-    pyston = py.path.local(autopath.libpythondir).join('test', 'pystone.py')
+    pystone = py.path.local(autopath.libpythondir).join('test', 'pystone.py')
     txt = run_cmd('"%s" "%s" %s' % (executable, pystone, n))
     return get_result(txt, PYSTONE_PATTERN)
 

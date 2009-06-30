@@ -248,6 +248,8 @@ class PutterFunction(Function):
 class GraphFunction(OOFunction, Function):
     
     """ Represents a function that is generated from a graph. """
+
+    is_final = False
     
     def __init__(self, db, classty, name, jargtypes,
                  jrettype, graph, is_static):
@@ -294,7 +296,8 @@ class GraphFunction(OOFunction, Function):
         jrettype = lltype_to_cts(self.graph.getreturnvar().concretetype)
 
         self.ilasm.begin_function(
-            self.name, jargvars, jargtypes, jrettype, static=not self.is_method)
+            self.name, jargvars, jargtypes, jrettype, static=not self.is_method,
+            final=self.is_final)
 
     def end_render(self):
         self.ilasm.end_function()

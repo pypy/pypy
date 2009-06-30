@@ -14,12 +14,6 @@ mswindows = (sys.platform == "win32")
 # Depends on the following external programs: Python
 #
 
-if mswindows:
-    SETBINARY = ('import msvcrt; msvcrt.setmode(sys.stdout.fileno(), '
-                                                'os.O_BINARY);')
-else:
-    SETBINARY = ''
-
 # In a debug build, stuff like "[6580 refs]" is printed to stderr at
 # shutdown time.  That frustrates tests trying to check stderr produced
 # from a spawned Python process.
@@ -350,8 +344,8 @@ class ProcessTestCase(unittest.TestCase):
         self.assertEqual(remove_stderr_debug_decorations(stderr), "")
 
     def test_universal_newlines(self):
-        p = subprocess.Popen([sys.executable, "-c",
-                          'import sys,os;' + SETBINARY +
+        p = subprocess.Popen([sys.executable, "-u", "-c",
+                          'import sys,os;'
                           'sys.stdout.write("line1\\n");'
                           'sys.stdout.flush();'
                           'sys.stdout.write("line2\\r");'
@@ -377,8 +371,8 @@ class ProcessTestCase(unittest.TestCase):
 
     def test_universal_newlines_communicate(self):
         # universal newlines through communicate()
-        p = subprocess.Popen([sys.executable, "-c",
-                          'import sys,os;' + SETBINARY +
+        p = subprocess.Popen([sys.executable, "-u", "-c",
+                          'import sys,os;'
                           'sys.stdout.write("line1\\n");'
                           'sys.stdout.flush();'
                           'sys.stdout.write("line2\\r");'

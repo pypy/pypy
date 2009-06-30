@@ -372,11 +372,10 @@ class AppTestStringObject:
         assert ''.expandtabs() ==''
 
     def test_expandtabs_overflows_gracefully(self):
-        skip("XXX fix me")
         import sys
         if sys.maxint > (1 << 32):
             skip("Wrong platform")
-        raises(OverflowError, 't\tt\t'.expandtabs, sys.maxint)
+        raises((MemoryError, OverflowError), 't\tt\t'.expandtabs, sys.maxint)
 
     def test_splitlines(self):
         s = ""

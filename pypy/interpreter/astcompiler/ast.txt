@@ -278,7 +278,7 @@ From.fset_names( space, self, w_arg ):
             as_name = space.str_w( w_as_name )
         self.names.append( (name, as_name) )
 
-def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
+def descr_From_new(space, w_subtype, w_modname, w_names, w_level, lineno=-1):
     self = space.allocate_instance(From, w_subtype)
     modname = space.str_w(w_modname)
     self.modname = modname
@@ -292,6 +292,7 @@ def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
             as_name = space.str_w(w_as_name)
         names.append((name, as_name))
     self.names = names
+    self.level = space.int_w(w_level)
     self.lineno = lineno
     return space.wrap(self)
 

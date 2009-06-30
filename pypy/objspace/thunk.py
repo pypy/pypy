@@ -210,6 +210,7 @@ def Space(*args, **kwds):
     from pypy.objspace import std
     space = std.Space(*args, **kwds)
     patch_space_in_place(space, 'thunk', proxymaker)
+    space.resolve_target = lambda w_arg: _force(space, w_arg)
     w___pypy__ = space.getbuiltinmodule("__pypy__")
     space.w_fn_thunk = space.wrap(app_thunk)
     space.setattr(w___pypy__, space.wrap('thunk'),

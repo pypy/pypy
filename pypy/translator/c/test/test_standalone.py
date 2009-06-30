@@ -166,7 +166,24 @@ class TestStandalone(object):
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
 
+    if hasattr(os, 'setpgrp'):
+        def test_os_setpgrp(self):
+            def entry_point(argv):
+                os.setpgrp()
+                return 0
+
+            t = TranslationContext(self.config)
+            t.buildannotator().build_types(entry_point, [s_list_of_strings])
+            t.buildrtyper().specialize()
+
+            cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+            cbuilder.generate_source()
+            cbuilder.compile()
+
+
     def test_profopt_mac_osx_bug(self):
+        if sys.platform == 'win32':
+            py.test.skip("no profopt on win32")
         def entry_point(argv):
             import os
             pid = os.fork()
@@ -266,3 +283,84 @@ class TestMaemo(TestStandalone):
 
     def test_prof_inline(self):
         py.test.skip("Unsupported")
+
+
+class TestThread(object):
+    def test_stack_size(self):
+        import time
+        from pypy.module.thread import ll_thread
+
+        class State:
+            pass
+        state = State()
+
+        def recurse(n):
+            if n > 0:
+                return recurse(n-1)+1
+            else:
+                state.ll_lock.release()
+                time.sleep(0.2)
+                state.ll_lock.acquire(True)
+                return 0
+
+        def bootstrap():
+            # recurse a lot, like 2500 times
+            state.ll_lock.acquire(True)
+            recurse(2500)
+            state.count += 1
+            state.ll_lock.release()
+
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            error = ll_thread.set_stacksize(int(argv[1]))
+            assert error == 0
+            # malloc a bit
+            s1 = State(); s2 = State(); s3 = State()
+            s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333
+            # start 3 new threads
+            state.ll_lock = ll_thread.Lock(ll_thread.allocate_ll_lock())
+            state.count = 0
+            ident1 = ll_thread.start_new_thread(bootstrap, ())
+            ident2 = ll_thread.start_new_thread(bootstrap, ())
+            ident3 = ll_thread.start_new_thread(bootstrap, ())
+            # wait for the 3 threads to finish
+            while True:
+                state.ll_lock.acquire(True)
+                if state.count == 3:
+                    break
+                state.ll_lock.release()
+                time.sleep(0.1)
+            # check that the malloced structures were not overwritten
+            assert s1.x == 0x11111111
+            assert s2.x == 0x22222222
+            assert s3.x == 0x33333333
+            os.write(1, "done\n")
+            return 0
+
+        t = TranslationContext()
+        t.buildannotator().build_types(entry_point, [s_list_of_strings])
+        t.buildrtyper().specialize()
+
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+        cbuilder.generate_source()
+        cbuilder.compile()
+
+        # recursing should crash with only 32 KB of stack,
+        # and it should eventually work with more stack
+        for test_kb in [32, 128, 512, 1024, 2048, 4096, 8192, 16384]:
+            print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
+            try:
+                data = cbuilder.cmdexec(str(test_kb * 1024))
+            except Exception, e:
+                if e.__class__ is not Exception:
+                    raise
+                print >> sys.stderr, 'segfault'
+                # got a segfault! try with the next stack size...
+            else:
+                # it worked
+                print >> sys.stderr, 'ok'
+                assert data == 'hello world\ndone\n'
+                assert test_kb > 32   # it cannot work with just 32 KB of stack
+                break    # finish
+        else:
+            py.test.fail("none of the stack sizes worked")

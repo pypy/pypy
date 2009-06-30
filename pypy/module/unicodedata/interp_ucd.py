@@ -58,8 +58,15 @@ class UCD(Wrappable):
     _get_code.unwrap_spec = ['self', ObjSpace, str]
     
     def lookup(self, space, name):
-        return space.call_function(space.builtin.get('unichr'),
-                                   self._get_code(space, name))
+        w_code = self._get_code(space, name)
+        try:
+            return space.call_function(space.builtin.get('unichr'), w_code)
+        except OperationError, ex:
+            if not ex.match(space, space.w_ValueError):
+                raise
+            msg = space.mod(space.wrap("result %d larger than sys.maxunicode"), w_code)
+            raise OperationError(space.w_KeyError, msg)
+
     lookup.unwrap_spec = ['self', ObjSpace, str]
 
     def name(self, space, w_unichr, w_default=NoneNotWrapped):

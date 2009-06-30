@@ -21,21 +21,9 @@ which gives you many good starting and entry points into playing with
 PyPy.  It will also point you to our documentation section which is
 generated from information in the pypy/doc directory.
 
-For information in what's new in this release and about PyPy current
-status, please read the release announcement:
-
-    pypy/doc/release-1.0.0.txt or
-    pypy/doc/release-1.0.0.html
-    http://codespeak.net/pypy/dist/pypy/doc/release-1.0.0.html
-
 Enjoy and send us feedback!
 
     the pypy-dev team <pypy-dev@codespeak.net>
-
-For the period December 2004 - March 2007, the development of PyPy has
-been co-funded by the European Union's research programme.  For more
-information on this aspect of the project please visit
-http://pypy.org/.
 
 $Id$
 $HeadURL$

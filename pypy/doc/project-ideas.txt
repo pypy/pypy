@@ -17,42 +17,25 @@ network or the pypy-dev mailing list (see the home_ page).
 
 
 
-Improve one of the JIT back-ends
+JIT back-ends
 --------------------------------
 
-- PyPy's Just-In-Time compiler relies on two assembler backends for actual
-  code generation, one for PowerPC and the other for i386.  A good project
-  would be to give the 386 backend a good refactoring, simplifying it, then
-  add support for missing features like floating-point arithmetic.  Another
-  idea would be start a new backend for e.g. AMD64 (Intel IA-64) or even a
-  mobile device.
-
-- Another idea in a similar vein (but requiring some more interaction with the
-  rest of the JIT code) would be to use LLVM to re-compile functions that are
-  executed particularly frequently (LLVM cannot be used for *all* code
-  generation, since it can only work on a whole function at a time).
-
+PyPy's Just-In-Time compiler relies on backends for actual code
+generation.  Right now we are working on the ``pyjitpl5`` branch, which
+is not stable.  Working on the JIT backends should be soon possible.
+Open ideas are to write a backend for AMD64 (Intel 64); or .NET or
+Java (requires porting the JIT frontend to ootype too, which is not too
+hard); or trying to use LLVM-JIT.
 
 CTypes
 ------
 
-- support ctypes on more backends.  Right now ctypes is supported only when
-  compiling PyPy to C.  A nice project would be to support it when compiling
-  to .NET or the JVM. That's not too hard, the only thing needed is to port a
-  small module that does the actual invocation of external libraries (a
-  related project would be to port this module to Jython or IronPython to get
-  support for ctypes there).
-
-More Interpreter Features
--------------------------
-
-- support some of the more recent features of CPython. A nice project would be
-  to support all of the remaining Python 2.5 language features.
-   
-- another thing to do on our Python interpreter would be to port over the
-  changes to the standard library (which includes re-writing some of the
-  C-coded modules in RPython or pure Python) that happened in 2.5 or that we
-  are still missing in 2.4.
+Support ctypes on more backends.  Right now ctypes is supported only
+when compiling PyPy to C.  A nice project would be to support it when
+compiling to .NET or the JVM. That's not too hard, the only thing needed
+is to port a small module that does the actual invocation of external
+libraries (a related project would be to port this module to Jython or
+IronPython to get support for ctypes there).
 
 
 .. _distribution:
@@ -77,35 +60,14 @@ Another example would be to implement a multi-CPU extension that internally
 uses several processes and uses transparent proxies to share object views.
 
 
-Improving the automated test framework
---------------------------------------
-
-Every night, various kinds of PyPy tests run automatically on a
-variety of different systems.  Each set of tests displays its own
-result on a different web page; for example, here are the results of
-our `unit tests`_, `translation tests and benchmarks`_ and `pypy-c
-compliance tests`_.
-
-.. _`unit tests`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
-.. _`translation tests and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
-.. _`pypy-c compliance tests`:  http://www.strakt.com/~pedronis/pypy-c-test/allworkingmodules/summary.html
-
-A possible project is to improve our testing infrastructure and build
-a service that aggregates and displays the results of all the nightly
-tests.
-
-
 Various Ideas
 -------------
 
-- work on and improve the JavaScript backend
-
 - improve one of the existing interpreters (e.g. the Prolog, the Scheme or
-  the JavaScript interpreter or the Smalltalk VM)
+  the JavaScript interpreter or the Smalltalk VM), or start a new one
 
 - revive the logic object space, which tried to bring unification-like
   features to Python
-
 
 
 Or else...
@@ -126,11 +88,8 @@ You can also have a look around our documentation_.
 .. _`object spaces`: objspace.html
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 
-.. _documentation: index.html
-.. _home: home.html
+.. _documentation: docindex.html
+.. _home: index.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
-.. _`Summer of PyPy`: summer-of-pypy.html
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
-.. _`what is pypy.js`: js/whatis.html
-.. _`using the JavaScript backend`: js/using.html
 .. _`transparent proxy`: objspace-proxies.html#tproxy

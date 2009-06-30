@@ -1,7 +1,8 @@
 import py
 
-Option = py.test.config.Option
-option = py.test.config.addoptions("dotviewer options",
-        Option('--pygame', action="store_true", dest="pygame", default=False,
-               help="allow interactive tests using Pygame"),
-        )
+class ConftestPlugin:
+    def pytest_addoption(self, parser):
+        group = parser.addgroup("dotviever")
+        group.addoption('--pygame', action="store_true", 
+            dest="pygame", default=False, 
+            help="allow interactive tests using Pygame")
