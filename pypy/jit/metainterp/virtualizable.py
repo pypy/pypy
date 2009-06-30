@@ -166,8 +166,6 @@ class VirtualizableInfo:
         return True
 
     def finish(self):
-        if self.is_oo:
-            return      # XXX implement me
         #
         def force_if_necessary(virtualizable):
             if virtualizable.vable_rti:
