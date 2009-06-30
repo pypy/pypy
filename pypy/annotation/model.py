@@ -620,8 +620,6 @@ def lltype_to_annotation(T):
             return SomeOOClass(ootype.ROOT)
         elif T == ootype.Object:
             return SomeOOObject()
-        elif isinstance(T, ExternalType):
-            return SomeExternalInstance(T._class_)
         elif isinstance(T, lltype.InteriorPtr):
             return SomeInteriorPtr(T)
         else:
