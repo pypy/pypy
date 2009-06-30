@@ -8,6 +8,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 class ListTests:
 
     def check_all_virtualized(self):
+        py.test.skip("virtualization of lists not supported for now")
         self.check_loops(new_array=0, setarrayitem_gc=0, getarrayitem_gc=0,
                          arraylen_gc=0)
 
