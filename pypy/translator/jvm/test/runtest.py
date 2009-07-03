@@ -128,10 +128,10 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
     def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
         pass
 
-    def interpret(self, fn, args, annotation=None):
+    def interpret(self, fn, args, annotation=None, backendopt=False):
         detect_missing_support_programs()
         try:
-            src = self.compile(fn, args, annotation)
+            src = self.compile(fn, args, annotation, backendopt=backendopt)
             res = src(*args)
             return res
         except JvmError, e:
