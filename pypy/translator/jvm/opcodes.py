@@ -77,6 +77,8 @@ opcodes = _proc_dict({
     'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
+    'cast_to_object':           DoNothing,
+    'cast_from_object':         [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
     'subclassof':               [PushAllArgs, jvm.SWAP, jvm.CLASSISASSIGNABLEFROM, StoreResult],
     'classof':                  [PushAllArgs, jvm.OBJECTGETCLASS, StoreResult],

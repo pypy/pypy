@@ -464,6 +464,8 @@ class Database(OODatabase):
             return self._translate_record(OOT)
         if isinstance(OOT, ootype.StaticMethod):
             return self.record_delegate(OOT)
+        if OOT is ootype.Object:
+            return jvm.jObject
 
         assert False, "Untranslatable type %s!" % OOT
 
