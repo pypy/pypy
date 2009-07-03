@@ -35,7 +35,8 @@ def test_ctr():
                  'compile_cli', 'compile_c',
                  'run_c', 'run_cli',
                  'compile_jvm', 'source_jvm', 'run_jvm',
-                 'prejitbackendopt_lltype', 'pyjitpl_lltype']
+                 'prejitbackendopt_lltype', 'pyjitpl_lltype',
+                 'prejitbackendopt_ootype', 'pyjitpl_ootype']
     assert set(td.exposed) == set(expected)                             
 
     td = TranslationDriver({'backend': None, 'type_system': 'lltype'})
