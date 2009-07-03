@@ -878,6 +878,15 @@ class LLFrame(object):
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
 
+    def op_do_malloc_fixedsize_clear(self):
+        raise NotImplementedError("do_malloc_fixedsize_clear")
+
+    def op_do_malloc_varsize_clear(self):
+        raise NotImplementedError("do_malloc_varsize_clear")
+
+    def op_get_write_barrier_failing_case(self):
+        raise NotImplementedError("get_write_barrier_failing_case")
+
     def op_yield_current_frame_to_caller(self):
         raise NotImplementedError("yield_current_frame_to_caller")
 
