@@ -124,7 +124,7 @@ opcodes = _proc_dict({
     'int_add_nonneg_ovf':       jvm.IADDOVF,
     'int_sub_ovf':              jvm.ISUBOVF,
     'int_mul_ovf':              jvm.IMULOVF,
-    'int_floordiv_ovf':         jvm.IDIV, # these can't overflow!
+    'int_floordiv_ovf':         jvm.IFLOORDIVOVF,
     'int_mod_zer':              _check_zer(jvm.IREM),
     'int_mod_ovf':              jvm.IREMOVF,
     'int_and_ovf':              jvm.IAND,
@@ -134,7 +134,7 @@ opcodes = _proc_dict({
 
     'int_rshift_ovf':           jvm.ISHR, # these can't overflow!
     'int_xor_ovf':              jvm.IXOR,
-    'int_floordiv_ovf_zer':     _check_zer(jvm.IDIV),
+    'int_floordiv_ovf_zer':     jvm.IFLOORDIVZEROVF,
     'int_mod_ovf_zer':          _check_zer(jvm.IREMOVF),
 
     'uint_invert':              'bitwise_negate',
@@ -180,7 +180,8 @@ opcodes = _proc_dict({
     'llong_lshift':             [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
     'llong_rshift':             [PushAllArgs, jvm.L2I, jvm.LSHR, StoreResult],
     'llong_xor':                jvm.LXOR,
-    'llong_floordiv_ovf':       jvm.LDIV, # these can't overflow!
+    'llong_floordiv_ovf':       jvm.LFLOORDIVOVF,
+    'llong_floordiv_ovf_zer':   jvm.LFLOORDIVZEROVF,    
     'llong_mod_ovf':            jvm.LREMOVF,
     'llong_lshift_ovf':         jvm.LSHLOVF,
 
