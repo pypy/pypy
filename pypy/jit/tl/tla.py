@@ -4,10 +4,16 @@ from pypy.rlib.jit import JitDriver
 
 class W_Object:
 
+    def getrepr(self):
+        """
+        Return an RPython string which represent the object
+        """
+        raise NotImplementedError 
+
     def is_true(self):
         raise NotImplementedError
 
-    def add(self):
+    def add(self, w_other):
         raise NotImplementedError
 
 
@@ -16,6 +22,9 @@ class W_IntObject(W_Object):
 
     def __init__(self, intvalue):
         self.intvalue = intvalue
+
+    def getrepr(self):
+        return str(self.intvalue)
 
     def is_true(self):
         return self.intvalue != 0
@@ -38,6 +47,9 @@ class W_StringObject(W_Object):
 
     def __init__(self, strvalue):
         self.strvalue = strvalue
+
+    def getrepr(self):
+        return self.strvalue
 
     def is_true(self):
         return len(self.strvalue) != 0
