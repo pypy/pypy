@@ -25,15 +25,13 @@ def test_W_IntObject():
 def assemble(mylist):
     return ''.join([chr(x) for x in mylist])
 
-def interp(mylist):
+def interp(mylist, w_arg):
     bytecode = assemble(mylist)
-    f = tla.Frame(bytecode)
-    return f.interp()
+    return tla.run(bytecode, w_arg)
 
 def test_interp():
     bytecode = [
-        tla.CONST_INT, 42,
         tla.RETURN
         ]
-    assert interp(bytecode).intvalue == 42
+    assert interp(bytecode, tla.W_IntObject(42)).intvalue == 42
 
