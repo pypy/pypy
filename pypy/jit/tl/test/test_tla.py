@@ -20,6 +20,7 @@ def test_W_IntObject():
     assert w_b.is_true()
     assert w_c.is_true()
     assert w_b.add(w_c).intvalue == 42
+    assert w_b.getrepr() == '10'
 
 
 def assemble(mylist):
@@ -134,7 +135,7 @@ def test_mul():
 def test_mul_strings():
     py.test.skip('exercise!')
     code = [
-        tla.CONST_INT, 3
+        tla.CONST_INT, 3,
         tla.MUL,
         tla.RETURN
         ] 
@@ -144,7 +145,7 @@ def test_mul_strings():
 def test_div_float():
     py.test.skip('exercise!')
     code = [
-        tla.CONST_INT, 2
+        tla.CONST_INT, 2,
         tla.DIV,
         tla.RETURN
         ]
