@@ -21,6 +21,12 @@ class W_IntObject(W_Object):
         else:
             raise OperationError
 
+    def sub(self, w_other):
+        if isinstance(w_other, W_IntObject):
+            sum = self.intvalue - w_other.intvalue
+            return W_IntObject(sum)
+        else:
+            raise OperationError
 
 class W_StringObject(W_Object):
 
@@ -47,7 +53,9 @@ POP       = 2
 ADD       = 3
 RETURN    = 4
 JUMP_IF   = 5
-NEWSTR    = 6
+DUP       = 6
+SUB       = 7
+NEWSTR    = 8
 
 # ____________________________________________________________
 
@@ -86,12 +94,22 @@ class Frame(object):
             elif opcode == POP:
                 self.pop()
 
+            elif opcode == DUP:
+                w_x = self.pop()
+                self.push(w_x)
+                self.push(w_x)
+
             elif opcode == ADD:
                 w_y = self.pop()
                 w_x = self.pop()
                 w_z = w_x.add(w_y)
                 self.push(w_z)
 
+            elif opcode == SUB:
+                w_y = self.pop()
+                w_x = self.pop()
+                w_z = w_x.sub(w_y)
+                self.push(w_z)
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
                 pc += 1

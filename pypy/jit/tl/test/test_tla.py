@@ -1,6 +1,5 @@
 import py
 from pypy.jit.tl import tla
-from pypy.jit.tl.tla import CONST_INT, POP, ADD, RETURN, JUMP_IF, NEWSTR
 
 def test_stack():
     f = tla.Frame('')
@@ -46,29 +45,47 @@ def test_pop():
     res = interp(code, tla.W_IntObject(42))
     assert res.intvalue == 42
 
+def test_dup():
+    code = [
+        tla.DUP,
+        tla.ADD,
+        tla.RETURN
+        ]
+    res = interp(code, tla.W_IntObject(41))
+    assert res.intvalue == 2 * 41
+
 def test_bogus_return():
     code = [
-        CONST_INT, 123,
-        RETURN # stack depth == 2 here, error!
+        tla.CONST_INT, 123,
+        tla.RETURN # stack depth == 2 here, error!
         ]
     py.test.raises(AssertionError, "interp(code, tla.W_IntObject(234))")
     
 def test_add():
     code = [
-        CONST_INT, 20,
-        ADD,
-        RETURN
+        tla.CONST_INT, 20,
+        tla.ADD,
+        tla.RETURN
         ]
     res = interp(code, tla.W_IntObject(22))
     assert res.intvalue == 42
 
+def test_sub():
+    code = [
+        tla.CONST_INT, 20,
+        tla.SUB,
+        tla.RETURN
+        ]
+    res = interp(code, tla.W_IntObject(22))
+    assert res.intvalue == 2
+
 def test_jump_if():
     code = [
-        JUMP_IF, 5,   # jump to target
-        CONST_INT, 123,
-        RETURN,
-        CONST_INT, 234,  # target
-        RETURN
+        tla.JUMP_IF, 5,   # jump to target
+        tla.CONST_INT, 123,
+        tla.RETURN,
+        tla.CONST_INT, 234,  # target
+        tla.RETURN
         ]
     res = interp(code, tla.W_IntObject(0))
     assert res.intvalue == 123
@@ -79,9 +96,9 @@ def test_jump_if():
 
 def test_newstr():
     code = [
-        POP,
-        NEWSTR, ord('x'),
-        RETURN
+        tla.POP,
+        tla.NEWSTR, ord('x'),
+        tla.RETURN
         ]
     res = interp(code, tla.W_IntObject(0))
     assert isinstance(res, tla.W_StringObject)
@@ -89,11 +106,11 @@ def test_newstr():
 
 def test_add_strings():
     code = [
-        NEWSTR, ord('d'),
-        ADD,
-        NEWSTR, ord('!'),
-        ADD,
-        RETURN
+        tla.NEWSTR, ord('d'),
+        tla.ADD,
+        tla.NEWSTR, ord('!'),
+        tla.ADD,
+        tla.RETURN
         ]
     res = interp(code, tla.W_StringObject('Hello worl'))
     assert res.strvalue == 'Hello world!'
