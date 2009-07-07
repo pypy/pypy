@@ -3,7 +3,13 @@ from pypy.rlib.jit import JitDriver
 
 
 class W_Object:
-    pass
+
+    def is_true(self):
+        raise NotImplementedError
+
+    def add(self):
+        raise NotImplementedError
+
 
 
 class W_IntObject(W_Object):
@@ -36,12 +42,6 @@ class W_StringObject(W_Object):
     def is_true(self):
         return len(self.strvalue) != 0
 
-    def add(self, w_other):
-        if isinstance(w_other, W_StringObject):
-            concat = self.strvalue + w_other.strvalue
-            return W_StringObject(concat)
-        else:
-            raise OperationError
 
 class OperationError:
     pass

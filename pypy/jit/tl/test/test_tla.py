@@ -104,7 +104,13 @@ def test_newstr():
     assert isinstance(res, tla.W_StringObject)
     assert res.strvalue == 'x'
 
+# ____________________________________________________________
+# EXERCISES
+# ____________________________________________________________
+
+
 def test_add_strings():
+    py.test.skip('exercise!')
     code = [
         tla.NEWSTR, ord('d'),
         tla.ADD,
@@ -114,6 +120,37 @@ def test_add_strings():
         ]
     res = interp(code, tla.W_StringObject('Hello worl'))
     assert res.strvalue == 'Hello world!'
+
+def test_mul():
+    py.test.skip('exercise!')
+    code = [
+        tla.CONST_INT, 2,
+        tla.MUL,
+        tla.RETURN
+        ]
+    res = interp(code, tla.W_IntObject(21))
+    assert res.intvalue == 42
+
+def test_mul_strings():
+    py.test.skip('exercise!')
+    code = [
+        tla.CONST_INT, 3
+        tla.MUL,
+        tla.RETURN
+        ] 
+    res = interp(code, tla.W_StringObject('foo '))
+    assert res.strvalue == 'foo foo foo '
+
+def test_div_float():
+    py.test.skip('exercise!')
+    code = [
+        tla.CONST_INT, 2
+        tla.DIV,
+        tla.RETURN
+        ]
+    res = interp(code, tla.W_IntObject(5))
+    assert isinstance(res, tla.W_FloatObject)
+    assert res.floatval == 2.5
 
 # ____________________________________________________________ 
 
