@@ -1,5 +1,6 @@
 import py
 from pypy.jit.tl import tla
+from pypy.jit.tl.tla import CONST_INT, POP, ADD, RETURN, JUMP_IF
 
 def test_stack():
     f = tla.Frame('')
@@ -30,8 +31,40 @@ def interp(mylist, w_arg):
     return tla.run(bytecode, w_arg)
 
 def test_interp():
-    bytecode = [
+    code = [
         tla.RETURN
         ]
-    assert interp(bytecode, tla.W_IntObject(42)).intvalue == 42
+    res = interp(code, tla.W_IntObject(42))
+    assert res.intvalue == 42
 
+def test_pop():
+    code = [
+        tla.CONST_INT, 99,
+        tla.POP,
+        tla.RETURN
+        ]
+    res = interp(code, tla.W_IntObject(42))
+    assert res.intvalue == 42
+
+def test_add():
+    code = [
+        CONST_INT, 20,
+        ADD,
+        RETURN
+        ]
+    res = interp(code, tla.W_IntObject(22))
+    assert res.intvalue == 42
+
+def test_jump_if():
+    code = [
+        JUMP_IF, 5,   # jump to target
+        CONST_INT, 123,
+        RETURN,
+        CONST_INT, 234,  # target
+        RETURN
+        ]
+    res = interp(code, tla.W_IntObject(0))
+    assert res.intvalue == 123
+    
+    res = interp(code, tla.W_IntObject(1))
+    assert res.intvalue == 234
