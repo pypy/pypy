@@ -16,7 +16,7 @@ class W_IntObject(W_Object):
 
     def add(self, w_other):
         if isinstance(w_other, W_IntObject):
-            sum = self.intvalue + other.intvalue
+            sum = self.intvalue + w_other.intvalue
             return W_IntObject(sum)
         else:
             raise OperationError
