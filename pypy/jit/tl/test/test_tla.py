@@ -1,6 +1,6 @@
 import py
 from pypy.jit.tl import tla
-from pypy.jit.tl.tla import CONST_INT, POP, ADD, RETURN, JUMP_IF
+from pypy.jit.tl.tla import CONST_INT, POP, ADD, RETURN, JUMP_IF, NEWSTR
 
 def test_stack():
     f = tla.Frame('')
@@ -46,6 +46,13 @@ def test_pop():
     res = interp(code, tla.W_IntObject(42))
     assert res.intvalue == 42
 
+def test_bogus_return():
+    code = [
+        CONST_INT, 123,
+        RETURN # stack depth == 2 here, error!
+        ]
+    py.test.raises(AssertionError, "interp(code, tla.W_IntObject(234))")
+    
 def test_add():
     code = [
         CONST_INT, 20,
@@ -69,6 +76,27 @@ def test_jump_if():
     res = interp(code, tla.W_IntObject(1))
     assert res.intvalue == 234
 
+
+def test_newstr():
+    code = [
+        POP,
+        NEWSTR, ord('x'),
+        RETURN
+        ]
+    res = interp(code, tla.W_IntObject(0))
+    assert isinstance(res, tla.W_StringObject)
+    assert res.strvalue == 'x'
+
+def test_add_strings():
+    code = [
+        NEWSTR, ord('d'),
+        ADD,
+        NEWSTR, ord('!'),
+        ADD,
+        RETURN
+        ]
+    res = interp(code, tla.W_StringObject('Hello worl'))
+    assert res.strvalue == 'Hello world!'
 
 # ____________________________________________________________ 
 

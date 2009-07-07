@@ -22,6 +22,21 @@ class W_IntObject(W_Object):
             raise OperationError
 
 
+class W_StringObject(W_Object):
+
+    def __init__(self, strvalue):
+        self.strvalue = strvalue
+
+    def is_true(self):
+        return len(self.strvalue) != 0
+
+    def add(self, w_other):
+        if isinstance(w_other, W_StringObject):
+            concat = self.strvalue + w_other.strvalue
+            return W_StringObject(concat)
+        else:
+            raise OperationError
+
 class OperationError:
     pass
 
@@ -32,6 +47,7 @@ POP       = 2
 ADD       = 3
 RETURN    = 4
 JUMP_IF   = 5
+NEWSTR    = 6
 
 # ____________________________________________________________
 
@@ -83,9 +99,19 @@ class Frame(object):
                 if w_x.is_true():
                     pc = target
 
+            elif opcode == NEWSTR:
+                char = bytecode[pc]
+                pc += 1
+                w_z = W_StringObject(char)
+                self.push(w_z)
+
             elif opcode == RETURN:
                 w_x = self.pop()
+                assert self.stackpos == 0
                 return w_x
+
+            else:
+                assert False, 'Unknown opcode: %d' % opcode
 
 
 def run(bytecode, w_arg):
