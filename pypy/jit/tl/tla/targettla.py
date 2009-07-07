@@ -1,6 +1,6 @@
 import py
 py.magic.autopath()
-from pypy.jit.tl import tla
+from pypy.jit.tl.tla import tla
 
 
 def entry_point(args):

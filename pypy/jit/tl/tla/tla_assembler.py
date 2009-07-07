@@ -3,7 +3,7 @@
 import sys
 import py
 py.magic.autopath()
-from pypy.jit.tl.test.test_tla import assemble
+from pypy.jit.tl.tla.test_tla import assemble
 
 def usage():
     print >> sys.stderr, 'Usage: tla_assembler.py filename.tla.py'

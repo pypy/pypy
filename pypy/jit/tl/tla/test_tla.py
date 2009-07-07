@@ -1,5 +1,5 @@
 import py
-from pypy.jit.tl import tla
+from pypy.jit.tl.tla import tla
 
 def test_stack():
     f = tla.Frame('')
