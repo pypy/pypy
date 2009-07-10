@@ -237,14 +237,14 @@ class BaseTranslatorPage(GraphPage):
     def graph_name(self, *args):
         raise NotImplementedError
 
-    def compute(self, translator, *args):
+    def compute(self, translator, *args, **kwds):
         self.translator = translator
         self.object_by_name = {}
         self.name_by_object = {}
         dotgen = DotGen(self.graph_name(*args))
         dotgen.emit('mclimit=15.0')
 
-        self.do_compute(dotgen, *args)
+        self.do_compute(dotgen, *args, **kwds)
         
         self.source = dotgen.generate(target=None)
 
