@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython import rvirtualizable2
 from pypy.rlib.objectmodel import we_are_translated
@@ -198,7 +199,10 @@ class VirtualizableInfo:
 
     def cast_instance_to_base_ptr(self, vable_rti):
         if we_are_translated():
-            return cast_instance_to_base_ptr(vable_rti)
+            if not self.is_oo:
+                return cast_instance_to_base_ptr(vable_rti)
+            else:
+                return cast_instance_to_base_obj(vable_rti)
         else:
             vable_rti._TYPE = self.VABLERTI   # hack for non-translated mode
             return vable_rti
