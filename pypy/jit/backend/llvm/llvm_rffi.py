@@ -20,6 +20,12 @@ o2name = os.path.join(dirname, 'demo2.o')
 if (not os.path.isfile(libname) or
         os.path.getmtime(cname) > os.path.getmtime(libname) or
         os.path.getmtime(cppname) > os.path.getmtime(libname)):
+    g = os.popen('%s --version' % llvm_config, 'r')
+    data = g.read()
+    g.close()
+    if not data.startswith('2.'):
+        py.test.skip("llvm (version 2) is required")
+
     if not os.path.isdir(dirname):
         if not os.path.isdir(cachename):
             os.mkdir(cachename)
