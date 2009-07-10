@@ -233,7 +233,9 @@ class CPU386(object):
     
     def _get_loop_for_call(self, args, calldescr, ptr):
         if calldescr.call_loop is not None:
-            assert calldescr.shape == ([arg.type == history.PTR for arg in args[1:]], ptr)
+            if not we_are_translated():
+                assert (calldescr.shape ==
+                        ([arg.type == history.PTR for arg in args[1:]], ptr))
             return calldescr.call_loop
         args = [arg.clonebox() for arg in args]
         result = self._new_box(ptr)
