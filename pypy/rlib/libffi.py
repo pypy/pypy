@@ -10,7 +10,6 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rmmap import alloc
-from pypy.rlib.nonconst import NonConstant
 import py
 import os
 import sys
@@ -410,7 +409,7 @@ class ClosureHeap(object):
         self.free_list = lltype.nullptr(rffi.VOIDP.TO)
 
     def _more(self):
-        chunk = rffi.cast(CLOSURES, alloc(NonConstant(CHUNK)))
+        chunk = rffi.cast(CLOSURES, alloc(CHUNK))
         count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
         for i in range(count):
             rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list

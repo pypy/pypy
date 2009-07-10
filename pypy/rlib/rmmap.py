@@ -634,6 +634,7 @@ if _POSIX:
             raise MemoryError
         hint.pos += map_size
         return res
+    alloc._annenforceargs_ = (int,)
 
     free = c_munmap
     
