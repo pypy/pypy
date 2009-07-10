@@ -748,6 +748,7 @@ elif _MS_WINDOWS:
         lltype.free(arg, flavor='raw')
         # ignore errors, just try
         return res
+    alloc._annenforceargs_ = (int,)
 
     def free(ptr, map_size):
         VirtualFree(ptr, 0, MEM_RELEASE)
