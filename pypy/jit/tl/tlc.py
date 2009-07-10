@@ -454,6 +454,17 @@ interp             , interp_eval               = make_interp(supports_call = Tru
 interp_without_call, interp_eval_without_call  = make_interp(supports_call = False)
 interp_nonjit      , interp_eval_nonjit        = make_interp(supports_call = True, jitted=False)
 
+def non_constant(bytecode, pool):
+    from pypy.rlib.nonconst import NonConstant
+    if NonConstant(False):
+        pool = ConstantPool()
+        pool.add_string("foo")
+        pool.add_string("bazz")
+        pool.add_classdescr(["a", "bc"], [("foo", 3), ("y", 5)])
+        return "123", pool
+    else:
+        return bytecode, pool
+
 if __name__ == '__main__':
     import sys
     from pypy.jit.tl.test.test_tl import FACTORIAL_SOURCE

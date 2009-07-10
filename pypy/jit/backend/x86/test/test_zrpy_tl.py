@@ -10,8 +10,9 @@ class TestTL(Jit386Mixin, ToyLanguageTests):
     pass
 
 class TestTLC(Jit386Mixin):
-    def _get_interp(self, bytecode, pool):
+    def _get_interp(self, bytecode_, pool_):
         def interp(inputarg):
+            bytecode, pool = tlc.non_constant(bytecode_, pool_)
             args = [tlc.IntObj(inputarg)]
             obj = tlc.interp_eval(bytecode, 0, args, pool)
             return obj.int_o()
@@ -28,6 +29,3 @@ class TestTLC(Jit386Mixin):
         code = path.read()
         res = self.exec_code(code, 20)
         assert res == 6765
-        res = self.exec_code(code, 5)
-        assert res == 13
-
