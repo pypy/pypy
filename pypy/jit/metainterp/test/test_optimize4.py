@@ -881,3 +881,22 @@ def test_P_optimize_loop():
     # It is ok to reorder just the 'getfield_gc[n1], n2' operation,
     # but the three remaining getfields/setfields *must* be in that order.
     equaloplists(spec.loop.operations, P.ops)
+
+# ____________________________________________________________
+
+class Q:
+    locals().update(A.__dict__)    # :-)
+    ops = [
+        ResOperation('new_with_vtable', [ConstAddr(node_vtable, cpu)], n1,
+                     size_of_node),
+        ResOperation('setfield_gc', [n2, n1], None, ofs_next),
+        ResOperation('jump', [], None),
+        ]
+
+def test_Q_find_nodes():
+    spec = PerfectSpecializer(Loop(None, Q.ops))
+    spec.find_nodes()
+    spec.propagate_escapes()
+    # 'n2' should be marked as 'escaped', so that 'n1' is too
+    assert spec.nodes[Q.n2].escaped
+    assert spec.nodes[Q.n1].escaped

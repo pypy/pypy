@@ -117,10 +117,14 @@ def optimize_bridge(options, old_loops, loop, cpu=None):
     for old_loop in old_loops:
         if perfect_specializer.match(old_loop):
             # xxx slow, maybe
+            # XXX the next loop is a big hack.  Ideally it should set cls=None
+            # to prevent assuming something about the cls -- but only if there
+            # is no code in the previous loop that checks the cls.
             for node in perfect_specializer.nodes.values():
                 if node.startbox:
                     node.cls = None
                     assert not node.virtual
+            perfect_specializer.propagate_escapes()
             perfect_specializer.adapt_for_match(old_loop)
             perfect_specializer.optimize_loop()
             return old_loop
@@ -144,7 +148,7 @@ class PerfectSpecializer(object):
                 node = InstanceNode(box, escaped=True, const=True)
             else:
                 assert self._allow_automatic_node_creation
-                node = InstanceNode(box, escaped=False, startbox=True)
+                node = InstanceNode(box, escaped=True, startbox=True)
             self.nodes[box] = node
             return node
 
@@ -266,6 +270,9 @@ class PerfectSpecializer(object):
             if isinstance(other_box, Box):
                 self.nodes[box].add_to_dependency_graph(self.nodes[other_box],
                                                         self.dependency_graph)
+        self.propagate_escapes()
+
+    def propagate_escapes(self):
         # XXX find efficient algorithm, we're too fried for that by now
         done = False
         while not done:
