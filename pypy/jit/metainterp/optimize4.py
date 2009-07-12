@@ -121,9 +121,8 @@ def optimize_bridge(options, old_loops, loop, cpu=None):
                 if node.startbox:
                     node.cls = None
                     assert not node.virtual
-            ofs = perfect_specializer.adapt_for_match(old_loop)
+            perfect_specializer.adapt_for_match(old_loop)
             perfect_specializer.optimize_loop()
-            perfect_specializer.update_loop(ofs, old_loop)
             return old_loop
     return None     # no loop matches
 
@@ -551,64 +550,10 @@ class PerfectSpecializer(object):
         jump_op = self.loop.operations[-1]
         assert jump_op.opnum == rop.JUMP
         self.specnodes = old_loop.specnodes
-        all_offsets = []
         for i in range(len(old_loop.specnodes)):
             old_specnode = old_loop.specnodes[i]
             new_instnode = self.getnode(jump_op.args[i])
-            offsets = []
-            old_specnode.adapt_to(new_instnode, offsets)
-            all_offsets.append(offsets)
-        return all_offsets
-
-    def _patch(self, origargs, newargs):
-        i = 0
-        res = []
-        for arg in newargs:
-            if arg is None:
-                res.append(origargs[i])
-                i += 1
-            else:
-                res.append(arg)
-        return res
-
-    def _patch_loop(self, operations, inpargs, rebuild_ops, loop):
-        for op in operations:
-            if op.is_guard():
-                if op.suboperations[-1].opnum == rop.FAIL:
-                    op.suboperations = (op.suboperations[:-1] + rebuild_ops +
-                                        [op.suboperations[-1]])
-                else:
-                    self._patch_loop(op.suboperations, inpargs, rebuild_ops,
-                                     loop)
-        jump = operations[-1]
-        if jump.opnum == rop.JUMP and jump.jump_target is loop:
-            jump.args = self._patch(jump.args, inpargs)
-
-    def update_loop(self, offsets, loop):
-        if loop.operations is None:  # special loops 'done_with_this_frame'
-            return                   # and 'exit_frame_with_exception'
-        j = 0
-        new_inputargs = []
-        prev_ofs = 0
-        rebuild_ops = []
-        memo = {}
-        for i in range(len(offsets)):
-            for specnode, descr, parentnode, rel_ofs, node in offsets[i]:
-                while parentnode.source != loop.inputargs[j]:
-                    j += 1
-                ofs = j + rel_ofs + 1
-                new_inputargs.extend([None] * (ofs - prev_ofs))
-                prev_ofs = ofs
-                boxlist = []
-                specnode.expand_boxlist(node, boxlist)
-                new_inputargs.extend(boxlist)
-                box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
-                assert isinstance(descr, AbstractDescr)
-                rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
-                  [parentnode.source, box], None, descr))
-        new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
-        loop.inputargs = self._patch(loop.inputargs, new_inputargs)
-        self._patch_loop(loop.operations, new_inputargs, rebuild_ops, loop)
+            old_specnode.adapt_to(new_instnode, None)
 
 # ---------------------------------------------------------------
 
