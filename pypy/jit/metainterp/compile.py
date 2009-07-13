@@ -200,21 +200,23 @@ exit_frame_with_exception_descr_obj = ExitFrameWithExceptionDescrObj()
 class TerminatingLoop(TreeLoop):
     pass
 
+prebuiltNotSpecNode = NotSpecNode()
+
 # pseudo-loops to make the life of optimize.py easier
 _loop = TerminatingLoop('done_with_this_frame_int')
-_loop.specnodes = [NotSpecNode()]
+_loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxInt()]
 _loop.finishdescr = done_with_this_frame_descr_int
 loops_done_with_this_frame_int = [_loop]
 
 _loop = TerminatingLoop('done_with_this_frame_ptr')
-_loop.specnodes = [NotSpecNode()]
+_loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxPtr()]
 _loop.finishdescr = done_with_this_frame_descr_ptr
 loops_done_with_this_frame_ptr = [_loop]
 
 _loop = TerminatingLoop('done_with_this_frame_obj')
-_loop.specnodes = [NotSpecNode()]
+_loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxObj()]
 _loop.finishdescr = done_with_this_frame_descr_obj
 loops_done_with_this_frame_obj = [_loop]
@@ -226,13 +228,13 @@ _loop.finishdescr = done_with_this_frame_descr_void
 loops_done_with_this_frame_void = [_loop]
 
 _loop = TerminatingLoop('exit_frame_with_exception_ptr')
-_loop.specnodes = [NotSpecNode()]
+_loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxPtr()]
 _loop.finishdescr = exit_frame_with_exception_descr_ptr
 loops_exit_frame_with_exception_ptr = [_loop]
 
 _loop = TerminatingLoop('exit_frame_with_exception_obj')
-_loop.specnodes = [NotSpecNode()]
+_loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxObj()]
 _loop.finishdescr = exit_frame_with_exception_descr_obj
 loops_exit_frame_with_exception_obj = [_loop]
@@ -355,6 +357,7 @@ class ResumeFromInterpDescr(AbstractDescr):
         metainterp.history.inputargs = redkey
         new_loop.greenkey = greenkey
         new_loop.inputargs = redkey
+        new_loop.specnodes = [prebuiltNotSpecNode] * len(redkey)
         send_loop_to_backend(metainterp, new_loop, None, "entry bridge")
         metainterp_sd.stats.loops.append(new_loop)
         # send the new_loop to warmspot.py, to be called directly the next time
