@@ -349,7 +349,7 @@ class PerfectSpecializer(object):
         op_fail = op.suboperations[0]
         assert op_fail.opnum == rop.FAIL
         for box in op_fail.args:
-            if isinstance(box, Const) or box not in self.nodes:
+            if isinstance(box, Const):
                 continue
             self.prepare_rebuild_ops(self.nodes[box], rebuild_ops, memo, box)
 
