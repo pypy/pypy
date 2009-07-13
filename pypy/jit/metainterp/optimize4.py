@@ -469,6 +469,7 @@ class PerfectSpecializer(object):
             elif opnum == rop.NEW_WITH_VTABLE:
                 # self.nodes[op.result] keeps the value from Steps (1,2)
                 instnode = self.nodes[op.result]
+                instnode.curfields = r_dict(av_eq, av_hash)
                 if not instnode.escaped:
                     instnode.virtual = True
                     assert instnode.cls is not None

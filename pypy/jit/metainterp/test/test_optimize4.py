@@ -5,10 +5,10 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 
 from pypy.jit.backend.llgraph import runner
-from pypy.jit.metainterp import resoperation
+from pypy.jit.metainterp import resoperation, history
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         ConstAddr, TreeLoop)
+                                         Const, ConstAddr, TreeLoop)
 from pypy.jit.metainterp.optimize4 import PerfectSpecializer
 from pypy.jit.metainterp.specnode4 import (FixedClassSpecNode,
                                            NotSpecNode,
@@ -85,6 +85,25 @@ def set_guard(op, args):
     assert op.is_guard(), op
     op.suboperations = [ResOperation('fail', args, None)]
 
+
+class CheckPerfectSpecializer(PerfectSpecializer):
+    def optimize_loop(self):
+        PerfectSpecializer.optimize_loop(self)
+        check_operations(self.loop.inputargs, self.loop.operations)
+
+def check_operations(inputargs, operations, indent=' |'):
+    seen = dict.fromkeys(inputargs)
+    for op in operations:
+        print indent, op
+        for x in op.args:
+            assert x in seen or isinstance(x, Const)
+        assert op.descr is None or isinstance(op.descr, history.AbstractDescr)
+        if op.is_guard():
+            check_operations(seen.keys(), op.suboperations, indent+'    ')
+        if op.result is not None:
+            seen[op.result] = True
+    assert operations[-1].opnum in (rop.FAIL, rop.JUMP)
+
 # ____________________________________________________________
 
 class A:
@@ -116,7 +135,7 @@ class A:
         ]
 
 def test_A_find_nodes():
-    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
+    spec = CheckPerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     assert spec.nodes[A.sum] is not spec.nodes[A.sum2]
     assert spec.nodes[A.n1] is not spec.nodes[A.n2]
@@ -131,7 +150,7 @@ def test_A_find_nodes():
     assert spec.nodes[A.n2].curfields[A.ofs_value] is spec.nodes[A.v2]
 
 def test_A_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
+    spec = CheckPerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert len(spec.specnodes) == 2
@@ -143,7 +162,7 @@ def test_A_intersect_input_and_output():
     assert isinstance(spec_n.fields[0][1], NotSpecNode)
 
 def test_A_optimize_loop():
-    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
+    spec = CheckPerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -173,7 +192,7 @@ class B:
         ]
 
 def test_B_find_nodes():
-    spec = PerfectSpecializer(Loop(B.inputargs, B.ops))
+    spec = CheckPerfectSpecializer(Loop(B.inputargs, B.ops))
     spec.find_nodes()
     assert spec.nodes[B.n1].cls.source.value == node_vtable_adr
     assert spec.nodes[B.n1].escaped
@@ -181,7 +200,7 @@ def test_B_find_nodes():
     assert spec.nodes[B.n2].escaped
 
 def test_B_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(B.inputargs, B.ops))
+    spec = CheckPerfectSpecializer(Loop(B.inputargs, B.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert len(spec.specnodes) == 2
@@ -191,7 +210,7 @@ def test_B_intersect_input_and_output():
     assert spec_n.known_class.value == node_vtable_adr
 
 def test_B_optimize_loop():
-    spec = PerfectSpecializer(Loop(B.inputargs, B.ops))
+    spec = CheckPerfectSpecializer(Loop(B.inputargs, B.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -228,14 +247,14 @@ class C:
         ]
 
 def test_C_find_nodes():
-    spec = PerfectSpecializer(Loop(C.inputargs, C.ops))
+    spec = CheckPerfectSpecializer(Loop(C.inputargs, C.ops))
     spec.find_nodes()
     assert spec.nodes[C.n1].cls.source.value == node_vtable_adr
     assert spec.nodes[C.n1].escaped
     assert spec.nodes[C.n2].cls.source.value == node_vtable_adr
 
 def test_C_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(C.inputargs, C.ops))
+    spec = CheckPerfectSpecializer(Loop(C.inputargs, C.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[C.n2].escaped
@@ -246,7 +265,7 @@ def test_C_intersect_input_and_output():
     assert spec_n.known_class.value == node_vtable_adr
 
 def test_C_optimize_loop():
-    spec = PerfectSpecializer(Loop(C.inputargs, C.ops))
+    spec = CheckPerfectSpecializer(Loop(C.inputargs, C.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -283,7 +302,7 @@ class D:
 
 def test_D_intersect_input_and_output():
     py.test.skip("nowadays, this compiles, just without making a virtual")
-    spec = PerfectSpecializer(Loop(D.inputargs, D.ops))
+    spec = CheckPerfectSpecializer(Loop(D.inputargs, D.ops))
     spec.find_nodes()
     py.test.raises(CancelInefficientLoop, spec.intersect_input_and_output)
 
@@ -306,7 +325,7 @@ class E:
     set_guard(ops[-2], [sum2, n2])
 
 def test_E_optimize_loop():
-    spec = PerfectSpecializer(Loop(E.inputargs, E.ops), cpu=cpu)
+    spec = CheckPerfectSpecializer(Loop(E.inputargs, E.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -329,7 +348,7 @@ def test_E_optimize_loop():
         ])
 
 ##def test_E_rebuild_after_failure():
-##    spec = PerfectSpecializer(Loop(E.inputargs, E.ops), cpu=cpu)
+##    spec = CheckPerfectSpecializer(Loop(E.inputargs, E.ops), cpu=cpu)
 ##    spec.find_nodes()
 ##    spec.intersect_input_and_output()
 ##    spec.optimize_loop()
@@ -379,13 +398,13 @@ class F:
     set_guard(ops[-6], [sum2, n2, n3])
 
 def test_F_find_nodes():
-    spec = PerfectSpecializer(Loop(F.inputargs, F.ops))
+    spec = CheckPerfectSpecializer(Loop(F.inputargs, F.ops))
     spec.find_nodes()
     assert not spec.nodes[F.n1].escaped
     assert not spec.nodes[F.n2].escaped
 
 def test_F_optimize_loop():
-    spec = PerfectSpecializer(Loop(F.inputargs, F.ops), cpu=cpu)
+    spec = CheckPerfectSpecializer(Loop(F.inputargs, F.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[F.n3].escaped
@@ -418,7 +437,7 @@ class F2:
     set_guard(ops[-3], [n2])
 
 def test_F2_optimize_loop():
-    spec = PerfectSpecializer(Loop(F2.inputargs, F2.ops), cpu=cpu)
+    spec = CheckPerfectSpecializer(Loop(F2.inputargs, F2.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -448,7 +467,7 @@ class G:
     set_guard(ops[-2], [sum2, n2])
 
 def test_G_optimize_loop():
-    spec = PerfectSpecializer(Loop(G.inputargs, G.ops), cpu=cpu)
+    spec = CheckPerfectSpecializer(Loop(G.inputargs, G.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -498,7 +517,7 @@ class H:
         ]
 
 def test_H_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(H.inputargs, H.ops))
+    spec = CheckPerfectSpecializer(Loop(H.inputargs, H.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[H.n0].escaped
@@ -526,7 +545,7 @@ class I:
         ]
 
 def test_I_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(I.inputargs, I.ops))
+    spec = CheckPerfectSpecializer(Loop(I.inputargs, I.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[I.n0].escaped
@@ -555,7 +574,7 @@ class J:
         ]
 
 def test_J_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(J.inputargs, J.ops))
+    spec = CheckPerfectSpecializer(Loop(J.inputargs, J.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert not spec.nodes[J.n0].escaped
@@ -582,7 +601,7 @@ class K0:
 
 def test_K0_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(K0.inputargs, K0.ops))
+    spec = CheckPerfectSpecializer(Loop(K0.inputargs, K0.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -617,7 +636,7 @@ class K1:
 
 def test_K1_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(K1.inputargs, K1.ops))
+    spec = CheckPerfectSpecializer(Loop(K1.inputargs, K1.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -651,7 +670,7 @@ class K:
 
 def test_K_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(K.inputargs, K.ops))
+    spec = CheckPerfectSpecializer(Loop(K.inputargs, K.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -683,7 +702,7 @@ class L:
 
 def test_L_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(L.inputargs, L.ops))
+    spec = CheckPerfectSpecializer(Loop(L.inputargs, L.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -715,7 +734,7 @@ class M:
 
 def test_M_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(M.inputargs, M.ops))
+    spec = CheckPerfectSpecializer(Loop(M.inputargs, M.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -747,7 +766,7 @@ class N:
 
 def test_N_optimize_loop():
     py.test.skip("Disabled")
-    spec = PerfectSpecializer(Loop(N.inputargs, N.ops))
+    spec = CheckPerfectSpecializer(Loop(N.inputargs, N.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -776,7 +795,7 @@ class O1:
     set_guard(ops[-2], [])
 
 def test_O1_optimize_loop():
-    spec = PerfectSpecializer(Loop(O1.inputargs, O1.ops))
+    spec = CheckPerfectSpecializer(Loop(O1.inputargs, O1.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -806,7 +825,7 @@ class O2:
     set_guard(ops[-2], [])
 
 def test_O2_optimize_loop():
-    spec = PerfectSpecializer(Loop(O2.inputargs, O2.ops))
+    spec = CheckPerfectSpecializer(Loop(O2.inputargs, O2.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -838,7 +857,7 @@ class O3:
     set_guard(ops[-2], [])
 
 def test_O3_optimize_loop():
-    spec = PerfectSpecializer(Loop(O3.inputargs, O3.ops))
+    spec = CheckPerfectSpecializer(Loop(O3.inputargs, O3.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -872,7 +891,7 @@ class P:
     set_guard(ops[-3], [])
 
 def test_P_optimize_loop():
-    spec = PerfectSpecializer(Loop(P.inputargs, P.ops))
+    spec = CheckPerfectSpecializer(Loop(P.inputargs, P.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -894,9 +913,33 @@ class Q:
         ]
 
 def test_Q_find_nodes():
-    spec = PerfectSpecializer(Loop(None, Q.ops))
+    spec = CheckPerfectSpecializer(Loop(None, Q.ops))
     spec.find_nodes()
     spec.propagate_escapes()
     # 'n2' should be marked as 'escaped', so that 'n1' is too
     assert spec.nodes[Q.n2].escaped
     assert spec.nodes[Q.n1].escaped
+
+# ____________________________________________________________
+
+class R:
+    locals().update(A.__dict__)    # :-)
+    inputargs = [sum]
+    ops = [
+        ResOperation('new_with_vtable', [ConstAddr(node_vtable, cpu)], n1,
+                     size_of_node),
+        ResOperation('int_is_true', [sum], n1nz),
+        ResOperation('guard_true', [n1nz], None),
+        ResOperation('new_with_vtable', [ConstAddr(node_vtable, cpu)], n2,
+                     size_of_node),
+        ResOperation('setfield_gc', [n1, n2], None, ofs_next),
+        ResOperation('int_sub', [sum, ConstInt(1)], sum2),
+        ResOperation('jump', [sum2], None),
+        ]
+    set_guard(ops[2], [n1])
+
+def test_R_find_nodes():
+    spec = CheckPerfectSpecializer(Loop(R.inputargs, R.ops), cpu=cpu)
+    spec.find_nodes()
+    spec.intersect_input_and_output()
+    spec.optimize_loop()
