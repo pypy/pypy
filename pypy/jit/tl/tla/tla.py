@@ -1,5 +1,6 @@
 
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.objectmodel import UnboxedValue
 
 
 class W_Object:
@@ -18,7 +19,7 @@ class W_Object:
 
 
 
-class W_IntObject(W_Object):
+class W_IntObject(W_Object, UnboxedValue):
 
     def __init__(self, intvalue):
         self.intvalue = intvalue
@@ -55,7 +56,7 @@ class W_StringObject(W_Object):
         return len(self.strvalue) != 0
 
 
-class OperationError:
+class OperationError(Exception):
     pass
 
 # ____________________________________________________________
@@ -71,6 +72,9 @@ NEWSTR    = 8
 
 # ____________________________________________________________
 
+jitdriver = JitDriver(greens=['bytecode', 'pc'],
+                      reds=['self'],
+                      virtualizables=['self'])
 
 class Frame(object):
     _virtualizable2_ = ['stackpos', 'stack[*]']
@@ -81,19 +85,22 @@ class Frame(object):
         self.stackpos = 0
 
     def push(self, w_x):
-        self.stack[self.stackpos] = w_x
-        self.stackpos += 1
+        stackpos = hint(self.stackpos, promote=True)
+        self.stack[stackpos] = w_x
+        self.stackpos = stackpos + 1
 
     def pop(self):
-        self.stackpos -= 1
-        assert self.stackpos >= 0
-        return self.stack[self.stackpos]
+        stackpos = hint(self.stackpos, promote=True) - 1
+        assert stackpos >= 0
+        self.stackpos = stackpos
+        return self.stack[stackpos]
 
     def interp(self):
         bytecode = self.bytecode
         pc = 0
 
         while pc < len(bytecode):
+            jitdriver.jit_merge_point(bytecode=bytecode, pc=pc, self=self)
             opcode = ord(bytecode[pc])
             pc += 1
 
@@ -128,6 +135,7 @@ class Frame(object):
                 w_x = self.pop()
                 if w_x.is_true():
                     pc = target
+                    jitdriver.can_enter_jit(bytecode=bytecode, pc=pc, self=self)
 
             elif opcode == NEWSTR:
                 char = bytecode[pc]
