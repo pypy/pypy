@@ -1,6 +1,5 @@
 
 from pypy.rlib.jit import JitDriver, hint
-from pypy.rlib.objectmodel import UnboxedValue
 
 
 class W_Object:
@@ -19,7 +18,7 @@ class W_Object:
 
 
 
-class W_IntObject(W_Object, UnboxedValue):
+class W_IntObject(W_Object):
 
     def __init__(self, intvalue):
         self.intvalue = intvalue
