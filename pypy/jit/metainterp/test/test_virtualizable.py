@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.lltypesystem.rvirtualizable2 import VirtualizableAccessor
@@ -639,6 +640,33 @@ class ImplicitVirtualizableTests:
     def test_external_access_sometimes(self):
         py.test.skip("known bug: access the frame in a residual call but"
                      " only sometimes, so that it's not seen during tracing")
+
+
+    def test_promote_index_in_virtualizable_list(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
+                              virtualizables = ['frame'])
+        class Frame(object):
+            _virtualizable2_ = ['stackpos', 'stack[*]']
+
+        def f(n):
+            frame = Frame()
+            frame.stack = [42, 0, 0]
+            frame.stackpos = 1
+            while n > 0:
+                jitdriver.can_enter_jit(frame=frame, n=n)
+                jitdriver.jit_merge_point(frame=frame, n=n)
+                popped = frame.stack[frame.stackpos]
+                frame.stackpos -= 1
+                to_push = intmask(popped * 3)
+                frame.stack[frame.stackpos] = to_push
+                frame.stackpos += 1
+                n -= 1
+            return frame.stack[0]
+
+        res = self.meta_interp(f, [70], listops=True)
+        assert res == intmask(42 ** 70)
+        self.check_loops(int_add=0,
+                         int_sub=1)   # for 'n -= 1' only
 
 
 class TestOOtype(#ExplicitVirtualizableTests,

@@ -896,6 +896,7 @@ class MIFrame(object):
         if isinstance(box, Box):
             promoted_box = box.constbox()
             self.generate_guard(pc, rop.GUARD_VALUE, box, [promoted_box])
+            self.metainterp.replace_box(box, promoted_box)
             return promoted_box
         else:
             return box     # no promotion needed, already a Const
@@ -1643,6 +1644,18 @@ class MetaInterp(object):
                                     None,
                                     descr=vinfo.array_descrs[k])
         assert i + 1 == len(self.virtualizable_boxes)
+
+    def replace_box(self, oldbox, newbox):
+        for frame in self.framestack:
+            boxes = frame.env
+            for i in range(len(boxes)):
+                if boxes[i] is oldbox:
+                    boxes[i] = newbox
+        if self.staticdata.virtualizable_info is not None:
+            boxes = self.virtualizable_boxes
+            for i in range(len(boxes)):
+                if boxes[i] is oldbox:
+                    boxes[i] = newbox
 
 
 class GenerateMergePoint(Exception):
