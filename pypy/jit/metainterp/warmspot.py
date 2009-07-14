@@ -185,6 +185,8 @@ class WarmRunnerDesc:
         graph.startblock = support.split_before_jit_merge_point(
             *find_jit_merge_point([graph]))
         graph.startblock.isstartblock = True
+        # a crash in the following checkgraph() means that you forgot
+        # to list some variable in greens=[] or reds=[] in JitDriver.
         checkgraph(graph)
         for v in graph.getargs():
             assert isinstance(v, Variable)
