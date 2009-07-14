@@ -1,5 +1,4 @@
 import py
-import copy
 
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -81,10 +80,6 @@ def ResOperation(opname, args, result, descr=None):
         opnum = getattr(rop, opname.upper())
     return resoperation.ResOperation(opnum, args, result, descr)
 
-def set_guard(op, args):
-    assert op.is_guard(), op
-    op.suboperations = [ResOperation('fail', args, None)]
-
 
 class CheckPerfectSpecializer(PerfectSpecializer):
     def optimize_loop(self):
@@ -133,6 +128,12 @@ class A:
         ResOperation('setfield_gc', [n2, v2], None, ofs_value),
         ResOperation('jump', [sum2, n2], None),
         ]
+
+    def set_guard(op, args):
+        assert op.is_guard(), op
+        op.suboperations = [ResOperation('fail', args, None)]
+
+    set_guard(ops[0], [])
 
 def test_A_find_nodes():
     spec = CheckPerfectSpecializer(Loop(A.inputargs, A.ops))
@@ -190,6 +191,7 @@ class B:
         ResOperation('escape', [n2], None),    # <== escaping
         ResOperation('jump', [sum2, n2], None),
         ]
+    set_guard(ops[0], [])
 
 def test_B_find_nodes():
     spec = CheckPerfectSpecializer(Loop(B.inputargs, B.ops))
@@ -245,6 +247,7 @@ class C:
         ResOperation('setfield_gc', [n2, v2], None, ofs_value),
         ResOperation('jump', [sum2, n2], None),
         ]
+    set_guard(ops[0], [])
 
 def test_C_find_nodes():
     spec = CheckPerfectSpecializer(Loop(C.inputargs, C.ops))
@@ -322,6 +325,7 @@ class E:
         ResOperation('guard_true', [v2], None),
         ResOperation('jump', [sum2, n2], None),
         ]
+    set_guard(ops[0], [])
     set_guard(ops[-2], [sum2, n2])
 
 def test_E_optimize_loop():
@@ -393,6 +397,7 @@ class F:
         ResOperation('guard_true', [vbool3], None),        
         ResOperation('jump', [sum2, n2, n3], None),
         ]
+    set_guard(ops[0], [])
     set_guard(ops[-2], [sum2, n2, n3])
     set_guard(ops[-4], [sum2, n2, n3])
     set_guard(ops[-6], [sum2, n2, n3])
@@ -464,6 +469,7 @@ class G:
         ResOperation('guard_true', [v2], None),
         ResOperation('jump', [sum2, n2], None),
         ]
+    set_guard(ops[0], [])
     set_guard(ops[-2], [sum2, n2])
 
 def test_G_optimize_loop():
@@ -900,25 +906,6 @@ def test_P_optimize_loop():
     # It is ok to reorder just the 'getfield_gc[n1], n2' operation,
     # but the three remaining getfields/setfields *must* be in that order.
     equaloplists(spec.loop.operations, P.ops)
-
-# ____________________________________________________________
-
-class Q:
-    locals().update(A.__dict__)    # :-)
-    ops = [
-        ResOperation('new_with_vtable', [ConstAddr(node_vtable, cpu)], n1,
-                     size_of_node),
-        ResOperation('setfield_gc', [n2, n1], None, ofs_next),
-        ResOperation('jump', [], None),
-        ]
-
-def test_Q_find_nodes():
-    spec = CheckPerfectSpecializer(Loop(None, Q.ops))
-    spec.find_nodes()
-    spec.propagate_escapes()
-    # 'n2' should be marked as 'escaped', so that 'n1' is too
-    assert spec.nodes[Q.n2].escaped
-    assert spec.nodes[Q.n1].escaped
 
 # ____________________________________________________________
 

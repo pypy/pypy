@@ -187,6 +187,8 @@ class PerfectSpecializer(object):
         #
         for op in self.loop.operations:
             #print '| ' + op.repr()
+            if op.is_guard():
+                self.find_nodes_guard(op)
             opnum = op.opnum
             if opnum == rop.JUMP:
                 break
@@ -245,8 +247,6 @@ class PerfectSpecializer(object):
                 for box in op.args:
                     if isinstance(box, Box):
                         self.getnode(box).escaped = True
-            if op.is_guard():
-                self.find_nodes_guard(op)
             box = op.result
             if box is not None:
                 self.nodes[box] = InstanceNode(box, escaped=True)
