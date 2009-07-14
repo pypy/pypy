@@ -1,5 +1,5 @@
 
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver
 
 
 class W_Object:
@@ -84,12 +84,11 @@ class Frame(object):
         self.stackpos = 0
 
     def push(self, w_x):
-        stackpos = hint(self.stackpos, promote=True)
-        self.stack[stackpos] = w_x
-        self.stackpos = stackpos + 1
+        self.stack[self.stackpos] = w_x
+        self.stackpos += 1
 
     def pop(self):
-        stackpos = hint(self.stackpos, promote=True) - 1
+        stackpos = self.stackpos - 1
         assert stackpos >= 0
         self.stackpos = stackpos
         return self.stack[stackpos]
