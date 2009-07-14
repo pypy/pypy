@@ -112,13 +112,13 @@ class JitDriver:
     def _freeze_(self):
         return True
 
-    def jit_merge_point(self, **livevars):
+    def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == self._alllivevars
+        assert dict.fromkeys(livevars) == _self._alllivevars
 
-    def can_enter_jit(self, **livevars):
+    def can_enter_jit(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == self._alllivevars
+        assert dict.fromkeys(livevars) == _self._alllivevars
 
     def _set_param(self, name, value):
         # special-cased by ExtRegistryEntry
