@@ -19,6 +19,7 @@ OpCodes = System.Reflection.Emit.OpCodes
 LoopDelegate = CLR.pypy.runtime.LoopDelegate
 DelegateHolder = CLR.pypy.runtime.DelegateHolder
 InputArgs = CLR.pypy.runtime.InputArgs
+ListOfVoid = CLR.pypy.runtime.ListOfVoid
 
 cVoid = ootype.nullruntimeclass
 
@@ -597,9 +598,21 @@ class Method(object):
         descr = op.descr
         assert isinstance(descr, runner.TypeDescr)
         item_clitype = descr.get_clitype()
+        if item_clitype is None:
+            return self.emit_new_arrayofvoids(op)
         op.args[0].load(self)
         self.il.Emit(OpCodes.Newarr, item_clitype)
-        self.store_result(op)        
+        self.store_result(op)
+
+    def emit_new_arrayofvoids(self, op):
+        clitype = dotnet.typeof(ListOfVoid)
+        ctor = clitype.GetConstructor(dotnet.new_array(System.Type, 0))
+        _ll_resize = clitype.GetMethod('_ll_resize')
+        self.il.Emit(OpCodes.Newobj, ctor)
+        self.il.Emit(OpCodes.Dup)
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Callvirt, _ll_resize)
+        self.store_result(op)
 
     def lltype_only(self, op):
         print 'Operation %s is lltype specific, should not get here!' % op.getopname()
