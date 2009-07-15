@@ -909,6 +909,33 @@ def test_P_optimize_loop():
 
 # ____________________________________________________________
 
+class Q:
+    locals().update(A.__dict__)    # :-)
+    inputargs = [sum]
+    ops = [
+        ResOperation('new_with_vtable', [ConstAddr(node_vtable, cpu)], n1,
+                     size_of_node),
+        ResOperation('setfield_gc', [n1, sum], None, ofs_value),
+        ResOperation('getfield_gc', [n1], sum2, ofs_value),
+        ResOperation('guard_true', [sum2], None),
+        ResOperation('int_sub', [sum, ConstInt(1)], v),
+        ResOperation('jump', [v], None),
+        ]
+    set_guard(ops[-3], [sum])
+
+def test_Q_optimize_loop():
+    spec = CheckPerfectSpecializer(Loop(Q.inputargs, Q.ops), cpu=cpu)
+    spec.find_nodes()
+    spec.intersect_input_and_output()
+    spec.optimize_loop()
+    equaloplists(spec.loop.operations, [
+        ResOperation('guard_true', [Q.sum], None),
+        ResOperation('int_sub', [Q.sum, ConstInt(1)], Q.v),
+        ResOperation('jump', [Q.v], None),
+        ])
+
+# ____________________________________________________________
+
 class R:
     locals().update(A.__dict__)    # :-)
     inputargs = [sum]

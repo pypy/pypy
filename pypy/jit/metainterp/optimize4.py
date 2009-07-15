@@ -366,6 +366,7 @@ class PerfectSpecializer(object):
         # cpu.execute_operations()).
         rebuild_ops.append(op_fail)
         op1 = op.clone()
+        op1.args = self.new_arguments(op1)
         op1.suboperations = rebuild_ops
         op.optimized = op1
         return op1
