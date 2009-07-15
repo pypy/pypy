@@ -425,8 +425,19 @@ class SendTests:
         self.check_tree_loop_count(2)
 
     def test_bug1(self):
-        py.test.skip("BOOM")
+        py.test.skip("BUG")
         myjitdriver = JitDriver(greens = [], reds = ['node', 'n'])
+        class Base:
+            pass
+        class A(Base):
+            def decr(self, n):
+                return n - 2
+        class B(Base):
+            def __init__(self, n):
+                self.n = n
+            def decr(self, n):
+                assert n == self.n
+                return self.n - 1
         def extern(n):
             if n <= 21:
                 return B(n)
@@ -440,8 +451,8 @@ class SendTests:
                 n = node.decr(n)
                 node = extern(n)
             return n
-        res = self.meta_interp(f, [40], policy=StopAtXPolicy(extern))
-        assert res == f(40)
+        res = self.meta_interp(f, [60], policy=StopAtXPolicy(extern))
+        assert res == f(60)
 
     def test_recursive_call_to_portal_from_blackhole(self):
         from pypy.rpython.annlowlevel import hlstr
