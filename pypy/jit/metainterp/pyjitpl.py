@@ -322,6 +322,10 @@ class MIFrame(object):
     def opimpl_instanceof(self, box, typedescr):
         self.execute(rop.INSTANCEOF, [box], descr=typedescr)
 
+    @arguments("box", "box")
+    def opimpl_subclassof(self, box1, box2):
+        self.execute(rop.SUBCLASSOF, [box1, box2], descr=None)
+
     @arguments("box")
     def opimpl_ooidentityhash(self, box):
         self.execute(rop.OOIDENTITYHASH, [box], descr=None)

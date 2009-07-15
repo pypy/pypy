@@ -91,6 +91,7 @@ TYPES = {
     'oois'            : (('ptr', 'ptr'), 'bool'),
     'ooisnot'         : (('ptr', 'ptr'), 'bool'),
     'instanceof'      : (('ptr',), 'bool'),
+    'subclassof'      : (('ptr', 'ptr'), 'bool'),
     'setfield_gc'     : (('ptr', 'intorptr'), None),
     'getfield_gc'     : (('ptr',), 'intorptr'),
     'getfield_gc_pure': (('ptr',), 'intorptr'),
@@ -766,6 +767,9 @@ class OOFrame(Frame):
     def op_instanceof(self, typedescr, obj):
         inst = ootype.cast_from_object(ootype.ROOT, obj)
         return ootype.instanceof(inst, typedescr.TYPE)
+
+    def op_subclassof(self, *args):
+        raise NotImplementedError
 
     def _cast_exception(self, exception):
         return ootype.cast_from_object(ootype.Class, exception)

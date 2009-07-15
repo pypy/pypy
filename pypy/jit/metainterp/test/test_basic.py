@@ -729,6 +729,7 @@ class BasicTests:
 
         self.meta_interp(f, [40, 0])
 
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
@@ -778,6 +779,27 @@ class TestOOtype(BasicTests, OOJitMixin):
 
     def test_r_dict(self):
         py.test.skip('in-progress')
+
+
+    def test_subclassof(self):
+        A = ootype.Instance("A", ootype.ROOT)
+        B = ootype.Instance("B", A)
+        clsA = ootype.runtimeClass(A)
+        clsB = ootype.runtimeClass(B)
+        def f(n):
+            if n:
+                obj = ootype.ooupcast(A, ootype.new(B))
+            else:
+                obj = ootype.new(A)
+            cls = ootype.classof(obj)
+            return ootype.subclassof(cls, clsB)
+
+        res = self.interp_operations(f, [True])
+        assert res
+        res = self.interp_operations(f, [False])
+        assert not res
+
+
 
 class TestLLtype(BasicTests, LLJitMixin):
 
