@@ -20,14 +20,12 @@ def av_hash(self):
     return self.sort_key()
 
 class InstanceNode(object):
-    def __init__(self, source, escaped=True, startbox=False, const=False):
-        if isinstance(source, Const):
-            assert const
+    def __init__(self, source, escaped=True, startbox=False):
         self.source = source       # a Box
         self.escaped = escaped
         self.startbox = startbox
         self.virtual = False
-        self.const = const
+        self.const = isinstance(source, Const)  # forced to True by guard_value
         self.cls = None
         self.origfields = r_dict(av_eq, av_hash)
         self.curfields = r_dict(av_eq, av_hash)
@@ -145,7 +143,7 @@ class PerfectSpecializer(object):
             return self.nodes[box]
         except KeyError:
             if isinstance(box, Const):
-                node = InstanceNode(box, escaped=True, const=True)
+                node = InstanceNode(box, escaped=True)
             else:
                 assert self._allow_automatic_node_creation
                 node = InstanceNode(box, escaped=True, startbox=True)
@@ -195,7 +193,7 @@ class PerfectSpecializer(object):
             elif opnum == rop.NEW_WITH_VTABLE:
                 box = op.result
                 instnode = InstanceNode(box, escaped=False)
-                instnode.cls = InstanceNode(op.args[0], const=True)
+                instnode.cls = InstanceNode(op.args[0])
                 self.nodes[box] = instnode
                 continue
             elif opnum == rop.SETFIELD_GC:
@@ -220,15 +218,7 @@ class PerfectSpecializer(object):
             elif opnum == rop.GUARD_CLASS:
                 instnode = self.getnode(op.args[0])
                 if instnode.cls is None:
-                    instnode.cls = InstanceNode(op.args[1], const=True)
-                continue
-            elif opnum == rop.GUARD_VALUE:
-                instnode = self.getnode(op.args[0])
-                assert isinstance(op.args[1], Const)
-                # XXX need to think more about the 'const' attribute
-                #     (see test_send.test_indirect_call_unknown_object_1)
-                #self.nodes[instnode.source] = InstanceNode(op.args[1],
-                #                                           const=True)
+                    instnode.cls = InstanceNode(op.args[1])
                 continue
             elif op.is_always_pure():
                 is_pure = True
@@ -239,8 +229,7 @@ class PerfectSpecializer(object):
                     box = op.result
                     assert box is not None
                     self.nodes[box] = InstanceNode(box.constbox(),
-                                                   escaped=True,
-                                                   const=True)
+                                                   escaped=True)
                     continue
             elif not op.has_no_side_effect():
                 # default case
@@ -444,7 +433,7 @@ class PerfectSpecializer(object):
                 if instnode.cls is not None:
                     assert op.args[1].equals(instnode.cls.source)
                     continue
-                instnode.cls = InstanceNode(op.args[1], const=True)
+                instnode.cls = InstanceNode(op.args[1])
                 newoperations.append(self.optimize_guard(op))
                 continue
             elif opnum == rop.GUARD_VALUE:
@@ -487,7 +476,7 @@ class PerfectSpecializer(object):
                 # or known to be non-zero.
                 if instnode.virtual or instnode.is_nonzero():
                     box = op.result
-                    instnode = InstanceNode(box.constbox(), const=True)
+                    instnode = InstanceNode(box.constbox())
                     self.nodes[box] = instnode
                     continue
             elif (opnum == rop.OOIS or
@@ -505,7 +494,7 @@ class PerfectSpecializer(object):
                     (instnode_x.is_zero() and instnode_y.is_zero())):
                     #
                     box = op.result
-                    instnode = InstanceNode(box.constbox(), const=True)
+                    instnode = InstanceNode(box.constbox())
                     self.nodes[box] = instnode
                     continue
             # default handling of arguments and return value
@@ -519,7 +508,7 @@ class PerfectSpecializer(object):
                     # all constant arguments: constant-fold away
                     box = op.result
                     assert box is not None
-                    instnode = InstanceNode(box.constbox(), const=True)
+                    instnode = InstanceNode(box.constbox())
                     self.nodes[box] = instnode
                     continue
             if op.can_raise():

@@ -16,7 +16,7 @@ class FixedClassSpecNode(SpecNode):
         from pypy.jit.metainterp.optimize4 import InstanceNode
         
         if instnode.cls is None:
-            instnode.cls = InstanceNode(self.known_class, const=True)
+            instnode.cls = InstanceNode(self.known_class)
         else:
             assert instnode.cls.source.equals(self.known_class)
 
