@@ -51,3 +51,17 @@ class TestSPLIJit(JitMixin):
             return total
 
         self.interpret(f, [1, 10])
+
+    def test_bridge_bad_case(self):
+        def f(a, b):
+            i = 0
+            while i < 100:
+                if i & 1:
+                    a = a + 1
+                else:
+                    b = b + 1
+                i = i + 1
+            return a + b
+
+        self.interpret(f, [1, 10])
+        
