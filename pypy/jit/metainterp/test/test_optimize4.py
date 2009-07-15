@@ -957,3 +957,28 @@ def test_R_find_nodes():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
+
+# ____________________________________________________________
+
+class S:
+    locals().update(A.__dict__)    # :-)
+    n1subnode = lltype.malloc(NODE2)
+    n2subnode = lltype.malloc(NODE2)
+    n1sub = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, n1subnode))
+    n2sub = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, n2subnode))
+    inputargs = [n1sub]
+    ops = [
+        ResOperation('guard_class', [n1sub, ConstAddr(node2_vtable, cpu)],
+                     None),
+        ResOperation('escape', [], n2sub),
+        ResOperation('jump', [n2sub], None),
+        ]
+    set_guard(ops[0], [n1sub])
+
+def test_S_find_nodes():
+    py.test.skip("in-progress")
+    spec = CheckPerfectSpecializer(Loop(S.inputargs, S.ops), cpu=cpu)
+    spec.find_nodes()
+    spec.intersect_input_and_output()
+    spec.optimize_loop()
+    equaloplists(spec.loop.operations, S.ops)
