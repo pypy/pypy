@@ -315,7 +315,6 @@ class SendTests:
         self.check_loop_count(3)
 
     def test_indirect_call_unknown_object_2(self):
-        py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'state'])
         def getvalue2():
             return 2
@@ -347,7 +346,9 @@ class SendTests:
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        self.check_loop_count(3)
+        # we get two TreeLoops: an initial one, and one entering from
+        # the interpreter
+        self.check_tree_loop_count(2)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
