@@ -46,8 +46,10 @@ class PyPyJitPolicy(ManualJitPolicy):
         if mod.startswith('pypy.interpreter.pyparser.'):
             return False
         if mod.startswith('pypy.module.'):
-            if not mod.startswith('pypy.module.pypyjit.'):
+            if (not mod.startswith('pypy.module.pypyjit.') or
+                not mod.startswith('pypy.module.micronumpy.')):
                 return False
+            
         if mod.startswith('pypy.translator.'):
             return False
         # string builder interface
