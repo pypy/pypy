@@ -782,22 +782,38 @@ class TestOOtype(BasicTests, OOJitMixin):
 
 
     def test_subclassof(self):
+        from pypy.jit.metainterp import simple_optimize
         A = ootype.Instance("A", ootype.ROOT)
         B = ootype.Instance("B", A)
         clsA = ootype.runtimeClass(A)
         clsB = ootype.runtimeClass(B)
-        def f(n):
-            if n:
-                obj = ootype.ooupcast(A, ootype.new(B))
-            else:
-                obj = ootype.new(A)
-            cls = ootype.classof(obj)
-            return ootype.subclassof(cls, clsB)
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'flag', 'res'])
 
-        res = self.interp_operations(f, [True])
-        assert res
-        res = self.interp_operations(f, [False])
+        def getcls(flag):
+            if flag:
+                return clsA
+            else:
+                return clsB
+
+        def f(flag, n):
+            res = True
+            while n > -100:
+                myjitdriver.can_enter_jit(n=n, flag=flag, res=res)
+                myjitdriver.jit_merge_point(n=n, flag=flag, res=res)
+                cls = getcls(flag)
+                n -= 1
+                res = ootype.subclassof(cls, clsB)
+            return res
+
+        res = self.meta_interp(f, [1, 100],
+                               policy=StopAtXPolicy(getcls),
+                               optimizer=simple_optimize)
         assert not res
+        
+        res = self.meta_interp(f, [0, 100],
+                               policy=StopAtXPolicy(getcls),
+                               optimizer=simple_optimize)
+        assert res
 
 
 

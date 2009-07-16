@@ -149,6 +149,16 @@ def do_ooidentityhash(cpu, args, descr=None):
     obj = args[0].getobj()
     return ConstInt(ootype.ooidentityhash(obj))
 
+
+def do_subclassof(self, args, descr=None):
+    assert len(args) == 2
+    box1, box2 = args
+    cls1 = ootype.cast_from_object(ootype.Class, box1.getobj())
+    cls2 = ootype.cast_from_object(ootype.Class, box2.getobj())
+    res = ootype.subclassof(cls1, cls2)
+    return BoxInt(res)
+
+
 # ----------
 # the following operations just delegate to the cpu:
 

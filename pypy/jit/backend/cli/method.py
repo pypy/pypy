@@ -20,6 +20,7 @@ LoopDelegate = CLR.pypy.runtime.LoopDelegate
 DelegateHolder = CLR.pypy.runtime.DelegateHolder
 InputArgs = CLR.pypy.runtime.InputArgs
 ListOfVoid = CLR.pypy.runtime.ListOfVoid
+Utils = CLR.pypy.runtime.Utils
 
 cVoid = ootype.nullruntimeclass
 
@@ -498,7 +499,12 @@ class Method(object):
         self.store_result(op)
 
     def emit_op_subclassof(self, op):
-        raise NotImplementedError
+        clitype_utils = dotnet.typeof(Utils)
+        methinfo = clitype_utils.GetMethod('SubclassOf')
+        op.args[0].load(self)
+        op.args[1].load(self)
+        self.il.Emit(OpCodes.Call, methinfo)
+        self.store_result(op)
 
     def emit_op_ooidentityhash(self, op):
         raise NotImplementedError

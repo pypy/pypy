@@ -469,14 +469,6 @@ class OOtypeCPU(BaseCPU):
         assert len(args) == 1
         return typedescr.instanceof(args[0])
 
-    def do_subclassof(self, args, descr):
-        assert len(args) == 2
-        box1, box2 = args
-        cls1 = ootype.cast_from_object(ootype.Class, box1.getobj())
-        cls2 = ootype.cast_from_object(ootype.Class, box2.getobj())
-        res = ootype.subclassof(cls1, cls2)
-        return history.BoxInt(res)
-
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])

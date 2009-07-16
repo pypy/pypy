@@ -171,6 +171,3 @@ class AbstractCPU(object):
 
     def do_instanceof(self, args, descr=None):
         raise NotImplementedError
-
-    def do_subclassof(self, args, descr=None):
-        raise NotImplementedError

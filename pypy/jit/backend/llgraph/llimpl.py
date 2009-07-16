@@ -768,8 +768,10 @@ class OOFrame(Frame):
         inst = ootype.cast_from_object(ootype.ROOT, obj)
         return ootype.instanceof(inst, typedescr.TYPE)
 
-    def op_subclassof(self, *args):
-        raise NotImplementedError
+    def op_subclassof(self, _, obj1, obj2):
+        cls1 = ootype.cast_from_object(ootype.Class, obj1)
+        cls2 = ootype.cast_from_object(ootype.Class, obj2)
+        return ootype.subclassof(cls1, cls2)
 
     def _cast_exception(self, exception):
         return ootype.cast_from_object(ootype.Class, exception)
