@@ -12,12 +12,31 @@ class NumArray(Wrappable):
         self.storage = [0] * dim[0]
 
     def descr_getitem(self, space, index):
-        return space.wrap(self.storage[index])
+        try:
+            return space.wrap(self.storage[index])
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("list index out of range"))
     descr_getitem.unwrap_spec = ['self', ObjSpace, int]
+
+    def descr_setitem(self, space, index, value):
+        try:
+            self.storage[index] = value
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("list index out of range"))
+        return space.w_None
+    descr_setitem.unwrap_spec = ['self', ObjSpace, int, int]
+
+    def descr_len(self, space):
+        return space.wrap(len(self.storage))
+    descr_len.unwrap_spec = ['self', ObjSpace]
 
 NumArray.typedef = TypeDef(
     'NumArray',
     __getitem__ = interp2app(NumArray.descr_getitem),
+    __setitem__ = interp2app(NumArray.descr_setitem),
+    __len__     = interp2app(NumArray.descr_len),
 )
 
 def unpack_dim(space, w_dim):
