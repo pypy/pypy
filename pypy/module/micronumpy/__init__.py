@@ -7,6 +7,7 @@ class Module(MixedModule):
     
     interpleveldefs = {
         'zeros'    : 'numarray.zeros',
+        'minimum'  : 'ufunc.minimum',
         }
 
     appleveldefs = {}
