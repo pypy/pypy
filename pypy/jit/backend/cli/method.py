@@ -497,6 +497,9 @@ class Method(object):
         self.il.Emit(OpCodes.Cgt_Un)
         self.store_result(op)
 
+    def emit_op_subclassof(self, op):
+        raise NotImplementedError
+
     def emit_op_ooidentityhash(self, op):
         raise NotImplementedError
 
