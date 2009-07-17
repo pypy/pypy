@@ -250,6 +250,26 @@ class _SetStaticField(MicroInstruction):
         generator.ilasm.store_static_field(cts_type, desc)
 
 
+class _DebugPrint(MicroInstruction):
+    def render(self, generator, op):
+        MAXARGS = 4
+        if len(op.args) > MAXARGS:
+            generator.db.genoo.log.WARNING('debug_print supported only up to '
+                                           '%d arguments (got %d)' % (MAXARGS, len(op.args)))
+            return
+        signature = ', '.join(['object'] * len(op.args))
+        
+        for arg in op.args:
+            generator.load(arg)
+            TYPE = arg.concretetype
+            if not isinstance(TYPE, ootype.OOType):
+                # assume it's a primitive type, needs boxing
+                boxtype = generator.cts.lltype_to_cts(TYPE)
+                generator.ilasm.opcode('box', boxtype)
+
+        generator.ilasm.call('void [pypylib]pypy.runtime.Utils::debug_print(%s)' % signature)
+
+
 OOTYPE_TO_MNEMONIC = {
     ootype.Bool: 'i1', 
     ootype.Char: 'i2',
@@ -283,3 +303,4 @@ EventHandler = _EventHandler()
 GetStaticField = _GetStaticField()
 SetStaticField = _SetStaticField()
 CastPrimitive = _CastPrimitive()
+DebugPrint = _DebugPrint()

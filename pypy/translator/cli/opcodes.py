@@ -1,7 +1,7 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField
+     TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, DebugPrint
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
@@ -75,7 +75,7 @@ misc_ops = {
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
-    'debug_print':              Ignore,
+    'debug_print':              [DebugPrint],
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Utils::debug_fatalerror(string)'],
     'keepalive':                Ignore,
     'is_early_constant':        [PushPrimitive(ootype.Bool, False)],

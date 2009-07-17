@@ -376,6 +376,26 @@ namespace pypy.runtime
           throw new Exception("debug_fatalerror: " + msg);
         }
 
+        public static void debug_print(object a)
+        {
+            Console.Error.WriteLine(a);
+        }
+
+        public static void debug_print(object a, object b)
+        {
+            Console.Error.WriteLine("{0} {1}", a, b);
+        }
+
+        public static void debug_print(object a, object b, object c)
+        {
+            Console.Error.WriteLine("{0} {1} {2}", a, b, c);
+        }
+
+        public static void debug_print(object a, object b, object c, object d)
+        {
+            Console.Error.WriteLine("{0} {1} {2} {3}", a, b, c, d);
+        }
+
         public static DynamicMethod CreateDynamicMethod(string name, Type res, Type[] args)
         {
             return new DynamicMethod(name, res, args, typeof(Utils).Module);
