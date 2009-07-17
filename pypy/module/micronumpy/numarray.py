@@ -7,30 +7,33 @@ from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 class NumArray(Wrappable):
     def __init__(self, space, dim, dtype):
         self.dim = dim
+        self.space = space
         # ignore dtype for now
         assert len(dim) == 1
         self.storage = [0] * dim[0]
 
-    def descr_getitem(self, space, index):
+    def descr_getitem(self, index):
+        space = self.space
         try:
             return space.wrap(self.storage[index])
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
-    descr_getitem.unwrap_spec = ['self', ObjSpace, int]
+    descr_getitem.unwrap_spec = ['self', int]
 
-    def descr_setitem(self, space, index, value):
+    def descr_setitem(self, index, value):
+        space = self.space
         try:
             self.storage[index] = value
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
         return space.w_None
-    descr_setitem.unwrap_spec = ['self', ObjSpace, int, int]
+    descr_setitem.unwrap_spec = ['self', int, int]
 
-    def descr_len(self, space):
-        return space.wrap(len(self.storage))
-    descr_len.unwrap_spec = ['self', ObjSpace]
+    def descr_len(self):
+        return self.space.wrap(len(self.storage))
+    descr_len.unwrap_spec = ['self']
 
 NumArray.typedef = TypeDef(
     'NumArray',
