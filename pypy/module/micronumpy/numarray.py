@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.rlib.debug import make_sure_not_resized
 
 class NumArray(Wrappable):
     def __init__(self, space, dim, dtype):
@@ -11,6 +12,7 @@ class NumArray(Wrappable):
         # ignore dtype for now
         assert len(dim) == 1
         self.storage = [0] * dim[0]
+        make_sure_not_resized(self.storage)
 
     def descr_getitem(self, index):
         space = self.space
