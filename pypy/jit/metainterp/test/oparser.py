@@ -4,12 +4,13 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
-     ConstAddr, ConstObj, ConstPtr, Box
+     ConstAddr, ConstObj, ConstPtr, Box, BoxObj
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
 _cache = {}
+_default_namespace = {'lltype': {}, 'ootype': {}}
 
 class ParseError(Exception):
     pass
@@ -58,15 +59,20 @@ class OpParser(object):
 
     def box_for_var(self, elem):
         try:
-            return _cache[elem]
+            return _cache[self.type_system, elem]
         except KeyError:
             pass
         if elem.startswith('i'):
             # integer
             box = BoxInt()
+            _box_counter_more_than(elem[1:])
         elif elem.startswith('p'):
             # pointer
-            box = BoxPtr()
+            if getattr(self.cpu, 'is_oo', False):
+                box = BoxObj()
+            else:
+                box = BoxPtr()
+            _box_counter_more_than(elem[1:])
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):
@@ -74,7 +80,7 @@ class OpParser(object):
                     break
             else:
                 raise ParseError("Unknown variable type: %s" % elem)
-        _cache[elem] = box
+        _cache[self.type_system, elem] = box
         box._str = elem
         return box
 
@@ -101,6 +107,17 @@ class OpParser(object):
                     return ConstObj(ootype.cast_to_object(self.consts[name]))
             elif arg == 'None':
                 return None
+            elif arg == 'NULL':
+                if self.type_system == 'lltype':
+                    return ConstPtr(ConstPtr.value)
+                else:
+                    return ConstObj(ConstObj.value)
+            elif arg.startswith('ConstPtr('):
+                name = arg[len('ConstPtr('):-1]
+                if self.type_system == 'lltype':
+                    return ConstPtr(self.boxkinds[name])
+                else:
+                    return ConstObj(self.boxkinds[name])
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -134,6 +151,8 @@ class OpParser(object):
                 args.append(self.getvar(arg))
             except KeyError:
                 raise ParseError("Unknown var: %s" % arg)
+        if hasattr(descr, '_oparser_uses_descr'):
+            descr._oparser_uses_descr(self, args)
         return opnum, args, descr
 
     def parse_result_op(self, line):
@@ -205,6 +224,12 @@ class OpParser(object):
         inpargs = self.parse_header_line(line[1:-1])
         return base_indent, inpargs
 
-def parse(descr, cpu=None, namespace={}, type_system='lltype',
+def parse(descr, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None):
+    if namespace is None:
+        namespace = _default_namespace[type_system]
     return OpParser(descr, cpu, namespace, type_system, boxkinds).parse()
+
+def _box_counter_more_than(s):
+    if s.isdigit():
+        Box._counter = max(Box._counter, int(s)+1)

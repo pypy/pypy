@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import runicode
 from pypy.jit.metainterp.history import AbstractDescr, INT
 from pypy.jit.metainterp.history import BoxInt, BoxPtr
+from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -81,6 +82,9 @@ class LLVMCPU(object):
                                              sandboxsafe=True,
                                              _nowrapper=True)
         assert rffi.sizeof(rffi.SIZE_T) == self.size_of_int
+
+    def set_class_sizes(self, class_sizes):
+        self.class_sizes = class_sizes
 
     def setup_once(self):
         if not we_are_translated():
@@ -532,8 +536,9 @@ class LLVMCPU(object):
         res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, sizedescr.size))
         return BoxPtr(res)
 
-    def do_new_with_vtable(self, args, sizedescr):
-        assert isinstance(sizedescr, SizeDescr)
+    def do_new_with_vtable(self, args, descr=None):
+        assert descr is None
+        sizedescr = self.class_sizes[args[0].getint()]
         res = self.malloc_fn_ptr(rffi.cast(rffi.SIZE_T, sizedescr.size))
         self._do_setfield(res, args[0], self.vtable_descr)
         return BoxPtr(res)
@@ -692,6 +697,8 @@ class FieldDescr(AbstractDescr):
     def __init__(self, offset, size_index):
         self.offset = offset
         self.size_index = size_index    # index in cpu.types_by_index
+    def is_pointer_field(self):
+        return self.size_index == LLVMCPU.SIZE_GCPTR
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, itemsize, itemsize_index):

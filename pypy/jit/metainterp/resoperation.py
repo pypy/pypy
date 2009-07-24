@@ -34,9 +34,7 @@ class ResOperation(object):
         self.descr = descr
 
     def clone(self):
-        res = ResOperation(self.opnum, self.args, self.result, self.descr)
-        res.jump_target = self.jump_target
-        return res
+        return ResOperation(self.opnum, self.args, self.result, self.descr)
 
     def __repr__(self):
         return self.repr()
@@ -81,6 +79,10 @@ class ResOperation(object):
     def has_no_side_effect(self):
         return rop._NOSIDEEFFECT_FIRST <= self.opnum <= rop._NOSIDEEFFECT_LAST
 
+    def has_no_side_effect_ptr(self):
+        return (rop._NOSIDEEFFECT_PTR_FIRST <= self.opnum <=
+                rop._NOSIDEEFFECT_PTR_LAST)
+
     def can_raise(self):
         return rop._CANRAISE_FIRST <= self.opnum <= rop._CANRAISE_LAST
 
@@ -113,10 +115,11 @@ class rop(object):
     _GUARD_FOLDABLE_LAST   = 11
     GUARD_NO_EXCEPTION     = 13
     GUARD_EXCEPTION        = 14
-    _GUARD_LAST = 19 # ----- end of guard operations -----
+    _GUARD_LAST = 14 # ----- end of guard operations -----
 
-    _NOSIDEEFFECT_FIRST = 20 # ----- start of no_side_effect operations -----
-    _ALWAYS_PURE_FIRST = 20 # ----- start of always_pure operations -----
+    _NOSIDEEFFECT_FIRST = 19 # ----- start of no_side_effect operations -----
+    _ALWAYS_PURE_FIRST = 19 # ----- start of always_pure operations -----
+    OOSEND_PURE            = 19    # ootype operation
     CALL_PURE              = 20
     #
     CAST_INT_TO_PTR        = 21
@@ -151,6 +154,7 @@ class rop(object):
     INT_INVERT             = 62
     BOOL_NOT               = 63
     #
+    _NOSIDEEFFECT_PTR_FIRST = 70 # -- start of no_side_effect_ptr operations --
     OONONNULL              = 70
     OOISNULL               = 71
     OOIS                   = 72
@@ -169,18 +173,18 @@ class rop(object):
     OOIDENTITYHASH         = 85
     INSTANCEOF             = 86
     SUBCLASSOF             = 87
-    OOSEND_PURE            = 88
     #
-    _ALWAYS_PURE_LAST = 88  # ----- end of always_pure operations -----
+    _ALWAYS_PURE_LAST = 87  # ----- end of always_pure operations -----
 
     GETARRAYITEM_GC        = 120
     GETFIELD_GC            = 121
     GETFIELD_RAW           = 122
+    NEW                    = 123
+    NEW_WITH_VTABLE        = 124
+    NEW_ARRAY              = 125
+    _NOSIDEEFFECT_PTR_LAST = 129 # -- end of no_side_effect_ptr operations --
     _NOSIDEEFFECT_LAST = 129 # ----- end of no_side_effect operations -----
 
-    NEW                    = 130
-    NEW_WITH_VTABLE        = 131
-    NEW_ARRAY              = 132
     SETARRAYITEM_GC        = 133
     SETFIELD_GC            = 134
     SETFIELD_RAW           = 135

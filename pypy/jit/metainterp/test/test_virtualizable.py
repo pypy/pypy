@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.lltypesystem.rvirtualizable2 import VirtualizableAccessor
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp import history, heaptracker
-from pypy.jit.metainterp.test.test_optimize import NODE
+from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
 promote_virtualizable = lloperation.llop.promote_virtualizable
 debug_print = lloperation.llop.debug_print
@@ -24,7 +24,7 @@ class ExplicitVirtualizableTests:
         ('vable_base', llmemory.Address),
         ('vable_rti', VABLERTIPTR),
         ('inst_x', lltype.Signed),
-        ('inst_node', lltype.Ptr(NODE)),
+        ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
         hints = {'virtualizable2_accessor': VirtualizableAccessor()})
     XY._hints['virtualizable2_accessor'].initialize(
         XY, ['inst_x', 'inst_node'])

@@ -1,5 +1,8 @@
 class AbstractCPU(object):
 
+    def set_class_sizes(self, class_sizes):
+        self.class_sizes = class_sizes
+
     def setup_once(self):
         """Called once by the front-end when the program starts."""
         pass

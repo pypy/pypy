@@ -1,5 +1,5 @@
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.objspace.flow.model import Variable, Constant, Link, c_last_exception
@@ -94,6 +94,8 @@ class CodeWriter(object):
         self.ts = ts
         self.counter = 0
         self.raise_analyzer = RaiseAnalyzer(self.rtyper.annotator.translator)
+        self.class_sizes = []
+        self._class_sizes_seen = {}
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
@@ -104,10 +106,24 @@ class CodeWriter(object):
             graph_key, called_from = self.unfinished_graphs.pop()
             self.make_one_bytecode(graph_key, False, called_from)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
-        # xxx annotation hack: make sure there is at least one ConstAddr around
-        if self.rtyper.type_system.name == 'lltype':
-            jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
+        self.annotation_hacks(jitcode)
         return jitcode
+
+    def annotation_hacks(self, jitcode):
+        # xxx annotation hack: make sure there is at least one ConstAddr around
+        #if self.rtyper.type_system.name == 'lltypesystem':
+        #    jitcode.constants.append(history.ConstAddr(llmemory.NULL,
+        #                                               self.cpu))
+        # xxx annotation hack: make sure class_sizes is not empty
+        if not self.class_sizes:
+            if self.rtyper.type_system.name == 'lltypesystem':
+                STRUCT = lltype.GcStruct('empty')
+                vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+                self.register_known_gctype(vtable, STRUCT)
+            else:
+                TYPE = ootype.Instance('empty', ootype.ROOT)
+                cls = ootype.runtimeClass(TYPE)
+                self.register_known_ooclass(cls, TYPE)
 
     def make_one_bytecode(self, graph_key, portal, called_from=None):
         maker = BytecodeMaker(self, graph_key, portal)
@@ -134,7 +150,7 @@ class CodeWriter(object):
         if self.portal_graph is None or graph is self.portal_graph:
             return ()
         fnptr = self.rtyper.getcallable(graph)
-        if self.metainterp_sd.cpu.is_oo:
+        if self.cpu.is_oo:
             if oosend_methdescr:
                 return (None, oosend_methdescr)
             else:
@@ -208,6 +224,21 @@ class CodeWriter(object):
         # ok
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
         return calldescr, non_void_args
+
+    def register_known_gctype(self, vtable, STRUCT):
+        # lltype only
+        key = vtable._as_obj()
+        if key not in self._class_sizes_seen:
+            self._class_sizes_seen[key] = True
+            sizedescr = self.cpu.sizeof(STRUCT)
+            self.class_sizes.append((vtable, sizedescr))
+
+    def register_known_ooclass(self, cls, CLASS):
+        # ootype only
+        if cls not in self._class_sizes_seen:
+            self._class_sizes_seen[cls] = True
+            typedescr = self.cpu.typedescrof(CLASS)
+            self.class_sizes.append((cls, typedescr))
 
 
     if 0:        # disabled
@@ -742,8 +773,8 @@ class BytecodeMaker(object):
             # store the vtable as an address -- that's fine, because the
             # GC doesn't need to follow them
             self.emit('new_with_vtable',
-                      self.get_position(self.cpu.sizeof(STRUCT)),
                       self.const_position(vtable))
+            self.codewriter.register_known_gctype(vtable, STRUCT)
         else:
             self.emit('new', self.get_position(self.cpu.sizeof(STRUCT)))
         self.register_var(op.result)
@@ -767,8 +798,8 @@ class BytecodeMaker(object):
         TYPE = op.args[0].value
         cls = ootype.runtimeClass(TYPE)
         self.emit('new_with_vtable',
-                  self.get_position(self.cpu.typedescrof(TYPE)),
                   self.const_position(cls))
+        self.codewriter.register_known_ooclass(cls, TYPE)
         self.register_var(op.result)
 
     def serialize_op_oonewarray(self, op):

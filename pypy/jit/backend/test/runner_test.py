@@ -274,6 +274,7 @@ class BaseBackendTest(Runner):
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
+        assert not fielddescr.is_pointer_field()
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
                                      'void', descr=fielddescr)
         assert res is None
@@ -296,6 +297,7 @@ class BaseBackendTest(Runner):
         #
         u_box, U_box = self.alloc_instance(self.U)
         fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
+        assert fielddescr2.is_pointer_field()
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
                                      'void', descr=fielddescr2)
         assert res is None
@@ -618,11 +620,9 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_new_with_vtable(self):
         cpu = self.cpu
         t_box, T_box = self.alloc_instance(self.T)
-        sizedescr = cpu.sizeof(self.T)
-        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr',
-                                    descr=sizedescr)
-        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr',
-                                    descr=sizedescr)
+        cpu.set_class_sizes({T_box.value: cpu.sizeof(self.T)})
+        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr')
+        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr')
         assert r1.value != r2.value
         descr1 = cpu.fielddescrof(self.S, 'chr1')
         descr2 = cpu.fielddescrof(self.S, 'chr2')
@@ -763,9 +763,9 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         descrsize2 = cpu.sizeof(rclass.OBJECT)
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        x = cpu.do_new_with_vtable(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable2)))],
-            descrsize2)
+        vtable2_int = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable2))
+        cpu.set_class_sizes({vtable2_int: descrsize2})
+        x = cpu.do_new_with_vtable([ConstInt(vtable2_int)])
         assert isinstance(x, BoxPtr)
         # well...
         #assert x.getptr(rclass.OBJECTPTR).typeptr == vtable2

@@ -75,6 +75,7 @@ class JitMixin:
             graph_key, called_from = cw.unfinished_graphs.pop()
             cw.make_one_bytecode(graph_key, False, called_from)
         metainterp.staticdata.portal_code = maingraph
+        metainterp.staticdata._class_sizes = cw.class_sizes
         metainterp.staticdata.state = FakeWarmRunnerDesc()
         metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
         metainterp.staticdata.DoneWithThisFramePtr = DoneWithThisFrame

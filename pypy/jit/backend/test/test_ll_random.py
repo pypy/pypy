@@ -18,6 +18,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         self.runicodes = []
         self.structure_types = []
         self.structure_types_and_vtables = []
+        self.class_sizes_cache = []
 
     def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct):
         while True:
@@ -97,6 +98,13 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             vtable.name[i] = name[i]
         vtable.name[len(name)] = '\x00'
         self.structure_types_and_vtables.append((S, vtable))
+        #
+        vtable_adr = llmemory.cast_ptr_to_adr(vtable)
+        vtable_int = self.cpu.cast_adr_to_int(vtable_adr)
+        descr = self.cpu.sizeof(S)
+        self.class_sizes_cache.append((vtable_int, descr))
+        self.cpu.set_class_sizes(dict(self.class_sizes_cache))
+        #
         return S, vtable
 
     def get_random_structure(self, r, has_vtable=False):
@@ -231,10 +239,12 @@ class NewOperation(test_random.AbstractOperation):
         if self.opnum == rop.NEW_WITH_VTABLE:
             S, vtable = builder.get_random_structure_type_and_vtable(r)
             args = [ConstAddr(llmemory.cast_ptr_to_adr(vtable), builder.cpu)]
+            descr = None
         else:
             S = builder.get_random_structure_type(r)
             args = []
-        v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
+            descr = self.size_descr(builder, S)
+        v_ptr = builder.do(self.opnum, args, descr)
         builder.ptrvars.append((v_ptr, S))
 
 class ArrayOperation(test_random.AbstractOperation):

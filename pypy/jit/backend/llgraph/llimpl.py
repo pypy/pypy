@@ -624,8 +624,10 @@ class Frame(object):
     def op_new(self, size):
         return do_new(size.ofs)
 
-    def op_new_with_vtable(self, size, vtable):
-        result = do_new(size.ofs)
+    def op_new_with_vtable(self, descr, vtable):
+        assert descr is None
+        size = get_class_size(self.memocast, vtable)
+        result = do_new(size)
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, result)
         value.typeptr = cast_from_int(rclass.CLASSTYPE, vtable, self.memocast)
         return result
@@ -685,8 +687,9 @@ class OOFrame(Frame):
 
     OPHANDLERS = [None] * (rop._LAST+1)
     
-    def op_new_with_vtable(self, typedescr, vtable):
-        from pypy.jit.backend.llgraph import runner
+    def op_new_with_vtable(self, descr, vtable):
+        assert descr is None
+        typedescr = get_class_size(self.memocast, vtable)
         return ootype.cast_to_object(ootype.new(typedescr.TYPE))
 
     def op_new_array(self, typedescr, count):
@@ -821,6 +824,8 @@ def frame_clear(frame, loop):
     frame.loop = loop
     frame.env = {}
     for i in range(len(loop.inputargs)):
+        expected_type = loop.inputargs[i].concretetype
+        assert lltype.typeOf(_future_values[i]) == expected_type
         frame.env[loop.inputargs[i]] = _future_values[i]
     del _future_values[:]
 
@@ -918,6 +923,7 @@ class MemoCast(object):
     def __init__(self):
         self.addresses = [llmemory.NULL]
         self.rev_cache = {}
+        self.vtable_to_size = {}
 
 def new_memo_cast():
     memocast = MemoCast()
@@ -939,6 +945,14 @@ def cast_int_to_adr(memocast, int):
     memocast = _from_opaque(memocast)
     assert 0 <= int < len(memocast.addresses)
     return memocast.addresses[int]
+
+def get_class_size(memocast, vtable):
+    memocast = _from_opaque(memocast)
+    return memocast.vtable_to_size[vtable]
+
+def set_class_size(memocast, vtable, size):
+    memocast = _from_opaque(memocast)
+    memocast.vtable_to_size[vtable] = size
 
 class GuardFailed(Exception):
     pass
@@ -1236,6 +1250,7 @@ setannotation(set_zero_division_error, annmodel.s_None)
 setannotation(new_memo_cast, s_MemoCast)
 setannotation(cast_adr_to_int, annmodel.SomeInteger())
 setannotation(cast_int_to_adr, annmodel.SomeAddress())
+setannotation(set_class_size, annmodel.s_None)
 
 setannotation(do_arraylen_gc, annmodel.SomeInteger())
 setannotation(do_strlen, annmodel.SomeInteger())

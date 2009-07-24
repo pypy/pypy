@@ -189,9 +189,9 @@ class LLGraphTests:
         #
         descrsize2 = cpu.sizeof(rclass.OBJECT)
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        x = cpu.do_new_with_vtable(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable2)))],
-            descrsize2)
+        vtable2_int = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable2))
+        cpu.set_class_sizes({vtable2_int: descrsize2})
+        x = cpu.do_new_with_vtable([ConstInt(vtable2_int)])
         assert isinstance(x, BoxPtr)
         assert x.getptr(rclass.OBJECTPTR).typeptr == vtable2
         #

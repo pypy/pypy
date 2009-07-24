@@ -126,7 +126,7 @@ class VirtualTests:
         res = self.meta_interp(f, [10], policy=StopAtXPolicy(externfn))
         assert res == f(10)
         self.check_loop_count(2)
-        self.check_loops(**{self._new_op: 1})
+        self.check_loops(**{self._new_op: 2})     # XXX was 1
         self.check_loops(int_mul=0, call=1)
 
     def test_two_virtuals(self):
@@ -327,24 +327,3 @@ class TestLLtype_Object(VirtualTests, LLJitMixin):
         p = lltype.malloc(NODE2)
         p.parent.typeptr = vtable2
         return p
-
-# ____________________________________________________________
-
-
-class Optimize3Mixin(object):
-
-    def meta_interp(self, *args, **kwds):
-        from pypy.jit.metainterp import optimize3
-        kwds['optimizer'] = optimize3
-        return super(Optimize3Mixin, self).meta_interp(*args, **kwds)
-
-class TestLLtype_Instance3(Optimize3Mixin, TestLLtype_Instance):
-
-    def skip(self):
-        py.test.skip('in progress')
-
-    test_two_loops_with_virtual = skip
-    test_two_loops_with_escaping_virtual = skip
-    test_immutable_constant_getfield = skip
-    test_virtual_on_virtual = skip
-    test_bridge_from_interpreter = skip

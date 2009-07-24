@@ -93,14 +93,18 @@ class ToyLanguageTests:
         cls.main = main
 
     def test_tl_base(self):
-        res = self.meta_interp(self.main.im_func, [0, 6], listops=True)
+        # 'backendopt=True' is used on lltype to kill unneeded access
+        # to the class, which generates spurious 'guard_class'
+        res = self.meta_interp(self.main.im_func, [0, 6], listops=True,
+                               backendopt=True)
         assert res == 5040
         self.check_loops({'int_mul':1, 'jump':1,
                           'int_sub':1, 'int_is_true':1, 'int_le':1,
                           'guard_false':1, 'guard_value':1})
 
     def test_tl_2(self):
-        res = self.meta_interp(self.main.im_func, [1, 10], listops=True)
+        res = self.meta_interp(self.main.im_func, [1, 10], listops=True,
+                               backendopt=True)
         assert res == self.main.im_func(1, 10)
         self.check_loops({'int_sub':1, 'int_le':1,
                          'int_is_true':1, 'guard_false':1, 'jump':1,
@@ -142,7 +146,7 @@ class ToyLanguageTests:
             return interp(codes[num], inputarg=arg)
         
         res = self.meta_interp(main, [0, 20], optimizer=simple_optimize,
-                               listops=listops)
+                               listops=listops, backendopt=True)
         assert res == 0
 
     def test_tl_call_full_of_residuals(self):

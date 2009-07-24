@@ -43,6 +43,9 @@ class Descr(history.AbstractDescr):
     def sort_key(self):
         return self.ofs
 
+    def is_pointer_field(self):
+        return self.typeinfo == 'p'
+
     def equals(self, other):
         if not isinstance(other, Descr):
             return False
@@ -87,6 +90,13 @@ class BaseCPU(model.AbstractCPU):
     def _freeze_(self):
         assert self.translate_support_code
         return False
+
+    def set_class_sizes(self, class_sizes):
+        self.class_sizes = class_sizes
+        for vtable, size in class_sizes.items():
+            if not self.is_oo:
+                size = size.ofs
+            llimpl.set_class_size(self.memo_cast, vtable, size)
 
     def compile_operations(self, loop, bridge=None):
         """In a real assembler backend, this should assemble the given
@@ -265,19 +275,23 @@ class LLtypeCPU(BaseCPU):
         return history.BoxInt(llimpl.do_arraylen_gc(arraydescr, array))
 
     def do_strlen(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         return history.BoxInt(llimpl.do_strlen(0, string))
 
     def do_strgetitem(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_strgetitem(0, string, index))
 
     def do_unicodelen(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         return history.BoxInt(llimpl.do_unicodelen(0, string))
 
     def do_unicodegetitem(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_unicodegetitem(0, string, index))
@@ -316,8 +330,10 @@ class LLtypeCPU(BaseCPU):
     def do_new(self, args, size):
         return history.BoxPtr(llimpl.do_new(size.ofs))
 
-    def do_new_with_vtable(self, args, size):
+    def do_new_with_vtable(self, args, descr=None):
+        assert descr is None
         vtable = args[0].getint()
+        size = self.class_sizes[vtable]
         result = llimpl.do_new(size.ofs)
         llimpl.do_setfield_gc_int(result, self.fielddescrof_vtable.ofs,
                                   vtable, self.memo_cast)
@@ -362,20 +378,24 @@ class LLtypeCPU(BaseCPU):
                                        self.memo_cast)
 
     def do_newstr(self, args, descr=None):
+        assert descr is None
         length = args[0].getint()
         return history.BoxPtr(llimpl.do_newstr(0, length))
 
     def do_newunicode(self, args, descr=None):
+        assert descr is None
         length = args[0].getint()
         return history.BoxPtr(llimpl.do_newunicode(0, length))
 
     def do_strsetitem(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_strsetitem(0, string, index, newvalue)
 
     def do_unicodesetitem(self, args, descr=None):
+        assert descr is None
         string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
@@ -398,11 +418,13 @@ class LLtypeCPU(BaseCPU):
             llimpl.do_call_void(func, self.memo_cast)
 
     def do_cast_int_to_ptr(self, args, descr=None):
+        assert descr is None
         return history.BoxPtr(llimpl.cast_from_int(llmemory.GCREF,
                                                    args[0].getint(),
                                                    self.memo_cast))
 
     def do_cast_ptr_to_int(self, args, descr=None):
+        assert descr is None
         return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
                                                         self.memo_cast))
 
@@ -447,9 +469,11 @@ class OOtypeCPU(BaseCPU):
         else:
             return ootype.NULL
 
-    def do_new_with_vtable(self, args, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        assert len(args) == 1 # but we don't need it, so ignore
+    def do_new_with_vtable(self, args, descr=None):
+        assert descr is None
+        assert len(args) == 1
+        cls = args[0].getobj()
+        typedescr = self.class_sizes[cls]
         return typedescr.create()
 
     def do_new_array(self, args, typedescr):
@@ -500,7 +524,7 @@ class OOtypeCPU(BaseCPU):
         # XXX: return None if RESULT is Void
         return x
 
-    def do_oosend(self, args, descr=None):
+    def do_oosend(self, args, descr):
         assert isinstance(descr, MethDescr)
         selfbox = args[0]
         argboxes = args[1:]
@@ -671,9 +695,13 @@ class FieldDescr(OODescr):
             
         self.getfield = getfield
         self.setfield = setfield
+        self._is_pointer_field = (history.getkind(T) == 'obj')
 
     def sort_key(self):
         return self._keys.getkey((self.TYPE, self.fieldname))
+
+    def is_pointer_field(self):
+        return self._is_pointer_field
 
     def equals(self, other):
         return self.TYPE == other.TYPE and \

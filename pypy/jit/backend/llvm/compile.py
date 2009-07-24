@@ -667,7 +667,9 @@ class LLVMJITCompiler(object):
         self.vars[op.result] = res
 
     def generate_NEW_WITH_VTABLE(self, op):
-        self.generate_NEW(op)
+        sizedescr = self.cpu.class_sizes[op.args[0].getint()]
+        res = self._generate_new(self.cpu._make_const_int(sizedescr.size))
+        self.vars[op.result] = res
         loc = self._generate_field_gep(op.result, self.cpu.vtable_descr)
         value_ref = self.getintarg(op.args[0])
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")

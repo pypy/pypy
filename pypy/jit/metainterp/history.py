@@ -89,6 +89,9 @@ class AbstractValue(object):
     def get_(self):
         raise NotImplementedError
 
+    def nonnull(self):
+        raise NotImplementedError
+
     def clonebox(self):
         raise NotImplementedError
 
@@ -216,6 +219,9 @@ class ConstInt(Const):
     def get_(self):
         return self.value
 
+    def nonnull(self):
+        return self.value != 0
+
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.value)
 
@@ -224,8 +230,6 @@ class ConstInt(Const):
 
     def _getrepr_(self):
         return self.value
-
-    sort_key = getint
 
     def repr_rpython(self):
         return repr_rpython(self, 'ci')
@@ -260,6 +264,9 @@ class ConstAddr(Const):       # only for constants built before translation
 
     def get_(self):
         return llmemory.cast_adr_to_int(self.value)
+
+    def nonnull(self):
+        return self.value != llmemory.NULL
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.getint())
@@ -296,6 +303,9 @@ class ConstPtr(Const):
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
 
+    def nonnull(self):
+        return bool(self.value)
+
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ptr(j, self.value)
 
@@ -329,6 +339,9 @@ class ConstObj(Const):
             return ootype.ooidentityhash(self.value) # XXX: check me
         else:
             return 0
+
+    def nonnull(self):
+        return bool(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_obj(j, self.value)
@@ -417,6 +430,9 @@ class BoxInt(Box):
     def get_(self):
         return self.value
 
+    def nonnull(self):
+        return self.value != 0
+
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.value)
 
@@ -450,6 +466,9 @@ class BoxPtr(Box):
 
     def get_(self):
         return lltype.cast_ptr_to_int(self.value)
+
+    def nonnull(self):
+        return bool(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ptr(j, self.value)
@@ -485,6 +504,9 @@ class BoxObj(Box):
             return ootype.ooidentityhash(self.value) # XXX: check me
         else:
             return 0
+
+    def nonnull(self):
+        return bool(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_obj(j, self.value)

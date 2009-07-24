@@ -86,35 +86,4 @@ def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
         vtable.name[i] = namez[i]
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
-def populate_type_cache(graphs, cpu):
-    if not cpu.translate_support_code:
-        cache = {}
-    else:
-        cache = []
-    for graph in graphs:
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if not cpu.is_oo and op.opname == 'malloc':
-                    STRUCT = op.args[0].value
-                    if isinstance(STRUCT, lltype.GcStruct):
-                        vtable = get_vtable_for_gcstruct(cpu, STRUCT)
-                        if vtable:
-                            if not cpu.translate_support_code:
-                                vt = cpu.cast_adr_to_int(
-                                    llmemory.cast_ptr_to_adr(vtable))
-                                cache[vt] = cpu.sizeof(STRUCT)
-                            else:
-                                vt = llmemory.cast_ptr_to_adr(vtable)
-                                cache.append((vt, cpu.sizeof(STRUCT)))
-                elif cpu.is_oo and op.opname == 'new':
-                    TYPE = op.args[0].value
-                    if isinstance(TYPE, ootype.OOType):
-                        cls = ootype.cast_to_object(ootype.runtimeClass(TYPE))
-                        typedescr = cpu.typedescrof(TYPE)
-                        if not cpu.translate_support_code:
-                            cache[cls] = typedescr
-                        else:
-                            cache.append((cls, typedescr))
-    return cache
-
 testing_gcstruct2vtable = {}

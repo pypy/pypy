@@ -242,15 +242,13 @@ del _loop
 
 
 class ResumeGuardDescr(AbstractDescr):
-    def __init__(self, resume_info, vable_nums, consts,
-                 history, history_guard_index):
-        self.resume_info = resume_info
-        self.vable_nums = vable_nums      # None if no virtualizable
-        self.counter = 0
+    counter = 0
+
+    def __init__(self, history, history_guard_index):
         self.history = history
         assert history_guard_index >= 0
         self.history_guard_index = history_guard_index
-        self.consts = consts
+        # this class also gets attributes stored by ResumeDataBuilder.finish()
 
     def handle_fail_op(self, metainterp_sd, fail_op):
         from pypy.jit.metainterp.pyjitpl import MetaInterp

@@ -4,7 +4,7 @@ from pypy.rlib.debug import ll_assert, debug_print
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.history import AbstractDescr, AbstractMethDescr
-from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
+from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj, getkind
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
@@ -209,7 +209,11 @@ class BaseCPU(model.AbstractCPU):
                 setattr(p, %(name)r, x)
         """ % dict).compile() in dict2
         sort_key = self._count_sort_key(T, name)
-        return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
+        if getkind(FIELDTYPE) in 'po':    # pointer or object
+            Class = PtrFieldDescr
+        else:
+            Class = NonPtrFieldDescr
+        return Class(dict2['getfield'], dict2['setfield'], sort_key)
 
     # ----------
 
@@ -424,8 +428,9 @@ class LLtypeCPU(BaseCPU):
         p = sizedescr.alloc()
         return BoxPtr(p)
 
-    def do_new_with_vtable(self, args, sizedescr):
-        assert isinstance(sizedescr, SizeDescr)
+    def do_new_with_vtable(self, args, descr=None):
+        assert descr is None
+        sizedescr = self.class_sizes[args[0].getint()]
         assert sizedescr.alloc is not None
         p = sizedescr.alloc()
         classadr = args[0].getaddr(self)
@@ -614,8 +619,9 @@ class OOtypeCPU(BaseCPU):
 
     # ----------------
     
-    def do_new_with_vtable(self, args, sizedescr):
-        assert isinstance(sizedescr, SizeDescr)
+    def do_new_with_vtable(self, args, descr):
+        assert descr is None
+        sizedescr = self.class_sizes[args[0].getobj()]
         assert sizedescr.alloc is not None
         obj = sizedescr.alloc()
         return BoxObj(obj)
@@ -657,6 +663,14 @@ class FieldDescr(AbstractDescr):
         self._sort_key = sort_key
     def sort_key(self):
         return self._sort_key
+
+class PtrFieldDescr(FieldDescr):
+    def is_pointer_field(self):
+        return True
+
+class NonPtrFieldDescr(FieldDescr):
+    def is_pointer_field(self):
+        return False
 
 class ArrayDescr(AbstractDescr):
     new = None

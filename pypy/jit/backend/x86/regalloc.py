@@ -919,7 +919,9 @@ class RegAlloc(object):
         return self._call(op, arglocs)
 
     def consider_new_with_vtable(self, op, ignored):
-        args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
+        classint = op.args[0].getint()
+        descrsize = self.assembler.cpu.class_sizes[classint]
+        args = self.assembler.cpu.gc_ll_descr.args_for_new(descrsize)
         arglocs = [imm(x) for x in args]
         arglocs.append(self.loc(op.args[0]))
         return self._call(op, arglocs)
