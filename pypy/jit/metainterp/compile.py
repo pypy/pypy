@@ -95,6 +95,8 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
     loop.inputargs = history.inputargs
+    for box in loop.inputargs:
+        assert isinstance(box, Box)
     if start > 0:
         loop.operations = history.operations[start:]
     else:
@@ -114,6 +116,8 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     return loop
 
 def send_loop_to_backend(metainterp, loop, guard_op, type):
+    for box in loop.inputargs:
+        assert isinstance(box, Box)
     metainterp.staticdata.profiler.start_backend()
     metainterp.cpu.compile_operations(loop, guard_op)
     metainterp.staticdata.profiler.end_backend()
