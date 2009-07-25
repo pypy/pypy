@@ -191,6 +191,7 @@ def test_compile_hybrid_3():
 
 def test_compile_hybrid_4():
     # Fourth version of the test, with __del__.
+    from pypy.rlib.debug import debug_print
     class Counter:
         cnt = 0
     counter = Counter()
@@ -199,6 +200,7 @@ def test_compile_hybrid_4():
             counter.cnt -= 1
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     def main(n, x):
+        debug_print('counter.cnt =', counter.cnt)
         assert counter.cnt < 5
         counter.cnt = n // x.foo
         while n > 0:
