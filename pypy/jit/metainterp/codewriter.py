@@ -770,6 +770,11 @@ class BytecodeMaker(object):
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
         if vtable:
+            # do we have a __del__?
+            rtti = lltype.getRuntimeTypeInfo(STRUCT)
+            if hasattr(rtti._obj, 'destructor_funcptr'):
+                self.handle_builtin_call(op)
+                return
             # store the vtable as an address -- that's fine, because the
             # GC doesn't need to follow them
             self.emit('new_with_vtable',
@@ -797,6 +802,7 @@ class BytecodeMaker(object):
     def serialize_op_new(self, op):
         TYPE = op.args[0].value
         cls = ootype.runtimeClass(TYPE)
+        # XXX detect finalizers
         self.emit('new_with_vtable',
                   self.const_position(cls))
         self.codewriter.register_known_ooclass(cls, TYPE)

@@ -183,6 +183,12 @@ class LLtypeHelpers:
     _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
     _ll_5_unicode_copy_contents = ll_rstr.copy_unicode_contents
 
+    # ---------- malloc with del ----------
+
+    def _ll_0_alloc_with_del(RESULT):
+        return lltype.malloc(RESULT)
+    _ll_0_alloc_with_del.need_result_type = True
+
 
 class OOtypeHelpers:
 
@@ -334,6 +340,10 @@ def get_oohash_oopspec(op):
     else:
         raise Exception("oohash() of type %r" % (T,))
 
+def get_malloc_oopspec(op):
+    assert op.args[1].value == {'flavor': 'gc'}
+    return 'alloc_with_del', []
+
 
 RENAMED_ADT_NAME = {
     'list': {
@@ -356,14 +366,16 @@ def decode_builtin_call(op):
     if op.opname == 'oosend':
         SELFTYPE, name, opargs = decompose_oosend(op)
         return get_send_oopspec(SELFTYPE, name), opargs
-    elif op.opname in ('oostring', 'oounicode'):
-        return get_oostring_oopspec(op)
-    elif op.opname == 'oohash':
-        return get_oohash_oopspec(op)
     elif op.opname == 'direct_call':
         fnobj = get_funcobj(op.args[0].value)
         opargs = op.args[1:]
         return get_call_oopspec_opargs(fnobj, opargs)
+    elif op.opname in ('oostring', 'oounicode'):
+        return get_oostring_oopspec(op)
+    elif op.opname == 'oohash':
+        return get_oohash_oopspec(op)
+    elif op.opname == 'malloc':         # for malloc with a __del__
+        return get_malloc_oopspec(op)
     else:
         raise ValueError(op.opname)
 
