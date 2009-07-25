@@ -771,10 +771,14 @@ class BytecodeMaker(object):
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
         if vtable:
             # do we have a __del__?
-            rtti = lltype.getRuntimeTypeInfo(STRUCT)
-            if hasattr(rtti._obj, 'destructor_funcptr'):
-                self.handle_builtin_call(op)
-                return
+            try:
+                rtti = lltype.getRuntimeTypeInfo(STRUCT)
+            except ValueError:
+                pass
+            else:
+                if hasattr(rtti._obj, 'destructor_funcptr'):
+                    self.handle_builtin_call(op)
+                    return
             # store the vtable as an address -- that's fine, because the
             # GC doesn't need to follow them
             self.emit('new_with_vtable',
