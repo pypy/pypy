@@ -156,7 +156,7 @@ def test_div_float():
 # ____________________________________________________________ 
 
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
-from pypy.jit.metainterp import optimize4
+from pypy.jit.metainterp import optimize
 
 class TestLLtype(LLJitMixin):
     def test_loop(self):
@@ -172,5 +172,5 @@ class TestLLtype(LLJitMixin):
             assert isinstance(w_result, tla.W_IntObject)
             return w_result.intvalue
         res = self.meta_interp(interp_w, [42], listops=True,
-                               optimizer=optimize4)
+                               optimizer=optimize)
         assert res == 0
