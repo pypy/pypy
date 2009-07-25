@@ -209,7 +209,7 @@ class BaseCPU(model.AbstractCPU):
                 setattr(p, %(name)r, x)
         """ % dict).compile() in dict2
         sort_key = self._count_sort_key(T, name)
-        if getkind(FIELDTYPE) in 'po':    # pointer or object
+        if getkind(FIELDTYPE) in ('ptr', 'obj'):
             Class = PtrFieldDescr
         else:
             Class = NonPtrFieldDescr
