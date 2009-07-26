@@ -258,6 +258,7 @@ class CPU386(object):
         return loop
 
     def execute_operations(self, loop, verbose=False):
+        assert isinstance(verbose, bool)
         func = self.get_bootstrap_code(loop)
         # debug info
         #if self.debug and not we_are_translated():
