@@ -477,8 +477,10 @@ class Method(object):
             self.il.Emit(OpCodes.Ret)
 
     def emit_op_new_with_vtable(self, op):
-        assert isinstance(op.args[0], ConstObj) # ignored, using the descr instead
-        descr = op.descr
+        clsbox = op.args[0]
+        assert isinstance(clsbox, ConstObj)
+        cls = clsbox.getobj()
+        descr = self.cpu.class_sizes[cls]
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_clitype()
         ctor_info = descr.get_constructor_info()

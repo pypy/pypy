@@ -144,9 +144,13 @@ class CliCPU(model.AbstractCPU):
 
     # ----------------------
 
-    def do_new_with_vtable(self, args, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        assert len(args) == 1 # but we don't need it, so ignore
+    def do_new_with_vtable(self, args, descr):
+        #assert isinstance(typedescr, TypeDescr)
+        #assert len(args) == 1 # but we don't need it, so ignore
+        assert descr is None
+        assert len(args) == 1
+        cls = args[0].getobj()
+        typedescr = self.class_sizes[cls]
         return typedescr.create()
 
     def do_new_array(self, args, typedescr):
