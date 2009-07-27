@@ -10,6 +10,7 @@ def optimize_loop(options, old_loops, loop, cpu):
             return old_loops[0]
         else:
             return None
+    #loop.dump()
     finder = PerfectSpecializationFinder()
     finder.find_nodes_loop(loop)
     for old_loop in old_loops:

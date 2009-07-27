@@ -595,6 +595,22 @@ class TreeLoop(Base):
         if operations[-1].opnum == rop.JUMP:
             assert isinstance(operations[-1].jump_target, TreeLoop)
 
+    def dump(self):
+        # RPython-friendly
+        print '%r: inputargs =' % self, self._dump_args(self.inputargs)
+        for op in self.operations:
+            print '\t', op.getopname(), self._dump_args(op.args), \
+                  self._dump_box(op.result)
+
+    def _dump_args(self, boxes):
+        return '[' + ', '.join([self._dump_box(box) for box in boxes]) + ']'
+
+    def _dump_box(self, box):
+        if box is None:
+            return 'None'
+        else:
+            return box.repr_rpython()
+
     def __repr__(self):
         return '<%s>' % (self.name,)
 
