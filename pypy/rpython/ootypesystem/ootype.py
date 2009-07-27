@@ -561,6 +561,7 @@ class List(BuiltinADTType):
     def ll_newlist(self, length):
         from pypy.rpython.ootypesystem import rlist
         return rlist.ll_newlist(self, length)
+    ll_newlist._annenforceargs_ = (None, int)
 
     # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
     # equal. We don't redefine __eq__/__hash__ since the implementations
@@ -690,6 +691,7 @@ class Array(BuiltinADTType):
     def ll_newlist(self, length):
         from pypy.rpython.ootypesystem import rlist
         return rlist.ll_newarray(self, length)
+    ll_newlist._annenforceargs_ = (None, int)
 
     def ll_convert_from_array(self, array):
         return array

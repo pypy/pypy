@@ -858,6 +858,7 @@ def ll_listslice_startonly(RESLIST, l1, start):
         i += 1
         j += 1
     return l
+ll_listslice_startonly._annenforceargs_ = (None, None, int)
 
 def ll_listslice_startstop(RESLIST, l1, start, stop):
     length = l1.ll_length()
