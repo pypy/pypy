@@ -9,3 +9,5 @@
 * long term: memory management of the compiled code (free old code)
 
 * 'resume_info' should be shared (see pyjitpl.py)
+
+* support threads again
