@@ -44,6 +44,9 @@ class InstanceValue(object):
     def force_box(self):
         return self.box
 
+    def prepare_force_box(self):
+        pass
+
     def get_key_box(self):
         return self.box
 
@@ -134,6 +137,18 @@ class VirtualValue(InstanceValue):
                 newoperations.append(op)
         return self.box
 
+    def prepare_force_box(self):
+        # This logic is not included in force_box() for safety reasons.
+        # It should only be used from teardown_virtual_node(); if we
+        # call force_box() from somewhere else and we get source_op=None,
+        # it is really a bug.
+        if self.box is None and self.source_op is None:
+            # rare case (shown by test_p123_simple) to force a Virtual
+            # from a specnode computed by optimizefindnode.
+            self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
+                                          [self.known_class],
+                                          self.optimizer.new_ptr_box())
+
     def get_key_box(self):
         if self.box is None:
             return self.keybox
@@ -155,6 +170,7 @@ class __extend__(SpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
         newinputargs.append(box)
     def teardown_virtual_node(self, optimizer, value, newexitargs):
+        value.prepare_force_box()
         newexitargs.append(value.force_box())
 
 class __extend__(VirtualInstanceSpecNode):
@@ -208,12 +224,15 @@ class Optimizer(object):
         self.make_equal_to(box, vvalue)
         return vvalue
 
+    def new_ptr_box(self):
+        if not self.cpu.is_oo:
+            return BoxPtr()
+        else:
+            return BoxObj()
+
     def new_box(self, fieldofs):
         if fieldofs.is_pointer_field():
-            if not self.cpu.is_oo:
-                return BoxPtr()
-            else:
-                return BoxObj()
+            return self.new_ptr_box()
         else:
             return BoxInt()
 

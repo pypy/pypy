@@ -12,16 +12,16 @@ UNIQUE_YES     = '\x01'
 UNIQUE_NO      = '\x02'
 
 class InstanceNode(object):
-    """For the first phase: InstanceNode is used to match the start and
+    """An instance of this class is used to match the start and
     the end of the loop, so it contains both 'origfields' that represents
     the field's status at the start and 'curfields' that represents it
-    at the current point (== the end when the first phase is complete).
+    at the current point (== the end when optimizefindnode is complete).
     """
     escaped = False     # if True, then all the rest of the info is pointless
     unique = UNIQUE_UNKNOWN   # for find_unique_nodes()
 
     # fields used to store the shape of the potential Virtual
-    knownclsbox = None
+    knownclsbox = None  # set only on freshly-allocated structures
     origfields = None   # optimization; equivalent to an empty dict
     curfields = None    # optimization; equivalent to an empty dict
     dependencies = None
@@ -46,7 +46,8 @@ class InstanceNode(object):
                     box.mark_escaped()
 
     def set_unique_nodes(self):
-        if (self.escaped or self.fromstart or self.knownclsbox is None
+        if (self.escaped or self.knownclsbox is None
+            # or self.fromstart, but this is implied by 'knownclsbox==None'
             or self.unique != UNIQUE_UNKNOWN):
             # this node is not suitable for being a virtual, or we
             # encounter it more than once when doing the recursion

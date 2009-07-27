@@ -433,8 +433,16 @@ class BaseTestOptimizeFindNode(BaseTest):
         # we might get incorrect results: when tracing, maybe i0 was not 0.
         self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
 
-    def test_find_nodes_p123(self):
-        py.test.skip("in-progress")
+    def test_find_nodes_nonvirtual_guard_class(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable))
+            fail(p1)
+        jump(p1)
+        """
+        self.find_nodes(ops, 'Not')
+
+    def test_find_nodes_p123_simple(self):
         ops = """
         [i1, p2, p3]
         i3 = getfield_gc(p3, descr=valuedescr)
@@ -443,9 +451,39 @@ class BaseTestOptimizeFindNode(BaseTest):
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.find_nodes(ops, 'Not, Virtual(node_vtable, valuedescr=Not), Not')
+
+    def test_find_nodes_p123_guard_class(self):
+        ops = """
+        [i1, p2, p3]
+        guard_class(p3, ConstClass(node_vtable))
+            fail(i1, p2, p3)
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i1, p1, p2)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.find_nodes(ops, 'Not, Virtual(node_vtable, valuedescr=Not), Not')
+
+    def test_find_nodes_p123_rec(self):
+        ops = """
+        [i1, p2, p0d]
+        p3 = getfield_gc(p0d, descr=nextdescr)
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        p0c = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p0c, p2, descr=nextdescr)
+        jump(i1, p1, p0c)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
         self.find_nodes(ops, '''Not,
                                 Virtual(node_vtable, valuedescr=Not),
-                                Virtual(node_vtable, valuedescr=Not)''')
+                                Virtual(node_vtable, nextdescr=Not)''')
 
     # ------------------------------
     # Bridge tests

@@ -27,7 +27,10 @@ def equaloplists(oplist1, oplist2, remap={}):
         assert len(op1.args) == len(op2.args)
         for x, y in zip(op1.args, op2.args):
             assert x == remap.get(y, y)
-        assert op1.result == remap.get(op2.result, op2.result)
+        if op2.result in remap:
+            assert op1.result == remap[op2.result]
+        else:
+            remap[op2.result] = op1.result
         assert op1.descr == op2.descr
         if op1.suboperations:
             assert equaloplists(op1.suboperations, op2.suboperations, remap)
@@ -332,6 +335,28 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, '', ops, p1=self.nodebox.value,
                            boxkinds={'myptr': self.nodebox.value})
+
+    def test_p123_simple(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i1, p1, p2)
+        """
+        expected = """
+        [i1, i2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p2b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2b, i2, descr=valuedescr)
+        jump(i1, i1, p2b)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.optimize_loop(ops,
+                           'Not, Virtual(node_vtable, valuedescr=Not), Not',
+                           expected)
 
     # ----------
 
