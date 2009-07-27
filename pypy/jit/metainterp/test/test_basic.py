@@ -731,6 +731,7 @@ class BasicTests:
         self.meta_interp(f, [40, 0])
 
     def test_const_inputargs(self):
+        from pypy.jit.metainterp import simple_optimize
         myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'x'])
         def f(n, x):
             m = 0x7FFFFFFF
@@ -742,7 +743,8 @@ class BasicTests:
                 m = m >> 1
             return x
 
-        res = self.meta_interp(f, [50, 1])
+        res = self.meta_interp(f, [50, 1],
+                               optimizer=simple_optimize)
         assert res == 42
 
 
