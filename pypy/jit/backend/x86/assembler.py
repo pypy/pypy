@@ -449,6 +449,9 @@ class Assembler386(object):
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETE(lower_byte(resloc))
 
+    def genop_same_as(self, op, arglocs, resloc):
+        self.mc.MOV(resloc, arglocs[0])
+
     def genop_int_mod(self, op, arglocs, resloc):
         self.mc.CDQ()
         self.mc.IDIV(ecx)

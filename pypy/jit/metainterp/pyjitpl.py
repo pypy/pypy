@@ -780,7 +780,7 @@ class MIFrame(object):
         self.generate_merge_point(pc, self.env)
         if self.metainterp.seen_can_enter_jit:
             self.metainterp.seen_can_enter_jit = False
-            self.metainterp.reached_can_enter_jit(self.env[:])
+            self.metainterp.reached_can_enter_jit(self.env)
 
     @arguments("jumptarget")
     def opimpl_setup_exception_block(self, exception_target):
@@ -1223,10 +1223,22 @@ class MetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
+    def forget_consts(self, boxes, startindex=0):
+        for i in range(startindex, len(boxes)):
+            box = boxes[i]
+            if isinstance(box, Const):
+                constbox = box
+                box = constbox.clonebox()
+                boxes[i] = box
+                self.history.record(rop.SAME_AS, [constbox], box)
+
     def reached_can_enter_jit(self, live_arg_boxes):
+        self.forget_consts(live_arg_boxes, self.staticdata.num_green_args)
+        live_arg_boxes = live_arg_boxes[:]
         if self.staticdata.virtualizable_info is not None:
             # we use ':-1' to remove the last item, which is the virtualizable
             # itself
+            self.forget_consts(self.virtualizable_boxes)
             live_arg_boxes += self.virtualizable_boxes[:-1]
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:

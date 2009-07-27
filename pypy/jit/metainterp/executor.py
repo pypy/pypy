@@ -99,6 +99,9 @@ def do_int_invert(cpu, args, descr=None):
 def do_bool_not(cpu, args, descr=None):
     return ConstInt(not args[0].getint())
 
+def do_same_as(cpu, args, descr=None):
+    return args[0]
+
 def do_oononnull(cpu, args, descr=None):
     tp = args[0].type
     if tp == INT:

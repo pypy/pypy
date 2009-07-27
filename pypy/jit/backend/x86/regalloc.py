@@ -1110,6 +1110,12 @@ class RegAlloc(object):
     consider_ooisnull = _consider_nullity
     consider_oononnull = _consider_nullity
 
+    def consider_same_as(self, op, ignored):
+        argloc = self.loc(op.args[0])
+        self.eventually_free_var(op.args[0])
+        resloc = self.force_allocate_reg(op.result, [])
+        self.Perform(op, [argloc], resloc)
+
     def consider_strlen(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         self.eventually_free_vars(op.args)

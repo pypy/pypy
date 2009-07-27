@@ -731,7 +731,6 @@ class BasicTests:
         self.meta_interp(f, [40, 0])
 
     def test_const_inputargs(self):
-        py.test.skip("in-progress")
         myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'x'])
         def f(n, x):
             m = 0x7FFFFFFF

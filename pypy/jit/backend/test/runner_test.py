@@ -506,6 +506,13 @@ class BaseBackendTest(Runner):
                                    'int')
         assert r.value == 31313
 
+    def test_same_as(self):
+        r = self.execute_operation(rop.SAME_AS, [ConstInt(5)], 'int')
+        assert r.value == 5
+        u_box = self.alloc_unicode(u"hello\u1234")
+        r = self.execute_operation(rop.SAME_AS, [u_box.constbox()], 'ptr')
+        assert r.value == u_box.value
+
 
 class LLtypeBackendTest(BaseBackendTest):
 

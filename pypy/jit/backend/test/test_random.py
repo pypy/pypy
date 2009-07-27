@@ -196,6 +196,10 @@ class BooleanUnaryOperation(UnaryOperation):
         v = builder.get_bool_var(r)
         self.put(builder, [v])
 
+class ConstUnaryOperation(UnaryOperation):
+    def produce_into(self, builder, r):
+        self.put(builder, [ConstInt(r.random_integer())])
+
 class BinaryOperation(AbstractOperation):
     def __init__(self, opnum, and_mask=-1, or_mask=0, boolres=False):
         AbstractOperation.__init__(self, opnum, boolres=boolres)
@@ -318,6 +322,7 @@ for _op in [rop.INT_NEG,
 
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
+OPERATIONS.append(ConstUnaryOperation(rop.SAME_AS, boolres=True))
 
 for _op in [rop.INT_ADD_OVF,
             rop.INT_SUB_OVF,

@@ -377,6 +377,9 @@ class LLtypeCPU(BaseCPU):
             llimpl.do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
                                        self.memo_cast)
 
+    def do_same_as(self, args, descr=None):
+        return args[0].clonebox()
+
     def do_newstr(self, args, descr=None):
         assert descr is None
         length = args[0].getint()

@@ -563,6 +563,12 @@ class LLVMJITCompiler(object):
             self.getptrarg(op.args[0]),
             self.cpu.const_null_charptr, "")
 
+    def generate_SAME_AS(self, op):
+        if op.args[0].type == INT:
+            self.vars[op.result] = self.getintarg(op.args[0])
+        else:
+            self.vars[op.result] = self.getptrarg(op.args[0])
+
     def _generate_len_gep(self, array_ref, ty, const_index_length):
         array = llvm_rffi.LLVMBuildBitCast(self.builder,
                                            array_ref, ty, "")

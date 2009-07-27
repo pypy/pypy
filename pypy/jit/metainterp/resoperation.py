@@ -154,6 +154,8 @@ class rop(object):
     INT_INVERT             = 62
     BOOL_NOT               = 63
     #
+    SAME_AS                = 64      # gets a Const, turns it into a Box
+    #
     _NOSIDEEFFECT_PTR_FIRST = 70 # -- start of no_side_effect_ptr operations --
     OONONNULL              = 70
     OOISNULL               = 71

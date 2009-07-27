@@ -83,6 +83,7 @@ TYPES = {
     'uint_ge'         : (('int', 'int'), 'bool'),
     'uint_xor'        : (('int', 'int'), 'int'),
     'uint_rshift'     : (('int', 'int'), 'int'),
+    'same_as'         : (('int',), 'int'),      # could also be ptr=>ptr
     'new_with_vtable' : (('ptr',), 'ptr'),
     'new'             : ((), 'ptr'),
     'new_array'       : (('int',), 'ptr'),

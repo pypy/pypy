@@ -107,18 +107,6 @@ class TestX86(LLtypeBackendTest):
             ]:
             assert self.execute_operation(op, args, 'int').value == res
 
-    def test_same_as(self):
-        py.test.skip("rewrite")
-        u = lltype.malloc(U)
-        uadr = lltype.cast_opaque_ptr(llmemory.GCREF, u)
-        for op, args, tp, res in [
-            ('same_as', [BoxInt(7)], 'int', 7),
-            ('same_as', [ConstInt(7)], 'int', 7),
-            ('same_as', [BoxPtr(uadr)], 'ptr', uadr),
-            ('same_as', [ConstPtr(uadr)], 'ptr', uadr),
-            ]:
-            assert self.execute_operation(op, args, tp).value == res
-
     def test_unicode(self):
         ofs = symbolic.get_field_token(rstr.UNICODE, 'chars', False)[0]
         u = rstr.mallocunicode(13)
