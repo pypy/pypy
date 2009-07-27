@@ -39,6 +39,8 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     test_free_object = skip
     test_stopatxpolicy = skip
     test_residual_call_pure = skip
+    test_div_overflow = skip
+    test_subclassof = skip
 
 
 def test_fielddescr_ootype():

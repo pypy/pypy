@@ -27,6 +27,8 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     test_failing_guard_class = skip      # GUARD_CLASS
     test_call = skip
     test_field = skip
+    test_field_basic = skip
+    test_ooops = skip
 
     def test_ovf_operations(self, reversed=False):
         self.skip()
