@@ -730,6 +730,22 @@ class BasicTests:
 
         self.meta_interp(f, [40, 0])
 
+    def test_const_inputargs(self):
+        py.test.skip("in-progress")
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'x'])
+        def f(n, x):
+            m = 0x7FFFFFFF
+            while n > 0:
+                myjitdriver.can_enter_jit(m=m, n=n, x=x)
+                myjitdriver.jit_merge_point(m=m, n=n, x=x)
+                x = 42
+                n -= 1
+                m = m >> 1
+            return x
+
+        res = self.meta_interp(f, [50, 1])
+        assert res == 42
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
