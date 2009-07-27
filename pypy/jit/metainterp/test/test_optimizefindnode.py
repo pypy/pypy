@@ -433,6 +433,20 @@ class BaseTestOptimizeFindNode(BaseTest):
         # we might get incorrect results: when tracing, maybe i0 was not 0.
         self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
 
+    def test_find_nodes_p123(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i1, p1, p2)
+        """
+        self.find_nodes(ops, '''Not,
+                                Virtual(node_vtable, valuedescr=Not),
+                                Virtual(node_vtable, valuedescr=Not)''')
+
     # ------------------------------
     # Bridge tests
 
