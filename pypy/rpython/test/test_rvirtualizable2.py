@@ -1,6 +1,7 @@
 import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.rvirtualizable2 import replace_promote_virtualizable_with_call
 
 
 class V(object):
@@ -88,6 +89,37 @@ class BaseTest(BaseRtypingTest):
         w_inst = graph.getreturnvar()
         TYPE = self.gettype(w_inst)
         assert 'virtualizable2_accessor' not in TYPE._hints
+
+    def test_replace_promote_virtualizable_with_call(self):
+        def fn(n):
+            vinst = V(n)
+            return vinst.v
+        _, rtyper, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        op_getfield = block.operations[-1]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        v_inst_ll_type = op_getfield.args[0].concretetype
+        #
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        def mycall(vinst_ll):
+            pass
+        annhelper = MixLevelHelperAnnotator(rtyper)
+        if self.type_system == 'lltype':
+            s_vinst = annmodel.SomePtr(v_inst_ll_type)
+        else:
+            s_vinst = annmodel.SomeOOInstance(v_inst_ll_type)
+        funcptr = annhelper.delayedfunction(mycall, [s_vinst], annmodel.s_None)
+        annhelper.finish()
+        replace_promote_virtualizable_with_call([graph], v_inst_ll_type,
+                                                funcptr)
+        #
+        op_promote = block.operations[-2]
+        op_getfield = block.operations[-1]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_promote.opname == 'direct_call'
+        assert op_promote.args[0].value == funcptr
+        assert op_promote.args[1] == op_getfield.args[0]
 
 
 class TestLLtype(LLRtypeMixin, BaseTest):
