@@ -13,6 +13,7 @@ from pypy.jit.metainterp.optimizefindnode import BridgeSpecializationFinder
 from pypy.jit.metainterp.optimizeutil import sort_descrs
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
+from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.test.oparser import parse
 
 
@@ -55,7 +56,6 @@ class LLtypeMixin(object):
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
-    # for test_specnode
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
 
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
@@ -84,6 +84,8 @@ class OOtypeMixin(object):
     nextdescr = cpu.fielddescrof(NODE, 'next')
     nodesize = cpu.typedescrof(NODE)
     nodesize2 = cpu.typedescrof(NODE2)
+
+    arraydescr = cpu.arraydescrof(ootype.Array(ootype.Signed))
 
     # force a consistent order
     valuedescr.sort_key()
@@ -114,9 +116,12 @@ class BaseTest(object):
                 fields.append((self.namespace[key], value))
             fields.sort(key = lambda (x, _): x.sort_key())
             return VirtualInstanceSpecNode(constclass(cls_vtable), fields)
+        def makeVirtualArray(arraydescr, *items):
+            return VirtualArraySpecNode(arraydescr, items)
         #
         context = {'Not': prebuiltNotSpecNode,
-                   'Virtual': makeVirtual}
+                   'Virtual': makeVirtual,
+                   'VArray': makeVirtualArray}
         lst = eval('[' + text + ']', self.namespace, context)
         return lst
 
@@ -497,6 +502,40 @@ class BaseTestOptimizeFindNode(BaseTest):
         p3 = new_with_vtable(ConstClass(node_vtable))
         jump(p1, p3)
         """
+        self.find_nodes(ops, 'Not, Not')
+
+    def test_find_nodes_array_virtual_1(self):
+        ops = """
+        [i1, p2]
+        i2 = getarrayitem_gc(p2, 1, descr=arraydescr)
+        escape(i2)
+        p3 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p3, 1, i1, descr=arraydescr)
+        jump(i1, p3)
+        """
+        self.find_nodes(ops, 'Not, VArray(arraydescr, Not, Not, Not)')
+
+    def test_find_nodes_array_virtual_2(self):
+        ops = """
+        [i1, p2]
+        i2 = arraylen_gc(p2, descr=arraydescr)
+        escape(i2)
+        p3 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p3, 1, i1, descr=arraydescr)
+        jump(i1, p3)
+        """
+        self.find_nodes(ops, 'Not, VArray(arraydescr, Not, Not, Not)')
+
+    def test_find_nodes_array_nonvirtual_1(self):
+        ops = """
+        [i1, p2]
+        i2 = getarrayitem_gc(p2, i1, descr=arraydescr)
+        escape(i2)
+        p3 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p3, i1, i2, descr=arraydescr)
+        jump(i1, p3)
+        """
+        # Does not work because of the variable index, 'i1'.
         self.find_nodes(ops, 'Not, Not')
 
     # ------------------------------

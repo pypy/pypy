@@ -1,15 +1,17 @@
 from pypy.jit.metainterp.specnode import SpecNode
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
-from pypy.jit.metainterp.history import AbstractValue
+from pypy.jit.metainterp.specnode import VirtualArraySpecNode
+from pypy.jit.metainterp.history import AbstractValue, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
 
 # ____________________________________________________________
 
 UNIQUE_UNKNOWN = '\x00'
-UNIQUE_YES     = '\x01'
-UNIQUE_NO      = '\x02'
+UNIQUE_NO      = '\x01'
+UNIQUE_INST    = '\x02'
+UNIQUE_ARRAY   = '\x03'
 
 class InstanceNode(object):
     """An instance of this class is used to match the start and
@@ -20,10 +22,17 @@ class InstanceNode(object):
     escaped = False     # if True, then all the rest of the info is pointless
     unique = UNIQUE_UNKNOWN   # for find_unique_nodes()
 
-    # fields used to store the shape of the potential Virtual
-    knownclsbox = None  # set only on freshly-allocated structures
+    # fields used to store the shape of the potential VirtualInstance
+    knownclsbox = None  # set only on freshly-allocated or fromstart structures
     origfields = None   # optimization; equivalent to an empty dict
     curfields = None    # optimization; equivalent to an empty dict
+
+    # fields used to store the shape of the potential VirtualList
+    arraydescr = None   # set only on freshly-allocated or fromstart arrays
+    #arraysize = ..     # valid if and only if arraydescr is not None
+    origitems = None    # optimization; equivalent to an empty dict
+    curitems = None     # optimization; equivalent to an empty dict
+
     dependencies = None
 
     def __init__(self, fromstart=False):
@@ -46,22 +55,29 @@ class InstanceNode(object):
                     box.mark_escaped()
 
     def set_unique_nodes(self):
-        if (self.escaped or self.fromstart or self.knownclsbox is None
-            or self.unique != UNIQUE_UNKNOWN):
+        if self.escaped or self.fromstart or self.unique != UNIQUE_UNKNOWN:
             # this node is not suitable for being a virtual, or we
             # encounter it more than once when doing the recursion
             self.unique = UNIQUE_NO
-        else:
-            self.unique = UNIQUE_YES
+        elif self.knownclsbox is not None:
+            self.unique = UNIQUE_INST
             if self.curfields is not None:
-                for subnode in self.curfields.values():
+                for subnode in self.curfields.itervalues():
                     subnode.set_unique_nodes()
+        elif self.arraydescr is not None:
+            self.unique = UNIQUE_ARRAY
+            if self.curitems is not None:
+                for subnode in self.curitems.itervalues():
+                    subnode.set_unique_nodes()
+        else:
+            self.unique = UNIQUE_NO
 
     def __repr__(self):
         flags = ''
         if self.escaped:     flags += 'e'
         if self.fromstart:   flags += 's'
         if self.knownclsbox: flags += 'c'
+        if self.arraydescr:  flags += str(self.arraysize)
         return "<InstanceNode (%s)>" % (flags,)
 
 # ____________________________________________________________
@@ -98,6 +114,15 @@ class NodeFinder(object):
         instnode = InstanceNode()
         instnode.knownclsbox = op.args[0]
         self.nodes[op.result] = instnode
+
+    def find_nodes_NEW_ARRAY(self, op):
+        lengthbox = op.args[0]
+        if not isinstance(lengthbox, ConstInt):
+            return     # var-sized arrays are not virtual
+        arraynode = InstanceNode()
+        arraynode.arraysize = lengthbox.value
+        arraynode.arraydescr = op.descr
+        self.nodes[op.result] = arraynode
 
     def find_nodes_GUARD_CLASS(self, op):
         instnode = self.getnode(op.args[0])
@@ -137,8 +162,47 @@ class NodeFinder(object):
             return    # nothing to be gained from tracking the field
         self.nodes[op.result] = fieldnode
 
-    def find_nodes_GETFIELD_GC_PURE(self, op):
-        self.find_nodes_GETFIELD_GC(op)
+    find_nodes_GETFIELD_GC_PURE = find_nodes_GETFIELD_GC
+
+    def find_nodes_SETARRAYITEM_GC(self, op):
+        indexbox = op.args[1]
+        if not isinstance(indexbox, ConstInt):
+            self.find_nodes_default(op)            # not a Const index
+            return
+        arraynode = self.getnode(op.args[0])
+        itemnode = self.getnode(op.args[2])
+        if arraynode.escaped:
+            itemnode.mark_escaped()
+            return     # nothing to be gained from tracking the item
+        if arraynode.curitems is None:
+            arraynode.curitems = {}
+        arraynode.curitems[indexbox.value] = itemnode
+        arraynode.add_escape_dependency(itemnode)
+
+    def find_nodes_GETARRAYITEM_GC(self, op):
+        indexbox = op.args[1]
+        if not isinstance(indexbox, ConstInt):
+            self.find_nodes_default(op)            # not a Const index
+            return
+        arraynode = self.getnode(op.args[0])
+        if arraynode.escaped:
+            return     # nothing to be gained from tracking the item
+        index = indexbox.value
+        if arraynode.curitems is not None and index in arraynode.curitems:
+            itemnode = arraynode.curitems[index]
+        elif arraynode.origitems is not None and index in arraynode.origitems:
+            itemnode = arraynode.origitems[index]
+        elif arraynode.fromstart:
+            itemnode = InstanceNode(fromstart=True)
+            arraynode.add_escape_dependency(itemnode)
+            if arraynode.origitems is None:
+                arraynode.origitems = {}
+            arraynode.origitems[index] = itemnode
+        else:
+            return    # nothing to be gained from tracking the item
+        self.nodes[op.result] = itemnode
+
+    find_nodes_GETARRAYITEM_GC_PURE = find_nodes_GETARRAYITEM_GC
 
     def find_nodes_JUMP(self, op):
         # only set up the 'unique' field of the InstanceNodes;
@@ -188,11 +252,18 @@ class PerfectSpecializationFinder(NodeFinder):
 
     def intersect(self, inputnode, exitnode):
         assert inputnode.fromstart
-        if exitnode.unique == UNIQUE_NO or inputnode.escaped:
-            # give a NotSpecNode
+        if inputnode.escaped:
             return prebuiltNotSpecNode
-        #
-        assert exitnode.unique == UNIQUE_YES
+        unique = exitnode.unique
+        if unique == UNIQUE_NO:
+            return prebuiltNotSpecNode
+        if unique == UNIQUE_INST:
+            return self.intersect_instance(inputnode, exitnode)
+        if unique == UNIQUE_ARRAY:
+            return self.intersect_array(inputnode, exitnode)
+        assert 0, "unknown value for exitnode.unique: %d" % ord(unique)
+
+    def intersect_instance(self, inputnode, exitnode):
         if (inputnode.knownclsbox is not None and
             not inputnode.knownclsbox.equals(exitnode.knownclsbox)):
             # unique match, but the class is known to be a mismatch
@@ -224,6 +295,23 @@ class PerfectSpecializationFinder(NodeFinder):
                 fields.append((ofs, specnode))
         return VirtualInstanceSpecNode(exitnode.knownclsbox, fields)
 
+    def intersect_array(self, inputnode, exitnode):
+        assert inputnode.arraydescr is None
+        #
+        items = []
+        for i in range(exitnode.arraysize):
+            if exitnode.curitems is None:
+                exitsubnode = self.node_escaped
+            else:
+                exitsubnode = exitnode.curitems.get(i, self.node_escaped)
+            if inputnode.origitems is None:
+                node = self.node_fromstart
+            else:
+                node = inputnode.origitems.get(i, self.node_fromstart)
+            specnode = self.intersect(node, exitsubnode)
+            items.append(specnode)
+        return VirtualArraySpecNode(exitnode.arraydescr, items)
+
 # ____________________________________________________________
 # A subclass of NodeFinder for bridges only
 
@@ -252,7 +340,7 @@ class __extend__(VirtualInstanceSpecNode):
         if exitnode.unique == UNIQUE_NO:
             return False
         #
-        assert exitnode.unique == UNIQUE_YES
+        assert exitnode.unique == UNIQUE_INST
         if not self.known_class.equals(exitnode.knownclsbox):
             # unique match, but the class is known to be a mismatch
             return False
@@ -272,6 +360,12 @@ class __extend__(VirtualInstanceSpecNode):
         if d is not None and len(d) > seen:
             return False          # some key is in d but not in self.fields
         return True
+
+class __extend__(VirtualArraySpecNode):
+    def make_instance_node(self):
+        xxx
+    def matches_instance_node(self):
+        xxx
 
 
 class BridgeSpecializationFinder(NodeFinder):
