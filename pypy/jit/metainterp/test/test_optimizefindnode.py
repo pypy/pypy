@@ -488,6 +488,16 @@ class BaseTestOptimizeFindNode(BaseTest):
                                 Virtual(node_vtable, valuedescr=Not),
                                 Virtual(node_vtable, nextdescr=Not)''')
 
+    def test_find_nodes_setfield_bug(self):
+        ops = """
+        [p1, p2]
+        escape(p1)
+        setfield_gc(p1, p2, descr=nextdescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        jump(p1, p3)
+        """
+        self.find_nodes(ops, 'Not, Not')
+
     # ------------------------------
     # Bridge tests
 

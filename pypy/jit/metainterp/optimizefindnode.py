@@ -105,9 +105,10 @@ class NodeFinder(object):
 
     def find_nodes_SETFIELD_GC(self, op):
         instnode = self.getnode(op.args[0])
-        if instnode.escaped:
-            return     # nothing to be gained from tracking the field
         fieldnode = self.getnode(op.args[1])
+        if instnode.escaped:
+            fieldnode.mark_escaped()
+            return     # nothing to be gained from tracking the field
         field = op.descr
         assert isinstance(field, AbstractValue)
         if instnode.curfields is None:
