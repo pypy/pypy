@@ -46,8 +46,7 @@ class InstanceNode(object):
                     box.mark_escaped()
 
     def set_unique_nodes(self):
-        if (self.escaped or self.knownclsbox is None
-            # or self.fromstart, but this is implied by 'knownclsbox==None'
+        if (self.escaped or self.fromstart or self.knownclsbox is None
             or self.unique != UNIQUE_UNKNOWN):
             # this node is not suitable for being a virtual, or we
             # encounter it more than once when doing the recursion
@@ -101,7 +100,9 @@ class NodeFinder(object):
         self.nodes[op.result] = instnode
 
     def find_nodes_GUARD_CLASS(self, op):
-        pass     # prevent default handling
+        instnode = self.getnode(op.args[0])
+        if instnode.fromstart:    # only useful in this case
+            instnode.knownclsbox = op.args[1]
 
     def find_nodes_SETFIELD_GC(self, op):
         instnode = self.getnode(op.args[0])

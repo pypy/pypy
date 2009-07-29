@@ -320,7 +320,6 @@ class BaseTestOptimizeFindNode(BaseTest):
         self.find_nodes(ops, 'Not, Not')
 
     def test_find_nodes_new_mismatch(self):
-        py.test.skip("gives a Virtual instead of Not -- not really wrong")
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable))
@@ -328,6 +327,8 @@ class BaseTestOptimizeFindNode(BaseTest):
         p2 = new_with_vtable(ConstClass(node_vtable2))
         jump(p2)
         """
+        # this must give 'Not', not 'Virtual', because optimizeopt.py would
+        # remove the guard_class for a virtual.
         self.find_nodes(ops, 'Not')
 
     def test_find_nodes_new_aliasing_mismatch(self):
