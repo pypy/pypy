@@ -25,6 +25,10 @@ class dbm(object):
         getattr(lib, funcs['close'])(self._aobj)
         self._aobj = None
 
+    def __del__(self):
+        if self._aobj:
+            self.close()
+
     def keys(self):
         if not self._aobj:
             raise error('DBM object has already been closed')
