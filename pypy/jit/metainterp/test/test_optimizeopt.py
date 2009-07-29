@@ -718,6 +718,50 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected, i3=3)
 
+    def test_varray_2(self):
+        ops = """
+        [i0, p1]
+        i1 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i3 = int_sub(i1, i2)
+        guard_value(i3, 15)
+          fail()
+        p2 = new_array(2, descr=arraydescr)
+        setarrayitem_gc(p2, 1, i0, descr=arraydescr)
+        setarrayitem_gc(p2, 0, 20, descr=arraydescr)
+        jump(i0, p2)
+        """
+        expected = """
+        [i0, i1, i2]
+        i3 = int_sub(i1, i2)
+        guard_value(i3, 15)
+          fail()
+        jump(i0, 20, i0)
+        """
+        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not, Not)', expected,
+                           i3=15)
+
+    def test_p123_array(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getarrayitem_gc(p3, 0, descr=arraydescr)
+        escape(i3)
+        p1 = new_array(1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        jump(i1, p1, p2)
+        """
+        expected = """
+        [i1, i2, p3]
+        i3 = getarrayitem_gc(p3, 0, descr=arraydescr)
+        escape(i3)
+        p2b = new_array(1, descr=arraydescr)
+        setarrayitem_gc(p2b, 0, i2, descr=arraydescr)
+        jump(i1, i1, p2b)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not), Not',
+                           expected)
+
     # ----------
 
     def make_fail_descr(self):

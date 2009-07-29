@@ -3,6 +3,7 @@ from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.specnode import SpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
+from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
 from pypy.jit.metainterp import resume, compile
 from pypy.rlib.objectmodel import we_are_translated
@@ -210,17 +211,13 @@ class VArrayValue(AbstractVirtualValue):
         return self.box
 
     def prepare_force_box(self):
-        # This logic is not included in force_box() for safety reasons.
-        # It should only be used from teardown_virtual_node(); if we
-        # call force_box() from somewhere else and we get source_op=None,
-        # it is really a bug.
-        XXX
         if self.box is None and self.source_op is None:
-            # rare case (shown by test_p123_simple) to force a Virtual
+            # rare case (shown by test_p123_simple) to force a VirtualArray
             # from a specnode computed by optimizefindnode.
-            self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
-                                          [self.known_class],
-                                          self.optimizer.new_ptr_box())
+            self.source_op = ResOperation(rop.NEW_ARRAY,
+                                          [ConstInt(self.getlength())],
+                                          self.optimizer.new_ptr_box(),
+                                          descr=self.arraydescr)
 
     def get_args_for_fail(self, modifier):
         XXX
@@ -253,6 +250,22 @@ class __extend__(VirtualInstanceSpecNode):
         assert value.is_virtual()
         for ofs, subspecnode in self.fields:
             subvalue = value.getfield(ofs, optimizer.new_const(ofs))
+            subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
+
+class __extend__(VirtualArraySpecNode):
+    def setup_virtual_node(self, optimizer, box, newinputargs):
+        vvalue = optimizer.make_varray(self.arraydescr, len(self.items), box)
+        for index in range(len(self.items)):
+            subbox = optimizer.new_box_item(self.arraydescr)
+            subspecnode = self.items[index]
+            subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
+            vvalue.setitem(index, optimizer.getvalue(subbox))
+    def teardown_virtual_node(self, optimizer, value, newexitargs):
+        assert value.is_virtual()
+        const = optimizer.new_const_item(self.arraydescr)
+        for index in range(len(self.items)):
+            subvalue = value.getitem(index, const)
+            subspecnode = self.items[index]
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
 
 
@@ -312,6 +325,21 @@ class Optimizer(object):
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():
+            if not self.cpu.is_oo:
+                return CVAL_NULLPTR
+            else:
+                return CVAL_NULLOBJ
+        else:
+            return CVAL_ZERO
+
+    def new_box_item(self, arraydescr):
+        if arraydescr.is_array_of_pointers():
+            return self.new_ptr_box()
+        else:
+            return BoxInt()
+
+    def new_const_item(self, arraydescr):
+        if arraydescr.is_array_of_pointers():
             if not self.cpu.is_oo:
                 return CVAL_NULLPTR
             else:
