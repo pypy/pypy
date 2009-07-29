@@ -331,6 +331,7 @@ class LLtypeCPU(BaseCPU):
                                                              self.memo_cast))
 
     def do_new(self, args, size):
+        assert isinstance(size, Descr)
         return history.BoxPtr(llimpl.do_new(size.ofs))
 
     def do_new_with_vtable(self, args, descr=None):
@@ -343,6 +344,7 @@ class LLtypeCPU(BaseCPU):
         return history.BoxPtr(result)
 
     def do_new_array(self, args, size):
+        assert isinstance(size, Descr)
         count = args[0].getint()
         return history.BoxPtr(llimpl.do_new_array(size.ofs, count))
 
