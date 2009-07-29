@@ -701,6 +701,28 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_bridge(ops, 'Not', 'Not')
 
+    def test_bridge_array_virtual_1(self):
+        ops = """
+        [i1]
+        p1 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        jump(p1)
+        """
+        self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not', 'VArray(arraydescr, Not, Not, Not)')
+
+    def test_bridge_array_virtual_2(self):
+        ops = """
+        [i1]
+        p1 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        escape(p1)
+        jump(p1)
+        """
+        self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not', 'VArray(arraydescr, Not, Not, Not)',
+                         mismatch=True)
+
 
 class TestLLtype(BaseTestOptimizeFindNode, LLtypeMixin):
     pass

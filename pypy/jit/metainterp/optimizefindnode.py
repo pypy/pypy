@@ -363,10 +363,29 @@ class __extend__(VirtualInstanceSpecNode):
 
 class __extend__(VirtualArraySpecNode):
     def make_instance_node(self):
-        xxx
-    def matches_instance_node(self):
-        xxx
-
+        raise AssertionError, "not implemented (but not used actually)"
+    def matches_instance_node(self, exitnode):
+        if exitnode.unique == UNIQUE_NO:
+            return False
+        #
+        assert exitnode.unique == UNIQUE_ARRAY
+        assert self.arraydescr == exitnode.arraydescr
+        if len(self.items) != exitnode.arraysize:
+            # the size is known to be a mismatch
+            return False
+        #
+        d = exitnode.curitems
+        for i in range(exitnode.arraysize):
+            try:
+                if d is None:
+                    raise KeyError
+                itemnode = d[i]
+            except KeyError:
+                itemnode = NodeFinder.node_escaped
+            subspecnode = self.items[i]
+            if not subspecnode.matches_instance_node(itemnode):
+                return False
+        return True
 
 class BridgeSpecializationFinder(NodeFinder):
 
