@@ -163,6 +163,8 @@ class VirtualValue(AbstractVirtualValue):
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
+            # modifier.is_virtual() checks for recursion: it is False unless
+            # we have already seen the very same keybox
             lst = self._fields.keys()
             sort_descrs(lst)
             fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
@@ -220,16 +222,19 @@ class VArrayValue(AbstractVirtualValue):
                                           descr=self.arraydescr)
 
     def get_args_for_fail(self, modifier):
-        XXX
         if self.box is None and not modifier.is_virtual(self.keybox):
-            lst = self._fields.keys()
-            sort_descrs(lst)
-            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-            modifier.make_virtual(self.keybox, self.known_class,
-                                  lst, fieldboxes)
-            for ofs in lst:
-                fieldvalue = self._fields[ofs]
-                fieldvalue.get_args_for_fail(modifier)
+            # modifier.is_virtual() checks for recursion: it is False unless
+            # we have already seen the very same keybox
+            itemboxes = []
+            const = self.optimizer.new_const_item(self.arraydescr)
+            for itemvalue in self._items:
+                if itemvalue is None:
+                    itemvalue = const
+                itemboxes.append(itemvalue.get_key_box())
+            modifier.make_varray(self.keybox, self.arraydescr, itemboxes)
+            for itemvalue in self._items:
+                if itemvalue is not None:
+                    itemvalue.get_args_for_fail(modifier)
 
 
 class __extend__(SpecNode):

@@ -780,6 +780,9 @@ class BaseTestOptimizeOpt(BaseTest):
         self.fdescr = fdescr
         self.namespace['fdescr'] = fdescr
 
+    def teardown_method(self, meth):
+        self.namespace.pop('fdescr', None)
+
     def _verify_fail_args(self, boxes, oparse, text):
         import re
         r = re.compile(r"\bwhere\s+(\w+)\s+is a\s+(\w+)")
@@ -789,9 +792,13 @@ class BaseTestOptimizeOpt(BaseTest):
         virtuals = {}
         for match, end in zip(parts, ends[1:]):
             pvar = match.group(1)
-            cls_vtable = self.namespace[match.group(2)]
             fieldstext = text[match.end():end]
-            virtuals[pvar] = (cls_vtable, None, fieldstext)
+            if match.group(2) != 'list':
+                tag = ('virtual', self.namespace[match.group(2)])
+            else:
+                arrayname, fieldstext = fieldstext.split(':', 1)
+                tag = ('varray', self.namespace[arrayname.strip()])
+            virtuals[pvar] = (tag, None, fieldstext)
         #
         def _variables_equal(box, varname, strict):
             if varname not in virtuals:
@@ -800,16 +807,22 @@ class BaseTestOptimizeOpt(BaseTest):
                 else:
                     assert box.value == oparse.getvar(varname).value
             else:
-                cls_vtable, resolved, fieldstext = virtuals[varname]
-                if not self.cpu.is_oo:
-                    assert box.getptr(rclass.OBJECTPTR).typeptr == cls_vtable
+                tag, resolved, fieldstext = virtuals[varname]
+                if tag[0] == 'virtual':
+                    if not self.cpu.is_oo:
+                        assert box.getptr(rclass.OBJECTPTR).typeptr == tag[1]
+                    else:
+                        root = box.getobj()
+                        root = ootype.cast_from_object(ootype.ROOT, root)
+                        assert ootype.classof(root) == tag[1]
+                elif tag[0] == 'varray':
+                    pass    # xxx check arraydescr
                 else:
-                    root = ootype.cast_from_object(ootype.ROOT, box.getobj())
-                    assert ootype.classof(root) == cls_vtable
+                    assert 0
                 if resolved is not None:
                     assert resolved.value == box.value
                 else:
-                    virtuals[varname] = cls_vtable, box, fieldstext
+                    virtuals[varname] = tag, box, fieldstext
         #
         basetext = text[:ends[0]]
         varnames = [s.strip() for s in basetext.split(',')]
@@ -819,19 +832,30 @@ class BaseTestOptimizeOpt(BaseTest):
         #
         for match in parts:
             pvar = match.group(1)
-            cls_vtable, resolved, fieldstext = virtuals[pvar]
+            tag, resolved, fieldstext = virtuals[pvar]
             assert resolved is not None
+            index = 0
             for fieldtext in fieldstext.split(','):
                 fieldtext = fieldtext.strip()
                 if not fieldtext:
                     continue
-                fieldname, fieldvalue = fieldtext.split('=')
-                fielddescr = self.namespace[fieldname.strip()]
-                fieldbox = executor.execute(self.cpu,
-                                            rop.GETFIELD_GC,
-                                            [resolved],
-                                            descr=fielddescr)
+                if tag[0] == 'virtual':
+                    fieldname, fieldvalue = fieldtext.split('=')
+                    fielddescr = self.namespace[fieldname.strip()]
+                    fieldbox = executor.execute(self.cpu,
+                                                rop.GETFIELD_GC,
+                                                [resolved],
+                                                descr=fielddescr)
+                elif tag[0] == 'varray':
+                    fieldvalue = fieldtext
+                    fieldbox = executor.execute(self.cpu,
+                                                rop.GETARRAYITEM_GC,
+                                                [resolved, ConstInt(index)],
+                                                descr=tag[1])
+                else:
+                    assert 0
                 _variables_equal(fieldbox, fieldvalue.strip(), strict=False)
+                index += 1
 
     def check_expanded_fail_descr(self, expectedtext):
         fdescr = self.fdescr
@@ -987,6 +1011,29 @@ class BaseTestOptimizeOpt(BaseTest):
                                    Not, Not''', expected, i0=1)
         self.check_expanded_fail_descr('''p0
             where p0 is a node_vtable, valuedescr=i1b
+            ''')
+
+    def test_expand_fail_varray(self):
+        self.make_fail_descr()
+        ops = """
+        [i1]
+        p1 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        guard_true(i1)
+          fail(p1, descr=fdescr)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        guard_true(i1)
+          fail(i1, descr=fdescr)
+        jump(1)
+        """
+        self.optimize_loop(ops, 'Not', expected, i1=1)
+        self.check_expanded_fail_descr('''p1
+            where p1 is a list arraydescr: 25, i1
             ''')
 
 
