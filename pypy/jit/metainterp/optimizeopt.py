@@ -29,11 +29,12 @@ def optimize_bridge_1(cpu, bridge):
 
 LEVEL_UNKNOWN    = 0
 LEVEL_NONNULL    = 1
-LEVEL_KNOWNCLASS = 2
+LEVEL_KNOWNCLASS = 2     # might also mean KNOWNARRAYDESCR, for arrays
 LEVEL_CONSTANT   = 3
 
 
 class InstanceValue(object):
+    _attrs_ = ('box', 'level')
     level = LEVEL_UNKNOWN
 
     def __init__(self, box):
@@ -102,21 +103,31 @@ CVAL_NULLPTR = ConstantValue(ConstPtr(ConstPtr.value))
 CVAL_NULLOBJ = ConstantValue(ConstObj(ConstObj.value))
 
 
-class VirtualValue(InstanceValue):
+class AbstractVirtualValue(InstanceValue):
+    _attrs_ = ('optimizer', 'keybox', 'source_op')
     box = None
     level = LEVEL_KNOWNCLASS
 
-    def __init__(self, optimizer, known_class, keybox, source_op=None):
+    def __init__(self, optimizer, keybox, source_op=None):
         self.optimizer = optimizer
-        self.known_class = known_class
         self.keybox = keybox   # only used as a key in dictionaries
-        self.source_op = source_op  # the NEW_WITH_VTABLE operation building it
+        self.source_op = source_op  # the NEW_WITH_VTABLE/NEW_ARRAY operation
+                                    # that builds this box
+
+    def get_key_box(self):
+        if self.box is None:
+            return self.keybox
+        return self.box
+
+
+class VirtualValue(AbstractVirtualValue):
+
+    def __init__(self, optimizer, known_class, keybox, source_op=None):
+        AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
+        self.known_class = known_class
         self._fields = av_newdict2()
 
-    def getfield(self, ofs):
-        return self._fields[ofs]
-
-    def getfield_default(self, ofs, default):
+    def getfield(self, ofs, default):
         return self._fields.get(ofs, default)
 
     def setfield(self, ofs, fieldvalue):
@@ -149,12 +160,70 @@ class VirtualValue(InstanceValue):
                                           [self.known_class],
                                           self.optimizer.new_ptr_box())
 
-    def get_key_box(self):
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.is_virtual(self.keybox):
+            lst = self._fields.keys()
+            sort_descrs(lst)
+            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
+            modifier.make_virtual(self.keybox, self.known_class,
+                                  lst, fieldboxes)
+            for ofs in lst:
+                fieldvalue = self._fields[ofs]
+                fieldvalue.get_args_for_fail(modifier)
+
+
+class VArrayValue(AbstractVirtualValue):
+
+    def __init__(self, optimizer, arraydescr, size, keybox, source_op=None):
+        AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
+        self.arraydescr = arraydescr
+        self._items = [None] * size
+
+    def getlength(self):
+        return len(self._items)
+
+    def getitem(self, index, default):
+        res = self._items[index]
+        if res is None:
+            res = default
+        return res
+
+    def setitem(self, index, itemvalue):
+        assert isinstance(itemvalue, InstanceValue)
+        self._items[index] = itemvalue
+
+    def force_box(self):
         if self.box is None:
-            return self.keybox
+            assert self.source_op is not None       # otherwise, we are trying
+            # to force a VArray from a specnode computed by optimizefindnode.
+            newoperations = self.optimizer.newoperations
+            newoperations.append(self.source_op)
+            self.box = box = self.source_op.result
+            for index in range(len(self._items)):
+                subvalue = self._items[index]
+                if subvalue is not None:
+                    subbox = subvalue.force_box()
+                    op = ResOperation(rop.SETARRAYITEM_GC,
+                                      [box, ConstInt(index), subbox], None,
+                                      descr=self.arraydescr)
+                    newoperations.append(op)
         return self.box
 
+    def prepare_force_box(self):
+        # This logic is not included in force_box() for safety reasons.
+        # It should only be used from teardown_virtual_node(); if we
+        # call force_box() from somewhere else and we get source_op=None,
+        # it is really a bug.
+        XXX
+        if self.box is None and self.source_op is None:
+            # rare case (shown by test_p123_simple) to force a Virtual
+            # from a specnode computed by optimizefindnode.
+            self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
+                                          [self.known_class],
+                                          self.optimizer.new_ptr_box())
+
     def get_args_for_fail(self, modifier):
+        XXX
         if self.box is None and not modifier.is_virtual(self.keybox):
             lst = self._fields.keys()
             sort_descrs(lst)
@@ -183,7 +252,7 @@ class __extend__(VirtualInstanceSpecNode):
     def teardown_virtual_node(self, optimizer, value, newexitargs):
         assert value.is_virtual()
         for ofs, subspecnode in self.fields:
-            subvalue = value.getfield_default(ofs, optimizer.new_const(ofs))
+            subvalue = value.getfield(ofs, optimizer.new_const(ofs))
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
 
 
@@ -221,6 +290,11 @@ class Optimizer(object):
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self, known_class, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_varray(self, arraydescr, size, box, source_op=None):
+        vvalue = VArrayValue(self, arraydescr, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -425,8 +499,9 @@ class Optimizer(object):
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.args[0])
         if value.is_virtual():
-            # optimizefindnode should ensure that we don't get a KeyError
-            fieldvalue = value.getfield(op.descr)
+            # optimizefindnode should ensure that fieldvalue is found
+            fieldvalue = value.getfield(op.descr, None)
+            assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.make_nonnull()
@@ -446,6 +521,47 @@ class Optimizer(object):
 
     def optimize_NEW_WITH_VTABLE(self, op):
         self.make_virtual(op.args[0], op.result, op)
+
+    def optimize_NEW_ARRAY(self, op):
+        sizebox = op.args[0]
+        if self.is_constant(sizebox):
+            self.make_varray(op.descr, sizebox.getint(), op.result, op)
+        else:
+            self.optimize_default(op)
+
+    def optimize_ARRAYLEN_GC(self, op):
+        value = self.getvalue(op.args[0])
+        if value.is_virtual():
+            assert op.result.getint() == value.getlength()
+            self.make_constant(op.result)
+        else:
+            value.make_nonnull()
+            self.optimize_default(op)
+
+    def optimize_GETARRAYITEM_GC(self, op):
+        value = self.getvalue(op.args[0])
+        indexbox = op.args[1]
+        if value.is_virtual() and self.is_constant(indexbox):
+            # optimizefindnode should ensure that itemvalue is found
+            itemvalue = value.getitem(indexbox.getint(), None)
+            assert itemvalue is not None
+            self.make_equal_to(op.result, itemvalue)
+        else:
+            value.make_nonnull()
+            self.optimize_default(op)
+
+    # note: the following line does not mean that the two operations are
+    # completely equivalent, because GETARRAYITEM_GC_PURE is_always_pure().
+    optimize_GETARRAYITEM_GC_PURE = optimize_GETARRAYITEM_GC
+
+    def optimize_SETARRAYITEM_GC(self, op):
+        value = self.getvalue(op.args[0])
+        indexbox = op.args[1]
+        if value.is_virtual() and self.is_constant(indexbox):
+            value.setitem(indexbox.getint(), self.getvalue(op.args[2]))
+        else:
+            value.make_nonnull()
+            self.optimize_default(op)
 
 
 optimize_ops = _findall(Optimizer, 'optimize_')

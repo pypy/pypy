@@ -700,6 +700,24 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected, i1=5,
                            boxkinds={'myptr': self.nodebox.value})
 
+    def test_varray_1(self):
+        ops = """
+        [i1]
+        p1 = new_array(3, descr=arraydescr)
+        i3 = arraylen_gc(p1, descr=arraydescr)
+        guard_value(i3, 3)
+          fail()
+        setarrayitem_gc(p1, 1, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, 'Not', expected, i3=3)
+
     # ----------
 
     def make_fail_descr(self):
