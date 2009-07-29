@@ -55,6 +55,9 @@ class LLtypeMixin(object):
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
+    # for test_specnode
+    arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
                       cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2)}
     namespace = locals()

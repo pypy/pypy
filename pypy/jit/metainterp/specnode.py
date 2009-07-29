@@ -45,6 +45,33 @@ class VirtualInstanceSpecNode(SpecNode):
             subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
 
+class VirtualArraySpecNode(SpecNode):
+    def __init__(self, arraydescr, items):
+        self.arraydescr = arraydescr
+        self.items = items      # list of subspecnodes
+
+    def equals(self, other):
+        if not (isinstance(other, VirtualArraySpecNode) and
+                len(self.items) == len(other.items)):
+            return False
+        assert self.arraydescr == other.arraydescr
+        for i in range(len(self.items)):
+            s1 = self.items[i]
+            s2 = other.items[i]
+            if not s1.equals(s2):
+                return False
+        return True
+
+    def extract_runtime_data(self, cpu, valuebox, resultlist):
+        from pypy.jit.metainterp import executor, history, resoperation
+        for i in range(len(self.items)):
+            itembox = executor.execute(cpu, resoperation.rop.GETARRAYITEM_GC,
+                                       [valuebox, history.ConstInt(i)],
+                                       self.arraydescr)
+            subspecnode = self.items[i]
+            subspecnode.extract_runtime_data(cpu, itembox, resultlist)
+
+
 def equals_specnodes(specnodes1, specnodes2):
     assert len(specnodes1) == len(specnodes2)
     for i in range(len(specnodes1)):
