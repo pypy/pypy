@@ -42,6 +42,9 @@ class ConstDescr3(AbstractDescr):
     def is_pointer_field(self):
         return self.flag2     # for fielddescrs
 
+    def is_array_of_pointers(self):
+        return self.flag2     # for arraydescrs
+
     def equals(self, other):
         if not isinstance(other, ConstDescr3):
             return False

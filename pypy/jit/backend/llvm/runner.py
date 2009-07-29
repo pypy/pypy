@@ -706,6 +706,8 @@ class ArrayDescr(AbstractDescr):
         self.itemsize_index = itemsize_index   # index in cpu.types_by_index
         self.ty_array_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)
         # ^^^ set by setup_once()
+    def is_array_of_pointers(self):
+        return self.itemsize_index == LLVMCPU.SIZE_GCPTR
 
 class CallDescr(AbstractDescr):
     ty_function_ptr = lltype.nullptr(llvm_rffi.LLVMTypeRef.TO)

@@ -415,10 +415,14 @@ class LLtypeCPU(BaseCPU):
                 x = %(input)s
                 p[index] = x
         """ % dict).compile() in dict2
-        return ArrayDescr(dict2['new'],
-                          dict2['length'],
-                          dict2['getarrayitem'],
-                          dict2['setarrayitem'])
+        if getkind(ARRAY.OF) == 'ptr':
+            Class = PtrArrayDescr
+        else:
+            Class = NonPtrArrayDescr
+        return Class(dict2['new'],
+                     dict2['length'],
+                     dict2['getarrayitem'],
+                     dict2['setarrayitem'])
 
     # ----------
     
@@ -607,10 +611,14 @@ class OOtypeCPU(BaseCPU):
                 x = %(input)s
                 a.ll_setitem_fast(index, x)
         """ % dict).compile() in dict2
-        return ArrayDescr(dict2['new'],
-                          dict2['length'],
-                          dict2['getarrayitem'],
-                          dict2['setarrayitem'])
+        if getkind(ARRAY.ITEM) == 'obj':
+            Class = PtrArrayDescr
+        else:
+            Class = NonPtrArrayDescr
+        return Class(dict2['new'],
+                     dict2['length'],
+                     dict2['getarrayitem'],
+                     dict2['setarrayitem'])
 
 
     @cached_method('_methdescrcache')
@@ -682,6 +690,14 @@ class ArrayDescr(AbstractDescr):
         self.length = length
         self.getarrayitem = getarrayitem
         self.setarrayitem = setarrayitem
+
+class PtrArrayDescr(ArrayDescr):
+    def is_array_of_pointers(self):
+        return True
+
+class NonPtrArrayDescr(ArrayDescr):
+    def is_array_of_pointers(self):
+        return False
 
 class CallDescr(AbstractDescr):
     call = None

@@ -387,6 +387,7 @@ class BaseBackendTest(Runner):
     def test_array_basic(self):
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
         arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
         assert r.value == 342
@@ -400,6 +401,7 @@ class BaseBackendTest(Runner):
         #
         a_box, A = self.alloc_array_of(lltype.Char, 11)
         arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
         assert r.value == 11
@@ -422,6 +424,7 @@ class BaseBackendTest(Runner):
             A = lltype.Ptr(A)
         b_box, B = self.alloc_array_of(A, 3)
         arraydescr = self.cpu.arraydescrof(B)
+        assert arraydescr.is_array_of_pointers()
         r = self.execute_operation(rop.ARRAYLEN_GC, [b_box],
                                    'int', descr=arraydescr)
         assert r.value == 3
@@ -436,6 +439,7 @@ class BaseBackendTest(Runner):
         # Unsigned should work the same as Signed
         a_box, A = self.alloc_array_of(lltype.Unsigned, 342)
         arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
         assert r.value == 342
@@ -450,6 +454,7 @@ class BaseBackendTest(Runner):
         # Bool should work the same as Char
         a_box, A = self.alloc_array_of(lltype.Bool, 311)
         arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
         assert r.value == 311

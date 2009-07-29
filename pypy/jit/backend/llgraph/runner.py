@@ -46,6 +46,9 @@ class Descr(history.AbstractDescr):
     def is_pointer_field(self):
         return self.typeinfo == 'p'
 
+    def is_array_of_pointers(self):
+        return self.typeinfo == 'p'
+
     def equals(self, other):
         if not isinstance(other, Descr):
             return False
@@ -673,6 +676,11 @@ class TypeDescr(OODescr):
         self.setarrayitem = setarrayitem
         self.getarraylength = getarraylength
         self.instanceof = instanceof
+        self._is_array_of_pointers = (history.getkind(TYPE) == 'obj')
+
+    def is_array_of_pointers(self):
+        # for arrays, TYPE is the type of the array item.
+        return self._is_array_of_pointers
 
     def __repr__(self):
         return '<TypeDescr %s>' % self.TYPE._short_name()
