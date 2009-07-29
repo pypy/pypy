@@ -57,11 +57,13 @@ class dbm(object):
             raise KeyError
         return value
 
-    def _set(self, key, value):
+    def __setitem__(self, key, value):
         if not self._aobj: 
             raise error('DBM object has already been closed')
         if not isinstance(key, str):
             raise TypeError("dbm mappings have string indices only")
+        if not isinstance(value, str):
+            raise TypeError("dbm mappings have string values only")
         dat = datum()
         dat.dptr = c_char_p(key)
         dat.dsize = c_int(len(key))
@@ -114,11 +116,6 @@ class dbm(object):
         if k.dptr:
             return True
         return False
-
-    def __setitem__(self, key, value):
-        if not isinstance(key, str) and isinstance(value, str):
-            raise error("dbm mappings have string indices only")
-        self._set(key, value)
 
     def __delitem__(self, key):
         if not isinstance(key, str):
