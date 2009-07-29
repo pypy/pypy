@@ -141,6 +141,8 @@ else:
     lib = CDLL("/usr/lib/libdbm.dylib") # OS X
     _platform = 'osx'
 
+library = "GNU gdbm"
+
 funcs = {}
 _init_func('open', [c_char_p, c_int, c_int])
 _init_func('close', restype=c_void_p)
