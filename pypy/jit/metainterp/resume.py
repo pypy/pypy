@@ -1,5 +1,5 @@
 import sys
-from pypy.jit.metainterp.history import Box, Const
+from pypy.jit.metainterp.history import Box, Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -70,9 +70,16 @@ class ResumeDataVirtualAdder(object):
             self.liveboxes[box] = self._getconstindex(const)
 
     def make_virtual(self, virtualbox, known_class, fielddescrs, fieldboxes):
+        vinfo = VirtualInfo(known_class, fielddescrs)
+        self._make_virtual(virtualbox, vinfo, fieldboxes)
+
+    def make_varray(self, virtualbox, arraydescr, itemboxes):
+        vinfo = VArrayInfo(arraydescr, len(itemboxes))
+        self._make_virtual(virtualbox, vinfo, itemboxes)
+
+    def _make_virtual(self, virtualbox, vinfo, fieldboxes):
         assert self.liveboxes[virtualbox] == 0
         self.liveboxes[virtualbox] = len(self.virtuals) | VIRTUAL_FLAG
-        vinfo = VirtualInfo(known_class, fielddescrs)
         self.virtuals.append(vinfo)
         self.vfieldboxes.append(fieldboxes)
         self._register_boxes(fieldboxes)
@@ -118,7 +125,14 @@ class ResumeDataVirtualAdder(object):
         return result
 
 
-class VirtualInfo(object):
+class AbstractVirtualInfo(object):
+    def allocate(self, metainterp):
+        raise NotImplementedError
+    def setfields(self, metainterp, box, fn_decode_box):
+        raise NotImplementedError
+
+
+class VirtualInfo(AbstractVirtualInfo):
     def __init__(self, known_class, fielddescrs):
         self.known_class = known_class
         self.fielddescrs = fielddescrs
@@ -134,6 +148,24 @@ class VirtualInfo(object):
             metainterp.execute_and_record(rop.SETFIELD_GC,
                                           [box, fieldbox],
                                           descr=self.fielddescrs[i])
+
+class VArrayInfo(AbstractVirtualInfo):
+    def __init__(self, arraydescr, length):
+        self.arraydescr = arraydescr
+        self.length = length
+        #self.fieldnums = ...
+
+    def allocate(self, metainterp):
+        return metainterp.execute_and_record(rop.NEW_ARRAY,
+                                             [ConstInt(self.length)],
+                                             descr=self.arraydescr)
+
+    def setfields(self, metainterp, box, fn_decode_box):
+        for i in range(self.length):
+            itembox = fn_decode_box(self.fieldnums[i])
+            metainterp.execute_and_record(rop.SETARRAYITEM_GC,
+                                          [box, ConstInt(i), itembox],
+                                          descr=self.arraydescr)
 
 
 class ResumeDataReader(object):
