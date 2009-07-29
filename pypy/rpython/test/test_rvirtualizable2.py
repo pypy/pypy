@@ -8,6 +8,13 @@ class V(object):
 
     def __init__(self, v):
         self.v = v
+        self.w = v+1
+
+class VArray(object):
+    _virtualizable2_ = ['lst[*]']
+
+    def __init__(self, lst):
+        self.lst = lst
 
 class BaseTest(BaseRtypingTest):
     def test_generate_promote_virtualizable(self):
@@ -16,8 +23,34 @@ class BaseTest(BaseRtypingTest):
             return vinst.v
         _, _, graph = self.gengraph(fn, [int])
         block = graph.startblock
-        op_getfield = block.operations[-1]
         op_promote = block.operations[-2]
+        op_getfield = block.operations[-1]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        v_inst = op_getfield.args[0]
+        assert op_promote.opname == 'promote_virtualizable'
+        assert op_promote.args[0] is v_inst
+
+    def test_no_promote_virtualizable_for_other_fields(self):
+        def fn(n):
+            vinst = V(n)
+            return vinst.w
+        _, _, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        op_getfield = block.operations[-1]
+        op_call = block.operations[-2]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_call.opname == 'direct_call'    # to V.__init__
+
+    def test_generate_promote_virtualizable_array(self):
+        def fn(n):
+            vinst = VArray([n, n+1])
+            return vinst.lst[1]
+        _, _, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        op_promote = block.operations[-3]
+        op_getfield = block.operations[-2]
+        op_getarrayitem = block.operations[-1]
+        assert op_getarrayitem.opname == 'direct_call'  # to ll_getitem_xxx
         assert op_getfield.opname in ('getfield', 'oogetfield')
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'promote_virtualizable'
