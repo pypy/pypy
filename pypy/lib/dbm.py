@@ -2,9 +2,6 @@ from ctypes import *
 import ctypes.util
 import os, sys
 
-class _singleton(object):
-    pass
-
 class error(Exception):
     def __init__(self, msg):
         self.msg = msg  
@@ -36,7 +33,7 @@ class dbm(object):
             k = getattr(lib, funcs['nextkey'])(self._aobj)
         return allkeys
 
-    def get(self, key, default=_singleton):
+    def get(self, key, default=None):
         if not self._aobj:
             raise error('DBM object has already been closed')
         dat = datum()
@@ -45,8 +42,6 @@ class dbm(object):
         k = getattr(lib, funcs['fetch'])(self._aobj, dat)
         if k.dptr:
             return k.dptr[:k.dsize]
-        if default is _singleton:
-            raise KeyError
         if getattr(lib, funcs['error'])(self._aobj):
             getattr(lib, funcs['clearerr'])(self._aobj)
             raise error("")
