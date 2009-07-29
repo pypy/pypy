@@ -20,6 +20,8 @@ class dbm(object):
         self._aobj = dbmobj
 
     def close(self):
+        if not self._aobj:
+            raise error('DBM object has already been closed')
         getattr(lib, funcs['close'])(self._aobj)
         self._aobj = None
 
@@ -51,42 +53,29 @@ class dbm(object):
         return len(self.keys())
 
     def __getitem__(self, key):
-        assert isinstance(key, str)
         value = self.get(key)
         if value is None:
-            raise KeyError
+            raise KeyError(key)
         return value
 
     def __setitem__(self, key, value):
         if not self._aobj: 
             raise error('DBM object has already been closed')
-        if not isinstance(key, str):
-            raise TypeError("dbm mappings have string indices only")
-        if not isinstance(value, str):
-            raise TypeError("dbm mappings have string values only")
         dat = datum()
         dat.dptr = c_char_p(key)
         dat.dsize = c_int(len(key))
-        if value == None:
-            status = getattr(lib, funcs['delete'])(self._aobj, dat)
-            if status < 0:
-                getattr(lib, funcs['clearerr'])(self._aobj)
-                raise KeyError(key)
-        else:
-            if not isinstance(value, str):
-                raise TypeError("dbm mappings have string indices only")
-            data = datum()
-            data.dptr = c_char_p(value)
-            data.dsize = c_int(len(value))
-            status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
-            if status == 1:
-                status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
+        data = datum()
+        data.dptr = c_char_p(value)
+        data.dsize = c_int(len(value))
+        status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
+        if status == 1:
+            status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
         if getattr(lib, funcs['error'])(self._aobj):
             getattr(lib, funcs['clearerr'])(self._aobj)
             raise error("")
         return status
 
-    def setdefault(self, key, default=None):
+    def setdefault(self, key, default=''):
         if not self._aobj:
             raise error('DBM object has already been closed')
         dat = datum()
@@ -95,16 +84,14 @@ class dbm(object):
         k = getattr(lib, funcs['fetch'])(self._aobj, dat)
         if k.dptr:
             return k.dptr[:k.dsize]
-        if default:
-            data = datum()
-            data.dptr = c_char_p(default)
-            data.dsize = c_int(len(default))
-            status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
-            if status < 0:
-                getattr(lib, funcs['clearerr'])(self._aobj)
-                raise error("cannot add item to database")
-            return default
-        return None
+        data = datum()
+        data.dptr = c_char_p(default)
+        data.dsize = c_int(len(default))
+        status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
+        if status < 0:
+            getattr(lib, funcs['clearerr'])(self._aobj)
+            raise error("cannot add item to database")
+        return default
 
     def has_key(self, key):
         if not self._aobj:
@@ -118,12 +105,14 @@ class dbm(object):
         return False
 
     def __delitem__(self, key):
-        if not isinstance(key, str):
-            raise error("dbm mappings have string indices only")
+        if not self._aobj:
+            raise error('DBM object has already been closed')
         dat = datum()
         dat.dptr = c_char_p(key)
         dat.dsize = c_int(len(key))
-        getattr(lib, funcs['delete'])(self._aobj, dat)
+        status = getattr(lib, funcs['delete'])(self._aobj, dat)
+        if status < 0:
+            raise KeyError(key)
 
 ### initialization: Berkeley DB versus normal DB
 
@@ -160,7 +149,7 @@ _init_func('nextkey', restype=datum)
 _init_func('fetch', restype=datum)
 _init_func('store', restype=c_int)
 _init_func('error')
-_init_func('delete')
+_init_func('delete', restype=c_int)
 
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1
