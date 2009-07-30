@@ -791,7 +791,7 @@ class TestOOtype(BaseTestOptimizeFindNode, OOtypeMixin):
         ops = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
-        i1 = instanceof(ConstClass(node_vtable), p0)
+        i1 = instanceof(p0, descr=nodesize)
         jump(i1)
         """
         boxes, getnode = self.find_nodes(ops, 'Not')
