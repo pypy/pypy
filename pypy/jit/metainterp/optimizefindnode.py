@@ -2,6 +2,7 @@ from pypy.jit.metainterp.specnode import SpecNode
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
+from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.history import AbstractValue, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
@@ -12,6 +13,7 @@ UNIQUE_UNKNOWN = '\x00'
 UNIQUE_NO      = '\x01'
 UNIQUE_INST    = '\x02'
 UNIQUE_ARRAY   = '\x03'
+UNIQUE_STRUCT  = '\x04'
 
 class InstanceNode(object):
     """An instance of this class is used to match the start and
@@ -32,6 +34,11 @@ class InstanceNode(object):
     #arraysize = ..     # valid if and only if arraydescr is not None
     origitems = None    # optimization; equivalent to an empty dict
     curitems = None     # optimization; equivalent to an empty dict
+
+    # fields used to store the sahpe of the potential VirtualStruct
+    structdescr = None  # set only on freshly-allocated or fromstart structs
+    #origfields = ..    # same as above
+    #curfields = ..     # same as above
 
     dependencies = None
 
@@ -69,6 +76,11 @@ class InstanceNode(object):
             if self.curitems is not None:
                 for subnode in self.curitems.itervalues():
                     subnode.set_unique_nodes()
+        elif self.structdescr is not None:
+            self.unique = UNIQUE_STRUCT
+            if self.curfields is not None:
+                for subnode in self.curfields.itervalues():
+                    subnode.set_unique_nodes()
         else:
             self.unique = UNIQUE_NO
 
@@ -78,6 +90,7 @@ class InstanceNode(object):
         if self.fromstart:   flags += 's'
         if self.knownclsbox: flags += 'c'
         if self.arraydescr:  flags += str(self.arraysize)
+        if self.structdescr: flags += 'S'
         return "<InstanceNode (%s)>" % (flags,)
 
 # ____________________________________________________________
@@ -122,6 +135,11 @@ class NodeFinder(object):
     def find_nodes_NEW_WITH_VTABLE(self, op):
         instnode = InstanceNode()
         instnode.knownclsbox = op.args[0]
+        self.nodes[op.result] = instnode
+
+    def find_nodes_NEW(self, op):
+        instnode = InstanceNode()
+        instnode.structdescr = op.descr
         self.nodes[op.result] = instnode
 
     def find_nodes_NEW_ARRAY(self, op):
@@ -270,31 +288,27 @@ class PerfectSpecializationFinder(NodeFinder):
             return self.intersect_instance(inputnode, exitnode)
         if unique == UNIQUE_ARRAY:
             return self.intersect_array(inputnode, exitnode)
+        if unique == UNIQUE_STRUCT:
+            return self.intersect_struct(inputnode, exitnode)
         assert 0, "unknown value for exitnode.unique: %d" % ord(unique)
 
-    def intersect_instance(self, inputnode, exitnode):
-        if (inputnode.knownclsbox is not None and
-            not inputnode.knownclsbox.equals(exitnode.knownclsbox)):
-            # unique match, but the class is known to be a mismatch
-            return prebuiltNotSpecNode
-        #
+    def compute_common_fields(self, orig, d):
         fields = []
-        d = exitnode.curfields
-        if inputnode.origfields is not None:
+        if orig is not None:
             if d is not None:
                 d = d.copy()
             else:
                 d = av_newdict()
-            for ofs in inputnode.origfields:
+            for ofs in orig:
                 d.setdefault(ofs, self.node_escaped)
         if d is not None:
             lst = d.keys()
             sort_descrs(lst)
             for ofs in lst:
                 try:
-                    if inputnode.origfields is None:
+                    if orig is None:
                         raise KeyError
-                    node = inputnode.origfields[ofs]
+                    node = orig[ofs]
                 except KeyError:
                     # field stored at exit, but not read at input.  Must
                     # still be allocated, otherwise it will be incorrectly
@@ -302,6 +316,16 @@ class PerfectSpecializationFinder(NodeFinder):
                     node = self.node_fromstart
                 specnode = self.intersect(node, d[ofs])
                 fields.append((ofs, specnode))
+        return fields
+
+    def intersect_instance(self, inputnode, exitnode):
+        if (inputnode.knownclsbox is not None and
+            not inputnode.knownclsbox.equals(exitnode.knownclsbox)):
+            # unique match, but the class is known to be a mismatch
+            return prebuiltNotSpecNode
+        #
+        fields = self.compute_common_fields(inputnode.origfields,
+                                            exitnode.curfields)
         return VirtualInstanceSpecNode(exitnode.knownclsbox, fields)
 
     def intersect_array(self, inputnode, exitnode):
@@ -320,6 +344,13 @@ class PerfectSpecializationFinder(NodeFinder):
             specnode = self.intersect(node, exitsubnode)
             items.append(specnode)
         return VirtualArraySpecNode(exitnode.arraydescr, items)
+
+    def intersect_struct(self, inputnode, exitnode):
+        assert inputnode.structdescr is None
+        #
+        fields = self.compute_common_fields(inputnode.origfields,
+                                            exitnode.curfields)
+        return VirtualStructSpecNode(exitnode.structdescr, fields)
 
 # ____________________________________________________________
 # A subclass of NodeFinder for bridges only
@@ -354,21 +385,23 @@ class __extend__(VirtualInstanceSpecNode):
             # unique match, but the class is known to be a mismatch
             return False
         #
-        d = exitnode.curfields
-        seen = 0
-        for ofs, subspecnode in self.fields:
-            try:
-                if d is None:
-                    raise KeyError
-                instnode = d[ofs]
-                seen += 1
-            except KeyError:
-                instnode = NodeFinder.node_escaped
-            if not subspecnode.matches_instance_node(instnode):
-                return False
-        if d is not None and len(d) > seen:
-            return False          # some key is in d but not in self.fields
-        return True
+        return matches_fields(self.fields, exitnode.curfields)
+
+def matches_fields(fields, d):
+    seen = 0
+    for ofs, subspecnode in fields:
+        try:
+            if d is None:
+                raise KeyError
+            instnode = d[ofs]
+            seen += 1
+        except KeyError:
+            instnode = NodeFinder.node_escaped
+        if not subspecnode.matches_instance_node(instnode):
+            return False
+    if d is not None and len(d) > seen:
+        return False          # some key is in d but not in fields
+    return True
 
 class __extend__(VirtualArraySpecNode):
     def make_instance_node(self):
@@ -395,6 +428,19 @@ class __extend__(VirtualArraySpecNode):
             if not subspecnode.matches_instance_node(itemnode):
                 return False
         return True
+
+class __extend__(VirtualStructSpecNode):
+    def make_instance_node(self):
+        raise AssertionError, "not implemented (but not used actually)"
+    def matches_instance_node(self, exitnode):
+        if exitnode.unique == UNIQUE_NO:
+            return False
+        #
+        assert exitnode.unique == UNIQUE_STRUCT
+        assert self.typedescr == exitnode.structdescr
+        #
+        return matches_fields(self.fields, exitnode.curfields)
+
 
 class BridgeSpecializationFinder(NodeFinder):
 

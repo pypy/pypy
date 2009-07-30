@@ -14,6 +14,7 @@ from pypy.jit.metainterp.optimizeutil import sort_descrs
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
+from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.test.oparser import parse
 
 
@@ -124,18 +125,25 @@ class BaseTest(object):
                                  self.cpu)
             else:
                 return ConstObj(ootype.cast_to_object(cls_vtable))
-        def makeVirtual(cls_vtable, **kwds_fields):
+        def parsefields(kwds_fields):
             fields = []
             for key, value in kwds_fields.items():
                 fields.append((self.namespace[key], value))
             fields.sort(key = lambda (x, _): x.sort_key())
+            return fields
+        def makeVirtual(cls_vtable, **kwds_fields):
+            fields = parsefields(kwds_fields)
             return VirtualInstanceSpecNode(constclass(cls_vtable), fields)
         def makeVirtualArray(arraydescr, *items):
             return VirtualArraySpecNode(arraydescr, items)
+        def makeVirtualStruct(typedescr, **kwds_fields):
+            fields = parsefields(kwds_fields)
+            return VirtualStructSpecNode(typedescr, fields)
         #
         context = {'Not': prebuiltNotSpecNode,
                    'Virtual': makeVirtual,
-                   'VArray': makeVirtualArray}
+                   'VArray': makeVirtualArray,
+                   'VStruct': makeVirtualStruct}
         lst = eval('[' + text + ']', self.namespace, context)
         return lst
 
@@ -562,6 +570,28 @@ class BaseTestOptimizeFindNode(BaseTest):
         jump(p4, i1)
         """
         # escapes because getarrayitem_gc uses a non-constant index
+        self.find_nodes(ops, 'Not, Not')
+
+    def test_find_nodes_struct_virtual_1(self):
+        ops = """
+        [i1, p2]
+        i2 = getfield_gc(p2, descr=adescr)
+        escape(i2)
+        p3 = new(descr=ssize)
+        setfield_gc(p3, i1, descr=adescr)
+        jump(i1, p3)
+        """
+        self.find_nodes(ops, 'Not, VStruct(ssize, adescr=Not)')
+
+    def test_find_nodes_struct_nonvirtual_1(self):
+        ops = """
+        [i1, p2]
+        i2 = getfield_gc(p2, descr=adescr)
+        escape(p2)
+        p3 = new(descr=ssize)
+        setfield_gc(p3, i1, descr=adescr)
+        jump(i1, p3)
+        """
         self.find_nodes(ops, 'Not, Not')
 
     # ------------------------------
