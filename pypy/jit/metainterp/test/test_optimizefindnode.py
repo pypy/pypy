@@ -755,13 +755,22 @@ class TestLLtype(BaseTestOptimizeFindNode, LLtypeMixin):
 
 class TestOOtype(BaseTestOptimizeFindNode, OOtypeMixin):
 
-    def test_find_nodes_instanceof(self):
-        py.test.skip('in-progress')
+    def test_find_nodes_oo_non_escape(self):
         ops = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
         i1 = instanceof(ConstClass(node_vtable), p0)
+        i2 = ooidentityhash(p0)
         jump(i1)
+        """
+        boxes, getnode = self.find_nodes(ops, 'Not')
+        assert not getnode(boxes.p0).escaped
+
+    def test_find_nodes_subclassof(self):
+        ops = """
+        [p0]
+        i1 = subclassof(p0, p0)
+        jump(p0)
         """
         boxes, getnode = self.find_nodes(ops, 'Not')
         assert not getnode(boxes.p0).escaped

@@ -117,9 +117,9 @@ class NodeFinder(object):
     find_nodes_OOIS        = find_nodes_no_escape
     find_nodes_OOISNOT     = find_nodes_no_escape
     find_nodes_ARRAYLEN_GC = find_nodes_no_escape
-    # XXX: OOIDENTITYHASH
-    # XXX: INSTANCEOF
-    # XXX: SUBCLASSOF
+    find_nodes_INSTANCEOF  = find_nodes_no_escape
+    find_nodes_OOIDENTITYHASH = find_nodes_no_escape
+    find_nodes_SUBCLASSOF  = find_nodes_no_escape
 
     def find_nodes_NEW_WITH_VTABLE(self, op):
         instnode = InstanceNode()
