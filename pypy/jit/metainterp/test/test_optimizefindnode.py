@@ -538,6 +538,18 @@ class BaseTestOptimizeFindNode(BaseTest):
         # Does not work because of the variable index, 'i1'.
         self.find_nodes(ops, 'Not, Not')
 
+    def test_find_nodes_array_forced_1(self):
+        ops = """
+        [p1, i1]
+        p2 = new_array(1, descr=arraydescr)
+        setarrayitem_gc(p2, 0, p1, descr=arraydescr)
+        p3 = getarrayitem_gc(p2, i1, descr=arraydescr)
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        jump(p4, i1)
+        """
+        # escapes because getarrayitem_gc uses a non-constant index
+        self.find_nodes(ops, 'Not, Not')
+
     # ------------------------------
     # Bridge tests
 

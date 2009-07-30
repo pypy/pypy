@@ -79,10 +79,6 @@ class ResOperation(object):
     def has_no_side_effect(self):
         return rop._NOSIDEEFFECT_FIRST <= self.opnum <= rop._NOSIDEEFFECT_LAST
 
-    def has_no_side_effect_ptr(self):
-        return (rop._NOSIDEEFFECT_PTR_FIRST <= self.opnum <=
-                rop._NOSIDEEFFECT_PTR_LAST)
-
     def can_raise(self):
         return rop._CANRAISE_FIRST <= self.opnum <= rop._CANRAISE_LAST
 
@@ -156,7 +152,6 @@ class rop(object):
     #
     SAME_AS                = 64      # gets a Const, turns it into a Box
     #
-    _NOSIDEEFFECT_PTR_FIRST = 70 # -- start of no_side_effect_ptr operations --
     OONONNULL              = 70
     OOISNULL               = 71
     OOIS                   = 72
@@ -184,7 +179,6 @@ class rop(object):
     NEW                    = 123
     NEW_WITH_VTABLE        = 124
     NEW_ARRAY              = 125
-    _NOSIDEEFFECT_PTR_LAST = 129 # -- end of no_side_effect_ptr operations --
     _NOSIDEEFFECT_LAST = 129 # ----- end of no_side_effect operations -----
 
     SETARRAYITEM_GC        = 133

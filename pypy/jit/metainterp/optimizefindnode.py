@@ -105,10 +105,21 @@ class NodeFinder(object):
                 self.find_nodes_default(op)
 
     def find_nodes_default(self, op):
-        if not op.has_no_side_effect_ptr():
-            # default case: mark the arguments as escaping
-            for box in op.args:
-                self.getnode(box).mark_escaped()
+        # default case: mark the arguments as escaping
+        for box in op.args:
+            self.getnode(box).mark_escaped()
+
+    def find_nodes_no_escape(self, op):
+        pass    # for operations that don't escape their arguments
+
+    find_nodes_OONONNULL   = find_nodes_no_escape
+    find_nodes_OOISNULL    = find_nodes_no_escape
+    find_nodes_OOIS        = find_nodes_no_escape
+    find_nodes_OOISNOT     = find_nodes_no_escape
+    find_nodes_ARRAYLEN_GC = find_nodes_no_escape
+    # XXX: OOIDENTITYHASH
+    # XXX: INSTANCEOF
+    # XXX: SUBCLASSOF
 
     def find_nodes_NEW_WITH_VTABLE(self, op):
         instnode = InstanceNode()
