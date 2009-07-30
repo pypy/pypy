@@ -48,9 +48,6 @@ class InstanceValue(object):
     def force_box(self):
         return self.box
 
-    def prepare_force_box(self):
-        pass
-
     def get_key_box(self):
         return self.box
 
@@ -138,8 +135,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def force_box(self):
         if self.box is None:
-            assert self.source_op is not None       # otherwise, we are trying
-            # to force a Virtual from a specnode computed by optimizefindnode.
+            if self.source_op is None:
+                self.prepare_force_box()
             newoperations = self.optimizer.newoperations
             newoperations.append(self.source_op)
             self.box = box = self.source_op.result
@@ -149,6 +146,9 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                                   descr=ofs)
                 newoperations.append(op)
         return self.box
+
+    def prepare_force_box(self):
+        raise NotImplementedError
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
@@ -173,16 +173,16 @@ class VirtualValue(AbstractVirtualStructValue):
         self.known_class = known_class
 
     def prepare_force_box(self):
-        # This logic is not included in force_box() for safety reasons.
-        # It should only be used from teardown_virtual_node(); if we
-        # call force_box() from somewhere else and we get source_op=None,
-        # it is really a bug.
-        if self.box is None and self.source_op is None:
-            # rare case (shown by test_p123_simple) to force a Virtual
-            # from a specnode computed by optimizefindnode.
-            self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
-                                          [self.known_class],
-                                          self.optimizer.new_ptr_box())
+        # rare case (shown by test_p123_simple) to force a Virtual
+        # from a specnode computed by optimizefindnode.
+        assert self.optimizer.reached_the_end
+        # The previous check is done for safety reasons:
+        # this function should only be used from teardown_virtual_node();
+        # if we call force_box() from somewhere else and we get
+        # source_op=None, it is really a bug.
+        self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
+                                      [self.known_class],
+                                      self.optimizer.new_ptr_box())
 
     def _make_virtual(self, modifier, fielddescrs, fieldboxes):
         modifier.make_virtual(self.keybox, self.known_class,
@@ -196,12 +196,12 @@ class VStructValue(AbstractVirtualStructValue):
         self.structdescr = structdescr
 
     def prepare_force_box(self):
-        if self.box is None and self.source_op is None:
-            # rare case (shown by test_p123_vstruct) to force a Virtual
-            # from a specnode computed by optimizefindnode.
-            self.source_op = ResOperation(rop.NEW, [],
-                                          self.optimizer.new_ptr_box(),
-                                          descr=self.structdescr)
+        # rare case (shown by test_p123_vstruct) to force a Virtual
+        # from a specnode computed by optimizefindnode.
+        assert self.optimizer.reached_the_end
+        self.source_op = ResOperation(rop.NEW, [],
+                                      self.optimizer.new_ptr_box(),
+                                      descr=self.structdescr)
 
     def _make_virtual(self, modifier, fielddescrs, fieldboxes):
         modifier.make_vstruct(self.keybox, self.structdescr,
@@ -230,8 +230,8 @@ class VArrayValue(AbstractVirtualValue):
 
     def force_box(self):
         if self.box is None:
-            assert self.source_op is not None       # otherwise, we are trying
-            # to force a VArray from a specnode computed by optimizefindnode.
+            if self.source_op is None:
+                self.prepare_force_box()
             newoperations = self.optimizer.newoperations
             newoperations.append(self.source_op)
             self.box = box = self.source_op.result
@@ -246,13 +246,13 @@ class VArrayValue(AbstractVirtualValue):
         return self.box
 
     def prepare_force_box(self):
-        if self.box is None and self.source_op is None:
-            # rare case (shown by test_p123_varray) to force a VirtualArray
-            # from a specnode computed by optimizefindnode.
-            self.source_op = ResOperation(rop.NEW_ARRAY,
-                                          [ConstInt(self.getlength())],
-                                          self.optimizer.new_ptr_box(),
-                                          descr=self.arraydescr)
+        # rare case (shown by test_p123_varray) to force a VirtualArray
+        # from a specnode computed by optimizefindnode.
+        assert self.optimizer.reached_the_end
+        self.source_op = ResOperation(rop.NEW_ARRAY,
+                                      [ConstInt(self.getlength())],
+                                      self.optimizer.new_ptr_box(),
+                                      descr=self.arraydescr)
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
@@ -274,7 +274,6 @@ class __extend__(SpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
         newinputargs.append(box)
     def teardown_virtual_node(self, optimizer, value, newexitargs):
-        value.prepare_force_box()
         newexitargs.append(value.force_box())
 
 class __extend__(AbstractVirtualStructSpecNode):
@@ -323,6 +322,7 @@ class Optimizer(object):
         self.cpu = cpu
         self.loop = loop
         self.values = {}
+        self.reached_the_end = False
 
     def getvalue(self, box):
         try:
@@ -489,6 +489,7 @@ class Optimizer(object):
         self.emit_operation(op)
 
     def optimize_JUMP(self, op):
+        self.reached_the_end = True
         orgop = self.loop.operations[-1]
         exitargs = []
         specnodes = orgop.jump_target.specnodes

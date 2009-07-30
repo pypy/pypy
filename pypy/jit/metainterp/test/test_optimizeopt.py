@@ -358,6 +358,39 @@ class BaseTestOptimizeOpt(BaseTest):
                            'Not, Virtual(node_vtable, valuedescr=Not), Not',
                            expected)
 
+    def test_p123_nested(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p1, p1sub, descr=nextdescr)
+        setfield_gc(p1sub, i1, descr=valuedescr)
+        jump(i1, p1, p2)
+        """
+        expected = """
+        [i1, i2, i2sub, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        p2b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2b, i2, descr=valuedescr)
+        p2sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2sub, i2sub, descr=valuedescr)
+        setfield_gc(p2b, p2sub, descr=nextdescr)
+        jump(i1, i1, i1, p2b)
+        """
+        # The same as test_p123_simple, but with a virtual containing another
+        # virtual.
+        self.optimize_loop(ops, '''Not,
+                                   Virtual(node_vtable,
+                                           valuedescr=Not,
+                                           nextdescr=Virtual(node_vtable2,
+                                                             valuedescr=Not)),
+                                   Not''',
+                           expected)
+
     # ----------
 
     def test_fold_guard_no_exception(self):

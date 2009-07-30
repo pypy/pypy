@@ -90,6 +90,7 @@ class OOtypeMixin(object):
     nodebox2 = BoxObj(ootype.cast_to_object(node))
     valuedescr = cpu.fielddescrof(NODE, 'value')
     nextdescr = cpu.fielddescrof(NODE, 'next')
+    otherdescr = cpu.fielddescrof(NODE2, 'other')
     nodesize = cpu.typedescrof(NODE)
     nodesize2 = cpu.typedescrof(NODE2)
 
