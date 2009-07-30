@@ -64,6 +64,7 @@ class LLtypeMixin(object):
     ssize = cpu.sizeof(S)
     adescr = cpu.fielddescrof(S, 'a')
     bdescr = cpu.fielddescrof(S, 'b')
+    arraydescr2 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(S)))
 
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
                       cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2)}
@@ -99,6 +100,7 @@ class OOtypeMixin(object):
     ssize = cpu.typedescrof(S)
     adescr = cpu.fielddescrof(S, 'a')
     bdescr = cpu.fielddescrof(S, 'b')
+    arraydescr2 = cpu.arraydescrof(ootype.Array(S))
 
     # force a consistent order
     valuedescr.sort_key()

@@ -830,10 +830,10 @@ class BaseTestOptimizeOpt(BaseTest):
         for match, end in zip(parts, ends[1:]):
             pvar = match.group(1)
             fieldstext = text[match.end():end]
-            if match.group(2) == 'list':
+            if match.group(2) == 'varray':
                 arrayname, fieldstext = fieldstext.split(':', 1)
                 tag = ('varray', self.namespace[arrayname.strip()])
-            elif match.group(2) == 'struct':
+            elif match.group(2) == 'vstruct':
                 if ',' in fieldstext:
                     structname, fieldstext = fieldstext.split(',', 1)
                 else:
@@ -1078,7 +1078,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected, i1=1)
         self.check_expanded_fail_descr('''p1
-            where p1 is a list arraydescr: 25, i1
+            where p1 is a varray arraydescr: 25, i1
             ''')
 
     def test_expand_fail_vstruct(self):
@@ -1102,7 +1102,50 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not, Not', expected, i1=1)
         self.check_expanded_fail_descr('''p2
-            where p2 is a struct ssize, adescr=i1, bdescr=p1
+            where p2 is a vstruct ssize, adescr=i1, bdescr=p1
+            ''')
+
+    def test_expand_fail_v_all_1(self):
+        self.make_fail_descr()
+        ops = """
+        [i1, p1a, i2]
+        p6s = getarrayitem_gc(p1a, 0, descr=arraydescr2)
+        p7v = getfield_gc(p6s, descr=bdescr)
+        p5s = new(descr=ssize)
+        setfield_gc(p5s, i2, descr=adescr)
+        setfield_gc(p5s, p7v, descr=bdescr)
+        setarrayitem_gc(p1a, 1, p5s, descr=arraydescr2)
+        guard_true(i1)
+          fail(p1a, descr=fdescr)
+        p2s = new(descr=ssize)
+        p3v = new_with_vtable(ConstClass(node_vtable))
+        p4a = new_array(2, descr=arraydescr2)
+        setfield_gc(p2s, i1, descr=adescr)
+        setfield_gc(p2s, p3v, descr=bdescr)
+        setfield_gc(p3v, i2, descr=valuedescr)
+        setarrayitem_gc(p4a, 0, p2s, descr=arraydescr2)
+        jump(i1, p4a, i2)
+        """
+        expected = """
+        [i1, ia, iv, pnull, i2]
+        guard_true(i1)
+          fail(ia, iv, i2, descr=fdescr)
+        jump(1, 1, i2, NULL, i2)
+        """
+        self.optimize_loop(ops, '''
+            Not,
+            VArray(arraydescr2,
+                   VStruct(ssize,
+                           adescr=Not,
+                           bdescr=Virtual(node_vtable,
+                                          valuedescr=Not)),
+                   Not),
+            Not''', expected, i1=1)
+        self.check_expanded_fail_descr('''p1a
+            where p1a is a varray arraydescr2: p6s, p5s
+            where p6s is a vstruct ssize, adescr=ia, bdescr=p7v
+            where p5s is a vstruct ssize, adescr=i2, bdescr=p7v
+            where p7v is a node_vtable, valuedescr=iv
             ''')
 
 
