@@ -2,6 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.resume import *
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstAddr
+from pypy.jit.metainterp.history import ConstPtr
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 from pypy.jit.metainterp import executor
 
@@ -64,7 +65,8 @@ class MyMetaInterp:
         resbox = executor.execute(self.cpu, opnum, argboxes, descr)
         self.trace.append((opnum,
                            [box.value for box in argboxes],
-                           resbox and resbox.value))
+                           resbox and resbox.value,
+                           descr))
         return resbox
 
 demo55 = lltype.malloc(LLtypeMixin.NODE)
@@ -138,13 +140,13 @@ def test_virtual_adder_make_virtual():
     b4tx = b2t.value._obj.container._as_ptr().next
     b4tx = lltype.cast_opaque_ptr(llmemory.GCREF, b4tx)
     assert metainterp.trace == [
-        (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr], b2t.value),
-        (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr2], b4tx),
-        (rop.SETFIELD_GC, [b2t.value, b4tx], None),
-        (rop.SETFIELD_GC, [b2t.value, c1s.value], None),
-        (rop.SETFIELD_GC, [b4tx, b2t.value], None),
-        (rop.SETFIELD_GC, [b4tx, b3t.value], None),
-        (rop.SETFIELD_GC, [b4tx, b5t.value], None),
+        (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr], b2t.value, None),
+        (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr2], b4tx, None),
+        (rop.SETFIELD_GC, [b2t.value, b4tx],     None, LLtypeMixin.nextdescr),
+        (rop.SETFIELD_GC, [b2t.value, c1s.value],None, LLtypeMixin.valuedescr),
+        (rop.SETFIELD_GC, [b4tx, b2t.value],     None, LLtypeMixin.nextdescr),
+        (rop.SETFIELD_GC, [b4tx, b3t.value],     None, LLtypeMixin.valuedescr),
+        (rop.SETFIELD_GC, [b4tx, b5t.value],     None, LLtypeMixin.otherdescr),
         ]
     del metainterp.trace[:]
     lst = reader.consume_boxes()
@@ -226,9 +228,9 @@ def test_virtual_adder_make_varray():
     b2t = lst[-1]
     assert lst == [b1t, ConstInt(1), b1t, b2t]
     assert metainterp.trace == [
-        (rop.NEW_ARRAY, [2], b2t.value),
-        (rop.SETARRAYITEM_GC, [b2t.value, 0, 44], None),
-        (rop.SETARRAYITEM_GC, [b2t.value, 1, 111], None),
+        (rop.NEW_ARRAY, [2], b2t.value,                LLtypeMixin.arraydescr),
+        (rop.SETARRAYITEM_GC, [b2t.value,0,44],  None, LLtypeMixin.arraydescr),
+        (rop.SETARRAYITEM_GC, [b2t.value,1,111], None, LLtypeMixin.arraydescr),
         ]
     del metainterp.trace[:]
     lst = reader.consume_boxes()
@@ -243,3 +245,52 @@ def test_virtual_adder_make_varray():
     assert len(ptr) == 2
     assert ptr[0] == 44
     assert ptr[1] == 111
+
+
+def test_virtual_adder_make_vstruct():
+    storage = make_demo_storage()
+    b1s, b2s, b3s, b4s = [BoxInt(1), BoxPtr(), BoxInt(3), BoxPtr()]
+    c1s = ConstInt(111)
+    modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
+    assert not modifier.is_virtual(b1s)
+    assert not modifier.is_virtual(b2s)
+    assert not modifier.is_virtual(b3s)
+    modifier.make_vstruct(b2s,
+                          LLtypeMixin.ssize,
+                          [LLtypeMixin.adescr, LLtypeMixin.bdescr],
+                          [c1s, b4s])   # new fields
+    assert not modifier.is_virtual(b1s)
+    assert     modifier.is_virtual(b2s)
+    assert not modifier.is_virtual(b3s)
+    assert not modifier.is_virtual(b4s)
+    # done
+    liveboxes = modifier.finish()
+    assert liveboxes == [b1s,
+                         #b2s -- virtual
+                         b3s,
+                         b4s]
+    #
+    NULL = ConstPtr.value
+    b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxPtr()]
+    metainterp = MyMetaInterp(LLtypeMixin.cpu)
+    reader = ResumeDataReader(storage, [b1t, b3t, b4t], metainterp)
+    lst = reader.consume_boxes()
+    b2t = lst[-1]
+    assert lst == [b1t, ConstInt(1), b1t, b2t]
+    assert metainterp.trace == [
+        (rop.NEW, [], b2t.value, LLtypeMixin.ssize),
+        (rop.SETFIELD_GC, [b2t.value, 111],  None, LLtypeMixin.adescr),
+        (rop.SETFIELD_GC, [b2t.value, NULL], None, LLtypeMixin.bdescr),
+        ]
+    del metainterp.trace[:]
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(2), ConstInt(3)]
+    assert metainterp.trace == []
+    lst = reader.consume_boxes()
+    assert lst == [b1t, b2t, b3t]
+    assert metainterp.trace == []
+    #
+    ptr = b2t.value._obj.container._as_ptr()
+    assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.S)
+    assert ptr.a == 111
+    assert ptr.b == lltype.nullptr(LLtypeMixin.NODE)

@@ -73,6 +73,10 @@ class ResumeDataVirtualAdder(object):
         vinfo = VirtualInfo(known_class, fielddescrs)
         self._make_virtual(virtualbox, vinfo, fieldboxes)
 
+    def make_vstruct(self, virtualbox, typedescr, fielddescrs, fieldboxes):
+        vinfo = VStructInfo(typedescr, fielddescrs)
+        self._make_virtual(virtualbox, vinfo, fieldboxes)
+
     def make_varray(self, virtualbox, arraydescr, itemboxes):
         vinfo = VArrayInfo(arraydescr, len(itemboxes))
         self._make_virtual(virtualbox, vinfo, itemboxes)
@@ -132,15 +136,10 @@ class AbstractVirtualInfo(object):
         raise NotImplementedError
 
 
-class VirtualInfo(AbstractVirtualInfo):
-    def __init__(self, known_class, fielddescrs):
-        self.known_class = known_class
+class AbstractVirtualStructInfo(AbstractVirtualInfo):
+    def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
         #self.fieldnums = ...
-
-    def allocate(self, metainterp):
-        return metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
-                                             [self.known_class])
 
     def setfields(self, metainterp, box, fn_decode_box):
         for i in range(len(self.fielddescrs)):
@@ -148,6 +147,24 @@ class VirtualInfo(AbstractVirtualInfo):
             metainterp.execute_and_record(rop.SETFIELD_GC,
                                           [box, fieldbox],
                                           descr=self.fielddescrs[i])
+
+class VirtualInfo(AbstractVirtualStructInfo):
+    def __init__(self, known_class, fielddescrs):
+        AbstractVirtualStructInfo.__init__(self, fielddescrs)
+        self.known_class = known_class
+
+    def allocate(self, metainterp):
+        return metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
+                                             [self.known_class])
+
+class VStructInfo(AbstractVirtualStructInfo):
+    def __init__(self, typedescr, fielddescrs):
+        AbstractVirtualStructInfo.__init__(self, fielddescrs)
+        self.typedescr = typedescr
+
+    def allocate(self, metainterp):
+        return metainterp.execute_and_record(rop.NEW, [],
+                                             descr=self.typedescr)
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr, length):
