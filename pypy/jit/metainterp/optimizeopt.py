@@ -609,7 +609,11 @@ class Optimizer(object):
     def optimize_NEW_ARRAY(self, op):
         sizebox = op.args[0]
         if self.is_constant(sizebox):
-            self.make_varray(op.descr, sizebox.getint(), op.result, op)
+            size = sizebox.getint()
+            if not isinstance(sizebox, ConstInt):
+                op = ResOperation(rop.NEW_ARRAY, [ConstInt(size)], op.result,
+                                  descr=op.descr)
+            self.make_varray(op.descr, size, op.result, op)
         else:
             self.optimize_default(op)
 

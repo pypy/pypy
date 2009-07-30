@@ -762,6 +762,24 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, VArray(arraydescr, Not), Not',
                            expected)
 
+    def test_varray_forced_1(self):
+        ops = """
+        []
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, 3, descr=valuedescr)
+        i1 = getfield_gc(p2, descr=valuedescr)    # i1 = const 3
+        p1 = new_array(i1, descr=arraydescr)
+        escape(p1)
+        jump()
+        """
+        expected = """
+        []
+        p1 = new_array(3, descr=arraydescr)
+        escape(p1)
+        jump()
+        """
+        self.optimize_loop(ops, '', expected, i1=3)
+
     def test_vstruct_1(self):
         ops = """
         [i1, p2]
