@@ -489,6 +489,11 @@ class OOtypeCPU(BaseCPU):
         assert len(args) == 1
         return typedescr.create_array(args[0])
 
+    def do_new(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 0
+        return typedescr.create()
+
     def do_runtimenew(self, args, descr):
         "NOT_RPYTHON"
         classbox = args[0]
