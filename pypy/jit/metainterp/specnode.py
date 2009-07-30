@@ -19,15 +19,12 @@ class NotSpecNode(SpecNode):
 prebuiltNotSpecNode = NotSpecNode()
 
 
-class VirtualInstanceSpecNode(SpecNode):
-    def __init__(self, known_class, fields):
-        self.known_class = known_class
+class AbstractVirtualStructSpecNode(SpecNode):
+    def __init__(self, fields):
         self.fields = fields    # list: [(fieldofs, subspecnode)]
 
-    def equals(self, other):
-        if not (isinstance(other, VirtualInstanceSpecNode) and
-                self.known_class.equals(other.known_class) and
-                len(self.fields) == len(other.fields)):
+    def equal_fields(self, other):
+        if len(self.fields) != len(other.fields):
             return False
         for i in range(len(self.fields)):
             o1, s1 = self.fields[i]
@@ -43,6 +40,18 @@ class VirtualInstanceSpecNode(SpecNode):
             fieldbox = executor.execute(cpu, resoperation.rop.GETFIELD_GC,
                                         [valuebox], ofs)
             subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+
+
+class VirtualInstanceSpecNode(AbstractVirtualStructSpecNode):
+    def __init__(self, known_class, fields):
+        AbstractVirtualStructSpecNode.__init__(self, fields)
+        self.known_class = known_class
+
+    def equals(self, other):
+        if not (isinstance(other, VirtualInstanceSpecNode) and
+                self.known_class.equals(other.known_class)):
+            return False
+        return self.equal_fields(other)
 
 
 class VirtualArraySpecNode(SpecNode):
@@ -70,6 +79,18 @@ class VirtualArraySpecNode(SpecNode):
                                        self.arraydescr)
             subspecnode = self.items[i]
             subspecnode.extract_runtime_data(cpu, itembox, resultlist)
+
+
+class VirtualStructSpecNode(AbstractVirtualStructSpecNode):
+    def __init__(self, typedescr, fields):
+        AbstractVirtualStructSpecNode.__init__(self, fields)
+        self.typedescr = typedescr
+
+    def equals(self, other):
+        if not isinstance(other, VirtualStructSpecNode):
+            return False
+        assert self.typedescr == other.typedescr
+        return self.equal_fields(other)
 
 
 def equals_specnodes(specnodes1, specnodes2):

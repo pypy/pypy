@@ -58,6 +58,12 @@ class LLtypeMixin(object):
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
 
+    # a GcStruct not inheriting from OBJECT
+    S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))
+    ssize = cpu.sizeof(S)
+    adescr = cpu.fielddescrof(S, 'a')
+    bdescr = cpu.fielddescrof(S, 'b')
+
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
                       cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2)}
     namespace = locals()
@@ -87,9 +93,17 @@ class OOtypeMixin(object):
 
     arraydescr = cpu.arraydescrof(ootype.Array(ootype.Signed))
 
+    # a plain Record
+    S = ootype.Record({'a': ootype.Signed, 'b': NODE})
+    ssize = cpu.typedescrof(S)
+    adescr = cpu.fielddescrof(S, 'a')
+    bdescr = cpu.fielddescrof(S, 'b')
+
     # force a consistent order
     valuedescr.sort_key()
     nextdescr.sort_key()
+    adescr.sort_key()
+    bdescr.sort_key()
 
     cpu.class_sizes = {node_vtable_adr: cpu.typedescrof(NODE),
                        node_vtable_adr2: cpu.typedescrof(NODE2)}
