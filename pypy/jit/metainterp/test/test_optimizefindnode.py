@@ -740,4 +740,14 @@ class TestLLtype(BaseTestOptimizeFindNode, LLtypeMixin):
     pass
 
 class TestOOtype(BaseTestOptimizeFindNode, OOtypeMixin):
-    pass
+
+    def test_find_nodes_instanceof(self):
+        py.test.skip('in-progress')
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(node_vtable))
+        i1 = instanceof(ConstClass(node_vtable), p0)
+        jump(i1)
+        """
+        boxes, getnode = self.find_nodes(ops, 'Not')
+        assert not getnode(boxes.p0).escaped
