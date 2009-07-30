@@ -762,6 +762,43 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, VArray(arraydescr, Not), Not',
                            expected)
 
+    def test_vstruct_1(self):
+        ops = """
+        [i1, p2]
+        i2 = getfield_gc(p2, descr=adescr)
+        escape(i2)
+        p3 = new(descr=ssize)
+        setfield_gc(p3, i1, descr=adescr)
+        jump(i1, p3)
+        """
+        expected = """
+        [i1, i2]
+        escape(i2)
+        jump(i1, i1)
+        """
+        self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not)', expected)
+
+    def test_p123_vstruct(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=adescr)
+        escape(i3)
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        jump(i1, p1, p2)
+        """
+        expected = """
+        [i1, i2, p3]
+        i3 = getfield_gc(p3, descr=adescr)
+        escape(i3)
+        p2b = new(descr=ssize)
+        setfield_gc(p2b, i2, descr=adescr)
+        jump(i1, i1, p2b)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not), Not',
+                           expected)
+
     # ----------
 
     def make_fail_descr(self):
@@ -793,11 +830,17 @@ class BaseTestOptimizeOpt(BaseTest):
         for match, end in zip(parts, ends[1:]):
             pvar = match.group(1)
             fieldstext = text[match.end():end]
-            if match.group(2) != 'list':
-                tag = ('virtual', self.namespace[match.group(2)])
-            else:
+            if match.group(2) == 'list':
                 arrayname, fieldstext = fieldstext.split(':', 1)
                 tag = ('varray', self.namespace[arrayname.strip()])
+            elif match.group(2) == 'struct':
+                if ',' in fieldstext:
+                    structname, fieldstext = fieldstext.split(',', 1)
+                else:
+                    structname, fieldstext = fieldstext, ''
+                tag = ('vstruct', self.namespace[structname.strip()])
+            else:
+                tag = ('virtual', self.namespace[match.group(2)])
             virtuals[pvar] = (tag, None, fieldstext)
         #
         def _variables_equal(box, varname, strict):
@@ -817,6 +860,8 @@ class BaseTestOptimizeOpt(BaseTest):
                         assert ootype.classof(root) == tag[1]
                 elif tag[0] == 'varray':
                     pass    # xxx check arraydescr
+                elif tag[0] == 'vstruct':
+                    pass    # xxx check typedescr
                 else:
                     assert 0
                 if resolved is not None:
@@ -839,7 +884,7 @@ class BaseTestOptimizeOpt(BaseTest):
                 fieldtext = fieldtext.strip()
                 if not fieldtext:
                     continue
-                if tag[0] == 'virtual':
+                if tag[0] in ('virtual', 'vstruct'):
                     fieldname, fieldvalue = fieldtext.split('=')
                     fielddescr = self.namespace[fieldname.strip()]
                     fieldbox = executor.execute(self.cpu,
@@ -1034,6 +1079,30 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected, i1=1)
         self.check_expanded_fail_descr('''p1
             where p1 is a list arraydescr: 25, i1
+            ''')
+
+    def test_expand_fail_vstruct(self):
+        self.make_fail_descr()
+        ops = """
+        [i1, p1]
+        p2 = new(descr=ssize)
+        setfield_gc(p2, i1, descr=adescr)
+        setfield_gc(p2, p1, descr=bdescr)
+        guard_true(i1)
+          fail(p2, descr=fdescr)
+        i3 = getfield_gc(p2, descr=adescr)
+        p3 = getfield_gc(p2, descr=bdescr)
+        jump(i3, p3)
+        """
+        expected = """
+        [i1, p1]
+        guard_true(i1)
+          fail(i1, p1, descr=fdescr)
+        jump(1, p1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected, i1=1)
+        self.check_expanded_fail_descr('''p2
+            where p2 is a struct ssize, adescr=i1, bdescr=p1
             ''')
 
 

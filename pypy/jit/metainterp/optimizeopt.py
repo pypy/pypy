@@ -2,8 +2,10 @@ from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.specnode import SpecNode
+from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
+from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
 from pypy.jit.metainterp import resume, compile
 from pypy.rlib.objectmodel import we_are_translated
@@ -121,11 +123,10 @@ class AbstractVirtualValue(InstanceValue):
         return self.box
 
 
-class VirtualValue(AbstractVirtualValue):
+class AbstractVirtualStructValue(AbstractVirtualValue):
 
-    def __init__(self, optimizer, known_class, keybox, source_op=None):
+    def __init__(self, optimizer, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
-        self.known_class = known_class
         self._fields = av_newdict2()
 
     def getfield(self, ofs, default):
@@ -149,6 +150,28 @@ class VirtualValue(AbstractVirtualValue):
                 newoperations.append(op)
         return self.box
 
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.is_virtual(self.keybox):
+            # modifier.is_virtual() checks for recursion: it is False unless
+            # we have already seen the very same keybox
+            lst = self._fields.keys()
+            sort_descrs(lst)
+            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
+            self._make_virtual(modifier, lst, fieldboxes)
+            for ofs in lst:
+                fieldvalue = self._fields[ofs]
+                fieldvalue.get_args_for_fail(modifier)
+
+    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
+        raise NotImplementedError
+
+
+class VirtualValue(AbstractVirtualStructValue):
+
+    def __init__(self, optimizer, known_class, keybox, source_op=None):
+        AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
+        self.known_class = known_class
+
     def prepare_force_box(self):
         # This logic is not included in force_box() for safety reasons.
         # It should only be used from teardown_virtual_node(); if we
@@ -161,18 +184,28 @@ class VirtualValue(AbstractVirtualValue):
                                           [self.known_class],
                                           self.optimizer.new_ptr_box())
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.is_virtual(self.keybox):
-            # modifier.is_virtual() checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            lst = self._fields.keys()
-            sort_descrs(lst)
-            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-            modifier.make_virtual(self.keybox, self.known_class,
-                                  lst, fieldboxes)
-            for ofs in lst:
-                fieldvalue = self._fields[ofs]
-                fieldvalue.get_args_for_fail(modifier)
+    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
+        modifier.make_virtual(self.keybox, self.known_class,
+                              fielddescrs, fieldboxes)
+
+
+class VStructValue(AbstractVirtualStructValue):
+
+    def __init__(self, optimizer, structdescr, keybox, source_op=None):
+        AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
+        self.structdescr = structdescr
+
+    def prepare_force_box(self):
+        if self.box is None and self.source_op is None:
+            # rare case (shown by test_p123_vstruct) to force a Virtual
+            # from a specnode computed by optimizefindnode.
+            self.source_op = ResOperation(rop.NEW, [],
+                                          self.optimizer.new_ptr_box(),
+                                          descr=self.structdescr)
+
+    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
+        modifier.make_vstruct(self.keybox, self.structdescr,
+                              fielddescrs, fieldboxes)
 
 
 class VArrayValue(AbstractVirtualValue):
@@ -214,7 +247,7 @@ class VArrayValue(AbstractVirtualValue):
 
     def prepare_force_box(self):
         if self.box is None and self.source_op is None:
-            # rare case (shown by test_p123_simple) to force a VirtualArray
+            # rare case (shown by test_p123_varray) to force a VirtualArray
             # from a specnode computed by optimizefindnode.
             self.source_op = ResOperation(rop.NEW_ARRAY,
                                           [ConstInt(self.getlength())],
@@ -244,18 +277,28 @@ class __extend__(SpecNode):
         value.prepare_force_box()
         newexitargs.append(value.force_box())
 
-class __extend__(VirtualInstanceSpecNode):
+class __extend__(AbstractVirtualStructSpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
-        vvalue = optimizer.make_virtual(self.known_class, box)
+        vvalue = self._setup_virtual_node_1(optimizer, box)
         for ofs, subspecnode in self.fields:
             subbox = optimizer.new_box(ofs)
             subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
             vvalue.setfield(ofs, optimizer.getvalue(subbox))
+    def _setup_virtual_node_1(self, optimizer, box):
+        raise NotImplementedError
     def teardown_virtual_node(self, optimizer, value, newexitargs):
         assert value.is_virtual()
         for ofs, subspecnode in self.fields:
             subvalue = value.getfield(ofs, optimizer.new_const(ofs))
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
+
+class __extend__(VirtualInstanceSpecNode):
+    def _setup_virtual_node_1(self, optimizer, box):
+        return optimizer.make_virtual(self.known_class, box)
+
+class __extend__(VirtualStructSpecNode):
+    def _setup_virtual_node_1(self, optimizer, box):
+        return optimizer.make_vstruct(self.typedescr, box)
 
 class __extend__(VirtualArraySpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
@@ -313,6 +356,11 @@ class Optimizer(object):
 
     def make_varray(self, arraydescr, size, box, source_op=None):
         vvalue = VArrayValue(self, arraydescr, size, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_vstruct(self, structdescr, box, source_op=None):
+        vvalue = VStructValue(self, structdescr, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -554,6 +602,9 @@ class Optimizer(object):
 
     def optimize_NEW_WITH_VTABLE(self, op):
         self.make_virtual(op.args[0], op.result, op)
+
+    def optimize_NEW(self, op):
+        self.make_vstruct(op.descr, op.result, op)
 
     def optimize_NEW_ARRAY(self, op):
         sizebox = op.args[0]
