@@ -26,7 +26,7 @@ class GenCli(GenOO):
     Database = LowLevelDatabase
     log = log
     
-    ConstantGenerator = constant.StaticFieldConstGenerator
+    ConstantGenerator = constant.CLIConstantGenerator
     InstanceConst = constant.CLIInstanceConst
     RecordConst = constant.CLIRecordConst
     ClassConst = constant.CLIClassConst
