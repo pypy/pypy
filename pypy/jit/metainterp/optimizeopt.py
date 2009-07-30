@@ -647,6 +647,12 @@ class Optimizer(object):
             value.make_nonnull()
             self.optimize_default(op)
 
+    def optimize_INSTANCEOF(self, op):
+        value = self.getvalue(op.args[0])
+        if value.has_constant_class():
+            self.make_constant(op.result)
+            return
+        self.emit_operation(op)
 
 optimize_ops = _findall(Optimizer, 'optimize_')
 

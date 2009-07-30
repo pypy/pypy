@@ -1153,4 +1153,17 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
     pass
 
 class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
-    pass
+
+    def test_instanceof(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(node_vtable))
+        i1 = instanceof(p0, descr=nodesize)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(1)
+        """
+        self.optimize_loop(ops, 'Not', expected, i1=1)
+ 
