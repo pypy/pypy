@@ -6,6 +6,7 @@ from pypy.jit.metainterp.test.test_resume import MyMetaInterp
 from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
                                                             OOtypeMixin,
                                                             BaseTest)
+from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt
 from pypy.jit.metainterp import resume, executor, compile
@@ -96,10 +97,22 @@ class BaseTestOptimizeOpt(BaseTest):
                             expected.operations,
                             remap)
 
-    def optimize_loop(self, ops, spectext, optops, boxkinds=None, **values):
+    def optimize_loop(self, ops, spectext, optops,
+                      boxkinds=None, checkspecnodes=True, **values):
         loop = self.parse(ops, boxkinds=boxkinds)
         loop.setvalues(**values)
-        loop.specnodes = self.unpack_specnodes(spectext)
+        #
+        if checkspecnodes:
+            # verify that 'spectext' is indeed what optimizefindnode would
+            # compute for this loop
+            perfect_specialization_finder = PerfectSpecializationFinder()
+            perfect_specialization_finder.find_nodes_loop(loop)
+            self.check_specnodes(loop.specnodes, spectext)
+        else:
+            # for cases where we want to see how optimizeopt behaves with
+            # combinations different from the one computed by optimizefindnode
+            loop.specnodes = self.unpack_specnodes(spectext)
+        #
         assert loop.operations[-1].opnum == rop.JUMP
         loop.operations[-1].jump_target = loop
         #
@@ -463,7 +476,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i, i1)
         """
         self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
+                           expected, checkspecnodes=False)
 
     def test_virtual_2(self):
         ops = """
@@ -531,7 +544,7 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, '''Virtual(node_vtable),
                                    Virtual(node_vtable),
                                    Not''',
-                           expected,
+                           expected, checkspecnodes=False,
                            i1=1, i2=0, i3=1, i4=0, i5=1, i6=0,
                            i7=1, i8=0, i9=1, i10=0, i11=1, i12=0)
         #
