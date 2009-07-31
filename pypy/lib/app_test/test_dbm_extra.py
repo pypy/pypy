@@ -27,6 +27,7 @@ def test_nonstring():
     py.test.raises(TypeError, "d.setdefault(123, 'xyz')")
     py.test.raises(TypeError, "d.setdefault('xyz', 123)")
     py.test.raises(TypeError, "d.get(123)")
-    d.setdefault('xyz')
-    assert dict(d) == {'xyz': ''}
+    assert dict(d) == {}
+    d.setdefault('xyz', '123')
+    assert dict(d) == {'xyz': '123'}
     d.close()
