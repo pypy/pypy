@@ -6,7 +6,7 @@ import py
 import sys
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, we_are_jitted
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, Arguments
@@ -73,7 +73,11 @@ class __extend__(PyFrame):
         except ExitFrame:
             return self.popvalue()
 
-    def JUMP_ABSOLUTE(f, jumpto, next_instr, ec=None):
+    def JUMP_ABSOLUTE(f, jumpto, _, ec=None):
+        if we_are_jitted():
+            f.last_instr = intmask(jumpto)
+            ec.bytecode_trace(f)
+            jumpto = r_uint(f.last_instr)
         pypyjitdriver.can_enter_jit(frame=f, ec=ec, next_instr=jumpto,
                                     pycode=f.getcode())
         return jumpto
