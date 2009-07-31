@@ -10,18 +10,16 @@ from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr, ConstObj,
                                          BoxInt, BoxPtr, BoxObj)
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
-from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.extregistry import ExtRegistryEntry
 
-from pypy.jit.metainterp import heaptracker, resoperation, executor
+from pypy.jit.metainterp import resoperation, executor
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 
 from pypy.rlib.objectmodel import ComputedIntSymbolic
-from pypy.rlib.rarithmetic import r_uint, intmask
 
 import py
 from pypy.tool.ansi_print import ansi_log
