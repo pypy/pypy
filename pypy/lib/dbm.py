@@ -71,9 +71,7 @@ class dbm(object):
         data = datum()
         data.dptr = c_char_p(value)
         data.dsize = c_int(len(value))
-        status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
-        if status == 1:
-            status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
+        status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
         if getattr(lib, funcs['error'])(self._aobj):
             getattr(lib, funcs['clearerr'])(self._aobj)
             raise error("")

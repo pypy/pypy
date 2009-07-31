@@ -31,3 +31,12 @@ def test_nonstring():
     d.setdefault('xyz', '123')
     assert dict(d) == {'xyz': '123'}
     d.close()
+
+def test_multiple_sets():
+    path = str(udir.join('test_dbm_extra.test_multiple_sets'))
+    d = dbm.open(path, 'c')
+    d['xyz'] = '12'
+    d['xyz'] = '3'
+    d['xyz'] = '546'
+    assert dict(d) == {'xyz': '546'}
+    assert d['xyz'] == '546'
