@@ -2,9 +2,7 @@
 
 * support floats
 
-* fix bugs in virtualizables, but think first
-
-* kill empty pairs setup_exception_block/teardown_exception_block
+* virtualizables: fix 'test_external_read_sometimes'
 
 * long term: memory management of the compiled code (free old code)
 

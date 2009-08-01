@@ -7,7 +7,7 @@ from pypy.jit.metainterp.resoperation import rop
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles.
 
-# XXX I guess that building the data so that it is compact as possible
+# XXX I guess that building the data so that it is as compact as possible
 # on the 'storage' object would be a big win.
 
 
