@@ -1010,8 +1010,12 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
-    #def consider_setfield_raw(...):
-    #    like consider_setfield_gc(), except without write barrier support
+    def consider_setfield_raw(self, op, ignored):
+        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
+        value_loc = self.make_sure_var_in_reg(op.args[1], op.args)
+        ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
+        self.eventually_free_vars(op.args)
+        self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
     def consider_strsetitem(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)

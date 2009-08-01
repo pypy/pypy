@@ -495,6 +495,8 @@ class CPU386(object):
             v = rffi.cast(rffi.USHORT, vbox.getint())
             rffi.cast(rffi.CArrayPtr(rffi.USHORT), gcref)[ofs/2] = v
         elif size == WORD:
+            if lltype.typeOf(gcref) is lltype.Signed:
+                ptr = False  # xxx can't handle write barriers for setfield_raw
             if ptr:
                 ptr = vbox.getptr(llmemory.GCREF)
                 self.gc_ll_descr.do_write_barrier(gcref, ptr)

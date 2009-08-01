@@ -18,6 +18,7 @@ class DelTests:
                 x = Foo()
                 Foo()
                 n -= 1
+            return 42
         self.meta_interp(f, [20])
         self.check_loops({'call': 2,      # calls to a helper function
                           'guard_no_exception': 2,    # follows the calls
@@ -30,15 +31,21 @@ class DelTests:
         from pypy.module.signal.interp_signal import SignalActionFlag
         action = SignalActionFlag()
         #
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        class X:
+            pass
         #
         def f(n):
+            x = X()
             while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                x.foo = n
                 n -= 1
                 if action.get() != 0:
                     break
+                action.set(0)
+            return 42
         self.meta_interp(f, [20])
         self.check_loops(getfield_raw=1, call=0, call_pure=0)
 
