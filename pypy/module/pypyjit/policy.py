@@ -47,6 +47,7 @@ class PyPyJitPolicy(ManualJitPolicy):
             return False
         if mod.startswith('pypy.module.'):
             if (not mod.startswith('pypy.module.pypyjit.') and
+                not mod.startswith('pypy.module.signal.') and
                 not mod.startswith('pypy.module.micronumpy.')):
                 return False
             

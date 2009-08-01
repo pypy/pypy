@@ -25,7 +25,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
-                      'pypysig_get_occurred', 'pypysig_set_occurred'],
+                      'pypysig_getaddr_occurred'],
 )
 
 def external(name, args, result, **kwds):
@@ -38,17 +38,23 @@ pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
 
-pypysig_get_occurred = external('pypysig_get_occurred', [],
-                                lltype.Signed, _nowrapper=True)
-pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
-                                lltype.Void, _nowrapper=True)
+# don't use rffi.LONGP because the JIT doesn't support raw arrays so far
+LONG_STRUCT = lltype.Struct('LONG_STRUCT', ('value', lltype.Signed))
+
+pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
+                                    lltype.Ptr(LONG_STRUCT), _nowrapper=True,
+                                    pure_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
-    get = staticmethod(pypysig_get_occurred)
-    set = staticmethod(pypysig_set_occurred)
+    def get(self):
+        p = pypysig_getaddr_occurred()
+        return p.value
+    def set(self, value):
+        p = pypysig_getaddr_occurred()
+        p.value = value
 
 
 class CheckSignalAction(AsyncAction):

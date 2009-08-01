@@ -616,7 +616,7 @@ class Frame(object):
 
     def op_getfield_raw(self, fielddescr, struct):
         if fielddescr.typeinfo == 'p':
-            return do_getfield_raw_ptr(struct, fielddescr.ofs)
+            return do_getfield_raw_ptr(struct, fielddescr.ofs, self.memocast)
         else:
             return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
 
@@ -646,7 +646,8 @@ class Frame(object):
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == 'p':
-            do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
+            do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
+                                self.memocast)
         else:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
                                 self.memocast)
@@ -793,10 +794,17 @@ def cast_to_int(x, memocast):
 
 def cast_from_int(TYPE, x, memocast):
     if isinstance(TYPE, lltype.Ptr):
-        return llmemory.cast_adr_to_ptr(cast_int_to_adr(memocast, x), TYPE)
+        if isinstance(x, (int, long)):
+            x = cast_int_to_adr(memocast, x)
+        return llmemory.cast_adr_to_ptr(x, TYPE)
     elif TYPE == llmemory.Address:
-        return cast_int_to_adr(memocast, x)
+        if isinstance(x, (int, long)):
+            x = cast_int_to_adr(memocast, x)
+        assert lltype.typeOf(x) == llmemory.Address
+        return x
     else:
+        if lltype.typeOf(x) == llmemory.Address:
+            x = cast_adr_to_int(memocast, x)
         return lltype.cast_primitive(TYPE, x)
 
 def cast_to_ptr(x):
@@ -1001,13 +1009,13 @@ def do_getfield_gc_ptr(struct, fieldnum):
 
 def do_getfield_raw_int(struct, fieldnum, memocast):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
     x = getattr(ptr, fieldname)
     return cast_to_int(x, memocast)
 
-def do_getfield_raw_ptr(struct, fieldnum):
+def do_getfield_raw_ptr(struct, fieldnum, memocast):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
     x = getattr(ptr, fieldname)
     return cast_to_ptr(x)
 
@@ -1049,14 +1057,14 @@ def do_setfield_gc_ptr(struct, fieldnum, newvalue):
 
 def do_setfield_raw_int(struct, fieldnum, newvalue, memocast):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_ptr(struct, fieldnum, newvalue):
+def do_setfield_raw_ptr(struct, fieldnum, newvalue, memocast):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)

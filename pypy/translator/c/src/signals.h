@@ -75,16 +75,12 @@ extern long pypysig_occurred;
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
    export a function with the correct name for testing */
-#undef pypysig_get_occurred
-#undef pypysig_set_occurred
-long pypysig_get_occurred(void);
-void pypysig_set_occurred(long x);
+#undef pypysig_getaddr_occurred
+char *pypysig_getaddr_occurred(void);
 #ifndef PYPY_NOT_MAIN_FILE
-long pypysig_get_occurred(void) { return pypysig_occurred; }
-void pypysig_set_occurred(long x) { pypysig_occurred = x; }
+char *pypysig_getaddr_occurred(void) { return &pypysig_occurred; }
 #endif
-#define pypysig_get_occurred()   (pypysig_occurred)
-#define pypysig_set_occurred(x)  (pypysig_occurred=(x))
+#define pypysig_getaddr_occurred()   ((char *)(&pypysig_occurred))
 
 /************************************************************/
 /* Implementation                                           */

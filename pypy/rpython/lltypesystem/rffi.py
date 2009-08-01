@@ -58,7 +58,7 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                canraise=False, _nowrapper=False, calling_conv='c',
-               oo_primitive=None):
+               oo_primitive=None, pure_function=False):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -79,6 +79,8 @@ def llexternal(name, args, result, _callable=None,
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
         _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    if pure_function:
+        _callable._pure_function_ = True
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive

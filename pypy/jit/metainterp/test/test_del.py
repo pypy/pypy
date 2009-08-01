@@ -26,6 +26,22 @@ class DelTests:
                           'guard_true': 1,
                           'jump': 1})
 
+    def test_signal_action(self):
+        from pypy.module.signal.interp_signal import SignalActionFlag
+        action = SignalActionFlag()
+        #
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        #
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n -= 1
+                if action.get() != 0:
+                    break
+        self.meta_interp(f, [20])
+        self.check_loops(getfield_raw=1, call=0, call_pure=0)
+
 
 class TestLLtype(DelTests, LLJitMixin):
     pass

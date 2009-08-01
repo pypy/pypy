@@ -324,7 +324,8 @@ class LLtypeCPU(BaseCPU):
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getfield_raw_ptr(struct,
-                                                             fielddescr.ofs))
+                                                             fielddescr.ofs,
+                                                             self.memo_cast))
         else:
             return history.BoxInt(llimpl.do_getfield_raw_int(struct,
                                                              fielddescr.ofs,
@@ -376,7 +377,8 @@ class LLtypeCPU(BaseCPU):
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.typeinfo == 'p':
             newvalue = args[1].getptr_base()
-            llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
+            llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
+                                       self.memo_cast)
         else:
             newvalue = args[1].getint()
             llimpl.do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
