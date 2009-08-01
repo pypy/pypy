@@ -78,7 +78,7 @@ class ResumeDataVirtualAdder(object):
         self._make_virtual(virtualbox, vinfo, fieldboxes)
 
     def make_varray(self, virtualbox, arraydescr, itemboxes):
-        vinfo = VArrayInfo(arraydescr, len(itemboxes))
+        vinfo = VArrayInfo(arraydescr)
         self._make_virtual(virtualbox, vinfo, itemboxes)
 
     def _make_virtual(self, virtualbox, vinfo, fieldboxes):
@@ -167,18 +167,18 @@ class VStructInfo(AbstractVirtualStructInfo):
                                              descr=self.typedescr)
 
 class VArrayInfo(AbstractVirtualInfo):
-    def __init__(self, arraydescr, length):
+    def __init__(self, arraydescr):
         self.arraydescr = arraydescr
-        self.length = length
         #self.fieldnums = ...
 
     def allocate(self, metainterp):
+        length = len(self.fieldnums)
         return metainterp.execute_and_record(rop.NEW_ARRAY,
-                                             [ConstInt(self.length)],
+                                             [ConstInt(length)],
                                              descr=self.arraydescr)
 
     def setfields(self, metainterp, box, fn_decode_box):
-        for i in range(self.length):
+        for i in range(len(self.fieldnums)):
             itembox = fn_decode_box(self.fieldnums[i])
             metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                           [box, ConstInt(i), itembox],
