@@ -10,6 +10,8 @@ from pypy.jit.metainterp.resoperation import rop
 # XXX I guess that building the data so that it is as compact as possible
 # on the 'storage' object would be a big win.
 
+debug = False
+
 
 class ResumeDataBuilder(object):
 
@@ -44,6 +46,8 @@ class ResumeDataBuilder(object):
         storage.rd_nums = self.nums[:]
         storage.rd_consts = self.consts[:]
         storage.rd_virtuals = None
+        if debug:
+            dump_storage(storage)
         return self.liveboxes
 
 
@@ -109,12 +113,16 @@ class ResumeDataVirtualAdder(object):
             if num >= 0:
                 box = self.original_liveboxes[num]
                 storage.rd_nums[i] = self._getboxindex(box)
-        storage.rd_virtuals = self.virtuals[:]
-        for i in range(len(storage.rd_virtuals)):
-            vinfo = storage.rd_virtuals[i]
-            fieldboxes = self.vfieldboxes[i]
-            vinfo.fieldnums = [self._getboxindex(box) for box in fieldboxes]
+        if len(self.virtuals) > 0:
+            storage.rd_virtuals = self.virtuals[:]
+            for i in range(len(storage.rd_virtuals)):
+                vinfo = storage.rd_virtuals[i]
+                fieldboxes = self.vfieldboxes[i]
+                vinfo.fieldnums = [self._getboxindex(box)
+                                   for box in fieldboxes]
         storage.rd_consts = self.consts[:]
+        if debug:
+            dump_storage(storage)
         return liveboxes
 
     def _getboxindex(self, box):
@@ -157,6 +165,12 @@ class VirtualInfo(AbstractVirtualStructInfo):
         return metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
                                              [self.known_class])
 
+    def repr_rpython(self):
+        return 'VirtualInfo("%s", %s, %s)' % (
+            self.known_class,
+            ['"%s"' % (fd,) for fd in self.fielddescrs],
+            self.fieldnums)
+
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -165,6 +179,12 @@ class VStructInfo(AbstractVirtualStructInfo):
     def allocate(self, metainterp):
         return metainterp.execute_and_record(rop.NEW, [],
                                              descr=self.typedescr)
+
+    def repr_rpython(self):
+        return 'VStructInfo("%s", %s, %s)' % (
+            self.typedescr,
+            ['"%s"' % (fd,) for fd in self.fielddescrs],
+            self.fieldnums)
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -183,6 +203,10 @@ class VArrayInfo(AbstractVirtualInfo):
             metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                           [box, ConstInt(i), itembox],
                                           descr=self.arraydescr)
+
+    def repr_rpython(self):
+        return 'VArrayInfo("%s", %s)' % (self.arraydescr,
+                                         self.fieldnums)
 
 
 class ResumeDataReader(object):
@@ -231,3 +255,24 @@ class ResumeDataReader(object):
         frame_info = self.frame_infos[self.i_frame_infos]
         self.i_frame_infos += 1
         return frame_info
+
+# ____________________________________________________________
+
+def dump_storage(storage):
+    "For profiling only."
+    import os
+    from pypy.rlib import objectmodel
+    fd = os.open('log.storage', os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0666)
+    os.write(fd, 'Log(%d, [\n' % objectmodel.compute_unique_id(storage))
+    for frame_info in storage.rd_frame_infos:
+        os.write(fd, '\t("%s", %d, %d),\n' % frame_info)
+    os.write(fd, '\t],\n\t%s,\n' % (storage.rd_nums,))
+    os.write(fd, '\t[\n')
+    for const in storage.rd_consts:
+        os.write(fd, '\t"%s",\n' % (const.repr_rpython(),))
+    os.write(fd, '\t], [\n')
+    if storage.rd_virtuals is not None:
+        for virtual in storage.rd_virtuals:
+            os.write(fd, '\t%s,\n' % (virtual.repr_rpython(),))
+    os.write(fd, '\t])\n')
+    os.close(fd)

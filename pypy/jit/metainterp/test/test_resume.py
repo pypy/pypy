@@ -42,18 +42,18 @@ def test_frame_info():
     storage = Storage()
     #
     builder = ResumeDataBuilder()
-    builder.generate_frame_info(1, 2)
-    builder.generate_frame_info(3, 4)
+    builder.generate_frame_info(1, 2, 5)
+    builder.generate_frame_info(3, 4, 7)
     liveboxes = builder.finish(storage)
     assert liveboxes == []
     #
     reader = ResumeDataReader(storage, liveboxes)
     assert reader.has_more_frame_infos()
     fi = reader.consume_frame_info()
-    assert fi == (1, 2)
+    assert fi == (1, 2, 5)
     assert reader.has_more_frame_infos()
     fi = reader.consume_frame_info()
-    assert fi == (3, 4)
+    assert fi == (3, 4, 7)
     assert not reader.has_more_frame_infos()
 
 
