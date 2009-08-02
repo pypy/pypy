@@ -739,7 +739,7 @@ class LLtypeBackendTest(BaseBackendTest):
             descrfld_y)
         assert s.y == a
         #
-        RS = lltype.Struct('S', ('x', lltype.Char), ('y', lltype.Ptr(A)))
+        RS = lltype.Struct('S', ('x', lltype.Char))  #, ('y', lltype.Ptr(A)))
         descrfld_rx = cpu.fielddescrof(RS, 'x')
         rs = lltype.malloc(RS, immortal=True)
         rs.x = '?'
@@ -754,19 +754,21 @@ class LLtypeBackendTest(BaseBackendTest):
             descrfld_rx)
         assert rs.x == '!'
         #
-        descrfld_ry = cpu.fielddescrof(RS, 'y')
-        rs.y = a
-        x = cpu.do_getfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
-            descrfld_ry)
-        assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        ### we don't support in the JIT for now GC pointers
+        ### stored inside non-GC structs.
+        #descrfld_ry = cpu.fielddescrof(RS, 'y')
+        #rs.y = a
+        #x = cpu.do_getfield_raw(
+        #    [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
+        #    descrfld_ry)
+        #assert isinstance(x, BoxPtr)
+        #assert x.getptr(lltype.Ptr(A)) == a
         #
-        rs.y = lltype.nullptr(A)
-        cpu.do_setfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs))), x],
-            descrfld_ry)
-        assert rs.y == a
+        #rs.y = lltype.nullptr(A)
+        #cpu.do_setfield_raw(
+        #    [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs))), x],
+        #    descrfld_ry)
+        #assert rs.y == a
         #
         descrsize = cpu.sizeof(S)
         x = cpu.do_new([], descrsize)
