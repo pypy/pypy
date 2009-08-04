@@ -93,115 +93,121 @@ class ResOperation(object):
 
 # ____________________________________________________________
 
+_oplist = [
+    '_FINAL_FIRST',
+    'JUMP',
+    'FAIL',
+    '_FINAL_LAST',
 
-class rop(object):
-    """The possible names of the ResOperations."""
+    '_GUARD_FIRST',
+    '_GUARD_FOLDABLE_FIRST',
+    'GUARD_TRUE',
+    'GUARD_FALSE',
+    'GUARD_VALUE',
+    'GUARD_CLASS',
+    '_GUARD_FOLDABLE_LAST',
+    'GUARD_NO_EXCEPTION',
+    'GUARD_EXCEPTION',
+    '_GUARD_LAST', # ----- end of guard operations -----
 
-    _FINAL_FIRST = 1
-    JUMP                   = 1
-    FAIL                   = 2
-    _FINAL_LAST = 3
-
-    _GUARD_FIRST = 8 # ----- start of guard operations -----
-    _GUARD_FOLDABLE_FIRST = 8
-    GUARD_TRUE             = 8
-    GUARD_FALSE            = 9
-    GUARD_VALUE            = 10
-    GUARD_CLASS            = 11
-    _GUARD_FOLDABLE_LAST   = 11
-    GUARD_NO_EXCEPTION     = 13
-    GUARD_EXCEPTION        = 14
-    _GUARD_LAST = 14 # ----- end of guard operations -----
-
-    _NOSIDEEFFECT_FIRST = 19 # ----- start of no_side_effect operations -----
-    _ALWAYS_PURE_FIRST = 19 # ----- start of always_pure operations -----
-    OOSEND_PURE            = 19    # ootype operation
-    CALL_PURE              = 20
+    '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
+    '_ALWAYS_PURE_FIRST', # ----- start of always_pure operations -----
+    'OOSEND_PURE',    # ootype operation
+    'CALL_PURE',
     #
-    CAST_INT_TO_PTR        = 21
-    CAST_PTR_TO_INT        = 22
-    INT_ADD                = 30
-    INT_SUB                = 31
-    INT_MUL                = 32
-    INT_FLOORDIV           = 33
-    INT_MOD                = 34
-    INT_AND                = 35
-    INT_OR                 = 36
-    INT_XOR                = 37
-    INT_RSHIFT             = 38
-    INT_LSHIFT             = 39
-    UINT_RSHIFT            = 44
+    'CAST_INT_TO_PTR',
+    'CAST_PTR_TO_INT',
+    'INT_ADD',
+    'INT_SUB',
+    'INT_MUL',
+    'INT_FLOORDIV',
+    'INT_MOD',
+    'INT_AND',
+    'INT_OR',
+    'INT_XOR',
+    'INT_RSHIFT',
+    'INT_LSHIFT',
+    'UINT_RSHIFT',
     #
-    _COMPARISON_FIRST = 45
-    INT_LT                 = 45
-    INT_LE                 = 46
-    INT_EQ                 = 47
-    INT_NE                 = 48
-    INT_GT                 = 49
-    INT_GE                 = 50
-    UINT_LT                = 51
-    UINT_LE                = 52
-    UINT_GT                = 55
-    UINT_GE                = 56
-    _COMPARISON_LAST = 56
+    '_COMPARISON_FIRST',
+    'INT_LT',
+    'INT_LE',
+    'INT_EQ',
+    'INT_NE',
+    'INT_GT',
+    'INT_GE',
+    'UINT_LT',
+    'UINT_LE',
+    'UINT_GT',
+    'UINT_GE',
+    '_COMPARISON_LAST',
     #
-    INT_IS_TRUE            = 60
-    INT_NEG                = 61
-    INT_INVERT             = 62
-    BOOL_NOT               = 63
+    'INT_IS_TRUE',
+    'INT_NEG',
+    'INT_INVERT',
+    'BOOL_NOT',
     #
-    SAME_AS                = 64      # gets a Const, turns it into a Box
+    'SAME_AS',      # gets a Const, turns it into a Box
     #
-    OONONNULL              = 70
-    OOISNULL               = 71
-    OOIS                   = 72
-    OOISNOT                = 73
+    'OONONNULL',
+    'OOISNULL',
+    'OOIS',
+    'OOISNOT',
     #
-    ARRAYLEN_GC            = 77
-    STRLEN                 = 78
-    STRGETITEM             = 79
-    GETFIELD_GC_PURE       = 80
-    GETFIELD_RAW_PURE      = 81
-    GETARRAYITEM_GC_PURE   = 82
-    UNICODELEN             = 83
-    UNICODEGETITEM         = 84
+    'ARRAYLEN_GC',
+    'STRLEN',
+    'STRGETITEM',
+    'GETFIELD_GC_PURE',
+    'GETFIELD_RAW_PURE',
+    'GETARRAYITEM_GC_PURE',
+    'UNICODELEN',
+    'UNICODEGETITEM',
     #
     # ootype operations
-    OOIDENTITYHASH         = 85
-    INSTANCEOF             = 86
-    SUBCLASSOF             = 87
+    'OOIDENTITYHASH',
+    'INSTANCEOF',
+    'SUBCLASSOF',
     #
-    _ALWAYS_PURE_LAST = 87  # ----- end of always_pure operations -----
+    '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
-    GETARRAYITEM_GC        = 120
-    GETFIELD_GC            = 121
-    GETFIELD_RAW           = 122
-    NEW                    = 123
-    NEW_WITH_VTABLE        = 124
-    NEW_ARRAY              = 125
-    _NOSIDEEFFECT_LAST = 129 # ----- end of no_side_effect operations -----
+    'GETARRAYITEM_GC',
+    'GETFIELD_GC',
+    'GETFIELD_RAW',
+    'NEW',
+    'NEW_WITH_VTABLE',
+    'NEW_ARRAY',
+    '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
-    SETARRAYITEM_GC        = 133
-    SETFIELD_GC            = 134
-    SETFIELD_RAW           = 135
-    NEWSTR                 = 136
-    STRSETITEM             = 137
-    UNICODESETITEM         = 138
-    NEWUNICODE             = 139
-    RUNTIMENEW             = 140     # ootype operation
+    'SETARRAYITEM_GC',
+    'SETFIELD_GC',
+    'SETFIELD_RAW',
+    'NEWSTR',
+    'STRSETITEM',
+    'UNICODESETITEM',
+    'NEWUNICODE',
+    'RUNTIMENEW',     # ootype operation
 
-    _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
-    CALL = 150
-    OOSEND = 151                     # ootype operation
+    '_CANRAISE_FIRST', # ----- start of can_raise operations -----
+    'CALL',
+    'OOSEND',                     # ootype operation
     #
-    _OVF_FIRST = 152
-    INT_ADD_OVF            = 152
-    INT_SUB_OVF            = 153
-    INT_MUL_OVF            = 154
-    _OVF_LAST = 160
-    _CANRAISE_LAST = 160 # ----- end of can_raise operations -----
-    _LAST = 160     # for the backend to add more internal operations
+    '_OVF_FIRST',
+    'INT_ADD_OVF',
+    'INT_SUB_OVF',
+    'INT_MUL_OVF',
+    '_OVF_LAST',
+    '_CANRAISE_LAST', # ----- end of can_raise operations -----
+    '_LAST',     # for the backend to add more internal operations
+]
 
+class rop(object):
+    pass
+
+i = 0
+for opname in _oplist:
+    setattr(rop, opname, i)
+    i += 1
+del _oplist
 
 opname = {}      # mapping numbers to the original names, for debugging
 for _key, _value in rop.__dict__.items():
