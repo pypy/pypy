@@ -205,6 +205,8 @@ class rop(object):
 
 i = 0
 for opname in _oplist:
+    if __name__ == '__main__':
+        print '%30s = %d' % (opname, i) # print out the table when run directly
     setattr(rop, opname, i)
     i += 1
 del _oplist
