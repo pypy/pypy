@@ -11,7 +11,7 @@ class TestPyPyTests:
         assert len(passed) == 2
         assert not skipped and not failed 
         for repevent in passed: 
-            assert repevent.colitem.name in ('test_something', 'test_method')
+            assert repevent.item.name in ('test_something', 'test_method')
 
     def test_select_applevel(self, testdir): 
         sorter = testdir.inline_run("-k", "applevel", innertest)
@@ -19,14 +19,14 @@ class TestPyPyTests:
         assert len(passed) == 2
         assert not skipped and not failed 
         for repevent in passed: 
-            assert repevent.colitem.name in ('app_test_something', 'test_method_app')
+            assert repevent.item.name in ('app_test_something', 'test_method_app')
 
     def test_appdirect(self, testdir):
         sorter = testdir.inline_run(innertest, '-k', 'applevel', '--runappdirect')
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 2
         print passed
-        names = [x.colitem.name for x in passed]
+        names = [x.item.name for x in passed]
         assert 'app_test_something' in names 
         assert 'test_method_app' in names 
         

@@ -11,20 +11,17 @@ interpreter.TEST = True
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
 
-class EcmatestPlugin:
-    def pytest_addoption(self, parser):
-        parser.addoption('--ecma',
-               action="store_true", dest="ecma", default=False,
-               help="run js interpreter ecma tests"
-        )
+def pytest_addoption(parser):
+    parser.addoption('--ecma',
+           action="store_true", dest="ecma", default=False,
+           help="run js interpreter ecma tests"
+    )
 
-    def pytest_collect_file(self, path, parent):
-        if path.ext == ".js" and path.basename not in exclusionlist:
-            if not parent.config.option.ecma:
-                py.test.skip("ECMA tests disabled, run with --ecma")
-            return JSTestFile(path, parent=parent)
-
-ConftestPlugin = EcmatestPlugin
+def pytest_collect_file(path, parent):
+    if path.ext == ".js" and path.basename not in exclusionlist:
+        if not parent.config.option.ecma:
+            py.test.skip("ECMA tests disabled, run with --ecma")
+        return JSTestFile(path, parent=parent)
 
 class JSTestFile(py.test.collect.File):
     def init_interp(cls):

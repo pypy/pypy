@@ -5,28 +5,25 @@ docdir = py.magic.autopath().dirpath()
 
 pytest_plugins = "pytest_restdoc"
 
-class PyPyDocPlugin:
-    def pytest_addoption(self, parser):
-        group = parser.addgroup("pypy-doc options")
-        group.addoption('--pypy-doctests', action="store_true",
-               dest="pypy_doctests", default=False, 
-               help="enable doctests in .txt files")
-        group.addoption('--generate-redirections',
-            action="store_true", dest="generateredirections",
-            default=True, help="Generate redirecting HTML files")
+def pytest_addoption(parser):
+    group = parser.addgroup("pypy-doc options")
+    group.addoption('--pypy-doctests', action="store_true",
+           dest="pypy_doctests", default=False, 
+           help="enable doctests in .txt files")
+    group.addoption('--generate-redirections',
+        action="store_true", dest="generateredirections",
+        default=True, help="Generate redirecting HTML files")
 
-    def pytest_configure(self, config):
-        self.config = config 
-        register_config_role(docdir)
-    
-    def pytest_doctest_prepare_content(self, content):
-        if not self.config.getvalue("pypy_doctests"):
-            py.test.skip("specify --pypy-doctests to run doctests")
-        l = []
-        for line in content.split("\n"):
-            if line.find('>>>>') != -1: 
-                line = "" 
-            l.append(line) 
-        return "\n".join(l) 
+def pytest_configure(config):
+    register_config_role(docdir)
 
-ConftestPlugin = PyPyDocPlugin
+def pytest_doctest_prepare_content(content):
+    if not py.test.config.getvalue("pypy_doctests"):
+        py.test.skip("specify --pypy-doctests to run doctests")
+    l = []
+    for line in content.split("\n"):
+        if line.find('>>>>') != -1: 
+            line = "" 
+        l.append(line) 
+    return "\n".join(l) 
+

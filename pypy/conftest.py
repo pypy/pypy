@@ -15,7 +15,13 @@ rootdir = py.magic.autopath().dirpath()
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../lib-python', '../demo']
 rsyncignore = ['_cache']
- 
+
+# XXX workaround for a py.test bug clashing with lib/py symlink
+# do we really need the latter?
+empty_conftest = type(sys)('conftest')
+empty_conftest.__file__ = "?"
+sys.modules['pypy.lib.py.conftest'] = empty_conftest
+
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
 #
@@ -29,25 +35,22 @@ def _set_platform(opt, opt_str, value, parser):
 
 option = py.test.config.option
 
-class PyPyTestPlugin:
-    def pytest_addoption(self, parser):
-        group = parser.addgroup("pypy options")
-        group.addoption('--view', action="store_true", dest="view", default=False,
-               help="view translation tests' flow graphs with Pygame")
-        group.addoption('-A', '--runappdirect', action="store_true",
-               default=False, dest="runappdirect",
-               help="run applevel tests directly on python interpreter (not through PyPy)")
-        group.addoption('--direct', action="store_true",
-               default=False, dest="rundirect",
-               help="run pexpect tests directly")
-        group.addoption('-P', '--platform', action="callback", type="string",
-               default="host", callback=_set_platform,
-               help="set up tests to use specified platform as compile/run target")
+def pytest_addoption(parser):
+    group = parser.addgroup("pypy options")
+    group.addoption('--view', action="store_true", dest="view", default=False,
+           help="view translation tests' flow graphs with Pygame")
+    group.addoption('-A', '--runappdirect', action="store_true",
+           default=False, dest="runappdirect",
+           help="run applevel tests directly on python interpreter (not through PyPy)")
+    group.addoption('--direct', action="store_true",
+           default=False, dest="rundirect",
+           help="run pexpect tests directly")
+    group.addoption('-P', '--platform', action="callback", type="string",
+           default="host", callback=_set_platform,
+           help="set up tests to use specified platform as compile/run target")
 
-    def pytest_funcarg__space(self, pyfuncitem):
-        return gettestobjspace()
-        
-ConftestPlugin = PyPyTestPlugin
+def pytest_funcarg__space(request):
+    return gettestobjspace()
 
 _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
@@ -319,10 +322,10 @@ class PyPyTestFunction(py.test.collect.Function):
                 raise AppError, AppError(appexcinfo), tb
             raise
 
-    def repr_failure(self, excinfo, outerr):
+    def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
             excinfo = excinfo.value.excinfo
-        return super(PyPyTestFunction, self).repr_failure(excinfo, outerr)
+        return super(PyPyTestFunction, self).repr_failure(excinfo)
 
 _pygame_imported = False
 

@@ -90,7 +90,6 @@ def test_fakedexception(space):
     else:
         py.test.fail("did not raise!")
     assert "PicklingError" in appex.exconly()
-    assert "SomeMessage" in appex.exconly()
 
 class AppTestWithWrappedInterplevelAttributes: 
     def setup_class(cls): 
@@ -134,9 +133,9 @@ def test_safe_filename(testdir):
             def test_one(self):
                 pass
     """)
-    ev, = sorter.getnamed("itemtestreport")
+    ev, = sorter.getreports("pytest_runtest_logreport")
     assert ev.passed 
-    sfn = ev.colitem.safe_filename()
+    sfn = ev.item.safe_filename()
     print sfn
     assert sfn == 'test_safe_filename_test_safe_filename_ExpectTestOne_paren_test_one_1.py'
 
@@ -151,11 +150,11 @@ class ExpectTest:
 
 def test_app_test_blow(testdir):
     conftestpath.copy(testdir.tmpdir)
-    sorter = testdir.inline_runsource("""
-class AppTestBlow:
-    def test_one(self):
-        exec 'blow'
+    sorter = testdir.inline_runsource("""class AppTestBlow:
+    def test_one(self): exec 'blow'
     """)
 
-    ev, = sorter.getnamed("itemtestreport")
+    ev, = sorter.getreports("pytest_runtest_logreport")
     assert ev.failed
+    assert 'NameError' in ev.longrepr.reprcrash.message
+    assert 'blow' in ev.longrepr.reprcrash.message    
