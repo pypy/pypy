@@ -371,10 +371,8 @@ class AppTestFunction(PyPyTestFunction):
 
     def runtest(self):
         target = self.obj
-        args = self._args 
-        assert not args 
         if option.runappdirect:
-            return target(*args)
+            return target()
         space = gettestobjspace() 
         func = app2interp_temp(target)
         print "executing", func
@@ -400,10 +398,8 @@ class AppTestMethod(AppTestFunction):
 
     def runtest(self):
         target = self.obj
-        args = self._args 
-        assert not args 
         if option.runappdirect:
-            return target(*args)
+            return target()
         space = target.im_self.space 
         func = app2interp_temp(target.im_func) 
         w_instance = self.parent.w_instance 
