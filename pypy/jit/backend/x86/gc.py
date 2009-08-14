@@ -39,6 +39,16 @@ class GcLLDescr_boehm(GcLLDescription):
                                         _nowrapper=True)
         self.funcptr_for_new = malloc_fn_ptr
 
+        # on some platform GC_init is required before any other
+        # GC_* functions, call it here for the benefit of tests
+        init_fn_ptr = rffi.llexternal("GC_init",
+                                      [], lltype.Void,
+                                      compilation_info=compilation_info,
+                                      sandboxsafe=True,
+                                      _nowrapper=True)
+
+        init_fn_ptr()
+
     def sizeof(self, S, translate_support_code):
         size = symbolic.get_size(S, translate_support_code)
         return ConstDescr3(size, 0, False)
