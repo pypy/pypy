@@ -844,6 +844,7 @@ def get_ctypes_callable(funcptr, calling_conv):
         for libname in libraries:
             libpath = None
             for dir in eci.library_dirs:
+                # xxx untested directly, what about 'lib' prefix
                 if sys.platform == "win32":
                     tryfile = os.path.join(dir, libname + '.dll')
                 elif sys.platform == "darwin":
