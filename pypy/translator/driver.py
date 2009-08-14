@@ -389,6 +389,7 @@ class TranslationDriver(SimpleTaskEngine):
         #
         from pypy.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
+                  debug_level=self.config.translation.jit_debug,
                   backend_name=self.config.translation.jit_backend)
         #
         self.log.info("the JIT compiler was generated")
@@ -403,6 +404,7 @@ class TranslationDriver(SimpleTaskEngine):
         #
         from pypy.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
+                  debug_level=self.config.translation.jit_debug,
                   backend_name='cli') #XXX
         #
         self.log.info("the JIT compiler was generated")

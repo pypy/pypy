@@ -22,6 +22,12 @@ def check_args(*args):
 # debug level: 0 off, 1 normal, 2 detailed
 DEBUG = 1
 
+# translate.py overrides DEBUG with the --jit-debug=xxx option
+_DEBUG_LEVEL = {"off":      0,
+                "profile":  0,
+                "steps":    1,
+                "detailed": 2}
+
 def log(msg):
     if not we_are_translated():
         history.log.info(msg)

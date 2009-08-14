@@ -26,19 +26,19 @@ from pypy.jit.metainterp.jitprof import Profiler
 # ____________________________________________________________
 # Bootstrapping
 
-PROFILE = False
-
-def apply_jit(translator, backend_name="auto", **kwds):
+def apply_jit(translator, backend_name="auto", debug_level="steps", **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    if PROFILE:
+    pyjitpl.DEBUG = pyjitpl._DEBUG_LEVEL[debug_level]
+    if debug_level != "off":
         profile = Profiler
     else:
         profile = None
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
+                                    #inline=True,
                                     profile=profile,
                                     **kwds)
     warmrunnerdesc.finish()
