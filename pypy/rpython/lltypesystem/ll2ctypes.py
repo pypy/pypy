@@ -806,6 +806,33 @@ if ctypes:
 
 # ____________________________________________
 
+# xxx from ctypes.util, this code is a useful fallback on darwin too
+if sys.platform == 'darwin':
+    # Andreas Degert's find function using gcc
+    import re, tempfile, errno
+
+    def _findLib_gcc_fallback(name):
+        expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
+        fdout, ccout = tempfile.mkstemp()
+        os.close(fdout)
+        cmd = 'if type gcc >/dev/null 2>&1; then CC=gcc; else CC=cc; fi;' \
+              '$CC -Wl,-t -o ' + ccout + ' 2>&1 -l' + name
+        try:
+            f = os.popen(cmd)
+            trace = f.read()
+            f.close()
+        finally:
+            try:
+                os.unlink(ccout)
+            except OSError, e:
+                if e.errno != errno.ENOENT:
+                    raise
+        res = re.search(expr, trace)
+        if not res:
+            return None
+        return res.group(0)
+else:
+    _findLib_gcc_fallback = lambda name: None
 
 def get_ctypes_callable(funcptr, calling_conv):
     if not ctypes:
@@ -856,6 +883,8 @@ def get_ctypes_callable(funcptr, calling_conv):
                     break
             if not libpath:
                 libpath = ctypes.util.find_library(libname)
+                if not libpath:
+                    libpath = _findLib_gcc_fallback(libname)
                 if not libpath and os.path.isabs(libname):
                     libpath = libname
             if libpath:
