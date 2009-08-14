@@ -1,7 +1,4 @@
-import pypy
 from pypy.jit.metainterp.policy import ManualJitPolicy
-
-from pypy.translator.backendopt.support import find_calls_from
 
 class PyPyJitPolicy(ManualJitPolicy):
 
