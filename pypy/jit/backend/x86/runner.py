@@ -207,6 +207,14 @@ class CPU386(object):
         self.assembler._exception_bck[0] = zer_vtable
         self.assembler._exception_bck[1] = zer_inst
 
+    _overflow_flag = False
+
+    def get_overflow_flag(self):
+        return self._overflow_flag
+
+    def set_overflow_flag(self, flag):
+        self._overflow_flag = flag
+
     def compile_operations(self, tree, bridge=None):
         old_loop = tree._x86_compiled
         if old_loop:

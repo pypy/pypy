@@ -455,6 +455,12 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.store_result(op)
 
+    def emit_op_guard_no_overflow(self, op):
+        pass    # XXX implement me!
+
+    def emit_op_guard_overflow(self, op):
+        pass    # XXX implement me!
+
     def emit_op_jump(self, op):
         target = op.jump_target
         assert len(op.args) == len(target.inputargs)

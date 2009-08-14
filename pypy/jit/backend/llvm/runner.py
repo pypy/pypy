@@ -350,6 +350,14 @@ class LLVMCPU(object):
         self.backup_exc_type[0] = self._zer_error_type
         self.backup_exc_value[0] = self._zer_error_value
 
+    _overflow_flag = False
+
+    def get_overflow_flag(self):
+        return self._overflow_flag
+
+    def set_overflow_flag(self, flag):
+        self._overflow_flag = flag
+
     @staticmethod
     def cast_adr_to_int(x):
         return rffi.cast(lltype.Signed, x)

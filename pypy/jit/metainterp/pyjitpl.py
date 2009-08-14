@@ -238,7 +238,8 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
-                return self.execute_with_exc(rop.%s, [b1, b2])
+                self.execute(rop.%s, [b1, b2])
+                return self.metainterp.handle_overflow_error()
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
@@ -1336,6 +1337,9 @@ class MetaInterp(object):
             self.framestack[-1].dont_follow_jump()
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
             self.handle_exception()
+        elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
+            self.cpu.set_overflow_error()
+            self.raise_this_error()
 
     def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.staticdata.num_green_args
@@ -1527,6 +1531,17 @@ class MetaInterp(object):
             return self.finishframe_exception(exception_box, exc_value_box)
         else:
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
+            return False
+
+    def handle_overflow_error(self):
+        frame = self.framestack[-1]
+        if self.cpu.get_overflow_flag():
+            self.cpu.set_overflow_flag(False)
+            frame.generate_guard(frame.pc, rop.GUARD_OVERFLOW, None, [])
+            self.cpu.set_overflow_error()
+            return self.raise_this_error()
+        else:
+            frame.generate_guard(frame.pc, rop.GUARD_NO_OVERFLOW, None, [])
             return False
 
     def rebuild_state_after_failure(self, resumedescr, newboxes):

@@ -73,6 +73,10 @@ class ResOperation(object):
         return (self.opnum == rop.GUARD_EXCEPTION or
                 self.opnum == rop.GUARD_NO_EXCEPTION)
 
+    def is_guard_overflow(self):
+        return (self.opnum == rop.GUARD_OVERFLOW or
+                self.opnum == rop.GUARD_NO_OVERFLOW)
+
     def is_always_pure(self):
         return rop._ALWAYS_PURE_FIRST <= self.opnum <= rop._ALWAYS_PURE_LAST
 
@@ -108,6 +112,8 @@ _oplist = [
     '_GUARD_FOLDABLE_LAST',
     'GUARD_NO_EXCEPTION',
     'GUARD_EXCEPTION',
+    'GUARD_NO_OVERFLOW',
+    'GUARD_OVERFLOW',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -190,13 +196,13 @@ _oplist = [
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',
     'OOSEND',                     # ootype operation
-    #
-    '_OVF_FIRST',
+    '_CANRAISE_LAST', # ----- end of can_raise operations -----
+
+    '_OVF_FIRST', # ----- start of is_ovf operations -----
     'INT_ADD_OVF',
     'INT_SUB_OVF',
     'INT_MUL_OVF',
-    '_OVF_LAST',
-    '_CANRAISE_LAST', # ----- end of can_raise operations -----
+    '_OVF_LAST', # ----- end of is_ovf operations -----
     '_LAST',     # for the backend to add more internal operations
 ]
 

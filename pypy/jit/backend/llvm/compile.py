@@ -14,6 +14,7 @@ from pypy.jit.backend.llvm.runner import FieldDescr, ArrayDescr
 
 class LLVMJITCompiler(object):
     FUNC = lltype.FuncType([], lltype.Signed)
+    lastovf = lltype.nullptr(llvm_rffi.LLVMValueRef.TO)
 
     def __init__(self, cpu, loop):
         self.cpu = cpu
@@ -348,22 +349,8 @@ class LLVMJITCompiler(object):
         lltype.free(arglist, flavor='raw')
         self.vars[result] = llvm_rffi.LLVMBuildExtractValue(self.builder,
                                                             tmp, 0, "")
-        ovf = llvm_rffi.LLVMBuildExtractValue(self.builder, tmp, 1, "")
-        self._generate_set_ovf(ovf)
-
-    def _generate_set_ovf(self, ovf_flag):
-        exc_type = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
-                                             self.cpu.const_ovf_error_type,
-                                             self.cpu.const_null_charptr,
-                                             "")
-        llvm_rffi.LLVMBuildStore(self.builder, exc_type,
-                                 self.cpu.const_exc_type)
-        exc_value = llvm_rffi.LLVMBuildSelect(self.builder, ovf_flag,
-                                              self.cpu.const_ovf_error_value,
-                                              self.cpu.const_null_charptr,
-                                              "")
-        llvm_rffi.LLVMBuildStore(self.builder, exc_value,
-                                 self.cpu.const_exc_value)
+        self.lastovf = llvm_rffi.LLVMBuildExtractValue(self.builder, tmp, 1,
+                                                       "")
 
     def generate_GUARD_FALSE(self, op):
         self._generate_guard(op, self.getbitarg(op.args[0]), True)
@@ -417,6 +404,12 @@ class LLVMJITCompiler(object):
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder,
                                                       self.cpu.const_exc_value,
                                                       "")
+
+    def generate_GUARD_NO_OVERFLOW(self, op):
+        self._generate_guard(op, self.lastovf, True)
+
+    def generate_GUARD_OVERFLOW(self, op):
+        self._generate_guard(op, self.lastovf, False)
 
     def _generate_guard(self, op, verify_condition, reversed, exc=False):
         func = self.compiling_func

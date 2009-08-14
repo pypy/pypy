@@ -385,6 +385,22 @@ class ExceptionTests:
         res = self.meta_interp(f, [1])
         assert res == expected
 
+    def test_int_ovf_common(self):
+        import sys
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            while 1:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                try:
+                    n = ovfcheck(n + sys.maxint)
+                except OverflowError:
+                    n -= 1
+                else:
+                    return n - 2000
+        res = self.meta_interp(f, [10], repeat=7)
+        assert res == sys.maxint - 2000
+
     def test_int_mod_ovf_zer(self):
         def f(x, y):
             try:

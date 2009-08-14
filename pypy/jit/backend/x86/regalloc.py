@@ -17,13 +17,6 @@ from pypy.jit.metainterp.resoperation import rop
 REGS = [eax, ecx, edx]
 WORD = 4
 
-class ImplementConstantOverflow(Exception):
-    """ This exception is raised when someone uses the result
-    of GUARD_EXCEPTION(overflowerror). I think codewriter should
-    constant fold it as we know what kind of exception it will
-    be
-    """
-
 class TempBox(Box):
     def __init__(self):
         pass
@@ -226,14 +219,12 @@ class RegAlloc(object):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform(op, arglocs, result_loc)
 
-    def perform_with_guard(self, op, guard_op, regalloc, arglocs, result_loc,
-                           overflow=False):
+    def perform_with_guard(self, op, guard_op, regalloc, arglocs, result_loc):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s) [GUARDED]' % (result_loc, op,
                                                             arglocs))
         self.assembler.regalloc_perform_with_guard(op, guard_op, regalloc,
-                                                   arglocs, result_loc,
-                                                   overflow)
+                                                   arglocs, result_loc)
         self.max_stack_depth = max(self.max_stack_depth,
                                    regalloc.max_stack_depth)
 
@@ -299,15 +290,7 @@ class RegAlloc(object):
             else:
                 canfold = False
             if not canfold:
-                # detect overflow ops
-                if op.is_ovf():
-                    assert operations[i + 1].is_guard_exception()
-                    if (operations[i + 1].opnum == rop.GUARD_EXCEPTION and
-                        operations[i + 1].result in self.longevity):
-                        raise ImplementConstantOverflow()
-                    nothing = oplist[op.opnum](self, op, operations[i + 1])
-                    i += 1
-                elif self.can_optimize_cmp_op(op, i, operations):
+                if self.can_optimize_cmp_op(op, i, operations):
                     nothing = oplist[op.opnum](self, op, operations[i + 1])
                     i += 1
                 else:
@@ -710,12 +693,9 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args)
 
     def consider_guard_no_exception(self, op, ignored):
-        box = TempBox()
-        loc = self.force_allocate_reg(box, [])
         regalloc = self.regalloc_for_guard(op)
-        self.perform_guard(op, regalloc, [loc], None)
+        self.perform_guard(op, regalloc, [], None)
         self.eventually_free_vars(op.inputargs)
-        self.eventually_free_var(box)
 
     def consider_guard_exception(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
@@ -731,6 +711,9 @@ class RegAlloc(object):
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
         self.eventually_free_var(box)
+
+    consider_guard_no_overflow = consider_guard_no_exception
+    consider_guard_overflow    = consider_guard_no_exception
 
     #def consider_guard2(self, op, ignored):
     #    loc1, ops1 = self.make_sure_var_in_reg(op.args[0], [])
@@ -790,19 +773,10 @@ class RegAlloc(object):
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
-    
-    def _consider_binop_ovf(self, op, guard_op):
-        loc, argloc = self._consider_binop_part(op, None)
-        self.position += 1
-        regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [loc, argloc], loc,
-                                overflow=True)
-        self.eventually_free_vars(guard_op.inputargs)
-        self.eventually_free_var(guard_op.result)
 
-    consider_int_mul_ovf = _consider_binop_ovf
-    consider_int_sub_ovf = _consider_binop_ovf
-    consider_int_add_ovf = _consider_binop_ovf
+    consider_int_mul_ovf = _consider_binop
+    consider_int_sub_ovf = _consider_binop
+    consider_int_add_ovf = _consider_binop
 
     def consider_int_neg(self, op, ignored):
         res = self.force_result_in_reg(op.result, op.args[0], [])

@@ -184,7 +184,10 @@ class AbstractOperation(object):
         v_result = builder.do(self.opnum, args, descr=descr)
         if v_result is not None:
             builder.intvars.append(v_result)
-            if self.boolres:
+            boolres = self.boolres
+            if boolres == 'sometimes':
+                boolres = v_result.value in [0, 1]
+            if boolres:
                 builder.boolvars.append(v_result)
 
 class UnaryOperation(AbstractOperation):
@@ -228,20 +231,16 @@ class AbstractOvfOperation(AbstractOperation):
         fail_subset = builder.subset_of_intvars(r)
         original_intvars = builder.intvars[:]
         super(AbstractOvfOperation, self).produce_into(builder, r)
-        exc = builder.cpu.get_exception()
-        assert bool(exc) == bool(builder.cpu.get_exc_value())
-        if exc:     # OverflowError
-            builder.cpu.clear_exception()
-            exc_box = ConstInt(exc)
-            res_box = BoxPtr()
-            op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], res_box)
+        if builder.cpu.get_overflow_flag():   # overflow detected
+            builder.cpu.set_overflow_flag(False)
+            op = ResOperation(rop.GUARD_OVERFLOW, [], None)
             # the overflowed result should not be used any more, but can
             # be used on the failure path: recompute fail_subset including
             # the result, and then remove it from builder.intvars.
             fail_subset = builder.subset_of_intvars(r)
             builder.intvars[:] = original_intvars
         else:
-            op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+            op = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
         op.suboperations = [ResOperation(rop.FAIL, fail_subset, None)]
         builder.loop.operations.append(op)
 
@@ -322,7 +321,7 @@ for _op in [rop.INT_NEG,
 
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
-OPERATIONS.append(ConstUnaryOperation(rop.SAME_AS, boolres=True))
+OPERATIONS.append(ConstUnaryOperation(rop.SAME_AS, boolres='sometimes'))
 
 for _op in [rop.INT_ADD_OVF,
             rop.INT_SUB_OVF,

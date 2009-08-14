@@ -279,8 +279,8 @@ class Assembler386(object):
         genop_discard_list[op.opnum](self, op, arglocs)
 
     def regalloc_perform_with_guard(self, op, guard_op, regalloc,
-                                    arglocs, resloc, ovf):
-        addr = self.implement_guard_recovery(guard_op, regalloc, ovf)
+                                    arglocs, resloc):
+        addr = self.implement_guard_recovery(guard_op, regalloc)
         genop_guard_list[op.opnum](self, op, guard_op, addr, arglocs,
                                    resloc)
 
@@ -298,17 +298,6 @@ class Assembler386(object):
         def genop_binary(self, op, arglocs, result_loc):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
         return genop_binary
-
-    def _binaryop_ovf(asmop, can_swap=False):
-        def genop_binary_ovf(self, op, guard_op, addr, arglocs, result_loc):
-            getattr(self.mc, asmop)(arglocs[0], arglocs[1])
-            if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
-                self.mc.JO(rel32(addr))
-            elif guard_op.opnum == rop.GUARD_EXCEPTION:
-                self.mc.JNO(rel32(addr))
-            else:
-                raise AssertionError
-        return genop_binary_ovf
 
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):
@@ -362,9 +351,9 @@ class Assembler386(object):
     genop_int_or  = _binaryop("OR", True)
     genop_int_xor = _binaryop("XOR", True)
 
-    genop_guard_int_mul_ovf = _binaryop_ovf("IMUL", True)
-    genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
-    genop_guard_int_add_ovf = _binaryop_ovf("ADD", True)
+    genop_int_mul_ovf = genop_int_mul
+    genop_int_sub_ovf = genop_int_sub
+    genop_int_add_ovf = genop_int_add
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -644,9 +633,7 @@ class Assembler386(object):
         self.implement_guard(addr, op, self.mc.JZ)
 
     def genop_guard_guard_no_exception(self, op, ign_1, addr, locs, ign_2):
-        loc = locs[0]
-        self.mc.MOV(loc, heap(self._exception_addr))
-        self.mc.TEST(loc, loc)
+        self.mc.CMP(heap(self._exception_addr), imm(0))
         self.implement_guard(addr, op, self.mc.JNZ)
 
     def genop_guard_guard_exception(self, op, ign_1, addr, locs, resloc):
@@ -659,6 +646,12 @@ class Assembler386(object):
             self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
         self.mc.MOV(heap(self._exception_addr), imm(0))
         self.mc.MOV(addr_add(imm(self._exception_addr), imm(WORD)), imm(0))
+
+    def genop_guard_guard_no_overflow(self, op, ign_1, addr, locs, resloc):
+        self.implement_guard(addr, op, self.mc.JO)
+
+    def genop_guard_guard_overflow(self, op, ign_1, addr, locs, resloc):
+        self.implement_guard(addr, op, self.mc.JNO)
 
     def genop_guard_guard_false(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
@@ -674,20 +667,13 @@ class Assembler386(object):
         self.mc.CMP(mem(locs[0], offset), locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
 
-    def implement_guard_recovery(self, guard_op, regalloc, ovf=False):
+    def implement_guard_recovery(self, guard_op, regalloc):
         oldmc = self.mc
         self.mc = self.mc2
         self.mc2 = self.mcstack.next_mc()
         addr = self.mc.tell()
-        exc = False
-        if ovf:
-            regalloc.position = -1
-            if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
-                self.generate_ovf_set()
-            exc = True
-        if (guard_op.opnum == rop.GUARD_EXCEPTION or
-            guard_op.opnum == rop.GUARD_NO_EXCEPTION):
-            exc = True
+        exc = (guard_op.opnum == rop.GUARD_EXCEPTION or
+               guard_op.opnum == rop.GUARD_NO_EXCEPTION)
         # XXX this is a heuristics to detect whether we're handling this
         # exception or not. We should have a bit better interface to deal
         # with that I fear
@@ -733,14 +719,6 @@ class Assembler386(object):
         #if self.gcrootmap:
         self.mc.POP(ebp)
         self.mc.RET()
-
-    def generate_ovf_set(self):
-        ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
-        self.mc.MOV(addr_add(imm(self._exception_addr), imm(0)),
-                    imm(ovf_error_vtable))
-        ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
-        self.mc.MOV(addr_add(imm(self._exception_addr), imm(WORD)),
-                    imm(ovf_error_instance))
 
     def generate_exception_handling(self, loc):
         self.mc.MOV(loc, heap(self._exception_addr))

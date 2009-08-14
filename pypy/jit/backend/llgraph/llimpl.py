@@ -108,10 +108,11 @@ TYPES = {
     'guard_true'      : (('bool',), None),
     'guard_false'     : (('bool',), None),
     'guard_value'     : (('int', 'int'), None),
-    'guard_value_inverse'  : (('int', 'int'), None),
     'guard_class'     : (('ptr', 'ptr'), None),
     'guard_no_exception'   : ((), None),
     'guard_exception'      : (('ptr',), 'ptr'),
+    'guard_no_overflow'    : ((), None),
+    'guard_overflow'       : ((), None),
     'newstr'          : (('int',), 'ptr'),
     'strlen'          : (('ptr',), 'int'),
     'strgetitem'      : (('ptr', 'int'), 'int'),
@@ -534,28 +535,12 @@ class Frame(object):
         if value.typeptr != expected_class:
             raise GuardFailed
 
-    def op_guard_class_inverse(self, _, value, expected_class):
-        value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)
-        expected_class = llmemory.cast_adr_to_ptr(
-            cast_int_to_adr(self.memocast, expected_class),
-            rclass.CLASSTYPE)
-        if value.typeptr == expected_class:
-            raise GuardFailed
-
     def op_guard_value(self, _, value, expected_value):
         if value != expected_value:
             raise GuardFailed
 
-    def op_guard_value_inverse(self, _, value, expected_value):
-        if value == expected_value:
-            raise GuardFailed
-
     def op_guard_no_exception(self, _):
         if _last_exception:
-            raise GuardFailed
-
-    def op_guard_no_exception_inverse(self, _):
-        if _last_exception is None:
             raise GuardFailed
 
     def _check_exception(self, expected_exception):
@@ -587,14 +572,22 @@ class Frame(object):
         _last_exception = None
         return res
 
-    def op_guard_exception_inverse(self, _, expected_exception):
-        global _last_exception
-        if self._check_exception(expected_exception):
+    def op_guard_no_overflow(self, _):
+        global _overflow_flag
+        flag = _overflow_flag
+        assert flag != 'unset'
+        _overflow_flag = 'unset'
+        if flag:
             raise GuardFailed
-        res = _last_exception[1]
-        _last_exception = None
-        return res
-    
+
+    def op_guard_overflow(self, _):
+        global _overflow_flag
+        flag = _overflow_flag
+        assert flag != 'unset'
+        _overflow_flag = 'unset'
+        if not flag:
+            raise GuardFailed
+
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
@@ -925,6 +918,17 @@ def set_overflow_error():
 
 def set_zero_division_error():
     _set_error(ZeroDivisionError)
+
+_overflow_flag = 'unset'
+
+def get_overflow_flag():
+    if _overflow_flag == 'unset':
+        return False
+    return _overflow_flag
+
+def set_overflow_flag(flag):
+    global _overflow_flag
+    _overflow_flag = flag
 
 class MemoCast(object):
     def __init__(self):

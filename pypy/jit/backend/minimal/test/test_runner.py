@@ -23,7 +23,6 @@ class MinimalTestMixin(object):
     test_passing_guard_class = _skip      # GUARD_CLASS
     test_failing_guards      = _skip      # GUARD_CLASS
     test_failing_guard_class = _skip      # GUARD_CLASS
-    test_ovf_operations_reversed = _skip  # exception
 
 #class TestOOtype(OOJitMixin, MinimalTestMixin, OOtypeBackendTest):
 #    pass

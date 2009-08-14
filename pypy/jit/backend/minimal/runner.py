@@ -42,6 +42,7 @@ class BaseCPU(model.AbstractCPU):
         self._future_values = []
         self._ovf_error_inst = self.setup_error(OverflowError)
         self._zer_error_inst = self.setup_error(ZeroDivisionError)
+        self.clear_exception()
 
     def setup_error(self, Class):
         if self.rtyper is not None:   # normal case
@@ -184,6 +185,15 @@ class BaseCPU(model.AbstractCPU):
                 raise GuardFailed
         elif opnum == rop.GUARD_EXCEPTION:
             return self._execute_guard_exception(argboxes)
+        elif opnum == rop.GUARD_NO_OVERFLOW:
+            if self._overflow_flag:
+                self._overflow_flag = False
+                raise GuardFailed
+        elif opnum == rop.GUARD_OVERFLOW:
+            if self._overflow_flag:
+                self._overflow_flag = False
+            else:
+                raise GuardFailed
         else:
             ll_assert(False, "execute_guard: unknown guard op")
 

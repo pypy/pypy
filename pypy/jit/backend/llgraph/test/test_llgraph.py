@@ -36,9 +36,6 @@ class LLGraphTests:
                     assert getattr(res, key) == value
         interpret(main, [])
 
-    def test_ovf_operations(self):
-        py.test.skip('no way to run this without a typer')
-
     def test_execute_operations_in_env(self):
         py.test.skip("Rewrite me")
         x = BoxInt(123)

@@ -217,24 +217,18 @@ class BaseBackendTest(Runner):
             if not reversed:
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
-                    ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+                    ResOperation(rop.GUARD_NO_OVERFLOW, [], None),
                     ResOperation(rop.FAIL, [v_res], None),
                     ]
                 ops[1].suboperations = [ResOperation(rop.FAIL, [], None)]
             else:
-                self.cpu.set_overflow_error()
-                ovferror = self.cpu.get_exception()
-                assert self.cpu.get_exc_value()
-                self.cpu.clear_exception()
                 if self.cpu.is_oo:
                     v_exc = BoxObj()
-                    c_ovferror = ConstObj(ovferror)
                 else:
                     v_exc = BoxPtr()
-                    c_ovferror = ConstInt(ovferror)
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
-                    ResOperation(rop.GUARD_EXCEPTION, [c_ovferror], v_exc),
+                    ResOperation(rop.GUARD_OVERFLOW, [], None),
                     ResOperation(rop.FAIL, [], None),
                     ]
                 ops[1].suboperations = [ResOperation(rop.FAIL, [v_res], None)]
@@ -246,6 +240,7 @@ class BaseBackendTest(Runner):
             for x, y, z in testcases:
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
+                assert not self.cpu.get_overflow_flag()
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
                 op = self.cpu.execute_operations(loop)
@@ -255,18 +250,9 @@ class BaseBackendTest(Runner):
                     assert op is ops[-1]
                 if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
-                ovferror = self.cpu.get_exception()
-                assert bool(ovferror) == bool(self.cpu.get_exc_value())
-                if reversed:
-                    # in the 'reversed' case, ovferror should always be
-                    # consumed: either it is not set in the first place,
-                    # or it is set and GUARD_EXCEPTION succeeds.
-                    assert not ovferror
-                elif ovferror:
-                    assert z == boom
-                    self.cpu.clear_exception()
-                else:
-                    assert z != boom
+                assert not self.cpu.get_exception()
+                assert not self.cpu.get_exc_value()
+                assert not self.cpu.get_overflow_flag()
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)

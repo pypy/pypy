@@ -219,6 +219,12 @@ class BaseCPU(model.AbstractCPU):
     def set_zero_division_error(self):
         llimpl.set_zero_division_error()
 
+    def get_overflow_flag(self):
+        return llimpl.get_overflow_flag()
+
+    def set_overflow_flag(self, flag):
+        llimpl.set_overflow_flag(flag)
+
     @staticmethod
     def sizeof(S):
         return Descr(symbolic.get_size(S))
