@@ -636,9 +636,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if exit_status:
             raise self.ExternalFailure(test_stdout, test_stderr)
 
-    def repr_failure(self, excinfo, outerr):
+    def repr_failure(self, excinfo):
         if not excinfo.errisinstance(self.ExternalFailure):
-            return super(ReallyRunFileExternal, self).repr_failure(excinfo, outerr)
+            return super(ReallyRunFileExternal, self).repr_failure(excinfo)
         out, err = excinfo.value.args
         return out + err
 
