@@ -857,7 +857,7 @@ def frame_execute(frame):
     except Exception, e:
         log.ERROR('%s in CPU frame: %s' % (e.__class__.__name__, e))
         # Only invoke pdb when io capturing is not on otherwise py.io complains.
-        if py.test.config.option.nocapture:
+        if py.test.config.option.capture == 'no':
             import sys, pdb
             pdb.post_mortem(sys.exc_info()[2])
         raise
