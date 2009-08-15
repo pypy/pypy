@@ -619,11 +619,7 @@ def make_state_class(warmrunnerdesc):
     getarrayitem = warmrunnerdesc.ts.getarrayitem
     setarrayitem = warmrunnerdesc.ts.setarrayitem
     #
-    try:
-        get_printable_location = jitdriver.get_printable_location
-    except AttributeError:
-        def get_printable_location(*greenargs):
-            return '(no jitdriver.get_printable_location!)'
+    get_printable_location = jitdriver.get_printable_location
     #
     class MachineCodeEntryPoint(object):
         next = None    # linked list

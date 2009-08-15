@@ -90,17 +90,10 @@ class WarmspotTests(object):
         assert res == f(110)
 
     def test_location(self):
-        #
-        class MyJitDriver(JitDriver):
-            greens = ['n']
-            reds = ['m']
-
-            def get_printable_location(n):
-                return 'GREEN IS %d.' % n
-            get_printable_location = staticmethod(get_printable_location)
-
-        myjitdriver = MyJitDriver()
-
+        def get_printable_location(n):
+            return 'GREEN IS %d.' % n
+        myjitdriver = JitDriver(greens=['n'], reds=['m'],
+                                get_printable_location=get_printable_location)
         def f(n, m):
             while m > 0:
                 myjitdriver.can_enter_jit(n=n, m=m)

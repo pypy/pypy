@@ -84,6 +84,11 @@ PARAMETERS = {'threshold': 1000,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
+def _no_printable_location(*greenargs):
+    return '(no jitdriver.get_printable_location!)'
+
+# ____________________________________________________________
+
 class JitDriver:    
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
@@ -94,6 +99,7 @@ class JitDriver:
     virtualizables = []
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
+                 get_printable_location=_no_printable_location,
                  can_inline=None):
         if greens is not None:
             self.greens = greens
@@ -107,6 +113,7 @@ class JitDriver:
             assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
         self._make_extregistryentries()
+        self.get_printable_location = get_printable_location
         self.can_inline = can_inline
 
     def _freeze_(self):
