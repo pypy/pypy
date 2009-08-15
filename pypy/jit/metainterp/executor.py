@@ -2,10 +2,9 @@
 """
 
 import py
-from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import hlstr
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
 from pypy.jit.metainterp.history import INT, PTR, OBJ
@@ -227,11 +226,7 @@ def do_int_mul_ovf(cpu, args, descr=None):
 
 def do_debug_merge_point(cpu, args, descr=None):
     from pypy.jit.metainterp.warmspot import get_stats
-    if cpu.is_oo:
-        ll_str = ootype.cast_from_object(ootype.String, args[0].value)
-    else:
-        ll_str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), args[0].value)
-    loc = hlstr(ll_str)
+    loc = args[0]._get_str()
     get_stats().locations.append(loc)
 
 # ____________________________________________________________

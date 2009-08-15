@@ -317,6 +317,11 @@ class ConstPtr(Const):
     def repr_rpython(self):
         return repr_rpython(self, 'cp')
 
+    def _get_str(self):    # for debugging only
+        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rpython.lltypesystem import rstr
+        return hlstr(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), self.value))
+
 class ConstObj(Const):
     type = OBJ
     value = ootype.NULL
@@ -360,6 +365,10 @@ class ConstObj(Const):
     def repr_rpython(self):
         return repr_rpython(self, 'co')
 
+    def _get_str(self):    # for debugging only
+        from pypy.rpython.annlowlevel import hlstr
+        return hlstr(ootype.cast_from_object(ootype.String, self.value))
+
 class Box(AbstractValue):
     __slots__ = ()
     _extended_display = True
@@ -402,6 +411,9 @@ class Box(AbstractValue):
             self._str = '%s%d' % (t, Box._counter)
             Box._counter += 1
         return self._str
+
+    def _get_str(self):    # for debugging only
+        return self.constbox()._get_str()
 
 class BoxInt(Box):
     type = INT

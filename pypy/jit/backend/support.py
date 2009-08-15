@@ -67,6 +67,10 @@ class AbstractLogger(object):
             os.write(self._log_fd, pre + "LOOP %s\n" % args)
         for i in range(len(operations)):
             op = operations[i]
+            if op.opnum == rop.DEBUG_MERGE_POINT:
+                loc = op.args[0]._get_str()
+                os.write(self._log_fd, pre + "%s\n" % (loc,))
+                continue
             args = ",".join([self.repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None:
                 descr = self.repr_of_descr(op.descr)

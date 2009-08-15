@@ -514,7 +514,6 @@ class Frame(object):
                         else:
                             boxedargs.append(BoxPtr(x))
                     # xxx this passes the 'llimpl' module as the CPU argument
-                    llimpl.is_oo = issubclass(cls, OOFrame)
                     resbox = impl(llimpl, boxedargs)
                     return getattr(resbox, 'value', None)
                 op = _op_default_implementation
