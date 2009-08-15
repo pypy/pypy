@@ -122,7 +122,18 @@ def print_info():
 
 def print_help():
     print 'usage: %s [options]' % (sys.executable,)
-    print __doc__
+    print __doc__.rstrip()
+    if 'pypyjit' in sys.builtin_module_names:
+        print_jit_help()
+    print
+
+def print_jit_help():
+    import pypyjit
+    items = pypyjit.defaults.items()
+    items.sort()
+    for key, value in items:
+        print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
+            key, ' '*(18-len(key)), value)
 
 class CommandLineError(Exception):
     pass
@@ -161,8 +172,9 @@ else:
 
 def get_argument(option, argv, i):
     arg = argv[i]
-    if len(arg) > 2:
-        return arg[2:], i
+    n = len(option)
+    if len(arg) > n:
+        return arg[n:], i
     else:
         i += 1
         if i >= len(argv):
@@ -269,6 +281,14 @@ def parse_command_line(argv):
             break
         elif arg.startswith('-W'):
             warnoptions, i = get_argument('-W', argv, i)
+        elif arg.startswith('--jit'):
+            jitparam, i = get_argument('--jit', argv, i)
+            if 'pypyjit' not in sys.builtin_module_names:
+                print >> sys.stderr, ("Warning: No jit support in %s" %
+                                      (sys.executable,))
+            else:
+                import pypyjit
+                pypyjit.set_param(jitparam)
         elif arg == '--':
             i += 1
             break     # terminates option list    
