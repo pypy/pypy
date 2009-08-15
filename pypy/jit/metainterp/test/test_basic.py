@@ -747,6 +747,28 @@ class BasicTests:
                                optimizer=simple_optimize)
         assert res == 42
 
+    def test_set_param(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        def g(n):
+            x = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                n -= 1
+                x += n
+            return x
+        def f(n, threshold):
+            myjitdriver.set_param('threshold', threshold)
+            return g(n)
+
+        res = self.meta_interp(f, [10, 3])
+        assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
+        self.check_tree_loop_count(1)
+
+        res = self.meta_interp(f, [10, 13])
+        assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
+        self.check_tree_loop_count(0)
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

@@ -79,32 +79,32 @@ def rpython_ll_meta_interp(function, args, backendopt=True,
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 
-def find_can_enter_jit(graphs):
+def _find_jit_marker(graphs, marker_name):
     results = []
     for graph in graphs:
         for block in graph.iterblocks():
             for i in range(len(block.operations)):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
-                    op.args[0].value == 'can_enter_jit'):
+                    op.args[0].value == marker_name):
                     results.append((graph, block, i))
+    return results
+
+def find_can_enter_jit(graphs):
+    results = _find_jit_marker(graphs, 'can_enter_jit')
     if not results:
         raise Exception("no can_enter_jit found!")
     return results
 
 def find_jit_merge_point(graphs):
-    results = []
-    for graph in graphs:
-        for block in graph.iterblocks():
-            for i in range(len(block.operations)):
-                op = block.operations[i]
-                if (op.opname == 'jit_marker' and
-                    op.args[0].value == 'jit_merge_point'):
-                    results.append((graph, block, i))
+    results = _find_jit_marker(graphs, 'jit_merge_point')
     if len(results) != 1:
         raise Exception("found %d jit_merge_points, need exactly one!" %
                         (len(results),))
     return results[0]
+
+def find_set_param(graphs):
+    return _find_jit_marker(graphs, 'set_param')
 
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
@@ -138,11 +138,10 @@ class WarmRunnerDesc:
         self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
+        self.rewrite_set_param()
         self.add_profiler_finish()
         self.metainterp_sd.finish_setup()
-        # hook back for set_param
         self.make_can_inline_graph()
-        self.jitdriver.state = self.state
 
     def finish(self):
         vinfo = self.metainterp_sd.virtualizable_info
@@ -495,6 +494,27 @@ class WarmRunnerDesc:
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish_profiler,
                                 annhelper = self.annhelper)
+
+    def rewrite_set_param(self):
+        closures = {}
+        graphs = self.translator.graphs
+        _, PTR_SET_PARAM_FUNCTYPE = self.ts.get_FuncType([lltype.Signed],
+                                                         lltype.Void)
+        def make_closure(fullfuncname):
+            state = self.state
+            def closure(i):
+                getattr(state, fullfuncname)(i)
+            funcptr = self.helper_func(PTR_SET_PARAM_FUNCTYPE, closure)
+            return Constant(funcptr, PTR_SET_PARAM_FUNCTYPE)
+        #
+        for graph, block, i in find_set_param(graphs):
+            op = block.operations[i]
+            assert op.args[1].value == self.jitdriver
+            funcname = op.args[2].value
+            if funcname not in closures:
+                closures[funcname] = make_closure('set_param_' + funcname)
+            op.opname = 'direct_call'
+            op.args[:3] = [closures[funcname]]
 
 
 def decode_hp_hint_args(op):
