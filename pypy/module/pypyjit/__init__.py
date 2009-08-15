@@ -13,6 +13,6 @@ class Module(MixedModule):
         import pypy.module.pypyjit.interp_jit
         # add the 'defaults' attribute
         from pypy.rlib.jit import PARAMETERS
-        w_obj = space.wrap(PARAMETERS)
         space = self.space
+        w_obj = space.wrap(PARAMETERS)
         space.setattr(space.wrap(self), space.wrap('defaults'), w_obj)
