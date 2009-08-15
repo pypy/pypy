@@ -92,11 +92,13 @@ class Profiler(object):
     def print_stats(self):
         cnt = self.counters
         tim = self.times
-        print "Tracing:    \t%d\t%f" % (cnt[TRACING],   tim[TRACING])
-        print "Backend:    \t%d\t%f" % (cnt[BACKEND],   tim[BACKEND])
-        print "Running asm:\t%d\t%f" % (cnt[RUNNING],   tim[RUNNING])
-        print "Blackhole:  \t%d\t%f" % (cnt[BLACKHOLE], tim[BLACKHOLE])
-        print "TOTAL:      \t\t%f" % (self.tk - self.starttime)
+        lines = ("Tracing:    \t%d\t%f\n" % (cnt[TRACING],   tim[TRACING]) +
+                 "Backend:    \t%d\t%f\n" % (cnt[BACKEND],   tim[BACKEND]) +
+                 "Running asm:\t%d\t%f\n" % (cnt[RUNNING],   tim[RUNNING]) +
+                 "Blackhole:  \t%d\t%f\n" % (cnt[BLACKHOLE], tim[BLACKHOLE]) +
+                 "TOTAL:      \t\t%f\n" % (self.tk - self.starttime))
+        import os
+        os.write(2, lines)
 
 
 class BrokenProfilerData(Exception):
