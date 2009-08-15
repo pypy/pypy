@@ -108,3 +108,15 @@ def test_descrof():
     cpu.fielddescrof(rclass.OBJECT, 'typeptr')
     cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     cpu.calldescrof(lltype.FuncType([], lltype.Signed), (), lltype.Signed)
+
+def test_debug_merge_point():
+    loop = TreeLoop('test')
+    loop.inputargs = []
+    loop.operations = [
+        ResOperation(rop.DEBUG_MERGE_POINT, [], None),
+        ResOperation(rop.FAIL, [], None),
+        ]
+    cpu = LLVMCPU(None)
+    cpu.setup_once()
+    cpu.compile_operations(loop)
+    cpu.execute_operations(loop)

@@ -3,7 +3,7 @@
 #from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
 from pypy.jit.metainterp import history
 
 def deref(T):
@@ -91,6 +91,10 @@ class LLTypeHelper(TypeSystemHelper):
     def setarrayitem(self, array, i, newvalue):
         array[i] = newvalue
 
+    def conststr(self, str):
+        ll = llstr(str)
+        return history.ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ll))
+
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -144,6 +148,10 @@ class OOTypeHelper(TypeSystemHelper):
 
     def setarrayitem(self, array, i, newvalue):
         array.ll_setitem_fast(i, newvalue)
+
+    def conststr(self, str):
+        oo = oostr(str)
+        return history.ConstObj(ootype.cast_to_object(oo))
 
 
 llhelper = LLTypeHelper()

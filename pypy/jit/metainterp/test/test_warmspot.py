@@ -1,4 +1,5 @@
 from pypy.jit.metainterp.warmspot import ll_meta_interp, cast_whatever_to_int
+from pypy.jit.metainterp.warmspot import get_stats
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.llgraph import runner
 
@@ -87,6 +88,29 @@ class WarmspotTests(object):
             return m
         res = self.meta_interp(f, [110], hash_bits=1)
         assert res == f(110)
+
+    def test_location(self):
+        #
+        class MyJitDriver(JitDriver):
+            greens = ['n']
+            reds = ['m']
+
+            def get_printable_location(n):
+                return 'GREEN IS %d.' % n
+            get_printable_location = staticmethod(get_printable_location)
+
+        myjitdriver = MyJitDriver()
+
+        def f(n, m):
+            while m > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                m -= 1
+
+        self.meta_interp(f, [123, 10])
+        assert len(get_stats().locations) >= 4
+        for loc in get_stats().locations:
+            assert loc == 'GREEN IS 123.'
 
 
 class TestLLWarmspot(WarmspotTests):

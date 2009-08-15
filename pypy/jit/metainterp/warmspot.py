@@ -619,6 +619,12 @@ def make_state_class(warmrunnerdesc):
     getarrayitem = warmrunnerdesc.ts.getarrayitem
     setarrayitem = warmrunnerdesc.ts.setarrayitem
     #
+    try:
+        get_printable_location = jitdriver.get_printable_location
+    except AttributeError:
+        def get_printable_location(*greenargs):
+            return '(no jitdriver.get_printable_location!)'
+    #
     class MachineCodeEntryPoint(object):
         next = None    # linked list
         def __init__(self, bridge, *greenargs):
@@ -824,5 +830,8 @@ def make_state_class(warmrunnerdesc):
             newcell.next = oldcell     # link
             self.mcentrypoints[argshash] = newcell
             self.mccounters[argshash] = -THRESHOLD_LIMIT-1
+
+        def get_location_llstr(self, *greenargs):
+            return get_printable_location(*greenargs)
 
     return WarmEnterState

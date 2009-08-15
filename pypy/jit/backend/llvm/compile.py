@@ -714,6 +714,9 @@ class LLVMJITCompiler(object):
                                  self.cpu.const_unicode_index_array,
                                  self.cpu.const_unicode_index_length)
 
+    def generate_DEBUG_MERGE_POINT(self, op):
+        pass
+
 # ____________________________________________________________
 
 class MissingOperation(Exception):

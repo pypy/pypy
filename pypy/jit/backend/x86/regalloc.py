@@ -1150,6 +1150,9 @@ class RegAlloc(object):
             self.assembler.regalloc_pop(later_pops[i])
         self.PerformDiscard(op, [])
 
+    def consider_debug_merge_point(self, op, ignored):
+        pass
+
     def not_implemented_op(self, op, ignored):
         print "[regalloc] Not implemented operation: %s" % op.getopname()
         raise NotImplementedError

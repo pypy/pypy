@@ -631,6 +631,9 @@ class Method(object):
         self.il.Emit(OpCodes.Callvirt, _ll_resize)
         self.store_result(op)
 
+    def emit_op_debug_merge_point(self, op):
+        pass
+
     def lltype_only(self, op):
         print 'Operation %s is lltype specific, should not get here!' % op.getopname()
         raise NotImplementedError

@@ -123,6 +123,7 @@ TYPES = {
     'unicodesetitem'  : (('ptr', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ptr',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ptr'),
+    'debug_merge_point': (('ptr',), None),
     #'getitem'         : (('void', 'ptr', 'int'), 'int'),
     #'setitem'         : (('void', 'ptr', 'int', 'int'), None),
     #'newlist'         : (('void', 'varargs'), 'ptr'),
@@ -513,8 +514,9 @@ class Frame(object):
                         else:
                             boxedargs.append(BoxPtr(x))
                     # xxx this passes the 'llimpl' module as the CPU argument
+                    llimpl.is_oo = issubclass(cls, OOFrame)
                     resbox = impl(llimpl, boxedargs)
-                    return resbox.value
+                    return getattr(resbox, 'value', None)
                 op = _op_default_implementation
                 #
         cls.OPHANDLERS[opnum] = op

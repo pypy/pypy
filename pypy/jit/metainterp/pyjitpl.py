@@ -785,9 +785,22 @@ class MIFrame(object):
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
         self.generate_merge_point(pc, self.env)
+        if DEBUG > 0:
+            self.debug_merge_point()
         if self.metainterp.seen_can_enter_jit:
             self.metainterp.seen_can_enter_jit = False
             self.metainterp.reached_can_enter_jit(self.env)
+
+    def debug_merge_point(self):
+        # debugging: produce a DEBUG_MERGE_POINT operation
+        num_green_args = self.metainterp.staticdata.num_green_args
+        greenkey = self.env[:num_green_args]
+        sd = self.metainterp.staticdata
+        greenargs = sd.globaldata.unpack_greenkey(greenkey)
+        loc = sd.state.get_location_llstr(*greenargs)
+        constloc = sd.ts.conststr(loc)
+        self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
+                                       [constloc], None)
 
     @arguments("jumptarget")
     def opimpl_setup_exception_block(self, exception_target):
