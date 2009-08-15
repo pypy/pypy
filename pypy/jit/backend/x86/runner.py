@@ -53,6 +53,13 @@ class ConstDescr3(AbstractDescr):
     def __repr__(self):
         return '<ConstDescr3 %s, %s, %s>' % (self.v0, self.v1, self.flag2)
 
+
+def _check_addr_range(x):
+    if sys.platform == 'linux2':
+        # this makes assumption about address ranges that are valid
+        # only on linux (?)
+        assert x == 0 or x > (1<<20) or x < (-1<<20)        
+
 class CPU386(object):
     debug = True
     is_oo = False
@@ -684,7 +691,8 @@ class CPU386(object):
 
     @staticmethod
     def cast_int_to_adr(x):
-        assert x == 0 or x > (1<<20) or x < (-1<<20)
+        if not we_are_translated():
+            _check_addr_range(x)
         if we_are_translated():
             return rffi.cast(llmemory.Address, x)
         else:
@@ -696,12 +704,12 @@ class CPU386(object):
 
     def cast_int_to_gcref(self, x):
         if not we_are_translated():
-            assert x == 0 or x > (1<<20) or x < (-1<<20)
+            _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
 
     def cast_adr_to_gcref(self, x):
         if not we_are_translated():
-            assert x == 0 or x > (1<<20) or x < (-1<<20)
+            _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
 
 def uhex(x):

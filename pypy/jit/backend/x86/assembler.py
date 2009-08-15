@@ -19,6 +19,15 @@ from pypy.jit.backend.support import AbstractLogger
 # and the rest stays on the stack
 
 MAX_FAIL_BOXES = 1000
+if sys.platform == 'darwin':
+    # darwin requires the stack to be 16 bytes aligned on calls
+    CALL_ALIGN = 4
+else:
+    CALL_ALIGN = 1
+
+
+def align_stack_words(words):
+    return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
 class x86Logger(AbstractLogger):
 
@@ -191,7 +200,11 @@ class Assembler386(object):
         self.sanitize_tree(tree.operations)
         self.mc.done()
         self.mc2.done()
-        tree._x86_stack_depth = regalloc.max_stack_depth
+        stack_words = regalloc.max_stack_depth
+        # possibly align, e.g. for Mac OS X
+        RET_BP = 2 # ret ip + bp = 2 words
+        stack_words = align_stack_words(stack_words+RET_BP)
+        tree._x86_stack_depth = stack_words-RET_BP        
         for place in self.places_to_patch_framesize:
             mc = codebuf.InMemoryCodeBuilder(place, place + 128)
             mc.ADD(esp, imm32(tree._x86_stack_depth * WORD))
@@ -331,15 +344,23 @@ class Assembler386(object):
                     self.implement_guard(addr, guard_op, getattr(self.mc, name))
         return genop_cmp_guard
             
+    def align_stack_for_call(self, nargs):
+        # xxx do something when we don't use push anymore for calls
+        extra_on_stack = align_stack_words(nargs)
+        for i in range(extra_on_stack-nargs):
+            self.mc.PUSH(imm(0))
+        return extra_on_stack
 
     def call(self, addr, args, res):
-        for i in range(len(args)-1, -1, -1):
+        nargs = len(args)
+        extra_on_stack = self.align_stack_for_call(nargs)
+        for i in range(nargs-1, -1, -1):
             arg = args[i]
             assert not isinstance(arg, MODRM)
             self.mc.PUSH(arg)
         self.mc.CALL(rel32(addr))
         self.mark_gc_roots()
-        self.mc.ADD(esp, imm(len(args) * WORD))
+        self.mc.ADD(esp, imm(extra_on_stack * WORD))
         assert res is eax
 
     genop_int_neg = _unaryop("NEG")
@@ -739,12 +760,12 @@ class Assembler386(object):
         assert isinstance(sizeloc, IMM32)
         size = sizeloc.value
         arglocs = arglocs[1:]
-        extra_on_stack = 0
-        for i in range(len(op.args) - 1, 0, -1):
+        nargs = len(op.args)-1
+        extra_on_stack = self.align_stack_for_call(nargs)
+        for i in range(nargs, 0, -1):
             v = op.args[i]
             loc = arglocs[i]
             self.mc.PUSH(loc)
-            extra_on_stack += 1
         if isinstance(op.args[0], Const):
             x = rel32(op.args[0].getint())
         else:
