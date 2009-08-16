@@ -1,4 +1,3 @@
-.globl _pypy_g_foo
 _pypy_g_foo:
 L1506:
 	subl	$140, %esp

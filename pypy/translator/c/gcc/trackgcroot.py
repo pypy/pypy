@@ -7,14 +7,14 @@ r_functionend_elf   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
 
 # darwin
 r_textstart            = re.compile(r"\t.text\s*$")
-r_sectionstart         = re.compile(r"\t.(section|cstring|data).*$")
-r_functionstart_darwin = re.compile(r".globl\s+(\w+)\s*$")
+r_sectionstart         = re.compile(r"\t.(section|cstring|const|data).*$")
+r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 
 # inside functions
 r_label         = re.compile(r"([.]?\w+)[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
-r_jump          = re.compile(r"\tj\w+\s+([.]?\w+)\s*$")
+r_jump          = re.compile(r"\tj\w+\s+([.]?[\w$]+)\s*$")
 OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
 r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+OPERAND+")\s*$")
 r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+([*]"+OPERAND+")\s*$")
@@ -140,9 +140,9 @@ class GcRootTracker(object):
         functionlines = []
         in_text = False
         in_function = False
-        for line in iterlines:
+        for n, line in enumerate(iterlines):
             if r_textstart.match(line):
-                assert not in_text, "unexpected repeated .text start"
+                assert not in_text, "unexpected repeated .text start: %d" % n
                 in_text = True
             elif r_sectionstart.match(line):
                 if in_function:
@@ -160,6 +160,8 @@ class GcRootTracker(object):
             yield in_function, functionlines
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
+        if self.format == 'darwin':
+            entrypoint = '_' + entrypoint
         for in_function, lines in self.find_functions(iterlines):
             if in_function:
                 lines = self.process_function(lines, entrypoint, filename)
@@ -170,6 +172,7 @@ class GcRootTracker(object):
     def process_function(self, lines, entrypoint, filename):
         tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename),
                                         format=self.format)
+        print >> sys.stderr, entrypoint
         tracker.is_main = tracker.funcname == entrypoint
         if self.verbose == 1:
             sys.stderr.write('.')
@@ -200,7 +203,7 @@ class FunctionGcRootTracker(object):
             assert funcname == match.group(2)
         elif format == 'darwin':
             match = r_functionstart_darwin.match(lines[0])
-            funcname = match.group(1)
+            funcname = '_'+match.group(1)
         else:
             assert False, "unknown format: %s" % format
  
@@ -280,13 +283,13 @@ class FunctionGcRootTracker(object):
 
     def parse_instructions(self):
         self.insns = [InsnFunctionStart()]
-        in_APP = False
+        ignore_insns = False
         for lineno, line in enumerate(self.lines):
             self.currentlineno = lineno
             insn = []
             match = r_insn.match(line)
             if match:
-                if not in_APP:
+                if not ignore_insns:
                     opname = match.group(1)
                     try:
                         meth = getattr(self, 'visit_' + opname)
@@ -295,10 +298,10 @@ class FunctionGcRootTracker(object):
                     insn = meth(line)
             elif r_gcroot_marker.match(line):
                 insn = self._visit_gcroot_marker(line)
-            elif line == '#APP\n':
-                in_APP = True
-            elif line == '#NO_APP\n':
-                in_APP = False
+            elif line == '\t/* ignore_in_trackgcroot */\n':
+                ignore_insns = True
+            elif line == '\t/* end_ignore_in_trackgcroot */\n':
+                ignore_insns = False
             else:
                 match = r_label.match(line)
                 if match:
@@ -478,7 +481,7 @@ class FunctionGcRootTracker(object):
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt',  # sse2
+        'cvt', 'ucomi', 'subs', 'subp' , 'xorp', 'movap', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
@@ -1070,7 +1073,11 @@ if __name__ == '__main__':
             output_raw_table = True
         else:
             break
-    tracker = GcRootTracker(verbose=verbose, shuffle=shuffle)
+    if sys.platform == 'darwin':
+        format = 'darwin'
+    else:
+        format = 'elf'
+    tracker = GcRootTracker(verbose=verbose, shuffle=shuffle, format=format)
     for fn in sys.argv[1:]:
         tmpfn = fn + '.TMP'
         f = open(fn, 'r')

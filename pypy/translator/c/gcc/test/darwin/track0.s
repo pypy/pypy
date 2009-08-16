@@ -1,4 +1,3 @@
-.globl _pypy_g_clear_large_memory_chunk
 _pypy_g_clear_large_memory_chunk:
 L80:
 	pushl	%ebp

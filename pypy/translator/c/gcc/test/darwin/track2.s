@@ -1,4 +1,3 @@
-.globl _pypy_g_populate
 _pypy_g_populate:
 L2135:
 	subl	$76, %esp

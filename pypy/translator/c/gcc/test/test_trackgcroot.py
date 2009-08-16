@@ -76,7 +76,11 @@ def test_find_functions_darwin():
 \t.align 4,0x90
 .globl _pypy_g_ll_str__StringR_Ptr_GcStruct_rpy_strin_rpy_strin
 _pypy_g_ll_str__StringR_Ptr_GcStruct_rpy_strin_rpy_strin:
+L0:
 \tFOO
+\t.align 4,0x90
+_static:
+\tSTATIC
 \t.align 4,0x90
 .globl _pypy_g_ll_issubclass__object_vtablePtr_object_vtablePtr
 _pypy_g_ll_issubclass__object_vtablePtr_object_vtablePtr:
@@ -92,13 +96,14 @@ _pypy_g_RPyRaiseException:
 """
     lines = source.splitlines(True)
     parts = list(GcRootTracker(format='darwin').find_functions(iter(lines)))
-    assert len(parts) == 6
-    assert parts[0] == (False, lines[:2])
-    assert parts[1] == (True,  lines[2:6])
-    assert parts[2] == (True,  lines[6:9])
-    assert parts[3] == (False, lines[9:13])
-    assert parts[4] == (True,  lines[13:16])
-    assert parts[5] == (False, lines[16:])
+    assert len(parts) == 7
+    assert parts[0] == (False, lines[:3])
+    assert parts[1] == (True,  lines[3:7])
+    assert parts[2] == (True,  lines[7:11])
+    assert parts[3] == (True,  lines[11:13])
+    assert parts[4] == (False, lines[13:18])
+    assert parts[5] == (True,  lines[18:20])
+    assert parts[6] == (False, lines[20:])
  
 def test_computegcmaptable():
     tests = []
