@@ -4,12 +4,15 @@
 
 #undef OP_INT_ADD_OVF
 #define OP_INT_ADD_OVF(x,y,r)                   \
-    asm volatile("addl %2,%0\n\t"               \
+    asm volatile(                               \
+        "/* ignore_in_trackgcroot */\n\t"       \
+        "addl %2,%0\n\t"                        \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
         "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
-        "0:"                                    \
+        "0:\n\t"                                \
+        "/* end_ignore_in_trackgcroot */"       \
         : "=r"(r)            /* outputs */      \
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
@@ -19,24 +22,30 @@
 
 #undef OP_INT_SUB_OVF
 #define OP_INT_SUB_OVF(x,y,r)                   \
-    asm volatile("subl %2,%0\n\t"               \
+    asm volatile(                               \
+        "/* ignore_in_trackgcroot */\n\t"       \
+        "subl %2,%0\n\t"                        \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
         "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
-        "0:"                                    \
+        "0:\n\t"                                \
+        "/* end_ignore_in_trackgcroot */"       \
         : "=r"(r)            /* outputs */      \
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
 #undef OP_INT_MUL_OVF
 #define OP_INT_MUL_OVF(x,y,r)                   \
-    asm volatile("imull %2,%0\n\t"              \
+    asm volatile(                               \
+        "/* ignore_in_trackgcroot */\n\t"       \
+        "imull %2,%0\n\t"                       \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
         "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
-        "0:"                                    \
+        "0:\n\t"                                \
+        "/* end_ignore_in_trackgcroot */"       \
         : "=r"(r)            /* outputs */      \
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
