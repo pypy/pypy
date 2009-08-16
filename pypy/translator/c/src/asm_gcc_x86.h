@@ -7,7 +7,7 @@
     asm volatile("addl %2,%0\n\t"               \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
-        "call op_int_overflowed\n\t"            \
+        "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
         "0:"                                    \
         : "=r"(r)            /* outputs */      \
@@ -22,7 +22,7 @@
     asm volatile("subl %2,%0\n\t"               \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
-        "call op_int_overflowed\n\t"            \
+        "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
         "0:"                                    \
         : "=r"(r)            /* outputs */      \
@@ -34,7 +34,7 @@
     asm volatile("imull %2,%0\n\t"              \
         "jno 0f\n\t"                            \
         "pusha\n\t"                             \
-        "call op_int_overflowed\n\t"            \
+        "call _op_int_overflowed\n\t"           \
         "popa\n\t"                              \
         "0:"                                    \
         : "=r"(r)            /* outputs */      \
@@ -45,7 +45,7 @@
 /* prototypes */
 
 extern void op_int_overflowed(void)
-     asm ("op_int_overflowed")
+     asm ("_op_int_overflowed")
      __attribute__((used));
 
 /* implementations */
