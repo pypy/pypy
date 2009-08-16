@@ -7,7 +7,19 @@ r_functionend_elf   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
 
 # darwin
 r_textstart            = re.compile(r"\t.text\s*$")
-r_sectionstart         = re.compile(r"\t.(section|cstring|const|data).*$")
+# see
+# http://developer.apple.com/documentation/developertools/Reference/Assembler/040-Assembler_Directives/asm_directives.html
+OTHERSECTIONS = ['section', 'zerofill',
+                 'const', 'static_const', 'cstring',
+                 'literal4', 'literal8', 'literal16',
+                 'constructor', 'desctructor',
+                 'symbol_stub',
+                 'data', 'static_data',
+                 'non_lazy_symbol_pointer', 'lazy_symbol_pointer',
+                 'dyld', 'mod_init_func', 'mod_term_func',
+                 'const_data'
+                 ]
+r_sectionstart         = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
 r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 
 # inside functions
@@ -62,10 +74,26 @@ class GcRootTracker(object):
         shapes = {}
         shapelines = []
         shapeofs = 0
-        print >> output, """\t.text
-        .globl pypy_asm_stackwalk
-            .type pypy_asm_stackwalk, @function
-        pypy_asm_stackwalk:
+        def _globalname(name):
+            if self.format == 'darwin':
+                return '_' + name
+            return name
+        def _globl(name):
+            print >> output, "\t.globl %s" % _globalname(name)
+        def _label(name):
+            print >> output, "%s:" % _globalname(name)
+        def _variant(elf, darwin):
+            if self.format == 'darwin':
+                txt = darwin
+            else:
+                txt = elf
+            print >> output, "\t%s" % txt
+        
+        print >> output, "\t.text"
+        _globl('pypy_asm_stackwalk')
+        _variant('.type pypy_asm_stackwalk, @function', '')
+        _label('pypy_asm_stackwalk')
+        print >> output, """\
             /* See description in asmgcroot.py */
             movl   4(%esp), %edx     /* my argument, which is the callback */
             movl   %esp, %eax        /* my frame top address */
@@ -75,21 +103,22 @@ class GcRootTracker(object):
             pushl  %esi              /* ASM_FRAMEDATA[1] */
             pushl  %ebx              /* ASM_FRAMEDATA[0] */
             movl   %esp, %eax        /* address of ASM_FRAMEDATA */
-            pushl  %eax
+            pushl  %eax              /* respect Mac OS X 16 bytes aligment */ 
+            pushl  %eax              /* the one argument to the callback */
             call   *%edx             /* invoke the callback */
-            popl   %eax
+            addl   $8, %esp
             popl   %ebx              /* restore from ASM_FRAMEDATA[0] */
             popl   %esi              /* restore from ASM_FRAMEDATA[1] */
             popl   %edi              /* restore from ASM_FRAMEDATA[2] */
             popl   %ebp              /* restore from ASM_FRAMEDATA[3] */
             popl   %eax
             ret
-        .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
-        """
+"""
+        _variant('.size pypy_asm_stackwalk, .-pypy_asm_stackwalk', '')
         print >> output, '\t.data'
         print >> output, '\t.align\t4'
-        print >> output, '\t.globl\t__gcmapstart'
-        print >> output, '__gcmapstart:'
+        _globl('__gcmapstart')
+        _label('__gcmapstart')
         for label, state, is_range in self.gcmaptable:
             try:
                 n = shapes[state]
@@ -104,11 +133,11 @@ class GcRootTracker(object):
                 n = ~ n
             print >> output, '\t.long\t%s' % (label,)
             print >> output, '\t.long\t%d' % (n,)
-        print >> output, '\t.globl\t__gcmapend'
-        print >> output, '__gcmapend:'
-        print >> output, '\t.section\t.rodata'
-        print >> output, '\t.globl\t__gccallshapes'
-        print >> output, '__gccallshapes:'
+        _globl('__gcmapend')
+        _label('__gcmapend')
+        _variant('.section\t.rodata', '.const')
+        _globl('__gccallshapes')
+        _label('__gccallshapes')
         output.writelines(shapelines)
 
     def find_functions(self, iterlines):
@@ -172,7 +201,6 @@ class GcRootTracker(object):
     def process_function(self, lines, entrypoint, filename):
         tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename),
                                         format=self.format)
-        print >> sys.stderr, entrypoint
         tracker.is_main = tracker.funcname == entrypoint
         if self.verbose == 1:
             sys.stderr.write('.')
@@ -481,7 +509,7 @@ class FunctionGcRootTracker(object):
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt', 'ucomi', 'subs', 'subp' , 'xorp', 'movap', # sse2
+        'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',

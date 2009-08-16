@@ -20,7 +20,7 @@ struct rpy_memory_alignment_test2 {
 extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
-extern char __gcnoreorderhack;
+#define __gcnoreorderhack __gcmapend
 
 /* The following pseudo-instruction is used by --gcrootfinder=asmgcc
    just after a call to tell gcc to put a GCROOT mark on each gc-pointer
