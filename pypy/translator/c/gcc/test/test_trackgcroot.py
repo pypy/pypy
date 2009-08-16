@@ -91,7 +91,7 @@ _pypy_g_RPyRaiseException:
 \t.section stuff
 """
     lines = source.splitlines(True)
-    parts = list(GcRootTracker(darwin=True).find_functions(iter(lines)))
+    parts = list(GcRootTracker(format='darwin').find_functions(iter(lines)))
     assert len(parts) == 6
     assert parts[0] == (False, lines[:2])
     assert parts[1] == (True,  lines[2:6])
@@ -102,26 +102,27 @@ _pypy_g_RPyRaiseException:
  
 def test_computegcmaptable():
     tests = []
-    for path in this_dir.listdir("track*.s"):
-        n = path.purebasename[5:]
-        try:
-            n = int(n)
-        except ValueError:
-            pass
-        tests.append((n, path))
+    for format in ('elf', 'darwin'):
+        for path in this_dir.join(format).listdir("track*.s"):
+            n = path.purebasename[5:]
+            try:
+                n = int(n)
+            except ValueError:
+                pass
+            tests.append((format, n, path))
     tests.sort()
-    for _, path in tests:
-        yield check_computegcmaptable, path
+    for format, _, path in tests:
+        yield check_computegcmaptable, format, path
 
 r_globallabel = re.compile(r"([\w]+)[:]")
 r_expected = re.compile(r"\s*;;\s*expected\s+([{].+[}])")
 
-def check_computegcmaptable(path):
+def check_computegcmaptable(format, path):
     print
     print path.basename
     lines = path.readlines()
     expectedlines = lines[:]
-    tracker = FunctionGcRootTracker(lines)
+    tracker = FunctionGcRootTracker(lines, format=format)
     table = tracker.computegcmaptable(verbose=sys.maxint)
     tabledict = {}
     seen = {}

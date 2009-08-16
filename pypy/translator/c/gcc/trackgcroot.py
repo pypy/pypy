@@ -15,7 +15,7 @@ r_label         = re.compile(r"([.]?\w+)[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
 r_jump          = re.compile(r"\tj\w+\s+([.]?\w+)\s*$")
-OPERAND         =           r"(?:[-\w$%+.:@]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])"
+OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
 r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+OPERAND+")\s*$")
 r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+([*]"+OPERAND+")\s*$")
 r_jmp_switch    = re.compile(r"\tjmp\t[*]([.]?\w+)[(]")
@@ -33,10 +33,10 @@ r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 
 class GcRootTracker(object):
 
-    def __init__(self, verbose=0, shuffle=False, darwin=False):
+    def __init__(self, verbose=0, shuffle=False, format='elf'):
         self.verbose = verbose
         self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
-        self.darwin = darwin
+        self.format = format
         self.clear()
 
     def clear(self):
@@ -112,11 +112,7 @@ class GcRootTracker(object):
         output.writelines(shapelines)
 
     def find_functions(self, iterlines):
-        if self.darwin:
-            _find_functions = self._find_functions_darwin
-        else:
-            _find_functions = self._find_functions_elf
-
+        _find_functions = getattr(self, '_find_functions_' + self.format)
         return _find_functions(iterlines)
             
     def _find_functions_elf(self, iterlines):
@@ -172,7 +168,8 @@ class GcRootTracker(object):
             sys.stderr.write('\n')
 
     def process_function(self, lines, entrypoint, filename):
-        tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename))
+        tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename),
+                                        format=self.format)
         tracker.is_main = tracker.funcname == entrypoint
         if self.verbose == 1:
             sys.stderr.write('.')
@@ -194,12 +191,20 @@ class GcRootTracker(object):
 
 class FunctionGcRootTracker(object):
 
-    def __init__(self, lines, filetag=0):
-        match = r_functionstart_elf.match(lines[0])
-        self.funcname = match.group(1)
-        match = r_functionend_elf.match(lines[-1])
-        assert self.funcname == match.group(1)
-        assert self.funcname == match.group(2)
+    def __init__(self, lines, filetag=0, format='elf'):
+        if format == 'elf':
+            match = r_functionstart_elf.match(lines[0])
+            funcname = match.group(1)
+            match = r_functionend_elf.match(lines[-1])
+            assert funcname == match.group(1)
+            assert funcname == match.group(2)
+        elif format == 'darwin':
+            match = r_functionstart_darwin.match(lines[0])
+            funcname = match.group(1)
+        else:
+            assert False, "unknown format: %s" % format
+ 
+        self.funcname = funcname
         self.lines = lines
         self.uses_frame_pointer = False
         self.r_localvar = r_localvarnofp
@@ -694,6 +699,11 @@ class FunctionGcRootTracker(object):
             target = match.group(1)
             if target in FUNCTIONS_NOT_RETURNING:
                 return InsnStop()
+            if target in self.labels:
+                lineoffset = self.labels[target].lineno - self.currentlineno
+                if lineoffset >= 0:
+                    assert  lineoffset in (1,2)
+                    return [InsnStackAdjust(-4)]
         return [InsnCall(self.currentlineno),
                 InsnSetLocal('%eax')]      # the result is there
 
