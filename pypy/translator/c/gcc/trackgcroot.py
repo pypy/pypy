@@ -2,8 +2,15 @@
 
 import re, sys, os, random
 
-r_functionstart = re.compile(r"\t.type\s+(\w+),\s*[@]function\s*$")
-r_functionend   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
+r_functionstart_elf = re.compile(r"\t.type\s+(\w+),\s*[@]function\s*$")
+r_functionend_elf   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
+
+# darwin
+r_textstart            = re.compile(r"\t.text\s*$")
+r_sectionstart         = re.compile(r"\t.(section|cstring|data).*$")
+r_functionstart_darwin = re.compile(r".globl\s+(\w+)\s*$")
+
+# inside functions
 r_label         = re.compile(r"([.]?\w+)[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
@@ -26,9 +33,10 @@ r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 
 class GcRootTracker(object):
 
-    def __init__(self, verbose=0, shuffle=False):
+    def __init__(self, verbose=0, shuffle=False, darwin=False):
         self.verbose = verbose
         self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
+        self.darwin = darwin
         self.clear()
 
     def clear(self):
@@ -104,17 +112,25 @@ class GcRootTracker(object):
         output.writelines(shapelines)
 
     def find_functions(self, iterlines):
+        if self.darwin:
+            _find_functions = self._find_functions_darwin
+        else:
+            _find_functions = self._find_functions_elf
+
+        return _find_functions(iterlines)
+            
+    def _find_functions_elf(self, iterlines):
         functionlines = []
         in_function = False
         for line in iterlines:
-            if r_functionstart.match(line):
+            if r_functionstart_elf.match(line):
                 assert not in_function, (
                     "missed the end of the previous function")
                 yield False, functionlines
                 in_function = True
                 functionlines = []
             functionlines.append(line)
-            if r_functionend.match(line):
+            if r_functionend_elf.match(line):
                 assert in_function, (
                     "missed the start of the current function")
                 yield True, functionlines
@@ -123,6 +139,29 @@ class GcRootTracker(object):
         assert not in_function, (
             "missed the end of the previous function")
         yield False, functionlines
+
+    def _find_functions_darwin(self, iterlines):
+        functionlines = []
+        in_text = False
+        in_function = False
+        for line in iterlines:
+            if r_textstart.match(line):
+                assert not in_text, "unexpected repeated .text start"
+                in_text = True
+            elif r_sectionstart.match(line):
+                if in_function:
+                    yield in_function, functionlines
+                    functionlines = []
+                in_text = False
+                in_function = False
+            elif in_text and r_functionstart_darwin.match(line):
+                yield in_function, functionlines
+                functionlines = []
+                in_function = True
+            functionlines.append(line)
+
+        if functionlines:
+            yield in_function, functionlines
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
         for in_function, lines in self.find_functions(iterlines):
@@ -156,9 +195,9 @@ class GcRootTracker(object):
 class FunctionGcRootTracker(object):
 
     def __init__(self, lines, filetag=0):
-        match = r_functionstart.match(lines[0])
+        match = r_functionstart_elf.match(lines[0])
         self.funcname = match.group(1)
-        match = r_functionend.match(lines[-1])
+        match = r_functionend_elf.match(lines[-1])
         assert self.funcname == match.group(1)
         assert self.funcname == match.group(2)
         self.lines = lines

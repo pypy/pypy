@@ -46,7 +46,7 @@ def test_compress_callshape():
     assert len(bytes) == 1+1+2+3+4+4+5+5+1
     assert decompress_callshape(bytes) == list(shape)
 
-def test_find_functions():
+def test_find_functions_elf():
     source = """\
 \t.p2align 4,,15
 .globl pypy_g_make_tree
@@ -70,7 +70,36 @@ def test_find_functions():
     assert parts[3] == (True,  lines[8:11])
     assert parts[4] == (False, lines[11:])
 
-
+def test_find_functions_darwin():
+    source = """\
+\t.text
+\t.align 4,0x90
+.globl _pypy_g_ll_str__StringR_Ptr_GcStruct_rpy_strin_rpy_strin
+_pypy_g_ll_str__StringR_Ptr_GcStruct_rpy_strin_rpy_strin:
+\tFOO
+\t.align 4,0x90
+.globl _pypy_g_ll_issubclass__object_vtablePtr_object_vtablePtr
+_pypy_g_ll_issubclass__object_vtablePtr_object_vtablePtr:
+\tBAR
+\t.cstring
+\t.ascii "foo"
+\t.text
+\t.align 4,0x90
+.globl _pypy_g_RPyRaiseException
+_pypy_g_RPyRaiseException:
+\tBAZ
+\t.section stuff
+"""
+    lines = source.splitlines(True)
+    parts = list(GcRootTracker(darwin=True).find_functions(iter(lines)))
+    assert len(parts) == 6
+    assert parts[0] == (False, lines[:2])
+    assert parts[1] == (True,  lines[2:6])
+    assert parts[2] == (True,  lines[6:9])
+    assert parts[3] == (False, lines[9:13])
+    assert parts[4] == (True,  lines[13:16])
+    assert parts[5] == (False, lines[16:])
+ 
 def test_computegcmaptable():
     tests = []
     for path in this_dir.listdir("track*.s"):
