@@ -283,7 +283,8 @@ class FunctionGcRootTracker(object):
                     loc = localvar.getlocation(insn.framesize,
                                                self.uses_frame_pointer)
                 else:
-                    assert localvar in REG2LOC
+                    assert localvar in REG2LOC, "%s: %s" % (self.funcname,
+                                                            localvar)
                     loc = REG2LOC[localvar]
                 assert isinstance(loc, int)
                 if tag is None:
@@ -509,7 +510,8 @@ class FunctionGcRootTracker(object):
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap', # sse2
+        'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap',
+        'mins', 'minp',  'maxs', 'maxp', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
@@ -930,6 +932,8 @@ FUNCTIONS_NOT_RETURNING = {
     'abort': None,
     '_exit': None,
     '__assert_fail': None,
+    '___assert_rtn': None,
+    'L___assert_rtn$stub': None
     }
 
 CALLEE_SAVE_REGISTERS_NOEBP = ['%ebx', '%esi', '%edi']
