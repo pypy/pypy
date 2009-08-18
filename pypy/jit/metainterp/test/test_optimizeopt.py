@@ -875,15 +875,19 @@ class BaseTestOptimizeOpt(BaseTest):
         i1 = getfield_gc(p2, descr=valuedescr)    # i1 = const 3
         p1 = new_array(i1, descr=arraydescr)
         escape(p1)
+        i2 = arraylen_gc(p1)
+        escape(i2)
         jump()
         """
         expected = """
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
+        i2 = arraylen_gc(p1)
+        escape(i2)
         jump()
         """
-        self.optimize_loop(ops, '', expected, i1=3)
+        self.optimize_loop(ops, '', expected, i1=3, i2=3)
 
     def test_vstruct_1(self):
         ops = """
