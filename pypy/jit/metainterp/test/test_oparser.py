@@ -111,3 +111,21 @@ def test_getvar_const_ptr():
     NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
     loop = parse(x, None, {'func_ptr' : NULL})
     assert loop.operations[0].args[0].value == NULL
+
+def test_jump_target():
+    x = '''
+    []
+    jump()
+    '''
+    loop = parse(x)
+    assert loop.operations[0].jump_target is loop
+
+def test_jump_target_other():
+    x = '''
+    []
+    jump()
+    '''
+    obj = object()
+    loop = parse(x, jump_targets=[obj])
+    assert loop.operations[0].jump_target is obj
+

@@ -49,13 +49,15 @@ class ExtendedTreeLoop(TreeLoop):
             getattr(boxes, name).value = value
 
 class OpParser(object):
-    def __init__(self, descr, cpu, namespace, type_system, boxkinds):
+    def __init__(self, descr, cpu, namespace, type_system, boxkinds, jump_targets):
         self.descr = descr
         self.vars = {}
         self.cpu = cpu
         self.consts = namespace
         self.type_system = type_system
         self.boxkinds = boxkinds or {}
+        self.jumps = []
+        self.jump_targets = jump_targets
 
     def box_for_var(self, elem):
         try:
@@ -170,6 +172,8 @@ class OpParser(object):
     def parse_op_no_result(self, line):
         opnum, args, descr = self.parse_op(line)
         res = ResOperation(opnum, args, None, descr)
+        if opnum == rop.JUMP:
+            self.jumps.append(res)
         return res
 
     def parse_next_op(self, line):
@@ -192,6 +196,15 @@ class OpParser(object):
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = ExtendedTreeLoop("loop")
+        if (self.jump_targets is not None and
+            len(self.jump_targets) != len(self.jumps)):
+            raise ParseError("Wrong number of jump targets")
+        if self.jump_targets is None:
+            for jump in self.jumps:
+                jump.jump_target = loop
+        else:
+            for jump, jump_target in zip(self.jumps, self.jump_targets):
+                jump.jump_target = jump_target
         loop.operations = ops
         loop.inputargs = inpargs
         return loop
@@ -225,10 +238,10 @@ class OpParser(object):
         return base_indent, inpargs
 
 def parse(descr, cpu=None, namespace=None, type_system='lltype',
-          boxkinds=None):
+          boxkinds=None, jump_targets=None):
     if namespace is None:
         namespace = _default_namespace[type_system]
-    return OpParser(descr, cpu, namespace, type_system, boxkinds).parse()
+    return OpParser(descr, cpu, namespace, type_system, boxkinds, jump_targets).parse()
 
 def _box_counter_more_than(s):
     if s.isdigit():
