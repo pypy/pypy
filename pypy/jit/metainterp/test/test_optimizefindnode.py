@@ -50,6 +50,7 @@ class LLtypeMixin(object):
                                      ('other', lltype.Ptr(NODE)))
     node = lltype.malloc(NODE)
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
+    myptr = nodebox.value
     nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodesize = cpu.sizeof(NODE)
     nodesize2 = cpu.sizeof(NODE2)
@@ -87,6 +88,7 @@ class OOtypeMixin(object):
 
     node = ootype.new(NODE)
     nodebox = BoxObj(ootype.cast_to_object(node))
+    myptr = nodebox.value
     nodebox2 = BoxObj(ootype.cast_to_object(node))
     valuedescr = cpu.fielddescrof(NODE, 'value')
     nextdescr = cpu.fielddescrof(NODE, 'next')

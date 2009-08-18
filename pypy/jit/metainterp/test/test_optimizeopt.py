@@ -97,9 +97,9 @@ class BaseTestOptimizeOpt(BaseTest):
                             expected.operations,
                             remap)
 
-    def optimize_loop(self, ops, spectext, optops,
-                      boxkinds=None, checkspecnodes=True, **values):
-        loop = self.parse(ops, boxkinds=boxkinds)
+    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True,
+                      **values):
+        loop = self.parse(ops)
         loop.setvalues(**values)
         #
         if checkspecnodes:
@@ -118,7 +118,7 @@ class BaseTestOptimizeOpt(BaseTest):
         #
         optimize_loop_1(self.cpu, loop)
         #
-        expected = self.parse(optops, boxkinds=boxkinds)
+        expected = self.parse(optops)
         self.assert_equal(loop, expected)
 
     def test_simple(self):
@@ -346,8 +346,8 @@ class BaseTestOptimizeOpt(BaseTest):
             fail()
         jump()
         """
-        self.optimize_loop(ops, '', ops, p1=self.nodebox.value,
-                           boxkinds={'myptr': self.nodebox.value})
+        self.optimize_loop(ops, '', ops, p1=self.nodebox.value)
+
 
     def test_p123_simple(self):
         ops = """
@@ -708,8 +708,7 @@ class BaseTestOptimizeOpt(BaseTest):
         [i0]
         jump(0)
         """
-        self.optimize_loop(ops, 'Not', expected, p2=self.nodebox.value,
-                           i1=0, boxkinds={'myptr': self.nodebox.value})
+        self.optimize_loop(ops, 'Not', expected, p2=self.nodebox.value, i1=0)
 
     def test_nonvirtual_1(self):
         ops = """
@@ -792,8 +791,7 @@ class BaseTestOptimizeOpt(BaseTest):
         [i]
         jump(5)
         """
-        self.optimize_loop(ops, 'Not', expected, i1=5,
-                           boxkinds={'myptr': self.nodebox.value})
+        self.optimize_loop(ops, 'Not', expected, i1=5)
 
     def test_getfield_gc_nonpure_2(self):
         ops = """
@@ -802,8 +800,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1)
         """
         expected = ops
-        self.optimize_loop(ops, 'Not', expected, i1=5,
-                           boxkinds={'myptr': self.nodebox.value})
+        self.optimize_loop(ops, 'Not', expected, i1=5)
 
     def test_varray_1(self):
         ops = """
