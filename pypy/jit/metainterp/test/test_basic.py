@@ -651,7 +651,6 @@ class BasicTests:
         assert not res
 
     def test_assert_isinstance(self):
-        py.test.skip("we would really like this to work")
         class A:
             pass
         class B(A):

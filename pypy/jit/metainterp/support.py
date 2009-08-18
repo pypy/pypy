@@ -46,7 +46,8 @@ def annotate(func, values, inline=None, backendoptimize=True,
         auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(t, inline_threshold=inline or 0)
+        backend_optimizations(t, inline_threshold=inline or 0,
+                remove_asserts=True, really_remove_asserts=True)
 
     #if conftest.option.view:
     #    t.view()
