@@ -489,21 +489,6 @@ class RegAlloc(object):
             self.Store(v_to_spill, loc, newloc)
         return loc
 
-#     def _locs_from_liveboxes(self, guard_op):
-#         stacklocs = []
-#         locs = []
-#         for arg in guard_op.inputargs:
-#             assert isinstance(arg, Box)
-#             if arg not in self.stack_bindings:
-#                 self.dirty_stack[arg] = True
-#             stacklocs.append(self.stack_loc(arg).position)
-#             locs.append(self.loc(arg))
-#         if not we_are_translated():
-#             assert len(dict.fromkeys(stacklocs)) == len(stacklocs)
-#         guard_op.stacklocs = stacklocs
-#         guard_op.locs = locs
-#         return locs
-
     def stack_loc(self, v):
         try:
             res = self.stack_bindings[v]
@@ -714,22 +699,6 @@ class RegAlloc(object):
 
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
-
-    #def consider_guard2(self, op, ignored):
-    #    loc1, ops1 = self.make_sure_var_in_reg(op.args[0], [])
-    #    loc2, ops2 = self.make_sure_var_in_reg(op.args[1], [])
-    #    locs = [self.loc(arg) for arg in op.liveboxes]
-    #    self.eventually_free_vars(op.args + op.liveboxes)
-    #    return ops1 + ops2 + [PerformDiscard(op, [loc1, loc2] + locs)]
-
-    #consider_guard_lt = consider_guard2
-    #consider_guard_le = consider_guard2
-    #consider_guard_eq = consider_guard2
-    #consider_guard_ne = consider_guard2
-    #consider_guard_gt = consider_guard2
-    #consider_guard_ge = consider_guard2
-    #consider_guard_is = consider_guard2
-    #consider_guard_isnot = consider_guard2
 
     def consider_guard_value(self, op, ignored):
         x = self.loc(op.args[0])
@@ -1031,18 +1000,6 @@ class RegAlloc(object):
 
     consider_getfield_raw = consider_getfield_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
-
-    def _consider_listop(self, op, ignored):
-        return self._call(op, [self.loc(arg) for arg in op.args])
-    
-    xxx_consider_getitem     = _consider_listop
-    xxx_consider_len         = _consider_listop
-    xxx_consider_append      = _consider_listop
-    xxx_consider_pop         = _consider_listop
-    xxx_consider_setitem     = _consider_listop
-    xxx_consider_newlist     = _consider_listop
-    xxx_consider_insert      = _consider_listop
-    xxx_consider_listnonzero = _consider_listop
 
     def _same_as(self, op, ignored):
         x = op.args[0]
