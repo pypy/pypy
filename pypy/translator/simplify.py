@@ -402,12 +402,7 @@ def rec_op_has_side_effects(translator, op, seen=None):
 def transform_dead_op_vars(graph, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a graph."""
-    blocks = {}
-    def visit(block):
-        if isinstance(block, Block):
-            blocks[block] = True
-    traverse(visit, graph)
-    return transform_dead_op_vars_in_blocks(blocks, translator)
+    return transform_dead_op_vars_in_blocks(list(graph.iterblocks()), translator)
 
 # the set of operations that can safely be removed
 # (they have no side effects, at least in R-Python)
