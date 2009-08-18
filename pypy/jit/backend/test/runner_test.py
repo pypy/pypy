@@ -240,7 +240,6 @@ class BaseBackendTest(Runner):
             for x, y, z in testcases:
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
-                assert not self.cpu.get_overflow_flag()
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
                 op = self.cpu.execute_operations(loop)
@@ -252,7 +251,6 @@ class BaseBackendTest(Runner):
                     assert self.cpu.get_latest_value_int(0) == z
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
-                assert not self.cpu.get_overflow_flag()
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
