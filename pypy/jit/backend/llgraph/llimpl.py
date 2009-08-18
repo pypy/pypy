@@ -20,6 +20,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 
 from pypy.rlib.objectmodel import ComputedIntSymbolic
+from pypy.rlib.rarithmetic import ovfcheck
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -574,20 +575,49 @@ class Frame(object):
         return res
 
     def op_guard_no_overflow(self, _):
-        global _overflow_flag
-        flag = _overflow_flag
-        assert flag != 'unset'
-        _overflow_flag = 'unset'
+        flag = self.overflow_flag
+        del self.overflow_flag
         if flag:
             raise GuardFailed
 
     def op_guard_overflow(self, _):
-        global _overflow_flag
-        flag = _overflow_flag
-        assert flag != 'unset'
-        _overflow_flag = 'unset'
+        flag = self.overflow_flag
+        del self.overflow_flag
         if not flag:
             raise GuardFailed
+
+    def op_int_add_ovf(self, _, x, y):
+        try:
+            z = ovfcheck(x + y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
+
+    def op_int_sub_ovf(self, _, x, y):
+        try:
+            z = ovfcheck(x - y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
+
+    def op_int_mul_ovf(self, _, x, y):
+        try:
+            z = ovfcheck(x * y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
 
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)
@@ -926,17 +956,6 @@ def get_zero_division_error():
 def get_zero_division_error_value():
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   _get_error(ZeroDivisionError).args[1])
-
-_overflow_flag = 'unset'
-
-def get_overflow_flag():
-    if _overflow_flag == 'unset':
-        return False
-    return _overflow_flag
-
-def set_overflow_flag(flag):
-    global _overflow_flag
-    _overflow_flag = flag
 
 class MemoCast(object):
     def __init__(self):
@@ -1301,5 +1320,3 @@ setannotation(do_call_pushptr, annmodel.s_None)
 setannotation(do_call_int, annmodel.SomeInteger())
 setannotation(do_call_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_call_void, annmodel.s_None)
-setannotation(get_overflow_flag, annmodel.s_Bool)
-setannotation(set_overflow_flag, annmodel.s_None)

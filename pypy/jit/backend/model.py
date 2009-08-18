@@ -1,6 +1,4 @@
 class AbstractCPU(object):
-    _overflow_flag = False
-
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes
 
@@ -60,12 +58,6 @@ class AbstractCPU(object):
 
     def get_zero_division_error(self):
         raise NotImplementedError
-
-    def get_overflow_flag(self):
-        return self._overflow_flag
-
-    def set_overflow_flag(self, flag):
-        self._overflow_flag = flag
 
     @staticmethod
     def sizeof(S):

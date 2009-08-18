@@ -1548,8 +1548,8 @@ class MetaInterp(object):
 
     def handle_overflow_error(self):
         frame = self.framestack[-1]
-        if self.cpu.get_overflow_flag():
-            self.cpu.set_overflow_flag(False)
+        if self.cpu._overflow_flag:
+            self.cpu._overflow_flag = False
             frame.generate_guard(frame.pc, rop.GUARD_OVERFLOW, None, [])
             return self.raise_overflow_error()
         else:

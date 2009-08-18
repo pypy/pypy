@@ -154,14 +154,6 @@ class CPU386(object):
             self.cast_adr_to_int(self.assembler._zer_error_inst))
         return zer_vtable, zer_inst
 
-    _overflow_flag = False
-
-    def get_overflow_flag(self):
-        return self._overflow_flag
-
-    def set_overflow_flag(self, flag):
-        self._overflow_flag = flag
-
     def compile_operations(self, tree, bridge=None):
         old_loop = tree._x86_compiled
         if old_loop:

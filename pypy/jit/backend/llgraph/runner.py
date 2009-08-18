@@ -221,12 +221,6 @@ class BaseCPU(model.AbstractCPU):
         return (self.cast_adr_to_int(llimpl.get_zero_division_error()),
                 llimpl.get_zero_division_error_value())
 
-    def get_overflow_flag(self):
-        return llimpl.get_overflow_flag()
-
-    def set_overflow_flag(self, flag):
-        llimpl.set_overflow_flag(flag)
-
     @staticmethod
     def sizeof(S):
         return Descr(symbolic.get_size(S))
