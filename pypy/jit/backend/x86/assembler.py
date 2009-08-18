@@ -617,9 +617,6 @@ class Assembler386(object):
         #                                                locs, stacklocs)
 
     def patch_jump(self, old_pos, new_pos, oldlocs, newlocs, olddepth, newdepth):
-        if len(oldlocs) != len(newlocs):
-            assert 0   # virtualizable mess
-            return
         for i in range(len(oldlocs)):
             oldloc = oldlocs[i]
             newloc = newlocs[i]
