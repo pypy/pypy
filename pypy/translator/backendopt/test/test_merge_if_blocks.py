@@ -222,6 +222,4 @@ def test_replace_exitswitch_by_constant_bug():
     inline.auto_inlining(t, 20)
     malloc.remove_mallocs(t, t.graphs)
     from pypy.translator import simplify
-    t.view()
     simplify.join_blocks(graph)
-    t.view()
