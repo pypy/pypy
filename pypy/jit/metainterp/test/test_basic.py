@@ -345,6 +345,8 @@ class BasicTests:
             else:        return 42
         res = self.interp_operations(f, [7])
         assert res == 1212
+        res = self.interp_operations(f, [12311])
+        assert res == 42
 
     def test_r_uint(self):
         from pypy.rlib.rarithmetic import r_uint
@@ -407,6 +409,8 @@ class BasicTests:
             return -1
         res = self.interp_operations(f, [5])
         assert res == 17
+        res = self.interp_operations(f, [15])
+        assert res == -1
 
     def test_mod_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
