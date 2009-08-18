@@ -30,6 +30,7 @@ class TestRegalloc(object):
             else:
                 raise NotImplementedError("Arg: %s" % arg)
         self.cpu.execute_operations(loop)
+        return loop
 
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
@@ -45,3 +46,35 @@ class TestRegalloc(object):
         '''
         self.interpret(ops, [0])
         assert self.getint(0) == 20
+
+    def test_compile_and_recompile(self):
+        ops = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 20)
+        guard_true(i2)
+           fail(i1)
+        jump(i1)
+        '''
+        loop = self.interpret(ops, [0])
+        assert self.getint(0) == 20
+        ops = '''
+        [i1]
+        i3 = int_add(i1, 1)
+        i4 = int_add(i3, 1)
+        i5 = int_add(i4, 1)
+        i6 = int_add(i5, 1)
+        fail(i3, i4, i5, i6)
+        '''
+        bridge = self.parse(ops)
+        guard_op = loop.operations[-2]
+        guard_op.suboperations = bridge.operations
+        self.cpu.compile_operations(loop, guard_op)
+        self.cpu.set_future_value_int(0, 0)
+        op = self.cpu.execute_operations(loop)
+        assert op is bridge.operations[-1]
+        assert self.getint(0) == 21
+        assert self.getint(1) == 22
+        assert self.getint(2) == 23
+        assert self.getint(3) == 24
+        
