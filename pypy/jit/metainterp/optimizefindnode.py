@@ -35,7 +35,7 @@ class InstanceNode(object):
     origitems = None    # optimization; equivalent to an empty dict
     curitems = None     # optimization; equivalent to an empty dict
 
-    # fields used to store the sahpe of the potential VirtualStruct
+    # fields used to store the shape of the potential VirtualStruct
     structdescr = None  # set only on freshly-allocated or fromstart structs
     #origfields = ..    # same as above
     #curfields = ..     # same as above

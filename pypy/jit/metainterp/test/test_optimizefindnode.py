@@ -686,6 +686,28 @@ class BaseTestOptimizeFindNode(BaseTest):
         self.find_bridge(ops, 'Not', 'Virtual(node_vtable2, valuedescr=Not)',
                          mismatch=True)   # bad class
 
+    def test_bridge_simple_virtual_struct(self):
+        ops = """
+        [i0]
+        p0 = new(descr=ssize)
+        setfield_gc(p0, i0, descr=adescr)
+        jump(p0)
+        """
+        self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not', 'VStruct(ssize, adescr=Not)')
+
+    def test_bridge_simple_virtual_struct_non_unique(self):
+        ops = """
+        [i0]
+        p0 = new(descr=ssize)
+        setfield_gc(p0, i0, descr=adescr)
+        jump(p0, p0)
+        """
+        self.find_bridge(ops, 'Not', 'Not, Not')
+        self.find_bridge(ops, 'Not', 'VStruct(ssize), VStruct(ssize)',
+                         mismatch=True)
+
+
     def test_bridge_simple_virtual_2(self):
         ops = """
         [p0]
@@ -803,6 +825,17 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_bridge(ops, 'Not', 'Not')
         self.find_bridge(ops, 'Not', 'VArray(arraydescr, Not, Not, Not)')
+
+    def test_bridge_array_virtual_size_mismatch(self):
+        ops = """
+        [i1]
+        p1 = new_array(5, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        jump(p1)
+        """
+        self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not', 'VArray(arraydescr, Not, Not, Not)',
+                         mismatch=True)
 
     def test_bridge_array_virtual_2(self):
         ops = """
