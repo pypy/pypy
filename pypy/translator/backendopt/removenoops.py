@@ -101,6 +101,12 @@ def remove_duplicate_casts(graph, translator):
                 "removed %s cast_pointers in %s" % (num_removed, graph.name))
     return num_removed
 
+def remove_debug_assert(graph):
+    for block in graph.iterblocks():
+        for i, op in list(enumerate(block.operations))[::-1]:
+            if op.opname == "debug_assert":
+                del block.operations[i]
+
 def remove_superfluous_keep_alive(graph):
     for block in graph.iterblocks():
         used = {}

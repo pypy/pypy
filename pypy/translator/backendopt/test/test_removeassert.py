@@ -23,6 +23,7 @@ def check(fn, args, expected_result, remaining_raise=False):
     remove_asserts(t, [graph])
     assert contains_raise(graph) == remaining_raise
     check_graph(graph, args, expected_result, t)
+    return t, graph
 
 
 def test_simple():
@@ -40,6 +41,12 @@ def test_simple_melting_away():
     remove_asserts(t, [graph])
     assert summary(graph) == {'int_ge': 1, 'debug_assert': 1, 'int_sub': 1}
     check_graph(graph, [1], 0, t)
+    from pypy.translator.backendopt.removenoops import remove_debug_assert
+    remove_debug_assert(graph)
+    assert summary(graph) == {'int_ge': 1, 'int_sub': 1}
+    from pypy.translator.simplify import transform_dead_op_vars
+    transform_dead_op_vars(graph)
+    assert summary(graph) == {'int_sub': 1}
 
 def test_and():
     def fn(n):
@@ -69,7 +76,14 @@ def test_isinstance():
         x = g(n)
         assert isinstance(x, B)
         return x.value
-    check(fn, [5], 321)
+    t, graph = check(fn, [5], 321)
+    assert summary(graph)['debug_assert'] == 1
+    from pypy.translator.backendopt.removenoops import remove_debug_assert
+    remove_debug_assert(graph)
+    assert "debug_assert" not in summary(graph)
+    from pypy.translator.simplify import transform_dead_op_vars
+    transform_dead_op_vars(graph, t)
+    assert summary(graph)["direct_call"] == 1
 
 def test_with_exception():
     def g(n):
@@ -82,3 +96,5 @@ def test_with_exception():
         except ValueError:
             return 42
     check(fn, [-8], 42, remaining_raise=True)
+
+
