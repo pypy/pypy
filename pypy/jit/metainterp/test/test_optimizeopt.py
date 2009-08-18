@@ -679,6 +679,38 @@ class BaseTestOptimizeOpt(BaseTest):
                                               valuedescr=Not))''',
                            expected)
 
+    def test_virtual_constant_isnull(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p0, NULL, descr=nextdescr)
+        p2 = getfield_gc(p0, descr=nextdescr)
+        i1 = ooisnull(p2)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+
+    def test_virtual_constant_isnonnull(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
+        p2 = getfield_gc(p0, descr=nextdescr)
+        i1 = ooisnull(p2)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, 'Not', expected, p2=self.nodebox.value,
+                           i1=0, boxkinds={'myptr': self.nodebox.value})
+
     def test_nonvirtual_1(self):
         ops = """
         [i]
