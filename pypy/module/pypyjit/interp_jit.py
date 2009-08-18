@@ -44,6 +44,11 @@ def can_inline(next_instr, bytecode):
             return False
     return True
 
+def get_printable_location(next_instr, bytecode):
+    if we_are_translated():
+        bytecode = cast_base_ptr_to_instance(PyCode, bytecode)
+    return '%s #%d' % (bytecode.get_repr(), next_instr)
+
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'pycode']
@@ -57,7 +62,8 @@ class PyPyJitDriver(JitDriver):
 ##        blockstack = frame.blockstack
 ##        return (valuestackdepth, blockstack)
 
-pypyjitdriver = PyPyJitDriver(can_inline = can_inline)
+pypyjitdriver = PyPyJitDriver(can_inline = can_inline,
+                              get_printable_location = get_printable_location)
 
 class __extend__(PyFrame):
 
