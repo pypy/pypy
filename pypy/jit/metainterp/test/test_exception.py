@@ -402,16 +402,22 @@ class ExceptionTests:
         assert res == sys.maxint - 2000
 
     def test_int_mod_ovf_zer(self):
+        myjitdriver = JitDriver(greens = [], reds = ['i', 'x', 'y'])
         def f(x, y):
-            try:
-                return ovfcheck(x%y)
-            except ZeroDivisionError:
-                return 1
-            except OverflowError:
-                return 2
+            i = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(x=x, y=y, i=i)
+                myjitdriver.jit_merge_point(x=x, y=y, i=i)
+                try:
+                    ovfcheck(i%x)
+                    i += 1
+                except ZeroDivisionError:
+                    i += 1
+                except OverflowError:
+                    i += 2
 
-        res = self.interp_operations(f, [1, 2])
-        assert res == 1
+        self.meta_interp(f, [0, 0])
+        self.meta_interp(f, [1, 0])
 
     def test_int_lshift_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y', 'm'])
