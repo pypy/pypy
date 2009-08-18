@@ -19,6 +19,11 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.interpreter.pycode import PyCode
 from pypy.translator.goal import unixcheckpoint
 
+if not hasattr(py.test.config.option, 'ootype'):
+    import sys
+    print >> sys.stderr, __doc__
+    sys.exit(2)
+
 if py.test.config.option.ootype:
     BACKEND = 'cli'
 else:
