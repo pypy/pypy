@@ -27,15 +27,6 @@ class ConstDescr3(AbstractDescr):
         self.v1 = v1
         self.flag2 = flag2
 
-    def _v(self):
-        l = []
-        for i in (self.v0, self.v1, self.flag2):
-            if isinstance(i, Symbolic):
-                l.append(id(i))
-            else:
-                l.append(i)
-        return tuple(l)
-
     def sort_key(self):
         return self.v0    # the ofs field for fielddescrs
 
@@ -45,14 +36,8 @@ class ConstDescr3(AbstractDescr):
     def is_array_of_pointers(self):
         return self.flag2     # for arraydescrs
 
-    def equals(self, other):
-        if not isinstance(other, ConstDescr3):
-            return False
-        return self.sort_key() == other.sort_key()
-
     def __repr__(self):
         return '<ConstDescr3 %s, %s, %s>' % (self.v0, self.v1, self.flag2)
-
 
 def _check_addr_range(x):
     if sys.platform == 'linux2':
@@ -561,7 +546,9 @@ class CPU386(object):
             pass
         ofs, size = symbolic.get_field_token(S, fieldname,
                                              self.translate_support_code)
-        assert rffi.sizeof(getattr(S, fieldname)) in [1, 2, WORD]
+        exp_size = rffi.sizeof(getattr(S, fieldname))
+        if type(exp_size) is int:
+            assert exp_size in [1, 2, WORD]
         if (isinstance(getattr(S, fieldname), lltype.Ptr) and
             getattr(S, fieldname).TO._gckind == 'gc'):
             ptr = True

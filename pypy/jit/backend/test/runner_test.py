@@ -797,6 +797,14 @@ class LLtypeBackendTest(BaseBackendTest):
         assert isinstance(z, BoxPtr)
         assert z.value == x.value
 
+    def test_sorting_of_fields(self):
+        S = self.S
+        value = self.cpu.fielddescrof(S, 'value').sort_key()
+        chr1 = self.cpu.fielddescrof(S, 'chr1').sort_key()
+        chr2 = self.cpu.fielddescrof(S, 'chr2').sort_key()
+        assert (sorted([chr2, chr1, value]) ==
+                [value, chr1, chr2])
+        assert len(dict.fromkeys([value, chr1, chr2]).keys()) == 3
 
 class OOtypeBackendTest(BaseBackendTest):
 
