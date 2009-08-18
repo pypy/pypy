@@ -41,8 +41,12 @@ def getkind(TYPE):
         raise NotImplementedError("type %s not supported" % TYPE)
 
 def repr_pointer(box):
+    from pypy.rpython.lltypesystem import rstr
     try:
-        return '*%s' % (box.value._obj.container._TYPE._name,)
+        T = box.value._obj.container._TYPE 
+        if T is rstr.STR:
+            return repr(box._get_str())
+        return '*%s' % (T._name,)
     except AttributeError:
         return box.value
 
