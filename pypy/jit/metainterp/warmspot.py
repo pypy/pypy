@@ -2,7 +2,7 @@ import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
-     cast_base_ptr_to_instance
+     cast_base_ptr_to_instance, hlstr
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
@@ -132,6 +132,7 @@ class WarmRunnerDesc:
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
+        self.make_driverhook_graph()
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
@@ -141,7 +142,6 @@ class WarmRunnerDesc:
         self.rewrite_set_param()
         self.add_profiler_finish()
         self.metainterp_sd.finish_setup()
-        self.make_can_inline_graph()
 
     def finish(self):
         vinfo = self.metainterp_sd.virtualizable_info
@@ -232,18 +232,25 @@ class WarmRunnerDesc:
 
         self.maybe_enter_jit_fn = maybe_enter_jit
 
-    def make_can_inline_graph(self):
-        if self.jitdriver.can_inline is None:
-            self.jitdriver.can_inline_graph = None
-            return
+    def make_driverhook_graph(self):
+        self.can_inline_ptr = self._make_hook_graph(
+            self.jitdriver.can_inline, bool)
+        self.get_printable_location_ptr = self._make_hook_graph(
+            self.jitdriver.get_printable_location, str)
+
+    def _make_hook_graph(self, func, rettype):
+        from pypy.annotation.signature import annotationoftype
+        if func is None:
+            return None
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-        func = self.jitdriver.can_inline
-        FUNC, PTR = self.ts.get_FuncType(self.green_args_spec, lltype.Bool)
+        s_result = annotationoftype(rettype)
+        RETTYPE = annhelper.rtyper.getrepr(s_result).lowleveltype
+        FUNC, PTR = self.ts.get_FuncType(self.green_args_spec, RETTYPE)
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
-        s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = annhelper.getgraph(func, args_s, s_result)
-        self.can_inline_ptr = annhelper.graph2delayed(graph, FUNC)
+        funcptr = annhelper.graph2delayed(graph, FUNC)
         annhelper.finish()
+        return funcptr
 
     def make_args_specification(self):
         graph, block, index = self.jit_merge_point_pos
@@ -450,17 +457,6 @@ class WarmRunnerDesc:
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
-
-        if self.jitdriver.can_inline is None:
-            def can_inline_callable(greenkey):
-                return True
-        else:
-            def can_inline_callable(greenkey):
-                args = self.state.unwrap_greenkey(greenkey)
-                return support.maybe_on_top_of_llinterp(rtyper, self.can_inline_ptr)(*args)
-
-        self.can_inline_callable = can_inline_callable
-
         ll_portal_runner._recursive_portal_call_ = True
 
         portal_runner_ptr = self.helper_func(self.PTR_PORTAL_FUNCTYPE,
@@ -619,7 +615,9 @@ def make_state_class(warmrunnerdesc):
     getarrayitem = warmrunnerdesc.ts.getarrayitem
     setarrayitem = warmrunnerdesc.ts.setarrayitem
     #
-    get_printable_location = jitdriver.get_printable_location
+    rtyper = warmrunnerdesc.translator.rtyper
+    can_inline_ptr = warmrunnerdesc.can_inline_ptr
+    get_printable_location_ptr = warmrunnerdesc.get_printable_location_ptr
     #
     class MachineCodeEntryPoint(object):
         next = None    # linked list
@@ -827,7 +825,26 @@ def make_state_class(warmrunnerdesc):
             self.mcentrypoints[argshash] = newcell
             self.mccounters[argshash] = -THRESHOLD_LIMIT-1
 
-        def get_location_llstr(self, *greenargs):
-            return get_printable_location(*greenargs)
+        if can_inline_ptr is None:
+            def can_inline_callable(self, greenkey):
+                return True
+        else:
+            def can_inline_callable(self, greenkey):
+                args = self.unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, can_inline_ptr)
+                return fn(*args)
+
+        if get_printable_location_ptr is None:
+            def get_location_str(self, greenkey):
+                return '(no jitdriver.get_printable_location!)'
+        else:
+            def get_location_str(self, greenkey):
+                args = self.unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper,
+                                                  get_printable_location_ptr)
+                res = fn(*args)
+                if we_are_translated() or not isinstance(res, str):
+                    res = hlstr(res)
+                return res
 
     return WarmEnterState

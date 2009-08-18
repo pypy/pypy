@@ -593,7 +593,7 @@ class MIFrame(object):
             num_green_args = self.metainterp.staticdata.num_green_args
             portal_code = self.metainterp.staticdata.portal_code
             greenkey = varargs[1:num_green_args + 1]
-            if self.metainterp.staticdata.warmrunnerdesc.can_inline_callable(greenkey):
+            if self.metainterp.staticdata.state.can_inline_callable(greenkey):
                 self.metainterp.in_recursion += 1
                 return self.perform_call(portal_code, varargs[1:])
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
@@ -793,8 +793,7 @@ class MIFrame(object):
         num_green_args = self.metainterp.staticdata.num_green_args
         greenkey = self.env[:num_green_args]
         sd = self.metainterp.staticdata
-        greenargs = sd.globaldata.unpack_greenkey(greenkey)
-        loc = sd.state.get_location_llstr(*greenargs)
+        loc = sd.state.get_location_str(greenkey)
         constloc = sd.ts.conststr(loc)
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
                                        [constloc], None)
