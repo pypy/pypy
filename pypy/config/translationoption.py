@@ -238,6 +238,10 @@ translation_optiondescription = OptionDescription(
                    "Remove operations that look like 'raise AssertionError', "
                    "which lets the C optimizer remove the asserts",
                    default=False),
+        BoolOption("really_remove_asserts",
+                   "Really remove operations that look like 'raise AssertionError', "
+                   "without relying on the C compiler",
+                   default=False),
 
         BoolOption("stack_optimization",
                    "Tranform graphs in SSI form into graphs tailored for "

@@ -5,7 +5,7 @@ from pypy.translator.backendopt.support import md5digest
 from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval as LLTypeMallocRemovalTest
 from pypy.translator.backendopt.test.test_malloc import TestOOTypeMallocRemoval as OOTypeMallocRemovalTest
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, summary
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.rarithmetic import intmask
@@ -210,6 +210,27 @@ class BaseTester(object):
         for link in fgraph.iterlinks():
             assert Constant(7) not in link.args
             assert Constant(11) not in link.args
+
+    def test_isinstance(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def g(n):
+            if n > 10:
+                return A()
+            else:
+                b = B()
+                b.value = 321
+                return b
+        def fn(n):
+            x = g(n)
+            assert isinstance(x, B)
+            return x.value
+        t = self.translateopt(fn, [int], really_remove_asserts=True,
+                              remove_asserts=True)
+        graph = graphof(t, fn)
+        assert "direct_call" not in summary(graph)
 
 class TestLLType(BaseTester):
     type_system = 'lltype'

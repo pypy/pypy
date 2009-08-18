@@ -55,6 +55,15 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     if translator.rtyper.type_system.name == 'ootypesystem':
         check_virtual_methods()
 
+    if config.remove_asserts:
+        constfold(config, graphs)
+        remove_asserts(translator, graphs)
+
+    if config.really_remove_asserts:
+        for graph in graphs:
+            removenoops.remove_debug_assert(graph)
+        # the dead operations will be killed by the remove_obvious_noops below
+
     # remove obvious no-ops
     def remove_obvious_noops():
         for graph in graphs:
@@ -113,9 +122,6 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
                                     inline_heuristic=heuristic,
                                     call_count_pred=call_count_pred)
     constfold(config, graphs)
-
-    if config.remove_asserts:
-        remove_asserts(translator, graphs)
 
     if config.heap2stack:
         assert graphs is translator.graphs  # XXX for now
