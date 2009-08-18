@@ -575,6 +575,17 @@ class BaseTestOptimizeFindNode(BaseTest):
         # escapes because getarrayitem_gc uses a non-constant index
         self.find_nodes(ops, 'Not, Not')
 
+    def test_find_nodes_arrayitem_forced(self):
+        ops = """
+        [p1]
+        p2 = new_array(1, descr=arraydescr)
+        escape(p2)
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p2, 0, p4, descr=arraydescr)
+        jump(p4)
+        """
+        self.find_nodes(ops, 'Not')
+
     def test_find_nodes_struct_virtual_1(self):
         ops = """
         [i1, p2]
