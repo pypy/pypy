@@ -82,7 +82,7 @@ class InstanceNode(object):
                 for subnode in self.curfields.itervalues():
                     subnode.set_unique_nodes()
         else:
-            self.unique = UNIQUE_NO
+            assert 0, "most probably unreachable"
 
     def __repr__(self):
         flags = ''

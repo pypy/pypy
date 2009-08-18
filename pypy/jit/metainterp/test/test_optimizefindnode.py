@@ -566,6 +566,14 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Virtual(node_vtable2), VArray(arraydescr, Not, Virtual(node_vtable), Not)')
 
+    def test_find_nodes_array_virtual_empty(self):
+        ops = """
+        [i1, p2]
+        p3 = new_array(3, descr=arraydescr)
+        jump(i1, p3)
+        """
+        self.find_nodes(ops, 'Not, VArray(arraydescr, Not, Not, Not)')
+
     def test_find_nodes_array_nonvirtual_1(self):
         ops = """
         [i1, p2]
