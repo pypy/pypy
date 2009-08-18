@@ -109,6 +109,8 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
+    MAX_SIZE = sys.maxint/64
+    PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -128,7 +130,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         _malloc = classmethod(_malloc)
 
         def _indexable(self, index):
-            PtrType = ctypes.POINTER((index+1) * ctypes_item)
+            assert index + 1 < MAX_SIZE
             p = ctypes.cast(ctypes.pointer(self.items), PtrType)
             return p.contents
 
