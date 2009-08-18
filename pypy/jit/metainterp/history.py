@@ -43,7 +43,7 @@ def getkind(TYPE):
 def repr_pointer(box):
     from pypy.rpython.lltypesystem import rstr
     try:
-        T = box.value._obj.container._TYPE 
+        T = box.value._obj.container._normalizedcontainer(check=False)._TYPE
         if T is rstr.STR:
             return repr(box._get_str())
         return '*%s' % (T._name,)
