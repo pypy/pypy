@@ -551,6 +551,21 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Not, VArray(arraydescr, Not, Not, Not)')
 
+    def test_find_nodes_array_virtual_3(self):
+        ops = """
+        [pvalue1, p2]
+        pvalue2 = new_with_vtable(ConstClass(node_vtable2))
+        ps2 = getarrayitem_gc(p2, 1, descr=arraydescr)
+        setfield_gc(ps2, pvalue2, descr=nextdescr)
+        ps3 = getarrayitem_gc(p2, 1, descr=arraydescr)
+        pvalue3 = getfield_gc(ps3, descr=nextdescr)
+        ps1 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p3, 1, ps1, descr=arraydescr)
+        jump(pvalue3, p3)
+        """
+        self.find_nodes(ops, 'Virtual(node_vtable2), VArray(arraydescr, Not, Virtual(node_vtable), Not)')
+
     def test_find_nodes_array_nonvirtual_1(self):
         ops = """
         [i1, p2]

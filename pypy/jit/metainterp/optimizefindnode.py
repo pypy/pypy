@@ -99,6 +99,7 @@ class InstanceNode(object):
 class NodeFinder(object):
     """Abstract base class."""
     node_escaped = InstanceNode()
+    node_escaped.unique = UNIQUE_NO
     node_escaped.escaped = True
 
     def __init__(self):
