@@ -20,6 +20,13 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         self.structure_types_and_vtables = []
         self.class_sizes_cache = []
 
+    def fork(self, cpu, loop, vars):
+        fork = test_random.OperationBuilder.fork(self, cpu, loop, vars)
+        fork.structure_types = self.structure_types
+        fork.structure_types_and_vtables = self.structure_types_and_vtables
+        fork.class_sizes_cache = self.class_sizes_cache
+        return fork
+
     def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct):
         while True:
             ptrvars = [(v, S) for (v, S) in self.ptrvars

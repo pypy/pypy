@@ -15,7 +15,7 @@ class DummyLoop(object):
     def __init__(self, subops):
         self.operations = subops
 
-class OperationBuilder:
+class OperationBuilder(object):
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
         self.loop = loop
@@ -25,6 +25,11 @@ class OperationBuilder:
         self.prebuilt_ptr_consts = []
         self.should_fail_by = None
         self.counter = 0
+
+    def fork(self, cpu, loop, vars):
+        fork = self.__class__(cpu, loop, vars)
+        fork.prebuilt_ptr_consts = self.prebuilt_ptr_consts
+        return fork
 
     def do(self, opnum, argboxes, descr=None):
         v_result = execute(self.cpu, opnum, argboxes, descr)
@@ -378,7 +383,7 @@ def get_cpu():
 class RandomLoop(object):
     dont_generate_more = False
     
-    def __init__(self, cpu, BuilderClass, r, startvars=None):
+    def __init__(self, cpu, builder_factory, r, startvars=None):
         self.cpu = cpu
         if startvars is None:
             startvars = [BoxInt(r.random_integer())
@@ -387,15 +392,15 @@ class RandomLoop(object):
         self.values = [var.value for var in startvars]
         self.prebuilt_ptr_consts = []
         self.r = r
-        self.build_random_loop(cpu, BuilderClass, r, startvars)
+        self.build_random_loop(cpu, builder_factory, r, startvars)
         
-    def build_random_loop(self, cpu, BuilderClass, r, startvars):
+    def build_random_loop(self, cpu, builder_factory, r, startvars):
 
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
         loop.operations = []
 
-        builder = BuilderClass(cpu, loop, startvars[:])
+        builder = builder_factory(cpu, loop, startvars[:])
         self.generate_ops(builder, r, loop, startvars)
         self.builder = builder
         cpu.compile_operations(loop)
@@ -493,15 +498,15 @@ class RandomLoop(object):
         subloop = DummyLoop(guard_op.suboperations)
         if guard_op.is_guard_exception():
             guard_op.suboperations.append(exc_handling(guard_op))
-        bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
-                                                op.args[:])
+        bridge_builder = self.builder.fork(self.builder.cpu, subloop,
+                                           op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
         if r.random() < 0.1:
             subset = bridge_builder.subset_of_intvars(r)
             if len(subset) == 0:
                 return False
             args = [x.clonebox() for x in subset]
-            jump_target = RandomLoop(self.builder.cpu, self.builder.__class__,
+            jump_target = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
             self.cpu.compile_operations(jump_target.loop)
             jump_op = ResOperation(rop.JUMP, subset, None)
@@ -540,7 +545,7 @@ def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
     cpu = get_cpu()
     if demo_conftest.option.repeat == -1:
-        while 1: 
+        while 1:
             check_random_function(cpu, BuilderClass, r)
     else:
         for i in range(demo_conftest.option.repeat):
