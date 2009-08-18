@@ -586,14 +586,6 @@ class CPU386(object):
             _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
 
-def uhex(x):
-    if we_are_translated():
-        return hex(x)
-    else:
-        if x < 0:
-            x += 0x100000000
-        return hex(x)
-
 CPU = CPU386
 
 import pypy.jit.metainterp.executor

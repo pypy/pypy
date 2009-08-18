@@ -382,6 +382,11 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
                                    'int', descr=arraydescr)
         assert r.value == 7441
+        r = self.cpu.do_getarrayitem_gc([a_box, BoxInt(310)], arraydescr)
+        assert r.value == 7441
+        self.cpu.do_setarrayitem_gc([a_box, BoxInt(3), BoxInt(170)], arraydescr)
+        r = self.cpu.do_getarrayitem_gc([a_box, BoxInt(3)], arraydescr)
+        assert r.value == 170
         #
         a_box, A = self.alloc_array_of(lltype.Char, 11)
         arraydescr = self.cpu.arraydescrof(A)
@@ -403,6 +408,7 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(3)],
                                    'int', descr=arraydescr)
         assert r.value == 160
+        
         #
         if isinstance(A, lltype.GcArray):
             A = lltype.Ptr(A)
@@ -494,6 +500,10 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(4)],
                                    'int')
         assert r.value == 31313
+        u_box = self.cpu.do_newunicode([ConstInt(3)])
+        self.cpu.do_unicodesetitem([u_box, BoxInt(4), BoxInt(123)])
+        r = self.cpu.do_unicodegetitem([u_box, BoxInt(4)])
+        assert r.value == 123
 
     def test_same_as(self):
         r = self.execute_operation(rop.SAME_AS, [ConstInt(5)], 'int')
@@ -524,6 +534,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                   ('value', lltype.Signed),
                                   ('chr1', lltype.Char),
                                   ('chr2', lltype.Char),
+                                  ('short', rffi.SHORT),
                                   ('next', lltype.Ptr(S))))
     T = lltype.GcStruct('T', ('parent', S),
                              ('next', lltype.Ptr(S)))
@@ -622,13 +633,22 @@ class LLtypeBackendTest(BaseBackendTest):
         assert r1.value != r2.value
         descr1 = cpu.fielddescrof(self.S, 'chr1')
         descr2 = cpu.fielddescrof(self.S, 'chr2')
+        descrshort = cpu.fielddescrof(self.S, 'short')
         self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(150)],
                                'void', descr=descr2)
         self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(190)],
                                'void', descr=descr1)
+        self.execute_operation(rop.SETFIELD_GC, [r1, BoxInt(1313)],
+                               'void', descr=descrshort)
         s = lltype.cast_opaque_ptr(lltype.Ptr(self.T), r1.value)
         assert s.parent.chr1 == chr(190)
         assert s.parent.chr2 == chr(150)
+        r = self.cpu.do_getfield_gc([r1], descrshort)
+        assert r.value == 1313
+        self.cpu.do_setfield_gc([r1, BoxInt(1333)], descrshort)
+        r = self.execute_operation(rop.GETFIELD_GC, [r1], 'int',
+                                   descr=descrshort)
+        assert r.value == 1333
         t = lltype.cast_opaque_ptr(lltype.Ptr(self.T), t_box.value)
         assert s.parent.parent.typeptr == t.parent.parent.typeptr
 

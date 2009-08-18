@@ -501,6 +501,8 @@ class Assembler386(object):
         size = size_loc.value
         if size == 1:
             self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc))
+        elif size == 2:
+            self.mc.MOVZX(resloc, addr_add(base_loc, ofs_loc))
         elif size == WORD:
             self.mc.MOV(resloc, addr_add(base_loc, ofs_loc))
         else:
@@ -532,8 +534,7 @@ class Assembler386(object):
         if size == WORD:
             self.mc.MOV(addr_add(base_loc, ofs_loc), value_loc)
         elif size == 2:
-            raise NotImplementedError("shorts and friends")
-            self.mc.MOV(addr16_add(base_loc, ofs_loc), lower_2_bytes(value_loc))
+            self.mc.MOV16(addr_add(base_loc, ofs_loc), value_loc)
         elif size == 1:
             self.mc.MOV(addr8_add(base_loc, ofs_loc), lower_byte(value_loc))
         else:
@@ -864,19 +865,6 @@ def addr8_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
             return mem8(reg_or_imm1, (offset << scale) + reg_or_imm2.value)
         else:
             return memSIB8(reg_or_imm1, reg_or_imm2, scale, offset)
-
-def addr16_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
-    if isinstance(reg_or_imm1, IMM32):
-        if isinstance(reg_or_imm2, IMM32):
-            return heap16(reg_or_imm1.value + (offset << scale) +
-                         reg_or_imm2.value)
-        else:
-            return memSIB16(None, reg_or_imm2, scale, reg_or_imm1.value + offset)
-    else:
-        if isinstance(reg_or_imm2, IMM32):
-            return mem16(reg_or_imm1, (offset << scale) + reg_or_imm2.value)
-        else:
-            return memSIB16(reg_or_imm1, reg_or_imm2, scale, offset)
 
 def addr_add_const(reg_or_imm1, offset):
     if isinstance(reg_or_imm1, IMM32):
