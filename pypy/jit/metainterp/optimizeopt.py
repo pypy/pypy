@@ -36,7 +36,7 @@ LEVEL_KNOWNCLASS = 2     # might also mean KNOWNARRAYDESCR, for arrays
 LEVEL_CONSTANT   = 3
 
 
-class InstanceValue(object):
+class OptValue(object):
     _attrs_ = ('box', 'level')
     level = LEVEL_UNKNOWN
 
@@ -92,7 +92,7 @@ class InstanceValue(object):
         return self.box is None
 
 
-class ConstantValue(InstanceValue):
+class ConstantValue(OptValue):
     level = LEVEL_CONSTANT
 
     def __init__(self, box):
@@ -103,7 +103,7 @@ CVAL_NULLPTR = ConstantValue(ConstPtr(ConstPtr.value))
 CVAL_NULLOBJ = ConstantValue(ConstObj(ConstObj.value))
 
 
-class AbstractVirtualValue(InstanceValue):
+class AbstractVirtualValue(OptValue):
     _attrs_ = ('optimizer', 'keybox', 'source_op')
     box = None
     level = LEVEL_KNOWNCLASS
@@ -130,7 +130,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         return self._fields.get(ofs, default)
 
     def setfield(self, ofs, fieldvalue):
-        assert isinstance(fieldvalue, InstanceValue)
+        assert isinstance(fieldvalue, OptValue)
         self._fields[ofs] = fieldvalue
 
     def force_box(self):
@@ -225,7 +225,7 @@ class VArrayValue(AbstractVirtualValue):
         return res
 
     def setitem(self, index, itemvalue):
-        assert isinstance(itemvalue, InstanceValue)
+        assert isinstance(itemvalue, OptValue)
         self._items[index] = itemvalue
 
     def force_box(self):
@@ -328,7 +328,7 @@ class Optimizer(object):
         try:
             value = self.values[box]
         except KeyError:
-            value = self.values[box] = InstanceValue(box)
+            value = self.values[box] = OptValue(box)
         return value
 
     def is_constant(self, box):
