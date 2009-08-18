@@ -646,6 +646,26 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert not res
 
+    def test_assert_isinstance(self):
+        py.test.skip("we would really like this to work")
+        class A:
+            pass
+        class B(A):
+            pass
+        def fn(n):
+            # this should only be called with n != 0
+            if n:
+                obj = B()
+                obj.a = n
+            else:
+                obj = A()
+                obj.a = 17
+            assert isinstance(obj, B)
+            return obj.a
+        res = self.interp_operations(fn, [1])
+        assert res == 1
+        self.check_history_(guard_class=0, instanceof=0)
+
     def test_r_dict(self):
         from pypy.rlib.objectmodel import r_dict
         class FooError(Exception):
