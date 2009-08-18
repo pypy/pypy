@@ -823,6 +823,23 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected, i3=3)
 
+    def test_array_non_optimized(self):
+        ops = """
+        [i1, p0]
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
+        i2 = ooisnull(p0)
+        guard_false(i2)
+        p1 = new_array(i1, descr=arraydescr)
+        jump(i1, p1)
+        """
+        expected = """
+        [i1, p0]
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
+        p1 = new_array(i1, descr=arraydescr)
+        jump(i1, p1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
     def test_varray_2(self):
         ops = """
         [i0, p1]
