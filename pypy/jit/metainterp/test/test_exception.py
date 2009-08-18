@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
@@ -384,6 +384,17 @@ class ExceptionTests:
         expected = f(1)
         res = self.meta_interp(f, [1])
         assert res == expected
+
+
+    def test_div_ovf(self):
+        def f(x, y):
+            try:
+                return ovfcheck(x/y)
+            except OverflowError:
+                return 42
+
+        res = self.interp_operations(f, [-sys.maxint-1, -1])
+        assert res == 42
 
     def test_int_ovf_common(self):
         import sys
