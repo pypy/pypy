@@ -178,7 +178,6 @@ class CPU386(object):
                                       tree._x86_stack_depth)
 
     def get_bootstrap_code(self, loop):
-        # key is locations of arguments
         addr = loop._x86_bootstrap_code
         if not addr:
             arglocs = loop.arglocs
