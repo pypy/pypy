@@ -1,3 +1,5 @@
+from pypy.rlib.objectmodel import we_are_translated
+
 
 class ResOperation(object):
     """The central ResOperation class, representing one operation."""
@@ -34,20 +36,23 @@ class ResOperation(object):
         self.descr = descr
 
     def clone(self):
-        return ResOperation(self.opnum, self.args, self.result, self.descr)
+        op = ResOperation(self.opnum, self.args, self.result, self.descr)
+        if not we_are_translated():
+            op.name = self.name
+            op.pc = self.pc
+        return op
 
     def __repr__(self):
         return self.repr()
 
     def repr(self):
-        from pypy.rlib.objectmodel import we_are_translated
         # RPython-friendly version
         if self.result is not None:
             sres = '%s = ' % (self.result,)
         else:
             sres = ''
         if self.name:
-            prefix = "%s:%s:" % (self.name, self.pc)
+            prefix = "%s:%s   " % (self.name, self.pc)
         else:
             prefix = ""
         if self.descr is None or we_are_translated():

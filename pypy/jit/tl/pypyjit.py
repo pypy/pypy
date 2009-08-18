@@ -76,9 +76,10 @@ def readfile(filename):
 def read_code():
     from pypy.module.marshal.interp_marshal import dumps
     
-    source = readfile('pypyjit_demo.py')
+    filename = 'pypyjit_demo.py'
+    source = readfile(filename)
     ec = space.getexecutioncontext()
-    code = ec.compiler.compile(source, '?', 'exec', 0)
+    code = ec.compiler.compile(source, filename, 'exec', 0)
     return llstr(space.str_w(dumps(space, code, space.wrap(2))))
 
 if BACKEND == 'c':

@@ -901,6 +901,7 @@ class MIFrame(object):
         liveboxes = resumebuilder.finish(resumedescr)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
+        metainterp.attach_debug_info(guard_op)
         self.pc = saved_pc
         return guard_op
 
@@ -1170,13 +1171,16 @@ class MetaInterp(object):
         # record the operation if not constant-folded away
         if not canfold:
             op = self.history.record(opnum, argboxes, resbox, descr)
-            if (not we_are_translated() and op is not None
-                and getattr(self, 'framestack', None)):
-                op.pc = self.framestack[-1].pc
-                op.name = self.framestack[-1].jitcode.name
+            self.attach_debug_info(op)
         if require_attention:
             self.after_generate_residual_call()
         return resbox
+
+    def attach_debug_info(self, op):
+        if (not we_are_translated() and op is not None
+            and getattr(self, 'framestack', None)):
+            op.pc = self.framestack[-1].pc
+            op.name = self.framestack[-1].jitcode.name
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
