@@ -213,11 +213,13 @@ class BaseCPU(model.AbstractCPU):
     def clear_exception(self):
         llimpl.clear_exception()
 
-    def set_overflow_error(self):
-        llimpl.set_overflow_error()
+    def get_overflow_error(self):
+        return (self.cast_adr_to_int(llimpl.get_overflow_error()),
+                llimpl.get_overflow_error_value())
 
-    def set_zero_division_error(self):
-        llimpl.set_zero_division_error()
+    def get_zero_division_error(self):
+        return (self.cast_adr_to_int(llimpl.get_zero_division_error()),
+                llimpl.get_zero_division_error_value())
 
     def get_overflow_flag(self):
         return llimpl.get_overflow_flag()
@@ -484,6 +486,16 @@ class OOtypeCPU(BaseCPU):
             return ootype.cast_to_object(earg)
         else:
             return ootype.NULL
+
+    def get_overflow_error(self):
+        ll_err = llimpl._get_error(OverflowError)
+        return (ootype.cast_to_object(ll_err.args[0]),
+                ootype.cast_to_object(ll_err.args[1]))
+
+    def get_zero_division_error(self):
+        ll_err = llimpl._get_error(ZeroDivisionError)
+        return (ootype.cast_to_object(ll_err.args[0]),
+                ootype.cast_to_object(ll_err.args[1]))
 
     def do_new_with_vtable(self, args, descr=None):
         assert descr is None

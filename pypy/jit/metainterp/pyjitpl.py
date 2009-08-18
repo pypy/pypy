@@ -384,8 +384,7 @@ class MIFrame(object):
             return False
         else:
             # division by zero!
-            self.metainterp.cpu.set_zero_division_error()
-            return self.metainterp.raise_this_error()
+            return self.metainterp.raise_zero_division_error()
 
     @arguments("orgpc", "box", "box")
     def opimpl_check_div_overflow(self, pc, box1, box2):
@@ -403,13 +402,11 @@ class MIFrame(object):
             return False
         else:
             # division overflow!
-            self.metainterp.cpu.set_overflow_error()
-            return self.metainterp.raise_this_error()
+            return self.metainterp.raise_overflow_error()
 
     @arguments()
     def opimpl_overflow_error(self):
-        self.metainterp.cpu.set_overflow_error()
-        return self.metainterp.raise_this_error()
+        return self.metainterp.raise_overflow_error()
 
     @arguments("orgpc", "box")
     def opimpl_int_abs(self, pc, box):
@@ -1123,10 +1120,14 @@ class MetaInterp(object):
         else:
             raise self.staticdata.ExitFrameWithExceptionPtr(excvaluebox.getptr_base())
 
-    def raise_this_error(self):
-        etype = self.cpu.get_exception()
-        evalue = self.cpu.get_exc_value()
-        self.cpu.clear_exception()
+    def raise_overflow_error(self):
+        etype, evalue = self.cpu.get_overflow_error()
+        return self.finishframe_exception(
+            self.staticdata.ts.get_exception_box(etype),
+            self.staticdata.ts.get_exc_value_box(evalue))
+
+    def raise_zero_division_error(self):
+        etype, evalue = self.cpu.get_zero_division_error()
         return self.finishframe_exception(
             self.staticdata.ts.get_exception_box(etype),
             self.staticdata.ts.get_exc_value_box(evalue))
@@ -1351,8 +1352,7 @@ class MetaInterp(object):
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
             self.handle_exception()
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.cpu.set_overflow_error()
-            self.raise_this_error()
+            self.raise_overflow_error()
 
     def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.staticdata.num_green_args
@@ -1551,8 +1551,7 @@ class MetaInterp(object):
         if self.cpu.get_overflow_flag():
             self.cpu.set_overflow_flag(False)
             frame.generate_guard(frame.pc, rop.GUARD_OVERFLOW, None, [])
-            self.cpu.set_overflow_error()
-            return self.raise_this_error()
+            return self.raise_overflow_error()
         else:
             frame.generate_guard(frame.pc, rop.GUARD_NO_OVERFLOW, None, [])
             return False

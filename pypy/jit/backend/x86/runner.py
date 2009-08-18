@@ -140,19 +140,19 @@ class CPU386(object):
         self.assembler._exception_bck[0] = 0
         self.assembler._exception_bck[1] = 0
 
-    def set_overflow_error(self):
+    def get_overflow_error(self):
         self.assembler.make_sure_mc_exists()
         ovf_vtable = self.cast_adr_to_int(self.assembler._ovf_error_vtable)
-        ovf_inst = self.cast_adr_to_int(self.assembler._ovf_error_inst)
-        self.assembler._exception_bck[0] = ovf_vtable
-        self.assembler._exception_bck[1] = ovf_inst
+        ovf_inst = self.cast_int_to_gcref(
+            self.cast_adr_to_int(self.assembler._ovf_error_inst))
+        return ovf_vtable, ovf_inst
 
-    def set_zero_division_error(self):
+    def get_zero_division_error(self):
         self.assembler.make_sure_mc_exists()
         zer_vtable = self.cast_adr_to_int(self.assembler._zer_error_vtable)
-        zer_inst = self.cast_adr_to_int(self.assembler._zer_error_inst)
-        self.assembler._exception_bck[0] = zer_vtable
-        self.assembler._exception_bck[1] = zer_inst
+        zer_inst = self.cast_int_to_gcref(
+            self.cast_adr_to_int(self.assembler._zer_error_inst))
+        return zer_vtable, zer_inst
 
     _overflow_flag = False
 

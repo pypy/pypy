@@ -895,14 +895,13 @@ def clear_exception():
 
 _pseudo_exceptions = {}
 
-def _set_error(Class):
-    global _last_exception
+def _get_error(Class):
     if _llinterp.typer is not None:
         llframe = _llinterp.frame_class(None, None, _llinterp)
         try:
             llframe.make_llexception(Class())
         except LLException, e:
-            _last_exception = e
+            return e
         else:
             assert 0, "should have raised"
     else:
@@ -912,13 +911,21 @@ def _set_error(Class):
             ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
                                             immortal=True)
             _pseudo_exceptions[Class] = LLException(ll_inst.typeptr, ll_inst)
-        _last_exception = _pseudo_exceptions[Class]
+        return _pseudo_exceptions[Class]
 
-def set_overflow_error():
-    _set_error(OverflowError)
+def get_overflow_error():
+    return llmemory.cast_ptr_to_adr(_get_error(OverflowError).args[0])
 
-def set_zero_division_error():
-    _set_error(ZeroDivisionError)
+def get_overflow_error_value():
+    return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                  _get_error(OverflowError).args[1])
+
+def get_zero_division_error():
+    return llmemory.cast_ptr_to_adr(_get_error(ZeroDivisionError).args[0])
+
+def get_zero_division_error_value():
+    return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                  _get_error(ZeroDivisionError).args[1])
 
 _overflow_flag = 'unset'
 
@@ -1256,8 +1263,10 @@ setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
 setannotation(get_exception, annmodel.SomeAddress())
 setannotation(get_exc_value, annmodel.SomePtr(llmemory.GCREF))
 setannotation(clear_exception, annmodel.s_None)
-setannotation(set_overflow_error, annmodel.s_None)
-setannotation(set_zero_division_error, annmodel.s_None)
+setannotation(get_overflow_error, annmodel.SomeAddress())
+setannotation(get_overflow_error_value, annmodel.SomePtr(llmemory.GCREF))
+setannotation(get_zero_division_error, annmodel.SomeAddress())
+setannotation(get_zero_division_error_value, annmodel.SomePtr(llmemory.GCREF))
 
 setannotation(new_memo_cast, s_MemoCast)
 setannotation(cast_adr_to_int, annmodel.SomeInteger())

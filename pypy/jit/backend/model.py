@@ -55,10 +55,10 @@ class AbstractCPU(object):
     def clear_exception(self):
         raise NotImplementedError
 
-    def set_overflow_error(self):
+    def get_overflow_error(self):
         raise NotImplementedError
 
-    def set_zero_division_error(self):
+    def get_zero_division_error(self):
         raise NotImplementedError
 
     def get_overflow_flag(self):
