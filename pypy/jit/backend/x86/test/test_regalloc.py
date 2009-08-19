@@ -283,3 +283,14 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 10, 0, 0])
         assert self.getint(0) == 1
+
+    def test_jump_different_args(self):
+        ops = '''
+        [i0, i15, i16, i18, i1, i2, i3]
+        i4 = int_add(i3, 1)
+        i5 = int_lt(i4, 20)
+        guard_true(i5)
+            fail(i2, i1)
+        jump(i0, i18, i15, i16, i2, i1, i4)
+        '''
+        self.interpret(ops, [0, 1, 2, 3])
