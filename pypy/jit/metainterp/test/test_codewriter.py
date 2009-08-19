@@ -35,6 +35,25 @@ class ImmutableFieldsTests:
                             getarrayitem_gc=0, getarrayitem_gc_pure=1)
 
 
+    def test_array_in_immutable(self):
+        class X(object):
+            _immutable_ = True
+            _immutable_fields_ = ["lst[*]"]
+
+            def __init__(self, lst, y):
+                self.lst = lst
+                self.y = y
+
+        def f(x, index):
+            y = X([x], x+1)
+            return y.lst[index] + y.y + 5
+        res = self.interp_operations(f, [23, 0], listops=True)
+        assert res == 23 + 24 + 5
+        self.check_history_(getfield_gc=0, getfield_gc_pure=2,
+                            getarrayitem_gc=0, getarrayitem_gc_pure=1,
+                            int_add=3)
+
+
 class TestLLtypeImmutableFieldsTests(ImmutableFieldsTests, LLJitMixin):
     pass
 

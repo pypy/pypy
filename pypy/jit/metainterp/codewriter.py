@@ -869,11 +869,12 @@ class BytecodeMaker(object):
         # check for deepfrozen structures that force constant-folding
         hints = deref(v_inst.concretetype)._hints
         accessor = hints.get("immutable_fields")
-        if hints.get('immutable') or \
-                accessor and c_fieldname.value in accessor.fields:
+        if accessor and c_fieldname.value in accessor.fields:
             pure = '_pure'
-            if accessor and accessor.fields[c_fieldname.value] == "[*]":
+            if accessor.fields[c_fieldname.value] == "[*]":
                 self.immutable_arrays[op.result] = True
+        elif hints.get('immutable'):
+            pure = '_pure'
         else:
             pure = ''
         argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
