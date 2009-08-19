@@ -155,7 +155,12 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             newoperations = self.optimizer.newoperations
             newoperations.append(self.source_op)
             self.box = box = self.source_op.result
-            for ofs, value in self._fields.iteritems():
+            #
+            iteritems = self._fields.iteritems()
+            if not we_are_translated(): #random order is fine, except for tests
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x,y): x.sort_key())
+            for ofs, value in iteritems:
                 subbox = value.force_box()
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
