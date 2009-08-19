@@ -232,3 +232,16 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 0, 0])
         assert self.getints(4) == [1<<29, 30, 3, 4]
+
+    def test_result_selected_reg_via_neg(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i6 = int_neg(i2)
+        i7 = int_add(1, i1)
+        i4 = int_lt(i7, 10)
+        guard_true(i4)
+            fail(i0, i6, i7)
+        jump(1, i7, i2, i6)
+        '''
+        self.interpret(ops, [0, 0, 3, 0])
+        assert self.getints(3) == [1, -3, 10]

@@ -369,8 +369,6 @@ class RegAlloc(object):
         return convert_to_imm(v)
 
     def force_allocate_reg(self, v, forbidden_vars, selected_reg=None):
-        if isinstance(v, Const):
-            return self.return_constant(v, forbidden_vars, selected_reg)
         if isinstance(v, TempBox):
             self.longevity[v] = (self.position, self.position)
         loc = self.try_allocate_reg(v, selected_reg)
@@ -413,17 +411,6 @@ class RegAlloc(object):
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg)
         if prev_loc is not loc:
             self.Load(v, prev_loc, loc)
-        return loc
-
-    def make_sure_var_on_stack(self, v):
-        loc = self.stack_loc(v)
-        if v not in self.reg_bindings:
-            return loc
-        self.Store(v, self.reg_bindings[v], loc)
-        try:
-            del self.dirty_stack[v]
-        except KeyError:
-            pass
         return loc
 
     def reallocate_from_to(self, from_v, to_v):
@@ -487,25 +474,21 @@ class RegAlloc(object):
             pass
         self.Store(v, prev_loc, loc)
 
-    def force_result_in_reg(self, result_v, v, forbidden_vars,
-                            selected_reg=None):
+    def force_result_in_reg(self, result_v, v, forbidden_vars):
         """ Make sure that result is in the same register as v
         and v is copied away if it's further used
         """
         if isinstance(v, Const):
             loc = self.make_sure_var_in_reg(v, forbidden_vars,
-                                            selected_reg,
                                             imm_fine=False)
             assert not isinstance(loc, IMM8)
             self.reg_bindings[result_v] = loc
             self.free_regs = [reg for reg in self.free_regs if reg is not loc]
             return loc
-        if v in self.reg_bindings and selected_reg:
-            self.make_sure_var_in_reg(v, forbidden_vars, selected_reg)
-        elif v not in self.reg_bindings:
+        if v not in self.reg_bindings:
             assert v not in self.dirty_stack
             prev_loc = self.stack_bindings[v]
-            loc = self.force_allocate_reg(v, forbidden_vars, selected_reg)
+            loc = self.force_allocate_reg(v, forbidden_vars)
             self.Load(v, prev_loc, loc)
         assert v in self.reg_bindings
         if self.longevity[v][1] > self.position:
@@ -526,11 +509,6 @@ class RegAlloc(object):
         # more optimal
         inputargs = tree.inputargs
         locs = [None] * len(inputargs)
-        jump = tree.operations[-1]
-        if jump.opnum != rop.JUMP:
-            jump = None
-        elif jump.jump_target is not tree:
-            jump = None
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
