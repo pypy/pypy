@@ -673,6 +673,13 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(fn, [0])
         assert res == 0
 
+    def test_hash_of_only_none(self):
+        def fn():
+            obj = None
+            return hash(obj)
+        res = self.interpret(fn, [])
+        assert res == 0
+
 
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 

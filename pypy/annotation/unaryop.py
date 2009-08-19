@@ -683,6 +683,13 @@ class __extend__(SomePBC):
         else:
             return SomeObject()    # len() on a pbc? no chance
 
+    def hash(pbc):
+        if pbc.isNone():
+            # only supports hash(None) as part of hash(<SomeInstance>)
+            return SomeInteger()
+        else:
+            return SomeObject.hash(pbc)
+
 class __extend__(SomeGenericCallable):
     def call(self, args):
         bookkeeper = getbookkeeper()

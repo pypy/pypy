@@ -609,10 +609,16 @@ class NoneFrozenPBCRepr(Repr):
     def ll_str(self, none):
         return llstr("None")
 
+    def get_ll_hash_function(self):
+        return ll_none_hash
+
     rtype_simple_call = none_call
     rtype_call_args = none_call
 
 none_frozen_pbc_repr = NoneFrozenPBCRepr()
+
+def ll_none_hash(_):
+    return 0
 
 
 class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
