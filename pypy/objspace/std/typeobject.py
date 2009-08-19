@@ -50,6 +50,8 @@ class W_TypeObject(W_Object):
     lazyloaders = {} # can be overridden by specific instances
     version_tag = None
 
+    _immutable_fields_ = ["__flags__"]
+
     uses_object_getattribute = False
     # ^^^ for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
