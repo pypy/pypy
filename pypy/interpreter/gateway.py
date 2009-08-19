@@ -533,6 +533,7 @@ class BuiltinCode(eval.Code):
 # (verbose) performance hack below
 
 class BuiltinCodePassThroughArguments0(BuiltinCode):
+    _immutable_ = True
 
     def funcrun(self, func, args):
         space = func.space
@@ -557,6 +558,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
         return w_result
 
 class BuiltinCodePassThroughArguments1(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = -1
 
     def funcrun_obj(self, func, w_obj, args):
@@ -582,10 +584,10 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         return w_result
 
 class BuiltinCode0(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = 0
     
     def fastcall_0(self, space, w_func):
-        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_0(space)
         except KeyboardInterrupt: 
@@ -602,10 +604,10 @@ class BuiltinCode0(BuiltinCode):
         return w_result
 
 class BuiltinCode1(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = 1
     
     def fastcall_1(self, space, w_func, w1):
-        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_1(space, w1)
         except KeyboardInterrupt: 
@@ -627,10 +629,10 @@ class BuiltinCode1(BuiltinCode):
         return w_result
 
 class BuiltinCode2(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = 2
     
     def fastcall_2(self, space, w_func, w1, w2):
-        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except KeyboardInterrupt: 
@@ -652,10 +654,10 @@ class BuiltinCode2(BuiltinCode):
         return w_result
 
 class BuiltinCode3(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = 3
     
     def fastcall_3(self, space, func, w1, w2, w3):
-        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except KeyboardInterrupt: 
@@ -677,10 +679,10 @@ class BuiltinCode3(BuiltinCode):
         return w_result
 
 class BuiltinCode4(BuiltinCode):
+    _immutable_ = True
     fast_natural_arity = 4
     
     def fastcall_4(self, space, func, w1, w2, w3, w4):
-        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except KeyboardInterrupt: 

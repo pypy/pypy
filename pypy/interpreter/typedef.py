@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.jit import hint
 
 class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
@@ -225,7 +226,7 @@ def _builduserclswithfeature(supercls, *features):
     if "user" in features:     # generic feature needed by all subcls
         class Proto(object):
             def getclass(self, space):
-                return self.w__class__
+                return hint(self.w__class__, promote=True)
 
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
