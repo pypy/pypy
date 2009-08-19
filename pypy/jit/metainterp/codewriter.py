@@ -1377,7 +1377,8 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_debug_assert(self, op):
-        pass     # for now
+        log.WARNING("found debug_assert in %r; should have be removed" %
+                    (self.graph,))
 
     def serialize_op_promote_virtualizable(self, op):
         vinfo = self.codewriter.metainterp_sd.virtualizable_info

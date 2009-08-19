@@ -42,7 +42,7 @@ class VirtualizableInfo:
         self.VTYPE = VTYPE = deref(VTYPEPTR)
         #
         accessor = VTYPE._hints['virtualizable2_accessor']
-        all_fields = accessor.redirected_fields
+        all_fields = accessor.fields
         static_fields = []
         array_fields = []
         for name in all_fields:

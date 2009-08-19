@@ -2,25 +2,10 @@ import py
 from pypy.rpython.rmodel import inputconst, log
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rclass import AbstractInstanceRepr
-
-
-class AbstractVirtualizableAccessor(object):
-
-    def initialize(self, TYPE, redirected_fields):
-        self.TYPE = TYPE
-        self.redirected_fields = redirected_fields
-
-    def __repr__(self):
-        return '<VirtualizableAccessor for %s>' % getattr(self, 'TYPE', '?')
-
-    def _freeze_(self):
-        return True
+from pypy.rpython.rclass import AbstractInstanceRepr, FieldListAccessor
 
 
 class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
-
-    VirtualizableAccessor = AbstractVirtualizableAccessor
 
     def _super(self):
         return super(AbstractVirtualizable2InstanceRepr, self)
@@ -32,7 +17,7 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
             basedesc = classdesc.basedesc
             assert basedesc is None or basedesc.lookup('_virtualizable2_') is None
             self.top_of_virtualizable_hierarchy = True
-            self.accessor = self.VirtualizableAccessor()
+            self.accessor = FieldListAccessor()
         else:
             self.top_of_virtualizable_hierarchy = False
 
@@ -40,9 +25,6 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
         raise NotImplementedError
 
     def set_vable(self, llops, vinst, force_cast=False):
-        raise NotImplementedError
-
-    def get_field(self, attr):
         raise NotImplementedError
 
     def _setup_repr(self):
@@ -53,19 +35,9 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
                 self._super()._setup_repr(llfields, hints = hints)
             else:
                 self._super()._setup_repr(hints = hints)
-            my_redirected_fields = []
-            self.my_redirected_fields = {}
             c_vfields = self.classdef.classdesc.classdict['_virtualizable2_']
-            for name in c_vfields.value:
-                if name.endswith('[*]'):
-                    name = name[:-3]
-                    suffix = '[*]'
-                else:
-                    suffix = ''
-                mangled_name, r = self.get_field(name)
-                my_redirected_fields.append(mangled_name + suffix)
-                self.my_redirected_fields[mangled_name] = True
-            self.accessor.initialize(self.object_type, my_redirected_fields)
+            self.my_redirected_fields = self._parse_field_list(c_vfields.value,
+                                                               self.accessor)
         else:
             self.my_redirected_fields = {}
             self._super()._setup_repr()

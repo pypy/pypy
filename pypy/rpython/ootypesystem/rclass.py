@@ -393,6 +393,10 @@ class InstanceRepr(AbstractInstanceRepr):
 
         ootype.overrideDefaultForFields(self.lowleveltype, overridden_defaults)
 
+    def _get_field(self, attr):
+        mangled = mangle(attr, self.rtyper.getconfig())
+        return mangled, self.allfields[mangled]
+
     def attach_abstract_class_attr_accessor(self, mangled, attrtype):
         M = ootype.Meth([], attrtype)
         m = ootype.meth(M, _name=mangled, abstract=True)

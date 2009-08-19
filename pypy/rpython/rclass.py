@@ -5,6 +5,20 @@ from pypy.annotation import description
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, getgcflavor
 
+
+class FieldListAccessor(object):
+
+    def initialize(self, TYPE, fields):
+        self.TYPE = TYPE
+        self.fields = fields
+
+    def __repr__(self):
+        return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
+
+    def _freeze_(self):
+        return True
+
+
 def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
@@ -160,6 +174,21 @@ class AbstractInstanceRepr(Repr):
 
     def _setup_repr_final(self):
         pass
+
+    def _parse_field_list(self, fields, accessor):
+        mangled_fields = {}
+        with_suffix = []
+        for name in fields:
+            if name.endswith('[*]'):
+                name = name[:-3]
+                suffix = '[*]'
+            else:
+                suffix = ''
+            mangled_name, r = self._get_field(name)
+            with_suffix.append(mangled_name + suffix)
+            mangled_fields[mangled_name] = True
+        accessor.initialize(self.object_type, with_suffix)
+        return mangled_fields
 
     def new_instance(self, llops, classcallhop=None):
         raise NotImplementedError

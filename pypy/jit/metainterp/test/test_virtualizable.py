@@ -6,7 +6,7 @@ from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
-from pypy.rpython.lltypesystem.rvirtualizable2 import VirtualizableAccessor
+from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp import history, heaptracker
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
@@ -25,7 +25,7 @@ class ExplicitVirtualizableTests:
         ('vable_rti', VABLERTIPTR),
         ('inst_x', lltype.Signed),
         ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
-        hints = {'virtualizable2_accessor': VirtualizableAccessor()})
+        hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY._hints['virtualizable2_accessor'].initialize(
         XY, ['inst_x', 'inst_node'])
 
@@ -247,7 +247,7 @@ class ExplicitVirtualizableTests:
         ('inst_x', lltype.Signed),
         ('inst_l1', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
-        hints = {'virtualizable2_accessor': VirtualizableAccessor()})
+        hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY2._hints['virtualizable2_accessor'].initialize(
         XY2, ['inst_x', 'inst_l1[*]', 'inst_l2[*]'])
 
