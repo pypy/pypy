@@ -101,72 +101,15 @@ class RegAlloc(object):
             jump_or_fail = guard_op.suboperations[-1]
             self.loop_consts = {}
             self.tree = regalloc.tree
-            if jump_or_fail.opnum == rop.FAIL:
-                self.jump_reg_candidates = {}
-            else:
-                if jump_or_fail.jump_target is regalloc.tree:
-                    self.loop_consts = regalloc.loop_consts
-                self._create_jump_reg_candidates(jump_or_fail)
-
-    def _create_jump_reg_candidates(self, jump):
-        self.jump_reg_candidates = {}
-        return
-        for i in range(len(jump.args)):
-            arg = jump.args[i]
-            loc = jump.jump_target.arglocs[i]
-            if isinstance(loc, REG):
-                self.jump_reg_candidates[arg] = loc
+            if (jump_or_fail.opnum == rop.JUMP and
+                jump_or_fail.jump_target is regalloc.tree):
+                self.loop_consts = regalloc.loop_consts
 
     def copy(self, guard_op):
         return RegAlloc(self.assembler, None, self.translate_support_code,
                         self, guard_op)
 
-#     def _start_from_guard_op(self, guard_op, mp, jump):
-#         xxx
-#         rev_stack_binds = {}
-#         self.jump_reg_candidates = {}
-#         j = 0
-#         sd = len(mp.args)
-#         if len(jump.args) > sd:
-#             sd = len(jump.args)
-#         for i in range(len(mp.args)):
-#             arg = mp.args[i]
-#             if not isinstance(arg, Const):
-#                 stackpos = guard_op.stacklocs[j]
-#                 if stackpos >= sd:
-#                     sd = stackpos + 1
-#                 loc = guard_op.locs[j]
-#                 if isinstance(loc, REG):
-#                     self.free_regs = [reg for reg in self.free_regs if reg is not loc]
-#                     self.reg_bindings[arg] = loc
-#                     self.dirty_stack[arg] = True
-#                 self.stack_bindings[arg] = stack_pos(stackpos)
-#                 rev_stack_binds[stackpos] = arg
-#                 j += 1
-#         if jump.opnum != rop.JUMP:
-#             return {}, sd
-#         for i in range(len(jump.args)):
-#             argloc = jump.jump_target.arglocs[i]
-#             jarg = jump.args[i]
-#             if not isinstance(jarg, Const):
-#                 if isinstance(argloc, REG):
-#                     self.jump_reg_candidates[jarg] = argloc
-#                 if (i in rev_stack_binds and
-#                     (self.longevity[rev_stack_binds[i]][1] >
-#                      self.longevity[jarg][0])):
-#                     # variables cannot occupy the same place on stack,
-#                     # because they overlap, but we care only in consider_jump
-#                     pass
-#                 else:
-#                     # optimization for passing around values
-#                     if jarg not in self.stack_bindings:
-#                         self.dirty_stack[jarg] = True
-#                         self.stack_bindings[jarg] = stack_pos(i)
-#                 j += 1
-#         return {}, sd
-
     def _compute_loop_consts(self, inputargs, jump):
-        self.jump_reg_candidates = {}
         if jump.opnum != rop.JUMP or jump.jump_target is not self.tree:
             loop_consts = {}
         else:
@@ -174,15 +117,6 @@ class RegAlloc(object):
             for i in range(len(inputargs)):
                 if inputargs[i] is jump.args[i]:
                     loop_consts[inputargs[i]] = i
-            #for i in range(len(inputargs)):
-            #    arg = inputargs[i]
-            #    jarg = jump.args[i]
-            #    if arg is not jarg and not isinstance(jarg, Const):
-            #        if self.longevity[arg][1] <= self.longevity[jarg][0]:
-            #            if (jarg not in self.stack_bindings and
-            #                arg in self.stack_bindings):
-            #                self.stack_bindings[jarg] = stack_pos(i)
-            #                self.dirty_stack[jarg] = True
         return loop_consts, len(inputargs)
 
     def _check_invariants(self):
@@ -190,8 +124,8 @@ class RegAlloc(object):
             # make sure no duplicates
             assert len(dict.fromkeys(self.reg_bindings.values())) == len(self.reg_bindings)
             # this is not true, due to jump args
-            #assert (len(dict.fromkeys([str(i) for i in self.stack_bindings.values()]
-            #                          )) == len(self.stack_bindings))
+            assert (len(dict.fromkeys([str(i) for i in self.stack_bindings.values()]
+                                      )) == len(self.stack_bindings))
             rev_regs = dict.fromkeys(self.reg_bindings.values())
             for reg in self.free_regs:
                 assert reg not in rev_regs
@@ -393,8 +327,7 @@ class RegAlloc(object):
             assert isinstance(arg, Box)
 
     def try_allocate_reg(self, v, selected_reg=None):
-        if isinstance(v, Const):
-            return convert_to_imm(v)
+        assert not isinstance(v, Const)
         if selected_reg is not None:
             res = self.reg_bindings.get(v, None)
             if res:
@@ -413,15 +346,7 @@ class RegAlloc(object):
             return self.reg_bindings[v]
         except KeyError:
             if self.free_regs:
-                reg = self.jump_reg_candidates.get(v, None)
-                if reg:
-                    if reg in self.free_regs:
-                        self.free_regs = [r for r in self.free_regs if r is not reg]
-                        loc = reg
-                    else:
-                        loc = self.free_regs.pop()
-                else:
-                    loc = self.free_regs.pop()
+                loc = self.free_regs.pop()
                 self.reg_bindings[v] = loc
                 return loc
 
@@ -542,13 +467,6 @@ class RegAlloc(object):
         return -1
 
     def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None):
-        # XXX could be improved
-        if v in self.jump_reg_candidates and (selected_reg is None or
-           self.jump_reg_candidates[v] is selected_reg):
-            for var, reg in self.reg_bindings.items():
-                if (reg is self.jump_reg_candidates[v] and
-                    var not in forbidden_vars):
-                    return var
         candidates = []
         for next in self.reg_bindings:
             if (next not in forbidden_vars and selected_reg is None or
@@ -620,7 +538,6 @@ class RegAlloc(object):
         if jump.opnum != rop.JUMP:
             jump = None
         elif jump.jump_target is not tree:
-            jump = self._create_jump_reg_candidates(jump)
             jump = None
         for i in range(len(inputargs)):
             arg = inputargs[i]
@@ -633,9 +550,6 @@ class RegAlloc(object):
                 # it's better to say here that we're always in dirty stack
                 # than worry at the jump point
                 self.dirty_stack[arg] = True
-                #if jump is not None:
-                #    jarg = jump.args[i]
-                #    self.jump_reg_candidates[jarg] = reg
             else:
                 loc = stack_pos(i)
                 self.stack_bindings[arg] = loc
@@ -708,12 +622,6 @@ class RegAlloc(object):
     
     def _consider_binop_part(self, op, ignored):
         x = op.args[0]
-        if isinstance(x, Const):
-            res = self.force_allocate_reg(op.result, [])
-            argloc = self.loc(op.args[1])
-            self.eventually_free_var(op.args[1])
-            self.Load(x, self.loc(x), res)
-            return res, argloc
         argloc = self.loc(op.args[1])
         loc = self.force_result_in_reg(op.result, x, op.args)
         self.eventually_free_var(op.args[1])

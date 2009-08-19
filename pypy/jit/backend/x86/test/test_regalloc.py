@@ -51,6 +51,10 @@ class BaseTestRegalloc(object):
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
 
+    def getints(self, end):
+        return [self.cpu.get_latest_value_int(index) for
+                index in range(0, end)]
+
     def getptr(self, index, T):
         gcref = self.cpu.get_latest_value_ptr(index)
         return lltype.cast_opaque_ptr(T, gcref)
@@ -181,3 +185,50 @@ class TestRegallocSimple(BaseTestRegalloc):
         self.interpret(ops, [0, 10])
         assert self.getint(0) == 0
         assert self.getint(1) == 10
+
+    def test_spill_for_constant(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i4 = int_add(3, i1)
+        i5 = int_lt(i4, 30)
+        guard_true(i5)
+            fail(i0, i4, i2, i3)
+        jump(1, i4, 3, 4)
+        '''
+        self.interpret(ops, [0, 0, 0, 0])
+        assert self.getints(4) == [1, 30, 3, 4]
+
+    def test_spill_for_constant_lshift(self):
+        ops = '''
+        [i0, i2, i1, i3]
+        i4 = int_lshift(1, i1)
+        i5 = int_add(1, i1)
+        i6 = int_lt(i5, 30)
+        guard_true(i6)
+            fail(i4, i5, i2, i3)
+        jump(i4, 3, i5, 4)
+        '''
+        self.interpret(ops, [0, 0, 0, 0])
+        assert self.getints(4) == [1<<29, 30, 3, 4]
+        ops = '''
+        [i0, i1, i2, i3]
+        i4 = int_lshift(1, i1)
+        i5 = int_add(1, i1)
+        i6 = int_lt(i5, 30)
+        guard_true(i6)
+            fail(i4, i5, i2, i3)
+        jump(i4, i5, 3, 4)
+        '''
+        self.interpret(ops, [0, 0, 0, 0])
+        assert self.getints(4) == [1<<29, 30, 3, 4]
+        ops = '''
+        [i0, i3, i1, i2]
+        i4 = int_lshift(1, i1)
+        i5 = int_add(1, i1)
+        i6 = int_lt(i5, 30)
+        guard_true(i6)
+            fail(i4, i5, i2, i3)
+        jump(i4, 4, i5, 3)
+        '''
+        self.interpret(ops, [0, 0, 0, 0])
+        assert self.getints(4) == [1<<29, 30, 3, 4]
