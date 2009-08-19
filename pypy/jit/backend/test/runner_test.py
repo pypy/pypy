@@ -9,6 +9,9 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.executor import execute
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.jit.metainterp.test.oparser import parse
+from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.llinterp import LLException
 
 class Runner(object):
 
@@ -70,7 +73,6 @@ class Runner(object):
 class BaseBackendTest(Runner):
     
     def test_do_call(self):
-        from pypy.rpython.annlowlevel import llhelper
         cpu = self.cpu
         #
         def func(c):
@@ -85,7 +87,6 @@ class BaseBackendTest(Runner):
         assert x.value == ord('B')
 
     def test_call(self):
-        from pypy.rpython.annlowlevel import llhelper
         cpu = self.cpu
         #
         def func(c):
@@ -251,6 +252,53 @@ class BaseBackendTest(Runner):
                     assert self.cpu.get_latest_value_int(0) == z
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
+
+    def test_exceptions(self):
+        def func(i):
+            if i:
+                raise LLException(zdtp, zdptr)
+
+        ops = '''
+        [i0]
+        call(ConstClass(fptr), i0, descr=calldescr)
+        p0 = guard_exception(ConstClass(zdtp))
+            fail(1)
+        fail(0)
+        '''
+        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+        fptr = llhelper(FPTR, func)
+        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+        zdtp, zdptr = self.cpu.get_zero_division_error()
+        zd_addr = self.cpu.cast_int_to_adr(zdtp)
+        zdtp = llmemory.cast_adr_to_ptr(zd_addr, lltype.Ptr(self.MY_VTABLE))
+        loop = parse(ops, self.cpu, namespace=locals())
+        self.cpu.compile_operations(loop)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 0
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+
+        ops = '''
+        [i0]
+        call(ConstClass(fptr), i0, descr=calldescr)
+        guard_no_exception()
+            fail(1)
+        fail(0)
+        '''
+        loop = parse(ops, self.cpu, namespace=locals())
+        self.cpu.compile_operations(loop)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 0
+        self.cpu.clear_exception()
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
@@ -500,7 +548,7 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(4)],
                                    'int')
         assert r.value == 31313
-        u_box = self.cpu.do_newunicode([ConstInt(3)])
+        u_box = self.cpu.do_newunicode([ConstInt(5)])
         self.cpu.do_unicodesetitem([u_box, BoxInt(4), BoxInt(123)])
         r = self.cpu.do_unicodegetitem([u_box, BoxInt(4)])
         assert r.value == 123
