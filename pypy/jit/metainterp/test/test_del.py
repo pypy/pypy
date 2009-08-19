@@ -27,6 +27,8 @@ class DelTests:
                           'guard_true': 1,
                           'jump': 1})
 
+
+class TestLLtype(DelTests, LLJitMixin):
     def test_signal_action(self):
         from pypy.module.signal.interp_signal import SignalActionFlag
         action = SignalActionFlag()
@@ -49,11 +51,7 @@ class DelTests:
         self.meta_interp(f, [20])
         self.check_loops(getfield_raw=1, call=0, call_pure=0)
 
-
-class TestLLtype(DelTests, LLJitMixin):
-    pass
-
 class TestOOtype(DelTests, OOJitMixin):
-    def setup_class(cls):
+    def test_del_keep_obj(self):
         py.test.skip("XXX dels are not implemented in the"
                      " static CLI or JVM backend")
