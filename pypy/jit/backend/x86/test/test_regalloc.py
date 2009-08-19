@@ -294,3 +294,16 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i0, i18, i15, i16, i2, i1, i4)
         '''
         self.interpret(ops, [0, 1, 2, 3])
+
+class TestRegallocCompOps(BaseTestRegalloc):
+    
+    def test_cmp_op_0(self):
+        ops = '''
+        [i0, i3]
+        i2 = int_lt(i0, 100)
+        guard_true(i3)
+           fail(1, i2)
+        fail(0, i2)
+        '''
+        self.interpret(ops, [0, 1])
+        assert self.getint(0) == 0

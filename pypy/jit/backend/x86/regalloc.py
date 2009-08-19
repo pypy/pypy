@@ -184,8 +184,9 @@ class RegAlloc(object):
         if (operations[i + 1].opnum != rop.GUARD_TRUE and
             operations[i + 1].opnum != rop.GUARD_FALSE):
             return False
-        if (operations[i + 1].args[0] is not op.result or
-            self.longevity[op.result][1] > i + 1 or
+        if operations[i + 1].args[0] is not op.result:
+            return False
+        if (self.longevity[op.result][1] > i + 1 or
             op.result in operations[i + 1].inputargs):
             print "boolean flag not optimized away"
             assert False
