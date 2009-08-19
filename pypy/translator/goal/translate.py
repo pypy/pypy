@@ -20,8 +20,6 @@ from pypy.config.translationoption import PLATFORMS, set_platform
 GOALS= [
         ("annotate", "do type inference", "-a --annotate", ""),
         ("rtype", "do rtyping", "-t --rtype", ""),
-        ("prejitbackendopt", "backend optimize before jitting",
-         "--prejitbackendopt", ""),
         ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
         ("backendopt", "do backend optimizations", "--backendopt", ""),
         ("source", "create source", "-s --source", ""),

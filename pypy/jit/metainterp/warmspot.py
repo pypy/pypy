@@ -51,12 +51,13 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
                                     type_system=type_system,
                                     inline_threshold=0)
     clear_tcache()
-    return jittify_and_run(interp, graph, args, **kwds)
+    return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, **kwds):
+def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False,
+                    **kwds):
     translator = interp.typer.annotator.translator
     translator.config.translation.gc = "boehm"
-    warmrunnerdesc = WarmRunnerDesc(translator, **kwds)
+    warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
     warmrunnerdesc.state.create_tables_now()             # for tests
@@ -124,11 +125,15 @@ class CannotInlineCanEnterJit(JitException):
 
 class WarmRunnerDesc:
 
-    def __init__(self, translator, policy=None, **kwds):
+    def __init__(self, translator, policy=None, backendopt=True, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         if policy is None:
             policy = JitPolicy()
         self.set_translator(translator)
+        self.find_portal()
+        if backendopt:
+            self.prejit_optimizations(policy)
+
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
@@ -162,20 +167,7 @@ class WarmRunnerDesc:
             self.ts = OOTypeHelper()
         self.gcdescr = gc.get_description(translator.config)
 
-    def build_meta_interp(self, CPUClass=None, view="auto",
-                          translate_support_code=False, optimizer=None,
-                          profile=None, **kwds):
-        assert CPUClass is not None
-        opt = history.Options(**kwds)
-        self.stats = history.Stats()
-        if translate_support_code:
-            self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-            annhelper = self.annhelper
-        else:
-            annhelper = None
-        cpu = CPUClass(self.translator.rtyper, self.stats,
-                       translate_support_code, annhelper, self.gcdescr)
-        self.cpu = cpu
+    def find_portal(self):
         graphs = self.translator.graphs
         self.jit_merge_point_pos = find_jit_merge_point(graphs)
         graph, block, pos = self.jit_merge_point_pos
@@ -193,7 +185,33 @@ class WarmRunnerDesc:
         self.translator.graphs.append(graph)
         self.portal_graph = graph
         self.jitdriver = block.operations[pos].args[1].value
-        self.metainterp_sd = MetaInterpStaticData(graph, graphs, cpu,
+
+    def prejit_optimizations(self, policy):
+        from pypy.translator.backendopt.all import backend_optimizations
+        graphs = find_all_graphs(self.portal_graph, policy, self.translator)
+        backend_optimizations(self.translator,
+                              graphs=graphs,
+                              merge_if_blocks=True,
+                              constfold=True,
+                              raisingop2direct_call=False,
+                              remove_asserts=True,
+                              really_remove_asserts=True)
+
+    def build_meta_interp(self, CPUClass=None, translate_support_code=False,
+                          view="auto", optimizer=None, profile=None, **kwds):
+        assert CPUClass is not None
+        opt = history.Options(**kwds)
+        self.stats = history.Stats()
+        if translate_support_code:
+            self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
+            annhelper = self.annhelper
+        else:
+            annhelper = None
+        cpu = CPUClass(self.translator.rtyper, self.stats,
+                       translate_support_code, annhelper, self.gcdescr)
+        self.cpu = cpu
+        self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
+                                                  self.translator.graphs, cpu,
                                                   self.stats, opt,
                                                   optimizer=optimizer,
                                                   profile=profile,
@@ -511,6 +529,30 @@ class WarmRunnerDesc:
                 closures[funcname] = make_closure('set_param_' + funcname)
             op.opname = 'direct_call'
             op.args[:3] = [closures[funcname]]
+
+
+def find_all_graphs(portal, policy, translator):
+    from pypy.translator.simplify import get_graph
+    all_graphs = [portal]
+    seen = set([portal])
+    todo = [portal]
+    while todo:
+        top_graph = todo.pop()
+        for _, op in top_graph.iterblockops():
+            if op.opname not in ("direct_call", "indirect_call", "oosend"):
+                continue
+            kind = policy.guess_call_kind(op)
+            if kind != "regular":
+                continue
+            for graph in policy.graphs_from(op):
+                if graph in seen:
+                    continue
+                if policy.look_inside_graph(graph):
+                    todo.append(graph)
+                    all_graphs.append(graph)
+                    seen.add(graph)
+    return all_graphs
+
 
 
 def decode_hp_hint_args(op):

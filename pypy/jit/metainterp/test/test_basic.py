@@ -53,6 +53,8 @@ class JitMixin:
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
         kwds['type_system'] = self.type_system
+        if "backendopt" not in kwds:
+            kwds["backendopt"] = False
         return ll_meta_interp(*args, **kwds)
 
     def interp_operations(self, f, args, policy=None, **kwds):

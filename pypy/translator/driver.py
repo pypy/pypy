@@ -120,7 +120,7 @@ class TranslationDriver(SimpleTaskEngine):
             else:
                 task, postfix = parts
                 if task in ('rtype', 'backendopt', 'llinterpret',
-                            'prejitbackendopt', 'pyjitpl'):
+                            'pyjitpl'):
                     if ts:
                         if ts == postfix:
                             expose_task(task, explicit_task)
@@ -355,36 +355,6 @@ class TranslationDriver(SimpleTaskEngine):
     task_rtype_ootype = taskdef(task_rtype_ootype, ['annotate'], "ootyping")
     OOTYPE = 'rtype_ootype'
 
-    def task_prejitbackendopt_lltype(self):
-        from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator,
-                              inline_threshold=0,
-                              merge_if_blocks=True,
-                              constfold=True,
-                              raisingop2direct_call=False,
-                              remove_asserts=True,
-                              really_remove_asserts=True)
-    #
-    task_prejitbackendopt_lltype = taskdef(
-        task_prejitbackendopt_lltype,
-        [RTYPE],
-        "Backendopt before jitting")
-
-    def task_prejitbackendopt_ootype(self):
-        from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator,
-                              inline_threshold=0,
-                              merge_if_blocks=True,
-                              constfold=False, # XXX?
-                              raisingop2direct_call=False,
-                              remove_asserts=True,
-                              really_remove_asserts=True)
-    #
-    task_prejitbackendopt_ootype = taskdef(
-        task_prejitbackendopt_ootype,
-        [OOTYPE],
-        "Backendopt before jitting")
-
     def task_pyjitpl_lltype(self):
         get_policy = self.extra['jitpolicy']
         self.jitpolicy = get_policy(self)
@@ -397,7 +367,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("the JIT compiler was generated")
     #
     task_pyjitpl_lltype = taskdef(task_pyjitpl_lltype,
-                                  [RTYPE, '?prejitbackendopt_lltype'],
+                                  [RTYPE],
                                   "JIT compiler generation")
 
     def task_pyjitpl_ootype(self):
@@ -412,7 +382,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("the JIT compiler was generated")
     #
     task_pyjitpl_ootype = taskdef(task_pyjitpl_ootype,
-                                  [OOTYPE, '?prejitbackendopt_ootype'],
+                                  [OOTYPE],
                                   "JIT compiler generation")
 
     def task_backendopt_lltype(self):
