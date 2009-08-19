@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted, hint
+from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import support, codewriter, pyjitpl, history
@@ -791,6 +791,16 @@ class BasicTests:
         res = self.meta_interp(f, [10, 13])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_tree_loop_count(0)
+
+    def test_dont_look_inside(self):
+        @dont_look_inside
+        def g(a, b):
+            return a + b
+        def f(a, b):
+            return g(a, b)
+        res = self.interp_operations(f, [3, 5])
+        assert res == 8
+        self.check_history_(int_add=0, call=1)
 
 
 class TestOOtype(BasicTests, OOJitMixin):

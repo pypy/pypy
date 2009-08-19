@@ -9,6 +9,10 @@ def purefunction(func):
 def hint(x, **kwds):
     return x
 
+def dont_look_inside(func):
+    func._look_inside_me_ = False
+    return func
+
 class Entry(ExtRegistryEntry):
     _about_ = hint
 
