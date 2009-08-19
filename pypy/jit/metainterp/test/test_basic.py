@@ -890,7 +890,7 @@ class TestOOtype(BasicTests, OOJitMixin):
 
 
 
-class TestLLtype(BasicTests, LLJitMixin):
+class BaseLLtypeTests(BasicTests):
 
     def test_oops_on_nongc(self):
         from pypy.rpython.lltypesystem import lltype
@@ -918,3 +918,6 @@ class TestLLtype(BasicTests, LLJitMixin):
         x = lltype.malloc(TP)
         expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         assert self.interp_operations(f, [x]) == expected
+
+class TestLLtype(BaseLLtypeTests, LLJitMixin):
+    pass
