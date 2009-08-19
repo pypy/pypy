@@ -629,14 +629,17 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         assert res == 5
 
     def test_jit_inliner(self):
-        from pypy.rlib.jit import purefunction
+        from pypy.rlib.jit import purefunction, dont_look_inside
         @purefunction
         def g(x):
             return x + 1
+        @dont_look_inside
+        def h(x):
+            return x + 2
 
         def f(x):
             tot = 0
-            for item in [1,2,g(x)]:
+            for item in [1,2,g(x),h(x)]:
                 tot += item
             return tot
 
@@ -645,10 +648,10 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         f_graph = graphof(t, f)
         called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
         print called_graphs
-        assert len(called_graphs) == 5 # g, newlist, setitem, getitem, length
+        assert len(called_graphs) == 6 # g, h, newlist, setitem, getitem, length
 
         result = eval_func([2])
-        assert result == 6
+        assert result == 10
 
 
 
