@@ -176,8 +176,7 @@ class AbstractInstanceRepr(Repr):
         pass
 
     def _parse_field_list(self, fields, accessor):
-        mangled_fields = {}
-        with_suffix = []
+        with_suffix = {}
         for name in fields:
             if name.endswith('[*]'):
                 name = name[:-3]
@@ -185,10 +184,9 @@ class AbstractInstanceRepr(Repr):
             else:
                 suffix = ''
             mangled_name, r = self._get_field(name)
-            with_suffix.append(mangled_name + suffix)
-            mangled_fields[mangled_name] = True
+            with_suffix[mangled_name] = suffix
         accessor.initialize(self.object_type, with_suffix)
-        return mangled_fields
+        return with_suffix
 
     def new_instance(self, llops, classcallhop=None):
         raise NotImplementedError

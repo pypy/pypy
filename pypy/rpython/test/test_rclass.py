@@ -774,7 +774,7 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         t, typer, graph = self.gengraph(f, [])
         A_TYPE = graph.getreturnvar().concretetype
         accessor = A_TYPE.TO._hints["immutable_fields"]
-        assert accessor.fields == ["inst_x", "inst_y[*]"]
+        assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"}
 
     def test_immutable_inheritance(self):
         class I(object):

@@ -76,8 +76,8 @@ class BaseTest(BaseRtypingTest):
         TYPE = self.gettype(v_inst)
         accessor = TYPE._hints['virtualizable2_accessor']
         assert accessor.TYPE == TYPE
-        assert accessor.fields == [self.prefix + 'v1',
-                                   self.prefix + 'v2[*]']
+        assert accessor.fields == {self.prefix + 'v1' : "",
+                                   self.prefix + 'v2': "[*]"}
         #
         def fn2(n):
             Base().base1 = 42
