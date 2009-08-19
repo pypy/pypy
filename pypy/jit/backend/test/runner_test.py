@@ -660,6 +660,11 @@ class LLtypeBackendTest(BaseBackendTest):
                                      [BoxPtr(x)],  'int').value
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
                                       [BoxInt(res)], 'ptr').value
+        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        res = self.execute_operation(rop.CAST_PTR_TO_INT,
+                                     [ConstPtr(x)],  'int').value
+        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
+                                      [ConstInt(res)], 'ptr').value
         assert res2 == x
 
     def test_ooops_non_gc(self):
