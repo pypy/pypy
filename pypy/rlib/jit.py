@@ -88,9 +88,6 @@ PARAMETERS = {'threshold': 1000,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
-def _no_printable_location(*greenargs):
-    return '(no jitdriver.get_printable_location!)'
-
 # ____________________________________________________________
 
 class JitDriver:    
@@ -103,8 +100,7 @@ class JitDriver:
     virtualizables = []
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
-                 get_printable_location=_no_printable_location,
-                 can_inline=None):
+                 can_inline=None, get_printable_location=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
