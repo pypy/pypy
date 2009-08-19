@@ -9,7 +9,7 @@ from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.backendopt.inline import instrument_inline_candidates
-from pypy.translator.backendopt.inline import inlining_heuristic_no_oopspec
+from pypy.translator.backendopt.inline import inlining_heuristic_jit
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
@@ -628,7 +628,7 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         res = eval_func([])
         assert res == 5
 
-    def test_no_oopspec_inliner(self):
+    def test_jit_inliner(self):
         from pypy.rlib.jit import purefunction
         @purefunction
         def g(x):
@@ -641,7 +641,7 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
             return tot
 
         eval_func, t = self.check_auto_inlining(
-            f, [int], heuristic=inlining_heuristic_no_oopspec)
+            f, [int], heuristic=inlining_heuristic_jit)
         f_graph = graphof(t, f)
         called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
         print called_graphs

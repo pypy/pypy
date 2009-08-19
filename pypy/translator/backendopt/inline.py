@@ -626,7 +626,7 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True
 
-def inlining_heuristic_no_oopspec(graph):
+def inlining_heuristic_jit(graph):
     try:
         oopspec = graph.func.oopspec
     except AttributeError:
