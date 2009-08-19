@@ -85,12 +85,27 @@ class OptValue(object):
         if self.level < LEVEL_NONNULL:
             self.level = LEVEL_NONNULL
 
+    def make_null_or_nonnull(self):
+        if self.box.nonnull():
+            self.make_nonnull()
+        else:
+            self.make_constant()
+
     def is_virtual(self):
         # Don't check this with 'isinstance(_, VirtualValue)'!
         # Even if it is a VirtualValue, the 'box' can be non-None,
         # meaning it has been forced.
         return self.box is None
 
+class BoolValue(OptValue):
+
+    def __init__(self, box, fromvalue):
+        OptValue.__init__(self, box)
+        self.fromvalue = fromvalue
+
+    def make_constant(self):
+        OptValue.make_constant(self)
+        self.fromvalue.make_null_or_nonnull()
 
 class ConstantValue(OptValue):
     level = LEVEL_CONSTANT
@@ -364,6 +379,11 @@ class Optimizer(object):
         self.make_equal_to(box, vvalue)
         return vvalue
 
+    def make_bool(self, box, fromvalue):
+        value = BoolValue(box, fromvalue)
+        self.make_equal_to(box, value)
+        return value
+
     def new_ptr_box(self):
         if not self.cpu.is_oo:
             return BoxPtr()
@@ -536,19 +556,22 @@ class Optimizer(object):
         self.emit_operation(op)
         self.exception_might_have_happened = False
 
-    def optimize_OONONNULL(self, op):
+    def _optimize_nullness(self, op, expect_nonnull):
         if self.known_nonnull(op.args[0]):
-            assert op.result.getint() == 1
+            assert op.result.getint() == expect_nonnull
+            self.make_constant(op.result)
+        elif self.is_constant(op.args[0]): # known to be null
+            assert op.result.getint() == (not expect_nonnull)
             self.make_constant(op.result)
         else:
-            self.optimize_default(op)
+            self.make_bool(op.result, self.getvalue(op.args[0]))
+            self.emit_operation(op)
+
+    def optimize_OONONNULL(self, op):
+        self._optimize_nullness(op, True)
 
     def optimize_OOISNULL(self, op):
-        if self.known_nonnull(op.args[0]):
-            assert op.result.getint() == 0
-            self.make_constant(op.result)
-        else:
-            self.optimize_default(op)
+        self._optimize_nullness(op, False)
 
     def optimize_OOISNOT(self, op):
         value0 = self.getvalue(op.args[0])

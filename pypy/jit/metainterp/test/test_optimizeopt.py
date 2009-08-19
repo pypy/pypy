@@ -245,7 +245,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected, i0=1, i1=0)
 
     def test_ooisnull_oononnull_2(self):
-        py.test.skip("less important")
         ops = """
         [p0]
         i0 = oononnull(p0)         # p0 != NULL
@@ -263,7 +262,32 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0)
+        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0,
+                           p0=self.nodebox.value)
+
+    def test_ooisnull_oononnull_via_virtual(self):
+        ops = """
+        [p0]
+        pv = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(pv, p0, descr=valuedescr)
+        i0 = oononnull(p0)         # p0 != NULL
+        guard_true(i0)
+          fail()
+        p1 = getfield_gc(pv, descr=valuedescr)
+        i1 = ooisnull(p1)
+        guard_false(i1)
+          fail()
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = oononnull(p0)
+        guard_true(i0)
+          fail()
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0,
+                           p0=self.nodebox.value)
 
     def test_oois_1(self):
         ops = """
@@ -555,21 +579,6 @@ class BaseTestOptimizeOpt(BaseTest):
         [p0, p1, p2]
         i1 = oononnull(p0)
         guard_true(i1)
-          fail()
-        i2 = ooisnull(p0)
-        guard_false(i2)
-          fail()
-        i3 = oononnull(p0)
-        guard_true(i3)
-          fail()
-        i4 = ooisnull(p0)
-        guard_false(i4)
-          fail()
-        i5 = oononnull(p0)
-        guard_true(i5)
-          fail()
-        i6 = ooisnull(p0)
-        guard_false(i6)
           fail()
         i7 = ooisnot(p0, p1)
         guard_true(i7)
