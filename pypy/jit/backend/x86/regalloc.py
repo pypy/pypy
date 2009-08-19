@@ -65,15 +65,14 @@ class RegAlloc(object):
             # compute longevity of variables
             self._compute_vars_longevity(tree.inputargs, tree.operations)
             self.free_regs = REGS[:]
-            self.dirty_stack = {}
             jump = tree.operations[-1]
             #self.startmp = mp
             #if guard_op:
             #    loop_consts, sd = self._start_from_guard_op(guard_op, mp, jump)
             #else:
-            loop_consts, sd = self._compute_loop_consts(tree.inputargs, jump)
+            loop_consts = self._compute_loop_consts(tree.inputargs, jump)
             self.loop_consts = loop_consts
-            self.current_stack_depth = sd
+            self.current_stack_depth = 0
         else:
             self._rewrite_const_ptrs(guard_op.suboperations)
             guard_op.inputargs = None
@@ -81,7 +80,6 @@ class RegAlloc(object):
             inp = guard_op.inputargs
             self.reg_bindings = {}
             self.stack_bindings = {}
-            self.dirty_stack = {}
             for arg in inp:
                 if arg in regalloc.reg_bindings:
                     self.reg_bindings[arg] = regalloc.reg_bindings[arg]
@@ -89,11 +87,6 @@ class RegAlloc(object):
                     self.stack_bindings[arg] = regalloc.stack_bindings[arg]
                 else:
                     assert arg in regalloc.reg_bindings
-                if arg in regalloc.dirty_stack:
-                    self.dirty_stack[arg] = regalloc.dirty_stack[arg]
-                else:
-                    assert not (arg in regalloc.stack_bindings and
-                                arg in regalloc.reg_bindings)
             allocated_regs = self.reg_bindings.values()
             self.free_regs = [v for v in REGS if v not in allocated_regs]
             self.current_stack_depth = regalloc.current_stack_depth
@@ -117,7 +110,7 @@ class RegAlloc(object):
             for i in range(len(inputargs)):
                 if inputargs[i] is jump.args[i]:
                     loop_consts[inputargs[i]] = i
-        return loop_consts, len(inputargs)
+        return loop_consts
 
     def _check_invariants(self):
         if not we_are_translated():
@@ -130,11 +123,6 @@ class RegAlloc(object):
             for reg in self.free_regs:
                 assert reg not in rev_regs
             assert len(rev_regs) + len(self.free_regs) == len(REGS)
-            for v, val in self.stack_bindings.items():
-                if (isinstance(v, Box) and (v not in self.reg_bindings) and
-                    self.longevity[v][1] > self.position and
-                    self.longevity[v][0] <= self.position):
-                    assert not v in self.dirty_stack
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(REGS)
 
@@ -188,8 +176,8 @@ class RegAlloc(object):
             return False
         if (self.longevity[op.result][1] > i + 1 or
             op.result in operations[i + 1].inputargs):
-            print "boolean flag not optimized away"
-            assert False
+            print "!!!! boolean flag not optimized away !!!!"
+            return False
         return True
 
     def walk_operations(self, tree):
@@ -202,10 +190,6 @@ class RegAlloc(object):
 
     def walk_guard_ops(self, inputargs, operations, exc):
         self.exc = exc
-        for arg in inputargs:
-            if arg not in self.reg_bindings:
-                assert arg in self.stack_bindings
-                assert arg not in self.dirty_stack
         old_regalloc = self.assembler._regalloc
         self.assembler._regalloc = self
         self._walk_operations(operations)
@@ -218,8 +202,9 @@ class RegAlloc(object):
             op = operations[i]
             self.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
-                print "Operation has no side effect, but was not removed"
-                assert False
+                i += 1
+                self.eventually_free_vars(op.args)
+                continue
             if self.can_optimize_cmp_op(op, i, operations):
                 nothing = oplist[op.opnum](self, op, operations[i + 1])
                 i += 1
@@ -383,12 +368,8 @@ class RegAlloc(object):
         v_to_spill = self.pick_variable_to_spill(v, forbidden_vars, selected_reg)
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
-        if v_to_spill not in self.stack_bindings or v_to_spill in self.dirty_stack:
+        if v_to_spill not in self.stack_bindings:
             newloc = self.stack_loc(v_to_spill)
-            try:
-                del self.dirty_stack[v_to_spill]
-            except KeyError:
-                pass
             self.Store(v_to_spill, loc, newloc)
         return loc
 
@@ -470,10 +451,6 @@ class RegAlloc(object):
     def move_variable_away(self, v, prev_loc):
         reg = None
         loc = self.stack_loc(v)
-        try:
-            del self.dirty_stack[v]
-        except KeyError:
-            pass
         self.Store(v, prev_loc, loc)
 
     def force_result_in_reg(self, result_v, v, forbidden_vars):
@@ -488,7 +465,6 @@ class RegAlloc(object):
             self.free_regs = [reg for reg in self.free_regs if reg is not loc]
             return loc
         if v not in self.reg_bindings:
-            assert v not in self.dirty_stack
             prev_loc = self.stack_bindings[v]
             loc = self.force_allocate_reg(v, forbidden_vars)
             self.Load(v, prev_loc, loc)
@@ -498,7 +474,7 @@ class RegAlloc(object):
             # store result in the same place
             loc = self.reg_bindings[v]
             del self.reg_bindings[v]
-            if v not in self.stack_bindings or v in self.dirty_stack:
+            if v not in self.stack_bindings:
                 self.move_variable_away(v, loc)
             self.reg_bindings[result_v] = loc
         else:
@@ -519,12 +495,8 @@ class RegAlloc(object):
                 reg = self.try_allocate_reg(arg)
             if reg:
                 locs[i] = reg
-                # it's better to say here that we're always in dirty stack
-                # than worry at the jump point
-                self.dirty_stack[arg] = True
             else:
-                loc = stack_pos(i)
-                self.stack_bindings[arg] = loc
+                loc = self.stack_loc(arg)
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
         tree.arglocs = locs
@@ -685,13 +657,9 @@ class RegAlloc(object):
     consider_ooisnot = _consider_compop
 
     def sync_var(self, v):
-        if v in self.dirty_stack or v not in self.stack_bindings:
+        if v not in self.stack_bindings:
             reg = self.reg_bindings[v]
             self.Store(v, reg, self.stack_loc(v))
-            try:
-                del self.dirty_stack[v]
-            except KeyError:
-                pass
         # otherwise it's clean
 
     def _call(self, op, arglocs, force_store=[]):

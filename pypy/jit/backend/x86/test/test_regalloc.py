@@ -295,6 +295,14 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 1, 2, 3])
 
+    def test_op_result_unused(self):
+        ops = '''
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        fail(0)
+        '''
+        self.interpret(ops, [0, 0])
+
 class TestRegallocCompOps(BaseTestRegalloc):
     
     def test_cmp_op_0(self):
