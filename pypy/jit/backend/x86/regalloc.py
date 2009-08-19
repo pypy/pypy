@@ -283,20 +283,16 @@ class RegAlloc(object):
             op = operations[i]
             self.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
-                canfold = True
+                print "Operation has no side effect, but was not removed"
+                assert False
+            if self.can_optimize_cmp_op(op, i, operations):
+                nothing = oplist[op.opnum](self, op, operations[i + 1])
+                i += 1
             else:
-                canfold = False
-            if not canfold:
-                if self.can_optimize_cmp_op(op, i, operations):
-                    nothing = oplist[op.opnum](self, op, operations[i + 1])
-                    i += 1
-                else:
-                    nothing = oplist[op.opnum](self, op, None)
-                assert nothing is None     # temporary, remove me
-                self.eventually_free_var(op.result)
-                self._check_invariants()
-            else:
-                self.eventually_free_vars(op.args)
+                nothing = oplist[op.opnum](self, op, None)
+            assert nothing is None     # temporary, remove me
+            self.eventually_free_var(op.result)
+            self._check_invariants()
             i += 1
         assert not self.reg_bindings
         jmp = operations[-1]
@@ -428,12 +424,6 @@ class RegAlloc(object):
                     loc = self.free_regs.pop()
                 self.reg_bindings[v] = loc
                 return loc
-
-    def allocate_new_loc(self, v):
-        reg = self.try_allocate_reg(v)
-        if reg:
-            return reg
-        return self.stack_loc(v)
 
     def return_constant(self, v, forbidden_vars, selected_reg=None,
                         imm_fine=True):
@@ -998,25 +988,6 @@ class RegAlloc(object):
     consider_getfield_raw = consider_getfield_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
-    def _same_as(self, op, ignored):
-        x = op.args[0]
-        if isinstance(x, Const):
-            pos = self.allocate_new_loc(op.result)
-            self.Load(op.result, self.loc(x), pos)
-            return
-        if self.longevity[x][1] > self.position or x not in self.reg_bindings:
-            if x in self.reg_bindings:
-                res = self.allocate_new_loc(op.result)
-                self.Load(op.result, self.loc(x), res)
-            else:
-                res = self.force_allocate_reg(op.result, op.args)
-                self.Load(op.result, self.loc(x), res)
-        else:
-            self.reallocate_from_to(x, op.result)
-
-    consider_cast_int_to_ptr = _same_as
-    consider_cast_ptr_to_int = _same_as
-
     def consider_int_is_true(self, op, ignored):
         argloc = self.make_sure_var_in_reg(op.args[0], [])
         resloc = self.force_allocate_reg(op.result, op.args)
@@ -1047,6 +1018,8 @@ class RegAlloc(object):
         self.eventually_free_var(op.args[0])
         resloc = self.force_allocate_reg(op.result, [])
         self.Perform(op, [argloc], resloc)
+    consider_cast_int_to_ptr = consider_same_as
+    consider_cast_ptr_to_int = consider_same_as
 
     def consider_strlen(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)

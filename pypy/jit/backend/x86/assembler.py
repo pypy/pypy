@@ -461,6 +461,8 @@ class Assembler386(object):
 
     def genop_same_as(self, op, arglocs, resloc):
         self.mc.MOV(resloc, arglocs[0])
+    genop_cast_int_to_ptr = genop_same_as
+    genop_cast_ptr_to_int = genop_same_as
 
     def genop_int_mod(self, op, arglocs, resloc):
         self.mc.CDQ()

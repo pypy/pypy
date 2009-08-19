@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass
 
-class TestRegalloc(object):
+class BaseTestRegalloc(object):
     cpu = CPU(None, None)
 
     def raising_func(i):
@@ -62,6 +62,8 @@ class TestRegalloc(object):
         self.cpu.compile_operations(loop, guard_op)
         return bridge
 
+
+class TestRegallocSimple(BaseTestRegalloc):
     def test_simple_loop(self):
         ops = '''
         [i0]
@@ -158,3 +160,24 @@ class TestRegalloc(object):
         '''
         self.interpret(ops, [0])
         assert self.getint(0) == 1
+
+    def test_inputarg_unused(self):
+        ops = '''
+        [i0]
+        fail(1)
+        '''
+        self.interpret(ops, [0])
+        # assert did not explode
+
+    def test_nested_guards(self):
+        ops = '''
+        [i0, i1]
+        guard_true(i0)
+            guard_true(i0)
+                fail(i0, i1)
+            fail(3)
+        fail(4)
+        '''
+        self.interpret(ops, [0, 10])
+        assert self.getint(0) == 0
+        assert self.getint(1) == 10

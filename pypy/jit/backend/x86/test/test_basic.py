@@ -12,7 +12,7 @@ class Jit386Mixin(test_basic.LLJitMixin):
     def check_jumps(self, maxcount):
         pass
 
-class TestBasic(Jit386Mixin, test_basic.BasicTests):
+class TestBasic(Jit386Mixin, test_basic.BaseLLtypeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def test_bug(self):
