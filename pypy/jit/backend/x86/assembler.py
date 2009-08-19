@@ -768,8 +768,6 @@ class Assembler386(object):
             x = rel32(op.args[0].getint())
         else:
             x = arglocs[0]
-            if isinstance(x, MODRM):
-                x = stack_pos(x.position)
         self.mc.CALL(x)
         self.mark_gc_roots()
         self.mc.ADD(esp, imm(WORD * extra_on_stack))

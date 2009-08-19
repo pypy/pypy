@@ -9,9 +9,22 @@ from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.lltypesystem import rclass
 
 class TestRegalloc(object):
     cpu = CPU(None, None)
+
+    def raising_func(i):
+        if i:
+            raise LLException(zero_division_error,
+                              zero_division_value)
+    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+    raising_fptr = llhelper(FPTR, raising_func)
+    zero_division_tp, zero_division_value = cpu.get_zero_division_error()
+    zd_addr = cpu.cast_int_to_adr(zero_division_tp)
+    zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
+                                            lltype.Ptr(rclass.OBJECT_VTABLE))
+    raising_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
 
     namespace = locals().copy()
     type_system = 'lltype'
@@ -130,3 +143,18 @@ class TestRegalloc(object):
         assert self.getptr(0, lltype.Ptr(S)) == ptr
         assert not self.cpu.assembler.fail_boxes_ptr[0]
         assert not self.cpu.assembler.fail_boxes_ptr[1]
+
+    def test_exception_bridge_no_exception(self):
+
+        
+        ops = '''
+        [i0]
+        call(ConstClass(raising_fptr), i0, descr=raising_calldescr)
+        guard_exception(ConstClass(zero_division_error))
+            guard_no_exception()
+                fail(2)
+            fail(1)
+        fail(0)
+        '''
+        self.interpret(ops, [0])
+        assert self.getint(0) == 1

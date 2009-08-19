@@ -87,18 +87,30 @@ class BaseBackendTest(Runner):
         assert x.value == ord('B')
 
     def test_call(self):
-        cpu = self.cpu
-        #
-        def func(c):
-            return chr(ord(c) + 1)
-        FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
-        func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
-        res = self.execute_operation(rop.CALL,
-                                     [self.get_funcbox(cpu, func_ptr),
-                                      BoxInt(ord('A'))],
-                                     'int', descr=calldescr)
-        assert res.value == ord('B')
+
+        def func_int(a, b):
+            return a + b
+        def func_char(c, c1):
+            return chr(ord(c) + ord(c1))
+
+        functions = [
+            (func_int, lltype.Signed, 655360),
+            (func_int, rffi.SHORT, 1213),
+            (func_char, lltype.Char, 12)
+            ]
+
+        for func, TP, num in functions:
+            cpu = self.cpu
+            #
+            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+            func_ptr = llhelper(FPTR, func)
+            FUNC = deref(FPTR)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            res = self.execute_operation(rop.CALL,
+                                         [self.get_funcbox(cpu, func_ptr),
+                                          BoxInt(num), BoxInt(num)],
+                                         'int', descr=calldescr)
+            assert res.value == 2 * num
 
     def test_executor(self):
         cpu = self.cpu
@@ -263,7 +275,7 @@ class BaseBackendTest(Runner):
         call(ConstClass(fptr), i0, descr=calldescr)
         p0 = guard_exception(ConstClass(zdtp))
             fail(1)
-        fail(0)
+        fail(0, p0)
         '''
         FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
         fptr = llhelper(FPTR, func)
@@ -276,6 +288,7 @@ class BaseBackendTest(Runner):
         self.cpu.set_future_value_int(0, 1)
         self.cpu.execute_operations(loop)
         assert self.cpu.get_latest_value_int(0) == 0
+        assert self.cpu.get_latest_value_ptr(1) == zdptr
         self.cpu.clear_exception()
         self.cpu.set_future_value_int(0, 0)
         self.cpu.execute_operations(loop)
@@ -316,16 +329,23 @@ class BaseBackendTest(Runner):
         #
         fielddescr1 = self.cpu.fielddescrof(self.S, 'chr1')
         fielddescr2 = self.cpu.fielddescrof(self.S, 'chr2')
+        shortdescr = self.cpu.fielddescrof(self.S, 'short')
         self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(250)],
                                'void', descr=fielddescr2)
         self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(133)],
                                'void', descr=fielddescr1)
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(1331)],
+                               'void', descr=shortdescr)
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'int', descr=fielddescr2)
         assert res.value == 250
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'int', descr=fielddescr1)
         assert res.value == 133
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=shortdescr)
+        assert res.value == 1331
+        
         #
         u_box, U_box = self.alloc_instance(self.U)
         fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
