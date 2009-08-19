@@ -45,9 +45,9 @@ class VirtualizableInfo:
         all_fields = accessor.fields
         static_fields = []
         array_fields = []
-        for name in all_fields:
-            if name.endswith('[*]'):
-                array_fields.append(name[:-3])
+        for name, suffix in all_fields.iteritems():
+            if suffix == '[*]':
+                array_fields.append(name)
             else:
                 static_fields.append(name)
         self.static_fields = static_fields
