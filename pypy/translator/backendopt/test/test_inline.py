@@ -9,7 +9,6 @@ from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.backendopt.inline import instrument_inline_candidates
-from pypy.translator.backendopt.inline import inlining_heuristic_jit
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
@@ -627,32 +626,6 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         eval_func = self.check_inline(g, f, [])
         res = eval_func([])
         assert res == 5
-
-    def test_jit_inliner(self):
-        from pypy.rlib.jit import purefunction, dont_look_inside
-        @purefunction
-        def g(x):
-            return x + 1
-        @dont_look_inside
-        def h(x):
-            return x + 2
-
-        def f(x):
-            tot = 0
-            for item in [1,2,g(x),h(x)]:
-                tot += item
-            return tot
-
-        eval_func, t = self.check_auto_inlining(
-            f, [int], heuristic=inlining_heuristic_jit)
-        f_graph = graphof(t, f)
-        called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
-        print called_graphs
-        assert len(called_graphs) == 6 # g, h, newlist, setitem, getitem, length
-
-        result = eval_func([2])
-        assert result == 10
-
 
 
 class TestInlineOOType(OORtypeMixin, BaseTestInline):

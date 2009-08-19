@@ -626,18 +626,6 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True
 
-def inlining_heuristic_jit(graph):
-    func = getattr(graph, "func", None)
-    try:
-        oopspec = graph.func.oopspec
-    except AttributeError:
-        if getattr(func, "_pure_function_", False):
-            return (sys.maxint, True)
-        elif not getattr(func, "_look_inside_me_", True):
-            return (sys.maxint, True)
-        return inlining_heuristic(graph)
-    return (sys.maxint, True)
-
 def inlinable_static_callers(graphs):
     ok_to_call = dict.fromkeys(graphs)
     result = []
