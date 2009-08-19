@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
-                   listops=False):
+                   listops=False, optimizer=None):
     from pypy.annotation.policy import AnnotatorPolicy
     from pypy.annotation.model import lltype_to_annotation
     from pypy.rpython.test.test_llinterp import gengraph
@@ -22,7 +22,8 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
     cpu = CPUClass(rtyper, stats, False)
     graph = rtyper.annotator.translator.graphs[0]
     opt = history.Options(specialize=False, listops=listops)
-    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
+    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt,
+                                                 optimizer=optimizer)
     metainterp_sd.finish_setup()
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
     return metainterp, rtyper
@@ -55,6 +56,8 @@ class JitMixin:
         return ll_meta_interp(*args, **kwds)
 
     def interp_operations(self, f, args, policy=None, **kwds):
+        from pypy.jit.metainterp import simple_optimize
+
         class DoneWithThisFrame(Exception):
             pass
         
@@ -66,6 +69,7 @@ class JitMixin:
             policy = JitPolicy()
         metainterp, rtyper = get_metainterp(f, args, self.CPUClass,
                                             self.type_system, policy=policy,
+                                            optimizer=simple_optimize,
                                             **kwds)
         cw = codewriter.CodeWriter(metainterp.staticdata, policy, self.ts)
         graph = rtyper.annotator.translator.graphs[0]
