@@ -398,6 +398,7 @@ class BytecodeMaker(object):
         self.free_vars = 0
         self.var_positions = {}
         self.vable_array_vars = {}
+        self.immutable_arrays = {}
         for arg in self.force_block_args_order(block):
             self.register_var(arg, verbose=False)
         self.emit(label(block))
@@ -866,8 +867,13 @@ class BytecodeMaker(object):
             self.vable_array_vars[op.result] = (op.args[0], arrayindex)
             return
         # check for deepfrozen structures that force constant-folding
-        if deref(v_inst.concretetype)._hints.get('immutable'):
+        hints = deref(v_inst.concretetype)._hints
+        accessor = hints.get("immutable_fields")
+        if hints.get('immutable') or \
+                accessor and c_fieldname.value in accessor.fields:
             pure = '_pure'
+            if accessor and accessor.fields[c_fieldname.value] == "[*]":
+                self.immutable_arrays[op.result] = True
         else:
             pure = ''
         argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
@@ -1298,6 +1304,8 @@ class BytecodeMaker(object):
                       self.var_position(args[1]))
             self.register_var(op.result)
             return True
+        elif args[0] in self.immutable_arrays:
+            opname = "getarrayitem_gc_pure"
         index = self.prepare_list_getset(op, arraydescr, args)
         if index is None:
             return False
