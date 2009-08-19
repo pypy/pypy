@@ -3,6 +3,7 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import jit
 
 def new_framestack():
     return Stack()
@@ -340,6 +341,7 @@ class AbstractActionFlag:
         nonperiodic_actions = unrolling_iterable(self._nonperiodic_actions)
         has_bytecode_counter = self.has_bytecode_counter
 
+        @jit.dont_look_inside
         def action_dispatcher(ec, frame):
             # periodic actions
             if has_bytecode_counter:
