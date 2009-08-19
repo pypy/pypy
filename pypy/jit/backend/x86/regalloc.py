@@ -362,16 +362,7 @@ class RegAlloc(object):
                 loc = self.free_regs.pop()
                 self.Load(v, convert_to_imm(v), loc)
                 return loc
-            v_to_spill = self.pick_variable_to_spill(v, forbidden_vars, selected_reg)
-            loc = self.loc(v_to_spill)
-            if v_to_spill not in self.stack_bindings or v_to_spill in self.dirty_stack:
-                newloc = self.stack_loc(v_to_spill)
-                try:
-                    del self.dirty_stack[v_to_spill]
-                except KeyError:
-                    pass
-                self.Store(v_to_spill, loc, newloc)
-            del self.reg_bindings[v_to_spill]
+            loc = self._spill_var(v, forbidden_vars, selected_reg)
             self.free_regs.append(loc)
             self.Load(v, convert_to_imm(v), loc)
             return loc
@@ -385,13 +376,14 @@ class RegAlloc(object):
         loc = self.try_allocate_reg(v, selected_reg)
         if loc:
             return loc
-        return self._spill_var(v, forbidden_vars, selected_reg)
+        loc = self._spill_var(v, forbidden_vars, selected_reg)
+        self.reg_bindings[v] = loc
+        return loc
 
     def _spill_var(self, v, forbidden_vars, selected_reg):
         v_to_spill = self.pick_variable_to_spill(v, forbidden_vars, selected_reg)
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
-        self.reg_bindings[v] = loc
         if v_to_spill not in self.stack_bindings or v_to_spill in self.dirty_stack:
             newloc = self.stack_loc(v_to_spill)
             try:
