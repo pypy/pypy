@@ -4,12 +4,37 @@
 
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.runner import CPU
+from pypy.jit.backend.x86.regalloc import RegAlloc, REGS
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass
+
+class DummyTree(object):
+    operations = [ResOperation(rop.FAIL, [], None)]
+    inputargs = []
+
+class MockAssembler(object):
+    gcrefs = None
+
+class TestRegallocDirect(object):
+    def fill_regs(self, regalloc):
+        allboxes = []
+        for reg in REGS:
+            box = BoxInt()
+            allboxes.append(box)
+            regalloc.reg_bindings[box] = reg
+        return allboxes
+    
+    def test_make_sure_var_in_reg(self):
+        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        boxes = self.fill_regs(regalloc)
+        box = boxes[-1]
+        oldloc = regalloc.loc(box)
+        newloc = regalloc.make_sure_var_in_reg(box, [])
+        assert oldloc is newloc
 
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
@@ -245,3 +270,16 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
+        
+    def test_compare_memory_result_survives(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i4 = int_lt(i0, i1)
+        i5 = int_add(i3, 1)
+        i6 = int_lt(i5, 30)
+        guard_true(i6)
+            fail(i4)
+        jump(i0, i1, i4, i5)
+        '''
+        self.interpret(ops, [0, 10, 0, 0])
+        assert self.getint(0) == 1

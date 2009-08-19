@@ -91,9 +91,9 @@ class RegAlloc(object):
                     assert arg in regalloc.reg_bindings
                 if arg in regalloc.dirty_stack:
                     self.dirty_stack[arg] = regalloc.dirty_stack[arg]
-                if (arg in regalloc.stack_bindings and
-                    arg in regalloc.reg_bindings):
-                    self.dirty_stack[arg] = True
+                else:
+                    assert not (arg in regalloc.stack_bindings and
+                                arg in regalloc.reg_bindings)
             allocated_regs = self.reg_bindings.values()
             self.free_regs = [v for v in REGS if v not in allocated_regs]
             self.current_stack_depth = regalloc.current_stack_depth
@@ -407,6 +407,7 @@ class RegAlloc(object):
         if isinstance(v, Const):
             return self.return_constant(v, forbidden_vars, selected_reg,
                                         imm_fine)
+        
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg)
         if prev_loc is not loc:
@@ -572,9 +573,7 @@ class RegAlloc(object):
     consider_guard_overflow    = consider_guard_no_exception
 
     def consider_guard_value(self, op, ignored):
-        x = self.loc(op.args[0])
-        if not (isinstance(x, REG) or isinstance(op.args[1], Const)):
-            x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
+        x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
         y = self.loc(op.args[1])
         regalloc = self.regalloc_for_guard(op)
         self.perform_guard(op, regalloc, [x, y], None)
@@ -694,10 +693,6 @@ class RegAlloc(object):
                 pass
         # otherwise it's clean
 
-    def sync_var_if_survives(self, v):
-        if self.longevity[v][1] > self.position:
-            self.sync_var(v)
-
     def _call(self, op, arglocs, force_store=[]):
         # we need to store all variables which are now in registers
         for v, reg in self.reg_bindings.items():
@@ -808,22 +803,24 @@ class RegAlloc(object):
         ofs, size, ptr = CPU386.unpack_fielddescr(fielddescr)
         return imm(ofs), imm(size), ptr
 
-    def consider_setfield_gc(self, op, ignored):
+    def _common_consider_setfield(self, op, ignored, raw):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         value_loc = self.make_sure_var_in_reg(op.args[1], op.args)
         ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
         if ptr:
+            if raw:
+                print "Setfield of raw structure with gc pointer"
+                assert False
             gc_ll_descr = self.assembler.cpu.gc_ll_descr
             gc_ll_descr.gen_write_barrier(self.assembler, base_loc, value_loc)
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
+    def consider_setfield_gc(self, op, ignored):
+        self._common_consider_setfield(op, ignored, raw=False)
+    
     def consider_setfield_raw(self, op, ignored):
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
-        self.eventually_free_vars(op.args)
-        self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
+        self._common_consider_setfield(op, ignored, raw=True)
 
     def consider_strsetitem(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
