@@ -73,6 +73,10 @@ class JitPolicy(object):
             return 'residual'
         return 'regular'
 
+    def all_graphs(self, translator):
+        return [graph for graph in translator.graphs
+                if self.look_inside_graph(graph)]
+
 def contains_unsupported_variable_type(graph):
     getkind = history.getkind
     try:
