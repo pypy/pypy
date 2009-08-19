@@ -271,7 +271,6 @@ class W_TypeObject(W_Object):
         raise UnwrapError(w_self)
 
     def is_heaptype(w_self):
-        w_self = hint(w_self, deepfreeze=True)
         return w_self.__flags__&_HEAPTYPE
 
     def get_module(w_self):
