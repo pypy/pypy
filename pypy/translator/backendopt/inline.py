@@ -630,7 +630,8 @@ def inlining_heuristic_no_oopspec(graph):
     try:
         oopspec = graph.func.oopspec
     except AttributeError:
-        return inlining_heuristic(graph)
+        if not getattr(getattr(graph, "func", None), "_pure_function_", False):
+            return inlining_heuristic(graph)
     return (sys.maxint, True)
 
 def inlinable_static_callers(graphs):

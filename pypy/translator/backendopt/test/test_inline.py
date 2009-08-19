@@ -629,20 +629,25 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         assert res == 5
 
     def test_no_oopspec_inliner(self):
-        def f():
+        from pypy.rlib.jit import purefunction
+        @purefunction
+        def g(x):
+            return x + 1
+
+        def f(x):
             tot = 0
-            for item in [1,2,3]:
+            for item in [1,2,g(x)]:
                 tot += item
             return tot
 
         eval_func, t = self.check_auto_inlining(
-            f, [], heuristic=inlining_heuristic_no_oopspec)
+            f, [int], heuristic=inlining_heuristic_no_oopspec)
         f_graph = graphof(t, f)
         called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
         print called_graphs
-        assert len(called_graphs) == 4 # newlist, setitem, getitem, length
+        assert len(called_graphs) == 5 # g, newlist, setitem, getitem, length
 
-        result = eval_func([])
+        result = eval_func([2])
         assert result == 6
 
 
