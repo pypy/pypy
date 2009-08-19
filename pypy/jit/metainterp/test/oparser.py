@@ -204,6 +204,8 @@ class OpParser(object):
                 jump.jump_target = loop
         else:
             for jump, jump_target in zip(self.jumps, self.jump_targets):
+                if jump_target == 'self':
+                    jump_target = loop
                 jump.jump_target = jump_target
         loop.operations = ops
         loop.inputargs = inpargs

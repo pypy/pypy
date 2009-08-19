@@ -129,3 +129,14 @@ def test_jump_target_other():
     loop = parse(x, jump_targets=[obj])
     assert loop.operations[0].jump_target is obj
 
+def test_jump_target_self():
+    x = '''
+    [i2]
+    guard_true(i2)
+        jump()
+    jump()
+    '''
+    obj = object()
+    loop = parse(x, jump_targets=[obj, 'self'])
+    assert loop.operations[-1].jump_target is loop
+    assert loop.operations[0].suboperations[0].jump_target is obj
