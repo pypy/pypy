@@ -529,7 +529,7 @@ class RandomLoop(object):
         self.builder.cpu.compile_operations(self.loop)
         return True
 
-def check_random_function(cpu, BuilderClass, r):
+def check_random_function(cpu, BuilderClass, r, num=None, max=None):
     loop = RandomLoop(cpu, BuilderClass, r)
     while True:
         loop.run_loop()
@@ -538,7 +538,10 @@ def check_random_function(cpu, BuilderClass, r):
                 break
         else:
             break
-    print '    # passed.'
+    if num is not None:
+        print '    # passed (%d/%d).' % (num + 1, max)
+    else:
+        print '    # passed.'
     print
 
 def test_random_function(BuilderClass=OperationBuilder):
@@ -549,4 +552,5 @@ def test_random_function(BuilderClass=OperationBuilder):
             check_random_function(cpu, BuilderClass, r)
     else:
         for i in range(demo_conftest.option.repeat):
-            check_random_function(cpu, BuilderClass, r)
+            check_random_function(cpu, BuilderClass, r, i,
+                                  demo_conftest.option.repeat)
