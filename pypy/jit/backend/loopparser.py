@@ -87,7 +87,7 @@ class AbstractValue(object):
         return "%s(%s, %s)" % (klass, self.iden, self.value)
 
 class Box(AbstractValue):
-    is_box = True
+    pass
 
 class BoxInt(Box):
     pass
