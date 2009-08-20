@@ -101,7 +101,7 @@ translation_optiondescription = OptionDescription(
                suggests=[("translation.gc", "boehm"),         # for now
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "minimal", "x86", "llvm"],
+                 ["auto", "x86", "llvm"],
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_debug", "the amount of debugging dumps made by the JIT",
                  ["off", "profile", "steps", "detailed"],

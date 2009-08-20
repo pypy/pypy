@@ -369,9 +369,6 @@ def get_cpu():
     if demo_conftest.option.backend == 'llgraph':
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
-    elif demo_conftest.option.backend == 'minimal':
-        from pypy.jit.backend.minimal.runner import LLtypeCPU
-        return LLtypeCPU(None, None)
     elif demo_conftest.option.backend == 'x86':
         from pypy.jit.backend.x86.runner import CPU386
         return CPU386(None, None)
