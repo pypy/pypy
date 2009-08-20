@@ -66,18 +66,12 @@ class RegAlloc(object):
             self._compute_vars_longevity(tree.inputargs, tree.operations)
             self.free_regs = REGS[:]
             jump = tree.operations[-1]
-            #self.startmp = mp
-            #if guard_op:
-            #    loop_consts, sd = self._start_from_guard_op(guard_op, mp, jump)
-            #else:
             loop_consts = self._compute_loop_consts(tree.inputargs, jump)
             self.loop_consts = loop_consts
             self.current_stack_depth = 0
         else:
-            self._rewrite_const_ptrs(guard_op.suboperations)
-            guard_op.inputargs = None
-            self._compute_inpargs(guard_op)
             inp = guard_op.inputargs
+            assert inp is not None
             self.reg_bindings = {}
             self.stack_bindings = {}
             for arg in inp:
@@ -94,11 +88,8 @@ class RegAlloc(object):
             jump_or_fail = guard_op.suboperations[-1]
             self.loop_consts = {}
             self.tree = regalloc.tree
-            if (jump_or_fail.opnum == rop.JUMP and
-                jump_or_fail.jump_target is regalloc.tree):
-                self.loop_consts = regalloc.loop_consts
 
-    def copy(self, guard_op):
+    def regalloc_for_guard(self, guard_op):
         return RegAlloc(self.assembler, None, self.translate_support_code,
                         self, guard_op)
 
@@ -206,11 +197,10 @@ class RegAlloc(object):
                 self.eventually_free_vars(op.args)
                 continue
             if self.can_optimize_cmp_op(op, i, operations):
-                nothing = oplist[op.opnum](self, op, operations[i + 1])
+                oplist[op.opnum](self, op, operations[i + 1])
                 i += 1
             else:
-                nothing = oplist[op.opnum](self, op, None)
-            assert nothing is None     # temporary, remove me
+                oplist[op.opnum](self, op, None)
             self.eventually_free_var(op.result)
             self._check_invariants()
             i += 1
@@ -246,6 +236,8 @@ class RegAlloc(object):
                                                [ConstInt(addr)], box,
                                                single_gcref_descr))
                     op.args[i] = box
+            if op.is_guard():
+                self._rewrite_const_ptrs(op.suboperations)
             newops.append(op)
         del operations[:]
         operations.extend(newops)
@@ -503,9 +495,6 @@ class RegAlloc(object):
         self.assembler.make_merge_point(tree, locs)
         self.eventually_free_vars(inputargs)
 
-    def regalloc_for_guard(self, guard_op):
-        return self.copy(guard_op)
-
     def _consider_guard(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
         regalloc = self.regalloc_for_guard(op)
@@ -546,7 +535,7 @@ class RegAlloc(object):
     consider_guard_overflow    = consider_guard_no_exception
 
     def consider_guard_value(self, op, ignored):
-        x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
+        x = self.make_sure_var_in_reg(op.args[0], [])
         y = self.loc(op.args[1])
         regalloc = self.regalloc_for_guard(op)
         self.perform_guard(op, regalloc, [x, y], None)

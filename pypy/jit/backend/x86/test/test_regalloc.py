@@ -6,9 +6,9 @@ from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import RegAlloc, REGS
+from pypy.jit.backend.x86.regalloc import RegAlloc, REGS, WORD
 from pypy.jit.metainterp.test.oparser import parse
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass
 
@@ -303,6 +303,16 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0])
 
+    def test_guard_value_two_boxes(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7]
+        guard_value(i6, i1)
+           fail(i0, i2, i3, i4, i5, i6)
+        fail(i0, i2, i3, i4, i5, i6)
+        '''
+        self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0])
+        assert self.getint(0) == 0
+
 class TestRegallocCompOps(BaseTestRegalloc):
     
     def test_cmp_op_0(self):
@@ -315,3 +325,80 @@ class TestRegallocCompOps(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 1])
         assert self.getint(0) == 0
+
+class GcRootMap(object):
+    def initialize(self):
+        pass
+
+class MockGcDescr(object):
+    def get_funcptr_for_new(self):
+        return 123
+    get_funcptr_for_newarray = get_funcptr_for_new
+    get_funcptr_for_newstr = get_funcptr_for_new
+    get_funcptr_for_newunicode = get_funcptr_for_new
+    
+    moving_gc = True
+    class GcRefList(object):
+        MAXLEN = 1000
+        
+        def __init__(self):
+            TP = rffi.CArray(llmemory.GCREF)
+            self.l = lltype.malloc(TP, self.MAXLEN, flavor='raw')
+            self.size = 0
+        
+        def get_address_of_gcref(self, addr):
+            baseaddr = rffi.cast(lltype.Signed, self.l)
+            for i in range(self.size):
+                if self.l[i] == addr:
+                    return baseaddr + i * WORD
+            self.l[self.size] = addr
+            self.size += 1
+            return baseaddr + (self.size - 1) * WORD
+
+    gcrootmap = GcRootMap()
+
+class TestRegallocGc(BaseTestRegalloc):
+    cpu = CPU(None, None)
+    cpu.gc_ll_descr = MockGcDescr()
+    cpu.gcrefs = cpu.gc_ll_descr.GcRefList()
+
+    S = lltype.GcForwardReference()
+    S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S))))
+
+    fielddescr = cpu.fielddescrof(S, 'field')
+
+    struct_ptr = lltype.malloc(S)
+    struct_ref = lltype.cast_opaque_ptr(llmemory.GCREF, struct_ptr)
+    child_ptr = lltype.nullptr(S)
+    struct_ptr.field = child_ptr
+
+    namespace = locals().copy()
+
+    def test_basic(self):
+        ops = '''
+        [p0]
+        p1 = getfield_gc(p0, descr=fielddescr)
+        fail(p1)
+        '''
+        self.interpret(ops, [self.struct_ptr])
+        assert not self.getptr(0, lltype.Ptr(self.S))
+
+    def test_rewrite_constptr(self):
+        ops = '''
+        []
+        p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
+        fail(p1)
+        '''
+        self.interpret(ops, [])
+        assert not self.getptr(0, lltype.Ptr(self.S))
+        
+    def test_rewrite_constptr_in_brdige(self):
+        ops = '''
+        [i0]
+        guard_true(i0)
+            p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
+            fail(p1)
+        fail(0)
+        '''
+        self.interpret(ops, [0])
+        assert not self.getptr(0, lltype.Ptr(self.S))
