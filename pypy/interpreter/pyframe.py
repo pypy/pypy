@@ -47,6 +47,7 @@ class PyFrame(eval.Frame):
     instr_prev               = -1
     is_being_profiled        = False
 
+    @jit.dont_look_inside
     def __init__(self, space, code, w_globals, closure):
         #self = hint(self, access_directly=True)
         assert isinstance(code, pycode.PyCode)
