@@ -37,6 +37,7 @@ class TestParser(object):
         assert isinstance(topblock.operations[2].args[1], ConstInt)
         assert topblock.operations[2].args[1].value == 1
         assert topblock.operations[2].result is topblock.operations[3].args[0]
+        assert topblock.operations[3].args[1].value == -42
 
     def test_two_paths(self):
         loops = self.parse("two_paths.ops")

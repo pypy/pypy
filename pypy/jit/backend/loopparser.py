@@ -128,7 +128,7 @@ box_map = {
 }
 
 
-_arg_finder = re.compile(r"(..)\((\d+),(\d+)\)")
+_arg_finder = re.compile(r"(..)\((\d+),(-?\d+)\)")
 
 class Parser(object):
 
