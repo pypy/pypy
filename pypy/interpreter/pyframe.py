@@ -10,6 +10,7 @@ import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import we_are_jitted, hint
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib import jit
 
 # Define some opcodes used
 g = globals()
@@ -245,7 +246,8 @@ class PyFrame(eval.Frame):
             return Arguments(self.space, self.peekvalues(nargs))
         else:
             return ArgumentsFromValuestack(self.space, self, nargs)
-            
+
+    @jit.dont_look_inside
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         from pypy.module._pickle_support import maker # helper fns
@@ -304,6 +306,7 @@ class PyFrame(eval.Frame):
 
         return nt([new_inst, nt([]), nt(tup_state)])
 
+    @jit.dont_look_inside
     def descr__setstate__(self, space, w_args):
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
@@ -368,6 +371,7 @@ class PyFrame(eval.Frame):
     def getcode(self):
         return hint(self.pycode, promote=True)
 
+    @jit.dont_look_inside
     def getfastscope(self):
         "Get the fast locals as a list."
         return self.fastlocals_w
@@ -378,7 +382,10 @@ class PyFrame(eval.Frame):
         scope_len = len(scope_w)
         if scope_len > len(self.fastlocals_w):
             raise ValueError, "new fastscope is longer than the allocated area"
-        self.fastlocals_w[:scope_len] = scope_w
+        # don't assign directly to 'fastlocals_w[:scope_len]' to be
+        # virtualizable-friendly
+        for i in range(scope_len):
+            self.fastlocals_w[i] = scope_w[i]
         self.init_cells()
 
     def init_cells(self):

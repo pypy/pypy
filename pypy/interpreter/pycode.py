@@ -12,6 +12,7 @@ from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.debug import make_sure_not_resized, make_sure_not_modified
+from pypy.rlib import jit
 
 # helper
 
@@ -183,6 +184,7 @@ class PyCode(eval.Code):
         
         self.fast_natural_arity = PyCode.FLATPYCALL | self.co_argcount
 
+    @jit.dont_look_inside
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func.closure)
@@ -194,6 +196,7 @@ class PyCode(eval.Code):
         frame.init_cells()
         return frame.run()
 
+    @jit.dont_look_inside
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func.closure)
