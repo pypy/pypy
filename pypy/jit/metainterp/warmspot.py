@@ -184,6 +184,8 @@ class WarmRunnerDesc:
         assert len(dict.fromkeys(graph.getargs())) == len(graph.getargs())
         self.translator.graphs.append(graph)
         self.portal_graph = graph
+        if hasattr(graph, "func"):
+            graph.func._dont_inline_ = True
         self.jitdriver = block.operations[pos].args[1].value
 
     def prejit_optimizations(self, policy):
