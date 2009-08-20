@@ -20,7 +20,7 @@ from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 
-PyFrame._virtualizable2_ = ['last_instr',
+PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
                             'fastlocals_w[*]',
                             ]
