@@ -60,7 +60,7 @@ class BaseTestRegalloc(object):
                      jump_targets=jump_targets,
                      boxkinds=boxkinds)
 
-    def interpret(self, ops, args, jump_targets=None):
+    def interpret(self, ops, args, jump_targets=None, run=True):
         loop = self.parse(ops, jump_targets=jump_targets)
         self.cpu.compile_operations(loop)
         for i, arg in enumerate(args):
@@ -70,7 +70,8 @@ class BaseTestRegalloc(object):
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
                 self.cpu.set_future_value_ptr(i, llgcref)
-        self.cpu.execute_operations(loop)
+        if run:
+            self.cpu.execute_operations(loop)
         return loop
 
     def getint(self, index):
@@ -363,7 +364,8 @@ class TestRegallocGc(BaseTestRegalloc):
     cpu.gcrefs = cpu.gc_ll_descr.GcRefList()
 
     S = lltype.GcForwardReference()
-    S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S))))
+    S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S)),
+                             ('int', lltype.Signed)))
 
     fielddescr = cpu.fielddescrof(S, 'field')
 
@@ -371,6 +373,10 @@ class TestRegallocGc(BaseTestRegalloc):
     struct_ref = lltype.cast_opaque_ptr(llmemory.GCREF, struct_ptr)
     child_ptr = lltype.nullptr(S)
     struct_ptr.field = child_ptr
+
+
+    descr0 = cpu.fielddescrof(S, 'int')
+    ptr0 = struct_ref
 
     namespace = locals().copy()
 
@@ -402,3 +408,48 @@ class TestRegallocGc(BaseTestRegalloc):
         '''
         self.interpret(ops, [0])
         assert not self.getptr(0, lltype.Ptr(self.S))
+
+    def test_bug_0(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        guard_value(i2, 1)
+            fail(i2, i3, i4, i5, i6, i7, i0, i1, i8)
+        guard_class(i4, 138998336)
+            fail(i4, i5, i6, i7, i0, i1, i8)
+        i11 = getfield_gc(i4, descr=descr0)
+        i12 = ooisnull(i11)
+        guard_false(i12)
+            fail(i4, i5, i6, i7, i0, i1, i11, i8)
+        i13 = getfield_gc(i11, descr=descr0)
+        i14 = ooisnull(i13)
+        guard_true(i14)
+            fail(i4, i5, i6, i7, i0, i1, i11, i8)
+        i15 = getfield_gc(i4, descr=descr0)
+        i17 = int_lt(i15, 0)
+        guard_false(i17)
+            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        i18 = getfield_gc(i11, descr=descr0)
+        i19 = int_ge(i15, i18)
+        guard_false(i19)
+            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        i20 = int_lt(i15, 0)
+        guard_false(i20)
+            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        i21 = getfield_gc(i11, descr=descr0)
+        i22 = getfield_gc(i11, descr=descr0)
+        i23 = int_mul(i15, i22)
+        i24 = int_add(i21, i23)
+        i25 = getfield_gc(i4, descr=descr0)
+        i27 = int_add(i25, 1)
+        setfield_gc(i4, i27, descr=descr0)
+        i29 = getfield_raw(144839744, descr=descr0)
+        i31 = int_and(i29, -2141192192)
+        i32 = int_is_true(i31)
+        guard_false(i32)
+            fail(i4, i6, i7, i0, i1, i24)
+        i33 = getfield_gc(i0, descr=descr0)
+        guard_value(i33, ConstPtr(ptr0))
+            fail(i4, i6, i7, i0, i1, i33, i24)
+        jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24)
+        '''
+        self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0, 0], run=False)

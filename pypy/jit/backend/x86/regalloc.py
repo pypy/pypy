@@ -107,7 +107,6 @@ class RegAlloc(object):
         if not we_are_translated():
             # make sure no duplicates
             assert len(dict.fromkeys(self.reg_bindings.values())) == len(self.reg_bindings)
-            # this is not true, due to jump args
             assert (len(dict.fromkeys([str(i) for i in self.stack_bindings.values()]
                                       )) == len(self.stack_bindings))
             rev_regs = dict.fromkeys(self.reg_bindings.values())
@@ -116,6 +115,8 @@ class RegAlloc(object):
             assert len(rev_regs) + len(self.free_regs) == len(REGS)
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(REGS)
+        for v in self.reg_bindings:
+            assert self.longevity[v][1] > self.position
 
     def Load(self, v, from_loc, to_loc):
         if not we_are_translated():
