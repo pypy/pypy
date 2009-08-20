@@ -3,6 +3,7 @@
 new tests from crashes
 """
 
+import autopath
 import sys, py, re
 
 def count_indent(s):
@@ -16,18 +17,45 @@ def count_indent(s):
 class EndOfBlock(Exception):
     pass
 
-class Block(object):
+class OpContainer(object):
     def __init__(self):
         self.operations = []
 
     def add(self, element):
         self.operations.append(element)
 
-class Comment(object):
+    def get_operations(self):
+        return self.operations
+
+    def get_display_text(self):
+        return repr(self)
+
+
+class Loop(OpContainer):
+
+    def __repr__(self):
+        return "Loop"
+
+class Block(OpContainer):
+
+    def __repr__(self):
+        return "Block"
+
+class BaseOperation(object):
+
+    def is_guard(self):
+        return False
+
+class Comment(BaseOperation):
     def __init__(self, text):
         self.text = text
+        self.args = []
+        self.result = None
 
-class Operation(object):
+    def __repr__(self):
+        return "Comment: %r" % (self.text,)
+
+class Operation(BaseOperation):
     def __init__(self, opname, args, result=None, descr=None):
         self.opname = opname
         self.args   = args
@@ -45,13 +73,21 @@ class GuardOperation(Operation):
     def suboperations(self):
         return self.subblock.operations
 
+    def is_guard(self):
+        return True
+
 class AbstractValue(object):
 
-    def __init__(self, value):
+    def __init__(self, iden, value):
         self.value = int(value)
+        self.iden = iden
+
+    def __repr__(self):
+        klass = self.__class__.__name__
+        return "%s(%s, %s)" % (klass, self.iden, self.value)
 
 class Box(AbstractValue):
-    pass
+    is_box = True
 
 class BoxInt(Box):
     pass
@@ -95,7 +131,7 @@ class Parser(object):
     current_indentation = 0
 
     def parse(self, fname):
-        self.current_block = Block()
+        self.current_block = Loop()
         self.blockstack = []
         self.boxes = {}
         data = py.path.local(fname).read()
@@ -107,7 +143,7 @@ class Parser(object):
              i = self._parse(lines, i)
              loops.append(self.current_block)
              self.boxes = {}
-             self.current_block = Block()
+             self.current_block = Loop()
         assert not self.blockstack
         return loops
 
@@ -124,7 +160,7 @@ class Parser(object):
         except KeyError:
             box_type, tp = tp_info
             klass = box_map[box_type][tp]
-            node = klass(value)
+            node = klass(key, value)
             self.boxes[key] = node
         assert node.__class__ is box_map[tp_info[0]][tp_info[1]]
         return node
@@ -195,4 +231,11 @@ class Parser(object):
             return i + 1
         else:
             raise AssertionError("shouldn't happen (python bug????)")
+
+if __name__ == "__main__":
+    from pypy.jit.metainterp.graphpage import display_loops
+    fn = sys.argv[1]
+    parser = Parser()
+    loops = parser.parse(fn)
+    display_loops(loops)
 
