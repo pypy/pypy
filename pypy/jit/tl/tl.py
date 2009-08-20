@@ -2,7 +2,7 @@
 
 import py
 from pypy.jit.tl.tlopcode import *
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 
 def char2int(c):
     t = ord(c)
@@ -12,7 +12,8 @@ def char2int(c):
 
 class Stack(object):
     _virtualizable2_ = ['stackpos', 'stack[*]']
-    
+
+    @dont_look_inside
     def __init__(self, size):
         self.stack = [0] * size
         self.stackpos = 0

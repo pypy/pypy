@@ -302,7 +302,6 @@ class BytecodeMaker(object):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
-        self._tmphack = False
 
     def assemble(self):
         """Assemble the opcodes for self.bytecode."""
@@ -313,24 +312,10 @@ class BytecodeMaker(object):
         self.seen_blocks = {}
         self.dont_minimize_variables = 0
         self.pending_exception_handlers = []
-        try:
-            self.make_bytecode_block(self.graph.startblock)
-            while self.pending_exception_handlers:
-                exc_handler = self.pending_exception_handlers.pop()
-                self.make_exception_handler(exc_handler)
-        except VirtualizableArrayField:
-            # using a virtualizable's array in an unsupported way -- give up
-            # (XXX temporary hack, improve...)
-            if self.portal:
-                raise
-            history.log.WARNING('general usage of a virtualizable array, '
-                                'ignoring graph')
-            history.log.WARNING('  %s' % (self.graph,))
-            assert self._tmphack is False
-            self._tmphack = True
-            self.graph = make_calling_stub(self.codewriter.rtyper, self.graph)
-            self.assemble()
-            return
+        self.make_bytecode_block(self.graph.startblock)
+        while self.pending_exception_handlers:
+            exc_handler = self.pending_exception_handlers.pop()
+            self.make_exception_handler(exc_handler)
 
         labelpos = {}
         code = assemble(labelpos, self.codewriter.metainterp_sd,
@@ -932,7 +917,7 @@ class BytecodeMaker(object):
         if op.args[1].value in vinfo.static_field_to_extra_box:
             return True
         if op.args[1].value in vinfo.array_fields:
-            raise VirtualizableArrayField
+            raise VirtualizableArrayField(self.graph)
         return False
 
     def handle_getfield_typeptr(self, op):
@@ -1075,8 +1060,6 @@ class BytecodeMaker(object):
 
     def serialize_op_direct_call(self, op):
         kind = self.codewriter.policy.guess_call_kind(op)
-        if self._tmphack:
-            kind = 'residual'
         return getattr(self, 'handle_%s_call' % kind)(op)
 
     def serialize_op_indirect_call(self, op):
@@ -1424,7 +1407,7 @@ class BytecodeMaker(object):
                 return self.var_positions[v]
             except KeyError:
                 if v in self.vable_array_vars:
-                    raise VirtualizableArrayField
+                    raise VirtualizableArrayField(self.graph)
                 raise
 
     def emit(self, *stuff):
@@ -1534,4 +1517,6 @@ def make_calling_stub(rtyper, graph):
     return newgraph
 
 class VirtualizableArrayField(Exception):
-    pass
+    def __str__(self):
+        return "using virtualizable array in illegal way in %r" % (
+            self.args[0],)

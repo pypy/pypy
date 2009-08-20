@@ -110,7 +110,7 @@ class ToyLanguageTests:
                          'int_is_true':1, 'guard_false':1, 'jump':1,
                           'guard_value':1})
 
-    def test_tl_call(self, listops=True):
+    def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
         from pypy.jit.metainterp import simple_optimize
@@ -146,14 +146,21 @@ class ToyLanguageTests:
             return interp(codes[num], inputarg=arg)
         
         res = self.meta_interp(main, [0, 20], optimizer=simple_optimize,
-                               listops=listops, backendopt=True)
+                               listops=listops, backendopt=True, policy=policy)
         assert res == 0
 
     def test_tl_call_full_of_residuals(self):
         # This forces most methods of Stack to be ignored and treated as
         # residual calls.  It tests that the right thing occurs in this
         # case too.
-        self.test_tl_call(listops=False)
+        from pypy.jit.tl.tl import Stack
+        methods = [Stack.put,
+                   Stack.pick,
+                   Stack.roll,
+                   Stack.append,
+                   Stack.pop]
+        methods = [m.im_func for m in methods]
+        self.test_tl_call(listops=False, policy=StopAtXPolicy(*methods))
 
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):

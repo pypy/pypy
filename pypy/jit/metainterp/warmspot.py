@@ -47,9 +47,8 @@ def apply_jit(translator, backend_name="auto", debug_level="steps", **kwds):
 def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
                    **kwds):
     interp, graph = get_interpreter(function, args,
-                                    backendopt=backendopt,
-                                    type_system=type_system,
-                                    inline_threshold=0)
+                                    backendopt=False,  # will be done below
+                                    type_system=type_system)
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 

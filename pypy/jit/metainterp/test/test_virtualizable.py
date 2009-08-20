@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.policy import StopAtXPolicy
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
@@ -343,11 +343,14 @@ class ExplicitVirtualizableTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
                                 virtualizables = ['xy2'])
         ARRAY = lltype.GcArray(lltype.Signed)
+        #
+        @dont_look_inside
         def h(xy2):
-            # so far, this function is marked for residual calls because
+            # this function is marked for residual calls because
             # it does something with a virtualizable's array that is not
             # just accessing an item
             return xy2.inst_l2
+        #
         def g(xy2, n):
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
