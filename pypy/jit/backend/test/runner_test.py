@@ -265,84 +265,6 @@ class BaseBackendTest(Runner):
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
 
-    def test_exceptions(self):
-        exc_tp = None
-        exc_ptr = None
-        def func(i):
-            if i:
-                raise LLException(exc_tp, exc_ptr)
-
-        ops = '''
-        [i0]
-        call(ConstClass(fptr), i0, descr=calldescr)
-        p0 = guard_exception(ConstClass(xtp))
-            fail(1)
-        fail(0, p0)
-        '''
-        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
-        fptr = llhelper(FPTR, func)
-        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
-
-        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        xtp.subclassrange_min = 1
-        xtp.subclassrange_max = 3
-        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
-                            hints={'vtable':  xtp._obj})
-        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
-
-
-        exc_tp = xtp
-        exc_ptr = xptr
-        loop = parse(ops, self.cpu, namespace=locals())
-        self.cpu.compile_operations(loop)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_operations(loop)
-        assert self.cpu.get_latest_value_int(0) == 0
-        assert self.cpu.get_latest_value_ptr(1) == xptr
-        self.cpu.clear_exception()
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_operations(loop)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-
-        ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        ytp.subclassrange_min = 2
-        ytp.subclassrange_max = 2
-        assert rclass.ll_issubclass(ytp, xtp)
-        Y = lltype.GcStruct('Y', ('parent', rclass.OBJECT),
-                            hints={'vtable':  ytp._obj})
-        yptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(Y))
-
-        # guard_exception uses an exact match
-        exc_tp = ytp
-        exc_ptr = yptr
-        loop = parse(ops, self.cpu, namespace=locals())
-        self.cpu.compile_operations(loop)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_operations(loop)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-
-        exc_tp = xtp
-        exc_ptr = xptr
-        ops = '''
-        [i0]
-        call(ConstClass(fptr), i0, descr=calldescr)
-        guard_no_exception()
-            fail(1)
-        fail(0)
-        '''
-        loop = parse(ops, self.cpu, namespace=locals())
-        self.cpu.compile_operations(loop)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_operations(loop)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_operations(loop)
-        assert self.cpu.get_latest_value_int(0) == 0
-        self.cpu.clear_exception()
-
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
 
@@ -928,6 +850,84 @@ class LLtypeBackendTest(BaseBackendTest):
         assert (sorted([chr2, chr1, value]) ==
                 [value, chr1, chr2])
         assert len(dict.fromkeys([value, chr1, chr2]).keys()) == 3
+
+    def test_exceptions(self):
+        exc_tp = None
+        exc_ptr = None
+        def func(i):
+            if i:
+                raise LLException(exc_tp, exc_ptr)
+
+        ops = '''
+        [i0]
+        call(ConstClass(fptr), i0, descr=calldescr)
+        p0 = guard_exception(ConstClass(xtp))
+            fail(1)
+        fail(0, p0)
+        '''
+        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+        fptr = llhelper(FPTR, func)
+        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+
+        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        xtp.subclassrange_min = 1
+        xtp.subclassrange_max = 3
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                            hints={'vtable':  xtp._obj})
+        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
+
+
+        exc_tp = xtp
+        exc_ptr = xptr
+        loop = parse(ops, self.cpu, namespace=locals())
+        self.cpu.compile_operations(loop)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 0
+        assert self.cpu.get_latest_value_ptr(1) == xptr
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+
+        ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        ytp.subclassrange_min = 2
+        ytp.subclassrange_max = 2
+        assert rclass.ll_issubclass(ytp, xtp)
+        Y = lltype.GcStruct('Y', ('parent', rclass.OBJECT),
+                            hints={'vtable':  ytp._obj})
+        yptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(Y))
+
+        # guard_exception uses an exact match
+        exc_tp = ytp
+        exc_ptr = yptr
+        loop = parse(ops, self.cpu, namespace=locals())
+        self.cpu.compile_operations(loop)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+
+        exc_tp = xtp
+        exc_ptr = xptr
+        ops = '''
+        [i0]
+        call(ConstClass(fptr), i0, descr=calldescr)
+        guard_no_exception()
+            fail(1)
+        fail(0)
+        '''
+        loop = parse(ops, self.cpu, namespace=locals())
+        self.cpu.compile_operations(loop)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 0
+        self.cpu.clear_exception()
 
 class OOtypeBackendTest(BaseBackendTest):
 
