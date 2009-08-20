@@ -38,12 +38,12 @@ config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
-config.translation.rweakref = False # XXX
 set_pypy_opt_level(config, level='0')
 config.objspace.std.builtinshortcut = True
 config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
 config.objspace.std.withrangelist = True
 config.objspace.std.withsharingdict = True
+config.objspace.std.withmethodcache = True
 
 if BACKEND == 'c':
     config.objspace.std.multimethods = 'mrd'
