@@ -168,9 +168,6 @@ class Parser(object):
     def parse_result(self, result):
         return result
 
-    def parse_inputargs(self, inputargs):
-        return inputargs
-
     def parse_block(self, lines, start, guard_op):
         self.blockstack.append(self.current_block)
         block = Block()
@@ -187,7 +184,7 @@ class Parser(object):
             raise EndOfBlock()
         if line.startswith('LOOP'):
             _, inputargs = line.split(" ")
-            self.current_block.inputargs = self.parse_inputargs(inputargs)
+            self.current_block.inputargs = self._parse_boxes(inputargs)
             return i + 1
         if line.startswith('END'):
             raise EndOfBlock()

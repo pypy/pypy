@@ -9,6 +9,9 @@ class TestParser(object):
 
     def test_simple_loop(self):
         topblock, = self.parse('simple.ops')
+        assert len(topblock.inputargs) == 3
+        for arg in topblock.inputargs:
+            assert isinstance(arg, BoxInt)
         assert len(topblock.operations) == 7
         assert isinstance(topblock.operations[0], Comment)
         assert topblock.operations[0].text == \
