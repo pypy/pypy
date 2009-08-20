@@ -280,6 +280,11 @@ class GcLLDescr_framework(GcLLDescription):
         self.cpu = cpu
         self.translator = cpu.mixlevelann.rtyper.annotator.translator
 
+        # we need the hybrid GC for GcRefList.alloc_gcref_list() to work
+        if gcdescr.config.translation.gc != 'hybrid':
+            raise NotImplementedError("--gc=%s not implemented with the JIT" %
+                                      (gcdescr.config.translation.gc,))
+
         # to find roots in the assembler, make a GcRootMap
         name = gcdescr.config.translation.gcrootfinder
         try:
