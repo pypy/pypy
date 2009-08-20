@@ -187,13 +187,12 @@ class Parser(object):
             return i + 1
 
     def _parse(self, lines, i):
-        while True:
-            try:
-                indentation = count_indent(lines[i])
-                if indentation == self.current_indentation:
-                    i = self.parse_next_instruction(lines, i)
-                else:
-                    xxx
-            except EndOfBlock:
-                return i + 1
+        try:
+            while True:
+                i = self.parse_next_instruction(lines, i)
+        except EndOfBlock:
+            assert i < len(lines)
+            return i + 1
+        else:
+            raise AssertionError("shouldn't happen (python bug????)")
 
