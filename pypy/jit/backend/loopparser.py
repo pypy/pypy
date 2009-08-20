@@ -266,13 +266,23 @@ def convert_to_oparse(loops):
     loop, = loops
     print "[%s]" % (", ".join(arg.pretty for arg in loop.inputargs),)
     _write_operations(loop.operations, 0)
-    sys.exit(0)
 
 
 if __name__ == "__main__":
     from pypy.jit.metainterp.graphpage import display_loops
-    fn = sys.argv[1]
+    if len(sys.argv) != 3:
+        print >> sys.stderr, "usage: (convert | show) file"
+        sys.exit(2)
+    operation = sys.argv[1]
+    fn = sys.argv[2]
     parser = Parser()
     loops = parser.parse(fn)
-    convert_to_oparse(loops)
+    if operation == "convert":
+        convert_to_oparse(loops)
+    elif operation == "show":
+        display_loops(loops)
+    else:
+        print >> sys.stderr, "invalid operation"
+        sys.exit(2)
+    sys.exit(0)
 
