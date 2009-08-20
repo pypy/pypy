@@ -532,7 +532,7 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         builder.cpu.clear_exception()
         while True:
             _, vtableptr = builder.get_random_structure_type_and_vtable(r)
-            if not rclass.ll_issubclass(vtableptr, exc):
+            if vtableptr != exc:
                 break
         other_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
         op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr())

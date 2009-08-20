@@ -552,7 +552,8 @@ class Frame(object):
         exc = _last_exception
         if exc:
             got = exc.args[0]
-            if not self._issubclass(got, expected_exception):
+            # exact match!
+            if got != expected_exception:
                 return False
             return True
         else:
