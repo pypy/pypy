@@ -103,10 +103,16 @@ class BoxPtr(Box):
     pass
 
 class Const(AbstractValue):
-    pass
+
+    @property
+    def pretty(self):
+        return "%s(REPLACE!!!)" % (self.__class__.__name__,)
 
 class ConstInt(Const):
-    pass
+
+    @property
+    def pretty(self):
+        return str(self.value)
 
 class ConstAddr(Const):
     pass
