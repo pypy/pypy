@@ -426,6 +426,7 @@ class ExceptionTests:
                     i += 1
                 except OverflowError:
                     i += 2
+            return 0
 
         self.meta_interp(f, [0, 0])
         self.meta_interp(f, [1, 0])
