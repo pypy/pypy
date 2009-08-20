@@ -13,7 +13,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.support import AbstractLogger
+from pypy.jit.backend.logger import AbstractLogger
 
 # our calling convention - we pass three first args as edx, ecx and eax
 # and the rest stays on the stack

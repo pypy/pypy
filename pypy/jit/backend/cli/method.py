@@ -10,7 +10,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
                                          ConstObj)
 from pypy.jit.metainterp.resoperation import rop, opname
-from pypy.jit.backend.support import AbstractLogger
+from pypy.jit.backend.logger import AbstractLogger
 from pypy.jit.backend.cli import runner
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 

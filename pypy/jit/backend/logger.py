@@ -69,7 +69,7 @@ class AbstractLogger(object):
             op = operations[i]
             if op.opnum == rop.DEBUG_MERGE_POINT:
                 loc = op.args[0]._get_str()
-                os.write(self._log_fd, pre + "%s\n" % (loc,))
+                os.write(self._log_fd, pre + "#%s\n" % (loc,))
                 continue
             args = ",".join([self.repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None:
@@ -85,13 +85,13 @@ class AbstractLogger(object):
             if op.is_guard():
                 self.eventually_log_operations(None, op.suboperations, memo,
                                                indent=indent+2)
-        if operations[-1].opnum == rop.JUMP:
-            if operations[-1].jump_target is not None:
-                jump_target = compute_unique_id(operations[-1].jump_target)
-            else:
-                # XXX hack for the annotator
-                jump_target = 13
-            os.write(self._log_fd, pre + 'JUMPTO:%s\n' % jump_target)
+#         if operations[-1].opnum == rop.JUMP:
+#             if operations[-1].jump_target is not None:
+                
+#             else:
+#                 # XXX hack for the annotator
+#                 jump_target = 13
+#             os.write(self._log_fd, pre + 'JUMPTO:%s\n' % jump_target)
         if inputargs is None:
             os.write(self._log_fd, pre + "END\n")
         else:
