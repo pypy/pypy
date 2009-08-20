@@ -86,6 +86,10 @@ class AbstractValue(object):
         klass = self.__class__.__name__
         return "%s(%s, %s)" % (klass, self.iden, self.value)
 
+    @property
+    def pretty(self):
+        return "i%s" % (self.iden,)
+
 class Box(AbstractValue):
     pass
 
@@ -229,10 +233,40 @@ class Parser(object):
         else:
             raise AssertionError("shouldn't happen (python bug????)")
 
+
+def _write_operations(ops, level):
+    def write(stuff):
+        print " " * level + stuff
+    for op in (op for op in ops if not isinstance(op, Comment)):
+        args = [arg.pretty for arg in op.args]
+        if op.descr:
+            args.append("descr=%r" % (op.descr,))
+        args_string = ", ".join(args)
+        op_string = "%s(%s)" % (op.opname, args_string)
+        if op.is_guard():
+            write(op_string)
+            _write_operations(op.suboperations, level + 4)
+        else:
+            if op.result is None:
+                write(op_string)
+            else:
+                write("%s = %s" % (op.result.pretty, op_string))
+
+
+def convert_to_oparse(loops):
+    if len(loops) > 1:
+        print >> sys.stderr, "there's more than one loop in that file!"
+        sys.exit(1)
+    loop, = loops
+    print "[%s]" % (", ".join(arg.pretty for arg in loop.inputargs),)
+    _write_operations(loop.operations, 0)
+    sys.exit(0)
+
+
 if __name__ == "__main__":
     from pypy.jit.metainterp.graphpage import display_loops
     fn = sys.argv[1]
     parser = Parser()
     loops = parser.parse(fn)
-    display_loops(loops)
+    convert_to_oparse(loops)
 
