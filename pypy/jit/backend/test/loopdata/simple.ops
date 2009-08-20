@@ -1,0 +1,15 @@
+LOOP bi(0,6),bi(1,4),bi(2,18)
+#(no jitdriver.get_printable_location!)
+1:int_add bi(2,18),bi(0,6)
+  => bi(3,24)
+2:int_sub bi(1,4),ci(4,1)
+  => bi(5,3)
+3:int_gt bi(5,3),ci(6,0)
+  => bi(7,1)
+4:guard_true bi(7,1)
+  BEGIN(0)
+  0:fail bi(0,6),bi(5,3),bi(3,24)[]
+  END
+#(no jitdriver.get_printable_location!)
+6:jump bi(0,6),bi(5,3),bi(3,24)
+LOOP END
