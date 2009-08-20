@@ -109,6 +109,9 @@ def find_set_param(graphs):
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
 
+def get_translator():
+    return pyjitpl._warmrunnerdesc.translator
+
 def debug_checks():
     stats = get_stats()
     stats.maybe_view()

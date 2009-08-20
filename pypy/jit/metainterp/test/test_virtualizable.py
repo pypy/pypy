@@ -7,7 +7,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.rclass import FieldListAccessor
-from pypy.jit.metainterp.warmspot import get_stats
+from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history, heaptracker
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
@@ -703,6 +703,60 @@ class ImplicitVirtualizableTests:
         assert res == intmask(42 ** 70)
         self.check_loops(int_add=0,
                          int_sub=1)   # for 'n -= 1' only
+
+    def test_simple_access_directly(self):
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.y = y
+
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def f(n):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
+            frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                frame.y += frame.x
+                frame.x -= 1
+            return somewhere_else.top_frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
+        t = get_translator()
+        f_graph = t.graphs[0]
+        assert f_graph.func is f
+        portal_graph = t.graphs[-1]
+        assert portal_graph.func is f
+        init_graph = t._graphof(Frame.__init__.im_func)
+
+        deref = t.rtyper.type_system_deref
+
+        def direct_calls(graph):
+            return [deref(op.args[0].value)._callable.func_name
+                    for block, op in graph.iterblockops()
+                        if op.opname == 'direct_call']
+
+        if isinstance(self, OOJitMixin):
+            py.test.skip("oo virtualizable support incomplete")
+        
+        assert direct_calls(f_graph) == ['__init__', 'force_if_necessary', 'll_portal_runner']
+        assert direct_calls(portal_graph) == ['force_if_necessary', 'maybe_enter_jit']
+
+        assert direct_calls(init_graph) == []
+            
 
 
 class TestOOtype(#ExplicitVirtualizableTests,
