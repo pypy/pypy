@@ -55,17 +55,9 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         unboxed = [subdef for subdef in classdef.getallsubdefs()
                           if subdef.classdesc.pyobj is not None and
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable = classdef.classdesc.read_attribute('_virtualizable_',
-                                                          Constant(False)).value
         virtualizable2 = classdef.classdesc.read_attribute('_virtualizable2_',
                                                            Constant(False)).value
-    if virtualizable:
-        assert rtyper.type_system.name == 'lltypesystem'
-        assert len(unboxed) == 0
-        assert gcflavor == 'gc'
-        from pypy.rpython.lltypesystem import rvirtualizable
-        return rvirtualizable.VirtualizableInstanceRepr(rtyper, classdef)
-    elif virtualizable2:
+    if virtualizable2:
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
         return rtyper.type_system.rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)

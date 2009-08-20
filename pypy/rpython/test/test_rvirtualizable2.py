@@ -241,7 +241,6 @@ class TestLLtype(LLRtypeMixin, BaseTest):
         assert res.item1 == 42
         res = lltype.normalizeptr(res.item0)
         assert res.inst_v == 42
-        py.test.skip("later")
         assert not res.vable_rti
 
 class TestOOtype(OORtypeMixin, BaseTest):
