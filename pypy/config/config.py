@@ -259,7 +259,11 @@ class ChoiceOption(Option):
         for path, reqvalue in self._requires.get(value, []):
             toplevel = config._cfgimpl_get_toplevel()
             homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
-            homeconfig.setoption(name, reqvalue, who)
+            if who == 'default':
+                who2 = 'default'
+            else:
+                who2 = 'required'
+            homeconfig.setoption(name, reqvalue, who2)
         for path, reqvalue in self._suggests.get(value, []):
             toplevel = config._cfgimpl_get_toplevel()
             homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
@@ -303,7 +307,11 @@ class BoolOption(Option):
             for path, reqvalue in self._requires:
                 toplevel = config._cfgimpl_get_toplevel()
                 homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
-                homeconfig.setoption(name, reqvalue, "required")
+                if who == 'default':
+                    who2 = 'default'
+                else:
+                    who2 = 'required'
+                homeconfig.setoption(name, reqvalue, who2)
         if value and self._suggests is not None:
             for path, reqvalue in self._suggests:
                 toplevel = config._cfgimpl_get_toplevel()
