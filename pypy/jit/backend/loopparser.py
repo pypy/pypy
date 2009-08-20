@@ -88,19 +88,19 @@ class AbstractValue(object):
 
     @property
     def pretty(self):
-        return "i%s" % (self.iden,)
+        return "%s%s" % (self._var_prefix, self.iden)
 
 class Box(AbstractValue):
     pass
 
 class BoxInt(Box):
-    pass
+    _var_prefix = "i"
 
 class BoxAddr(Box):
     pass
 
 class BoxPtr(Box):
-    pass
+    _var_prefix = "p"
 
 class Const(AbstractValue):
 
