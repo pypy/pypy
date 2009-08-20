@@ -272,14 +272,18 @@ class GuardOperation(AbstractOperation):
 class GuardValueOperation(GuardOperation):
     def gen_guard(self, builder, r):
         v = r.choice(builder.intvars)
-        if r.random() < 0.75:
-            value = v.value
-        elif r.random() < 0.5:
-            value = v.value ^ 1
+        if r.random() > 0.8:
+            other = r.choice(builder.intvars)
         else:
-            value = r.random_integer()
-        op = ResOperation(self.opnum, [v, ConstInt(value)], None)
-        return op, (v.value == value)
+            if r.random() < 0.75:
+                value = v.value
+            elif r.random() < 0.5:
+                value = v.value ^ 1
+            else:
+                value = r.random_integer()
+            other = ConstInt(value)
+        op = ResOperation(self.opnum, [v, other], None)
+        return op, (v.value == other.value)
 
 # ____________________________________________________________
 
