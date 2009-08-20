@@ -1,0 +1,54 @@
+LOOP bi(0,-1207988264),bp(1,177266788),bp(2,177102816),bi(3,0),bi(4,0),bi(5,3)
+0:call bi(0,-1207988264),bp(1,177266788),bp(2,177102816),bi(3,0),bi(4,0),bi(5,3)[5,0,False]
+  => bi(6,0)                                                                               
+1:guard_no_exception                                                                       
+  BEGIN(0)                                                                                 
+  0:fail                                                                                   
+  END                                                                                      
+2:fail bi(6,0)
+LOOP END
+LOOP bp(0,177266788),bi(1,97)
+#(no jitdriver.get_printable_location!)
+1:newstr ci(2,1)
+  => bp(3,177102832)
+2:strsetitem bp(3,177102832),ci(4,0),bi(1,97)
+3:strlen bp(0,177266788)
+  => bi(5,3)
+4:strlen bp(3,177102832)
+  => bi(6,1)
+5:int_add bi(5,3),bi(6,1)
+  => bi(7,4)
+6:int_ge bi(7,4),ci(4,0)
+  => bi(8,1)
+7:newstr bi(7,4)
+  => bp(9,177102816)
+8:call ca(10,175948220),bp(0,177266788),bp(9,177102816),ci(4,0),ci(4,0),bi(5,3)[5,0,False]
+9:guard_no_exception
+  BEGIN(0)
+  0:fail bp(0,177266788),bi(1,97),bp(3,177102832),bi(5,3),bi(6,1),bi(7,4),bp(9,177102816)[]
+  END
+10:call ca(10,175948220),bp(3,177102832),bp(9,177102816),ci(4,0),bi(5,3),bi(6,1)[5,0,False]
+11:guard_no_exception
+  BEGIN(0)
+  0:fail bp(0,177266788),bi(1,97),bp(3,177102832),bi(5,3),bi(6,1),bi(7,4),bp(9,177102816)[]
+  END
+12:int_sub bi(1,97),ci(2,1)
+  => bi(11,96)
+13:int_gt bi(11,96),ci(12,13)
+  => bi(13,1)
+14:guard_true bi(13,1)
+  BEGIN(0)
+  0:fail bi(11,96),bp(9,177102816)[]
+  END
+#(no jitdriver.get_printable_location!)
+16:jump bp(9,177102816),bi(11,96)
+LOOP END
+LOOP bi(0,-1207988312),bp(1,177134016)
+0:call bi(0,-1207988312),bp(1,177134016)[1,4,False]
+  => bi(2,0)
+1:guard_no_exception
+  BEGIN(0)
+  0:fail
+  END
+2:fail bi(2,0)
+LOOP END
