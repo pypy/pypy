@@ -82,11 +82,7 @@ translation_optiondescription = OptionDescription(
                      "asmgcc": [("translation.gctransformer", "framework"),
                                 ("translation.backend", "c"),
                                 ("translation.thread", False)],
-                    },
-                 suggests={
-                     "shadowstack": [("translation.gc", "generation")],
-                     "asmgcc": [("translation.gc", "generation")],
-                 }),
+                    }),
 
     # other noticeable options
     BoolOption("thread", "enable use of threading primitives",
