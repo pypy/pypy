@@ -2746,11 +2746,10 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
 
     def test_instance_with_flags(self):
-        py.test.skip("not supported any more")
         from pypy.rlib.jit import hint
 
         class A:
-            _virtualizable_ = True
+            _virtualizable2_ = []
         class B(A):
             def meth(self):
                 return self

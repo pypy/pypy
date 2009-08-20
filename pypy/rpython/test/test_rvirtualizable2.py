@@ -2,6 +2,8 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rvirtualizable2 import replace_promote_virtualizable_with_call
+from pypy.rlib.jit import hint
+from pypy.objspace.flow.model import summary
 
 
 class V(object):
@@ -16,6 +18,13 @@ class VArray(object):
 
     def __init__(self, lst):
         self.lst = lst
+class B(object):
+    _virtualizable2_ = ['v0']
+
+    x = "XX"
+    
+    def __init__(self, v0):
+        self.v0 = v0
 
 class BaseTest(BaseRtypingTest):
     def test_generate_promote_virtualizable(self):
@@ -121,9 +130,105 @@ class BaseTest(BaseRtypingTest):
         assert op_promote.args[0].value == funcptr
         assert op_promote.args[1] == op_getfield.args[0]
 
+    def test_access_directly(self):
+        def g(b):
+            return b.v0
+
+        def f(n):
+            b = B(n)
+            b = hint(b, access_directly=True)
+            return g(b)
+
+        t, typer, graph = self.gengraph(f, [int])
+        g_graph = t._graphof(g)
+        assert summary(g_graph) == {self.GETFIELD: 1}
+
+        res = self.interpret(f, [23]) 
+        assert res == 23
+
+    def test_access_directly_specialized(self):
+        def g(b):
+            return b.v0
+
+        def f(n):
+            b = B(n)
+            x = g(b)
+            y = g(hint(b, access_directly=True))
+            return x + y
+
+        t, typer, graph = self.gengraph(f, [int])
+        desc = typer.annotator.bookkeeper.getdesc(g)
+        g_graphs = desc._cache.items()
+        assert len(g_graphs) == 2
+        g_graphs.sort()
+        assert g_graphs[0][0] is None
+        assert summary(g_graphs[0][1]) == {'promote_virtualizable': 1, self.GETFIELD: 1}
+        assert summary(g_graphs[1][1]) == {self.GETFIELD: 1}        
+
+        res = self.interpret(f, [23]) 
+        assert res == 46
+
+    def test_access_directly_escape(self):
+        class Global:
+            pass
+        glob = Global()
+
+        def g(b):
+            glob.b = b
+
+        def h(b):
+            return b.v0
+
+        def f(n):
+            b = B(n)
+            g(b)
+            g(hint(b, access_directly=True))
+            return h(glob.b)
+
+        t, typer, graph = self.gengraph(f, [int])
+        desc = typer.annotator.bookkeeper.getdesc(g)
+        g_graphs = desc._cache.items()
+        assert len(g_graphs) == 2
+        g_graphs.sort()
+        assert g_graphs[0][0] is None
+        assert summary(g_graphs[0][1]) == {self.SETFIELD: 1}
+        assert summary(g_graphs[1][1]) == {self.SETFIELD: 1}
+        
+        h_graph = t._graphof(h)
+        assert summary(h_graph) == {'promote_virtualizable': 1, self.GETFIELD: 1}
+
+        res = self.interpret(f, [23])
+        assert res == 23
+
+    def test_access_directly_method(self):
+        class A:
+            _virtualizable2_ = ['v0']
+
+            def __init__(self, v):
+                self.v0 = v
+            
+            def meth1(self, x):
+                return self.g(x+1)
+
+            def g(self, y):
+                return self.v0 * y
+
+        def f(n):
+            a = A(n)
+            a = hint(a, access_directly=True)
+            return a.meth1(100)
+
+        t, typer, graph = self.gengraph(f, [int])
+        g_graph = t._graphof(A.g.im_func)
+        assert summary(g_graph) == {self.GETFIELD: 1, 'int_mul': 1}
+
+        res = self.interpret(f, [23])
+        assert res == 2323
 
 class TestLLtype(LLRtypeMixin, BaseTest):
     prefix = 'inst_'
+    GETFIELD = 'getfield'
+    SETFIELD = 'setfield'
 
     def gettype(self, v):
         return v.concretetype.TO
@@ -141,7 +246,16 @@ class TestLLtype(LLRtypeMixin, BaseTest):
 
 class TestOOtype(OORtypeMixin, BaseTest):
     prefix = 'o'
-
+    GETFIELD = 'oogetfield'
+    SETFIELD = 'oosetfield'    
+    
     def gettype(self, v):
         return v.concretetype
 
+    def test_access_directly(self):
+        py.test.skip("ootype doesn't pass around flags")
+
+    test_access_directly_specialized = test_access_directly
+
+    test_access_directly_method = test_access_directly
+    

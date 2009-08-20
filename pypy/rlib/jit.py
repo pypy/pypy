@@ -19,6 +19,18 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_x, **kwds_s):
         from pypy.annotation import model as annmodel
         s_x = annmodel.not_const(s_x)
+        if 's_access_directly' in kwds_s:
+            if isinstance(s_x, annmodel.SomeInstance):
+                from pypy.objspace.flow.model import Constant
+                classdesc = s_x.classdef.classdesc
+                virtualizable = classdesc.read_attribute('_virtualizable2_',
+                                                         Constant(None)).value
+                if virtualizable is not None:
+                    flags = s_x.flags.copy()
+                    flags['access_directly'] = True
+                    s_x = annmodel.SomeInstance(s_x.classdef,
+                                                s_x.can_be_None,
+                                                flags)        
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
