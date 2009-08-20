@@ -28,7 +28,7 @@ class OpContainer(object):
         return self.operations
 
     def get_display_text(self):
-        return repr(self)
+        return str(self)
 
 
 class Loop(OpContainer):
@@ -63,9 +63,10 @@ class Operation(BaseOperation):
         self.descr = descr
 
     def __repr__(self):
+        str_args = [str(arg) for arg in self.args]
         if self.result is None:
-            return "%s(%s)" % (self.opname, self.args)
-        return "%s = %s(%s)" % (self.result, self.opname, self.args)
+            return "%s(%s)" % (self.opname, str_args)
+        return "%s = %s(%s)" % (self.result, self.opname, str_args)
 
 class GuardOperation(Operation):
 
@@ -78,13 +79,19 @@ class GuardOperation(Operation):
 
 class AbstractValue(object):
 
+    is_box = True
+
     def __init__(self, iden, value):
         self.value = int(value)
         self.iden = iden
 
     def __repr__(self):
         klass = self.__class__.__name__
-        return "%s(%s, %s)" % (klass, self.iden, self.value)
+        return "%s%s(%s)" % (klass, self.iden, self.value)
+
+    def __str__(self):
+        klass = self.__class__.__name__
+        return '%s%s' % (klass, self.iden)
 
     @property
     def pretty(self):

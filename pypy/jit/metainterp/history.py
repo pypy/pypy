@@ -377,6 +377,7 @@ class Box(AbstractValue):
     __slots__ = ()
     _extended_display = True
     _counter = 0
+    is_box = True  # hint that we want to make links in graphviz from this
 
     @staticmethod
     def _new(x, cpu):
