@@ -39,6 +39,7 @@ LEVEL_CONSTANT   = 3
 class OptValue(object):
     _attrs_ = ('box', 'level')
     level = LEVEL_UNKNOWN
+    _fields = None
 
     def __init__(self, box):
         self.box = box
@@ -165,6 +166,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
                 newoperations.append(op)
+            self._fields = None
         return self.box
 
     def prepare_force_box(self):
@@ -342,6 +344,8 @@ class Optimizer(object):
         self.cpu = cpu
         self.loop = loop
         self.values = {}
+        self.values_to_clean = []    # OptValues to clean when we see an
+                                     # operation with side-effects
         self.reached_the_end = False
 
     def getvalue(self, box):
@@ -510,6 +514,10 @@ class Optimizer(object):
                 # all constant arguments: constant-fold away
                 self.make_constant(op.result)
                 return
+        elif not op.has_no_side_effect():
+            for value in self.values_to_clean:
+                value._fields = None
+            del self.values_to_clean[:]
         # otherwise, the operation remains
         self.emit_operation(op)
 
@@ -614,8 +622,18 @@ class Optimizer(object):
             assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
         else:
+            # check if the field was read from another getfield_gc just before
+            if value._fields is None:
+                value._fields = av_newdict2()
+            elif op.descr in value._fields:
+                self.make_equal_to(op.result, value._fields[op.descr])
+                return
+            # default case: produce the operation
             value.make_nonnull()
             self.optimize_default(op)
+            # then remember the result of reading the field
+            value._fields[op.descr] = self.getvalue(op.result)
+            self.values_to_clean.append(value)
 
     # note: the following line does not mean that the two operations are
     # completely equivalent, because GETFIELD_GC_PURE is_always_pure().

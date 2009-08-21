@@ -949,6 +949,86 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not), Not',
                            expected)
 
+    def test_duplicate_getfield_1(self):
+        ops = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i1)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getfield_2(self):
+        py.test.skip("in-progress")
+        ops = """
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i2)
+        jump(p1, i1)
+        """
+        expected = """
+        [p1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        escape(i1)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getfield_3(self):
+        py.test.skip("in-progress")
+        ops = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        debug_merge_point(15)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        debug_merge_point(15)
+        escape(i1)
+        escape(i1)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getfield_sideeffects_1(self):
+        ops = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        escape()
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i2)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', ops)
+
+    def test_duplicate_getfield_sideeffects_2(self):
+        py.test.skip("in-progress")
+        ops = """
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        escape()
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i2)
+        jump(p1, i1)
+        """
+        self.optimize_loop(ops, 'Not', ops)
+
     # ----------
 
     def make_fail_descr(self):
