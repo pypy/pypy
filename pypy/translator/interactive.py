@@ -73,6 +73,8 @@ class Translation(object):
                                         kwds.get('standalone'))
         kwds.pop('policy', None)
         kwds.pop('standalone', None)
+        gc = kwds.pop('gc', None)
+        if gc: self.config.translation.gc = gc
         self.config.translation.set(**kwds)
 
     def ensure_opt(self, name, value=None, fallback=None):
