@@ -226,6 +226,8 @@ class RegAlloc(object):
         single_gcref_descr = self.assembler.single_gcref_descr
         newops = []
         for op in operations:
+            if op.opnum == rop.DEBUG_MERGE_POINT:
+                continue
             for i in range(len(op.args)):
                 v = op.args[i]
                 if (isinstance(v, ConstPtr) and v.value

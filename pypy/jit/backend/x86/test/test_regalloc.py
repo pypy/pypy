@@ -409,6 +409,15 @@ class TestRegallocGc(BaseTestRegalloc):
         self.interpret(ops, [0])
         assert not self.getptr(0, lltype.Ptr(self.S))
 
+    def test_get_rid_of_debug_merge_point(self):
+        ops = '''
+        []
+        debug_merge_point()
+        fail()
+        '''
+        loop = self.interpret(ops, [], run=False)
+        assert len(loop.operations) == 1
+
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
