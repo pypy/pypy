@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant, Link, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import _we_are_jitted
-from pypy.jit.metainterp.history import Const, getkind
+from pypy.jit.metainterp.history import Const, getkind, dict_equal_consts
 from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
@@ -81,7 +81,7 @@ class CodeWriter(object):
     portal_graph = None
 
     def __init__(self, metainterp_sd, policy, ts):
-        self.all_prebuilt_values = {}
+        self.all_prebuilt_values = dict_equal_consts()
         self.all_graphs = {}
         self.all_indirectcallsets = {}
         self.all_methdescrs = {}

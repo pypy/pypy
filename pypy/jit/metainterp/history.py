@@ -173,28 +173,26 @@ class Const(AbstractValue):
         return 'Const(%s)' % self._getrepr_()
 
     def __eq__(self, other):
+        "NOT_RPYTHON"
+        # Remember that you should not compare Consts with '==' in RPython.
+        # Consts have no special __hash__, in order to force different Consts
+        # from being considered as different keys when stored in dicts
+        # (as they always are after translation).  Use a dict_equal_consts()
+        # to get the other behavior (i.e. using this __eq__).
         if self.__class__ is not other.__class__:
             return False
         if isinstance(self.value, Symbolic):
-            v = id(self.value)
+            v1 = "symbolic", id(self.value)
         else:
-            v = self.value
+            v1 = self.value
         if isinstance(other.value, Symbolic):
-            v2 = id(other.value)
+            v2 = "symbolic", id(other.value)
         else:
             v2 = other.value
-        return v == v2
+        return v1 == v2
 
     def __ne__(self, other):
         return not (self == other)
-
-    def __hash__(self):
-        if isinstance(self.value, Symbolic):
-            return id(self.value)
-        try:
-            return self.get_()
-        except lltype.DelayedPointer:
-            return -2      # xxx risk of changing hash...
 
 
 class ConstInt(Const):
@@ -538,6 +536,27 @@ class BoxObj(Box):
 def set_future_values(cpu, boxes):
     for j in range(len(boxes)):
         boxes[j].set_future_value(cpu, j)
+
+# ____________________________________________________________
+
+def dict_equal_consts():
+    "NOT_RPYTHON"
+    # Returns a dict in which Consts that compare as equal
+    # are identified when used as keys.
+    return r_dict(dc_eq, dc_hash)
+
+def dc_eq(c1, c2):
+    return c1 == c2
+
+def dc_hash(c):
+    if not isinstance(c, Const):
+        return hash(c)
+    if isinstance(c.value, Symbolic):
+        return id(c.value)
+    try:
+        return c.get_()
+    except lltype.DelayedPointer:
+        return -2      # xxx risk of changing hash...
 
 # ____________________________________________________________
 
