@@ -105,6 +105,7 @@ class ExecutionContext:
         space.setitem(w_globals, w_key, w_value)
         return w_globals
 
+    @jit.dont_look_inside
     def c_call_trace(self, frame, w_func):
         "Profile the call of a builtin function"
         if self.profilefunc is None:
@@ -112,6 +113,7 @@ class ExecutionContext:
         else:
             self._trace(frame, 'c_call', w_func)
 
+    @jit.dont_look_inside
     def c_return_trace(self, frame, w_retval):
         "Profile the return from a builtin function"
         if self.profilefunc is None:
@@ -119,6 +121,7 @@ class ExecutionContext:
         else:
             self._trace(frame, 'c_return', w_retval)
 
+    @jit.dont_look_inside
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."
         if self.profilefunc is None:
@@ -136,6 +139,7 @@ class ExecutionContext:
                 frame = fr[0]
             self.profilefunc(space, self.w_profilefuncarg, frame, event, w_arg)
 
+    @jit.dont_look_inside
     def call_trace(self, frame):
         "Trace the call of a function"
         if self.w_tracefunc is not None or self.profilefunc is not None:
@@ -143,6 +147,7 @@ class ExecutionContext:
             if self.profilefunc:
                 frame.is_being_profiled = True
 
+    @jit.dont_look_inside
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
         if self.w_tracefunc is not None:
@@ -161,6 +166,7 @@ class ExecutionContext:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
+    @jit.dont_look_inside
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()

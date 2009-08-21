@@ -193,8 +193,10 @@ class WarmRunnerDesc:
         self.jitdriver = block.operations[pos].args[1].value
 
     def check_access_directly_sanity(self, graphs):
+        from pypy.translator.backendopt.inline import collect_called_graphs
         jit_graphs = set(graphs)
-        for graph in self.translator.graphs:
+        for graph in collect_called_graphs(self.translator.graphs[0],
+                                           self.translator):
             if graph in jit_graphs:
                 continue
             assert not getattr(graph, 'access_directly', False)
@@ -564,7 +566,6 @@ def find_all_graphs(portal, policy, translator):
                     all_graphs.append(graph)
                     seen.add(graph)
     return all_graphs
-
 
 
 def decode_hp_hint_args(op):

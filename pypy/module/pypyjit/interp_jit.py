@@ -68,6 +68,7 @@ pypyjitdriver = PyPyJitDriver(can_inline = can_inline,
 class __extend__(PyFrame):
 
     def dispatch(self, pycode, next_instr, ec):
+        self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
         try:
             while True:
