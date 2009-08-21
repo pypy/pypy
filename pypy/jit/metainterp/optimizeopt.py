@@ -516,7 +516,7 @@ class Optimizer(object):
                 return
         elif not op.has_no_side_effect():
             for value in self.values_to_clean:
-                value._fields = None
+                value._fields.clear()
             del self.values_to_clean[:]
         # otherwise, the operation remains
         self.emit_operation(op)
