@@ -26,8 +26,7 @@ class PyPyCJITTests(object):
         # some support code...
         print >> f, py.code.Source("""
             import sys, pypyjit
-            pypyjit.enable()
-            pypyjit.setthreshold(3)
+            pypyjit.set_param(threshold=3)
 
             def check(args, expected):
                 for i in range(3):
