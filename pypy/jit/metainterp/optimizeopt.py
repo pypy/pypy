@@ -710,6 +710,11 @@ class Optimizer(object):
             return
         self.emit_operation(op)
 
+    def optimize_DEBUG_MERGE_POINT(self, op):
+        # special-case this operation to prevent e.g. the handling of
+        # 'values_to_clean' (the op cannot be marked as side-effect-free)
+        self.newoperations.append(op)
+
 optimize_ops = _findall(Optimizer, 'optimize_')
 
 class Storage:

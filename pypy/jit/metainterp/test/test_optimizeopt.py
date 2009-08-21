@@ -984,7 +984,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_duplicate_getfield_3(self):
-        py.test.skip("in-progress")
         ops = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
