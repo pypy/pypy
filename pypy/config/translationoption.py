@@ -319,7 +319,7 @@ OPT_TABLE = {
     'mem':  'markcompact lowinline     remove_asserts',
     '2':    'hybrid      extraopts',
     '3':    'hybrid      extraopts     remove_asserts',
-    'jit':  'boehm       extraopts',       # XXX boehm for now, fix me
+    'jit':  'boehm       extraopts     jit',       # XXX boehm for now, fix me
     }
 
 def set_opt_level(config, level):
@@ -354,6 +354,8 @@ def set_opt_level(config, level):
             config.translation.backendopt.suggest(remove_asserts=True)
         elif word == 'extraopts':
             config.translation.suggest(withsmallfuncsets=5)
+        elif word == 'jit':
+            config.translation.suggest(jit=True)
         else:
             raise ValueError(word)
 
