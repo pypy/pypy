@@ -164,7 +164,13 @@ class TestJIT(PyPyCJITTests):
 
     def test_trivial_add(self):
         loops = self.run_and_compare('simple_add.py')
-        self.assert_no_op(loops[0], 'call')
+        for loop in loops:
+            # naive way if finding the relevant loop to inspect
+            if isinstance(loop.operations[0], loopparser.ByteCodeRef):
+                self.assert_no_op(loop, 'call')
+                break
+        else:
+            assert False
 
     def test_dict_lookup(self):
         py.test.skip('should remove dict lookups')

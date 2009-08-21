@@ -59,6 +59,11 @@ class Comment(BaseOperation):
     def __repr__(self):
         return "Comment: %r" % (self.text,)
 
+class ByteCodeRef(Comment):
+    def __init__(self, text):
+        Comment.__init__(self, text)
+        self.address = int(text.rsplit('#')[1])
+
 class Operation(BaseOperation):
     def __init__(self, opname, args, result=None, descr=None):
         self.opname = opname
@@ -213,7 +218,10 @@ class Parser(object):
         if has_hash or line.startswith('<'):
             if has_hash:
                 line = line.lstrip("#")
-            self.current_block.add(Comment(line))
+            if line.startswith('<code '):
+                self.current_block.add(ByteCodeRef(line))
+            else:
+                self.current_block.add(Comment(line))
             return i + 1
         descr = None
         if " " in line:

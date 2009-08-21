@@ -39,8 +39,9 @@ class TestParser(object):
         assert topblock.operations[2].result is topblock.operations[3].args[0]
         assert topblock.operations[3].args[1].value == -42
         code_comment = topblock.operations[7]
-        assert isinstance(code_comment, Comment)
+        assert isinstance(code_comment, ByteCodeRef)
         assert code_comment.text == "<code object f, file 'x.py', line 1> #19"
+        assert code_comment.address == 19
 
     def test_two_paths(self):
         loops = self.parse("two_paths.ops")
