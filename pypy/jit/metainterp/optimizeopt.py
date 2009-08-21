@@ -646,6 +646,11 @@ class Optimizer(object):
         else:
             value.make_nonnull()
             self.optimize_default(op)
+            # remember the result of future reads of the field
+            if value._fields is None:
+                value._fields = av_newdict2()
+            value._fields[op.descr] = self.getvalue(op.args[1])
+            self.values_to_clean.append(value)
 
     def optimize_NEW_WITH_VTABLE(self, op):
         self.make_virtual(op.args[0], op.result, op)

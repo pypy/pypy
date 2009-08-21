@@ -968,7 +968,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_duplicate_getfield_2(self):
-        py.test.skip("in-progress")
         ops = """
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -977,12 +976,12 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(p1, i1)
         """
         expected = """
-        [p1]
+        [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
         escape(i1)
-        jump(p1)
+        jump(p1, i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_duplicate_getfield_3(self):
         py.test.skip("in-progress")
@@ -1018,7 +1017,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', ops)
 
     def test_duplicate_getfield_sideeffects_2(self):
-        py.test.skip("in-progress")
         ops = """
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -1027,7 +1025,7 @@ class BaseTestOptimizeOpt(BaseTest):
         escape(i2)
         jump(p1, i1)
         """
-        self.optimize_loop(ops, 'Not', ops)
+        self.optimize_loop(ops, 'Not, Not', ops)
 
     # ----------
 
