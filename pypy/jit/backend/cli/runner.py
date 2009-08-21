@@ -132,6 +132,16 @@ class CliCPU(model.AbstractCPU):
     def clear_exception(self):
         self.get_inputargs().set_exc_value(None)
 
+    def get_overflow_error(self):
+        exc_type = ootype.cast_to_object(ootype.classof(self.ll_ovf_exc))
+        exc_value = ootype.cast_to_object(self.ll_ovf_exc)
+        return exc_type, exc_value
+
+    def get_zero_division_error(self):
+        exc_type = ootype.cast_to_object(ootype.classof(self.ll_zero_exc))
+        exc_value = ootype.cast_to_object(self.ll_zero_exc)
+        return exc_type, exc_value
+
     def set_overflow_error(self):
         exc_obj = ootype.cast_to_object(self.ll_ovf_exc)
         exc_value = dotnet.cast_to_native_object(exc_obj)

@@ -8,7 +8,7 @@ from pypy.translator.cli.dotnet import CLR
 from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
-                                         ConstObj)
+                                         ConstObj, BoxInt)
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.logger import AbstractLogger
 from pypy.jit.backend.cli import runner
@@ -152,6 +152,7 @@ class Method(object):
         self.av_consts = MethodArgument(0, System.Type.GetType("System.Object[]"))
         t_InputArgs = dotnet.typeof(InputArgs)
         self.av_inputargs = MethodArgument(1,t_InputArgs )
+        self.av_ovf_flag = BoxInt()
         self.exc_value_field = t_InputArgs.GetField('exc_value')
         if cpu.rtyper:
             self.av_OverflowError = ConstObj(ootype.cast_to_object(cpu.ll_ovf_exc))
@@ -360,6 +361,9 @@ class Method(object):
         self.av_inputargs.load(self)
         self.il.Emit(OpCodes.Ldnull)
         self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+        # clear the overflow flag
+        self.il.Emit(OpCodes.Ldc_I4_0)
+        self.av_ovf_flag.store(self)
 
     def emit_raising_op(self, op, emit_op, exctypes):
         self.emit_clear_exception()
@@ -370,13 +374,13 @@ class Method(object):
             v = self.il.DeclareLocal(exctype)
             self.il.BeginCatchBlock(exctype)
             if exctype == dotnet.typeof(System.OverflowException) and self.av_OverflowError:
-                # translate OverflowException into excpetions.OverflowError
-                self.il.Emit(OpCodes.Pop)
-                self.av_OverflowError.load(self)
-            self.il.Emit(OpCodes.Stloc, v)
-            self.av_inputargs.load(self)
-            self.il.Emit(OpCodes.Ldloc, v)
-            self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+                self.il.Emit(OpCodes.Ldc_I4_1)
+                self.av_ovf_flag.store(self)
+            else:
+                self.il.Emit(OpCodes.Stloc, v)
+                self.av_inputargs.load(self)
+                self.il.Emit(OpCodes.Ldloc, v)
+                self.il.Emit(OpCodes.Stfld, self.exc_value_field)
         self.il.EndExceptionBlock()
 
     def mark(self, msg):
@@ -455,11 +459,18 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.store_result(op)
 
+    def emit_guard_overflow_impl(self, op, opcode):
+        assert op.suboperations
+        assert len(op.args) == 0
+        il_label = self.newbranch(op)
+        self.av_ovf_flag.load(self)
+        self.il.Emit(opcode, il_label)
+
     def emit_op_guard_no_overflow(self, op):
-        pass    # XXX implement me!
+        self.emit_guard_overflow_impl(op, OpCodes.Brtrue)
 
     def emit_op_guard_overflow(self, op):
-        pass    # XXX implement me!
+        self.emit_guard_overflow_impl(op, OpCodes.Brfalse)
 
     def emit_op_jump(self, op):
         target = op.jump_target
