@@ -221,6 +221,4 @@ opcodes = _proc_dict({
     'truncate_longlong_to_int': jvm.L2I,
     'cast_longlong_to_float':   jvm.L2D,
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
-    'is_early_constant':        [PushPrimitive(ootype.Bool, False), StoreResult]
-    
 })

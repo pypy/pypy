@@ -210,14 +210,6 @@ class BaseTestOperations(object):
             return bool(x)
         self._check_all(fn)
 
-    def test_is_early_constant(self):
-        from pypy.rlib import jit
-        def f(x):
-            if jit._is_early_constant(x):
-                return 42
-            return 0
-        assert self.interpret(f, [5]) == 0
-
     def test_ullong_rshift(self):
         def f(x):
             return x >> 1

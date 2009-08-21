@@ -27,7 +27,7 @@ The '}' pops an integer value off the stack and loops if it is not zero:
     { #1 #1 1 SUB ->#1 #1 }    => when called with 5, gives '5 4 3 2 1'
 
 """
-from pypy.rlib.jit import hint, _is_early_constant, JitDriver
+from pypy.rlib.jit import hint, JitDriver
 
 #
 # See pypy/doc/jit.txt for a higher-level overview of the JIT techniques
@@ -225,16 +225,9 @@ def myint_internal(s, start=0):
         start += 1
     return res
 def myint(s, start=0):
-    if _is_early_constant(s):
-        s = hint(s, promote=True)
-        start = hint(start, promote=True)
-        n = myint_internal(s, start)
-        if n < 0:
-            raise ValueError
-    else:
-        n = myint_internal(s, start)
-        if n < 0:
-            raise ValueError
+    n = myint_internal(s, start)
+    if n < 0:
+        raise ValueError
     return n
 # ------------------------------
 

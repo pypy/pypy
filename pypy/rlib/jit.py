@@ -67,27 +67,6 @@ class Entry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
-def _is_early_constant(x):
-    return False
-
-class Entry(ExtRegistryEntry):
-    _about_ = _is_early_constant
-
-    def compute_result_annotation(self, s_value):
-        from pypy.annotation import model as annmodel
-        s = annmodel.SomeBool()
-        if s_value.is_constant():
-            s.const = True
-        return s
-
-    def specialize_call(self, hop):
-        from pypy.rpython.lltypesystem import lltype
-        if hop.s_result.is_constant():
-            assert hop.s_result.const
-            return hop.inputconst(lltype.Bool, True)
-        v, = hop.inputargs(hop.args_r[0])
-        return hop.genop('is_early_constant', [v], resulttype=lltype.Bool)
-
 # ____________________________________________________________
 # User interface for the hotpath JIT policy
 

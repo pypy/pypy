@@ -109,16 +109,3 @@ def test_computed_int_symbolic():
     fn = t.compile_c()
     res = fn()
     assert res == 42
-
-def test_is_early_constant():
-    from pypy.rlib import jit
-    def f(x):
-        if jit._is_early_constant(x):
-            return 42
-        return 0
-    
-
-    fn, t = getcompiled(f, [int])
-    res = fn(5)
-    assert res == 0
-

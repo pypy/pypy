@@ -457,7 +457,6 @@ LL_OPERATIONS = {
     'keepalive':            LLOp(),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
-    'is_early_constant':    LLOp(sideeffects=False),
     'check_no_more_arg':    LLOp(canraise=(Exception,)),
     'check_self_nonzero':   LLOp(canraise=(Exception,)),
     'decode_arg':           LLOp(canraise=(Exception,)),
