@@ -188,12 +188,12 @@ class W_TypeObject(W_Object):
         space = w_self.space
         assert space.config.objspace.std.withmethodcache
         version_tag = w_self.version_tag
+        version_tag = hint(version_tag, promote=True)
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
         w_self = hint(w_self, promote=True)
         name = hint(name, promote=True)
-        version_tag = hint(version_tag, promote=True)
         return w_self._pure_lookup_where_with_method_cache(name, version_tag)
 
     @purefunction
