@@ -30,6 +30,10 @@ class OpContainer(object):
     def get_display_text(self):
         return str(self)
 
+    def iter_operations(self):
+        for op in self.operations:
+            if isinstance(op, Operation):
+                yield op
 
 class Loop(OpContainer):
 
