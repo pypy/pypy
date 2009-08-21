@@ -1,9 +1,9 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
-from pypy.rpython.lltypesystem.rclass import InstanceRepr
+from pypy.rpython.lltypesystem.rclass import InstanceRepr, OBJECTPTR
 from pypy.rpython.rvirtualizable2 import AbstractVirtualizable2InstanceRepr
 
+VABLERTIPTR = OBJECTPTR
 
 class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRepr):
 
