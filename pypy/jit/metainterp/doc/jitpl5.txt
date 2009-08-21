@@ -12,20 +12,20 @@ Tracing phase
 
 Tracing: executing code and recording what we did, for one loop.  This
 starts at the app-level JUMP_ABSOLUTE (or equivalent) bytecode that
-closes an app-level loop.  Implemented by interpreting the rainbow
+closes an app-level loop.  Implemented by interpreting a custom
 bytecode that describes the interpreter itself.  (Could later be
 optimized by removing the rainbow bytecode.)
 
 We pass around BoxInt and BoxPtr objects that have this minimal
 content::
 
-   +- BoxPtr ---------+
+   +- BoxInt ---------+
    |    real value    |
    +------------------+
 
-In other words, BoxInt and BoxPtr just record the real value.  Each
-operation generates a new BoxInt or BoxPtr (even if it contains the same
-real value as another box).
+In other words, BoxInt and BoxPtr just record the real value.  Like
+PyPy's flowgraph, each operation generates a new BoxInt or BoxPtr
+(even if it contains the same real value as another box).
 
 Tracing goes on for exactly one iteration of the app-level loop.  As it
 handles real values, it makes the real program progress one iteration.
@@ -95,9 +95,11 @@ Guard failure
 =============
 
 When a guard fails, we normally fall back to regular interpretation.
-Because the guard failure occurs in the middle of executing an app-level
-bytecode, this requires interpreting the rainbow bytecode with a
-fall-back interpreter until the start of the next app-level bytecode.
+Because the guard failure occurs in the middle of executing an
+app-level bytecode, this requires interpreting the bytecode describing
+the interpreter with a fall-back interpreter (which is actually
+implemented with the same code as the tracer) until the start of the
+next app-level bytecode.
 
 When we decide instead to compile more code for this guard failure, we
 take the set of live values and put them back into boxes, and proceed

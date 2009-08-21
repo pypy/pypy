@@ -25,33 +25,9 @@ this (in pseudo-C code coming from RPython)::
            so that it points to the next bytecode to execute */
     }
 
-Initially, for a given frame position, there is no machine code produced
-by the JIT so far.  To simplify things, we use the following trick:
-conceptually there is *always* machine code available, but this machine
-code just contains an always-failing guard.  So
-lookup_machine_code_for() returns a pointer to machine code that looks
-like this::
-
-    setup the frame...
-    /* here starts the code for an always- failing guard */
-    PUSH info_about_this_guard
-    JMP generic_guard_recovery_code
-
-The generic guard recovery code contains the following logic::
-
-    REG1 = info_about_this_guard
-    REG2 = current_stack_base_pointer
-    REG3 = CALL jit_compile(REG1, REG2)
-    copy REG3->inputargs[0] to EAX
-    copy REG3->inputargs[1] to EBX
-    etc.
-    JMP REG3->targetaddr
-
-The jit_compile() function comes from RPython sources written in the JIT
-support code.  It does tracing and generally ends up compiling an extra
-loop to machine code.  It can also patch the failing guard in the
-machine code (above) so that later invocations will jump directly to the
-correct code.
+The jit_compile() function comes from RPython sources written in the
+JIT support code (warmspot.py).  It does tracing and generally ends up
+compiling an extra loop to machine code.
 
 Then jit_compile() itself needs to transfer execution to the newly
 compiled loop.  Instead of calling the loop, jit_compile() returns a
