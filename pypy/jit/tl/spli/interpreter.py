@@ -4,7 +4,7 @@ from pypy.jit.tl.spli import objects, pycode
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.objectmodel import we_are_translated
 
 
@@ -44,6 +44,7 @@ class SPLIFrame(object):
 
     _virtualizable2_ = ['value_stack[*]', 'locals[*]', 'stack_depth']
 
+    @dont_look_inside
     def __init__(self, code, locs=None, globs=None):
         self.code = code
         self.value_stack = [None] * code.co_stacksize
