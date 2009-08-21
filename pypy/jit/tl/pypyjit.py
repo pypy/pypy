@@ -31,19 +31,15 @@ else:
 
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0
-set_opt_level(config, level='1')
-config.objspace.compiler = 'ast'
 config.objspace.nofaking = True
+config.objspace.compiler = "ast"
+config.translating = True
+set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
-set_pypy_opt_level(config, level='0')
-config.objspace.std.builtinshortcut = True
-config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
-config.objspace.std.withrangelist = True
-config.objspace.std.withsharingdict = True
-config.objspace.std.withmethodcache = True
+set_pypy_opt_level(config, level='jit')
 
 if BACKEND == 'c':
     config.objspace.std.multimethods = 'mrd'

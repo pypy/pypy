@@ -94,9 +94,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
-    # JIT generation
+    # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
-               default=False, cmdline="--jit",
+               default=False,
                requires=[("translation.thread", False)],
                suggests=[("translation.gc", "boehm"),         # for now
                          ("translation.list_comprehension_operations", True)]),
@@ -298,7 +298,7 @@ def get_combined_translation_config(other_optdescr=None,
 
 # ____________________________________________________________
 
-OPT_LEVELS = ['0', '1', 'size', 'mem', '2', '3']
+OPT_LEVELS = ['0', '1', 'size', 'mem', '2', '3', 'jit']
 DEFAULT_OPT_LEVEL = '2'
 
 OPT_TABLE_DOC = {
@@ -308,6 +308,7 @@ OPT_TABLE_DOC = {
     'mem':  'Optimize for run-time memory usage and use a memory-saving GC.',
     '2':    'Enable most optimizations and use a high-performance GC.',
     '3':    'Enable all optimizations and use a high-performance GC.',
+    'jit':  'Enable the JIT.',
     }
 
 OPT_TABLE = {
@@ -318,6 +319,7 @@ OPT_TABLE = {
     'mem':  'markcompact lowinline     remove_asserts',
     '2':    'hybrid      extraopts',
     '3':    'hybrid      extraopts     remove_asserts',
+    'jit':  'boehm       extraopts',       # XXX boehm for now, fix me
     }
 
 def set_opt_level(config, level):

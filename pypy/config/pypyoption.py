@@ -356,7 +356,7 @@ def set_pypy_opt_level(config, level):
     backend = config.translation.backend
 
     # all the good optimizations for PyPy should be listed here
-    if level in ['2', '3']:
+    if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_LIKELY_BUILTIN=True)
         config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withmultidict=True)
@@ -391,6 +391,10 @@ def set_pypy_opt_level(config, level):
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':
         config.objspace.std.suggest(multimethods="doubledispatch")
+
+    # extra optimizations with the JIT
+    if level == 'jit':
+        config.objspace.std.suggest(withsharingdict=True)
 
 
 def enable_allworkingmodules(config):
