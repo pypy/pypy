@@ -1,7 +1,19 @@
 from pypy.conftest import gettestobjspace, option
 from pypy.tool.udir import udir
+from pypy.jit.backend import loopparser
 import py
 import sys, os
+
+def run_source(sourcefile, pypy_executable, tmpdir):
+    logfilepath = tmpdir.join(sourcefile.basename[:-3] + '.log')
+    if sys.platform.startswith('win'):
+        py.test.skip("XXX this is not Windows-friendly")
+
+    result = py.process.cmdexec('PYPYJITLOG="%s" "%s" "%s"' % (
+        logfilepath, pypy_executable, sourcefile))
+    assert result
+    assert logfilepath.check()
+    return result, logfilepath + '.ops'
 
 class PyPyCJITTests(object):
     def run_source(self, source, testcases):
@@ -134,5 +146,24 @@ class TestJIT(PyPyCJITTests):
         cls.counter = 0
         cls.pypy_c = option.pypy_c
 
+    def run_and_compare(self, sourcefile):
+        fname = py.magic.autopath().dirpath().join('loops', sourcefile)
+        pypy_out, log = run_source(fname, self.pypy_c, self.tmpdir)
+        cpy_out = py.process.cmdexec('"%s" "%s"' % (
+                sys.executable, fname))
+        assert pypy_out == cpy_out
+        parser = loopparser.Parser()
+        return parser.parse(log)
 
-    
+    def assert_no_op(self, loop, opname):
+        for operation in loop.iter_operations():
+            assert operation.opname != opname
+
+    def test_trivial_add(self):
+        loops = self.run_and_compare('simple_add.py')
+        self.assert_no_op(loops[0], 'call')
+
+    def test_dict_lookup(self):
+        py.test.skip('should remove dict lookups')
+        loops = self.run_and_compare('dict_lookup.py')
+        self.assert_no_op(loops[1], 'getfield_gc')
