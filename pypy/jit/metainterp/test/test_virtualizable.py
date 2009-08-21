@@ -8,7 +8,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
-from pypy.jit.metainterp import history, heaptracker
+from pypy.jit.metainterp import history, heaptracker, simple_optimize
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
 promote_virtualizable = lloperation.llop.promote_virtualizable
@@ -403,7 +403,7 @@ class ExplicitVirtualizableTests:
                 n -= 1
             return xy2.inst_l2[0]
         expected = f(20)
-        res = self.meta_interp(f, [20])
+        res = self.meta_interp(f, [20], optimizer=simple_optimize)
         assert res == expected
         self.check_loops(getfield_gc=3, setfield_gc=0,
                          arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
