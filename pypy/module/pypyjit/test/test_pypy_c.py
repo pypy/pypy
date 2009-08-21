@@ -152,7 +152,11 @@ class TestJIT(PyPyCJITTests):
                 sys.executable, fname))
         assert pypy_out == cpy_out
         parser = loopparser.Parser()
-        return parser.parse(log)
+        loops = parser.parse(log)
+        if option.view:
+            from pypy.jit.metainterp.graphpage import display_loops
+            display_loops(loops)
+        return loops
 
     def assert_no_op(self, loop, opname):
         for operation in loop.iter_operations():
