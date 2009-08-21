@@ -37,7 +37,7 @@ LEVEL_CONSTANT   = 3
 
 
 class OptValue(object):
-    _attrs_ = ('box', 'level')
+    _attrs_ = ('box', 'level', '_fields')
     level = LEVEL_UNKNOWN
     _fields = None
 
