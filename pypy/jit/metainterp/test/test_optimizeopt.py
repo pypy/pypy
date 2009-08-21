@@ -1003,6 +1003,25 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
+    def test_duplicate_getfield_constant(self):
+        py.test.skip("maybe implement later")
+        ops = """
+        []
+        i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        i2 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        escape(i1)
+        escape(i2)
+        jump()
+        """
+        expected = """
+        []
+        i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        escape(i1)
+        escape(i1)
+        jump()
+        """
+        self.optimize_loop(ops, '', expected)
+
     def test_duplicate_getfield_sideeffects_1(self):
         ops = """
         [p1]
