@@ -756,8 +756,6 @@ class ImplicitVirtualizableTests:
         assert direct_calls(portal_graph) == ['force_if_necessary', 'maybe_enter_jit']
 
         assert direct_calls(init_graph) == []
-            
-
 
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

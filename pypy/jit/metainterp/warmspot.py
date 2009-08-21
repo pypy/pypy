@@ -133,8 +133,10 @@ class WarmRunnerDesc:
             policy = JitPolicy()
         self.set_translator(translator)
         self.find_portal()
+        graphs = find_all_graphs(self.portal_graph, policy, self.translator)
+        self.check_access_directly_sanity(graphs)
         if backendopt:
-            self.prejit_optimizations(policy)
+            self.prejit_optimizations(policy, graphs)
 
         self.build_meta_interp(**kwds)
         self.make_args_specification()
@@ -190,9 +192,15 @@ class WarmRunnerDesc:
             graph.func._dont_inline_ = True
         self.jitdriver = block.operations[pos].args[1].value
 
-    def prejit_optimizations(self, policy):
+    def check_access_directly_sanity(self, graphs):
+        jit_graphs = set(graphs)
+        for graph in self.translator.graphs:
+            if graph in jit_graphs:
+                continue
+            assert not getattr(graph, 'access_directly', False)
+
+    def prejit_optimizations(self, policy, graphs):
         from pypy.translator.backendopt.all import backend_optimizations
-        graphs = find_all_graphs(self.portal_graph, policy, self.translator)
         backend_optimizations(self.translator,
                               graphs=graphs,
                               merge_if_blocks=True,

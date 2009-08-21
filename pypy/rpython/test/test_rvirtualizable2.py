@@ -225,6 +225,52 @@ class BaseTest(BaseRtypingTest):
         res = self.interpret(f, [23])
         assert res == 2323
 
+    def test_access_directly_stop_at_dont_look_inside(self):
+        from pypy.rlib.jit import hint, dont_look_inside
+
+        class A:
+            _virtualizable2_ = ['x']
+
+        def h(a):
+            g(a)
+        h = dont_look_inside(h)        
+        
+        def g(a):
+            a.x = 2
+            h(a)
+
+        def f():
+            a = A()
+            a = hint(a, access_directly=True)
+            a.x = 1
+            g(a)
+
+        t, typer, graph = self.gengraph(f, [])
+        deref = typer.type_system_deref
+        
+        desc = typer.annotator.bookkeeper.getdesc(g)
+        g_graphs = desc._cache.items()
+        assert len(g_graphs) == 2
+        g_graphs.sort()
+
+        assert g_graphs[0][0] is None # default
+        g_graph = g_graphs[0][1]
+        g_graph_directly = g_graphs[1][1]
+
+        f_graph = t._graphof(f)
+        h_graph = t._graphof(h) # 1 graph!
+
+        def get_direct_call_graph(graph):
+            for block, op in graph.iterblockops():
+                if op.opname == 'direct_call':
+                    return deref(op.args[0].value).graph
+            return None
+
+        assert get_direct_call_graph(f_graph) is g_graph_directly
+        assert get_direct_call_graph(g_graph) is h_graph
+        assert get_direct_call_graph(g_graph_directly) is h_graph
+        assert get_direct_call_graph(h_graph) is g_graph
+
 class TestLLtype(LLRtypeMixin, BaseTest):
     prefix = 'inst_'
     GETFIELD = 'getfield'

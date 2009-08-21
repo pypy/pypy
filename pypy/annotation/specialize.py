@@ -59,18 +59,33 @@ def default_specialize(funcdesc, args_s):
     # first flatten the *args
     args_s, key, name_suffix, builder = flatten_star_args(funcdesc, args_s)
     # two versions: a regular one and one for instances with 'access_directly'
-    for s_obj in args_s:
+    jit_look_inside = getattr(funcdesc.pyobj, '_look_inside_me_', True)
+    # change args_s in place, "official" interface
+    access_directly = False
+    for i, s_obj in enumerate(args_s):
         if (isinstance(s_obj, annmodel.SomeInstance) and
             'access_directly' in s_obj.flags):
-            key = (AccessDirect, key)
-            name_suffix += '_AccessDirect'
-            break
+            if jit_look_inside:
+                access_directly = True
+                key = (AccessDirect, key)
+                name_suffix += '_AccessDirect'
+                break                
+            else:
+                new_flags = s_obj.flags.copy()
+                del new_flags['access_directly']
+                new_s_obj = annmodel.SomeInstance(s_obj.classdef, s_obj.can_be_None,
+                                              flags = new_flags)
+                args_s[i] = new_s_obj
+
     # done
     if name_suffix:
         alt_name = '%s%s' % (funcdesc.name, name_suffix)
     else:
         alt_name = None
-    return funcdesc.cachedgraph(key, alt_name=alt_name, builder=builder)
+    graph = funcdesc.cachedgraph(key, alt_name=alt_name, builder=builder)
+    if access_directly:
+        graph.access_directly = True
+    return graph
 
 class AccessDirect(object):
     """marker for specialization: set when any arguments is a SomeInstance

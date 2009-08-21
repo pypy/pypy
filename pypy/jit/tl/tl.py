@@ -15,6 +15,7 @@ class Stack(object):
 
     @dont_look_inside
     def __init__(self, size):
+        self = hint(self, access_directly=True)
         self.stack = [0] * size
         self.stackpos = 0
 
@@ -63,6 +64,8 @@ def make_interp(supports_call):
             raise TypeError("code '%s' should be a string" % str(code))
 
         stack = Stack(len(code))
+
+        stack = hint(stack, access_directly=True)
 
         while pc < len(code):
             myjitdriver.jit_merge_point(pc=pc, code=code,

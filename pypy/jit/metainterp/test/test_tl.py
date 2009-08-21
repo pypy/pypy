@@ -159,9 +159,16 @@ class ToyLanguageTests:
                    Stack.roll,
                    Stack.append,
                    Stack.pop]
-        methods = [m.im_func for m in methods]
-        self.test_tl_call(listops=False, policy=StopAtXPolicy(*methods))
-
+        for meth in methods:
+            meth_func = meth.im_func
+            assert not hasattr(meth_func, '_look_inside_me_')
+            meth_func._look_inside_me_ = False
+        try:
+            self.test_tl_call(listops=False)
+        finally:
+            for meth in methods:
+                meth_func = meth.im_func
+                del meth_func._look_inside_me_
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):
     def test_tl_call_full_of_residuals(self):
