@@ -44,7 +44,6 @@ config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
 config.objspace.std.withrangelist = True
 config.objspace.std.withsharingdict = True
 config.objspace.std.withmethodcache = True
-config.objspace.std.withsharingdict = True
 
 if BACKEND == 'c':
     config.objspace.std.multimethods = 'mrd'
