@@ -12,4 +12,5 @@ LOOP bi(0,6),bi(1,4),bi(2,18)
   END
 #(no jitdriver.get_printable_location!)
 6:jump bi(0,6),bi(5,3),bi(3,24)
+<code object f, file 'x.py', line 1> #19
 LOOP END

@@ -205,8 +205,11 @@ class Parser(object):
             return i + 1
         if line.startswith('END'):
             raise EndOfBlock()
-        if line.startswith('#'):
-            self.current_block.add(Comment(line[1:]))
+        has_hash = line.startswith('#')
+        if has_hash or line.startswith('<'):
+            if has_hash:
+                line = line.lstrip("#")
+            self.current_block.add(Comment(line))
             return i + 1
         descr = None
         if " " in line:

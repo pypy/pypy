@@ -12,11 +12,11 @@ class TestParser(object):
         assert len(topblock.inputargs) == 3
         for arg in topblock.inputargs:
             assert isinstance(arg, BoxInt)
-        assert len(topblock.operations) == 7
+        assert len(topblock.operations) == 8
         assert isinstance(topblock.operations[0], Comment)
         assert topblock.operations[0].text == \
             "(no jitdriver.get_printable_location!)"
-        assert isinstance(topblock.operations[-2], Comment)
+        assert isinstance(topblock.operations[5], Comment)
         assert isinstance(topblock.operations[4], GuardOperation)
         assert ([op.opname for op in topblock.operations
                  if not isinstance(op, Comment)] ==
@@ -38,6 +38,9 @@ class TestParser(object):
         assert topblock.operations[2].args[1].value == 1
         assert topblock.operations[2].result is topblock.operations[3].args[0]
         assert topblock.operations[3].args[1].value == -42
+        code_comment = topblock.operations[7]
+        assert isinstance(code_comment, Comment)
+        assert code_comment.text == "<code object f, file 'x.py', line 1> #19"
 
     def test_two_paths(self):
         loops = self.parse("two_paths.ops")
