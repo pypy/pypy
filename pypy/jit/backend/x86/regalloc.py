@@ -14,7 +14,7 @@ from pypy.jit.metainterp.resoperation import rop
 
 # esi edi and ebx can be added to this list, provided they're correctly
 # saved and restored
-REGS = [eax, ecx, edx]
+REGS = [eax, ecx, edx, ebx, esi, edi]
 WORD = 4
 
 class TempBox(Box):
@@ -115,8 +115,9 @@ class RegAlloc(object):
             assert len(rev_regs) + len(self.free_regs) == len(REGS)
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(REGS)
-        for v in self.reg_bindings:
-            assert self.longevity[v][1] > self.position
+        if self.longevity:
+            for v in self.reg_bindings:
+                assert self.longevity[v][1] > self.position
 
     def Load(self, v, from_loc, to_loc):
         if not we_are_translated():
@@ -307,7 +308,7 @@ class RegAlloc(object):
         for arg in guard.inputargs:
             assert isinstance(arg, Box)
 
-    def try_allocate_reg(self, v, selected_reg=None):
+    def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
         assert not isinstance(v, Const)
         if selected_reg is not None:
             res = self.reg_bindings.get(v, None)
@@ -322,6 +323,20 @@ class RegAlloc(object):
                                   if reg is not selected_reg]
                 self.reg_bindings[v] = selected_reg
                 return selected_reg
+            return None
+        if need_lower_byte:
+            loc = self.reg_bindings.get(v, None)
+            if loc is not None and loc is not edi and loc is not esi:
+                return loc
+            for i in range(len(self.free_regs)):
+                reg = self.free_regs[i]
+                if reg is not edi and reg is not esi:
+                    if loc is not None:
+                        self.free_regs[i] = loc
+                    else:
+                        del self.free_regs[i]
+                    self.reg_bindings[v] = reg
+                    return reg
             return None
         try:
             return self.reg_bindings[v]
@@ -349,18 +364,26 @@ class RegAlloc(object):
             return loc
         return convert_to_imm(v)
 
-    def force_allocate_reg(self, v, forbidden_vars, selected_reg=None):
+    def force_allocate_reg(self, v, forbidden_vars, selected_reg=None,
+                           need_lower_byte=False):
         if isinstance(v, TempBox):
             self.longevity[v] = (self.position, self.position)
-        loc = self.try_allocate_reg(v, selected_reg)
+        loc = self.try_allocate_reg(v, selected_reg,
+                                    need_lower_byte=need_lower_byte)
         if loc:
             return loc
-        loc = self._spill_var(v, forbidden_vars, selected_reg)
+        loc = self._spill_var(v, forbidden_vars, selected_reg,
+                              need_lower_byte=need_lower_byte)
+        prev_loc = self.reg_bindings.get(v, None)
+        if prev_loc is not None:
+            self.free_regs.append(prev_loc)
         self.reg_bindings[v] = loc
         return loc
 
-    def _spill_var(self, v, forbidden_vars, selected_reg):
-        v_to_spill = self.pick_variable_to_spill(v, forbidden_vars, selected_reg)
+    def _spill_var(self, v, forbidden_vars, selected_reg,
+                   need_lower_byte=False):
+        v_to_spill = self.pick_variable_to_spill(v, forbidden_vars,
+                               selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
         if v_to_spill not in self.stack_bindings:
@@ -380,13 +403,14 @@ class RegAlloc(object):
         return res
 
     def make_sure_var_in_reg(self, v, forbidden_vars, selected_reg=None,
-                             imm_fine=True):
+                             imm_fine=True, need_lower_byte=False):
         if isinstance(v, Const):
             return self.return_constant(v, forbidden_vars, selected_reg,
                                         imm_fine)
         
         prev_loc = self.loc(v)
-        loc = self.force_allocate_reg(v, forbidden_vars, selected_reg)
+        loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
+                                      need_lower_byte=need_lower_byte)
         if prev_loc is not loc:
             self.Load(v, prev_loc, loc)
         return loc
@@ -423,12 +447,18 @@ class RegAlloc(object):
                 return -1
         return -1
 
-    def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None):
+    def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
+                               need_lower_byte=False):
         candidates = []
         for next in self.reg_bindings:
-            if (next not in forbidden_vars and selected_reg is None or
-                self.reg_bindings[next] is selected_reg):
-                candidates.append(next)
+            reg = self.reg_bindings[next]
+            if next in forbidden_vars:
+                continue
+            if selected_reg is not None and reg is selected_reg:
+                return next
+            if need_lower_byte and (reg is esi or reg is edi):
+                continue
+            candidates.append(next)
         assert candidates
         if len(candidates) == 1:
             return candidates[0]
@@ -626,7 +656,8 @@ class RegAlloc(object):
         self.eventually_free_var(vx)
         self.eventually_free_var(vy)
         if guard_op is None:
-            loc = self.force_allocate_reg(op.result, op.args)
+            loc = self.force_allocate_reg(op.result, op.args,
+                                          need_lower_byte=True)
             self.Perform(op, arglocs, loc)
         else:
             regalloc = self.regalloc_for_guard(guard_op)
@@ -655,16 +686,23 @@ class RegAlloc(object):
         # otherwise it's clean
 
     def _call(self, op, arglocs, force_store=[]):
-        # we need to store all variables which are now in registers
+        # we need to store all variables which are now
+        # in registers eax, ecx and edx
         for v, reg in self.reg_bindings.items():
-            if self.longevity[v][1] > self.position or v in force_store:
-                self.sync_var(v)
-        self.reg_bindings = newcheckdict()
+            if v not in force_store and self.longevity[v][1] <= self.position:
+                # variable dies
+                del self.reg_bindings[v]
+                self.free_regs.append(reg)
+                continue
+            if reg is ebx or reg is esi or reg is edi:
+                # we don't need to
+                continue
+            self.sync_var(v)
+            del self.reg_bindings[v]
+            self.free_regs.append(reg)
         if op.result is not None:
             self.reg_bindings[op.result] = eax
-            self.free_regs = [reg for reg in REGS if reg is not eax]
-        else:
-            self.free_regs = REGS[:]
+            self.free_regs = [reg for reg in self.free_regs if reg is not eax]
         self.Perform(op, arglocs, eax)
 
     def consider_call(self, op, ignored):
@@ -723,18 +761,12 @@ class RegAlloc(object):
         # XXX kill this function at some point
         if isinstance(v, Box):
             loc = self.make_sure_var_in_reg(v, [v])
-            self.sync_var(v)
-            if size != 0:
-                # XXX lshift? no, better yet, use 'LEA' somehow (it can be
-                # combined with the following INT_ADD)
-                self.Perform(ResOperation(rop.INT_MUL, [], None),
-                             [loc, imm(1 << size)], loc)
-            self.Perform(ResOperation(rop.INT_ADD, [], None),
-                         [loc, imm(ofs_items)], loc)
+            other_loc = self.force_allocate_reg(TempBox(), [v])
+            self.assembler.load_effective_addr(loc, ofs_items, size, other_loc)
         else:
-            loc = imm(ofs_items + (v.getint() << size))
+            other_loc = imm(ofs_items + (v.getint() << size))
         self._call(ResOperation(rop.NEW, [v], res_v),
-                   [loc], [v])
+                   [other_loc], [v])
         loc = self.make_sure_var_in_reg(v, [res_v])
         assert self.loc(res_v) == eax
         # now we have to reload length to some reasonable place
@@ -765,9 +797,15 @@ class RegAlloc(object):
         return imm(ofs), imm(size), ptr
 
     def _common_consider_setfield(self, op, ignored, raw):
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[1], op.args)
         ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
+        assert isinstance(size_loc, IMM32)
+        if size_loc.value == 1:
+            need_lower_byte = True
+        else:
+            need_lower_byte = False
+        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
+        value_loc = self.make_sure_var_in_reg(op.args[1], op.args,
+                                              need_lower_byte=need_lower_byte)
         if ptr:
             if raw:
                 print "Setfield of raw structure with gc pointer"
@@ -786,7 +824,8 @@ class RegAlloc(object):
     def consider_strsetitem(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[2], op.args)
+        value_loc = self.make_sure_var_in_reg(op.args[2], op.args,
+                                              need_lower_byte=True)
         self.eventually_free_vars([op.args[0], op.args[1], op.args[2]])
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc])
 
@@ -795,7 +834,12 @@ class RegAlloc(object):
     def consider_setarrayitem_gc(self, op, ignored):
         scale, ofs, ptr = self._unpack_arraydescr(op.descr)
         base_loc  = self.make_sure_var_in_reg(op.args[0], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[2], op.args)
+        if scale == 0:
+            need_lower_byte = True
+        else:
+            need_lower_byte = False
+        value_loc = self.make_sure_var_in_reg(op.args[2], op.args,
+                                              need_lower_byte=need_lower_byte)
         ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
         if ptr:
             gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -826,7 +870,8 @@ class RegAlloc(object):
 
     def consider_int_is_true(self, op, ignored):
         argloc = self.make_sure_var_in_reg(op.args[0], [])
-        resloc = self.force_allocate_reg(op.result, op.args)
+        resloc = self.force_allocate_reg(op.result, op.args,
+                                         need_lower_byte=True)
         self.eventually_free_var(op.args[0])
         self.Perform(op, [argloc], resloc)
 
@@ -843,7 +888,8 @@ class RegAlloc(object):
         else:
             argloc = self.loc(op.args[0])
             self.eventually_free_var(op.args[0])
-            resloc = self.force_allocate_reg(op.result, [])
+            resloc = self.force_allocate_reg(op.result, [],
+                                             need_lower_byte=True)
             self.Perform(op, [argloc], resloc)
     
     consider_ooisnull = _consider_nullity
@@ -934,7 +980,7 @@ def stack_pos(i):
     return res
 
 def lower_byte(reg):
-    # argh
+    # argh, kill, use lowest8bits instead
     if isinstance(reg, MODRM):
         return reg
     if isinstance(reg, IMM32):

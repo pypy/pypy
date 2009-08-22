@@ -10,7 +10,8 @@ from pypy.jit.backend.x86.regalloc import RegAlloc, REGS, WORD
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass
+from pypy.rpython.lltypesystem import rclass, rstr
+from pypy.jit.backend.x86.ri386 import *
 
 class DummyTree(object):
     operations = [ResOperation(rop.FAIL, [], None)]
@@ -19,6 +20,35 @@ class DummyTree(object):
 class MockAssembler(object):
     gcrefs = None
 
+    def __init__(self):
+        self.loads = []
+        self.stores = []
+        self.performs = []
+        self.lea = []
+
+    def dump(self, *args):
+        pass
+
+    def regalloc_load(self, from_loc, to_loc):
+        self.loads.append((from_loc, to_loc))
+
+    def regalloc_store(self, from_loc, to_loc):
+        self.stores.append((from_loc, to_loc))
+
+    def regalloc_perform(self, op, arglocs, resloc):
+        self.performs.append((op, arglocs, resloc))
+
+    def regalloc_perform_discard(self, op, arglocs):
+        self.performs.append((op, arglocs))
+
+    def load_effective_addr(self, *args):
+        self.lea.append(args)
+
+class RegAllocForTests(RegAlloc):
+    position = 0
+    def _compute_next_usage(self, v, _):
+        return -1
+
 class TestRegallocDirect(object):
     def fill_regs(self, regalloc):
         allboxes = []
@@ -26,6 +56,7 @@ class TestRegallocDirect(object):
             box = BoxInt()
             allboxes.append(box)
             regalloc.reg_bindings[box] = reg
+        regalloc.free_regs = []
         return allboxes
     
     def test_make_sure_var_in_reg(self):
@@ -35,6 +66,69 @@ class TestRegallocDirect(object):
         oldloc = regalloc.loc(box)
         newloc = regalloc.make_sure_var_in_reg(box, [])
         assert oldloc is newloc
+        regalloc._check_invariants()
+
+    def test_make_sure_var_in_reg_need_lower_byte(self):
+        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        box = BoxInt()
+        regalloc.reg_bindings[box] = edi
+        regalloc.free_regs.remove(edi)
+        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
+        assert loc is not edi and loc is not esi
+        assert len(regalloc.assembler.loads) == 1
+        regalloc._check_invariants()
+
+    def test_make_sure_var_in_reg_need_lower_byte_no_free_reg(self):
+        regalloc = RegAllocForTests(MockAssembler(), DummyTree())
+        box = BoxInt()
+        regalloc.reg_bindings = {BoxInt(): eax, BoxInt(): ebx, BoxInt(): ecx,
+                                 BoxInt(): edx, box:edi}
+        regalloc.free_regs = [esi]
+        regalloc._check_invariants()
+        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
+        assert loc is not edi and loc is not esi
+        assert len(regalloc.assembler.loads) == 1
+        regalloc._check_invariants()
+
+    def test_make_sure_var_in_reg_mem(self):
+        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        box = BoxInt()
+        regalloc.stack_loc(box)
+        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
+        assert loc is not edi and loc is not esi
+        assert len(regalloc.assembler.loads) == 1        
+        regalloc._check_invariants()
+
+    def test_registers_around_call(self):
+        cpu = CPU(None, None)
+        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        boxes = self.fill_regs(regalloc)
+        TP = lltype.FuncType([], lltype.Void)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        regalloc._check_invariants()
+        box = boxes[0]
+        for box in boxes:
+            regalloc.longevity[box] = (0, 1)
+        regalloc.position = 0
+        regalloc.consider_call(ResOperation(rop.CALL, [box], None, calldescr),
+                               None)
+        assert len(regalloc.assembler.stores) == 3
+        regalloc._check_invariants()
+
+    def test_registers_around_newstr(self):
+        cpu = CPU(None, None)
+        regalloc = RegAllocForTests(MockAssembler(), DummyTree())
+        regalloc.assembler.cpu = cpu
+        boxes = self.fill_regs(regalloc)
+        regalloc._check_invariants()
+        for box in boxes:
+            regalloc.longevity[box] = (0, 1)
+        regalloc.position = 0
+        resbox = BoxInt()
+        regalloc.longevity[resbox] = (1, 1)
+        regalloc.consider_newstr(ResOperation(rop.NEWSTR, [box], resbox,
+                                              None), None)
+        regalloc._check_invariants()
 
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
@@ -326,6 +420,93 @@ class TestRegallocCompOps(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 1])
         assert self.getint(0) == 0
+
+class TestRegallocMoreRegisters(BaseTestRegalloc):
+
+    cpu = BaseTestRegalloc.cpu
+
+    S = lltype.GcStruct('S', ('field', lltype.Char))
+    fielddescr = cpu.fielddescrof(S, 'field')
+
+    A = lltype.GcArray(lltype.Char)
+    arraydescr = cpu.arraydescrof(A)
+
+    namespace = locals().copy()
+
+    def test_int_is_true(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7]
+        i10 = int_is_true(i0)
+        i11 = int_is_true(i1)
+        i12 = int_is_true(i2)
+        i13 = int_is_true(i3)
+        i14 = int_is_true(i4)
+        i15 = int_is_true(i5)
+        i16 = int_is_true(i6)
+        i17 = int_is_true(i7)
+        fail(i10, i11, i12, i13, i14, i15, i16, i17)
+        '''
+        self.interpret(ops, [0, 42, 12, 0, 13, 0, 0, 3333])
+        assert self.getints(8) == [0, 1, 1, 0, 1, 0, 0, 1]
+
+    def test_comparison_ops(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6]
+        i10 = int_lt(i0, i1)
+        i11 = int_le(i2, i3)
+        i12 = int_ge(i4, i5)
+        i13 = int_eq(i5, i6)
+        i14 = int_gt(i6, i2)
+        i15 = int_ne(i2, i6)
+        fail(i10, i11, i12, i13, i14, i15)
+        '''
+        self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
+        assert self.getints(6) == [1, 1, 0, 0, 1, 1]
+
+    def test_nullity(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6]
+        i10 = oononnull(i0)
+        i11 = ooisnull(i1)
+        i12 = oononnull(i2)
+        i13 = oononnull(i3)
+        i14 = ooisnull(i6)
+        i15 = ooisnull(i5)
+        fail(i10, i11, i12, i13, i14, i15)
+        '''
+        self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
+        assert self.getints(6) == [0, 0, 1, 1, 0, 0]
+
+    def test_strsetitem(self):
+        ops = '''
+        [p0, i]
+        strsetitem(p0, 1, i)
+        fail()
+        '''
+        llstr  = rstr.mallocstr(10)
+        self.interpret(ops, [llstr, ord('a')])
+        assert llstr.chars[1] == 'a'
+
+    def test_setfield_char(self):
+        ops = '''
+        [p0, i]
+        setfield_gc(p0, i, descr=fielddescr)
+        fail()
+        '''
+        s = lltype.malloc(self.S)
+        self.interpret(ops, [s, ord('a')])
+        assert s.field == 'a'
+
+    def test_setarrayitem_gc(self):
+        ops = '''
+        [p0, i]
+        setarrayitem_gc(p0, 1, i, descr=arraydescr)
+        fail()
+        '''
+        s = lltype.malloc(self.A, 3)
+        self.interpret(ops, [s, ord('a')])
+        assert s[1] == 'a'
+        
 
 class GcRootMap(object):
     def initialize(self):

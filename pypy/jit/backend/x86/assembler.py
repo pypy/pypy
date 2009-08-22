@@ -232,6 +232,9 @@ class Assembler386(object):
         #if self.gcrootmap:
         self.mc.PUSH(ebp)
         self.mc.MOV(ebp, esp)
+        self.mc.PUSH(ebx)
+        self.mc.PUSH(esi)
+        self.mc.PUSH(edi)
         self.mc.SUB(esp, imm(framesize * WORD))
         for i in range(len(arglocs)):
             loc = arglocs[i]
@@ -301,6 +304,9 @@ class Assembler386(object):
         addr = self.implement_guard_recovery(op, regalloc)
         genop_guard_list[op.opnum](self, op, None, addr, arglocs,
                                    resloc)
+
+    def load_effective_addr(self, sizereg, baseofs, scale, result):
+        self.mc.LEA(result, addr_add(imm(0), sizereg, baseofs, scale))
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
@@ -738,6 +744,9 @@ class Assembler386(object):
         guard_index = self.cpu.make_guard_index(op)
         self.mc.MOV(eax, imm(guard_index))
         #if self.gcrootmap:
+        self.mc.POP(edi)
+        self.mc.POP(esi)
+        self.mc.POP(ebx)
         self.mc.POP(ebp)
         self.mc.RET()
 
