@@ -1,4 +1,5 @@
 from pypy.jit.backend.x86.ri386 import *
+from pypy.jit.backend.x86.regalloc import stack_pos
 from pypy.jit.backend.x86.jump import remap_stack_layout
 
 class MockAssembler:
@@ -41,9 +42,9 @@ def test_trivial():
     remap_stack_layout(assembler, [eax, ebx, ecx, edx, esi, edi],
                                   [eax, ebx, ecx, edx, esi, edi], '?')
     assert assembler.ops == []
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
+    s8 = stack_pos(1)
+    s12 = stack_pos(31)
+    s20 = stack_pos(6)
     remap_stack_layout(assembler, [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
                                   [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
                                   '?')
@@ -58,12 +59,25 @@ def test_simple_registers():
 
 def test_simple_stacklocs():
     assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
+    s8 = stack_pos(0)
+    s12 = stack_pos(13)
+    s20 = stack_pos(20)
+    s24 = stack_pos(221)
     remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], edx)
     assert assembler.ops == [('load', s8, edx),
                              ('store', edx, s20),
                              ('store', eax, s24),
                              ('load', s12, edi)]
+
+def test_reordering():
+    assembler = MockAssembler()
+    s8 = stack_pos(8)
+    s12 = stack_pos(12)
+    s20 = stack_pos(19)
+    s24 = stack_pos(1)
+    remap_stack_layout(assembler, [eax, s8, s20, ebx],
+                                  [s8, ebx, eax, edi], '?')
+    assert assembler.got([('load', ebx, edi),
+                          ('load', s8, ebx),
+                          ('store', eax, s8),
+                          ('load', s20, eax)])
