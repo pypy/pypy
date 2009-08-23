@@ -223,6 +223,19 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected, i0=0, i1=1, i2=3)
 
+    def test_remove_guard_value_if_constant(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, 'Constant(myptr)', expected, p1=self.nodebox.value)
+        
     def test_ooisnull_oononnull_1(self):
         ops = """
         [p0]
@@ -1034,8 +1047,6 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         expected = """
         [p1]
-        guard_value(p1, ConstPtr(myptr))
-            fail()
         i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
         escape(i1)
         escape(i1)
