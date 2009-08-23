@@ -81,3 +81,17 @@ def test_reordering():
                           ('load', s8, ebx),
                           ('store', eax, s8),
                           ('load', s20, eax)])
+
+def test_cycle():
+    assembler = MockAssembler()
+    s8 = stack_pos(8)
+    s12 = stack_pos(12)
+    s20 = stack_pos(19)
+    s24 = stack_pos(1)
+    remap_stack_layout(assembler, [eax, s8, s20, ebx],
+                                  [s8, ebx, eax, s20], '?')
+    assert assembler.got([('push', s8),
+                          ('store', eax, s8),
+                          ('load', s20, eax),
+                          ('store', ebx, s20),
+                          ('pop', ebx)])
