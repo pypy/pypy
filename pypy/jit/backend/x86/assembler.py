@@ -290,6 +290,9 @@ class Assembler386(object):
     def regalloc_pop(self, loc):
         self.mc.POP(loc)
 
+    def regalloc_stackdiscard(self, count):
+        self.mc.ADD(esp, imm(WORD * count))
+
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.opnum](self, op, arglocs, resloc)
 

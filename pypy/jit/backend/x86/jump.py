@@ -14,13 +14,17 @@ def remap_stack_layout(assembler, src_locations, dst_locations, free_regs=[]):
                     if free_regs:
                         tmp = free_regs[0]
                     else:
-                        assembler.regalloc_push(eax)
-                        pushed_eax = True
+                        if not pushed_eax:
+                            assembler.regalloc_push(eax)
+                            pushed_eax = True
                         tmp = eax
                     assembler.regalloc_load(src, tmp)
                     src = tmp
                 assembler.regalloc_store(src, dst)
             else:
                 assembler.regalloc_load(src, dst)
+            if pushed_eax and dst is eax:
+                assembler.regalloc_stackdiscard(1)
+                pushed_eax = False
     if pushed_eax:
         assembler.regalloc_pop(eax)
