@@ -15,6 +15,7 @@ from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
+from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.test.oparser import parse
 
 
@@ -130,12 +131,22 @@ class BaseTest(object):
                                  self.cpu)
             else:
                 return ConstObj(ootype.cast_to_object(cls_vtable))
+        def constant(value):
+            if isinstance(lltype.typeOf(value), lltype.Ptr):
+                return ConstPtr(value)
+            elif isinstance(ootype.typeOf(value), ootype.OOType):
+                return ConstObj(ootype.cast_to_object(value))
+            else:
+                return ConstInt(value)
+
         def parsefields(kwds_fields):
             fields = []
             for key, value in kwds_fields.items():
                 fields.append((self.namespace[key], value))
             fields.sort(key = lambda (x, _): x.sort_key())
             return fields
+        def makeConstant(value):
+            return ConstantSpecNode(constant(value))
         def makeVirtual(cls_vtable, **kwds_fields):
             fields = parsefields(kwds_fields)
             return VirtualInstanceSpecNode(constclass(cls_vtable), fields)
@@ -146,6 +157,7 @@ class BaseTest(object):
             return VirtualStructSpecNode(typedescr, fields)
         #
         context = {'Not': prebuiltNotSpecNode,
+                   'Constant': makeConstant,
                    'Virtual': makeVirtual,
                    'VArray': makeVirtualArray,
                    'VStruct': makeVirtualStruct}
@@ -467,7 +479,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         # The answer must contain the 'value' field, because otherwise
         # we might get incorrect results: when tracing, maybe i0 was not 0.
-        self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
+        self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Constant(0))')
 
     def test_find_nodes_nonvirtual_guard_class(self):
         ops = """
@@ -632,6 +644,19 @@ class BaseTestOptimizeFindNode(BaseTest):
         jump(i1, p3)
         """
         self.find_nodes(ops, 'Not, Not')
+
+    def test_find_nodes_guard_value_constant(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        jump(p1)
+        """
+        self.find_nodes(ops, 'Constant(myptr)')
 
     # ------------------------------
     # Bridge tests

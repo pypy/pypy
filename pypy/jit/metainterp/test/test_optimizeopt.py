@@ -1041,7 +1041,7 @@ class BaseTestOptimizeOpt(BaseTest):
         escape(i1)
         jump(ConstPtr(myptr))
         """
-        self.optimize_loop(ops, 'Not', expected, p1=self.nodebox.value)
+        self.optimize_loop(ops, 'Constant(myptr)', expected, p1=self.nodebox.value)
 
     def test_duplicate_getfield_sideeffects_1(self):
         ops = """
