@@ -21,6 +21,8 @@ def remap_stack_layout(assembler, src_locations, dst_locations, tmpreg):
         srccount[dst._getregkey()] = 0
     for i in range(len(dst_locations)):
         src = src_locations[i]
+        if isinstance(src, IMM32):
+            continue
         key = src._getregkey()
         if key in srccount:
             if key == dst_locations[i]._getregkey():
@@ -38,9 +40,10 @@ def remap_stack_layout(assembler, src_locations, dst_locations, tmpreg):
                 srccount[key] = -1       # means "it's done"
                 pending_dests -= 1
                 src = src_locations[i]
-                key = src._getregkey()
-                if key in srccount:
-                    srccount[key] -= 1
+                if not isinstance(src, IMM32):
+                    key = src._getregkey()
+                    if key in srccount:
+                        srccount[key] -= 1
                 _move(assembler, src, dst, tmpreg)
                 progress = True
         if not progress:

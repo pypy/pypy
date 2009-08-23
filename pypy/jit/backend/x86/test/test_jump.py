@@ -121,3 +121,24 @@ def test_cycle_2():
                           ('load', s2, ecx),
                           ('store', ecx, s3),
                           ('pop', s2)])
+
+def test_constants():
+    assembler = MockAssembler()
+    c3 = imm(3)
+    remap_stack_layout(assembler, [c3], [eax], '?')
+    assert assembler.ops == [('load', c3, eax)]
+    assembler = MockAssembler()
+    s12 = stack_pos(12)
+    remap_stack_layout(assembler, [c3], [s12], '?')
+    assert assembler.ops == [('store', c3, s12)]
+
+def test_constants_and_cycle():
+    assembler = MockAssembler()
+    c3 = imm(3)
+    s12 = stack_pos(13)
+    remap_stack_layout(assembler, [ebx, c3,  s12],
+                                  [s12, eax, ebx], edi)
+    assert assembler.ops == [('load', c3, eax),
+                             ('push', s12),
+                             ('store', ebx, s12),
+                             ('pop', ebx)]
