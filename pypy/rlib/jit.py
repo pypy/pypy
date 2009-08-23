@@ -19,7 +19,10 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_x, **kwds_s):
         from pypy.annotation import model as annmodel
         s_x = annmodel.not_const(s_x)
-        if 's_access_directly' in kwds_s:
+        access_directly = 's_access_directly' in kwds_s
+        fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
+        if  access_directly or fresh_virtualizable:
+            assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
                 classdesc = s_x.classdef.classdesc
@@ -28,6 +31,8 @@ class Entry(ExtRegistryEntry):
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
+                    if fresh_virtualizable:
+                        flags['fresh_virtualizable'] = True
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
                                                 flags)        

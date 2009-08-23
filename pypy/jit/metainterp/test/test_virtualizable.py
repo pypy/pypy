@@ -73,6 +73,7 @@ class ExplicitVirtualizableTests:
                 x = xy.inst_x
                 xy.inst_x = x + 1
                 n -= 1
+            promote_virtualizable(xy, 'inst_x')                
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 30
@@ -96,6 +97,7 @@ class ExplicitVirtualizableTests:
                     x = xy.inst_x
                     xy.inst_x = x + 10
                 n -= 1
+            promote_virtualizable(xy, 'inst_x')                
             return xy.inst_x
         assert f(5) == 185
         res = self.meta_interp(f, [5])
@@ -115,8 +117,10 @@ class ExplicitVirtualizableTests:
                 x = xy.inst_x
                 if n <= 10:
                     x += 1000
+                promote_virtualizable(xy, 'inst_x')                    
                 xy.inst_x = x + 1
                 n -= 1
+            promote_virtualizable(xy, 'inst_x')                
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10118
@@ -159,6 +163,7 @@ class ExplicitVirtualizableTests:
                 xy.inst_x = x + 1
                 m = (m+1) & 3     # the loop gets unrolled 4 times
                 n -= 1
+            promote_virtualizable(xy, 'inst_x')                
             return xy.inst_x
         def f(n):
             res = 0
@@ -188,6 +193,7 @@ class ExplicitVirtualizableTests:
                 promote_virtualizable(xy, 'inst_x')
                 xy.inst_x = value + 100      # virtualized away
                 n -= 1
+            promote_virtualizable(xy, 'inst_x')                
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
@@ -296,8 +302,11 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                promote_virtualizable(xy2, 'inst_l1')                
+                promote_virtualizable(xy2, 'inst_l2')
                 xy2.inst_l1[2] += xy2.inst_l2[0]
                 n -= 1
+            promote_virtualizable(xy2, 'inst_l1')                
             return xy2.inst_l1[2]
         res = self.meta_interp(f, [16])
         assert res == 3001 + 16 * 80
@@ -312,6 +321,8 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                promote_virtualizable(xy2, 'inst_x')
+                promote_virtualizable(xy2, 'inst_l2')
                 xy2.inst_l2[0] += xy2.inst_x
                 n -= 1
         def f(n):
@@ -341,6 +352,8 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                promote_virtualizable(xy2, 'inst_l1')
+                promote_virtualizable(xy2, 'inst_l2')                
                 xy2.inst_l1[1] += len(xy2.inst_l2)
                 n -= 1
         def f(n):
@@ -374,6 +387,7 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n)
+                promote_virtualizable(xy2, 'inst_l1')
                 xy2.inst_l1[1] = xy2.inst_l1[1] + len(h(xy2))
                 n -= 1
         def f(n):
@@ -420,6 +434,7 @@ class ExplicitVirtualizableTests:
                 promote_virtualizable(xy2, 'inst_l2')
                 xy2.inst_l2[0] = value + 100      # virtualized away
                 n -= 1
+            promote_virtualizable(xy2, 'inst_l2')                
             return xy2.inst_l2[0]
         expected = f(20)
         res = self.meta_interp(f, [20], optimizer=simple_optimize)
@@ -451,7 +466,10 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n)
-                xy2.parent.inst_l2[0] += xy2.parent.inst_x
+                parent = xy2.parent
+                promote_virtualizable(parent, 'inst_x')                
+                promote_virtualizable(parent, 'inst_l2')                
+                parent.inst_l2[0] += parent.inst_x
                 n -= 1
         def f(n):
             xy2 = self.setup2sub()
@@ -811,16 +829,15 @@ class ImplicitVirtualizableTests:
         self.check_loops(new_with_vtable=0)
 
     def test_virtual_child_frame_with_arrays(self):
-        py.test.skip("WIP")
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
                                 virtualizables = ['frame'])
 
         class Frame(object):
             _virtualizable2_ = ['x[*]']
 
-            #@dont_look_inside
             def __init__(self, x, y):
-                self = hint(self, access_directly=True)
+                self = hint(self, access_directly=True,
+                                  fresh_virtualizable=True)
                 self.x = [x, y]
 
         class SomewhereElse:
@@ -846,7 +863,12 @@ class ImplicitVirtualizableTests:
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
-    pass
+
+    def test_subclass_of_virtualizable(self):
+        py.test.skip("oo virtualizable support incomplete")
+        
+    def test_virtual_child_frame_with_arrays(self):
+        py.test.skip("oo virtualizable support incomplete")
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

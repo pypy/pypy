@@ -384,6 +384,7 @@ class BytecodeMaker(object):
         self.var_positions = {}
         self.vable_array_vars = {}
         self.immutable_arrays = {}
+        self.vable_flags = {}
         for arg in self.force_block_args_order(block):
             self.register_var(arg, verbose=False)
         self.emit(label(block))
@@ -914,11 +915,19 @@ class BytecodeMaker(object):
             return False
         if not vinfo.is_vtypeptr(op.args[0].concretetype):
             return False
+        res = False
         if op.args[1].value in vinfo.static_field_to_extra_box:
-            return True
+            res = True
         if op.args[1].value in vinfo.array_fields:
-            raise VirtualizableArrayField(self.graph)
-        return False
+            res = VirtualizableArrayField(self.graph)
+
+        if res:
+            flags = self.vable_flags[op.args[0]]
+            if 'fresh_virtualizable' in flags:
+                return False
+        if isinstance(res, Exception):
+            raise res
+        return res
 
     def handle_getfield_typeptr(self, op):
         # special-casing for getting the typeptr of an object
@@ -1376,6 +1385,7 @@ class BytecodeMaker(object):
         vinfo = self.codewriter.metainterp_sd.virtualizable_info
         assert vinfo is not None
         assert vinfo.is_vtypeptr(op.args[0].concretetype)
+        self.vable_flags[op.args[0]] = op.args[2].value
 
     serialize_op_oostring  = handle_builtin_call
     serialize_op_oounicode = handle_builtin_call
