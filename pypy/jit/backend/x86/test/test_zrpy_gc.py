@@ -116,12 +116,12 @@ def test_compile_hybrid_1():
 def test_GcRootMap_asmgcc():
     gcrootmap = GcRootMap_asmgcc()
     shape = gcrootmap._get_callshape([stack_pos(1), stack_pos(55)])
-    assert shape == [6, 1, 5, 9, 2, 0, -8|2, -224|2]
+    assert shape == [6, -2, -6, -10, 2, 0, -8|2, -224|2]
     #
     shapeaddr = gcrootmap.encode_callshape([stack_pos(1), stack_pos(55)])
     PCALLSHAPE = lltype.Ptr(GcRootMap_asmgcc.CALLSHAPE_ARRAY)
     p = llmemory.cast_adr_to_ptr(shapeaddr, PCALLSHAPE)
-    for i, expected in enumerate([131, 59, 11, 0, 4, 18, 10, 2, 12]):
+    for i, expected in enumerate([131, 59, 11, 0, 4, 19, 11, 3, 12]):
         assert p[i] == expected
     #
     retaddr = rffi.cast(llmemory.Address, 1234567890)
