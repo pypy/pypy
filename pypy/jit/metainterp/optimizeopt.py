@@ -9,7 +9,7 @@ from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
 from pypy.jit.metainterp import resume, compile
 from pypy.rlib.objectmodel import we_are_translated
-
+from pypy.rpython.lltypesystem import lltype
 
 def optimize_loop_1(cpu, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
@@ -347,8 +347,29 @@ class Optimizer(object):
         self.values_to_clean = []    # OptValues to clean when we see an
                                      # operation with side-effects
         self.reached_the_end = False
+        self.interned_ptrs = {}
+        self.interned_objs = {}
+
+    def getinterned(self, box):
+        if not self.cpu.is_oo and isinstance(box, ConstPtr):
+            key = lltype.cast_ptr_to_int(box.value)
+            try:
+                return self.interned_ptrs[key]
+            except KeyError:
+                self.interned_ptrs[key] = box
+                return box
+        elif self.cpu.is_oo and isinstance(box, ConstObj):
+            try:
+                return self.interned_objs[box.value]
+            except KeyError:
+                self.interned_objs[box.value] = box
+                return box
+        else:
+            return box
+        
 
     def getvalue(self, box):
+        box = self.getinterned(box)
         try:
             value = self.values[box]
         except KeyError:

@@ -1004,7 +1004,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_duplicate_getfield_constant(self):
-        py.test.skip("maybe implement later")
         ops = """
         []
         i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
