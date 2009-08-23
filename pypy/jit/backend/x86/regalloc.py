@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rgc
 from pypy.jit.backend.x86 import symbolic
+from pypy.jit.backend.x86.jump import remap_stack_layout
 from pypy.jit.metainterp.resoperation import rop
 
 REGS = [eax, ecx, edx, ebx, esi, edi]
@@ -515,6 +516,10 @@ class RegAlloc(object):
         # more optimal
         inputargs = tree.inputargs
         locs = [None] * len(inputargs)
+        # Don't use REGS[0] for passing arguments around a loop.
+        # Must be kept in sync with consider_jump().
+        tmpreg = self.free_regs.pop(0)
+        assert tmpreg == REGS[0]
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
@@ -527,6 +532,7 @@ class RegAlloc(object):
                 loc = self.stack_loc(arg)
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
+        self.free_regs.insert(0, tmpreg)
         tree.arglocs = locs
         self.assembler.make_merge_point(tree, locs)
         self.eventually_free_vars(inputargs)
@@ -931,33 +937,17 @@ class RegAlloc(object):
     consider_unicodegetitem = consider_strgetitem
 
     def consider_jump(self, op, ignored):
-        # This is a simplified version of the code that was there until r64970.
-        # At least it's bug-free (hopefully).  We can then go on optimizing
-        # it again.
-        later_pops = []     # pops that will be performed in reverse order
         loop = op.jump_target
-        for i in range(len(op.args)):
-            arg = op.args[i]
-            src = self.loc(arg)
-            res = loop.arglocs[i]
-            if src is res:
-                continue      # nothing needed to copy in this case
-            if (isinstance(src, MODRM) and
-                isinstance(res, MODRM) and
-                src.position == res.position):
-                continue      # already at the correct stack position
-            # write the code that moves the correct value into 'res', in two
-            # steps: generate a pair PUSH (immediately) / POP (later)
-            if isinstance(src, MODRM):
-                src = stack_pos(src.position)
-            if isinstance(res, MODRM):
-                res = stack_pos(res.position)
-            self.assembler.regalloc_push(src)
-            later_pops.append(res)
-            #
+        # compute 'tmploc' to be REGS[0] by spilling what is there
+        box = TempBox()
+        tmploc = self.force_allocate_reg(box, [], selected_reg=REGS[0])
+        src_locations = [self.loc(arg) for arg in op.args]
+        dst_locations = loop.arglocs
+        assert tmploc not in dst_locations
+        remap_stack_layout(self.assembler, src_locations,
+                                           dst_locations, tmploc)
+        self.eventually_free_var(box)
         self.eventually_free_vars(op.args)
-        for i in range(len(later_pops)-1, -1, -1):
-            self.assembler.regalloc_pop(later_pops[i])
         self.PerformDiscard(op, [])
 
     def consider_debug_merge_point(self, op, ignored):
