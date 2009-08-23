@@ -1,10 +1,9 @@
 from pypy.jit.metainterp.specnode import SpecNode
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
-from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
-from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
+from pypy.jit.metainterp.history import AbstractValue, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
 
@@ -29,8 +28,6 @@ class InstanceNode(object):
     knownclsbox = None  # set only on freshly-allocated or fromstart structures
     origfields = None   # optimization; equivalent to an empty dict
     curfields = None    # optimization; equivalent to an empty dict
-
-    knownvaluebox = None # Used to store value of this box if constant
 
     # fields used to store the shape of the potential VirtualList
     arraydescr = None   # set only on freshly-allocated or fromstart arrays
@@ -109,12 +106,6 @@ class NodeFinder(object):
         self.nodes = {}     # Box -> InstanceNode
 
     def getnode(self, box):
-        if isinstance(box, Const):
-            node = InstanceNode()
-            node.unique = UNIQUE_NO
-            node.knownvaluebox = box
-            self.nodes[box] = node
-            return node
         return self.nodes.get(box, self.node_escaped)
 
     def find_nodes(self, operations):
@@ -165,10 +156,6 @@ class NodeFinder(object):
         instnode = self.getnode(op.args[0])
         if instnode.fromstart:    # only useful in this case
             instnode.knownclsbox = op.args[1]
-
-    def find_nodes_GUARD_VALUE(self, op):
-        instnode = self.getnode(op.args[0])
-        instnode.knownvaluebox = op.args[1]
 
     def find_nodes_SETFIELD_GC(self, op):
         instnode = self.getnode(op.args[0])
@@ -295,9 +282,6 @@ class PerfectSpecializationFinder(NodeFinder):
         assert inputnode.fromstart
         if inputnode.escaped:
             return prebuiltNotSpecNode
-        if inputnode.knownvaluebox is not None and \
-           inputnode.knownvaluebox == exitnode.knownvaluebox:
-            return ConstantSpecNode(inputnode.knownvaluebox)
         unique = exitnode.unique
         if unique == UNIQUE_NO:
             return prebuiltNotSpecNode

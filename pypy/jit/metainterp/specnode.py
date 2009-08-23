@@ -19,14 +19,6 @@ class NotSpecNode(SpecNode):
 prebuiltNotSpecNode = NotSpecNode()
 
 
-class ConstantSpecNode(SpecNode):
-    def __init__(self, constbox):
-        self.constbox = constbox
-
-    def equals(self, other):
-        return isinstance(other, ConstantSpecNode) and \
-               self.constbox == other.constbox
-
 class AbstractVirtualStructSpecNode(SpecNode):
     def __init__(self, fields):
         self.fields = fields    # list: [(fieldofs, subspecnode)]
