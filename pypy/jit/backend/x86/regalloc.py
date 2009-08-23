@@ -932,7 +932,6 @@ class RegAlloc(object):
         # At least it's bug-free (hopefully).  We can then go on optimizing
         # it again.
         later_pops = []     # pops that will be performed in reverse order
-        extra_on_stack = 0
         loop = op.jump_target
         for i in range(len(op.args)):
             arg = op.args[i]
@@ -952,7 +951,6 @@ class RegAlloc(object):
                 res = stack_pos(res.position)
             self.assembler.regalloc_push(src)
             later_pops.append(res)
-            extra_on_stack += 1
             #
         self.eventually_free_vars(op.args)
         for i in range(len(later_pops)-1, -1, -1):
