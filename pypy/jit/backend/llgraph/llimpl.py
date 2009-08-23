@@ -1058,7 +1058,7 @@ def do_new(size):
 
 def do_new_array(arraynum, count):
     TYPE = symbolic.Size2Type[arraynum]
-    x = lltype.malloc(TYPE, count)
+    x = lltype.malloc(TYPE, count, zero=True)
     return cast_to_ptr(x)
 
 def do_setarrayitem_gc_int(array, index, newvalue, memocast):

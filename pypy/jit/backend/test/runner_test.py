@@ -686,6 +686,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                     'ptr', descr=arraydescr)
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
+        assert a[0] == 0
         assert len(a) == 342
 
     def test_new_string(self):

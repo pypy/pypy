@@ -110,6 +110,21 @@ class ListTests:
         res = self.meta_interp(f, [21], listops=True)
         assert res == 2
 
+    def test_make_list(self):
+        from pypy.jit.metainterp import simple_optimize
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
+        def f(n):
+            lst = None
+            while n > 0:
+                lst = [0] * 10
+                myjitdriver.can_enter_jit(n=n, lst=lst)
+                myjitdriver.jit_merge_point(n=n, lst=lst)
+                n -= 1
+            return lst[n]
+        res = self.meta_interp(f, [21], listops=True, optimizer=simple_optimize)
+        assert res == 0
+
+
 class TestOOtype(ListTests, OOJitMixin):
    pass
 
