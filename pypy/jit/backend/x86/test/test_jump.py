@@ -104,8 +104,9 @@ def test_cycle_2():
     s24 = stack_pos(1)
     s2 = stack_pos(2)
     s3 = stack_pos(3)
-    remap_stack_layout(assembler, [eax, s8, s20, eax, s20, s24, esi, s2, s3],
-                                  [s8, s20, eax, edx, s24, ebx, s12, s3, s2],
+    remap_stack_layout(assembler,
+                       [eax, s8, edi, s20, eax, s20, s24, esi, s2, s3],
+                       [s8, s20, edi, eax, edx, s24, ebx, s12, s3, s2],
                        ecx)
     assert assembler.got([('load', eax, edx),
                           ('load', s24, ebx),
