@@ -236,6 +236,7 @@ class Assembler386(object):
         self.mc.PUSH(esi)
         self.mc.PUSH(edi)
         # NB. exactly 4 pushes above; if this changes, fix stack_pos().
+        # You must also keep _get_callshape() in sync.
         self.mc.SUB(esp, imm(framesize * WORD))
         for i in range(len(arglocs)):
             loc = arglocs[i]

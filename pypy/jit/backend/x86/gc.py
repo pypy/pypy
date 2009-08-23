@@ -232,14 +232,11 @@ class GcRootMap_asmgcc:
         return self._compress_callshape(shape)
 
     def _get_callshape(self, gclocs):
-        # The return address is always found at 4(%ebp); and
-        # the three registers %ebx, %esi, %edi are not used at all
-        # so far, so their value always comes from the caller.
-        shape = [self.LOC_EBP_BASED | 4,
-                 self.LOC_REG | 0,
-                 self.LOC_REG | 4,
-                 self.LOC_REG | 8,
-                 self.LOC_EBP_BASED | 0,
+        shape = [self.LOC_EBP_BASED | 4,     # return addr: at   4(%ebp)
+                 self.LOC_EBP_BASED | (-4),  # saved %ebx:  at  -4(%ebp)
+                 self.LOC_EBP_BASED | (-8),  # saved %esi:  at  -8(%ebp)
+                 self.LOC_EBP_BASED | (-12), # saved %edi:  at -12(%ebp)
+                 self.LOC_EBP_BASED | 0,     # saved %ebp:  at    (%ebp)
                  0]
         for loc in gclocs:
             assert isinstance(loc, MODRM)
