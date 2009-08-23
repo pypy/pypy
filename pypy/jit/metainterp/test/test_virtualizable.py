@@ -759,6 +759,38 @@ class ImplicitVirtualizableTests:
 
         assert direct_calls(init_graph) == []
 
+    def test_virtual_child_frame(self):
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.y = y
+
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def f(n):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
+            frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                child_frame = Frame(frame.x, 1)
+                frame.y += child_frame.x
+                frame.x -= 1
+            return somewhere_else.top_frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_loops(new_with_vtable=0)
+
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
