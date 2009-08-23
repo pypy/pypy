@@ -5,6 +5,13 @@ class MockAssembler:
     def __init__(self):
         self.ops = []
 
+    def regalloc_load(self, from_loc, to_loc):
+        self.ops.append(('load', from_loc, to_loc))
+
+    def regalloc_store(self, from_loc, to_loc):
+        self.ops.append(('store', from_loc, to_loc))
+
+
 def test_trivial():
     assembler = MockAssembler()
     remap_stack_layout(assembler, [], [])
@@ -18,3 +25,10 @@ def test_trivial():
     remap_stack_layout(assembler, [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
                                   [eax, ebx, ecx, s20, s8, edx, s12, esi, edi])
     assert assembler.ops == []
+
+def test_simple_registers():
+    assembler = MockAssembler()
+    remap_stack_layout(assembler, [eax, ebx, ecx], [edx, esi, edi])
+    assert assembler.ops == [('load', eax, edx),
+                             ('load', ebx, esi),
+                             ('load', ecx, edi)]
