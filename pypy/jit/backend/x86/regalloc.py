@@ -976,7 +976,11 @@ for name, value in RegAlloc.__dict__.iteritems():
         oplist[num] = value
 
 def stack_pos(i):
-    res = mem(ebp, -WORD * (1 + i))
+    # Argument is a stack position (0, 1, 2...).
+    # Returns (ebp-16), (ebp-20), (ebp-24)...
+    # This depends on the fact that our function prologue contains
+    # exactly 4 PUSHes.
+    res = mem(ebp, -WORD * (4 + i))
     res.position = i
     return res
 
