@@ -1021,6 +1021,28 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, '', expected)
 
+    def test_duplicate_getfield_guard_value_const(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        escape(i1)
+        escape(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        escape(i1)
+        escape(i1)
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, 'Not', expected, p1=self.nodebox.value)
+
     def test_duplicate_getfield_sideeffects_1(self):
         ops = """
         [p1]
