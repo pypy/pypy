@@ -32,3 +32,15 @@ def test_simple_registers():
     assert assembler.ops == [('load', eax, edx),
                              ('load', ebx, esi),
                              ('load', ecx, edi)]
+
+def test_simple_stacklocs():
+    assembler = MockAssembler()
+    s8 = mem(ebp, -8)
+    s12 = mem(ebp, -12)
+    s20 = mem(ebp, -20)
+    s24 = mem(ebp, -24)
+    remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], [edx, esi])
+    assert assembler.ops == [('load', s8, edx),
+                             ('store', edx, s20),
+                             ('store', eax, s24),
+                             ('load', s12, edi)]
