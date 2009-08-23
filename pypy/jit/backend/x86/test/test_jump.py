@@ -95,3 +95,28 @@ def test_cycle():
                           ('load', s20, eax),
                           ('store', ebx, s20),
                           ('pop', ebx)])
+
+def test_cycle_2():
+    assembler = MockAssembler()
+    s8 = stack_pos(8)
+    s12 = stack_pos(12)
+    s20 = stack_pos(19)
+    s24 = stack_pos(1)
+    s2 = stack_pos(2)
+    s3 = stack_pos(3)
+    remap_stack_layout(assembler, [eax, s8, s20, eax, s20, s24, esi, s2, s3],
+                                  [s8, s20, eax, edx, s24, ebx, s12, s3, s2],
+                       ecx)
+    assert assembler.got([('load', eax, edx),
+                          ('load', s24, ebx),
+                          ('store', esi, s12),
+                          ('load', s20, ecx),
+                          ('store', ecx, s24),
+                          ('push', s8),
+                          ('store', eax, s8),
+                          ('load', s20, eax),
+                          ('pop', s20),
+                          ('push', s3),
+                          ('load', s2, ecx),
+                          ('store', ecx, s3),
+                          ('pop', s2)])
