@@ -48,9 +48,10 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
         return vptr
 
     def hook_access_field(self, vinst, cname, llops, flags):
-        if not flags.get('access_directly'):
-            if cname.value in self.my_redirected_fields:
-                llops.genop('promote_virtualizable', [vinst, cname])
+        #if not flags.get('access_directly'):
+        if cname.value in self.my_redirected_fields:
+            cflags = inputconst(lltype.Void, flags)
+            llops.genop('promote_virtualizable', [vinst, cname, cflags])
 
 
 def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
@@ -59,13 +60,18 @@ def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
     count = 0
     for graph in graphs:
         for block in graph.iterblocks():
+            newoplist = []
             for i, op in enumerate(block.operations):
                 if (op.opname == 'promote_virtualizable' and
                     match_virtualizable_type(op.args[0].concretetype,
                                              VTYPEPTR)):
+                    if op.args[-1].value.get('access_directly', False):
+                        continue
                     op.opname = 'direct_call'
                     op.args = [c_funcptr, op.args[0]]
                     count += 1
+                newoplist.append(op)
+            block.operations = newoplist
     log("replaced %d 'promote_virtualizable' with %r" % (count, funcptr))
 
 def match_virtualizable_type(TYPE, VTYPEPTR):

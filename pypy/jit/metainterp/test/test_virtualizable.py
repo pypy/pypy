@@ -1,4 +1,5 @@
 import py
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.policy import StopAtXPolicy
@@ -11,7 +12,25 @@ from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history, heaptracker, simple_optimize
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
-promote_virtualizable = lloperation.llop.promote_virtualizable
+def promote_virtualizable(*args):
+    pass
+class Entry(ExtRegistryEntry):
+    "Annotation and rtyping of LLOp instances, which are callable."
+    _about_ = promote_virtualizable
+
+    def compute_result_annotation(self, *args):
+        from pypy.annotation.model import lltype_to_annotation
+        return lltype_to_annotation(lltype.Void)
+
+    def specialize_call(self, hop):
+        op = self.instance    # the LLOp object that was called
+        args_v = [hop.inputarg(hop.args_r[0], 0),
+                  hop.inputconst(lltype.Void, hop.args_v[1].value),
+                  hop.inputconst(lltype.Void, {})]
+        hop.exception_cannot_occur()
+        return hop.genop('promote_virtualizable',
+                         args_v, resulttype=lltype.Void)
+
 debug_print = lloperation.llop.debug_print
 
 # ____________________________________________________________
@@ -50,7 +69,7 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 x = xy.inst_x
                 xy.inst_x = x + 1
                 n -= 1
@@ -69,11 +88,11 @@ class ExplicitVirtualizableTests:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
                 if n > 0:
-                    promote_virtualizable(lltype.Void, xy, 'inst_x')
+                    promote_virtualizable(xy, 'inst_x')
                     x = xy.inst_x
                     xy.inst_x = x + 1
                 else:
-                    promote_virtualizable(lltype.Void, xy, 'inst_x')
+                    promote_virtualizable(xy, 'inst_x')
                     x = xy.inst_x
                     xy.inst_x = x + 10
                 n -= 1
@@ -92,7 +111,7 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 x = xy.inst_x
                 if n <= 10:
                     x += 1000
@@ -110,7 +129,7 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 xy.inst_x += 1
                 n -= 1
         def f(n):
@@ -135,7 +154,7 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
                 myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 x = xy.inst_x
                 xy.inst_x = x + 1
                 m = (m+1) & 3     # the loop gets unrolled 4 times
@@ -163,10 +182,10 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n, other=other)
                 myjitdriver.jit_merge_point(xy=xy, n=n, other=other)
-                promote_virtualizable(lltype.Void, other, 'inst_x')
+                promote_virtualizable(other, 'inst_x')
                 value = other.inst_x         # getfield_gc
                 other.inst_x = value + 1     # setfield_gc
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 xy.inst_x = value + 100      # virtualized away
                 n -= 1
             return xy.inst_x
@@ -182,7 +201,7 @@ class ExplicitVirtualizableTests:
         outer = Outer()
         def ext():
             xy = outer.xy
-            promote_virtualizable(lltype.Void, xy, 'inst_x')
+            promote_virtualizable(xy, 'inst_x')
             return xy.inst_x + 2
         def f(n):
             xy = self.setup()
@@ -192,10 +211,10 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
                 myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 xy.inst_x = n + 9998     # virtualized away
                 m += ext()               # 2x setfield_gc, 2x getfield_gc
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 xy.inst_x = 10           # virtualized away
                 n -= 1
             return m
@@ -214,7 +233,7 @@ class ExplicitVirtualizableTests:
         outer = Outer()
         def ext():
             xy = outer.xy
-            promote_virtualizable(lltype.Void, xy, 'inst_x')
+            promote_virtualizable(xy, 'inst_x')
             xy.inst_x += 2
         def f(n):
             xy = self.setup()
@@ -224,10 +243,10 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
                 myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 xy.inst_x = n + 9998     # virtualized away
                 ext()                    # 2x setfield_gc, 2x getfield_gc
-                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                promote_virtualizable(xy, 'inst_x')
                 m += xy.inst_x           # virtualized away
                 n -= 1
             return m
@@ -394,11 +413,11 @@ class ExplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(xy2=xy2, n=n, other=other)
                 myjitdriver.jit_merge_point(xy2=xy2, n=n, other=other)
-                promote_virtualizable(lltype.Void, other, 'inst_l2')
+                promote_virtualizable(other, 'inst_l2')
                 length = len(other.inst_l2)       # getfield_gc/arraylen_gc
                 value = other.inst_l2[0]          # getfield_gc/getarrayitem_gc
                 other.inst_l2[0] = value + length # getfield_gc/setarrayitem_gc
-                promote_virtualizable(lltype.Void, xy2, 'inst_l2')
+                promote_virtualizable(xy2, 'inst_l2')
                 xy2.inst_l2[0] = value + 100      # virtualized away
                 n -= 1
             return xy2.inst_l2[0]

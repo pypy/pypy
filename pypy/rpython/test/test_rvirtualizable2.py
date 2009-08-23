@@ -26,6 +26,13 @@ class B(object):
     def __init__(self, v0):
         self.v0 = v0
 
+def get_promote_virtualizable_flags(graph):
+    res = []
+    for block, op in graph.iterblockops():
+        if op.opname == 'promote_virtualizable':
+            res.append(op.args[-1].value)
+    return res
+
 class BaseTest(BaseRtypingTest):
     def test_generate_promote_virtualizable(self):
         def fn(n):
@@ -39,6 +46,7 @@ class BaseTest(BaseRtypingTest):
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'promote_virtualizable'
         assert op_promote.args[0] is v_inst
+        assert op_promote.args[-1].value == {}
 
     def test_no_promote_virtualizable_for_other_fields(self):
         def fn(n):
@@ -65,6 +73,7 @@ class BaseTest(BaseRtypingTest):
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'promote_virtualizable'
         assert op_promote.args[0] is v_inst
+        assert op_promote.args[-1].value == {}        
 
     def test_accessor(self):
         class Base(object):
@@ -99,18 +108,16 @@ class BaseTest(BaseRtypingTest):
         TYPE = self.gettype(w_inst)
         assert 'virtualizable2_accessor' not in TYPE._hints
 
-    def test_replace_promote_virtualizable_with_call(self):
-        def fn(n):
-            vinst = V(n)
-            return vinst.v
-        _, rtyper, graph = self.gengraph(fn, [int])
-        block = graph.startblock
-        op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
-        v_inst_ll_type = op_getfield.args[0].concretetype
-        #
+    def replace_promote_virtualizable(self, rtyper, graphs):
         from pypy.annotation import model as annmodel
         from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        graph = graphs[0]
+
+        for block, op in graph.iterblockops():
+            if op.opname == 'promote_virtualizable':
+                v_inst_ll_type = op.args[0].concretetype
+                break
+            
         def mycall(vinst_ll):
             pass
         annhelper = MixLevelHelperAnnotator(rtyper)
@@ -120,9 +127,19 @@ class BaseTest(BaseRtypingTest):
             s_vinst = annmodel.SomeOOInstance(v_inst_ll_type)
         funcptr = annhelper.delayedfunction(mycall, [s_vinst], annmodel.s_None)
         annhelper.finish()
-        replace_promote_virtualizable_with_call([graph], v_inst_ll_type,
+        replace_promote_virtualizable_with_call(graphs, v_inst_ll_type,
                                                 funcptr)
-        #
+        return funcptr
+
+    def test_replace_promote_virtualizable_with_call(self):
+        def fn(n):
+            vinst = V(n)
+            return vinst.v
+        _, rtyper, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        op_getfield = block.operations[-1]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        funcptr = self.replace_promote_virtualizable(rtyper, [graph])
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
         assert op_getfield.opname in ('getfield', 'oogetfield')
@@ -141,6 +158,11 @@ class BaseTest(BaseRtypingTest):
 
         t, typer, graph = self.gengraph(f, [int])
         g_graph = t._graphof(g)
+
+        expected =  [{'access_directly': True}]        
+        assert get_promote_virtualizable_flags(g_graph) == expected
+
+        self.replace_promote_virtualizable(typer, [g_graph])
         assert summary(g_graph) == {self.GETFIELD: 1}
 
         res = self.interpret(f, [23]) 
@@ -162,7 +184,15 @@ class BaseTest(BaseRtypingTest):
         assert len(g_graphs) == 2
         g_graphs.sort()
         assert g_graphs[0][0] is None
-        assert summary(g_graphs[0][1]) == {'promote_virtualizable': 1, self.GETFIELD: 1}
+
+        assert get_promote_virtualizable_flags(g_graphs[0][1]) == [{}]
+        expected =  [{'access_directly': True}]        
+        assert get_promote_virtualizable_flags(g_graphs[1][1]) == expected
+
+        self.replace_promote_virtualizable(typer, [g_graphs[0][1],
+                                                   g_graphs[1][1]])
+        
+        assert summary(g_graphs[0][1]) == {'direct_call': 1, self.GETFIELD: 1}
         assert summary(g_graphs[1][1]) == {self.GETFIELD: 1}        
 
         res = self.interpret(f, [23]) 
@@ -196,6 +226,7 @@ class BaseTest(BaseRtypingTest):
         
         h_graph = t._graphof(h)
         assert summary(h_graph) == {'promote_virtualizable': 1, self.GETFIELD: 1}
+        assert get_promote_virtualizable_flags(h_graph) == [{}]
 
         res = self.interpret(f, [23])
         assert res == 23
@@ -220,6 +251,9 @@ class BaseTest(BaseRtypingTest):
 
         t, typer, graph = self.gengraph(f, [int])
         g_graph = t._graphof(A.g.im_func)
+
+        self.replace_promote_virtualizable(typer, [g_graph])
+        
         assert summary(g_graph) == {self.GETFIELD: 1, 'int_mul': 1}
 
         res = self.interpret(f, [23])
