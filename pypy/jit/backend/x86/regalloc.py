@@ -12,8 +12,6 @@ from pypy.rlib import rgc
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop
 
-# esi edi and ebx can be added to this list, provided they're correctly
-# saved and restored
 REGS = [eax, ecx, edx, ebx, esi, edi]
 WORD = 4
 
