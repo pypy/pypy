@@ -202,7 +202,7 @@ class Assembler386(object):
         self.mc2.done()
         stack_words = regalloc.max_stack_depth
         # possibly align, e.g. for Mac OS X
-        RET_BP = 2 # ret ip + bp = 2 words
+        RET_BP = 5 # ret ip + bp + bx + esi + edi = 5 words
         stack_words = align_stack_words(stack_words+RET_BP)
         tree._x86_stack_depth = stack_words-RET_BP        
         for place in self.places_to_patch_framesize:
