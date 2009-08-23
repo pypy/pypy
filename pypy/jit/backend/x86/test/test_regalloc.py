@@ -130,6 +130,20 @@ class TestRegallocDirect(object):
                                               None), None)
         regalloc._check_invariants()
 
+    def test_move_away_does_not_spill(self):
+        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        regalloc.position = 0
+        resbox = BoxInt()
+        box = BoxInt()
+        regalloc.reg_bindings = {box: eax}
+        regalloc.free_regs = [ebx, ecx, edx, esi, edi]
+        regalloc._check_invariants()
+        regalloc.longevity = {resbox: (0, 1), box: (0, 1)}
+        regalloc.consider_int_add(ResOperation(rop.INT_ADD, [box, ConstInt(1)],
+                                               resbox), None)
+        regalloc._check_invariants()
+        assert len(regalloc.assembler.stores) == 0
+
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
 

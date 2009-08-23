@@ -475,8 +475,13 @@ class RegAlloc(object):
 
     def move_variable_away(self, v, prev_loc):
         reg = None
-        loc = self.stack_loc(v)
-        self.Store(v, prev_loc, loc)
+        if self.free_regs:
+            loc = self.free_regs.pop()
+            self.reg_bindings[v] = loc
+            self.Load(v, prev_loc, loc)
+        else:
+            loc = self.stack_loc(v)
+            self.Store(v, prev_loc, loc)
 
     def force_result_in_reg(self, result_v, v, forbidden_vars):
         """ Make sure that result is in the same register as v
