@@ -11,6 +11,12 @@ class MockAssembler:
     def regalloc_store(self, from_loc, to_loc):
         self.ops.append(('store', from_loc, to_loc))
 
+    def regalloc_push(self, loc):
+        self.ops.append(('push', loc))
+
+    def regalloc_pop(self, loc):
+        self.ops.append(('pop', loc))
+
 
 def test_trivial():
     assembler = MockAssembler()
@@ -44,3 +50,17 @@ def test_simple_stacklocs():
                              ('store', edx, s20),
                              ('store', eax, s24),
                              ('load', s12, edi)]
+
+def test_simple_stacklocs_no_free_reg():
+    assembler = MockAssembler()
+    s8 = mem(ebp, -8)
+    s12 = mem(ebp, -12)
+    s20 = mem(ebp, -20)
+    s24 = mem(ebp, -24)
+    remap_stack_layout(assembler, [s8, ebx, s12], [s20, s24, edi], [])
+    assert assembler.ops == [('push', eax),
+                             ('load', s8, eax),
+                             ('store', eax, s20),
+                             ('store', ebx, s24),
+                             ('load', s12, edi),
+                             ('pop', eax)]
