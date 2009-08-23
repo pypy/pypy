@@ -735,11 +735,13 @@ class ImplicitVirtualizableTests:
         assert res == 55
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
+        from pypy.jit.backend.test.support import BaseCompiledMixin
+        if isinstance(self, BaseCompiledMixin):
+            return
+
         t = get_translator()
-        f_graph = t.graphs[0]
-        assert f_graph.func is f
-        portal_graph = t.graphs[-1]
-        assert portal_graph.func is f
+        f_graph, portal_graph = [graph for graph in t.graphs
+                                       if getattr(graph, 'func', None) is f]
         init_graph = t._graphof(Frame.__init__.im_func)
 
         deref = t.rtyper.type_system_deref
