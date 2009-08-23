@@ -70,6 +70,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
 # ____________________________________________________________
