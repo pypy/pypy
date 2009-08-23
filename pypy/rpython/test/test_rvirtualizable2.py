@@ -168,6 +168,27 @@ class BaseTest(BaseRtypingTest):
         res = self.interpret(f, [23]) 
         assert res == 23
 
+    def test_access_directly_exception(self):
+        def g(b):
+            return b.v0
+
+        def f(n):
+            b = B(n)
+            b = hint(b, access_directly=True)
+            if not b.v0:
+                raise Exception
+            return g(b)
+
+        t, typer, graph = self.gengraph(f, [int])
+        f_graph = t._graphof(f)
+        g_graph = t._graphof(g)
+
+        self.replace_promote_virtualizable(typer, [f_graph, g_graph])
+        t.checkgraphs()
+
+        res = self.interpret(f, [23]) 
+        assert res == 23
+
     def test_access_directly_specialized(self):
         def g(b):
             return b.v0

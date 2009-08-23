@@ -60,6 +60,8 @@ def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
     count = 0
     for graph in graphs:
         for block in graph.iterblocks():
+            if not block.operations:
+                continue
             newoplist = []
             for i, op in enumerate(block.operations):
                 if (op.opname == 'promote_virtualizable' and
