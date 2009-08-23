@@ -17,9 +17,6 @@ class MockAssembler:
     def regalloc_pop(self, loc):
         self.ops.append(('pop', loc))
 
-    def regalloc_stackdiscard(self, count):
-        self.ops.append(('stackdiscard', count))
-
     def got(self, expected):
         print '------------------------ comparing ---------------------------'
         for op1, op2 in zip(self.ops, expected):
@@ -39,21 +36,22 @@ class MockAssembler:
 
 def test_trivial():
     assembler = MockAssembler()
-    remap_stack_layout(assembler, [], [])
+    remap_stack_layout(assembler, [], [], '?')
     assert assembler.ops == []
     remap_stack_layout(assembler, [eax, ebx, ecx, edx, esi, edi],
-                                  [eax, ebx, ecx, edx, esi, edi])
+                                  [eax, ebx, ecx, edx, esi, edi], '?')
     assert assembler.ops == []
     s8 = mem(ebp, -8)
     s12 = mem(ebp, -12)
     s20 = mem(ebp, -20)
     remap_stack_layout(assembler, [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
-                                  [eax, ebx, ecx, s20, s8, edx, s12, esi, edi])
+                                  [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
+                                  '?')
     assert assembler.ops == []
 
 def test_simple_registers():
     assembler = MockAssembler()
-    remap_stack_layout(assembler, [eax, ebx, ecx], [edx, esi, edi])
+    remap_stack_layout(assembler, [eax, ebx, ecx], [edx, esi, edi], '?')
     assert assembler.ops == [('load', eax, edx),
                              ('load', ebx, esi),
                              ('load', ecx, edi)]
@@ -64,101 +62,8 @@ def test_simple_stacklocs():
     s12 = mem(ebp, -12)
     s20 = mem(ebp, -20)
     s24 = mem(ebp, -24)
-    remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], [edx, esi])
+    remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], edx)
     assert assembler.ops == [('load', s8, edx),
                              ('store', edx, s20),
                              ('store', eax, s24),
                              ('load', s12, edi)]
-
-def test_simple_stacklocs_no_free_reg():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    remap_stack_layout(assembler, [s8, ebx, s12], [s20, s24, edi], [])
-    assert assembler.ops == [('push', eax),
-                             ('load', s8, eax),
-                             ('store', eax, s20),
-                             ('store', ebx, s24),
-                             ('load', s12, edi),
-                             ('pop', eax)]
-
-def test_simple_stacklocs_no_free_reg_2():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    p0 = mem(esp, 0)
-    remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], [])
-    assert assembler.got([('push', eax),
-                          ('load', s8, eax),
-                          ('store', eax, s20),
-                          ('load', p0, eax),
-                          ('store', eax, s24),
-                          ('load', s12, edi),
-                          ('pop', eax)])
-
-def test_simple_stacklocs_no_free_reg_3():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    p0 = mem(esp, 0)
-    remap_stack_layout(assembler, [s8, ecx, s12], [s20, s24, eax], [])
-    assert assembler.got([('push', eax),
-                          ('load', s8, eax),
-                          ('store', eax, s20),
-                          ('store', ecx, s24),
-                          ('load', s12, eax),
-                          ('stackdiscard', 1)])
-
-def test_simple_stacklocs_no_free_reg_4():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    p0 = mem(esp, 0)
-    remap_stack_layout(assembler, [s12, s24], [s8, s20], [])
-    assert assembler.got([('push', eax),
-                          ('load', s12, eax),
-                          ('store', eax, s8),
-                          ('load', s24, eax),
-                          ('store', eax, s20),
-                          ('pop', eax)])
-
-def test_simple_stacklocs_no_free_reg_5():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    p0 = mem(esp, 0)
-    remap_stack_layout(assembler, [s12, s24], [eax, s20], [])
-    assert assembler.got([('load', s12, eax),
-                          ('push', eax),
-                          ('load', s24, eax),
-                          ('store', eax, s20),
-                          ('pop', eax)])
-
-def test_simple_stacklocs_no_free_reg_6():
-    assembler = MockAssembler()
-    s8 = mem(ebp, -8)
-    s12 = mem(ebp, -12)
-    s20 = mem(ebp, -20)
-    s24 = mem(ebp, -24)
-    s28 = mem(ebp, -28)
-    p0 = mem(esp, 0)
-    remap_stack_layout(assembler, [s8, s12, s24], [s28, eax, s20], [])
-    assert assembler.got([('push', eax),
-                          ('load', s8, eax),
-                          ('store', eax, s28),
-                          ('load', s12, eax),
-                          ('stackdiscard', 1),
-                          ('push', eax),
-                          ('load', s24, eax),
-                          ('store', eax, s20),
-                          ('pop', eax)])
