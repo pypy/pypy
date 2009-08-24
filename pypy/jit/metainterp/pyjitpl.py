@@ -588,7 +588,7 @@ class MIFrame(object):
         self.make_result_box(ConstInt(result))
 
     def perform_call(self, jitcode, varargs):
-        if (isinstance(self.metainterp.history, history.BlackHole) and
+        if (self.metainterp.is_blackholing() and
             jitcode.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
             # calling the subfunction directly instead of interpreting it
@@ -790,7 +790,7 @@ class MIFrame(object):
         pass     # xxx?
 
     def generate_merge_point(self, pc, varargs):
-        if isinstance(self.metainterp.history, history.BlackHole):
+        if self.metainterp.is_blackholing():
             raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
@@ -908,7 +908,7 @@ class MIFrame(object):
         if isinstance(box, Const):    # no need for a guard
             return
         metainterp = self.metainterp
-        if isinstance(metainterp.history, history.BlackHole):
+        if metainterp.is_blackholing():
             return
         saved_pc = self.pc
         self.pc = pc
@@ -1087,6 +1087,9 @@ class MetaInterp(object):
         if not we_are_translated():
             self._debug_history = staticdata.globaldata._debug_history
 
+    def is_blackholing(self):
+        return isinstance(self.history, history.BlackHole)
+
     def newframe(self, jitcode):
         if not we_are_translated():
             self._debug_history.append(['enter', jitcode, None])
@@ -1105,7 +1108,7 @@ class MetaInterp(object):
                 self.framestack[-1].make_result_box(resultbox)
             return True
         else:
-            if not isinstance(self.history, history.BlackHole):
+            if not self.is_blackholing():
                 self.compile_done_with_this_frame(resultbox)
             sd = self.staticdata
             if sd.result_type == 'void':
@@ -1141,7 +1144,7 @@ class MetaInterp(object):
             if not we_are_translated():
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
             self.framestack.pop()
-        if not isinstance(self.history, history.BlackHole):
+        if not self.is_blackholing():
             self.compile_exit_frame_with_exception(excvaluebox)
         if self.cpu.is_oo:
             raise self.staticdata.ExitFrameWithExceptionObj(excvaluebox.getobj())
@@ -1222,7 +1225,7 @@ class MetaInterp(object):
             while True:
                 self.framestack[-1].run_one_step()
         finally:
-            if isinstance(self.history, history.BlackHole):
+            if self.is_blackholing():
                 self.staticdata.profiler.end_blackhole()
             else:
                 self.staticdata.profiler.end_tracing()
