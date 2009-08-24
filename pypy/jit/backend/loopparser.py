@@ -239,19 +239,39 @@ class Parser(object):
             args = []
         _, opname = opname.split(":")
         if lines[i + 1].startswith(" " * (self.current_indentation + 2)):
-            if lines[i + 1].strip().startswith('BEGIN'):
-                self.current_indentation += 2
-                guard_op = GuardOperation(opname, args)
-                self.current_block.add(guard_op)
-                return self.parse_block(lines, i + 2, guard_op)
-            marker, result = lines[i + 1].strip().split(" ")
-            assert marker == '=>'
-            result, = self._parse_boxes(result)
-            self.current_block.add(Operation(opname, args, result, descr))
+            # Could be the beginning of a guard or the result of an
+            # operation. (Or the result of a guard operation.)
+            result = self._parse_guard(lines, i + 1, opname, args)
+            if result != -1:
+                return result
+            # If there's not a BEGIN line, there must be a result.
+            op_result = self._parse_result(lines[i + 1])
+            # BEGIN might appear after the result.  guard_exception has a
+            # result.
+            result = self._parse_guard(lines, i + 2, opname, args, op_result)
+            if result != -1:
+                return result
+            # Definitely not a guard.
+            self.current_block.add(Operation(opname, args, op_result, descr))
             return i + 2
         else:
             self.current_block.add(Operation(opname, args, descr=descr))
             return i + 1
+
+    def _parse_guard(self, lines, i, opname, args, op_result=None):
+        if lines[i].lstrip().startswith('BEGIN'):
+            self.current_indentation += 2
+            guard_op = GuardOperation(opname, args, op_result)
+            self.current_block.add(guard_op)
+            return self.parse_block(lines, i + 1, guard_op)
+        return -1
+
+    def _parse_result(self, line):
+        line = line.strip()
+        marker, result = line.split(" ")
+        assert marker == "=>"
+        result, = self._parse_boxes(result)
+        return result
 
     def _parse(self, lines, i):
         try:

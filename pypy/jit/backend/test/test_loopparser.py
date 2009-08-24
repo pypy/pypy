@@ -12,7 +12,7 @@ class TestParser(object):
         assert len(topblock.inputargs) == 3
         for arg in topblock.inputargs:
             assert isinstance(arg, BoxInt)
-        assert len(topblock.operations) == 8
+        assert len(topblock.operations) == 9
         assert isinstance(topblock.operations[0], Comment)
         assert topblock.operations[0].text == \
             "(no jitdriver.get_printable_location!)"
@@ -20,7 +20,8 @@ class TestParser(object):
         assert isinstance(topblock.operations[4], GuardOperation)
         assert ([op.opname for op in topblock.operations
                  if not isinstance(op, Comment)] ==
-                ['int_add', 'int_sub', 'int_gt', 'guard_true', 'jump'])
+                ['int_add', 'int_sub', 'int_gt', 'guard_true', 'jump',
+                 'guard_exception'])
         subops = topblock.operations[4].suboperations
         assert len(subops) == 1
         assert subops[0].opname == 'fail'
@@ -42,6 +43,10 @@ class TestParser(object):
         assert isinstance(code_comment, ByteCodeRef)
         assert code_comment.text == "<code object f, file 'x.py', line 1> #19"
         assert code_comment.address == 19
+        guard_exception = topblock.operations[8]
+        assert isinstance(guard_exception, GuardOperation)
+        assert isinstance(guard_exception.result, BoxPtr)
+        assert guard_exception.result.value == 138081800
 
     def test_two_paths(self):
         loops = self.parse("two_paths.ops")
