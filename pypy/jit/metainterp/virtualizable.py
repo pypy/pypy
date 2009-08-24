@@ -40,6 +40,10 @@ class VirtualizableInfo:
                 VTYPEPTR = VTYPEPTR._superclass
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
+        if not self.is_oo:
+            self.null_vable = lltype.nullptr(VTYPE)
+        else:
+            self.null_vable = ootype.null(VTYPE)
         #
         accessor = VTYPE._hints['virtualizable2_accessor']
         all_fields = accessor.fields

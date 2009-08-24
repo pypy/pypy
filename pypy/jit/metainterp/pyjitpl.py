@@ -607,15 +607,23 @@ class MIFrame(object):
             jitcode.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
             # calling the subfunction directly instead of interpreting it
+            staticdata = self.metainterp.staticdata
+            globaldata = staticdata.globaldata
+            vi = staticdata.virtualizable_info
+            if vi:
+                globaldata.blackhole_virtualizable = vi.unwrap_virtualizable_box(self.metainterp.virtualizable_boxes[-1])
             if jitcode.cfnptr is not None:
                 # for non-oosends
                 varargs = [jitcode.cfnptr] + varargs
-                return self.execute_with_exc(rop.CALL, varargs,
+                res = self.execute_with_exc(rop.CALL, varargs,
                                              descr=jitcode.calldescr)
             else:
                 # for oosends (ootype only): calldescr is a MethDescr
-                return self.execute_with_exc(rop.OOSEND, varargs,
+                res = self.execute_with_exc(rop.OOSEND, varargs,
                                              descr=jitcode.calldescr)
+            if vi:
+                globaldata.blackhole_virtualizable = vi.null_vable
+            return res
         else:
             # when tracing, this bytecode causes the subfunction to be entered
             f = self.metainterp.newframe(jitcode)
@@ -1091,6 +1099,8 @@ class MetaInterpGlobalData(object):
         else:
             self.compiled_merge_points = {}    # for tests only; not RPython
             self.unpack_greenkey = tuple
+        if staticdata.virtualizable_info:
+            self.blackhole_virtualizable = staticdata.virtualizable_info.null_vable
 
 # ____________________________________________________________
 

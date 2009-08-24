@@ -897,7 +897,6 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_blackhole_should_not_reenter(self):
-        py.test.skip("WIP")
         myjitdriver = JitDriver(greens = [], reds = ['frame', 'fail'],
                                 virtualizables = ['frame'])
 
@@ -936,9 +935,8 @@ class ImplicitVirtualizableTests:
             f(10, True)
             return f(10, False)
 
-        res = self.meta_interp(main, [])
-        assert res == 55
-        self.check_loops(getfield_gc=0, setfield_gc=0)
+        einfo = py.test.raises(AssertionError, self.meta_interp, main, [])
+        assert einfo.value.args[0] == "reentering same frame via blackhole"
 
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

@@ -772,6 +772,10 @@ def make_state_class(warmrunnerdesc):
             greenargs = args[:num_green_args]
             argshash = self.getkeyhash(*greenargs) & self.hashtablemask
             counter = self.mccounters[argshash]
+            if vinfo:
+                virtualizable = args[vinfo.index_of_virtualizable]
+                virtualizable = vinfo.cast_to_vtype(virtualizable)
+                assert virtualizable != metainterp_sd.globaldata.blackhole_virtualizable, "reentering same frame via blackhole"
             if counter >= 0:
                 # update the profiling counter
                 n = counter + self.increment_threshold
