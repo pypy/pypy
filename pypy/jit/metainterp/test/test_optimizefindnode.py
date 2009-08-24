@@ -667,6 +667,17 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Constant(myptr)', p2=self.myptr)
 
+    def test_find_nodes_call_escapes(self):
+        py.test.skip("ARGH, bug")
+        ops = """
+        [i0, p1, p4]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p2, descr=nextdescr)
+        call(i0)
+        p3 = getfield_gc(p1, descr=nextdescr)
+        jump(i0, p1, p3)
+        """
+        self.find_nodes(ops, 'Not, Not, Not')
 
     # ------------------------------
     # Bridge tests
