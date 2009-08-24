@@ -206,6 +206,8 @@ class Parser(object):
 
     def parse_next_instruction(self, lines, i):
         line = lines[i].strip()
+        if not line:
+            return i + 1
         if line.startswith('LOOP END'):
             raise EndOfBlock()
         if line.startswith('LOOP'):
