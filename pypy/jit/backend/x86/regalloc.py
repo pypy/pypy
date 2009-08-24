@@ -877,12 +877,6 @@ class RegAlloc(object):
     consider_getfield_raw = consider_getfield_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
-    def consider_int_is_true(self, op, ignored):
-        argloc = self.make_sure_var_in_reg(op.args[0], [])
-        resloc = self.force_allocate_reg(op.result, op.args,
-                                         need_lower_byte=True)
-        self.eventually_free_var(op.args[0])
-        self.Perform(op, [argloc], resloc)
 
     def _consider_nullity(self, op, guard_op):
         # doesn't need a register in arg
@@ -900,7 +894,8 @@ class RegAlloc(object):
             resloc = self.force_allocate_reg(op.result, [],
                                              need_lower_byte=True)
             self.Perform(op, [argloc], resloc)
-    
+
+    consider_int_is_true = _consider_nullity
     consider_ooisnull = _consider_nullity
     consider_oononnull = _consider_nullity
 

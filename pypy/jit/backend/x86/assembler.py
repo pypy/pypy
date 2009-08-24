@@ -435,12 +435,6 @@ class Assembler386(object):
             loc2 = cl
         self.mc.SHR(loc, loc2)
 
-    def genop_int_is_true(self, op, arglocs, resloc):
-        argloc = arglocs[0]
-        self.mc.TEST(argloc, argloc)
-        self.mc.MOV(resloc, imm8(0))
-        self.mc.SETNZ(lower_byte(resloc))
-
     def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
         loc = arglocs[0]
         self.mc.TEST(loc, loc)
@@ -457,10 +451,15 @@ class Assembler386(object):
         else:
             self.implement_guard(addr, guard_op, self.mc.JZ)
 
+
+    genop_guard_int_is_true = genop_guard_oononnull
+
     def genop_oononnull(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETNE(lower_byte(resloc))
+
+    genop_int_is_true = genop_oononnull
 
     def genop_ooisnull(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))

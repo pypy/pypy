@@ -301,17 +301,21 @@ class TestX86(LLtypeBackendTest):
         assert res.value == 1
 
     def test_nullity_with_guard(self):
-        allops = [rop.OONONNULL, rop.OOISNULL]
+        allops = [rop.OONONNULL, rop.OOISNULL, rop.INT_IS_TRUE]
         guards = [rop.GUARD_TRUE, rop.GUARD_FALSE]
         p = lltype.cast_opaque_ptr(llmemory.GCREF,
                                    lltype.malloc(lltype.GcStruct('x')))
-        p = BoxPtr(p)
         nullptr = lltype.nullptr(llmemory.GCREF.TO)
-        n = BoxPtr(nullptr)
         f = BoxInt()
-        for b in (p, n):
-            for op in allops:
-                for guard in guards:
+        for op in allops:
+            for guard in guards:
+                if op == rop.INT_IS_TRUE:
+                    bp = BoxInt(1)
+                    n = BoxInt(0)
+                else:
+                    bp = BoxPtr(p)
+                    n = BoxPtr(nullptr)
+                for b in (bp, n):
                     ops = [
                         ResOperation(op, [b], f),
                         ResOperation(guard, [f], None),
@@ -322,7 +326,10 @@ class TestX86(LLtypeBackendTest):
                     loop.operations = ops
                     loop.inputargs = [b]
                     self.cpu.compile_operations(loop)
-                    self.cpu.set_future_value_ptr(0, b.value)
+                    if op == rop.INT_IS_TRUE:
+                        self.cpu.set_future_value_int(0, b.value)
+                    else:
+                        self.cpu.set_future_value_ptr(0, b.value)
                     r = self.cpu.execute_operations(loop)
                     result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
