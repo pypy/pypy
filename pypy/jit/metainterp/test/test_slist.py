@@ -81,6 +81,15 @@ class ListTests:
         assert res == f(21)
         self.check_loops(call=0)
 
+    def test_getitem_neg(self):
+        def f(n):
+            lst = [41]
+            lst.append(42)
+            return lst[n]
+        res = self.interp_operations(f, [-2], listops=True)
+        assert res == 41
+        self.check_history_(call=1)
+
 # we don't support resizable lists on ootype
 #class TestOOtype(ListTests, OOJitMixin):
 #    pass

@@ -402,6 +402,21 @@ class MIFrame(object):
         self.execute(rop.SETARRAYITEM_GC, [arraybox, indexbox, valuebox],
                      descr=arraydescr)
 
+    @arguments("orgpc", "box", "descr", "box")
+    def opimpl_check_resizable_neg_index(self, pc, listbox, lengthdesc,
+                                         indexbox):
+        negbox = self.metainterp.execute_and_record(
+            rop.INT_LT, [indexbox, ConstInt(0)])
+        # xxx inefficient
+        negbox = self.implement_guard_value(pc, negbox)
+        if negbox.getint():
+            # the index is < 0; add the array length to it
+            lenbox = self.metainterp.execute_and_record(
+                rop.GETFIELD_GC, [listbox], descr=lengthdesc)
+            indexbox = self.metainterp.execute_and_record(
+                rop.INT_ADD, [indexbox, lenbox])
+        self.make_result_box(indexbox)
+
     @arguments("orgpc", "box")
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(
