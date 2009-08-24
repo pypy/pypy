@@ -860,6 +860,86 @@ class ImplicitVirtualizableTests:
         assert res == 55
         self.check_loops(new_with_vtable=0)
 
+    def test_blackhole_should_not_pay_attention(self):
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.y = y
+
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g(frame):
+            frame.y += 100
+
+        def f(n):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
+            frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                if frame.x == 2:
+                    g(frame)
+                frame.y += frame.x
+                frame.x -= 1
+            return somewhere_else.top_frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 155
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
+    def test_blackhole_should_not_reenter(self):
+        py.test.skip("WIP")
+        myjitdriver = JitDriver(greens = [], reds = ['frame', 'fail'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.y = y
+
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def jump_back(frame, fail):
+            myjitdriver.can_enter_jit(frame=frame, fail=fail)            
+
+        def f(n, fail):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
+            frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.jit_merge_point(frame=frame, fail=fail)
+                frame.x -= 1
+                if fail or frame.x > 2:
+                    frame.y += frame.x
+                jump_back(frame, fail)
+
+            return somewhere_else.top_frame.y
+
+        def main():
+            f(10, True)
+            f(10, True)
+            f(10, True)
+            f(10, True)
+            return f(10, False)
+
+        res = self.meta_interp(main, [])
+        assert res == 55
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
@@ -868,6 +948,12 @@ class TestOOtype(#ExplicitVirtualizableTests,
         py.test.skip("oo virtualizable support incomplete")
         
     def test_virtual_child_frame_with_arrays(self):
+        py.test.skip("oo virtualizable support incomplete")
+
+    def test_blackhole_should_not_pay_attention(self):
+        py.test.skip("oo virtualizable support incomplete")
+
+    def test_blackhole_should_not_reenter(self):
         py.test.skip("oo virtualizable support incomplete")
 
 class TestLLtype(ExplicitVirtualizableTests,

@@ -1553,7 +1553,9 @@ class MetaInterp(object):
                 # as it contains the old values (before the call)!
                 self.gen_store_back_in_virtualizable_no_perform()
                 return True    # must call after_generate_residual_call()
-        return False   # don't call after_generate_residual_call()
+        # xxx don't call after_generate_residual_call() or
+        # in the case of blackholing abuse it to resynchronize
+        return self.is_blackholing()
 
     def after_generate_residual_call(self):
         # Called after generating a residual call, and only if
