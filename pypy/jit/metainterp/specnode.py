@@ -27,11 +27,12 @@ prebuiltNotSpecNode = NotSpecNode()
 
 class ConstantSpecNode(SpecNode):
     def __init__(self, constbox):
+        assert constbox is not None
         self.constbox = constbox
 
     def equals(self, other):
         return isinstance(other, ConstantSpecNode) and \
-               self.constbox == other.constbox
+               self.constbox.equals(other.constbox)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         pass

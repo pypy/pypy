@@ -22,6 +22,12 @@ def _get_sspecnode():
                                  [(LLtypeMixin.adescr, prebuiltNotSpecNode),
                                   (LLtypeMixin.bdescr, prebuiltNotSpecNode)])
 
+def _get_cspecnode(s):
+    from pypy.rpython.module.support import LLSupport        
+    llstr = lltype.cast_opaque_ptr(llmemory.GCREF, LLSupport.to_rstr(s))
+    box = BoxPtr(llstr)
+    return ConstantSpecNode(box)
+
 def test_equals_specnodes():
     assert equals_specnodes([prebuiltNotSpecNode, prebuiltNotSpecNode],
                             [prebuiltNotSpecNode, prebuiltNotSpecNode])
@@ -42,9 +48,11 @@ def test_equals_specnodes():
     assert not equals_specnodes([sspecnode1], [prebuiltNotSpecNode])
     assert not equals_specnodes([prebuiltNotSpecNode], [sspecnode1])
     #
-    assert equals_specnodes([ConstantSpecNode('foo')], [ConstantSpecNode('foo')])
-    assert not equals_specnodes([ConstantSpecNode('foo')], [ConstantSpecNode('bar')])
-    assert not equals_specnodes([ConstantSpecNode('foo')], [prebuiltNotSpecNode])
+    foonode = _get_cspecnode('foo')
+    barnode = _get_cspecnode('bar')
+    assert equals_specnodes([foonode], [foonode])
+    assert not equals_specnodes([foonode], [barnode])
+    assert not equals_specnodes([foonode], [prebuiltNotSpecNode])
 
 def test_extract_runtime_data_0():
     res = []
