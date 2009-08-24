@@ -31,7 +31,7 @@ class GcLLDescr_boehm(GcLLDescription):
     def __init__(self, gcdescr, cpu):
         # grab a pointer to the Boehm 'malloc' function
         compilation_info = ExternalCompilationInfo(libraries=['gc'])
-        malloc_fn_ptr = rffi.llexternal("GC_malloc",
+        malloc_fn_ptr = rffi.llexternal("GC_local_malloc",
                                         [lltype.Signed], # size_t, but good enough
                                         llmemory.GCREF,
                                         compilation_info=compilation_info,
