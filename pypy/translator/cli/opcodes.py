@@ -18,9 +18,10 @@ def _not(op):
 def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_), StoreResult]
 
-def _check_ovf(op):
-    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError'),
-               ('[mscorlib]System.ArithmeticException', 'exceptions.OverflowError')]
+def _check_ovf(op, catch_arithmexic_exception=False):
+    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError')]
+    if catch_arithmexic_exception:
+        mapping.append(('[mscorlib]System.ArithmeticException', 'exceptions.OverflowError'))
     return [MapException(op, mapping)]
 
 def _check_zer(op):
@@ -174,7 +175,7 @@ binary_ops = {
     'int_sub_ovf':              _check_ovf('sub.ovf'),
     'int_mul_ovf':              _check_ovf('mul.ovf'),
     'int_floordiv_ovf':         _check_ovf('div'),
-    'int_mod_ovf':              _check_ovf('rem'),
+    'int_mod_ovf':              _check_ovf('rem', catch_arithmexic_exception=True),
     'int_lt_ovf':               'clt',
     'int_le_ovf':               _not('cgt'),
     'int_eq_ovf':               'ceq',
