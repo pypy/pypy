@@ -383,6 +383,18 @@ class Method(object):
                 self.il.Emit(OpCodes.Stfld, self.exc_value_field)
         self.il.EndExceptionBlock()
 
+    def emit_ovf_op(self, op, emit_op):
+        # clear the overflow flag
+        self.il.Emit(OpCodes.Ldc_I4_0)
+        self.av_ovf_flag.store(self)
+        lbl = self.il.BeginExceptionBlock()
+        emit_op(self, op)
+        self.il.Emit(OpCodes.Leave, lbl)
+        self.il.BeginCatchBlock(dotnet.typeof(System.OverflowException))
+        self.il.Emit(OpCodes.Ldc_I4_1)
+        self.av_ovf_flag.store(self)
+        self.il.EndExceptionBlock()
+
     def mark(self, msg):
         self.il.Emit(OpCodes.Ldstr, msg)
         self.il.Emit(OpCodes.Pop)
@@ -724,14 +736,21 @@ def render_raising_op(methname, instrlist):
     value = instrlist[0]
     exctypes = [parse_exctype(exctype) for exctype, _ in value.mapping]
     exctypes = ['dotnet.typeof(%s)' % exctype for exctype in exctypes]
+    is_ovf = (exctypes == ['dotnet.typeof(System.OverflowException)'])
     impl_func = render_op(methname + '_impl', value.instr)
     if not impl_func:
         return
-    src = py.code.Source("""
-        def %s(self, op):
-            exctypes = [%s]
-            self.emit_raising_op(op, impl_func, exctypes)
-    """ % (methname, ', '.join(exctypes)))
+    if is_ovf:
+        src = py.code.Source("""
+            def %s(self, op):
+                self.emit_ovf_op(op, impl_func)
+        """ % (methname,))
+    else:
+        src = py.code.Source("""
+            def %s(self, op):
+                exctypes = [%s]
+                self.emit_raising_op(op, impl_func, exctypes)
+        """ % (methname, ', '.join(exctypes)))
     dic = {'System': System,
            'dotnet': dotnet,
            'impl_func': impl_func}
