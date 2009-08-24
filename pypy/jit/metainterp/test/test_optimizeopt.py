@@ -244,6 +244,26 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected, i0=1, i1=0)
 
+    def test_int_is_true_1(self):
+        ops = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_true(i1)
+          fail()
+        i2 = int_is_true(i0)
+        guard_true(i2)
+          fail()
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_true(i1)
+          fail()
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, i0=123, i1=1, i2=1)
+
     def test_ooisnull_oononnull_2(self):
         ops = """
         [p0]
