@@ -223,6 +223,7 @@ class BaseCPU(model.AbstractCPU):
 
     @staticmethod
     def sizeof(S):
+        assert not isinstance(S, lltype.Ptr)
         return Descr(symbolic.get_size(S))
 
     @staticmethod

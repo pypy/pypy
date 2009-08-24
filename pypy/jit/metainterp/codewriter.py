@@ -110,11 +110,6 @@ class CodeWriter(object):
         return jitcode
 
     def annotation_hacks(self, jitcode):
-        # xxx annotation hack: make sure there is at least one ConstAddr around
-        #if self.rtyper.type_system.name == 'lltypesystem':
-        #    jitcode.constants.append(history.ConstAddr(llmemory.NULL,
-        #                                               self.cpu))
-        # xxx annotation hack: make sure class_sizes is not empty
         if not self.class_sizes:
             if self.rtyper.type_system.name == 'lltypesystem':
                 STRUCT = lltype.GcStruct('empty')
@@ -240,51 +235,6 @@ class CodeWriter(object):
             typedescr = self.cpu.typedescrof(CLASS)
             self.class_sizes.append((cls, typedescr))
 
-
-    if 0:        # disabled
-      def fixed_list_descr_for_tp(self, TP):
-        try:
-            return self.fixed_list_cache[TP.TO]
-        except KeyError:
-            OF = TP.TO.OF
-            rtyper = self.rtyper
-            setfunc, _ = support.builtin_func_for_spec(rtyper, 'list.setitem',
-                                                       [TP, lltype.Signed, OF],
-                                                       lltype.Void)
-            getfunc, _ = support.builtin_func_for_spec(rtyper, 'list.getitem',
-                                                       [TP, lltype.Signed], OF)
-            malloc_func, _ = support.builtin_func_for_spec(rtyper, 'newlist',
-                                                           [lltype.Signed, OF],
-                                                           TP)
-            len_func, _ = support.builtin_func_for_spec(rtyper, 'list.len',
-                                                        [TP], lltype.Signed)
-##            if isinstance(TP.TO, lltype.GcStruct):
-##                append_func, _ = support.builtin_func_for_spec(rtyper,
-##                                                               'list.append',
-##                                                        [TP, OF], lltype.Void)
-##                pop_func, _ = support.builtin_func_for_spec(rtyper, 'list.pop',
-##                                                            [TP], OF)
-##                insert_func, _ = support.builtin_func_for_spec(rtyper,
-##                      'list.insert', [TP, lltype.Signed, OF], lltype.Void)
-            tp = getkind(OF)
-##            if isinstance(TP.TO, lltype.GcStruct):
-##                ld = ListDescr(history.ConstAddr(getfunc.value, self.cpu),
-##                               history.ConstAddr(setfunc.value, self.cpu),
-##                               history.ConstAddr(malloc_func.value, self.cpu),
-##                               history.ConstAddr(append_func.value, self.cpu),
-##                               history.ConstAddr(pop_func.value, self.cpu),
-##                               history.ConstAddr(insert_func.value, self.cpu),
-##                               history.ConstAddr(len_func.value, self.cpu),
-##                               history.ConstAddr(nonzero_func.value, self.cpu),
-##                               tp)
-##            else:
-            ld = FixedListDescr(history.ConstAddr(getfunc.value, self.cpu),
-                                history.ConstAddr(setfunc.value, self.cpu),
-                                history.ConstAddr(malloc_func.value, self.cpu),
-                                history.ConstAddr(len_func.value, self.cpu),
-                                tp)
-            self.fixed_list_cache[TP.TO] = ld
-            return ld
 
 
 class BytecodeMaker(object):
@@ -1049,24 +999,6 @@ class BytecodeMaker(object):
         elif op.args[0].value == 'can_enter_jit':
             self.emit('can_enter_jit')
 
-##    def _eventualy_builtin(self, arg, need_length=True):
-##        if isinstance(arg.concretetype, lltype.Ptr):
-##            # XXX very complex logic for getting all things
-##            # that are pointers, but not objects
-##            is_list = False
-##            if isinstance(arg.concretetype.TO, lltype.GcArray):
-##                is_list = True
-##            if isinstance(arg.concretetype.TO, lltype.GcStruct):
-##                if arg.concretetype.TO._hints.get('list'):
-##                    is_list = True
-##            if is_list:
-##                descr = self.codewriter.list_descr_for_tp(arg.concretetype)
-##                self.emit('guard_builtin', self.var_position(arg),
-##                          self.get_position(descr))
-##                if need_length:
-##                    self.emit('guard_len', self.var_position(arg),
-##                              self.get_position(descr))
-
     def serialize_op_direct_call(self, op):
         kind = self.codewriter.policy.guess_call_kind(op)
         return getattr(self, 'handle_%s_call' % kind)(op)
@@ -1174,32 +1106,6 @@ class BytecodeMaker(object):
         if self.codewriter.metainterp_sd.options.listops:
             if self.handle_list_call(op, oopspec_name, args, TP):
                 return
-##            if oopspec_name.startswith('list.getitem'):
-##                opname = oopspec_name[len('list.'):]
-##            elif oopspec_name.startswith('list.setitem'):
-##                opname = oopspec_name[len('list.'):]
-##            elif oopspec_name == 'newlist':
-##                opname = 'newlist'
-##            elif oopspec_name == 'list.append':
-##                opname = 'append'
-##            elif oopspec_name == 'list.pop':
-##                opname = 'pop'
-##            elif oopspec_name == 'list.len':
-##                opname = 'len'
-##            elif oopspec_name == 'list.insert':
-##                opname = 'insert'
-##            elif oopspec_name == 'list.nonzero':
-##                opname = 'listnonzero'
-##            else:
-##                raise NotImplementedError("not supported %s" % oopspec_name)
-##            self.emit(opname)
-##            ld = self.codewriter.list_descr_for_tp(TP)
-##            self.emit(self.get_position(ld))
-##            self.emit_varargs(args)
-##            self.register_var(op.result)
-##            if opname == 'newlist':
-##                self._eventualy_builtin(op.result, False)
-##            return
         if oopspec_name.endswith('_foldable'):
             opname = 'residual_call_pure'  # XXX not for possibly-raising calls
         else:
@@ -1218,11 +1124,70 @@ class BytecodeMaker(object):
         else:
             return ARRAY.OF == lltype.Void
 
+    def handle_resizable_list_setitem(self, op, arraydescr, itemsdescr,
+                                      lengthdescr, args):
+        index = self.prepare_list_getset(op, lengthdescr, args,
+                                         'check_resizable_neg_index')
+        if index is None:
+            return False
+        self.emit('setlistitem_gc')
+        self.emit(self.var_position(args[0]))
+        self.emit(self.get_position(itemsdescr))
+        self.emit(self.get_position(arraydescr))
+        self.emit(self.var_position(index))
+        self.emit(self.var_position(args[2]))
+        self.register_var(op.result)
+        return True
+
+    def handle_resizable_list_call(self, op, oopspec_name, args, LIST):
+        assert isinstance(LIST.TO, lltype.GcStruct)
+        # no ootype
+        ARRAY = LIST.TO.items.TO
+        if self._array_of_voids(ARRAY):
+            return False # arrays of voids: not supported
+        arraydescr = self.cpu.arraydescrof(ARRAY)
+        lengthdescr = self.cpu.fielddescrof(LIST.TO, 'length')
+        itemsdescr = self.cpu.fielddescrof(LIST.TO, 'items')
+        structdescr = self.cpu.sizeof(LIST.TO)
+        if oopspec_name == 'list.getitem':
+            return self.handle_resizable_list_getitem(op, arraydescr,
+                                             itemsdescr, lengthdescr, args)
+        if oopspec_name == 'list.setitem':
+            return self.handle_resizable_list_setitem(op, arraydescr,
+                                             itemsdescr, lengthdescr, args)
+        if oopspec_name == 'list.len':
+            self.emit('getfield_gc')
+            self.emit(self.var_position(args[0]))
+            self.emit(self.get_position(lengthdescr))
+            self.register_var(op.result)
+            return True
+        if oopspec_name == 'newlist':
+            if len(args) < 1:
+                args.append(Constant(0, lltype.Signed))
+            if len(args) > 1:
+                v_default = args[1]
+                if (not isinstance(v_default, Constant) or
+                    v_default.value != arrayItem(ARRAY)._defl()):
+                    return False     # variable or non-null initial value
+            self.emit('newlist')
+            self.emit(self.get_position(structdescr))
+            self.emit(self.get_position(lengthdescr))
+            self.emit(self.get_position(itemsdescr))
+            self.emit(self.get_position(arraydescr))
+            self.emit(self.var_position(args[0]))
+            self.register_var(op.result)
+            return True
+        return False
+
     def handle_list_call(self, op, oopspec_name, args, LIST):
         if not (oopspec_name.startswith('list.') or oopspec_name == 'newlist'):
             return False
         if not isinstance(deref(LIST), (lltype.GcArray, ootype.Array)):
-            return False # resizable lists
+            if isinstance(deref(LIST), lltype.GcStruct):
+                return self.handle_resizable_list_call(op, oopspec_name, args,
+                                                       LIST)
+            else:
+                return False # resizable lists on ootype
         ARRAY = deref(LIST)
         if self._array_of_voids(ARRAY):
             return False # arrays of voids: not supported
@@ -1260,7 +1225,8 @@ class BytecodeMaker(object):
                           self.var_position(args[1]),
                           self.var_position(args[2]))
                 return True
-            index = self.prepare_list_getset(op, arraydescr, args)
+            index = self.prepare_list_getset(op, arraydescr, args,
+                                             'check_neg_index')
             if index is None:
                 return False
             self.emit('setarrayitem_gc')
@@ -1299,7 +1265,8 @@ class BytecodeMaker(object):
             return True
         elif args[0] in self.immutable_arrays:
             opname = "getarrayitem_gc_pure"
-        index = self.prepare_list_getset(op, arraydescr, args)
+        index = self.prepare_list_getset(op, arraydescr, args,
+                                         'check_neg_index')
         if index is None:
             return False
         self.emit(opname)
@@ -1309,7 +1276,21 @@ class BytecodeMaker(object):
         self.register_var(op.result)
         return True
 
-    def prepare_list_getset(self, op, arraydescr, args):
+    def handle_resizable_list_getitem(self, op, arraydescr, itemsdescr,
+                                      lengthdescr, args):
+        index = self.prepare_list_getset(op, lengthdescr, args,
+                                         'check_resizable_neg_index')
+        if index is None:
+            return False
+        self.emit('getlistitem_gc')
+        self.emit(self.var_position(args[0]))
+        self.emit(self.get_position(itemsdescr))
+        self.emit(self.get_position(arraydescr))
+        self.emit(self.var_position(index))
+        self.register_var(op.result)
+        return True
+
+    def prepare_list_getset(self, op, descr, args, checkname):
         if op.opname == 'oosend':
             SELFTYPE, _, meth = support.lookup_oosend_method(op)
             func = meth._callable
@@ -1333,9 +1314,9 @@ class BytecodeMaker(object):
         if non_negative:
             v_posindex = args[1]
         else:
-            self.emit('check_neg_index')
+            self.emit(checkname)
             self.emit(self.var_position(args[0]))
-            self.emit(self.get_position(arraydescr))
+            self.emit(self.get_position(descr))
             self.emit(self.var_position(args[1]))
             v_posindex = Variable('posindex')
             v_posindex.concretetype = lltype.Signed

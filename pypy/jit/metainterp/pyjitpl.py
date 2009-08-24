@@ -374,6 +374,34 @@ class MIFrame(object):
                 rop.INT_ADD, [indexbox, lenbox])
         self.make_result_box(indexbox)
 
+    @arguments("descr", "descr", "descr", "descr", "box")
+    def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
+                       sizebox):
+        sbox = self.metainterp.execute_and_record(rop.NEW, [],
+                                                  descr=structdescr)
+        self.metainterp.execute_and_record(rop.SETFIELD_GC, [sbox, sizebox],
+                                           descr=lengthdescr)
+        abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, [sizebox],
+                                                  descr=arraydescr)
+        self.metainterp.execute_and_record(rop.SETFIELD_GC, [sbox, abox],
+                                           descr=itemsdescr)
+        self.make_result_box(sbox)
+
+    @arguments("box", "descr", "descr", "box")
+    def opimpl_getlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox):
+        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
+                                          [listbox], descr=itemsdescr)
+        self.execute(rop.GETARRAYITEM_GC, [arraybox, indexbox],
+                     descr=arraydescr)
+
+    @arguments("box", "descr", "descr", "box", "box")
+    def opimpl_setlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox,
+                              valuebox):
+        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
+                                          [listbox], descr=itemsdescr) 
+        self.execute(rop.SETARRAYITEM_GC, [arraybox, indexbox, valuebox],
+                     descr=arraydescr)
+
     @arguments("orgpc", "box")
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(

@@ -6,6 +6,7 @@ from pypy.rlib.jit import JitDriver
 class ListTests:
 
     def test_basic_list(self):
+        py.test.skip("not yet")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
         def f(n):
             lst = []
@@ -34,68 +35,7 @@ class ListTests:
             return m
         res = self.interp_operations(f, [11], listops=True)
         assert res == 49
-
-    def test_lazy_getitem_1(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
-        def f(n):
-            lst = [0]
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n, lst=lst)
-                myjitdriver.jit_merge_point(n=n, lst=lst)
-                lst[0] += 2
-                n -= 1
-            return lst[0]
-        res = self.meta_interp(f, [21], listops=True)
-        assert res == 42
-        # no more list operations in the loop
-        py.test.skip("not a ModifiedList yet")
-        self.check_loops(call=0)
-
-    def test_lazy_getitem_2(self):
-        py.test.skip("BUG!")
-        class Escape:
-            pass
-        escape = Escape()
-        def g():
-            return escape.lst[0]
-        def f(n):
-            lst = [0]
-            escape.lst = lst
-            while n > 0:
-                lst[0] += 2
-                n -= g()
-            return lst[0]
-        res = self.meta_interp(f, [50], policy=StopAtXPolicy(g))
-        assert res == f(50)
-        # the list operations stay in the loop
-        self.check_loops(call=3)
-
-    def test_lazy_getitem_3(self):
-        py.test.skip("in-progress")
-        def f(n):
-            lst = [[0]]
-            while n > 0:
-                lst[0][0] = lst[0][0] + 2
-                n -= 1
-            return lst[0][0]
-        res = self.meta_interp(f, [21])
-        assert res == 42
-        # two levels of list operations removed from the loop
-        self.check_loops(call=0)
-
-    def test_lazy_getitem_4(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
-        def f(n):
-            lst = [0]
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n, lst=lst)
-                myjitdriver.jit_merge_point(n=n, lst=lst)
-                lst[-1] += 2
-                n -= 1
-            return lst[0]
-        res = self.meta_interp(f, [21], listops=True)
-        assert res == 42
-        py.test.skip("not virtualized away so far")
+        self.check_history_(call=5)
 
     def test_list_of_voids(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
@@ -124,9 +64,26 @@ class ListTests:
         res = self.meta_interp(f, [21], listops=True, optimizer=simple_optimize)
         assert res == 0
 
+    def test_getitem(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'lst', 'i'])
+        def f(n):
+            lst = []
+            for i in range(n):
+                lst.append(i)
+            i = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, lst=lst, i=i)
+                myjitdriver.jit_merge_point(n=n, lst=lst, i=i)
+                n -= lst[i]
+                i += 1
+            return lst[i]
+        res = self.meta_interp(f, [21], listops=True)
+        assert res == f(21)
+        self.check_loops(call=0)
 
-class TestOOtype(ListTests, OOJitMixin):
-   pass
+# we don't support resizable lists on ootype
+#class TestOOtype(ListTests, OOJitMixin):
+#    pass
 
 class TestLLtype(ListTests, LLJitMixin):
     pass
