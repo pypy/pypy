@@ -241,7 +241,7 @@ class GcRootMap_asmgcc:
         for loc in gclocs:
             assert isinstance(loc, MODRM)
             assert loc.is_relative_to_ebp()
-            shape.append(self.LOC_EBP_BASED | (-4 * (1 + loc.position)))
+            shape.append(self.LOC_EBP_BASED | (-4 * (4 + loc.position)))
         return shape
 
     def _compress_callshape(self, shape):
