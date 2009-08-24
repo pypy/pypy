@@ -168,9 +168,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 def call_likely_builtin(f, w_function, nargs):
                     if isinstance(w_function, function.Function):
                         executioncontext = self.getexecutioncontext()
-                        executioncontext.c_call_trace(f, w_function)
+                        if not we_are_jitted():
+                            executioncontext.c_call_trace(f, w_function)
                         res = w_function.funccall_valuestack(nargs, f)
-                        executioncontext.c_return_trace(f, w_function)
+                        if not we_are_jitted():
+                            executioncontext.c_return_trace(f, w_function)
                         return res
                     args = f.make_arguments(nargs)
                     try:
