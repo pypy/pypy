@@ -5,6 +5,12 @@ class SpecNode(object):
     __metaclass__ = extendabletype     # extended in optimizefindnode.py
     __slots__ = ()
 
+    def equals(self, other):
+        raise NotImplementedError
+ 
+    def extract_runtime_data(self, cpu, valuebox, resultlist):
+        raise NotImplementedError
+
 
 class NotSpecNode(SpecNode):
     __slots__ = ()
@@ -17,6 +23,18 @@ class NotSpecNode(SpecNode):
 
 
 prebuiltNotSpecNode = NotSpecNode()
+
+
+class ConstantSpecNode(SpecNode):
+    def __init__(self, constbox):
+        self.constbox = constbox
+
+    def equals(self, other):
+        return isinstance(other, ConstantSpecNode) and \
+               self.constbox == other.constbox
+
+    def extract_runtime_data(self, cpu, valuebox, resultlist):
+        pass
 
 
 class AbstractVirtualStructSpecNode(SpecNode):

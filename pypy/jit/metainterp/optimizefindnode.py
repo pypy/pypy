@@ -1,9 +1,10 @@
 from pypy.jit.metainterp.specnode import SpecNode
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
+from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
-from pypy.jit.metainterp.history import AbstractValue, ConstInt
+from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
 
@@ -29,6 +30,8 @@ class InstanceNode(object):
     origfields = None   # optimization; equivalent to an empty dict
     curfields = None    # optimization; equivalent to an empty dict
 
+    knownvaluebox = None # Used to store value of this box if constant
+
     # fields used to store the shape of the potential VirtualList
     arraydescr = None   # set only on freshly-allocated or fromstart arrays
     #arraysize = ..     # valid if and only if arraydescr is not None
@@ -44,6 +47,9 @@ class InstanceNode(object):
 
     def __init__(self, fromstart=False):
         self.fromstart = fromstart    # for loops only: present since the start
+
+    def is_constant(self):
+        return self.knownvaluebox is not None
 
     def add_escape_dependency(self, other):
         assert not self.escaped
@@ -106,7 +112,16 @@ class NodeFinder(object):
         self.nodes = {}     # Box -> InstanceNode
 
     def getnode(self, box):
+        if isinstance(box, Const):
+            return self.set_constant_node(box)
         return self.nodes.get(box, self.node_escaped)
+
+    def set_constant_node(self, box):
+        node = InstanceNode()
+        node.unique = UNIQUE_NO
+        node.knownvaluebox = box
+        self.nodes[box] = node
+        return node
 
     def find_nodes(self, operations):
         for op in operations:
@@ -119,6 +134,13 @@ class NodeFinder(object):
                 self.find_nodes_default(op)
 
     def find_nodes_default(self, op):
+        if op.is_always_pure():
+            for arg in op.args:
+                node = self.getnode(arg)
+                if not node.is_constant():
+                    break
+            else:
+                self.set_constant_node(op.result)
         # default case: mark the arguments as escaping
         for box in op.args:
             self.getnode(box).mark_escaped()
@@ -154,8 +176,13 @@ class NodeFinder(object):
 
     def find_nodes_GUARD_CLASS(self, op):
         instnode = self.getnode(op.args[0])
-        if instnode.fromstart:    # only useful in this case
+        if instnode.fromstart:    # only useful (and safe) in this case
             instnode.knownclsbox = op.args[1]
+
+    def find_nodes_GUARD_VALUE(self, op):
+        instnode = self.getnode(op.args[0])
+        if instnode.fromstart:    # only useful (and safe) in this case
+            instnode.knownvaluebox = op.args[1]
 
     def find_nodes_SETFIELD_GC(self, op):
         instnode = self.getnode(op.args[0])
@@ -282,6 +309,10 @@ class PerfectSpecializationFinder(NodeFinder):
         assert inputnode.fromstart
         if inputnode.escaped:
             return prebuiltNotSpecNode
+        if inputnode.is_constant() and \
+           exitnode.is_constant() and \
+           inputnode.knownvaluebox.equals(exitnode.knownvaluebox):
+            return ConstantSpecNode(inputnode.knownvaluebox)
         unique = exitnode.unique
         if unique == UNIQUE_NO:
             return prebuiltNotSpecNode
@@ -367,6 +398,14 @@ class __extend__(NotSpecNode):
         return NodeFinder.node_escaped
     def matches_instance_node(self, exitnode):
         return True
+
+class __extend__(ConstantSpecNode):
+    def make_instance_node(self):
+        raise AssertionError, "not implemented (but not used actually)"
+    def matches_instance_node(self, exitnode):
+        if exitnode.knownvaluebox is None:
+            return False
+        return self.constbox.equals(exitnode.knownvaluebox)
 
 class __extend__(VirtualInstanceSpecNode):
     def make_instance_node(self):

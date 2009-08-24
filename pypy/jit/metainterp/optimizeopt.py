@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, PTR, OBJ
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.specnode import SpecNode
+from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
@@ -18,7 +18,7 @@ def optimize_loop_1(cpu, loop):
     if not.
     """
     optimizer = Optimizer(cpu, loop)
-    optimizer.setup_virtuals()
+    optimizer.setup_virtuals_and_constants()
     optimizer.propagate_forward()
 
 def optimize_bridge_1(cpu, bridge):
@@ -291,12 +291,23 @@ class VArrayValue(AbstractVirtualValue):
                 if itemvalue is not None:
                     itemvalue.get_args_for_fail(modifier)
 
-
 class __extend__(SpecNode):
+    def setup_virtual_node(self, optimizer, box, newinputargs):
+        raise NotImplementedError
+    def teardown_virtual_node(self, optimizer, value, newexitargs):
+        raise NotImplementedError
+
+class __extend__(NotSpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
         newinputargs.append(box)
     def teardown_virtual_node(self, optimizer, value, newexitargs):
         newexitargs.append(value.force_box())
+
+class __extend__(ConstantSpecNode):
+    def setup_virtual_node(self, optimizer, box, newinputargs):
+        optimizer.make_constant(box)
+    def teardown_virtual_node(self, optimizer, value, newexitargs):
+        pass
 
 class __extend__(AbstractVirtualStructSpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
@@ -456,7 +467,7 @@ class Optimizer(object):
 
     # ----------
 
-    def setup_virtuals(self):
+    def setup_virtuals_and_constants(self):
         inputargs = self.loop.inputargs
         specnodes = self.loop.specnodes
         assert len(inputargs) == len(specnodes)

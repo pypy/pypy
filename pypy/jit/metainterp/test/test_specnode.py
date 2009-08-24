@@ -4,6 +4,7 @@ from pypy.jit.metainterp.specnode import prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
+from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.specnode import equals_specnodes
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
@@ -40,6 +41,16 @@ def test_equals_specnodes():
     assert equals_specnodes([sspecnode1], [sspecnode1])
     assert not equals_specnodes([sspecnode1], [prebuiltNotSpecNode])
     assert not equals_specnodes([prebuiltNotSpecNode], [sspecnode1])
+    #
+    assert equals_specnodes([ConstantSpecNode('foo')], [ConstantSpecNode('foo')])
+    assert not equals_specnodes([ConstantSpecNode('foo')], [ConstantSpecNode('bar')])
+    assert not equals_specnodes([ConstantSpecNode('foo')], [prebuiltNotSpecNode])
+
+def test_extract_runtime_data_0():
+    res = []
+    node = ConstantSpecNode('foo')
+    node.extract_runtime_data("cpu", "box1", res)
+    assert res == []
 
 def test_extract_runtime_data_1():
     res = []

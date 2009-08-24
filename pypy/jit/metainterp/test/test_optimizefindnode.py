@@ -15,6 +15,7 @@ from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
+from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.test.oparser import parse
 
 
@@ -51,6 +52,7 @@ class LLtypeMixin(object):
     node = lltype.malloc(NODE)
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     myptr = nodebox.value
+    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
     nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     nodesize = cpu.sizeof(NODE)
     nodesize2 = cpu.sizeof(NODE2)
@@ -89,6 +91,7 @@ class OOtypeMixin(object):
     node = ootype.new(NODE)
     nodebox = BoxObj(ootype.cast_to_object(node))
     myptr = nodebox.value
+    myptr2 = ootype.cast_to_object(ootype.new(NODE))
     nodebox2 = BoxObj(ootype.cast_to_object(node))
     valuedescr = cpu.fielddescrof(NODE, 'value')
     nextdescr = cpu.fielddescrof(NODE, 'next')
@@ -130,12 +133,22 @@ class BaseTest(object):
                                  self.cpu)
             else:
                 return ConstObj(ootype.cast_to_object(cls_vtable))
+        def constant(value):
+            if isinstance(lltype.typeOf(value), lltype.Ptr):
+                return ConstPtr(value)
+            elif isinstance(ootype.typeOf(value), ootype.OOType):
+                return ConstObj(ootype.cast_to_object(value))
+            else:
+                return ConstInt(value)
+
         def parsefields(kwds_fields):
             fields = []
             for key, value in kwds_fields.items():
                 fields.append((self.namespace[key], value))
             fields.sort(key = lambda (x, _): x.sort_key())
             return fields
+        def makeConstant(value):
+            return ConstantSpecNode(constant(value))
         def makeVirtual(cls_vtable, **kwds_fields):
             fields = parsefields(kwds_fields)
             return VirtualInstanceSpecNode(constclass(cls_vtable), fields)
@@ -146,6 +159,7 @@ class BaseTest(object):
             return VirtualStructSpecNode(typedescr, fields)
         #
         context = {'Not': prebuiltNotSpecNode,
+                   'Constant': makeConstant,
                    'Virtual': makeVirtual,
                    'VArray': makeVirtualArray,
                    'VStruct': makeVirtualStruct}
@@ -163,9 +177,10 @@ class BaseTest(object):
 
 class BaseTestOptimizeFindNode(BaseTest):
 
-    def find_nodes(self, ops, spectext, boxkinds=None):
+    def find_nodes(self, ops, spectext, boxkinds=None, **values):
         assert boxkinds is None or isinstance(boxkinds, dict)
         loop = self.parse(ops, boxkinds=boxkinds)
+        loop.setvalues(**values)
         perfect_specialization_finder = PerfectSpecializationFinder()
         perfect_specialization_finder.find_nodes_loop(loop)
         self.check_specnodes(loop.specnodes, spectext)
@@ -633,15 +648,36 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Not, Not')
 
+    def test_find_nodes_guard_value_constant(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        jump(ConstPtr(myptr))
+        """
+        self.find_nodes(ops, 'Constant(myptr)')
+
+    def test_find_nodes_guard_value_same_as_constant(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        p2 = same_as(ConstPtr(myptr))
+        jump(p2)
+        """
+        self.find_nodes(ops, 'Constant(myptr)', p2=self.myptr)
+
+
     # ------------------------------
     # Bridge tests
 
     def find_bridge(self, ops, inputspectext, outputspectext, boxkinds=None,
-                    mismatch=False):
+                    mismatch=False, **values):
         assert boxkinds is None or isinstance(boxkinds, dict)
         inputspecnodes = self.unpack_specnodes(inputspectext)
         outputspecnodes = self.unpack_specnodes(outputspectext)
         bridge = self.parse(ops, boxkinds=boxkinds)
+        bridge.setvalues(**values)
         bridge_specialization_finder = BridgeSpecializationFinder()
         bridge_specialization_finder.find_nodes_bridge(bridge, inputspecnodes)
         matches = bridge_specialization_finder.bridge_matches(outputspecnodes)
@@ -666,6 +702,23 @@ class BaseTestOptimizeFindNode(BaseTest):
         jump(p0)
         """
         self.find_bridge(ops, 'Not', 'Not')
+
+    def test_bridge_simple_constant(self):
+        ops = """
+        []
+        jump(ConstPtr(myptr))
+        """
+        self.find_bridge(ops, '', 'Not')
+        self.find_bridge(ops, '', 'Constant(myptr)')
+        self.find_bridge(ops, '', 'Constant(myptr2)', mismatch=True)
+
+    def test_bridge_simple_constant_mismatch(self):
+        ops = """
+        [p0]
+        jump(p0)
+        """
+        self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not', 'Constant(myptr)', mismatch=True)
 
     def test_bridge_simple_virtual_1(self):
         ops = """
