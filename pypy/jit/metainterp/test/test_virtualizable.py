@@ -938,6 +938,39 @@ class ImplicitVirtualizableTests:
         einfo = py.test.raises(AssertionError, self.meta_interp, main, [])
         assert einfo.value.args[0] == "reentering same frame via blackhole"
 
+    def test_inlining(self):
+        class Frame(object):
+            _virtualizable2_ = ['x', 'next']
+
+            def __init__(self, x):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.next = None
+
+        driver = JitDriver(greens=[], reds=['frame', 'result'],
+                           virtualizables=['frame'])
+
+        def interp(caller):
+            f = Frame(caller.x)
+            caller.next = f
+            f = hint(f, access_directly=True)
+            result = 0
+            while f.x > 0:
+                driver.can_enter_jit(frame=f, result=result)
+                driver.jit_merge_point(frame=f, result=result)
+                f.x -= 1
+                result += indirection(f)
+            return result
+        def indirection(arg):
+            return interp(arg)
+        def run_interp(n):
+            f = hint(Frame(n), access_directly=True)
+            return interp(f)
+
+        res = self.meta_interp(run_interp, [4])
+        assert res == run_interp(4)
+
+
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
