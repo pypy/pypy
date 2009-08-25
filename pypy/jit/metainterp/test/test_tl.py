@@ -170,11 +170,7 @@ class ToyLanguageTests:
                 del meth_func._look_inside_me_
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):
-    def test_tl_call(self):
-        py.test.skip("virtualizables: in-progress with ootype")
-        
-    def test_tl_call_full_of_residuals(self):
-        py.test.skip("virtualizables: in-progress with ootype")
+    pass
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):
     pass
