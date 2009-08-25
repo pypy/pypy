@@ -151,8 +151,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def force_box(self):
         if self.box is None:
-            if self.source_op is None:
-                self.prepare_force_box()
+            assert self.source_op is not None
             newoperations = self.optimizer.newoperations
             newoperations.append(self.source_op)
             self.box = box = self.source_op.result
@@ -168,9 +167,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 newoperations.append(op)
             self._fields = None
         return self.box
-
-    def prepare_force_box(self):
-        raise NotImplementedError
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
@@ -194,18 +190,6 @@ class VirtualValue(AbstractVirtualStructValue):
         AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
         self.known_class = known_class
 
-    def prepare_force_box(self):
-        # rare case (shown by test_p123_simple) to force a Virtual
-        # from a specnode computed by optimizefindnode.
-        assert self.optimizer.reached_the_end
-        # The previous check is done for safety reasons:
-        # this function should only be used from teardown_virtual_node();
-        # if we call force_box() from somewhere else and we get
-        # source_op=None, it is really a bug.
-        self.source_op = ResOperation(rop.NEW_WITH_VTABLE,
-                                      [self.known_class],
-                                      self.optimizer.new_ptr_box())
-
     def _make_virtual(self, modifier, fielddescrs, fieldboxes):
         modifier.make_virtual(self.keybox, self.known_class,
                               fielddescrs, fieldboxes)
@@ -216,14 +200,6 @@ class VStructValue(AbstractVirtualStructValue):
     def __init__(self, optimizer, structdescr, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
         self.structdescr = structdescr
-
-    def prepare_force_box(self):
-        # rare case (shown by test_p123_vstruct) to force a Virtual
-        # from a specnode computed by optimizefindnode.
-        assert self.optimizer.reached_the_end
-        self.source_op = ResOperation(rop.NEW, [],
-                                      self.optimizer.new_ptr_box(),
-                                      descr=self.structdescr)
 
     def _make_virtual(self, modifier, fielddescrs, fieldboxes):
         modifier.make_vstruct(self.keybox, self.structdescr,
@@ -252,8 +228,7 @@ class VArrayValue(AbstractVirtualValue):
 
     def force_box(self):
         if self.box is None:
-            if self.source_op is None:
-                self.prepare_force_box()
+            assert self.source_op is not None
             newoperations = self.optimizer.newoperations
             newoperations.append(self.source_op)
             self.box = box = self.source_op.result
@@ -266,15 +241,6 @@ class VArrayValue(AbstractVirtualValue):
                                       descr=self.arraydescr)
                     newoperations.append(op)
         return self.box
-
-    def prepare_force_box(self):
-        # rare case (shown by test_p123_varray) to force a VirtualArray
-        # from a specnode computed by optimizefindnode.
-        assert self.optimizer.reached_the_end
-        self.source_op = ResOperation(rop.NEW_ARRAY,
-                                      [ConstInt(self.getlength())],
-                                      self.optimizer.new_ptr_box(),
-                                      descr=self.arraydescr)
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
@@ -357,7 +323,6 @@ class Optimizer(object):
         self.values = {}
         self.values_to_clean = []    # OptValues to clean when we see an
                                      # operation with side-effects
-        self.reached_the_end = False
         self.interned_ptrs = {}
         self.interned_objs = {}
 
@@ -558,7 +523,6 @@ class Optimizer(object):
         self.emit_operation(op)
 
     def optimize_JUMP(self, op):
-        self.reached_the_end = True
         orgop = self.loop.operations[-1]
         exitargs = []
         specnodes = orgop.jump_target.specnodes
