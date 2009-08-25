@@ -788,9 +788,6 @@ class ImplicitVirtualizableTests:
                     for block, op in graph.iterblockops()
                         if op.opname == 'direct_call']
 
-        if isinstance(self, OOJitMixin):
-            py.test.skip("oo virtualizable support incomplete")
-        
         assert direct_calls(f_graph) == ['__init__', 'force_if_necessary', 'll_portal_runner']
         assert direct_calls(portal_graph) == ['force_if_necessary', 'maybe_enter_jit']
 
