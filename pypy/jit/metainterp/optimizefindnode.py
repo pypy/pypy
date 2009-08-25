@@ -66,9 +66,13 @@ class InstanceNode(object):
                 self.dependencies = None
                 for box in deps:
                     box.mark_escaped()
+                    # see test_find_nodes_store_into_loop_constant_1 for this:
+                    box.unique = UNIQUE_NO
 
     def set_unique_nodes(self):
-        if self.escaped or self.fromstart or self.unique != UNIQUE_UNKNOWN:
+        if self.fromstart:
+            self.mark_escaped()
+        if self.escaped or self.unique != UNIQUE_UNKNOWN:
             # this node is not suitable for being a virtual, or we
             # encounter it more than once when doing the recursion
             self.unique = UNIQUE_NO
@@ -307,12 +311,12 @@ class PerfectSpecializationFinder(NodeFinder):
 
     def intersect(self, inputnode, exitnode):
         assert inputnode.fromstart
-        if inputnode.escaped:
-            return prebuiltNotSpecNode
         if inputnode.is_constant() and \
            exitnode.is_constant() and \
            inputnode.knownvaluebox.equals(exitnode.knownvaluebox):
             return ConstantSpecNode(inputnode.knownvaluebox)
+        if inputnode.escaped:
+            return prebuiltNotSpecNode
         unique = exitnode.unique
         if unique == UNIQUE_NO:
             return prebuiltNotSpecNode

@@ -415,18 +415,8 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
-        expected = """
-        [i1, i2, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
-        p2b = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p2b, i2, descr=valuedescr)
-        jump(i1, i1, p2b)
-        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops,
-                           'Not, Virtual(node_vtable, valuedescr=Not), Not',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not, Not', ops)
 
     def test_p123_nested(self):
         ops = """
@@ -434,32 +424,15 @@ class BaseTestOptimizeOpt(BaseTest):
         i3 = getfield_gc(p3, descr=valuedescr)
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
-        p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1, i1, descr=valuedescr)
-        setfield_gc(p1, p1sub, descr=nextdescr)
+        p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
-        """
-        expected = """
-        [i1, i2, i2sub, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
-        p2b = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p2b, i2, descr=valuedescr)
-        p2sub = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2sub, i2sub, descr=valuedescr)
-        setfield_gc(p2b, p2sub, descr=nextdescr)
-        jump(i1, i1, i1, p2b)
         """
         # The same as test_p123_simple, but with a virtual containing another
         # virtual.
-        self.optimize_loop(ops, '''Not,
-                                   Virtual(node_vtable,
-                                           valuedescr=Not,
-                                           nextdescr=Virtual(node_vtable2,
-                                                             valuedescr=Not)),
-                                   Not''',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not, Not', ops)
 
     def test_p123_anti_nested(self):
         ops = """
@@ -467,26 +440,15 @@ class BaseTestOptimizeOpt(BaseTest):
         p3sub = getfield_gc(p3, descr=nextdescr)
         i3 = getfield_gc(p3sub, descr=valuedescr)
         escape(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
+        p1 = new_with_vtable(ConstClass(node_vtable))
         jump(i1, p1, p2)
-        """
-        expected = """
-        [i1, p3]
-        p3sub = getfield_gc(p3, descr=nextdescr)
-        i3 = getfield_gc(p3sub, descr=valuedescr)
-        escape(i3)
-        p2b = new_with_vtable(ConstClass(node_vtable))
-        p2sub = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2sub, i1, descr=valuedescr)
-        setfield_gc(p2b, p2sub, descr=nextdescr)
-        jump(i1, p2b)
         """
         # The same as test_p123_simple, but in the end the "old" p2 contains
         # a "young" virtual p2sub.  Make sure it is all forced.
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable), Not', expected)
+        self.optimize_loop(ops, 'Not, Not, Not', ops)
 
     # ----------
 
@@ -911,17 +873,8 @@ class BaseTestOptimizeOpt(BaseTest):
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
         jump(i1, p1, p2)
         """
-        expected = """
-        [i1, i2, p3]
-        i3 = getarrayitem_gc(p3, 0, descr=arraydescr)
-        escape(i3)
-        p2b = new_array(1, descr=arraydescr)
-        setarrayitem_gc(p2b, 0, i2, descr=arraydescr)
-        jump(i1, i1, p2b)
-        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not), Not',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not, Not', ops)
 
     def test_varray_forced_1(self):
         ops = """
@@ -970,17 +923,8 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, i1, descr=adescr)
         jump(i1, p1, p2)
         """
-        expected = """
-        [i1, i2, p3]
-        i3 = getfield_gc(p3, descr=adescr)
-        escape(i3)
-        p2b = new(descr=ssize)
-        setfield_gc(p2b, i2, descr=adescr)
-        jump(i1, i1, p2b)
-        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not), Not',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not, Not', ops)
 
     def test_duplicate_getfield_1(self):
         ops = """

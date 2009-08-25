@@ -206,9 +206,11 @@ class BaseTestOptimizeFindNode(BaseTest):
         i1 = int_sub(i0, 1)
         p2 = getfield_gc(p0, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
-        jump(p0)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        jump(p3)
         """
-        boxes, getnode = self.find_nodes(ops, 'Not')
+        boxes, getnode = self.find_nodes(ops,
+                                         'Virtual(node_vtable, nextdescr=Not)')
         assert not getnode(boxes.p0).escaped
         assert not getnode(boxes.p1).escaped
         assert not getnode(boxes.p2).escaped
@@ -228,9 +230,11 @@ class BaseTestOptimizeFindNode(BaseTest):
         setfield_gc(p3, i1, descr=valuedescr)
         p4 = getfield_gc(p1, descr=nextdescr)
         setfield_gc(p4, i1, descr=valuedescr)
-        jump(p0)
+        p5 = new_with_vtable(ConstClass(node_vtable))
+        jump(p5)
         """
-        boxes, getnode = self.find_nodes(ops, 'Not')
+        boxes, getnode = self.find_nodes(ops,
+                                         'Virtual(node_vtable, nextdescr=Not)')
         assert not getnode(boxes.p0).escaped
         assert getnode(boxes.p1).escaped
         assert getnode(boxes.p2).escaped    # forced by p1
@@ -493,6 +497,15 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Not')
 
+    def test_find_nodes_p12_simple(self):
+        ops = """
+        [p1]
+        i3 = getfield_gc(p1, descr=valuedescr)
+        escape(i3)
+        jump(p1)
+        """
+        self.find_nodes(ops, 'Not')
+
     def test_find_nodes_p123_simple(self):
         ops = """
         [i1, p2, p3]
@@ -503,7 +516,19 @@ class BaseTestOptimizeFindNode(BaseTest):
         jump(i1, p1, p2)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.find_nodes(ops, 'Not, Virtual(node_vtable, valuedescr=Not), Not')
+        self.find_nodes(ops, 'Not, Not, Not')
+
+    def test_find_nodes_p1234_simple(self):
+        ops = """
+        [i1, p2, p3, p4]
+        i4 = getfield_gc(p4, descr=valuedescr)
+        escape(i4)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i1, p1, p2, p3)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.find_nodes(ops, 'Not, Not, Not, Not')
 
     def test_find_nodes_p123_guard_class(self):
         ops = """
@@ -517,7 +542,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         jump(i1, p1, p2)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.find_nodes(ops, 'Not, Virtual(node_vtable, valuedescr=Not), Not')
+        self.find_nodes(ops, 'Not, Not, Not')
 
     def test_find_nodes_p123_rec(self):
         ops = """
@@ -533,7 +558,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         # We cannot track virtuals that survive for more than two iterations.
         self.find_nodes(ops, '''Not,
-                                Virtual(node_vtable, valuedescr=Not),
+                                Not,
                                 Virtual(node_vtable, nextdescr=Not)''')
 
     def test_find_nodes_setfield_bug(self):
@@ -657,6 +682,16 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Constant(myptr)')
 
+    def test_find_nodes_guard_value_escaping_constant(self):
+        ops = """
+        [p1]
+        escape(p1)
+        guard_value(p1, ConstPtr(myptr))
+            fail()
+        jump(ConstPtr(myptr))
+        """
+        self.find_nodes(ops, 'Constant(myptr)')
+
     def test_find_nodes_guard_value_same_as_constant(self):
         ops = """
         [p1]
@@ -667,17 +702,33 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Constant(myptr)', p2=self.myptr)
 
-    def test_find_nodes_call_escapes(self):
-        py.test.skip("ARGH, bug")
+    def test_find_nodes_store_into_loop_constant_1(self):
         ops = """
         [i0, p1, p4]
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, p2, descr=nextdescr)
-        call(i0)
-        p3 = getfield_gc(p1, descr=nextdescr)
-        jump(i0, p1, p3)
+        jump(i0, p1, p2)
         """
         self.find_nodes(ops, 'Not, Not, Not')
+
+    def test_find_nodes_store_into_loop_constant_2(self):
+        ops = """
+        [i0, p4, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p2, descr=nextdescr)
+        jump(i0, p2, p1)
+        """
+        self.find_nodes(ops, 'Not, Not, Not')
+
+    def test_find_nodes_store_into_loop_constant_3(self):
+        ops = """
+        [i0, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p2, descr=nextdescr)
+        call(i0)
+        jump(i0, p1)
+        """
+        self.find_nodes(ops, 'Not, Not')
 
     # ------------------------------
     # Bridge tests
