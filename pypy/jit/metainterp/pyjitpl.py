@@ -993,6 +993,8 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = stats
         self.options = options
+        if cpu.logger_cls is not None:
+            options.logger_noopt = cpu.logger_cls()
 
         RESULT = portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
@@ -1049,6 +1051,8 @@ class MetaInterpStaticData(object):
                 self.profiler.start()
                 self.profiler.initialized = True
             self.globaldata.initialized = True
+            if self.options.logger_noopt is not None:
+                self.options.logger_noopt.create_log('.noopt')
 
     def _setup_class_sizes(self):
         class_sizes = {}

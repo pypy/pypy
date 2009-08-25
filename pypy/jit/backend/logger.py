@@ -11,13 +11,13 @@ class AbstractLogger(object):
     def __init__(self):
         self._log_fd = -1
 
-    def create_log(self):
+    def create_log(self, extension='.ops'):
         if self._log_fd != -1:
             return self._log_fd
         s = os.environ.get('PYPYJITLOG')
         if not s:
             return -1
-        s += '.ops'
+        s += extension
         try:
             flags = os.O_WRONLY|os.O_CREAT|os.O_TRUNC
             self._log_fd = os.open(s, flags, 0666)
@@ -25,6 +25,10 @@ class AbstractLogger(object):
             os.write(2, "could not create log file\n")
             return -1
         return self._log_fd
+
+    def eventually_log_loop(self, loop):
+        self.eventually_log_operations(loop.inputargs, loop.operations, None,
+                                       compute_unique_id(loop))
 
     def repr_of_descr(self, descr):
         return ''

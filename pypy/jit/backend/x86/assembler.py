@@ -9,7 +9,7 @@ from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
                                            lower_byte, stack_pos)
-from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
@@ -192,8 +192,7 @@ class Assembler386(object):
         self.tree = tree
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
-        self.logger.eventually_log_operations(tree.inputargs, tree.operations, None,
-                                              compute_unique_id(tree))
+        self.logger.eventually_log_loop(tree)
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         self._regalloc = regalloc
         regalloc.walk_operations(tree)

@@ -12,6 +12,7 @@ from pypy.jit.metainterp import history, codewriter
 from pypy.jit.metainterp.history import (ResOperation, Box, Const,
      ConstInt, ConstPtr, BoxInt, BoxPtr, ConstAddr, AbstractDescr)
 from pypy.jit.backend.x86.assembler import Assembler386, WORD, MAX_FAIL_BOXES
+from pypy.jit.backend.x86.assembler import x86Logger
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.rlib.objectmodel import r_dict
@@ -48,6 +49,7 @@ def _check_addr_range(x):
 class CPU386(object):
     debug = True
     is_oo = False
+    logger_cls = x86Logger
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
 

@@ -753,6 +753,7 @@ class CrashInJIT(Exception):
 # ----------------------------------------------------------------
 
 class Options:
+    logger_noopt = None
     def __init__(self, specialize=True, listops=False, inline=False):
         self.specialize = specialize
         self.listops = listops

@@ -1,7 +1,6 @@
 import py
 import os
 from pypy.tool.pairtype import extendabletype
-from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -34,6 +33,7 @@ class CliLogger(AbstractLogger):
         return AbstractLogger.repr_of_descr(self, descr)
     
 logger = CliLogger()
+runner.CliCPU.logger_cls = CliLogger     # xxx hack
 
 class __extend__(AbstractValue):
     __metaclass__ = extendabletype
@@ -163,8 +163,7 @@ class Method(object):
 
         # ----
         logger.create_log()
-        logger.eventually_log_operations(loop.inputargs, loop.operations, None,
-                                         compute_unique_id(loop))
+        logger.eventually_log_loop(loop)
         # ----
         self.box2type = {}
         if self.nocast:

@@ -16,6 +16,7 @@ history.TreeLoop._llvm_compiled_index = -1
 
 class LLVMCPU(object):
     is_oo = False
+    logger_cls = None
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
     POINTER_VALUE = rffi.CFixedArray(llmemory.GCREF, 1)
