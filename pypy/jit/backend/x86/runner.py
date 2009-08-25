@@ -580,8 +580,6 @@ class CPU386(object):
         return rffi.cast(llmemory.GCREF, x)
 
     def cast_adr_to_gcref(self, x):
-        if not we_are_translated():
-            _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
 
 CPU = CPU386
