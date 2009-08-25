@@ -100,15 +100,14 @@ class ToyLanguageTests:
         assert res == 5040
         self.check_loops({'int_mul':1, 'jump':1,
                           'int_sub':1, 'int_is_true':1, 'int_le':1,
-                          'guard_false':1, 'guard_value':1})
+                          'guard_false':1})
 
     def test_tl_2(self):
         res = self.meta_interp(self.main.im_func, [1, 10], listops=True,
                                backendopt=True)
         assert res == self.main.im_func(1, 10)
         self.check_loops({'int_sub':1, 'int_le':1,
-                         'int_is_true':1, 'guard_false':1, 'jump':1,
-                          'guard_value':1})
+                         'int_is_true':1, 'guard_false':1, 'jump':1})
 
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp
