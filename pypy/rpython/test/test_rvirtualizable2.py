@@ -351,11 +351,3 @@ class TestOOtype(OORtypeMixin, BaseTest):
     
     def gettype(self, v):
         return v.concretetype
-
-    def test_access_directly(self):
-        py.test.skip("ootype doesn't pass around flags")
-
-    test_access_directly_specialized = test_access_directly
-
-    test_access_directly_method = test_access_directly
-    

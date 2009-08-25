@@ -426,7 +426,8 @@ class InstanceRepr(AbstractInstanceRepr):
         mangled = mangle(attr, self.rtyper.getconfig())
         if mangled in self.allfields:
             # regular instance attributes
-            return self.getfield(v_inst, attr, hop.llops)
+            return self.getfield(v_inst, attr, hop.llops,
+                                 flags=hop.args_s[0].flags)
         elif mangled in self.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
@@ -467,12 +468,12 @@ class InstanceRepr(AbstractInstanceRepr):
         v_inst, _, v_newval = hop.inputargs(self, ootype.Void, r_value)
         self.setfield(v_inst, attr, v_newval, hop.llops)
 
-    def getfield(self, v_inst, attr, llops):
+    def getfield(self, v_inst, attr, llops, flags={}):
         mangled = mangle(attr, self.rtyper.getconfig())
         v_attr = inputconst(ootype.Void, mangled)
         r_value = self.allfields[mangled]
         self.lowleveltype._check_field(mangled)
-        self.hook_access_field(v_inst, v_attr, llops, {})    # XXX flags
+        self.hook_access_field(v_inst, v_attr, llops, flags)
         return llops.genop('oogetfield', [v_inst, v_attr],
                            resulttype = r_value)
 
