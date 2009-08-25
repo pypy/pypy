@@ -149,6 +149,7 @@ class BaseTest(BaseRtypingTest):
 
     def test_access_directly(self):
         def g(b):
+            b.v0 += 1
             return b.v0
 
         def f(n):
@@ -159,14 +160,14 @@ class BaseTest(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [int])
         g_graph = t._graphof(g)
 
-        expected =  [{'access_directly': True}]        
+        expected =  [{'access_directly': True}] * 3
         assert get_promote_virtualizable_flags(g_graph) == expected
 
         self.replace_promote_virtualizable(typer, [g_graph])
-        assert summary(g_graph) == {self.GETFIELD: 1}
+        assert summary(g_graph) == {self.GETFIELD: 2, self.SETFIELD: 1, 'int_add': 1}
 
-        res = self.interpret(f, [23]) 
-        assert res == 23
+        res = self.interpret(f, [23])
+        assert res == 24
 
     def test_access_directly_exception(self):
         def g(b):

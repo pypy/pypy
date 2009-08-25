@@ -466,7 +466,8 @@ class InstanceRepr(AbstractInstanceRepr):
         self.lowleveltype._check_field(mangled)
         r_value = self.allfields[mangled]
         v_inst, _, v_newval = hop.inputargs(self, ootype.Void, r_value)
-        self.setfield(v_inst, attr, v_newval, hop.llops)
+        self.setfield(v_inst, attr, v_newval, hop.llops,
+                      flags=hop.args_s[0].flags)
 
     def getfield(self, v_inst, attr, llops, flags={}):
         mangled = mangle(attr, self.rtyper.getconfig())
@@ -477,10 +478,10 @@ class InstanceRepr(AbstractInstanceRepr):
         return llops.genop('oogetfield', [v_inst, v_attr],
                            resulttype = r_value)
 
-    def setfield(self, vinst, attr, vvalue, llops):
+    def setfield(self, vinst, attr, vvalue, llops, flags={}):
         mangled_name = mangle(attr, self.rtyper.getconfig())
         cname = inputconst(ootype.Void, mangled_name)
-        self.hook_access_field(vinst, cname, llops, {})      # XXX flags
+        self.hook_access_field(vinst, cname, llops, flags)
         llops.genop('oosetfield', [vinst, cname, vvalue])
 
     def hook_access_field(self, vinst, cname, llops, flags):
