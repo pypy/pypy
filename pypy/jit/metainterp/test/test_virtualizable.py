@@ -945,14 +945,6 @@ class TestOOtype(#ExplicitVirtualizableTests,
     def test_subclass_of_virtualizable(self):
         py.test.skip("oo virtualizable support incomplete")
         
-    def test_virtual_child_frame_with_arrays(self):
-        py.test.skip("oo virtualizable support incomplete")
-
-    def test_blackhole_should_not_pay_attention(self):
-        py.test.skip("oo virtualizable support incomplete")
-
-    def test_blackhole_should_not_reenter(self):
-        py.test.skip("oo virtualizable support incomplete")
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
