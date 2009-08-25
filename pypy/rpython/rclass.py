@@ -49,7 +49,6 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
     
     if classdef is None:
         unboxed = []
-        virtualizable = False
         virtualizable2 = False
     else:
         unboxed = [subdef for subdef in classdef.getallsubdefs()
