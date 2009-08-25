@@ -535,11 +535,8 @@ def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)
     if '__module__' not in w_self.dict_w:
         space = w_self.space
-        try:
-            caller = space.getexecutioncontext().framestack.top()
-        except IndexError:
-            pass
-        else:
+        caller = space.getexecutioncontext().gettopframe_nohidden()
+        if caller is not None:
             w_globals = caller.w_globals
             w_name = space.finditem(w_globals, space.wrap('__name__'))
             if w_name is not None:

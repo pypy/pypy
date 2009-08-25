@@ -259,7 +259,8 @@ class FlowExecutionContext(ExecutionContext):
             except StopFlowing:
                 continue   # restarting a dead SpamBlock
             try:
-                self.framestack.push(frame)
+                old_frame = self.some_frame
+                self.some_frame = frame
                 self.crnt_frame = frame
                 try:
                     w_result = frame.dispatch(frame.pycode,
@@ -267,7 +268,7 @@ class FlowExecutionContext(ExecutionContext):
                                               self)
                 finally:
                     self.crnt_frame = None
-                    self.framestack.pop()
+                    self.some_frame = old_frame
 
             except OperationThatShouldNotBePropagatedError, e:
                 raise Exception(

@@ -26,14 +26,19 @@ for depth is zero, returning the frame at the top of the call stack.
 This function should be used for internal and specialized
 purposes only."""
     depth = space.int_w(w_depth)
-    try:
-        f = space.getexecutioncontext().framestack.top(depth)
-    except IndexError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("call stack is not deep enough"))
-    except ValueError:
+    if depth < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("frame index must not be negative"))
+    ec = space.getexecutioncontext()
+    f = ec.gettopframe_nohidden()
+    while True:
+        if f is None:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("call stack is not deep enough"))
+        if depth == 0:
+            break
+        depth -= 1
+        f = ec.getnextframe_nohidden(f)
     return space.wrap(f)
 
 # directly from the C code in ceval.c, might be moved somewhere else.

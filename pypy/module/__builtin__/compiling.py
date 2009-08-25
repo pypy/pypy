@@ -31,11 +31,8 @@ in addition to any features explicitly specified.
 
     ec = space.getexecutioncontext()
     if not dont_inherit:
-        try:
-            caller = ec.framestack.top()
-        except IndexError:
-            pass
-        else:
+        caller = ec.gettopframe_nohidden()
+        if caller:
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single'):
@@ -70,11 +67,7 @@ If only globals is given, locals defaults to it.
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
-    try:
-        caller = space.getexecutioncontext().framestack.top()
-    except IndexError:
-        caller = None
-
+    caller = space.getexecutioncontext().gettopframe_nohidden()
     if w_globals is None or space.is_w(w_globals, space.w_None): 
         if caller is None:
             w_globals = w_locals = space.newdict()

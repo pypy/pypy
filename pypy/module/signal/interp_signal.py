@@ -103,10 +103,7 @@ class CheckSignalAction(AsyncAction):
         # invoke the app-level handler
         space = self.space
         ec = space.getexecutioncontext()
-        try:
-            w_frame = ec.framestack.top()
-        except IndexError:
-            w_frame = space.w_None
+        w_frame = space.wrap(ec.gettopframe_nohidden())
         space.call_function(w_handler, space.wrap(n), w_frame)
 
     def report_pending_signals(self):

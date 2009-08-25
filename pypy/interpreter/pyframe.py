@@ -39,7 +39,8 @@ class PyFrame(eval.Frame):
     frame_finished_execution = False
     last_instr               = -1
     last_exception           = None
-    f_back                   = None
+    f_back                   = None    # these two should be modified together
+    f_forward                = None    # they make a doubly-linked list
     w_f_trace                = None
     # For tracing
     instr_lb                 = 0

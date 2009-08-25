@@ -43,15 +43,11 @@ class W_TaintBomb(baseobjspace.W_Root):
 
     def record_debug_info(self):
         ec = self.space.getexecutioncontext()
-        try:
-            frame = ec.framestack.top()
-        except IndexError:
-            pass
-        else:
-            if isinstance(frame, PyFrame):
-                self.filename = frame.pycode.co_filename
-                self.codename = frame.pycode.co_name
-                self.codeline = frame.get_last_lineno()
+        frame = ec.gettopframe_nohidden()
+        if isinstance(frame, PyFrame):     # and, in particular, frame != None
+            self.filename = frame.pycode.co_filename
+            self.codename = frame.pycode.co_name
+            self.codeline = frame.get_last_lineno()
         if get_debug_level(self.space) > 0:
             self.debug_dump()
 
@@ -177,15 +173,11 @@ def debug_bomb(space, operr):
     filename = '?'
     codename = '?'
     codeline = 0
-    try:
-        frame = ec.framestack.top()
-    except IndexError:
-        pass
-    else:
-        if isinstance(frame, PyFrame):
-            filename = frame.pycode.co_filename
-            codename = frame.pycode.co_name
-            codeline = frame.get_last_lineno()
+    frame = ec.gettopframe_nohidden()
+    if isinstance(frame, PyFrame):     # and, in particular, frame != None
+        filename = frame.pycode.co_filename
+        codename = frame.pycode.co_name
+        codeline = frame.get_last_lineno()
     os.write(2, 'Taint Bomb in file "%s", line %d, in %s\n    %s\n' % (
         filename, codeline, codename, operr.errorstr(space)))
 

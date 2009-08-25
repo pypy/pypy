@@ -183,7 +183,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             w_parent = self.w_getmain(space)
         self.parent = space.interp_w(AppCoroutine, w_parent)
         ec = self.space.getexecutioncontext()
-        self.subctx.setstate(self.space, w_state)
+        self.subctx.setstate(space, w_state)
         self.reconstruct_framechain()
         if space.is_w(w_thunk, space.w_None):
             self.thunk = None
@@ -199,7 +199,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def reconstruct_framechain(self):
         from pypy.interpreter.pyframe import PyFrame
         from pypy.rlib.rstack import resume_state_create
-        if self.subctx.framestack.empty():
+        if self.subctx.topframe is None:
             self.frame = None
             return
 
@@ -213,7 +213,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         # ("appthunk", costate, returns=w_result)
         appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
         chain = appthunk_frame
-        for frame in self.subctx.framestack.items:
+        for frame in self.subctx.getframestack():
             assert isinstance(frame, PyFrame)
             # ("execute_frame", self, executioncontext, returns=w_exitvalue)
             chain = resume_state_create(chain, "execute_frame", frame, ec)
@@ -270,11 +270,15 @@ AppCoroutine.w_get_is_alive = w_get_is_alive
 
 def w_descr__framestack(space, self):
     assert isinstance(self, AppCoroutine)
-    if self.subctx.framestack is not None:
-        items = [space.wrap(item) for item in self.subctx.framestack.items]
-        return space.newtuple(items)
-    else:
-        return space.newtuple([])
+    index = self.subctx.framestackdepth
+    items = [None] * index
+    f = self.subctx.topframe
+    while index > 0:
+        index -= 1
+        items[index] = space.wrap(f)
+        f = f.f_back
+    assert f is None
+    return space.newtuple(items)
 
 def makeStaticMethod(module, classname, funcname):
     space = module.space
@@ -333,7 +337,7 @@ class AppCoState(BaseCoState):
         
     def post_install(self):
         self.current = self.main = AppCoroutine(self.space, state=self)
-        self.main.subctx.framestack = None    # wack
+        self.main.subctx.clear_framestack()      # wack
 
 def return_main(space):
     return AppCoroutine._get_state(space).main

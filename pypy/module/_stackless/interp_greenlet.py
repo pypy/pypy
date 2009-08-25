@@ -52,7 +52,7 @@ class AppGreenlet(Coroutine):
         self.active = is_main
         self.subctx = space.getexecutioncontext().Subcontext()
         if is_main:
-            self.subctx.framestack = None     # wack
+            self.subctx.clear_framestack()      # wack
         else:
             self.bind(GreenletThunk(self))
 
@@ -191,10 +191,7 @@ class AppGreenlet(Coroutine):
         if not self.active or self.costate.current is self:
             f = None
         else:
-            try:
-                f = self.subctx.framestack.top(0)
-            except IndexError:
-                f = None
+            f = self.subctx.topframe
         return space.wrap(f)
 
 def get(space, name):

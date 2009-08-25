@@ -139,18 +139,16 @@ def build_pytest_assertion(space):
         w_parent_init = space.getattr(w_BuiltinAssertionError,
                                       space.wrap('__init__'))
         space.call_args(w_parent_init, __args__.prepend(w_self))
-        framestack = space.getexecutioncontext().framestack
 ##        # Argh! we may see app-level helpers in the frame stack!
 ##        #       that's very probably very bad...
-##        if frame.code.co_name == 'normalize_exception': 
-##            frame = framestack.top(1)
+##        ^^^the above comment may be outdated, but we are not sure
         
         # if the assertion provided a message, don't do magic
         args_w, kwargs_w = __args__.unpack()
         if args_w: 
             w_msg = args_w[0]
         else:
-            frame = framestack.top(0)
+            frame = space.getexecutioncontext().gettopframe()
             runner = AppFrame(space, frame)
             try:
                 source = runner.statement
@@ -192,7 +190,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
                                             "after a string expression"))
         expr = space.unwrap(w_expr)
         source = py.code.Source(expr)
-        frame = space.getexecutioncontext().framestack.top()
+        frame = space.getexecutioncontext().gettopframe()
         w_locals = frame.getdictscope()
         w_locals = space.call_method(w_locals, 'copy')
         for key, w_value in kwds_w.items():

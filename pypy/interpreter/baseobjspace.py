@@ -479,8 +479,8 @@ class ObjSpace(object):
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        # Important: the annotator must not see a prebuilt ExecutionContext
-        # for reasons related to the specialization of the framestack attribute
+        # Important: the annotator must not see a prebuilt ExecutionContext:
+        # you should not see frames while you translate
         # so we make sure that the threadlocals never *have* an
         # ExecutionContext during translation.
         if self.config.translating and not we_are_translated():

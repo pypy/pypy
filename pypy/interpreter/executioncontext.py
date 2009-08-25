@@ -3,10 +3,8 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.jit import we_are_jitted
 from pypy.rlib import jit
-
-def new_framestack():
-    return Stack()
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
@@ -19,7 +17,10 @@ class ExecutionContext:
 
     def __init__(self, space):
         self.space = space
-        self.framestack = new_framestack()
+        # 'some_frame' points to any frame from this thread's frame stack
+        # (although in general it should point to the top one).
+        self.some_frame = None
+        self.framestackdepth = 0
         # tracing: space.frame_trace_action.fire() must be called to ensure
         # that tracing occurs whenever self.w_tracefunc or self.is_tracing
         # is modified.
@@ -29,40 +30,69 @@ class ExecutionContext:
         self.profilefunc = None
         self.w_profilefuncarg = None
 
+    def gettopframe(self):
+        frame = self.some_frame
+        if frame is not None:
+            while frame.f_forward is not None:
+                frame = frame.f_forward
+        return frame
+
+    def gettopframe_nohidden(self):
+        frame = self.gettopframe()
+        while frame and frame.hide():
+            frame = frame.f_back
+        return frame
+
+    def getnextframe_nohidden(frame):
+        frame = frame.f_back
+        while frame and frame.hide():
+            frame = frame.f_back
+        return frame
+    getnextframe_nohidden = staticmethod(getnextframe_nohidden)
+
     def enter(self, frame):
-        if self.framestack.depth() > self.space.sys.recursionlimit:
+        if self.framestackdepth > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("maximum recursion depth exceeded"))
-        try:
-            frame.f_back = self.framestack.top()
-        except IndexError:
-            frame.f_back = None
-
-        if not frame.hide():
-            self.framestack.push(frame)
+        self.framestackdepth += 1
+        #
+        curtopframe = self.gettopframe()
+        frame.f_back = curtopframe
+        if curtopframe is not None:
+            curtopframe.f_forward = frame
+        if not we_are_jitted():
+            self.some_frame = frame
 
     def leave(self, frame):
         if self.profilefunc:
             self._trace(frame, 'leaveframe', self.space.w_None)
-                
-        if not frame.hide():
-            self.framestack.pop()
-            if self.w_tracefunc is not None:
-                self.space.frame_trace_action.fire()
+
+        #assert frame is self.gettopframe() --- slowish
+        f_back = frame.f_back
+        if f_back is not None:
+            f_back.f_forward = None
+        if not we_are_jitted() or self.some_frame is frame:
+            self.some_frame = f_back
+        self.framestackdepth -= 1
+        
+        if self.w_tracefunc is not None and not frame.hide():
+            self.space.frame_trace_action.fire()
 
 
     class Subcontext(object):
         # coroutine: subcontext support
 
         def __init__(self):
-            self.framestack = new_framestack()
+            self.topframe = None
+            self.framestackdepth = 0
             self.w_tracefunc = None
             self.profilefunc = None
             self.w_profilefuncarg = None
             self.is_tracing = 0
 
         def enter(self, ec):
-            ec.framestack = self.framestack
+            ec.some_frame = self.topframe
+            ec.framestackdepth = self.framestackdepth
             ec.w_tracefunc = self.w_tracefunc
             ec.profilefunc = self.profilefunc
             ec.w_profilefuncarg = self.w_profilefuncarg
@@ -70,30 +100,51 @@ class ExecutionContext:
             ec.space.frame_trace_action.fire()
 
         def leave(self, ec):
-            self.framestack = ec.framestack
+            self.topframe = ec.gettopframe()
+            self.framestackdepth = ec.framestackdepth
             self.w_tracefunc = ec.w_tracefunc
             self.profilefunc = ec.profilefunc
             self.w_profilefuncarg = ec.w_profilefuncarg 
             self.is_tracing = ec.is_tracing
 
+        def clear_framestack(self):
+            self.topframe = None
+            self.framestackdepth = 0
+
         # the following interface is for pickling and unpickling
         def getstate(self, space):
-            # we just save the framestack
-            items = [space.wrap(item) for item in self.framestack.items]
+            # XXX we could just save the top frame, which brings
+            # the whole frame stack, but right now we get the whole stack
+            items = [space.wrap(f) for f in self.getframestack()]
             return space.newtuple(items)
 
         def setstate(self, space, w_state):
             from pypy.interpreter.pyframe import PyFrame
-            items = [space.interp_w(PyFrame, w_item)
-                     for w_item in space.unpackiterable(w_state)]
-            self.framestack.items = items
+            frames_w = space.unpackiterable(w_state)
+            if len(frames_w) > 0:
+                self.topframe = space.interp_w(PyFrame, frames_w[-1])
+            else:
+                self.topframe = None
+            self.framestackdepth = len(frames_w)
+
+        def getframestack(self):
+            index = self.framestackdepth
+            lst = [None] * index
+            f = self.topframe
+            while index > 0:
+                index -= 1
+                lst[index] = f
+                f = f.f_back
+            assert f is None
+            return lst
         # coroutine: I think this is all, folks!
 
 
     def get_builtin(self):
-        try:
-            return self.framestack.top().builtin
-        except IndexError:
+        frame = self.gettopframe_nohidden()
+        if frame is not None:
+            return frame.builtin
+        else:
             return self.space.builtin
 
     # XXX this one should probably be dropped in favor of a module
@@ -128,16 +179,6 @@ class ExecutionContext:
             frame.is_being_profiled = False
         else:
             self._trace(frame, 'c_exception', w_exc)
-
-    def _llprofile(self, event, w_arg):
-        fr = self.framestack.items
-        space = self.space
-        w_callback = self.profilefunc
-        if w_callback is not None:
-            frame = None
-            if fr:
-                frame = fr[0]
-            self.profilefunc(space, self.w_profilefuncarg, frame, event, w_arg)
 
     @jit.dont_look_inside
     def call_trace(self, frame):
@@ -177,10 +218,11 @@ class ExecutionContext:
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
-        for i in range(self.framestack.depth()):
-            frame = self.framestack.top(i)
+        frame = self.gettopframe_nohidden()
+        while frame:
             if frame.last_exception is not None:
                 return frame.last_exception
+            frame = self.getnextframe_nohidden(frame)
         return None
 
     def settrace(self, w_func):
@@ -204,8 +246,10 @@ class ExecutionContext:
         if func is not None:
             if w_arg is None:
                 raise ValueError("Cannot call setllprofile with real None")
-            for frame in self.framestack.items:
+            frame = self.gettopframe_nohidden()
+            while frame:
                 frame.is_being_profiled = True
+                frame = self.getnextframe_nohidden(frame)
         self.w_profilefuncarg = w_arg
 
     def call_tracing(self, w_func, w_args):

@@ -65,7 +65,7 @@ AppClonableCoroutine.typedef = TypeDef("clonable", AppCoroutine.typedef,
 class AppClonableCoState(AppCoState):
     def post_install(self):
         self.current = self.main = AppClonableCoroutine(self.space, state=self)
-        self.main.subctx.framestack = None      # wack
+        self.main.subctx.clear_framestack()      # wack
 
 def post_install(module):
     makeStaticMethod(module, 'clonable', 'getcurrent')

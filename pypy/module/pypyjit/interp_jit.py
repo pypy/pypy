@@ -22,7 +22,7 @@ from pypy.rlib.objectmodel import we_are_translated
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
-                            'fastlocals_w[*]',
+                            'fastlocals_w[*]', 'f_forward',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
