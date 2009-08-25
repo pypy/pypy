@@ -39,8 +39,10 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
             self.my_redirected_fields = self._parse_field_list(c_vfields.value,
                                                                self.accessor)
         else:
-            self.my_redirected_fields = {}
             self._super()._setup_repr()
+            # ootype needs my_redirected_fields even for subclass. lltype does
+            # not need it, but it doesn't hurt to have it anyway
+            self.my_redirected_fields = self.rbase.my_redirected_fields
 
     def new_instance(self, llops, classcallhop=None):
         vptr = self._super().new_instance(llops, classcallhop)

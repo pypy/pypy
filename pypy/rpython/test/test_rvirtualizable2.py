@@ -13,6 +13,9 @@ class V(object):
         self.v = v
         self.w = v+1
 
+class SubclassV(V):
+    pass
+
 class VArray(object):
     _virtualizable2_ = ['lst[*]']
 
@@ -37,6 +40,21 @@ class BaseTest(BaseRtypingTest):
     def test_generate_promote_virtualizable(self):
         def fn(n):
             vinst = V(n)
+            return vinst.v
+        _, _, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        op_promote = block.operations[-2]
+        op_getfield = block.operations[-1]
+        assert op_getfield.opname in ('getfield', 'oogetfield')
+        v_inst = op_getfield.args[0]
+        assert op_promote.opname == 'promote_virtualizable'
+        assert op_promote.args[0] is v_inst
+        assert op_promote.args[-1].value == {}
+
+    def test_generate_promote_virtualizable_subclass(self):
+        def fn(n):
+            V(n) # to attach v to V
+            vinst = SubclassV(n)
             return vinst.v
         _, _, graph = self.gengraph(fn, [int])
         block = graph.startblock

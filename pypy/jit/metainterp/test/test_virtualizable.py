@@ -974,11 +974,9 @@ class ImplicitVirtualizableTests:
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
+    pass
 
-    def test_subclass_of_virtualizable(self):
-        py.test.skip("oo virtualizable support incomplete")
         
-
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  LLJitMixin):
