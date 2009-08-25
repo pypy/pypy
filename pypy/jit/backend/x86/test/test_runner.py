@@ -120,7 +120,10 @@ class TestX86(LLtypeBackendTest):
                                'void')
         assert u.chars[2] == u'z'
         assert u.chars[3] == u'd'
-        
+
+    @staticmethod
+    def _resbuf(res, item_tp=ctypes.c_int):
+        return ctypes.cast(res.value._obj.intval, ctypes.POINTER(item_tp))
 
     def test_allocations(self):
         from pypy.rpython.lltypesystem import rstr
@@ -139,17 +142,17 @@ class TestX86(LLtypeBackendTest):
             saved_addr = self.cpu.assembler.malloc_func_addr
             self.cpu.assembler.malloc_func_addr = addr
             ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
-            
+
             res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ptr')
             assert allocs[0] == 7 + ofs + WORD
-            resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_int))
+            resbuf = self._resbuf(res)
             assert resbuf[ofs/WORD] == 7
             
             # ------------------------------------------------------------
 
             res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ptr')
             assert allocs[0] == 7 + ofs + WORD
-            resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_int))
+            resbuf = self._resbuf(res)
             assert resbuf[ofs/WORD] == 7
 
             # ------------------------------------------------------------
@@ -161,7 +164,7 @@ class TestX86(LLtypeBackendTest):
             res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                              'ptr', descr)
             assert allocs[0] == 10*WORD + ofs + WORD
-            resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_int))
+            resbuf = self._resbuf(res)            
             assert resbuf[ofs/WORD] == 10
 
             # ------------------------------------------------------------
@@ -169,7 +172,7 @@ class TestX86(LLtypeBackendTest):
             res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
                                              'ptr', descr)
             assert allocs[0] == 10*WORD + ofs + WORD
-            resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_int))
+            resbuf = self._resbuf(res)                        
             assert resbuf[ofs/WORD] == 10
             
         finally:
@@ -182,7 +185,7 @@ class TestX86(LLtypeBackendTest):
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(10)], 'ptr')
         self.execute_operation(rop.STRSETITEM, [res, ConstInt(2), ConstInt(ord('d'))], 'void')
-        resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_char))
+        resbuf = self._resbuf(res, ctypes.c_char)
         assert resbuf[ofs + ofs_items + 2] == 'd'
         self.execute_operation(rop.STRSETITEM, [res, BoxInt(2), ConstInt(ord('z'))], 'void')
         assert resbuf[ofs + ofs_items + 2] == 'z'
@@ -196,7 +199,7 @@ class TestX86(LLtypeBackendTest):
         descr = self.cpu.arraydescrof(TP)
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                      'ptr', descr)
-        resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_int))
+        resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
         self.execute_operation(rop.SETARRAYITEM_GC, [res,
                                                      ConstInt(2), BoxInt(38)],
@@ -235,7 +238,7 @@ class TestX86(LLtypeBackendTest):
         descr = self.cpu.arraydescrof(TP)
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                      'ptr', descr)
-        resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_char))
+        resbuf = self._resbuf(res, ctypes.c_char)
         assert resbuf[ofs] == chr(10)
         for i in range(10):
             self.execute_operation(rop.SETARRAYITEM_GC, [res,

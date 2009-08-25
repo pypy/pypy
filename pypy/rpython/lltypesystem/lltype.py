@@ -798,8 +798,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
                         "%s to %s" % (CURTYPE, PTRTYPE))
     if (isinstance(CURTYPE.TO, OpaqueType)
         and not isinstance(PTRTYPE.TO, OpaqueType)):
-        if hasattr(ptr, '_cast_to_ptr'):
-            return ptr._cast_to_ptr(PTRTYPE)
+        if hasattr(ptr._obj, '_cast_to_ptr'):
+            return ptr._obj._cast_to_ptr(PTRTYPE)
         if not ptr:
             return nullptr(PTRTYPE.TO)
         try:
@@ -1696,7 +1696,7 @@ class _opaque(_parentable):
 
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
-            return False
+            return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
             obj1 = self.container._normalizedcontainer()
             obj2 = other.container._normalizedcontainer()
@@ -1705,6 +1705,8 @@ class _opaque(_parentable):
             return self is other
 
     def __ne__(self, other):
+        if self.__class__ is not other.__class__:
+            return NotImplemented
         return not (self == other)
 
     def __hash__(self):

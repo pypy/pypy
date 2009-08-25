@@ -998,7 +998,7 @@ class TestLL2Ctypes(object):
         assert v
         v2 = ctypes2lltype(llmemory.GCREF, ctypes.c_void_p(1235))
         assert v2 != v
-        
+
     def test_gcref_type(self):
         NODE = lltype.GcStruct('NODE')
         node = lltype.malloc(NODE)
@@ -1020,3 +1020,77 @@ class TestLL2Ctypes(object):
         ref = llmemory.NULL
         value = rffi.cast(lltype.Signed, ref)
         assert value == 0
+
+    def test_gcref_truth(self):
+        p0 = ctypes.c_void_p(0)
+        ref0 = ctypes2lltype(llmemory.GCREF, p0)
+        assert not ref0
+
+        p1234 = ctypes.c_void_p(1234)
+        ref1234 = ctypes2lltype(llmemory.GCREF, p1234)        
+        assert p1234
+
+    def test_gcref_casts(self):
+        p0 = ctypes.c_void_p(0)
+        ref0 = ctypes2lltype(llmemory.GCREF, p0)
+
+        assert lltype.cast_ptr_to_int(ref0) == 0
+        assert llmemory.cast_ptr_to_adr(ref0) == llmemory.NULL
+
+        NODE = lltype.GcStruct('NODE')
+        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref0) == lltype.nullptr(NODE)
+
+        node = lltype.malloc(NODE)
+        ref1 = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+
+        intval  = rffi.cast(lltype.Signed, node)
+        intval1 = rffi.cast(lltype.Signed, ref1)
+
+        assert intval == intval1
+
+        ref2 = ctypes2lltype(llmemory.GCREF, intval1)
+
+        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref2) == node
+        
+        #addr = llmemory.cast_ptr_to_adr(ref1)
+        #assert llmemory.cast_adr_to_int(addr) == intval
+
+        #assert lltype.cast_ptr_to_int(ref1) == intval
+
+    def test_mixed_gcref_comparison(self):
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref1 = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+        ref2 = rffi.cast(llmemory.GCREF, 123)
+
+        assert ref1 != ref2
+        assert not (ref1 == ref2)
+
+        assert ref2 != ref1
+        assert not (ref2 == ref1)
+
+        assert node._obj._storage is True
+
+        # forced!
+        rffi.cast(lltype.Signed, ref1)
+        assert node._obj._storage not in (True, None)
+
+        assert ref1 != ref2
+        assert not (ref1 == ref2)
+
+        assert ref2 != ref1
+        assert not (ref2 == ref1)
+
+    def test_gcref_comparisons_back_and_forth(self):
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref1 = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+        numb = rffi.cast(lltype.Signed, ref1)
+        ref2 = rffi.cast(llmemory.GCREF, numb)
+        assert ref1 == ref2
+        assert ref2 == ref1
+        assert not (ref1 != ref2)
+        assert not (ref2 != ref1)        
+   
+        
+    

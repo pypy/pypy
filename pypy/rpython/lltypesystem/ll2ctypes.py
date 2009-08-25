@@ -533,8 +533,8 @@ def lltype2ctypes(llobj, normalize=True):
         if T is base_ptr_lltype():
             return new_opaque_object(llobj)
         if T == llmemory.GCREF:
-            if isinstance(llobj, _llgcref):
-                return ctypes.c_void_p(llobj.intval)
+            if isinstance(llobj._obj, _llgcopaque):
+                return ctypes.c_void_p(llobj._obj.intval)
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
@@ -721,8 +721,7 @@ def ctypes2lltype(T, cobj):
                                           _callable=_callable)
         elif isinstance(T.TO, lltype.OpaqueType):
             if T == llmemory.GCREF:
-                # XXX obscure hack
-                return _llgcref(cobj)
+                container = _llgcopaque(cobj)
             else:
                 container = lltype._opaque(T.TO)
         else:
@@ -1085,8 +1084,9 @@ class _lladdress(long):
     def __ne__(self, other):
         return not self == other
 
-class _llgcref(object):
-    _TYPE = llmemory.GCREF
+class _llgcopaque(lltype._container):
+    _TYPE = llmemory.GCREF.TO
+    _name = "_llgcopaque"
 
     def __init__(self, void_p):
         if isinstance(void_p, (int, long)):
@@ -1095,24 +1095,23 @@ class _llgcref(object):
             self.intval = intmask(void_p.value)
 
     def __eq__(self, other):
-        if isinstance(other, _llgcref):
+        if isinstance(other, _llgcopaque):
             return self.intval == other.intval
-        return force_cast(lltype.Signed, other) == self.intval
+        if other.container._storage in (None, True):
+            return False
+        return force_cast(lltype.Signed, other._as_ptr()) == self.intval
 
     def __ne__(self, other):
         return not self == other
 
-    def __nonzero__(self):
-        return bool(self.intval)
-
     def _cast_to_ptr(self, PTRTYPE):
-        return force_cast(PTRTYPE, self.intval)
+         return force_cast(PTRTYPE, self.intval)
 
-    def _cast_to_int(self):
-        return self.intval
+##     def _cast_to_int(self):
+##         return self.intval
 
-    def _cast_to_adr(self):
-        return _lladdress(self.intval)
+##     def _cast_to_adr(self):
+##         return _lladdress(self.intval)
 
 def cast_adr_to_int(addr):
     if isinstance(addr, llmemory.fakeaddress):

@@ -569,11 +569,7 @@ class CPU386(object):
     def cast_int_to_adr(x):
         if not we_are_translated():
             _check_addr_range(x)
-        if we_are_translated():
-            return rffi.cast(llmemory.Address, x)
-        else:
-            # indirect casting because the above doesn't work with ll2ctypes
-            return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
+        return rffi.cast(llmemory.Address, x)
 
     def cast_gcref_to_int(self, x):
         return rffi.cast(lltype.Signed, x)
