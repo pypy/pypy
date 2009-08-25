@@ -396,6 +396,9 @@ class Box(AbstractValue):
     def nonconstbox(self):
         return self
 
+    def changevalue_box(self, srcbox):
+        raise NotImplementedError
+
     def __repr__(self):
         result = str(self)
         if self._extended_display:
@@ -457,6 +460,9 @@ class BoxInt(Box):
     def repr_rpython(self):
         return repr_rpython(self, 'bi')
 
+    def changevalue_box(self, srcbox):
+        self.changevalue_int(srcbox.getint())
+
     changevalue_int = __init__
 
 class BoxPtr(Box):
@@ -490,6 +496,9 @@ class BoxPtr(Box):
 
     def repr_rpython(self):
         return repr_rpython(self, 'bp')
+
+    def changevalue_box(self, srcbox):
+        self.changevalue_ptr(srcbox.getptr_base())
 
     _getrepr_ = repr_pointer
     changevalue_ptr = __init__
@@ -528,6 +537,9 @@ class BoxObj(Box):
 
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
+
+    def changevalue_box(self, srcbox):
+        self.changevalue_obj(srcbox.getobj())
 
     _getrepr_ = repr_object
     changevalue_obj = __init__

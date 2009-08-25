@@ -30,15 +30,16 @@ def optimize_bridge_1(cpu, bridge):
 
 # ____________________________________________________________
 
-LEVEL_UNKNOWN    = 0
-LEVEL_NONNULL    = 1
-LEVEL_KNOWNCLASS = 2     # might also mean KNOWNARRAYDESCR, for arrays
-LEVEL_CONSTANT   = 3
+LEVEL_UNKNOWN    = '\x00'
+LEVEL_NONNULL    = '\x01'
+LEVEL_KNOWNCLASS = '\x02'     # might also mean KNOWNARRAYDESCR, for arrays
+LEVEL_CONSTANT   = '\x03'
 
 
 class OptValue(object):
-    _attrs_ = ('box', 'level', '_fields')
+    _attrs_ = ('box', 'level', 'missing', '_fields')
     level = LEVEL_UNKNOWN
+    missing = False   # is True if we don't know the value yet (for virtuals)
     _fields = None
 
     def __init__(self, box):
@@ -54,6 +55,14 @@ class OptValue(object):
 
     def get_args_for_fail(self, modifier):
         pass
+
+    def initialize_if_missing(self, srcbox):
+        if self.missing:
+            dstbox = self.box
+            if dstbox is not None:
+                assert isinstance(dstbox, Box)
+                dstbox.changevalue_box(srcbox)
+            self.missing = False
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -281,7 +290,9 @@ class __extend__(AbstractVirtualStructSpecNode):
         for ofs, subspecnode in self.fields:
             subbox = optimizer.new_box(ofs)
             subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
-            vvalue.setfield(ofs, optimizer.getvalue(subbox))
+            vvaluefield = optimizer.getvalue(subbox)
+            vvaluefield.missing = True
+            vvalue.setfield(ofs, vvaluefield)
     def _setup_virtual_node_1(self, optimizer, box):
         raise NotImplementedError
     def teardown_virtual_node(self, optimizer, value, newexitargs):
@@ -305,7 +316,9 @@ class __extend__(VirtualArraySpecNode):
             subbox = optimizer.new_box_item(self.arraydescr)
             subspecnode = self.items[index]
             subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
-            vvalue.setitem(index, optimizer.getvalue(subbox))
+            vvalueitem = optimizer.getvalue(subbox)
+            vvalueitem.missing = True
+            vvalue.setitem(index, vvalueitem)
     def teardown_virtual_node(self, optimizer, value, newexitargs):
         assert value.is_virtual()
         const = optimizer.new_const_item(self.arraydescr)
@@ -346,7 +359,6 @@ class Optimizer(object):
                 return box
         else:
             return box
-        
 
     def getvalue(self, box):
         box = self.getinterned(box)
@@ -623,6 +635,7 @@ class Optimizer(object):
             # optimizefindnode should ensure that fieldvalue is found
             fieldvalue = value.getfield(op.descr, None)
             assert fieldvalue is not None
+            fieldvalue.initialize_if_missing(op.result)
             self.make_equal_to(op.result, fieldvalue)
         else:
             # check if the field was read from another getfield_gc just before
@@ -688,6 +701,7 @@ class Optimizer(object):
             # optimizefindnode should ensure that itemvalue is found
             itemvalue = value.getitem(indexbox.getint(), None)
             assert itemvalue is not None
+            itemvalue.initialize_if_missing(op.result)
             self.make_equal_to(op.result, itemvalue)
         else:
             value.make_nonnull()

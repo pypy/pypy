@@ -1041,6 +1041,66 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not, Not', ops)
 
+    def test_bug_1(self):
+        ops = """
+        [i0, p1]
+        p4 = getfield_gc(p1, descr=nextdescr)
+        i2 = ooisnull(p4)
+        guard_false(i2)
+            fail()
+        escape(p4)
+        #
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        p3 = escape()
+        setfield_gc(p2, p3, descr=nextdescr)
+        jump(i0, p2)
+        """
+        expected = """
+        [i0, p4]
+        i2 = ooisnull(p4)
+        guard_false(i2)
+            fail()
+        escape(p4)
+        #
+        p3 = escape()
+        jump(i0, p3)
+        """
+        self.optimize_loop(ops, 'Not, Virtual(node_vtable, nextdescr=Not)',
+                           expected, i2=0,
+                           p1=self.nodebox.value,
+                           p2=self.nodebox.value,
+                           p3=self.nodebox.value,
+                           p4=self.nodebox.value)
+
+    def test_bug_2(self):
+        ops = """
+        [i0, p1]
+        p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        i2 = ooisnull(p4)
+        guard_false(i2)
+            fail()
+        escape(p4)
+        #
+        p2 = new_array(1, descr=arraydescr2)
+        p3 = escape()
+        setarrayitem_gc(p2, 0, p3, descr=arraydescr2)
+        jump(i0, p2)
+        """
+        expected = """
+        [i0, p4]
+        i2 = ooisnull(p4)
+        guard_false(i2)
+            fail()
+        escape(p4)
+        #
+        p3 = escape()
+        jump(i0, p3)
+        """
+        self.optimize_loop(ops, 'Not, VArray(arraydescr2, Not)',
+                           expected, i2=0,
+                           p3=self.sbox.value,
+                           p4=self.sbox.value)
+
     # ----------
 
     def make_fail_descr(self):
@@ -1216,7 +1276,8 @@ class BaseTestOptimizeOpt(BaseTest):
             fail(i3, i2, p3, descr=fdescr)
         jump(i2, 1, i3, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, i1=1,
+                           p3=self.nodebox.value)
         self.check_expanded_fail_descr('''p1, i3
             where p1 is a node_vtable, valuedescr=1, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p3
