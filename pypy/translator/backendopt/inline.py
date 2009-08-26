@@ -485,10 +485,14 @@ class BaseInliner(object):
             INPUT_SELF = inputv.concretetype
             if LINK_SELF != INPUT_SELF:
                 # need to insert an upcast
-                assert ootype.isSubclass(LINK_SELF, INPUT_SELF)
+                if ootype.isSubclass(LINK_SELF, INPUT_SELF):
+                    opname = 'ooupcast'
+                else:
+                    assert ootype.isSubclass(INPUT_SELF, LINK_SELF)
+                    opname = 'oodowncast'
                 v = Variable()
                 v.concretetype = INPUT_SELF
-                upcast = SpaceOperation('ooupcast', [linkv], v)
+                upcast = SpaceOperation(opname, [linkv], v)
                 block.operations.append(upcast)
                 passon_args[0] = v
 
