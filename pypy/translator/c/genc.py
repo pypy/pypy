@@ -483,14 +483,14 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.config.translation.gcrootfinder == 'asmgcc':
-            ofiles = ['%s.s' % (cfile[:-2],) for cfile in mk.cfiles]
+            lblsfiles = ['%s.lbl.s' % (cfile[:-2],) for cfile in mk.cfiles]
             gcmapfiles = ['%s.gcmap' % (cfile[:-2],) for cfile in mk.cfiles]
-            mk.definition('ASMFILES', ofiles)
+            mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            mk.definition('OBJECTS', '$(ASMFILES) gcmaptable.s')
+            mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
             mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
-            mk.rule('%.gcmap', '%.s', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $@ || (rm -f $@ && exit 1)')
-            mk.rule('gcmaptable.s', '$(GCMAPFILES)', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)')
+            mk.rule('%.lbl.s %.gcmap', '%.s', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $*.gcmap')
+            mk.rule('gcmaptable.s', '$(GCMAPFILES)', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
 
         mk.write()
         #self.translator.platform,
