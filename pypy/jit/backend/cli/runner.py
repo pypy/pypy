@@ -1,6 +1,7 @@
 from pypy.tool.pairtype import extendabletype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import AbstractDescr, AbstractMethDescr
 from pypy.jit.metainterp.history import Box, BoxInt, BoxObj, ConstObj, Const
 from pypy.jit.metainterp.history import TreeLoop
@@ -318,6 +319,11 @@ class TypeDescr(DescrWithKey):
         self.instanceof = instanceof
         self.ooclass = get_class_for_type(TYPE)
         self.typename = TYPE._short_name()
+        self._is_array_of_pointers = (history.getkind(TYPE) == 'obj')
+
+    def is_array_of_pointers(self):
+        # for arrays, TYPE is the type of the array item.
+        return self._is_array_of_pointers
 
     def get_clitype(self):
         return dotnet.class2type(self.ooclass)
@@ -448,6 +454,10 @@ class FieldDescr(DescrWithKey):
         self.selfclass = ootype.runtimeClass(TYPE)
         self.fieldname = fieldname
         self.key = key_manager.getkey((TYPE, fieldname))
+        self._is_pointer_field = (history.getkind(T) == 'obj')
+
+    def is_pointer_field(self):
+        return self._is_pointer_field
 
     def equals(self, other):
         assert isinstance(other, FieldDescr)
