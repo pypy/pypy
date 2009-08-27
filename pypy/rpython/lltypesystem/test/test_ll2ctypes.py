@@ -804,7 +804,7 @@ class TestLL2Ctypes(object):
 
         assert f() == 6
 
-    def test_qsort(self):
+    def test_qsort_callback(self):
         TP = rffi.CArrayPtr(rffi.INT)
         a = lltype.malloc(TP.TO, 5, flavor='raw')
         a[0] = 5
