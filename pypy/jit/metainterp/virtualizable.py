@@ -93,9 +93,9 @@ class VirtualizableInfo:
         self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
         #
-        getlength = cpu.ts.getlength
-        getarrayitem = cpu.ts.getarrayitem
-        setarrayitem = cpu.ts.setarrayitem
+        getlength = warmrunnerdesc.ts.getlength
+        getarrayitem = warmrunnerdesc.ts.getarrayitem
+        setarrayitem = warmrunnerdesc.ts.setarrayitem
         #
         def read_boxes(cpu, virtualizable):
             boxes = []
@@ -178,7 +178,7 @@ class VirtualizableInfo:
         force_if_necessary._always_inline_ = True
         #
         all_graphs = self.warmrunnerdesc.translator.graphs
-        ts = self.warmrunnerdesc.cpu.ts
+        ts = self.warmrunnerdesc.ts
         (_, FUNCPTR) = ts.get_FuncType([self.VTYPEPTR], lltype.Void)
         funcptr = self.warmrunnerdesc.helper_func(FUNCPTR, force_if_necessary)
         rvirtualizable2.replace_promote_virtualizable_with_call(

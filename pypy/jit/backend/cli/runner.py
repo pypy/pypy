@@ -11,7 +11,6 @@ from pypy.jit.backend import model
 from pypy.jit.backend.llgraph.runner import KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
-from pypy.jit.metainterp.typesystem import oohelper
 
 System = CLR.System
 OpCodes = System.Reflection.Emit.OpCodes
@@ -30,8 +29,7 @@ class __extend__(TreeLoop):
 
 
 class CliCPU(model.AbstractCPU):
-    
-    ts = oohelper
+
     is_oo = True
 
     def __init__(self, rtyper, stats, translate_support_code=False,

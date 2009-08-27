@@ -9,6 +9,7 @@ from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import codewriter, executor
+from pypy.jit.metainterp import typesystem
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 
@@ -844,7 +845,7 @@ class MIFrame(object):
         greenkey = self.env[:num_green_args]
         sd = self.metainterp.staticdata
         loc = sd.state.get_location_str(greenkey)
-        constloc = self.metainterp.cpu.ts.conststr(loc)
+        constloc = sd.ts.conststr(loc)
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
                                        [constloc], None)
 
@@ -860,7 +861,7 @@ class MIFrame(object):
     def opimpl_goto_if_exception_mismatch(self, vtableref, next_exc_target):
         assert isinstance(self.exception_box, Const)    # XXX
         cpu = self.metainterp.cpu
-        ts = self.metainterp.cpu.ts
+        ts = self.metainterp.staticdata.ts
         if not ts.subclassOf(cpu, self.exception_box, vtableref):
             self.pc = next_exc_target
 
@@ -965,7 +966,7 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
 
     def cls_of_box(self, box):
-        return self.metainterp.cpu.ts.cls_of_box(self.metainterp.cpu, box)
+        return self.metainterp.staticdata.ts.cls_of_box(self.metainterp.cpu, box)
 
     @specialize.arg(1)
     def execute(self, opnum, argboxes, descr=None):
@@ -1005,6 +1006,11 @@ class MetaInterpStaticData(object):
             from pypy.jit.metainterp import optimize as optimizer
         self.optimize_loop = optimizer.optimize_loop
         self.optimize_bridge = optimizer.optimize_bridge
+
+        if self.cpu.is_oo:
+            self.ts = typesystem.oohelper
+        else:
+            self.ts = typesystem.llhelper
 
         if profile is not None:
             self.profiler = profile()
@@ -1059,8 +1065,8 @@ class MetaInterpStaticData(object):
             class_sizes[vtable] = sizedescr
         self.cpu.set_class_sizes(class_sizes)
 
-    def generate_bytecode(self, policy):
-        self._codewriter = codewriter.CodeWriter(self, policy)
+    def generate_bytecode(self, policy, ts):
+        self._codewriter = codewriter.CodeWriter(self, policy, ts)
         self.portal_code = self._codewriter.make_portal_bytecode(
             self.portal_graph)
         self._class_sizes = self._codewriter.class_sizes
@@ -1152,7 +1158,7 @@ class MetaInterp(object):
         #  - all subclasses of JitException
         if we_are_translated():
             from pypy.jit.metainterp.warmspot import JitException
-            e = self.cpu.ts.get_exception_obj(excvaluebox)
+            e = self.staticdata.ts.get_exception_obj(excvaluebox)
             if isinstance(e, JitException) or isinstance(e, AssertionError):
                 raise Exception, e
         #
@@ -1177,14 +1183,14 @@ class MetaInterp(object):
     def raise_overflow_error(self):
         etype, evalue = self.cpu.get_overflow_error()
         return self.finishframe_exception(
-            self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue))
+            self.staticdata.ts.get_exception_box(etype),
+            self.staticdata.ts.get_exc_value_box(evalue))
 
     def raise_zero_division_error(self):
         etype, evalue = self.cpu.get_zero_division_error()
         return self.finishframe_exception(
-            self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue))
+            self.staticdata.ts.get_exception_box(etype),
+            self.staticdata.ts.get_exc_value_box(evalue))
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
@@ -1386,20 +1392,20 @@ class MetaInterp(object):
         # save and restore all the boxes that are also used by callers.
         if self.history.inputargs is not None:
             for box in self.history.inputargs:
-                self.cpu.ts.clean_box(box)
+                self.staticdata.ts.clean_box(box)
         lists = [self.history.operations]
         while lists:
             for op in lists.pop():
                 if op is None:
                     continue
                 if op.result is not None:
-                    self.cpu.ts.clean_box(op.result)
+                    self.staticdata.ts.clean_box(op.result)
                 if op.suboperations is not None:
                     lists.append(op.suboperations)
                 if op.optimized is not None:
                     lists.append(op.optimized.suboperations)
                     if op.optimized.result is not None:
-                        self.cpu.ts.clean_box(op.optimized.result)
+                        self.staticdata.ts.clean_box(op.optimized.result)
 
     def prepare_resume_from_failure(self, opnum):
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
@@ -1594,8 +1600,8 @@ class MetaInterp(object):
         self.cpu.clear_exception()
         frame = self.framestack[-1]
         if etype:
-            exception_box = self.cpu.ts.get_exception_box(etype)
-            exc_value_box = self.cpu.ts.get_exc_value_box(evalue)
+            exception_box = self.staticdata.ts.get_exception_box(etype)
+            exc_value_box = self.staticdata.ts.get_exc_value_box(evalue)
             op = frame.generate_guard(frame.pc, rop.GUARD_EXCEPTION,
                                       None, [exception_box])
             if op:

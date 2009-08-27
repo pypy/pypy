@@ -10,13 +10,11 @@ from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86 import symbolic     # xxx
-from pypy.jit.metainterp.typesystem import llhelper
 
 history.TreeLoop._llvm_compiled_index = -1
 
 
 class LLVMCPU(object):
-    ts = llhelper
     is_oo = False
     logger_cls = None
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)

@@ -73,7 +73,7 @@ class JitMixin:
                                             self.type_system, policy=policy,
                                             optimizer=simple_optimize,
                                             **kwds)
-        cw = codewriter.CodeWriter(metainterp.staticdata, policy)
+        cw = codewriter.CodeWriter(metainterp.staticdata, policy, self.ts)
         graph = rtyper.annotator.translator.graphs[0]
         graph_key = (graph, None)
         maingraph = cw.make_one_bytecode(graph_key, False)
@@ -103,6 +103,7 @@ class JitMixin:
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
     CPUClass = runner.LLtypeCPU
+    ts = LLTypeHelper()
 
     @staticmethod
     def Ptr(T):
@@ -129,6 +130,7 @@ class LLJitMixin(JitMixin):
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     CPUClass = runner.OOtypeCPU
+    ts = OOTypeHelper()
 
     @staticmethod
     def Ptr(T):

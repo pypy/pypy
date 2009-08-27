@@ -145,7 +145,7 @@ class WarmRunnerDesc:
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
-        self.metainterp_sd.generate_bytecode(policy)
+        self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
@@ -164,6 +164,11 @@ class WarmRunnerDesc:
 
     def set_translator(self, translator):
         self.translator = translator
+        if translator.rtyper.type_system.name == 'lltypesystem':
+            self.ts = LLTypeHelper()
+        else:
+            assert translator.rtyper.type_system.name == 'ootypesystem'
+            self.ts = OOTypeHelper()
         self.gcdescr = gc.get_description(translator.config)
 
     def find_portal(self):
@@ -272,7 +277,7 @@ class WarmRunnerDesc:
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         s_result = annotationoftype(rettype)
         RETTYPE = annhelper.rtyper.getrepr(s_result).lowleveltype
-        FUNC, PTR = self.cpu.ts.get_FuncType(self.green_args_spec, RETTYPE)
+        FUNC, PTR = self.ts.get_FuncType(self.green_args_spec, RETTYPE)
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         graph = annhelper.getgraph(func, args_s, s_result)
         funcptr = annhelper.graph2delayed(graph, FUNC)
@@ -295,9 +300,9 @@ class WarmRunnerDesc:
                 self.red_args_types.append(history.getkind(TYPE))
         RESTYPE = graph.getreturnvar().concretetype
         (self.JIT_ENTER_FUNCTYPE,
-         self.PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
+         self.PTR_JIT_ENTER_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, lltype.Void)
         (self.PORTAL_FUNCTYPE,
-         self.PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
+         self.PTR_PORTAL_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, RESTYPE)
         
 
     def rewrite_can_enter_jit(self):
@@ -369,7 +374,7 @@ class WarmRunnerDesc:
         # ____________________________________________________________
         # Prepare the portal_runner() helper
         #
-        portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
+        portal_ptr = self.ts.functionptr(PORTALFUNC, 'portal',
                                          graph = portalgraph)
         portalfunc_ARGS = unrolling_iterable(
             [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(PORTALFUNC.ARGS)])
@@ -521,8 +526,8 @@ class WarmRunnerDesc:
     def rewrite_set_param(self):
         closures = {}
         graphs = self.translator.graphs
-        _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
-                                                             lltype.Void)
+        _, PTR_SET_PARAM_FUNCTYPE = self.ts.get_FuncType([lltype.Signed],
+                                                         lltype.Void)
         def make_closure(fullfuncname):
             state = self.state
             def closure(i):
@@ -661,9 +666,9 @@ def make_state_class(warmrunnerdesc):
         MAX_HASH_TABLE_BITS = 1
     THRESHOLD_LIMIT = sys.maxint // 2
     #
-    getlength = warmrunnerdesc.cpu.ts.getlength
-    getarrayitem = warmrunnerdesc.cpu.ts.getarrayitem
-    setarrayitem = warmrunnerdesc.cpu.ts.setarrayitem
+    getlength = warmrunnerdesc.ts.getlength
+    getarrayitem = warmrunnerdesc.ts.getarrayitem
+    setarrayitem = warmrunnerdesc.ts.setarrayitem
     #
     rtyper = warmrunnerdesc.translator.rtyper
     can_inline_ptr = warmrunnerdesc.can_inline_ptr
