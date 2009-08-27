@@ -158,7 +158,7 @@ class DoneWithThisFrameDescrPtr(AbstractDescr):
             result = metainterp_sd.cpu.get_latest_value_ptr(0)
         else:
             assert isinstance(resultbox, history.Const)
-            result = resultbox.getref_base()
+            result = resultbox.getptr_base()
         raise metainterp_sd.DoneWithThisFramePtr(result)
 
 class DoneWithThisFrameDescrObj(AbstractDescr):
@@ -169,7 +169,7 @@ class DoneWithThisFrameDescrObj(AbstractDescr):
             result = metainterp_sd.cpu.get_latest_value_obj(0)
         else:
             assert isinstance(resultbox, history.Const)
-            result = resultbox.getref_base()
+            result = resultbox.getobj()
         raise metainterp_sd.DoneWithThisFrameObj(result)
 
 class ExitFrameWithExceptionDescrPtr(AbstractDescr):
@@ -180,7 +180,7 @@ class ExitFrameWithExceptionDescrPtr(AbstractDescr):
             value = metainterp_sd.cpu.get_latest_value_ptr(0)
         else:
             assert isinstance(valuebox, history.Const)
-            value = valuebox.getref_base()
+            value = valuebox.getptr_base()
         raise metainterp_sd.ExitFrameWithExceptionPtr(value)
 
 class ExitFrameWithExceptionDescrObj(AbstractDescr):
@@ -191,7 +191,7 @@ class ExitFrameWithExceptionDescrObj(AbstractDescr):
             value = metainterp_sd.cpu.get_latest_value_obj(0)
         else:
             assert isinstance(valuebox, history.Const)
-            value = valuebox.getref_base()
+            value = valuebox.getobj()
         raise metainterp_sd.ExitFrameWithExceptionObj(value)
 
 done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
@@ -297,11 +297,11 @@ class ResumeGuardDescr(AbstractDescr):
             if isinstance(dstbox, BoxInt):
                 dstbox.changevalue_int(srcbox.getint())
             elif not metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxPtr):
-                dstbox.changevalue_ptr(srcbox.getref_base())
+                dstbox.changevalue_ptr(srcbox.getptr_base())
             elif isinstance(dstbox, Const):
                 pass
             elif metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxObj):
-                dstbox.changevalue_obj(srcbox.getref_base())
+                dstbox.changevalue_obj(srcbox.getobj())
             else:
                 assert False
 

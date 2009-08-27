@@ -160,7 +160,7 @@ class CliCPU(model.AbstractCPU):
         #assert len(args) == 1 # but we don't need it, so ignore
         assert descr is None
         assert len(args) == 1
-        cls = args[0].getref_base()
+        cls = args[0].getobj()
         typedescr = self.class_sizes[cls]
         return typedescr.create()
 
@@ -171,7 +171,7 @@ class CliCPU(model.AbstractCPU):
 
     def do_runtimenew(self, args, descr):
         classbox = args[0]
-        classobj = classbox.getref(ootype.Class)
+        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
         res = ootype.runtimenew(classobj)
         return BoxObj(ootype.cast_to_object(res))
 
@@ -294,21 +294,21 @@ class TypeDescr(DescrWithKey):
             n = lengthbox.getint()
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
         def getarrayitem(arraybox, ibox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
             if TYPE is not ootype.Void:
                 return boxresult(TYPE, array.ll_getitem_fast(i))
         def setarrayitem(arraybox, ibox, valuebox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
             value = unwrap(TYPE, valuebox)
             array.ll_setitem_fast(i, value)
         def getarraylength(arraybox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             return boxresult(ootype.Signed, array.ll_length())
         def instanceof(box):
             if isinstance(TYPE, ootype.Instance):
-                obj = box.getref(ootype.ROOT)
+                obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
                 return BoxInt(ootype.instanceof(obj, TYPE))
             return None
         self.create = create
@@ -349,7 +349,7 @@ class StaticMethDescr(DescrWithKey):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
-            funcobj = funcbox.getref(FUNC)
+            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
             funcargs = getargs(argboxes)
             res = funcobj(*funcargs)
             if RESULT is not ootype.Void:
@@ -392,7 +392,7 @@ class MethDescr(AbstractMethDescr):
         METH = ootype.typeOf(meth)
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
-            selfobj = selfbox.getref(SELFTYPE)
+            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
             res = meth(*methargs)
@@ -441,11 +441,11 @@ class FieldDescr(DescrWithKey):
         from pypy.jit.metainterp.warmspot import unwrap
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
-            obj = objbox.getref(TYPE)
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
             value = getattr(obj, fieldname)
             return boxresult(T, value)
         def setfield(objbox, valuebox):
-            obj = objbox.getref(TYPE)
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
             value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
             

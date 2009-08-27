@@ -454,37 +454,37 @@ class LLVMCPU(object):
     # do_xxx methods
 
     def do_arraylen_gc(self, args, arraydescr):
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
         res = len(p)
         return BoxInt(res)
 
     def do_strlen(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         res = len(p.chars)
         return BoxInt(res)
 
     def do_strgetitem(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         res = ord(p.chars[args[1].getint()])
         return BoxInt(res)
 
     def do_unicodelen(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         res = len(p.chars)
         return BoxInt(res)
 
     def do_unicodegetitem(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         res = ord(p.chars[args[1].getint()])
         return BoxInt(res)
 
     def do_getarrayitem_gc(self, args, arraydescr):
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         index = args[1].getint()
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
@@ -527,7 +527,7 @@ class LLVMCPU(object):
         return BoxInt(res)
 
     def do_getfield_gc(self, args, fielddescr):
-        struct = args[0].getref_base()
+        struct = args[0].getptr_base()
         return self._do_getfield(struct, fielddescr)
 
     def do_getfield_raw(self, args, fielddescr):
@@ -564,13 +564,13 @@ class LLVMCPU(object):
                                         self.array_index_length)
 
     def do_setarrayitem_gc(self, args, arraydescr):
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         index = args[1].getint()
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
         if itemsize_index == self.SIZE_GCPTR:
             p = rffi.cast(lltype.Ptr(self.gcarray_gcref), array)
-            res = args[2].getref_base()
+            res = args[2].getptr_base()
             p[index] = res
         elif itemsize_index == self.SIZE_INT:
             p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
@@ -593,7 +593,7 @@ class LLVMCPU(object):
         size_index = fielddescr.size_index
         if size_index == self.SIZE_GCPTR:
             p = rffi.cast(rffi.CArrayPtr(llmemory.GCREF), struct)
-            res = v_value.getref_base()
+            res = v_value.getptr_base()
             p[fielddescr.offset / rffi.sizeof(llmemory.GCREF)] = res
         elif size_index == self.SIZE_INT:
             p = rffi.cast(rffi.CArrayPtr(lltype.Signed), struct)
@@ -611,7 +611,7 @@ class LLVMCPU(object):
             raise BadSizeError
 
     def do_setfield_gc(self, args, fielddescr):
-        struct = args[0].getref_base()
+        struct = args[0].getptr_base()
         self._do_setfield(struct, args[1], fielddescr)
 
     def do_setfield_raw(self, args, fielddescr):
@@ -629,13 +629,13 @@ class LLVMCPU(object):
                                         self.unicode_index_length)
 
     def do_strsetitem(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         res = chr(args[2].getint())
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         p.chars[args[1].getint()] = res
 
     def do_unicodesetitem(self, args, descr=None):
-        s = args[0].getref_base()
+        s = args[0].getptr_base()
         res = unichr(args[2].getint())
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         p.chars[args[1].getint()] = res
@@ -687,7 +687,7 @@ class LLVMCPU(object):
         return BoxPtr(res)
 
     def do_cast_ptr_to_int(self, args, descr=None):
-        ptr = args[0].getref_base()
+        ptr = args[0].getptr_base()
         res = rffi.cast(lltype.Signed, ptr)
         return BoxInt(res)
 

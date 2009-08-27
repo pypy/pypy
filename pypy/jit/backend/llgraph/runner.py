@@ -277,34 +277,34 @@ class LLtypeCPU(BaseCPU):
     # ---------- the backend-dependent operations ----------
 
     def do_arraylen_gc(self, args, arraydescr):
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         return history.BoxInt(llimpl.do_arraylen_gc(arraydescr, array))
 
     def do_strlen(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         return history.BoxInt(llimpl.do_strlen(0, string))
 
     def do_strgetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_strgetitem(0, string, index))
 
     def do_unicodelen(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         return history.BoxInt(llimpl.do_unicodelen(0, string))
 
     def do_unicodegetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_unicodegetitem(0, string, index))
 
     def do_getarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, Descr)
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         index = args[1].getint()
         if arraydescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getarrayitem_gc_ptr(array, index))
@@ -314,7 +314,7 @@ class LLtypeCPU(BaseCPU):
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
-        struct = args[0].getref_base()
+        struct = args[0].getptr_base()
         if fielddescr.typeinfo == 'p':
             return history.BoxPtr(llimpl.do_getfield_gc_ptr(struct,
                                                             fielddescr.ofs))
@@ -354,10 +354,10 @@ class LLtypeCPU(BaseCPU):
 
     def do_setarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, Descr)
-        array = args[0].getref_base()
+        array = args[0].getptr_base()
         index = args[1].getint()
         if arraydescr.typeinfo == 'p':
-            newvalue = args[2].getref_base()
+            newvalue = args[2].getptr_base()
             llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             newvalue = args[2].getint()
@@ -366,9 +366,9 @@ class LLtypeCPU(BaseCPU):
 
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
-        struct = args[0].getref_base()
+        struct = args[0].getptr_base()
         if fielddescr.typeinfo == 'p':
-            newvalue = args[1].getref_base()
+            newvalue = args[1].getptr_base()
             llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
             newvalue = args[1].getint()
@@ -379,7 +379,7 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.typeinfo == 'p':
-            newvalue = args[1].getref_base()
+            newvalue = args[1].getptr_base()
             llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
                                        self.memo_cast)
         else:
@@ -402,14 +402,14 @@ class LLtypeCPU(BaseCPU):
 
     def do_strsetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_strsetitem(0, string, index, newvalue)
 
     def do_unicodesetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getref_base()
+        string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_unicodesetitem(0, string, index, newvalue)
@@ -420,7 +420,7 @@ class LLtypeCPU(BaseCPU):
         for arg in args[1:]:
             if (isinstance(arg, history.BoxPtr) or
                 isinstance(arg, history.ConstPtr)):
-                llimpl.do_call_pushptr(arg.getref_base())
+                llimpl.do_call_pushptr(arg.getptr_base())
             else:
                 llimpl.do_call_pushint(arg.getint())
         if calldescr.typeinfo == 'p':
@@ -438,7 +438,7 @@ class LLtypeCPU(BaseCPU):
 
     def do_cast_ptr_to_int(self, args, descr=None):
         assert descr is None
-        return history.BoxInt(llimpl.cast_to_int(args[0].getref_base(),
+        return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
                                                         self.memo_cast))
 
 class OOtypeCPU(BaseCPU):
@@ -495,7 +495,7 @@ class OOtypeCPU(BaseCPU):
     def do_new_with_vtable(self, args, descr=None):
         assert descr is None
         assert len(args) == 1
-        cls = args[0].getref_base()
+        cls = args[0].getobj()
         typedescr = self.class_sizes[cls]
         return typedescr.create()
 
@@ -512,7 +512,7 @@ class OOtypeCPU(BaseCPU):
     def do_runtimenew(self, args, descr):
         "NOT_RPYTHON"
         classbox = args[0]
-        classobj = classbox.getref(ootype.Class)
+        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
         res = ootype.runtimenew(classobj)
         return history.BoxObj(ootype.cast_to_object(res))
 
@@ -626,7 +626,7 @@ class StaticMethDescr(OODescr):
         self.FUNC = FUNC
         getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
-            funcobj = funcbox.getref(FUNC)
+            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
             funcargs = getargs(argboxes)
             res = llimpl.call_maybe_on_top_of_llinterp(funcobj, funcargs)
             if RESULT is not ootype.Void:
@@ -648,7 +648,7 @@ class MethDescr(history.AbstractMethDescr):
         RESULT = METH.RESULT
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
-            selfobj = selfbox.getref(SELFTYPE)
+            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
             res = llimpl.call_maybe_on_top_of_llinterp(meth, methargs)
@@ -674,22 +674,22 @@ class TypeDescr(OODescr):
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
 
         def getarrayitem(arraybox, ibox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
             return boxresult(TYPE, array.ll_getitem_fast(i))
 
         def setarrayitem(arraybox, ibox, valuebox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             i = ibox.getint()
             value = unwrap(TYPE, valuebox)
             array.ll_setitem_fast(i, value)
 
         def getarraylength(arraybox):
-            array = arraybox.getref(ARRAY)
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             return boxresult(ootype.Signed, array.ll_length())
 
         def instanceof(box):
-            obj = box.getref(ootype.ROOT)
+            obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
             return history.BoxInt(ootype.instanceof(obj, TYPE))
 
         self.create = create
@@ -718,11 +718,11 @@ class FieldDescr(OODescr):
 
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
-            obj = objbox.getref(TYPE)
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
             value = getattr(obj, fieldname)
             return boxresult(T, value)
         def setfield(objbox, valuebox):
-            obj = objbox.getref(TYPE)
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
             value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
             

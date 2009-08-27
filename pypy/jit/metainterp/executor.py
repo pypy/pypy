@@ -107,10 +107,10 @@ def do_oononnull(cpu, args, descr=None):
     if tp == INT:
         x = bool(args[0].getint())
     elif tp == PTR:
-        x = bool(args[0].getref_base())
+        x = bool(args[0].getptr_base())
     else:
         assert tp == OBJ
-        x = bool(args[0].getref_base())
+        x = bool(args[0].getobj())
     return ConstInt(x)
 
 def do_ooisnull(cpu, args, descr=None):
@@ -118,10 +118,10 @@ def do_ooisnull(cpu, args, descr=None):
     if tp == INT:
         x = bool(args[0].getint())
     elif tp == PTR:
-        x = bool(args[0].getref_base())
+        x = bool(args[0].getptr_base())
     else:
         assert tp == OBJ
-        x = bool(args[0].getref_base())
+        x = bool(args[0].getobj())
     return ConstInt(not x)
 
 def do_oois(cpu, args, descr=None):
@@ -130,10 +130,10 @@ def do_oois(cpu, args, descr=None):
     if tp == INT:
         x = args[0].getint() == args[1].getint()
     elif tp == PTR:
-        x = args[0].getref_base() == args[1].getref_base()
+        x = args[0].getptr_base() == args[1].getptr_base()
     else:
         assert tp == OBJ
-        x = args[0].getref_base() == args[1].getref_base()
+        x = args[0].getobj() == args[1].getobj()
     return ConstInt(x)
 
 def do_ooisnot(cpu, args, descr=None):
@@ -142,22 +142,22 @@ def do_ooisnot(cpu, args, descr=None):
     if tp == INT:
         x = args[0].getint() != args[1].getint()
     elif tp == PTR:
-        x = args[0].getref_base() != args[1].getref_base()
+        x = args[0].getptr_base() != args[1].getptr_base()
     else:
         assert tp == OBJ
-        x = args[0].getref_base() != args[1].getref_base()
+        x = args[0].getobj() != args[1].getobj()
     return ConstInt(x)
 
 def do_ooidentityhash(cpu, args, descr=None):
-    obj = args[0].getref_base()
+    obj = args[0].getobj()
     return ConstInt(ootype.ooidentityhash(obj))
 
 
 def do_subclassof(self, args, descr=None):
     assert len(args) == 2
     box1, box2 = args
-    cls1 = box1.getref(ootype.Class)
-    cls2 = box2.getref(ootype.Class)
+    cls1 = ootype.cast_from_object(ootype.Class, box1.getobj())
+    cls2 = ootype.cast_from_object(ootype.Class, box2.getobj())
     res = ootype.subclassof(cls1, cls2)
     return BoxInt(res)
 

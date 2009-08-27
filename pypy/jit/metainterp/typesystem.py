@@ -56,7 +56,7 @@ class LLTypeHelper(TypeSystemHelper):
         return llmemory.cast_ptr_to_adr(fnptr)
 
     def cls_of_box(self, cpu, box):
-        obj = box.getref(lltype.Ptr(rclass.OBJECT))
+        obj = box.getptr(lltype.Ptr(rclass.OBJECT))
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(cpu.cast_adr_to_int(cls))
 
@@ -75,7 +75,7 @@ class LLTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = evaluebox.getref(lltype.Ptr(rclass.OBJECT))
+        obj = evaluebox.getptr(lltype.Ptr(rclass.OBJECT))
         return cast_base_ptr_to_instance(Exception, obj)
 
     def clean_box(self, box):
@@ -116,13 +116,13 @@ class OOTypeHelper(TypeSystemHelper):
         return ootype.cast_to_object(fnptr)
 
     def cls_of_box(self, cpu, box):
-        obj = box.getref(ootype.ROOT)
+        obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
         oocls = ootype.classof(obj)
         return history.ConstObj(ootype.cast_to_object(oocls))
 
     def subclassOf(self, cpu, clsbox1, clsbox2):
-        cls1 = clsbox1.getref(ootype.Class)
-        cls2 = clsbox2.getref(ootype.Class)
+        cls1 = ootype.cast_from_object(ootype.Class, clsbox1.getobj())
+        cls2 = ootype.cast_from_object(ootype.Class, clsbox2.getobj())
         return ootype.subclassof(cls1, cls2)
 
     def get_exception_box(self, etype):
@@ -133,7 +133,7 @@ class OOTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = evaluebox.getref(ootype.ROOT)
+        obj = ootype.cast_from_object(ootype.ROOT, evaluebox.getobj())
         return cast_base_ptr_to_instance(Exception, obj)
 
     def clean_box(self, box):

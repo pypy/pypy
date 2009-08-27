@@ -186,9 +186,10 @@ class VirtualizableInfo:
 
     def unwrap_virtualizable_box(self, virtualizable_box):
         if not self.is_oo:
-            return virtualizable_box.getref(self.VTYPEPTR)
+            return virtualizable_box.getptr(self.VTYPEPTR)
         else:
-            return virtualizable_box.getref(self.VTYPE)
+            obj = virtualizable_box.getobj()
+            return ootype.cast_from_object(self.VTYPE, obj)
 
     def cast_to_vtype(self, virtualizable):
         if not self.is_oo:

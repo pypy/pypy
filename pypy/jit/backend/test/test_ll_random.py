@@ -263,7 +263,7 @@ class ArrayOperation(test_random.AbstractOperation):
 class GetArrayItemOperation(ArrayOperation):
     def field_descr(self, builder, r):
         v, A = builder.get_arrayptr_var(r)
-        array = v.getref(lltype.Ptr(A))
+        array = v.getptr(lltype.Ptr(A))
         v_index = builder.get_index(len(array), r)
         descr = self.array_descr(builder, A)
         return v, A, v_index, descr
@@ -344,7 +344,7 @@ class AbstractStringOperation(test_random.AbstractOperation):
         current = getattr(builder, self.builder_cache)
         if current and r.random() < .8:
             v_string = r.choice(current)
-            string = v_string.getref(self.ptr)
+            string = v_string.getptr(self.ptr)
         else:
             string = self.alloc(builder.get_index(500, r).getint())
             v_string = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, string))
@@ -357,13 +357,13 @@ class AbstractStringOperation(test_random.AbstractOperation):
 class AbstractGetItemOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_string = self.get_string(builder, r)
-        v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
+        v_index = builder.get_index(len(v_string.getptr(self.ptr).chars), r)
         v_result = builder.do(self.opnum, [v_string, v_index])
 
 class AbstractSetItemOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_string = self.get_string(builder, r)
-        v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
+        v_index = builder.get_index(len(v_string.getptr(self.ptr).chars), r)
         v_target = ConstInt(r.random_integer() % self.max)
         builder.do(self.opnum, [v_string, v_index, v_target])
 
