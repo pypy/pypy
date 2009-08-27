@@ -34,7 +34,6 @@ class LoopTest:
         self.check_loop_count(1)
 
     def test_loop_with_delayed_setfield(self):
-        py.test.skip("Disabled")
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'a'])
         class A(object):
             def __init__(self):
