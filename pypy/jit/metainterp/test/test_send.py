@@ -425,7 +425,6 @@ class SendTests:
         self.check_tree_loop_count(2)
 
     def test_bug1(self):
-        py.test.skip("BUG")
         myjitdriver = JitDriver(greens = [], reds = ['node', 'n'])
         class Base:
             pass
