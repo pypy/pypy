@@ -160,15 +160,16 @@ class VirtualTests:
             while n >= 0:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
-                foo = Foo()
-                foo.n = n
+                foo = self._new()
+                foo.value = n
                 if n < 10:
                     break
-                n = foo.n - 1
+                n = foo.value - 1
             return n
 
         res = self.meta_interp(f, [20])
         assert res == 9
+        self.check_loops(new_with_vtable=0, new=0)
 
     def test_immutable_constant_getfield(self):
         myjitdriver = JitDriver(greens = ['stufflist'], reds = ['n', 'i'])
@@ -199,10 +200,6 @@ class VirtualTests:
     def test_escapes(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
 
-        class Node(object):
-            def __init__(self, x):
-                self.x = x
-
         class Parent(object):
             def __init__(self, node):
                 self.node = node
@@ -211,18 +208,23 @@ class VirtualTests:
             pass
 
         def f(n):
-            parent = Parent(Node(3))
+            node = self._new()
+            node.value = 3
+            parent = Parent(node)
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, parent=parent)
                 myjitdriver.jit_merge_point(n=n, parent=parent)
                 node = parent.node
                 g(node)
-                parent = Parent(Node(node.x))
+                newnode = self._new()
+                newnode.value = 3
+                parent = Parent(newnode)
                 n -= 1
-            return parent.node.x
+            return parent.node.value
 
         res = self.meta_interp(f, [10], policy=StopAtXPolicy(g))
         assert res == 3
+        self.check_loops(**{self._new_op: 1}) 
 
     def test_virtual_on_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -236,39 +238,44 @@ class VirtualTests:
                 self.f = f
         
         def f(n):
-            node = Node(SubNode(3))
+            subnode = self._new()
+            subnode.value = 3
+            node = Node(subnode)
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, parent=node)
                 myjitdriver.jit_merge_point(n=n, parent=node)
-                node = Node(SubNode(n + 1))
+                subnode = self._new()
+                subnode.value = n + 1
+                node = Node(subnode)
                 if n == -3:
                     return 8
                 n -= 1
-            return node.f.f
+            return node.f.value
 
         res = self.meta_interp(f, [10])
         assert res == 2
+        self.check_loops(new=0, new_with_vtable=0) 
 
     def test_bridge_from_interpreter(self):
         mydriver = JitDriver(reds = ['n', 'f'], greens = [])
 
-        class Foo:
-            pass
-
         def f(n):
-            f = Foo()
-            f.n = 0
+            f = self._new()
+            f.value = 0
             while n > 0:
                 mydriver.can_enter_jit(n=n, f=f)
                 mydriver.jit_merge_point(n=n, f=f)
-                prev = f.n
-                f = Foo()
-                f.n = prev + n
+                prev = f.value
+                f = self._new()
+                f.value = prev + n
                 n -= 2
             return f
 
         res = self.meta_interp(f, [21], repeat=7)
-        assert res.inst_n == f(21).n
+        # hack
+        assert (getattr(res, "inst_value", -100) == f(21).value or
+                getattr(res, "value", -100) == f(21).value)
+
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
         #    ENTER             - compile the new loop
@@ -302,9 +309,6 @@ NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
 class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     _new_op = 'new'
 
-    def setup_class(cls):
-        py.test.skip("not supported yet")
-    
     @staticmethod
     def _new():
         return lltype.malloc(NODE)
