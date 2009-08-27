@@ -80,15 +80,12 @@ class AbstractValue(object):
     def getint(self):
         raise NotImplementedError
 
-    def getptr_base(self):
+    def getref_base(self):
         raise NotImplementedError
 
-    def getptr(self, PTR):
-        return lltype.cast_opaque_ptr(PTR, self.getptr_base())
-    getptr._annspecialcase_ = 'specialize:arg(1)'
-
-    def getobj(self):
+    def getref(self, TYPE):
         raise NotImplementedError
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         raise NotImplementedError
@@ -296,8 +293,12 @@ class ConstPtr(Const):
 
     nonconstbox = clonebox
 
-    def getptr_base(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, PTR):
+        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         return lltype.cast_ptr_to_int(self.value)
@@ -312,7 +313,7 @@ class ConstPtr(Const):
         cpu.set_future_value_ptr(j, self.value)
 
     def equals(self, other):
-        return self.value == other.getptr_base()
+        return self.value == other.getref_base()
 
     _getrepr_ = repr_pointer
 
@@ -338,8 +339,12 @@ class ConstObj(Const):
 
     nonconstbox = clonebox
 
-    def getobj(self):
+    def getref_base(self):
        return self.value
+
+    def getref(self, OBJ):
+        return ootype.cast_from_object(OBJ, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         if self.value:
@@ -360,7 +365,7 @@ class ConstObj(Const):
 ##        return self.value
 
     def equals(self, other):
-        return self.value == other.getobj()
+        return self.value == other.getref_base()
 
     _getrepr_ = repr_object
 
@@ -479,8 +484,12 @@ class BoxPtr(Box):
     def constbox(self):
         return ConstPtr(self.value)
 
-    def getptr_base(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, PTR):
+        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
@@ -498,7 +507,7 @@ class BoxPtr(Box):
         return repr_rpython(self, 'bp')
 
     def changevalue_box(self, srcbox):
-        self.changevalue_ptr(srcbox.getptr_base())
+        self.changevalue_ptr(srcbox.getref_base())
 
     _getrepr_ = repr_pointer
     changevalue_ptr = __init__
@@ -520,8 +529,12 @@ class BoxObj(Box):
     def constbox(self):
         return ConstObj(self.value)
 
-    def getobj(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, OBJ):
+        return ootype.cast_from_object(OBJ, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         if self.value:
@@ -539,7 +552,7 @@ class BoxObj(Box):
         return repr_rpython(self, 'bo')
 
     def changevalue_box(self, srcbox):
-        self.changevalue_obj(srcbox.getobj())
+        self.changevalue_obj(srcbox.getref_base())
 
     _getrepr_ = repr_object
     changevalue_obj = __init__

@@ -584,9 +584,9 @@ def unwrap(TYPE, box):
     if TYPE is lltype.Void:
         return None
     if isinstance(TYPE, lltype.Ptr):
-        return box.getptr(TYPE)
+        return box.getref(TYPE)
     if isinstance(TYPE, ootype.OOType):
-        return ootype.cast_from_object(TYPE, box.getobj())
+        return box.getref(TYPE)
     else:
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'

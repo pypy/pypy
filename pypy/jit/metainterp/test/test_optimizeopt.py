@@ -1155,10 +1155,9 @@ class BaseTestOptimizeOpt(BaseTest):
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':
                     if not self.cpu.is_oo:
-                        assert box.getptr(rclass.OBJECTPTR).typeptr == tag[1]
+                        assert box.getref(rclass.OBJECTPTR).typeptr == tag[1]
                     else:
-                        root = box.getobj()
-                        root = ootype.cast_from_object(ootype.ROOT, root)
+                        root = box.getref(ootype.ROOT)
                         assert ootype.classof(root) == tag[1]
                 elif tag[0] == 'varray':
                     pass    # xxx check arraydescr

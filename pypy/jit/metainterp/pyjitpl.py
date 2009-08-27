@@ -716,7 +716,7 @@ class MIFrame(object):
         box = self.implement_guard_value(pc, box)
         cpu = self.metainterp.cpu
         if cpu.is_oo:
-            key = box.getobj()
+            key = box.getref_base()
         else:
             key = box.getaddr(cpu)
         jitcode = indirectcallset.bytecode_for_address(key)
@@ -730,7 +730,7 @@ class MIFrame(object):
         clsbox = self.cls_of_box(objbox)
         if isinstance(objbox, Box):
             self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
-        oocls = ootype.cast_from_object(ootype.Class, clsbox.getobj())
+        oocls = clsbox.getref(ootype.Class)
         jitcode = methdescr.get_jitcode_for_class(oocls)
         return self.perform_call(jitcode, varargs)
 
@@ -1146,9 +1146,9 @@ class MetaInterp(object):
             elif sd.result_type == 'int':
                 raise sd.DoneWithThisFrameInt(resultbox.getint())
             elif sd.result_type == 'ptr':
-                raise sd.DoneWithThisFramePtr(resultbox.getptr_base())
+                raise sd.DoneWithThisFramePtr(resultbox.getref_base())
             elif self.cpu.is_oo and sd.result_type == 'obj':
-                raise sd.DoneWithThisFrameObj(resultbox.getobj())
+                raise sd.DoneWithThisFrameObj(resultbox.getref_base())
             else:
                 assert False
 
@@ -1176,9 +1176,9 @@ class MetaInterp(object):
         if not self.is_blackholing():
             self.compile_exit_frame_with_exception(excvaluebox)
         if self.cpu.is_oo:
-            raise self.staticdata.ExitFrameWithExceptionObj(excvaluebox.getobj())
+            raise self.staticdata.ExitFrameWithExceptionObj(excvaluebox.getref_base())
         else:
-            raise self.staticdata.ExitFrameWithExceptionPtr(excvaluebox.getptr_base())
+            raise self.staticdata.ExitFrameWithExceptionPtr(excvaluebox.getref_base())
 
     def raise_overflow_error(self):
         etype, evalue = self.cpu.get_overflow_error()

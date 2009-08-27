@@ -343,7 +343,7 @@ class Optimizer(object):
         if not self.is_constant(box):
             return box
         if not self.cpu.is_oo and box.type == PTR:
-            value = box.getptr_base()
+            value = box.getref_base()
             key = lltype.cast_ptr_to_int(value)
             try:
                 return self.interned_ptrs[key]
@@ -351,7 +351,7 @@ class Optimizer(object):
                 self.interned_ptrs[key] = box
                 return box
         elif self.cpu.is_oo and box.type == OBJ:
-            value = box.getobj()
+            value = box.getref_base()
             try:
                 return self.interned_objs[value]
             except KeyError:
