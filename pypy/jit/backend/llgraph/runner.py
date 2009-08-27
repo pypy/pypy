@@ -12,7 +12,7 @@ from pypy.jit.metainterp.warmspot import unwrap
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
-
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 
 class MiniStats:
     pass
@@ -242,6 +242,7 @@ class BaseCPU(model.AbstractCPU):
 
 class LLtypeCPU(BaseCPU):
     is_oo = False
+    ts = llhelper
 
     def __init__(self, *args, **kwds):
         BaseCPU.__init__(self, *args, **kwds)
@@ -443,6 +444,7 @@ class LLtypeCPU(BaseCPU):
 
 class OOtypeCPU(BaseCPU):
     is_oo = True
+    ts = oohelper
 
     @staticmethod
     def fielddescrof(T, fieldname):

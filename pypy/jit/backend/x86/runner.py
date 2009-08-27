@@ -16,6 +16,7 @@ from pypy.jit.backend.x86.assembler import x86Logger
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.rlib.objectmodel import r_dict
+from pypy.jit.metainterp.typesystem import llhelper
 
 history.TreeLoop._x86_compiled = 0
 history.TreeLoop._x86_bootstrap_code = 0
@@ -49,6 +50,7 @@ def _check_addr_range(x):
 class CPU386(object):
     debug = True
     is_oo = False
+    ts = llhelper
     logger_cls = x86Logger
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
