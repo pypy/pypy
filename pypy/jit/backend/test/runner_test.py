@@ -23,10 +23,7 @@ class Runner(object):
             if isinstance(box, BoxInt):
                 self.cpu.set_future_value_int(j, box.getint())
                 j += 1
-            elif isinstance(box, BoxPtr):
-                self.cpu.set_future_value_ref(j, box.getref_base())
-                j += 1
-            elif isinstance(box, BoxObj):
+            elif isinstance(box, (BoxPtr, BoxObj)):
                 self.cpu.set_future_value_ref(j, box.getref_base())
                 j += 1
         res = self.cpu.execute_operations(loop)

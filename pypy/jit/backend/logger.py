@@ -1,8 +1,8 @@
 import os
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import Const, ConstInt, Box, ConstPtr, BoxPtr,\
-     BoxInt, ConstAddr, BoxObj, ConstObj
+from pypy.jit.metainterp.history import Const, ConstInt, Box, \
+     BoxInt, ConstAddr
 
 class AbstractLogger(object):
 

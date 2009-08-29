@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
+from pypy.jit.metainterp.history import Box, BoxInt
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
