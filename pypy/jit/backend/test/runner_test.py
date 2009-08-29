@@ -65,7 +65,10 @@ class Runner(object):
                                                         [ConstInt(-13)], None)]
         loop = TreeLoop('single op')
         loop.operations = operations
-        loop.inputargs = [box for box in valueboxes if isinstance(box, Box)]
+        loop.inputargs = []
+        for box in valueboxes:
+            if isinstance(box, Box) and box not in loop.inputargs:
+                loop.inputargs.append(box)
         self.cpu.compile_operations(loop)
         return loop
 
