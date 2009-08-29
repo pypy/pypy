@@ -1,7 +1,7 @@
 import sys, os
 import ctypes
 from pypy.jit.backend.x86 import symbolic
-from pypy.jit.metainterp.history import Const, Box, BoxPtr, PTR
+from pypy.jit.metainterp.history import Const, Box, BoxPtr, REF
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -30,8 +30,6 @@ def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
 class x86Logger(AbstractLogger):
-
-    is_oo = False
 
     def repr_of_descr(self, descr):
         from pypy.jit.backend.x86.runner import ConstDescr3
@@ -107,7 +105,7 @@ class Assembler386(object):
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
         self.mcstack = MachineCodeStack()
-        self.logger = x86Logger()
+        self.logger = x86Logger(cpu.ts)
         self.fail_boxes_int = lltype.malloc(lltype.GcArray(lltype.Signed),
                                             MAX_FAIL_BOXES, zero=True)
         self.fail_boxes_ptr = lltype.malloc(lltype.GcArray(llmemory.GCREF),
@@ -240,7 +238,7 @@ class Assembler386(object):
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
-                if args[i].type == PTR:
+                if args[i].type == REF:
                     # This uses XCHG to put zeroes in fail_boxes_ptr after
                     # reading them
                     self.mc.XOR(ecx, ecx)
@@ -253,7 +251,7 @@ class Assembler386(object):
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if isinstance(loc, REG):
-                if args[i].type == PTR:
+                if args[i].type == REF:
                     # This uses XCHG to put zeroes in fail_boxes_ptr after
                     # reading them
                     self.mc.XOR(loc, loc)
@@ -718,7 +716,7 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
-                if op.args[i].type == PTR:
+                if op.args[i].type == REF:
                     base = self.fail_box_ptr_addr
                 else:
                     base = self.fail_box_int_addr
@@ -726,7 +724,7 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, REG):
-                if op.args[i].type == PTR:
+                if op.args[i].type == REF:
                     base = self.fail_box_ptr_addr
                 else:
                     base = self.fail_box_int_addr

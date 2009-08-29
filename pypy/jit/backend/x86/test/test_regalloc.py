@@ -177,7 +177,7 @@ class BaseTestRegalloc(object):
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
-                self.cpu.set_future_value_ptr(i, llgcref)
+                self.cpu.set_future_value_ref(i, llgcref)
         if run:
             self.cpu.execute_operations(loop)
         return loop
@@ -190,7 +190,7 @@ class BaseTestRegalloc(object):
                 index in range(0, end)]
 
     def getptr(self, index, T):
-        gcref = self.cpu.get_latest_value_ptr(index)
+        gcref = self.cpu.get_latest_value_ref(index)
         return lltype.cast_opaque_ptr(T, gcref)
 
     def attach_bridge(self, ops, loop, guard_op):

@@ -14,7 +14,7 @@ LOOP bi(0,6),bi(1,4),bi(2,18)
 6:jump bi(0,6),bi(5,3),bi(3,24)
 <code object f, file 'x.py', line 1> #19
 8:guard_exception ci(85,138082236)
-  => bp(86,138081800)
+  => br(86,138081800)
   BEGIN(0)
   0:fail bi(2,18)[]
   END

@@ -1,9 +1,9 @@
-#from pypy.rpython.annlowlevel import base_ptr_lltype, base_obj_ootype
-#from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
-#from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_instance_to_base_obj
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp import history
 
 def deref(T):
@@ -39,10 +39,22 @@ class LLTypeHelper(TypeSystemHelper):
 
     name = 'lltype'
     functionptr = staticmethod(lltype.functionptr)
-    #ROOT_TYPE = llmemory.Address
-    #BASE_OBJ_TYPE = base_ptr_lltype()
-    #NULL_OBJECT = base_ptr_lltype()._defl()
-    #cast_instance_to_base_ptr = staticmethod(cast_instance_to_base_ptr)
+    nullptr = staticmethod(lltype.nullptr)
+    cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
+    BASETYPE = llmemory.GCREF
+    BoxRef = history.BoxPtr
+    ConstRef = history.ConstPtr
+    ConstAddr = history.ConstAddr
+    loops_done_with_this_frame_ref = None # patched by compile.py
+    CVAL_NULLREF = None # patched by optimizeopt.py
+
+    def get_VABLERTI(self):
+        from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
+        return VABLERTIPTR
+
+    def new_ConstRef(self, x):
+        ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        return history.ConstPtr(ptrval)
 
     def get_typeptr(self, obj):
         return obj.typeptr
@@ -52,11 +64,18 @@ class LLTypeHelper(TypeSystemHelper):
         FUNCPTRTYPE = lltype.Ptr(FUNCTYPE)
         return FUNCTYPE, FUNCPTRTYPE
 
+    def get_superclass(self, TYPE):
+        return lltype.Ptr(TYPE.TO._first_struct()[1])
+
+    def cast_to_instance_maybe(self, TYPE, instance):
+        return lltype.cast_pointer(TYPE, instance)
+    cast_to_instance_maybe._annspecialcase_ = 'specialize:arg(1)'
+
     def cast_fnptr_to_root(self, fnptr):
         return llmemory.cast_ptr_to_adr(fnptr)
 
     def cls_of_box(self, cpu, box):
-        obj = box.getptr(lltype.Ptr(rclass.OBJECT))
+        obj = box.getref(lltype.Ptr(rclass.OBJECT))
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(cpu.cast_adr_to_int(cls))
 
@@ -75,8 +94,11 @@ class LLTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = evaluebox.getptr(lltype.Ptr(rclass.OBJECT))
+        obj = evaluebox.getref(lltype.Ptr(rclass.OBJECT))
         return cast_base_ptr_to_instance(Exception, obj)
+
+    def cast_to_baseclass(self, value):
+        return lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), value)
 
     def clean_box(self, box):
         if isinstance(box, history.BoxPtr):
@@ -95,34 +117,71 @@ class LLTypeHelper(TypeSystemHelper):
         ll = llstr(str)
         return history.ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ll))
 
+    def cast_ref_to_hashable(self, cpu, ptr):
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        return cpu.cast_adr_to_int(adr)
+
+    def cast_baseclass_to_hashable(self, cpu, ptr):
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        return cpu.cast_adr_to_int(adr)
+
+    def cast_from_ref(self, TYPE, value):
+        return lltype.cast_opaque_ptr(TYPE, value)
+    cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
+
+    def cast_to_ref(self, value):
+        return lltype.cast_opaque_ptr(llmemory.GCREF, value)
+    cast_to_ref._annspecialcase_ = 'specialize:ll'
+    
+    def getaddr_for_box(self, cpu, box):
+        return box.getaddr(cpu)
 
 class OOTypeHelper(TypeSystemHelper):
 
     name = 'ootype'
     functionptr = staticmethod(ootype.static_meth)
-    #ROOT_TYPE = ootype.Object
-    #BASE_OBJ_TYPE = base_obj_ootype()
-    #NULL_OBJECT = base_obj_ootype()._defl()
-    #cast_instance_to_base_ptr = staticmethod(cast_instance_to_base_obj)
+    nullptr = staticmethod(ootype.null)
+    cast_instance_to_base_ref = staticmethod(cast_instance_to_base_obj)
+    BASETYPE = ootype.Object
+    BoxRef = history.BoxObj
+    ConstRef = history.ConstObj
+    ConstAddr = history.ConstObj
+    loops_done_with_this_frame_ref = None # patched by compile.py
+    CVAL_NULLREF = None # patched by optimizeopt.py
+
+    def get_VABLERTI(self):
+        from pypy.rpython.ootypesystem.rvirtualizable2 import VABLERTI
+        return VABLERTI
+    
+    def new_ConstRef(self, x):
+        obj = ootype.cast_to_object(x)
+        return history.ConstObj(obj)
 
     def get_typeptr(self, obj):
-        return obj.meta
+        return ootype.classof(obj)
 
     def get_FuncType(self, ARGS, RESULT):
         FUNCTYPE = ootype.StaticMethod(ARGS, RESULT)
         return FUNCTYPE, FUNCTYPE
 
+    def get_superclass(self, TYPE):
+        return TYPE._superclass
+
+    def cast_to_instance_maybe(self, TYPE, instance):
+        return instance
+    cast_to_instance_maybe._annspecialcase_ = 'specialize:arg(1)'
+
     def cast_fnptr_to_root(self, fnptr):
         return ootype.cast_to_object(fnptr)
 
     def cls_of_box(self, cpu, box):
-        obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+        obj = box.getref(ootype.ROOT)
         oocls = ootype.classof(obj)
         return history.ConstObj(ootype.cast_to_object(oocls))
 
     def subclassOf(self, cpu, clsbox1, clsbox2):
-        cls1 = ootype.cast_from_object(ootype.Class, clsbox1.getobj())
-        cls2 = ootype.cast_from_object(ootype.Class, clsbox2.getobj())
+        cls1 = clsbox1.getref(ootype.Class)
+        cls2 = clsbox2.getref(ootype.Class)
         return ootype.subclassof(cls1, cls2)
 
     def get_exception_box(self, etype):
@@ -133,8 +192,11 @@ class OOTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = ootype.cast_from_object(ootype.ROOT, evaluebox.getobj())
+        obj = evaluebox.getref(ootype.ROOT)
         return cast_base_ptr_to_instance(Exception, obj)
+
+    def cast_to_baseclass(self, value):
+        return ootype.cast_from_object(ootype.ROOT, value)
 
     def clean_box(self, box):
         if isinstance(box, history.BoxObj):
@@ -153,6 +215,22 @@ class OOTypeHelper(TypeSystemHelper):
         oo = oostr(str)
         return history.ConstObj(ootype.cast_to_object(oo))
 
+    def cast_ref_to_hashable(self, cpu, obj):
+        return ootype.cast_to_object(obj)
 
+    def cast_baseclass_to_hashable(self, cpu, obj):
+        return ootype.cast_to_object(obj)
+
+    def cast_from_ref(self, TYPE, value):
+        return ootype.cast_from_object(TYPE, value)
+    cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
+
+    def cast_to_ref(self, value):
+        return ootype.cast_to_object(value)
+    cast_to_ref._annspecialcase_ = 'specialize:ll'
+
+    def getaddr_for_box(self, cpu, box):
+        return box.getref_base()
+    
 llhelper = LLTypeHelper()
 oohelper = OOTypeHelper()

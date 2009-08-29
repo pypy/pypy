@@ -8,11 +8,12 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
+from pypy.jit.metainterp.history import REF
 from pypy.jit.metainterp.warmspot import unwrap
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
-
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 
 class MiniStats:
     pass
@@ -44,10 +45,10 @@ class Descr(history.AbstractDescr):
         return self.ofs
 
     def is_pointer_field(self):
-        return self.typeinfo == 'p'
+        return self.typeinfo == REF
 
     def is_array_of_pointers(self):
-        return self.typeinfo == 'p'
+        return self.typeinfo == REF
 
     def equals(self, other):
         if not isinstance(other, Descr):
@@ -114,10 +115,9 @@ class BaseCPU(model.AbstractCPU):
         for box in loop.inputargs:
             if isinstance(box, history.BoxInt):
                 var2index[box] = llimpl.compile_start_int_var(c)
-            elif isinstance(box, history.BoxPtr):
-                var2index[box] = llimpl.compile_start_ptr_var(c)
-            elif self.is_oo and isinstance(box, history.BoxObj):
-                var2index[box] = llimpl.compile_start_obj_var(c)
+            elif isinstance(box, self.ts.BoxRef):
+                TYPE = self.ts.BASETYPE
+                var2index[box] = llimpl.compile_start_ref_var(c, TYPE)
             else:
                 raise Exception("box is: %r" % (box,))
         self._compile_branch(c, loop.operations, var2index)
@@ -140,12 +140,10 @@ class BaseCPU(model.AbstractCPU):
                     llimpl.compile_add_var(c, var2index[x])
                 elif isinstance(x, history.ConstInt):
                     llimpl.compile_add_int_const(c, x.value)
-                elif isinstance(x, history.ConstPtr):
-                    llimpl.compile_add_ptr_const(c, x.value)
+                elif isinstance(x, self.ts.ConstRef):
+                    llimpl.compile_add_ref_const(c, x.value, self.ts.BASETYPE)
                 elif isinstance(x, history.ConstAddr):
                     llimpl.compile_add_int_const(c, x.getint())
-                elif self.is_oo and isinstance(x, history.ConstObj):
-                    llimpl.compile_add_ptr_const(c, x.value, ootype.Object)
                 else:
                     raise Exception("%s args contain: %r" % (op.getopname(),
                                                              x))
@@ -156,10 +154,8 @@ class BaseCPU(model.AbstractCPU):
             if x is not None:
                 if isinstance(x, history.BoxInt):
                     var2index[x] = llimpl.compile_add_int_result(c)
-                elif isinstance(x, history.BoxPtr):
-                    var2index[x] = llimpl.compile_add_ptr_result(c)
-                elif self.is_oo and isinstance(x, history.BoxObj):
-                    var2index[x] = llimpl.compile_add_ptr_result(c, ootype.Object)
+                elif isinstance(x, self.ts.BoxRef):
+                    var2index[x] = llimpl.compile_add_ref_result(c, self.ts.BASETYPE)
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))
@@ -187,19 +183,13 @@ class BaseCPU(model.AbstractCPU):
     def set_future_value_int(self, index, intvalue):
         llimpl.set_future_value_int(index, intvalue)
 
-    def set_future_value_ptr(self, index, ptrvalue):
-        llimpl.set_future_value_ptr(index, ptrvalue)
-
-    def set_future_value_obj(self, index, objvalue):
-        llimpl.set_future_value_obj(index, objvalue)
+    def set_future_value_ref(self, index, objvalue):
+        llimpl.set_future_value_ref(index, objvalue)
 
     def get_latest_value_int(self, index):
         return llimpl.frame_int_getvalue(self.latest_frame, index)
 
-    def get_latest_value_ptr(self, index):
-        return llimpl.frame_ptr_getvalue(self.latest_frame, index)
-
-    def get_latest_value_obj(self, index):
+    def get_latest_value_ref(self, index):
         return llimpl.frame_ptr_getvalue(self.latest_frame, index)
 
     # ----------
@@ -242,6 +232,7 @@ class BaseCPU(model.AbstractCPU):
 
 class LLtypeCPU(BaseCPU):
     is_oo = False
+    ts = llhelper
 
     def __init__(self, *args, **kwds):
         BaseCPU.__init__(self, *args, **kwds)
@@ -277,36 +268,36 @@ class LLtypeCPU(BaseCPU):
     # ---------- the backend-dependent operations ----------
 
     def do_arraylen_gc(self, args, arraydescr):
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         return history.BoxInt(llimpl.do_arraylen_gc(arraydescr, array))
 
     def do_strlen(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         return history.BoxInt(llimpl.do_strlen(0, string))
 
     def do_strgetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_strgetitem(0, string, index))
 
     def do_unicodelen(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         return history.BoxInt(llimpl.do_unicodelen(0, string))
 
     def do_unicodegetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_unicodegetitem(0, string, index))
 
     def do_getarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, Descr)
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         index = args[1].getint()
-        if arraydescr.typeinfo == 'p':
+        if arraydescr.typeinfo == REF:
             return history.BoxPtr(llimpl.do_getarrayitem_gc_ptr(array, index))
         else:
             return history.BoxInt(llimpl.do_getarrayitem_gc_int(array, index,
@@ -314,8 +305,8 @@ class LLtypeCPU(BaseCPU):
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
-        struct = args[0].getptr_base()
-        if fielddescr.typeinfo == 'p':
+        struct = args[0].getref_base()
+        if fielddescr.typeinfo == REF:
             return history.BoxPtr(llimpl.do_getfield_gc_ptr(struct,
                                                             fielddescr.ofs))
         else:
@@ -325,7 +316,7 @@ class LLtypeCPU(BaseCPU):
     def do_getfield_raw(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
-        if fielddescr.typeinfo == 'p':
+        if fielddescr.typeinfo == REF:
             return history.BoxPtr(llimpl.do_getfield_raw_ptr(struct,
                                                              fielddescr.ofs,
                                                              self.memo_cast))
@@ -354,10 +345,10 @@ class LLtypeCPU(BaseCPU):
 
     def do_setarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, Descr)
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         index = args[1].getint()
-        if arraydescr.typeinfo == 'p':
-            newvalue = args[2].getptr_base()
+        if arraydescr.typeinfo == REF:
+            newvalue = args[2].getref_base()
             llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             newvalue = args[2].getint()
@@ -366,9 +357,9 @@ class LLtypeCPU(BaseCPU):
 
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
-        struct = args[0].getptr_base()
-        if fielddescr.typeinfo == 'p':
-            newvalue = args[1].getptr_base()
+        struct = args[0].getref_base()
+        if fielddescr.typeinfo == REF:
+            newvalue = args[1].getref_base()
             llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
             newvalue = args[1].getint()
@@ -378,8 +369,8 @@ class LLtypeCPU(BaseCPU):
     def do_setfield_raw(self, args, fielddescr):
         assert isinstance(fielddescr, Descr)
         struct = self.cast_int_to_adr(args[0].getint())
-        if fielddescr.typeinfo == 'p':
-            newvalue = args[1].getptr_base()
+        if fielddescr.typeinfo == REF:
+            newvalue = args[1].getref_base()
             llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
                                        self.memo_cast)
         else:
@@ -402,14 +393,14 @@ class LLtypeCPU(BaseCPU):
 
     def do_strsetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_strsetitem(0, string, index, newvalue)
 
     def do_unicodesetitem(self, args, descr=None):
         assert descr is None
-        string = args[0].getptr_base()
+        string = args[0].getref_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_unicodesetitem(0, string, index, newvalue)
@@ -420,10 +411,10 @@ class LLtypeCPU(BaseCPU):
         for arg in args[1:]:
             if (isinstance(arg, history.BoxPtr) or
                 isinstance(arg, history.ConstPtr)):
-                llimpl.do_call_pushptr(arg.getptr_base())
+                llimpl.do_call_pushptr(arg.getref_base())
             else:
                 llimpl.do_call_pushint(arg.getint())
-        if calldescr.typeinfo == 'p':
+        if calldescr.typeinfo == REF:
             return history.BoxPtr(llimpl.do_call_ptr(func, self.memo_cast))
         elif calldescr.typeinfo == 'i':
             return history.BoxInt(llimpl.do_call_int(func, self.memo_cast))
@@ -438,11 +429,12 @@ class LLtypeCPU(BaseCPU):
 
     def do_cast_ptr_to_int(self, args, descr=None):
         assert descr is None
-        return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
+        return history.BoxInt(llimpl.cast_to_int(args[0].getref_base(),
                                                         self.memo_cast))
 
 class OOtypeCPU(BaseCPU):
     is_oo = True
+    ts = oohelper
 
     @staticmethod
     def fielddescrof(T, fieldname):
@@ -495,7 +487,7 @@ class OOtypeCPU(BaseCPU):
     def do_new_with_vtable(self, args, descr=None):
         assert descr is None
         assert len(args) == 1
-        cls = args[0].getobj()
+        cls = args[0].getref_base()
         typedescr = self.class_sizes[cls]
         return typedescr.create()
 
@@ -512,7 +504,7 @@ class OOtypeCPU(BaseCPU):
     def do_runtimenew(self, args, descr):
         "NOT_RPYTHON"
         classbox = args[0]
-        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        classobj = classbox.getref(ootype.Class)
         res = ootype.runtimenew(classobj)
         return history.BoxObj(ootype.cast_to_object(res))
 
@@ -626,7 +618,7 @@ class StaticMethDescr(OODescr):
         self.FUNC = FUNC
         getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
-            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
+            funcobj = funcbox.getref(FUNC)
             funcargs = getargs(argboxes)
             res = llimpl.call_maybe_on_top_of_llinterp(funcobj, funcargs)
             if RESULT is not ootype.Void:
@@ -648,7 +640,7 @@ class MethDescr(history.AbstractMethDescr):
         RESULT = METH.RESULT
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
-            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
+            selfobj = selfbox.getref(SELFTYPE)
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
             res = llimpl.call_maybe_on_top_of_llinterp(meth, methargs)
@@ -674,22 +666,22 @@ class TypeDescr(OODescr):
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
 
         def getarrayitem(arraybox, ibox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             i = ibox.getint()
             return boxresult(TYPE, array.ll_getitem_fast(i))
 
         def setarrayitem(arraybox, ibox, valuebox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             i = ibox.getint()
             value = unwrap(TYPE, valuebox)
             array.ll_setitem_fast(i, value)
 
         def getarraylength(arraybox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             return boxresult(ootype.Signed, array.ll_length())
 
         def instanceof(box):
-            obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+            obj = box.getref(ootype.ROOT)
             return history.BoxInt(ootype.instanceof(obj, TYPE))
 
         self.create = create
@@ -698,7 +690,7 @@ class TypeDescr(OODescr):
         self.setarrayitem = setarrayitem
         self.getarraylength = getarraylength
         self.instanceof = instanceof
-        self._is_array_of_pointers = (history.getkind(TYPE) == 'obj')
+        self._is_array_of_pointers = (history.getkind(TYPE) == 'ref')
 
     def is_array_of_pointers(self):
         # for arrays, TYPE is the type of the array item.
@@ -718,17 +710,17 @@ class FieldDescr(OODescr):
 
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
-            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            obj = objbox.getref(TYPE)
             value = getattr(obj, fieldname)
             return boxresult(T, value)
         def setfield(objbox, valuebox):
-            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            obj = objbox.getref(TYPE)
             value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
             
         self.getfield = getfield
         self.setfield = setfield
-        self._is_pointer_field = (history.getkind(T) == 'obj')
+        self._is_pointer_field = (history.getkind(T) == 'ref')
 
     def sort_key(self):
         return self._keys.getkey((self.TYPE, self.fieldname))

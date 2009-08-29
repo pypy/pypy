@@ -8,7 +8,7 @@ import sys
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr, ConstObj,
-                                         BoxInt, BoxPtr, BoxObj)
+                                         BoxInt, BoxPtr, BoxObj, REF)
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
@@ -83,56 +83,56 @@ TYPES = {
     'uint_xor'        : (('int', 'int'), 'int'),
     'uint_rshift'     : (('int', 'int'), 'int'),
     'same_as'         : (('int',), 'int'),      # could also be ptr=>ptr
-    'new_with_vtable' : (('ptr',), 'ptr'),
-    'new'             : ((), 'ptr'),
-    'new_array'       : (('int',), 'ptr'),
-    'oononnull'       : (('ptr',), 'bool'),
-    'ooisnull'        : (('ptr',), 'bool'),
-    'oois'            : (('ptr', 'ptr'), 'bool'),
-    'ooisnot'         : (('ptr', 'ptr'), 'bool'),
-    'instanceof'      : (('ptr',), 'bool'),
-    'subclassof'      : (('ptr', 'ptr'), 'bool'),
-    'setfield_gc'     : (('ptr', 'intorptr'), None),
-    'getfield_gc'     : (('ptr',), 'intorptr'),
-    'getfield_gc_pure': (('ptr',), 'intorptr'),
-    'setfield_raw'    : (('ptr', 'intorptr'), None),
-    'getfield_raw'    : (('ptr',), 'intorptr'),
-    'getfield_raw_pure': (('ptr',), 'intorptr'),
-    'setarrayitem_gc' : (('ptr', 'int', 'intorptr'), None),
-    'getarrayitem_gc' : (('ptr', 'int'), 'intorptr'),
-    'getarrayitem_gc_pure' : (('ptr', 'int'), 'intorptr'),
-    'arraylen_gc'     : (('ptr',), 'int'),
-    'call'            : (('ptr', 'varargs'), 'intorptr'),
-    'call_pure'       : (('ptr', 'varargs'), 'intorptr'),
+    'new_with_vtable' : (('ref',), 'ref'),
+    'new'             : ((), 'ref'),
+    'new_array'       : (('int',), 'ref'),
+    'oononnull'       : (('ref',), 'bool'),
+    'ooisnull'        : (('ref',), 'bool'),
+    'oois'            : (('ref', 'ref'), 'bool'),
+    'ooisnot'         : (('ref', 'ref'), 'bool'),
+    'instanceof'      : (('ref',), 'bool'),
+    'subclassof'      : (('ref', 'ref'), 'bool'),
+    'setfield_gc'     : (('ref', 'intorptr'), None),
+    'getfield_gc'     : (('ref',), 'intorptr'),
+    'getfield_gc_pure': (('ref',), 'intorptr'),
+    'setfield_raw'    : (('ref', 'intorptr'), None),
+    'getfield_raw'    : (('ref',), 'intorptr'),
+    'getfield_raw_pure': (('ref',), 'intorptr'),
+    'setarrayitem_gc' : (('ref', 'int', 'intorptr'), None),
+    'getarrayitem_gc' : (('ref', 'int'), 'intorptr'),
+    'getarrayitem_gc_pure' : (('ref', 'int'), 'intorptr'),
+    'arraylen_gc'     : (('ref',), 'int'),
+    'call'            : (('ref', 'varargs'), 'intorptr'),
+    'call_pure'       : (('ref', 'varargs'), 'intorptr'),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
     'guard_false'     : (('bool',), None),
     'guard_value'     : (('int', 'int'), None),
-    'guard_class'     : (('ptr', 'ptr'), None),
+    'guard_class'     : (('ref', 'ref'), None),
     'guard_no_exception'   : ((), None),
-    'guard_exception'      : (('ptr',), 'ptr'),
+    'guard_exception'      : (('ref',), 'ref'),
     'guard_no_overflow'    : ((), None),
     'guard_overflow'       : ((), None),
-    'newstr'          : (('int',), 'ptr'),
-    'strlen'          : (('ptr',), 'int'),
-    'strgetitem'      : (('ptr', 'int'), 'int'),
-    'strsetitem'      : (('ptr', 'int', 'int'), None),
-    'newunicode'      : (('int',), 'ptr'),
-    'unicodelen'      : (('ptr',), 'int'),
-    'unicodegetitem'  : (('ptr', 'int'), 'int'),
-    'unicodesetitem'  : (('ptr', 'int', 'int'), 'int'),
-    'cast_ptr_to_int' : (('ptr',), 'int'),
-    'cast_int_to_ptr' : (('int',), 'ptr'),
-    'debug_merge_point': (('ptr',), None),
-    #'getitem'         : (('void', 'ptr', 'int'), 'int'),
-    #'setitem'         : (('void', 'ptr', 'int', 'int'), None),
-    #'newlist'         : (('void', 'varargs'), 'ptr'),
-    #'append'          : (('void', 'ptr', 'int'), None),
-    #'insert'          : (('void', 'ptr', 'int', 'int'), None),
-    #'pop'             : (('void', 'ptr',), 'int'),
-    #'len'             : (('void', 'ptr',), 'int'),
-    #'listnonzero'     : (('void', 'ptr',), 'int'),
+    'newstr'          : (('int',), 'ref'),
+    'strlen'          : (('ref',), 'int'),
+    'strgetitem'      : (('ref', 'int'), 'int'),
+    'strsetitem'      : (('ref', 'int', 'int'), None),
+    'newunicode'      : (('int',), 'ref'),
+    'unicodelen'      : (('ref',), 'int'),
+    'unicodegetitem'  : (('ref', 'int'), 'int'),
+    'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
+    'cast_ptr_to_int' : (('ref',), 'int'),
+    'cast_int_to_ptr' : (('int',), 'ref'),
+    'debug_merge_point': (('ref',), None),
+    #'getitem'         : (('void', 'ref', 'int'), 'int'),
+    #'setitem'         : (('void', 'ref', 'int', 'int'), None),
+    #'newlist'         : (('void', 'varargs'), 'ref'),
+    #'append'          : (('void', 'ref', 'int'), None),
+    #'insert'          : (('void', 'ref', 'int', 'int'), None),
+    #'pop'             : (('void', 'ref',), 'int'),
+    #'len'             : (('void', 'ref',), 'int'),
+    #'listnonzero'     : (('void', 'ref',), 'int'),
 }
 
 # ____________________________________________________________
@@ -215,14 +215,14 @@ def repr1(x, tp, memocast):
     if tp == "intorptr":
         TYPE = lltype.typeOf(x)
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-            tp = "ptr"
+            tp = "ref"
         else:
             tp = "int"
     if tp == 'int':
         return str(x)
     elif tp == 'void':
         return '---'
-    elif tp == 'ptr':
+    elif tp == 'ref':
         if not x:
             return '(* None)'
         if isinstance(x, int):
@@ -267,21 +267,11 @@ def compile_start_int_var(loop):
     _variables.append(v)
     return r
 
-def compile_start_ptr_var(loop):
+def compile_start_ref_var(loop, TYPE):
     loop = _from_opaque(loop)
     assert not loop.operations
     v = Variable()
-    v.concretetype = llmemory.GCREF
-    loop.inputargs.append(v)
-    r = len(_variables)
-    _variables.append(v)
-    return r
-
-def compile_start_obj_var(loop):
-    loop = _from_opaque(loop)
-    assert not loop.operations
-    v = Variable()
-    v.concretetype = ootype.Object
+    v.concretetype = TYPE
     loop.inputargs.append(v)
     r = len(_variables)
     _variables.append(v)
@@ -310,7 +300,7 @@ def compile_add_int_const(loop, value):
     op = loop.operations[-1]
     op.args.append(const)
 
-def compile_add_ptr_const(loop, value, TYPE=llmemory.GCREF):
+def compile_add_ref_const(loop, value, TYPE):
     loop = _from_opaque(loop)
     const = Constant(value)
     const.concretetype = TYPE
@@ -327,7 +317,7 @@ def compile_add_int_result(loop):
     _variables.append(v)
     return r
 
-def compile_add_ptr_result(loop, TYPE=llmemory.GCREF):
+def compile_add_ref_result(loop, TYPE):
     loop = _from_opaque(loop)
     v = Variable()
     v.concretetype = TYPE
@@ -624,7 +614,7 @@ class Frame(object):
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
     def op_getarrayitem_gc(self, arraydescr, array, index):
-        if arraydescr.typeinfo == 'p':
+        if arraydescr.typeinfo == REF:
             return do_getarrayitem_gc_ptr(array, index)
         else:
             return do_getarrayitem_gc_int(array, index, self.memocast)
@@ -632,7 +622,7 @@ class Frame(object):
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
     def op_getfield_gc(self, fielddescr, struct):
-        if fielddescr.typeinfo == 'p':
+        if fielddescr.typeinfo == REF:
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
         else:
             return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
@@ -640,7 +630,7 @@ class Frame(object):
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.typeinfo == 'p':
+        if fielddescr.typeinfo == REF:
             return do_getfield_raw_ptr(struct, fielddescr.ofs, self.memocast)
         else:
             return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
@@ -657,20 +647,20 @@ class Frame(object):
         return result
 
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
-        if arraydescr.typeinfo == 'p':
+        if arraydescr.typeinfo == REF:
             do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
 
     def op_setfield_gc(self, fielddescr, struct, newvalue):
-        if fielddescr.typeinfo == 'p':
+        if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
             do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
                                self.memocast)
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.typeinfo == 'p':
+        if fielddescr.typeinfo == REF:
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
                                 self.memocast)
         else:
@@ -681,7 +671,7 @@ class Frame(object):
         _call_args[:] = args
         if calldescr.typeinfo == 'v':
             err_result = None
-        elif calldescr.typeinfo == 'p':
+        elif calldescr.typeinfo == REF:
             err_result = lltype.nullptr(llmemory.GCREF.TO)
         else:
             assert calldescr.typeinfo == 'i'
@@ -866,12 +856,7 @@ def set_future_value_int(index, value):
     assert len(_future_values) == index
     _future_values.append(value)
 
-def set_future_value_ptr(index, value):
-    del _future_values[index:]
-    assert len(_future_values) == index
-    _future_values.append(value)
-
-def set_future_value_obj(index, value):
+def set_future_value_ref(index, value):
     del _future_values[index:]
     assert len(_future_values) == index
     _future_values.append(value)
@@ -1257,15 +1242,14 @@ s_MemoCast = annmodel.SomePtr(MEMOCAST)
 
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
-setannotation(compile_start_ptr_var, annmodel.SomeInteger())
-setannotation(compile_start_obj_var, annmodel.SomeInteger())
+setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
-setannotation(compile_add_ptr_const, annmodel.s_None)
+setannotation(compile_add_ref_const, annmodel.s_None)
 setannotation(compile_add_int_result, annmodel.SomeInteger())
-setannotation(compile_add_ptr_result, annmodel.SomeInteger())
+setannotation(compile_add_ref_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.s_None)
 setannotation(compile_suboperations, s_CompiledLoop)
@@ -1274,8 +1258,7 @@ setannotation(compile_redirect_code, annmodel.s_None)
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
 setannotation(set_future_value_int, annmodel.s_None)
-setannotation(set_future_value_ptr, annmodel.s_None)
-setannotation(set_future_value_obj, annmodel.s_None)
+setannotation(set_future_value_ref, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))

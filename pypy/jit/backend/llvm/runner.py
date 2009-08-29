@@ -10,12 +10,13 @@ from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86 import symbolic     # xxx
+from pypy.jit.metainterp.typesystem import llhelper
 
 history.TreeLoop._llvm_compiled_index = -1
 
 
 class LLVMCPU(object):
-    is_oo = False
+    ts = llhelper
     logger_cls = None
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
@@ -308,7 +309,7 @@ class LLVMCPU(object):
         p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
         p[0] = intvalue
 
-    def set_future_value_ptr(self, index, ptrvalue):
+    def set_future_value_ref(self, index, ptrvalue):
         p = rffi.cast(lltype.Ptr(self.POINTER_VALUE), self.in_out_args[index])
         p[0] = ptrvalue
 
@@ -329,7 +330,7 @@ class LLVMCPU(object):
         p = rffi.cast(lltype.Ptr(self.SIGNED_VALUE), self.in_out_args[index])
         return p[0]
 
-    def get_latest_value_ptr(self, index):
+    def get_latest_value_ref(self, index):
         p = rffi.cast(lltype.Ptr(self.POINTER_VALUE), self.in_out_args[index])
         return p[0]
 
@@ -454,37 +455,37 @@ class LLVMCPU(object):
     # do_xxx methods
 
     def do_arraylen_gc(self, args, arraydescr):
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
         res = len(p)
         return BoxInt(res)
 
     def do_strlen(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         res = len(p.chars)
         return BoxInt(res)
 
     def do_strgetitem(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         res = ord(p.chars[args[1].getint()])
         return BoxInt(res)
 
     def do_unicodelen(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         res = len(p.chars)
         return BoxInt(res)
 
     def do_unicodegetitem(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         res = ord(p.chars[args[1].getint()])
         return BoxInt(res)
 
     def do_getarrayitem_gc(self, args, arraydescr):
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         index = args[1].getint()
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
@@ -527,7 +528,7 @@ class LLVMCPU(object):
         return BoxInt(res)
 
     def do_getfield_gc(self, args, fielddescr):
-        struct = args[0].getptr_base()
+        struct = args[0].getref_base()
         return self._do_getfield(struct, fielddescr)
 
     def do_getfield_raw(self, args, fielddescr):
@@ -564,13 +565,13 @@ class LLVMCPU(object):
                                         self.array_index_length)
 
     def do_setarrayitem_gc(self, args, arraydescr):
-        array = args[0].getptr_base()
+        array = args[0].getref_base()
         index = args[1].getint()
         assert isinstance(arraydescr, ArrayDescr)
         itemsize_index = arraydescr.itemsize_index
         if itemsize_index == self.SIZE_GCPTR:
             p = rffi.cast(lltype.Ptr(self.gcarray_gcref), array)
-            res = args[2].getptr_base()
+            res = args[2].getref_base()
             p[index] = res
         elif itemsize_index == self.SIZE_INT:
             p = rffi.cast(lltype.Ptr(self.gcarray_signed), array)
@@ -593,7 +594,7 @@ class LLVMCPU(object):
         size_index = fielddescr.size_index
         if size_index == self.SIZE_GCPTR:
             p = rffi.cast(rffi.CArrayPtr(llmemory.GCREF), struct)
-            res = v_value.getptr_base()
+            res = v_value.getref_base()
             p[fielddescr.offset / rffi.sizeof(llmemory.GCREF)] = res
         elif size_index == self.SIZE_INT:
             p = rffi.cast(rffi.CArrayPtr(lltype.Signed), struct)
@@ -611,7 +612,7 @@ class LLVMCPU(object):
             raise BadSizeError
 
     def do_setfield_gc(self, args, fielddescr):
-        struct = args[0].getptr_base()
+        struct = args[0].getref_base()
         self._do_setfield(struct, args[1], fielddescr)
 
     def do_setfield_raw(self, args, fielddescr):
@@ -629,13 +630,13 @@ class LLVMCPU(object):
                                         self.unicode_index_length)
 
     def do_strsetitem(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         res = chr(args[2].getint())
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), s)
         p.chars[args[1].getint()] = res
 
     def do_unicodesetitem(self, args, descr=None):
-        s = args[0].getptr_base()
+        s = args[0].getref_base()
         res = unichr(args[2].getint())
         p = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), s)
         p.chars[args[1].getint()] = res
@@ -677,7 +678,7 @@ class LLVMCPU(object):
         if calldescr.res_index < 0:
             return None
         elif calldescr.res_index == self.SIZE_GCPTR:
-            return BoxPtr(self.get_latest_value_ptr(0))
+            return BoxPtr(self.get_latest_value_ref(0))
         else:
             return BoxInt(self.get_latest_value_int(0))
 
@@ -687,7 +688,7 @@ class LLVMCPU(object):
         return BoxPtr(res)
 
     def do_cast_ptr_to_int(self, args, descr=None):
-        ptr = args[0].getptr_base()
+        ptr = args[0].getref_base()
         res = rffi.cast(lltype.Signed, ptr)
         return BoxInt(res)
 

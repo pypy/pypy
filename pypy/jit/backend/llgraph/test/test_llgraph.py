@@ -109,7 +109,7 @@ class LLGraphTests:
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)), BoxInt(3)],
             descr_B)
         assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        assert x.getref(lltype.Ptr(A)) == a
         #
         s = rstr.mallocstr(6)
         x = cpu.do_strlen(
@@ -142,7 +142,7 @@ class LLGraphTests:
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))],
             descrfld_y)
         assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        assert x.getref(lltype.Ptr(A)) == a
         #
         s.y = lltype.nullptr(A)
         cpu.do_setfield_gc(
@@ -171,7 +171,7 @@ class LLGraphTests:
             [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
             descrfld_ry)
         assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        assert x.getref(lltype.Ptr(A)) == a
         #
         rs.y = lltype.nullptr(A)
         cpu.do_setfield_raw(
@@ -182,7 +182,7 @@ class LLGraphTests:
         descrsize = cpu.sizeof(S)
         x = cpu.do_new([], descrsize)
         assert isinstance(x, BoxPtr)
-        x.getptr(lltype.Ptr(S))
+        x.getref(lltype.Ptr(S))
         #
         descrsize2 = cpu.sizeof(rclass.OBJECT)
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -190,29 +190,29 @@ class LLGraphTests:
         cpu.set_class_sizes({vtable2_int: descrsize2})
         x = cpu.do_new_with_vtable([ConstInt(vtable2_int)])
         assert isinstance(x, BoxPtr)
-        assert x.getptr(rclass.OBJECTPTR).typeptr == vtable2
+        assert x.getref(rclass.OBJECTPTR).typeptr == vtable2
         #
         arraydescr = cpu.arraydescrof(A)
         x = cpu.do_new_array([BoxInt(7)], arraydescr)
         assert isinstance(x, BoxPtr)
-        assert len(x.getptr(lltype.Ptr(A))) == 7
+        assert len(x.getref(lltype.Ptr(A))) == 7
         #
         cpu.do_setarrayitem_gc(
             [x, BoxInt(5), BoxInt(ord('*'))], descr_A)
-        assert x.getptr(lltype.Ptr(A))[5] == '*'
+        assert x.getref(lltype.Ptr(A))[5] == '*'
         #
         cpu.do_setarrayitem_gc(
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)),
              BoxInt(1), x],
             descr_B)
-        assert b[1] == x.getptr(lltype.Ptr(A))
+        assert b[1] == x.getref(lltype.Ptr(A))
         #
         x = cpu.do_newstr([BoxInt(5)])
         assert isinstance(x, BoxPtr)
-        assert len(x.getptr(lltype.Ptr(rstr.STR)).chars) == 5
+        assert len(x.getref(lltype.Ptr(rstr.STR)).chars) == 5
         #
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
-        assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
+        assert x.getref(lltype.Ptr(rstr.STR)).chars[4] == '/'
 
 
 class TestLLTypeLLGraph(LLtypeBackendTest, LLGraphTests):

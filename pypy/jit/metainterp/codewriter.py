@@ -48,7 +48,7 @@ class IndirectCallset(history.AbstractValue):
         self.values = []
         for graph in graphs:
             fnptr = codewriter.rtyper.getcallable(graph)
-            fnaddress = codewriter.ts.cast_fnptr_to_root(fnptr)
+            fnaddress = codewriter.cpu.ts.cast_fnptr_to_root(fnptr)
             self.keys.append(fnaddress)
             self.values.append(codewriter.get_jitcode(graph))
         self.dict = None
@@ -80,7 +80,7 @@ class SwitchDict(history.AbstractValue):
 class CodeWriter(object):
     portal_graph = None
 
-    def __init__(self, metainterp_sd, policy, ts):
+    def __init__(self, metainterp_sd, policy):
         self.all_prebuilt_values = dict_equal_consts()
         self.all_graphs = {}
         self.all_indirectcallsets = {}
@@ -91,7 +91,6 @@ class CodeWriter(object):
         self.rtyper = metainterp_sd.cpu.rtyper
         self.cpu = metainterp_sd.cpu
         self.policy = policy
-        self.ts = ts
         self.counter = 0
         self.raise_analyzer = RaiseAnalyzer(self.rtyper.annotator.translator)
         self.class_sizes = []
@@ -145,7 +144,7 @@ class CodeWriter(object):
         if self.portal_graph is None or graph is self.portal_graph:
             return ()
         fnptr = self.rtyper.getcallable(graph)
-        if self.cpu.is_oo:
+        if self.rtyper.type_system.name == 'ootypesystem':
             if oosend_methdescr:
                 return (None, oosend_methdescr)
             else:

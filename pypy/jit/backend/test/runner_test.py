@@ -24,10 +24,10 @@ class Runner(object):
                 self.cpu.set_future_value_int(j, box.getint())
                 j += 1
             elif isinstance(box, BoxPtr):
-                self.cpu.set_future_value_ptr(j, box.getptr_base())
+                self.cpu.set_future_value_ref(j, box.getref_base())
                 j += 1
             elif isinstance(box, BoxObj):
-                self.cpu.set_future_value_obj(j, box.getobj())
+                self.cpu.set_future_value_ref(j, box.getref_base())
                 j += 1
         res = self.cpu.execute_operations(loop)
         if res is loop.operations[-1]:
@@ -36,8 +36,8 @@ class Runner(object):
             self.guard_failed = True
         if result_type == 'int':
             return BoxInt(self.cpu.get_latest_value_int(0))
-        elif result_type == 'ptr':
-            return BoxPtr(self.cpu.get_latest_value_ptr(0))
+        elif result_type == 'ref':
+            return BoxPtr(self.cpu.get_latest_value_ref(0))
         elif result_type == 'void':
             return None
         else:
@@ -49,7 +49,7 @@ class Runner(object):
             result = None
         elif result_type == 'int':
             result = BoxInt()
-        elif result_type == 'ptr':
+        elif result_type == 'ref':
             result = BoxPtr()
         else:
             raise ValueError(result_type)
@@ -121,7 +121,7 @@ class BaseBackendTest(Runner):
         assert x.value == 142
         if self.type_system == 'lltype':
             s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
-            assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
+            assert len(s.getref(lltype.Ptr(rstr.STR)).chars) == 8
 
     def test_lshift(self):
         res = execute(self.cpu, rop.INT_LSHIFT, [BoxInt(10), ConstInt(4)])
@@ -238,10 +238,7 @@ class BaseBackendTest(Runner):
                     ]
                 ops[1].suboperations = [ResOperation(rop.FAIL, [], None)]
             else:
-                if self.cpu.is_oo:
-                    v_exc = BoxObj()
-                else:
-                    v_exc = BoxPtr()
+                v_exc = self.cpu.ts.BoxRef()
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
                     ResOperation(rop.GUARD_OVERFLOW, [], None),
@@ -309,7 +306,7 @@ class BaseBackendTest(Runner):
                                      'void', descr=fielddescr2)
         assert res is None
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'ptr', descr=fielddescr2)
+                                     'ref', descr=fielddescr2)
         assert res.value == u_box.value
         #
         null_const = self.null_instance().constbox()
@@ -317,7 +314,7 @@ class BaseBackendTest(Runner):
                                      'void', descr=fielddescr2)
         assert res is None
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'ptr', descr=fielddescr2)
+                                     'ref', descr=fielddescr2)
         assert res.value == null_const.value
 
     def test_passing_guards(self):
@@ -446,7 +443,7 @@ class BaseBackendTest(Runner):
                                    'void', descr=arraydescr)
         assert r is None
         r = self.execute_operation(rop.GETARRAYITEM_GC, [b_box, BoxInt(1)],
-                                   'ptr', descr=arraydescr)
+                                   'ref', descr=arraydescr)
         assert r.value == a_box.value
         #
         # Unsigned should work the same as Signed
@@ -532,7 +529,7 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.SAME_AS, [ConstInt(5)], 'int')
         assert r.value == 5
         u_box = self.alloc_unicode(u"hello\u1234")
-        r = self.execute_operation(rop.SAME_AS, [u_box.constbox()], 'ptr')
+        r = self.execute_operation(rop.SAME_AS, [u_box.constbox()], 'ref')
         assert r.value == u_box.value
 
 
@@ -614,12 +611,12 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [BoxPtr(x)],  'int').value
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
-                                      [BoxInt(res)], 'ptr').value
+                                      [BoxInt(res)], 'ref').value
         x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [ConstPtr(x)],  'int').value
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
-                                      [ConstInt(res)], 'ptr').value
+                                      [ConstInt(res)], 'ref').value
         assert res2 == x
 
     def test_ooops_non_gc(self):
@@ -639,8 +636,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
         sizedescr = cpu.sizeof(S)
-        r1 = self.execute_operation(rop.NEW, [], 'ptr', descr=sizedescr)
-        r2 = self.execute_operation(rop.NEW, [], 'ptr', descr=sizedescr)
+        r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
+        r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         assert r1.value != r2.value
         xdescr = cpu.fielddescrof(S, 'x')
         ydescr = cpu.fielddescrof(S, 'y')
@@ -656,8 +653,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         t_box, T_box = self.alloc_instance(self.T)
         cpu.set_class_sizes({T_box.value: cpu.sizeof(self.T)})
-        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr')
-        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ptr')
+        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ref')
+        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ref')
         assert r1.value != r2.value
         descr1 = cpu.fielddescrof(self.S, 'chr1')
         descr2 = cpu.fielddescrof(self.S, 'chr2')
@@ -684,24 +681,24 @@ class LLtypeBackendTest(BaseBackendTest):
         A = lltype.GcArray(lltype.Signed)
         arraydescr = self.cpu.arraydescrof(A)
         r1 = self.execute_operation(rop.NEW_ARRAY, [BoxInt(342)],
-                                    'ptr', descr=arraydescr)
+                                    'ref', descr=arraydescr)
         r2 = self.execute_operation(rop.NEW_ARRAY, [BoxInt(342)],
-                                    'ptr', descr=arraydescr)
+                                    'ref', descr=arraydescr)
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
         assert a[0] == 0
         assert len(a) == 342
 
     def test_new_string(self):
-        r1 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ptr')
-        r2 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ptr')
+        r1 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ref')
+        r2 = self.execute_operation(rop.NEWSTR, [BoxInt(342)], 'ref')
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r1.value)
         assert len(a.chars) == 342
 
     def test_new_unicode(self):
-        r1 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ptr')
-        r2 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ptr')
+        r1 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ref')
+        r2 = self.execute_operation(rop.NEWUNICODE, [BoxInt(342)], 'ref')
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), r1.value)
         assert len(a.chars) == 342
@@ -731,7 +728,7 @@ class LLtypeBackendTest(BaseBackendTest):
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)), BoxInt(3)],
             descr_B)
         assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        assert x.getref(lltype.Ptr(A)) == a
         #
         s = rstr.mallocstr(6)
         x = cpu.do_strlen(
@@ -764,7 +761,7 @@ class LLtypeBackendTest(BaseBackendTest):
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))],
             descrfld_y)
         assert isinstance(x, BoxPtr)
-        assert x.getptr(lltype.Ptr(A)) == a
+        assert x.getref(lltype.Ptr(A)) == a
         #
         s.y = lltype.nullptr(A)
         cpu.do_setfield_gc(
@@ -795,7 +792,7 @@ class LLtypeBackendTest(BaseBackendTest):
         #    [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
         #    descrfld_ry)
         #assert isinstance(x, BoxPtr)
-        #assert x.getptr(lltype.Ptr(A)) == a
+        #assert x.getref(lltype.Ptr(A)) == a
         #
         #rs.y = lltype.nullptr(A)
         #cpu.do_setfield_raw(
@@ -806,7 +803,7 @@ class LLtypeBackendTest(BaseBackendTest):
         descrsize = cpu.sizeof(S)
         x = cpu.do_new([], descrsize)
         assert isinstance(x, BoxPtr)
-        x.getptr(lltype.Ptr(S))
+        x.getref(lltype.Ptr(S))
         #
         descrsize2 = cpu.sizeof(rclass.OBJECT)
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -815,29 +812,29 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.do_new_with_vtable([ConstInt(vtable2_int)])
         assert isinstance(x, BoxPtr)
         # well...
-        #assert x.getptr(rclass.OBJECTPTR).typeptr == vtable2
+        #assert x.getref(rclass.OBJECTPTR).typeptr == vtable2
         #
         arraydescr = cpu.arraydescrof(A)
         x = cpu.do_new_array([BoxInt(7)], arraydescr)
         assert isinstance(x, BoxPtr)
-        assert len(x.getptr(lltype.Ptr(A))) == 7
+        assert len(x.getref(lltype.Ptr(A))) == 7
         #
         cpu.do_setarrayitem_gc(
             [x, BoxInt(5), BoxInt(ord('*'))], descr_A)
-        assert x.getptr(lltype.Ptr(A))[5] == '*'
+        assert x.getref(lltype.Ptr(A))[5] == '*'
         #
         cpu.do_setarrayitem_gc(
             [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)),
              BoxInt(1), x],
             descr_B)
-        assert b[1] == x.getptr(lltype.Ptr(A))
+        assert b[1] == x.getref(lltype.Ptr(A))
         #
         x = cpu.do_newstr([BoxInt(5)])
         assert isinstance(x, BoxPtr)
-        assert len(x.getptr(lltype.Ptr(rstr.STR)).chars) == 5
+        assert len(x.getref(lltype.Ptr(rstr.STR)).chars) == 5
         #
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
-        assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
+        assert x.getref(lltype.Ptr(rstr.STR)).chars[4] == '/'
         #
         x = cpu.do_newstr([BoxInt(5)])
         y = cpu.do_cast_ptr_to_int([x])
@@ -888,7 +885,7 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.set_future_value_int(0, 1)
         self.cpu.execute_operations(loop)
         assert self.cpu.get_latest_value_int(0) == 0
-        assert self.cpu.get_latest_value_ptr(1) == xptr
+        assert self.cpu.get_latest_value_ref(1) == xptr
         self.cpu.clear_exception()
         self.cpu.set_future_value_int(0, 0)
         self.cpu.execute_operations(loop)

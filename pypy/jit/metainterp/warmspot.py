@@ -145,7 +145,7 @@ class WarmRunnerDesc:
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
-        self.metainterp_sd.generate_bytecode(policy, self.ts)
+        self.metainterp_sd.generate_bytecode(policy)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
@@ -164,11 +164,6 @@ class WarmRunnerDesc:
 
     def set_translator(self, translator):
         self.translator = translator
-        if translator.rtyper.type_system.name == 'lltypesystem':
-            self.ts = LLTypeHelper()
-        else:
-            assert translator.rtyper.type_system.name == 'ootypesystem'
-            self.ts = OOTypeHelper()
         self.gcdescr = gc.get_description(translator.config)
 
     def find_portal(self):
@@ -277,7 +272,7 @@ class WarmRunnerDesc:
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         s_result = annotationoftype(rettype)
         RETTYPE = annhelper.rtyper.getrepr(s_result).lowleveltype
-        FUNC, PTR = self.ts.get_FuncType(self.green_args_spec, RETTYPE)
+        FUNC, PTR = self.cpu.ts.get_FuncType(self.green_args_spec, RETTYPE)
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         graph = annhelper.getgraph(func, args_s, s_result)
         funcptr = annhelper.graph2delayed(graph, FUNC)
@@ -300,9 +295,9 @@ class WarmRunnerDesc:
                 self.red_args_types.append(history.getkind(TYPE))
         RESTYPE = graph.getreturnvar().concretetype
         (self.JIT_ENTER_FUNCTYPE,
-         self.PTR_JIT_ENTER_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, lltype.Void)
+         self.PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
         (self.PORTAL_FUNCTYPE,
-         self.PTR_PORTAL_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, RESTYPE)
+         self.PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
         
 
     def rewrite_can_enter_jit(self):
@@ -374,7 +369,7 @@ class WarmRunnerDesc:
         # ____________________________________________________________
         # Prepare the portal_runner() helper
         #
-        portal_ptr = self.ts.functionptr(PORTALFUNC, 'portal',
+        portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
                                          graph = portalgraph)
         portalfunc_ARGS = unrolling_iterable(
             [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(PORTALFUNC.ARGS)])
@@ -390,33 +385,19 @@ class WarmRunnerDesc:
             def __str__(self):
                 return 'DoneWithThisFrameInt(%s)' % (self.result,)
 
-        class DoneWithThisFramePtr(JitException):
-            def __init__(self, result):
-                assert lltype.typeOf(result) == llmemory.GCREF
+        class DoneWithThisFrameRef(JitException):
+            def __init__(self, cpu, result):
+                assert lltype.typeOf(result) == cpu.ts.BASETYPE
                 self.result = result
             def __str__(self):
-                return 'DoneWithThisFramePtr(%s)' % (self.result,)
+                return 'DoneWithThisFrameRef(%s)' % (self.result,)
 
-        class DoneWithThisFrameObj(JitException):
-            def __init__(self, result):
-                assert ootype.typeOf(result) == ootype.Object
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameObj(%s)' % (self.result,)
-
-        class ExitFrameWithExceptionPtr(JitException):
-            def __init__(self, value):
-                assert lltype.typeOf(value) == llmemory.GCREF
+        class ExitFrameWithExceptionRef(JitException):
+            def __init__(self, cpu, value):
+                assert lltype.typeOf(value) == cpu.ts.BASETYPE
                 self.value = value
             def __str__(self):
-                return 'ExitFrameWithExceptionPtr(%s)' % (self.value,)
-
-        class ExitFrameWithExceptionObj(JitException):
-            def __init__(self, value):
-                assert lltype.typeOf(value) == ootype.Object
-                self.value = value
-            def __str__(self):
-                return 'ExitFrameWithExceptionObj(%s)' % (self.value,)
+                return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
 
         class ContinueRunningNormally(JitException):
             def __init__(self, argboxes):
@@ -433,22 +414,18 @@ class WarmRunnerDesc:
 
         self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
         self.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.DoneWithThisFramePtr = DoneWithThisFramePtr
-        self.DoneWithThisFrameObj = DoneWithThisFrameObj
-        self.ExitFrameWithExceptionPtr = ExitFrameWithExceptionPtr
-        self.ExitFrameWithExceptionObj = ExitFrameWithExceptionObj
+        self.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
         self.ContinueRunningNormally = ContinueRunningNormally
         self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
         self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.metainterp_sd.DoneWithThisFramePtr = DoneWithThisFramePtr
-        self.metainterp_sd.DoneWithThisFrameObj = DoneWithThisFrameObj
-        self.metainterp_sd.ExitFrameWithExceptionPtr = ExitFrameWithExceptionPtr
-        self.metainterp_sd.ExitFrameWithExceptionObj = ExitFrameWithExceptionObj
+        self.metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
         self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
         rtyper = self.translator.rtyper
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
-        is_oo = self.cpu.is_oo
+        ts = self.cpu.ts
 
         def ll_portal_runner(*args):
             while 1:
@@ -466,26 +443,13 @@ class WarmRunnerDesc:
                 except DoneWithThisFrameInt, e:
                     assert result_kind == 'int'
                     return lltype.cast_primitive(RESULT, e.result)
-                except DoneWithThisFramePtr, e:
-                    assert result_kind == 'ptr'
-                    return lltype.cast_opaque_ptr(RESULT, e.result)
-                except DoneWithThisFrameObj, e:
-                    assert result_kind == 'obj'
-                    return ootype.cast_from_object(RESULT, e.result)
-                except ExitFrameWithExceptionPtr, e:
-                    assert not is_oo
-                    value = lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT),
-                                                   e.value)
+                except DoneWithThisFrameRef, e:
+                    assert result_kind == 'ref'
+                    return ts.cast_from_ref(RESULT, e.result)
+                except ExitFrameWithExceptionRef, e:
+                    value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
-                        raise LLException(value.typeptr, value)
-                    else:
-                        value = cast_base_ptr_to_instance(Exception, value)
-                        raise Exception, value
-                except ExitFrameWithExceptionObj, e:
-                    assert is_oo
-                    value = ootype.cast_from_object(ootype.ROOT, e.value)
-                    if not we_are_translated():
-                        raise LLException(ootype.classof(value), value)
+                        raise LLException(ts.get_typeptr(value), value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
@@ -526,8 +490,8 @@ class WarmRunnerDesc:
     def rewrite_set_param(self):
         closures = {}
         graphs = self.translator.graphs
-        _, PTR_SET_PARAM_FUNCTYPE = self.ts.get_FuncType([lltype.Signed],
-                                                         lltype.Void)
+        _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
+                                                             lltype.Void)
         def make_closure(fullfuncname):
             state = self.state
             def closure(i):
@@ -584,9 +548,9 @@ def unwrap(TYPE, box):
     if TYPE is lltype.Void:
         return None
     if isinstance(TYPE, lltype.Ptr):
-        return box.getptr(TYPE)
+        return box.getref(TYPE)
     if isinstance(TYPE, ootype.OOType):
-        return ootype.cast_from_object(TYPE, box.getobj())
+        return box.getref(TYPE)
     else:
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
@@ -666,9 +630,9 @@ def make_state_class(warmrunnerdesc):
         MAX_HASH_TABLE_BITS = 1
     THRESHOLD_LIMIT = sys.maxint // 2
     #
-    getlength = warmrunnerdesc.ts.getlength
-    getarrayitem = warmrunnerdesc.ts.getarrayitem
-    setarrayitem = warmrunnerdesc.ts.setarrayitem
+    getlength = warmrunnerdesc.cpu.ts.getlength
+    getarrayitem = warmrunnerdesc.cpu.ts.getarrayitem
+    setarrayitem = warmrunnerdesc.cpu.ts.setarrayitem
     #
     rtyper = warmrunnerdesc.translator.rtyper
     can_inline_ptr = warmrunnerdesc.can_inline_ptr
@@ -712,12 +676,9 @@ def make_state_class(warmrunnerdesc):
 
     def set_future_value(j, value, typecode):
         cpu = metainterp_sd.cpu
-        if typecode == 'ptr':
-            ptrvalue = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            cpu.set_future_value_ptr(j, ptrvalue)
-        elif typecode == 'obj':
-            objvalue = ootype.cast_to_object(value)
-            cpu.set_future_value_obj(j, objvalue)
+        if typecode == 'ref':
+            refvalue = cpu.ts.cast_to_ref(value)
+            cpu.set_future_value_ref(j, refvalue)
         elif typecode == 'int':
             intvalue = lltype.cast_primitive(lltype.Signed, value)
             cpu.set_future_value_int(j, intvalue)

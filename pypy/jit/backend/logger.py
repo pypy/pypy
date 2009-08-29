@@ -6,10 +6,9 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box, ConstPtr, BoxPtr,\
 
 class AbstractLogger(object):
 
-    # is_oo = ...   ## need to be set by concrete classes
-    
-    def __init__(self):
+    def __init__(self, ts):
         self._log_fd = -1
+        self.ts = ts
 
     def create_log(self, extension='.ops'):
         if self._log_fd != -1:
@@ -43,16 +42,12 @@ class AbstractLogger(object):
             return "ci(%d,%d)" % (mv, arg.value)
         elif isinstance(arg, BoxInt):
             return "bi(%d,%d)" % (mv, arg.value)
-        elif not self.is_oo and isinstance(arg, ConstPtr):
-            return "cp(%d,%d)" % (mv, arg.get_())
-        elif not self.is_oo and isinstance(arg, BoxPtr):
-            return "bp(%d,%d)" % (mv, arg.get_())
-        elif not self.is_oo and isinstance(arg, ConstAddr):
+        elif isinstance(arg, self.ts.ConstRef):
+            return "cr(%d,%d)" % (mv, arg.get_())
+        elif isinstance(arg, self.ts.BoxRef):
+            return "br(%d,%d)" % (mv, arg.get_())
+        elif isinstance(arg, self.ts.ConstAddr):
             return "ca(%d,%d)" % (mv, arg.get_())
-        elif self.is_oo and isinstance(arg, ConstObj):
-            return "co(%d,%d)" % (mv, arg.get_())
-        elif self.is_oo and isinstance(arg, BoxObj):
-            return "bo(%d,%d)" % (mv, arg.get_())
         else:
             #raise NotImplementedError
             return "?%r" % (arg,)

@@ -37,6 +37,10 @@ def test_sort_descrs():
 class LLtypeMixin(object):
     type_system = 'lltype'
 
+    def get_class_of_box(self, box):
+        from pypy.rpython.lltypesystem import rclass
+        return box.getref(rclass.OBJECTPTR).typeptr
+
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
@@ -76,9 +80,12 @@ class LLtypeMixin(object):
 
 class OOtypeMixin(object):
     type_system = 'ootype'
+
+    def get_class_of_box(self, box):
+        root = box.getref(ootype.ROOT)
+        return ootype.classof(root)
     
     cpu = runner.OOtypeCPU(None)
-
     NODE = ootype.Instance('NODE', ootype.ROOT, {})
     NODE._add_fields({'value': ootype.Signed,
                       'next': NODE})

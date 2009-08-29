@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
-from pypy.jit.metainterp.history import INT, PTR, OBJ
+from pypy.jit.metainterp.history import INT, REF
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -106,22 +106,20 @@ def do_oononnull(cpu, args, descr=None):
     tp = args[0].type
     if tp == INT:
         x = bool(args[0].getint())
-    elif tp == PTR:
-        x = bool(args[0].getptr_base())
+    elif tp == REF:
+        x = bool(args[0].getref_base())
     else:
-        assert tp == OBJ
-        x = bool(args[0].getobj())
+        assert False
     return ConstInt(x)
 
 def do_ooisnull(cpu, args, descr=None):
     tp = args[0].type
     if tp == INT:
         x = bool(args[0].getint())
-    elif tp == PTR:
-        x = bool(args[0].getptr_base())
+    elif tp == REF:
+        x = bool(args[0].getref_base())
     else:
-        assert tp == OBJ
-        x = bool(args[0].getobj())
+        assert False
     return ConstInt(not x)
 
 def do_oois(cpu, args, descr=None):
@@ -129,11 +127,10 @@ def do_oois(cpu, args, descr=None):
     assert tp == args[1].type
     if tp == INT:
         x = args[0].getint() == args[1].getint()
-    elif tp == PTR:
-        x = args[0].getptr_base() == args[1].getptr_base()
+    elif tp == REF:
+        x = args[0].getref_base() == args[1].getref_base()
     else:
-        assert tp == OBJ
-        x = args[0].getobj() == args[1].getobj()
+        assert False
     return ConstInt(x)
 
 def do_ooisnot(cpu, args, descr=None):
@@ -141,23 +138,22 @@ def do_ooisnot(cpu, args, descr=None):
     assert tp == args[1].type
     if tp == INT:
         x = args[0].getint() != args[1].getint()
-    elif tp == PTR:
-        x = args[0].getptr_base() != args[1].getptr_base()
+    elif tp == REF:
+        x = args[0].getref_base() != args[1].getref_base()
     else:
-        assert tp == OBJ
-        x = args[0].getobj() != args[1].getobj()
+        assert False
     return ConstInt(x)
 
 def do_ooidentityhash(cpu, args, descr=None):
-    obj = args[0].getobj()
+    obj = args[0].getref_base()
     return ConstInt(ootype.ooidentityhash(obj))
 
 
 def do_subclassof(self, args, descr=None):
     assert len(args) == 2
     box1, box2 = args
-    cls1 = ootype.cast_from_object(ootype.Class, box1.getobj())
-    cls2 = ootype.cast_from_object(ootype.Class, box2.getobj())
+    cls1 = box1.getref(ootype.Class)
+    cls2 = box2.getref(ootype.Class)
     res = ootype.subclassof(cls1, cls2)
     return BoxInt(res)
 

@@ -1,5 +1,4 @@
 import py
-from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.test.test_resume import MyMetaInterp
@@ -1154,12 +1153,7 @@ class BaseTestOptimizeOpt(BaseTest):
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':
-                    if not self.cpu.is_oo:
-                        assert box.getptr(rclass.OBJECTPTR).typeptr == tag[1]
-                    else:
-                        root = box.getobj()
-                        root = ootype.cast_from_object(ootype.ROOT, root)
-                        assert ootype.classof(root) == tag[1]
+                    assert self.get_class_of_box(box) == tag[1]
                 elif tag[0] == 'varray':
                     pass    # xxx check arraydescr
                 elif tag[0] == 'vstruct':

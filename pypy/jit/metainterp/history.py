@@ -17,8 +17,7 @@ py.log.setconsumer('compiler', ansi_log)
 # ____________________________________________________________
 
 INT = 'i'
-PTR = 'p'
-OBJ = 'o'
+REF = 'r'
 
 def getkind(TYPE):
     if TYPE is lltype.Void:
@@ -34,9 +33,9 @@ def getkind(TYPE):
         if TYPE.TO._gckind == 'raw':
             return "int"
         else:
-            return "ptr"
+            return "ref"
     elif isinstance(TYPE, ootype.OOType):
-        return "obj"
+        return "ref"
     else:
         raise NotImplementedError("type %s not supported" % TYPE)
 
@@ -80,15 +79,12 @@ class AbstractValue(object):
     def getint(self):
         raise NotImplementedError
 
-    def getptr_base(self):
+    def getref_base(self):
         raise NotImplementedError
 
-    def getptr(self, PTR):
-        return lltype.cast_opaque_ptr(PTR, self.getptr_base())
-    getptr._annspecialcase_ = 'specialize:arg(1)'
-
-    def getobj(self):
+    def getref(self, TYPE):
         raise NotImplementedError
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         raise NotImplementedError
@@ -157,12 +153,8 @@ class Const(AbstractValue):
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)
-        elif kind == "ptr":
-            ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
-            return ConstPtr(ptrval)
-        elif kind == "obj":
-            obj = ootype.cast_to_object(x)
-            return ConstObj(obj)
+        elif kind == "ref":
+            return cpu.ts.new_ConstRef(x)
         else:
             raise NotImplementedError(kind)
 
@@ -283,7 +275,7 @@ class ConstAddr(Const):       # only for constants built before translation
         return repr_rpython(self, 'ca')
 
 class ConstPtr(Const):
-    type = PTR
+    type = REF
     value = lltype.nullptr(llmemory.GCREF.TO)
     _attrs_ = ('value',)
 
@@ -296,8 +288,12 @@ class ConstPtr(Const):
 
     nonconstbox = clonebox
 
-    def getptr_base(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, PTR):
+        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         return lltype.cast_ptr_to_int(self.value)
@@ -309,10 +305,10 @@ class ConstPtr(Const):
         return bool(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_ptr(j, self.value)
+        cpu.set_future_value_ref(j, self.value)
 
     def equals(self, other):
-        return self.value == other.getptr_base()
+        return self.value == other.getref_base()
 
     _getrepr_ = repr_pointer
 
@@ -325,7 +321,7 @@ class ConstPtr(Const):
         return hlstr(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), self.value))
 
 class ConstObj(Const):
-    type = OBJ
+    type = REF
     value = ootype.NULL
     _attrs_ = ('value',)
 
@@ -338,8 +334,12 @@ class ConstObj(Const):
 
     nonconstbox = clonebox
 
-    def getobj(self):
+    def getref_base(self):
        return self.value
+
+    def getref(self, OBJ):
+        return ootype.cast_from_object(OBJ, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         if self.value:
@@ -351,7 +351,7 @@ class ConstObj(Const):
         return bool(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_obj(j, self.value)
+        cpu.set_future_value_ref(j, self.value)
 
 ##    def getaddr(self, cpu):
 ##        # so far this is used only when calling
@@ -360,7 +360,7 @@ class ConstObj(Const):
 ##        return self.value
 
     def equals(self, other):
-        return self.value == other.getobj()
+        return self.value == other.getref_base()
 
     _getrepr_ = repr_object
 
@@ -384,7 +384,8 @@ class Box(AbstractValue):
         if kind == "int":
             intval = lltype.cast_primitive(lltype.Signed, x)
             return BoxInt(intval)
-        elif kind == "ptr":
+        elif kind == "ref":
+            # XXX add ootype support?
             ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
             return BoxPtr(ptrval)
         else:
@@ -466,7 +467,7 @@ class BoxInt(Box):
     changevalue_int = __init__
 
 class BoxPtr(Box):
-    type = PTR
+    type = REF
     _attrs_ = ('value',)
 
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
@@ -479,8 +480,12 @@ class BoxPtr(Box):
     def constbox(self):
         return ConstPtr(self.value)
 
-    def getptr_base(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, PTR):
+        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
@@ -492,22 +497,22 @@ class BoxPtr(Box):
         return bool(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_ptr(j, self.value)
+        cpu.set_future_value_ref(j, self.value)
 
     def repr_rpython(self):
         return repr_rpython(self, 'bp')
 
     def changevalue_box(self, srcbox):
-        self.changevalue_ptr(srcbox.getptr_base())
+        self.changevalue_ref(srcbox.getref_base())
 
     _getrepr_ = repr_pointer
-    changevalue_ptr = __init__
+    changevalue_ref = __init__
 
 NULLBOX = BoxPtr()
 
 
 class BoxObj(Box):
-    type = OBJ
+    type = REF
     _attrs_ = ('value',)
 
     def __init__(self, value=ootype.NULL):
@@ -520,8 +525,12 @@ class BoxObj(Box):
     def constbox(self):
         return ConstObj(self.value)
 
-    def getobj(self):
+    def getref_base(self):
         return self.value
+
+    def getref(self, OBJ):
+        return ootype.cast_from_object(OBJ, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
 
     def get_(self):
         if self.value:
@@ -533,16 +542,16 @@ class BoxObj(Box):
         return bool(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_obj(j, self.value)
+        cpu.set_future_value_ref(j, self.value)
 
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
 
     def changevalue_box(self, srcbox):
-        self.changevalue_obj(srcbox.getobj())
+        self.changevalue_ref(srcbox.getref_base())
 
     _getrepr_ = repr_object
-    changevalue_obj = __init__
+    changevalue_ref = __init__
 
 
 def set_future_values(cpu, boxes):

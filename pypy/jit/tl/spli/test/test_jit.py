@@ -9,7 +9,6 @@ from pypy.rpython.annlowlevel import llstr, hlstr
 class TestSPLIJit(JitMixin):
     type_system = 'lltype'
     CPUClass = runner.LLtypeCPU
-    ts = LLTypeHelper()
     
     def interpret(self, f, args):
         coderepr = serializer.serialize(f.func_code)

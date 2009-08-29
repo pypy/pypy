@@ -115,8 +115,8 @@ class BoxInt(Box):
 class BoxAddr(Box):
     pass
 
-class BoxPtr(Box):
-    _var_prefix = "p"
+class BoxRef(Box):
+    _var_prefix = "r"
 
 class Const(AbstractValue):
 
@@ -133,19 +133,19 @@ class ConstInt(Const):
 class ConstAddr(Const):
     pass
 
-class ConstPtr(Const):
+class ConstRef(Const):
     pass
 
 box_map = {
     'b' : {
         'i' : BoxInt,
         'a' : BoxAddr,
-        'p' : BoxPtr
+        'r' : BoxRef
         },
     'c' : {
         'i' : ConstInt,
         'a' : ConstAddr,
-        'p' : ConstPtr
+        'r' : ConstRef
         },
 }
 

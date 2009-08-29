@@ -45,7 +45,7 @@ class TestParser(object):
         assert code_comment.address == 19
         guard_exception = topblock.operations[8]
         assert isinstance(guard_exception, GuardOperation)
-        assert isinstance(guard_exception.result, BoxPtr)
+        assert isinstance(guard_exception.result, BoxRef)
         assert guard_exception.result.value == 138081800
 
     def test_two_paths(self):
@@ -74,7 +74,7 @@ class TestParser(object):
         assert len(loops) == 3
         newstr = loops[1].operations[1]
         assert newstr.opname == "newstr"
-        assert isinstance(newstr.result, BoxPtr)
+        assert isinstance(newstr.result, BoxRef)
         assert len(newstr.args) == 1
         assert isinstance(newstr.args[0], ConstInt)
         assert newstr.result.value == 177102832

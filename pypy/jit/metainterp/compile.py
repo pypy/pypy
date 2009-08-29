@@ -10,6 +10,7 @@ from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr, BoxObj,\
      Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.debug import debug_print
 
 def compile_new_loop(metainterp, old_loops, greenkey, start=0):
@@ -150,56 +151,34 @@ class DoneWithThisFrameDescrInt(AbstractDescr):
             result = resultbox.getint()
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
-class DoneWithThisFrameDescrPtr(AbstractDescr):
+class DoneWithThisFrameDescrRef(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
-        assert metainterp_sd.result_type == 'ptr'
+        assert metainterp_sd.result_type == 'ref'
         resultbox = fail_op.args[0]
-        if isinstance(resultbox, BoxPtr):
-            result = metainterp_sd.cpu.get_latest_value_ptr(0)
+        cpu = metainterp_sd.cpu
+        if isinstance(resultbox, cpu.ts.BoxRef):
+            result = cpu.get_latest_value_ref(0)
         else:
             assert isinstance(resultbox, history.Const)
-            result = resultbox.getptr_base()
-        raise metainterp_sd.DoneWithThisFramePtr(result)
+            result = resultbox.getref_base()
+        raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
-class DoneWithThisFrameDescrObj(AbstractDescr):
-    def handle_fail_op(self, metainterp_sd, fail_op):
-        assert metainterp_sd.result_type == 'obj'
-        resultbox = fail_op.args[0]
-        if isinstance(resultbox, BoxObj):
-            result = metainterp_sd.cpu.get_latest_value_obj(0)
-        else:
-            assert isinstance(resultbox, history.Const)
-            result = resultbox.getobj()
-        raise metainterp_sd.DoneWithThisFrameObj(result)
-
-class ExitFrameWithExceptionDescrPtr(AbstractDescr):
+class ExitFrameWithExceptionDescrRef(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
         assert len(fail_op.args) == 1
         valuebox = fail_op.args[0]
-        if isinstance(valuebox, BoxPtr):
-            value = metainterp_sd.cpu.get_latest_value_ptr(0)
+        cpu = metainterp_sd.cpu
+        if isinstance(valuebox, cpu.ts.BoxRef):
+            value = cpu.get_latest_value_ref(0)
         else:
             assert isinstance(valuebox, history.Const)
-            value = valuebox.getptr_base()
-        raise metainterp_sd.ExitFrameWithExceptionPtr(value)
-
-class ExitFrameWithExceptionDescrObj(AbstractDescr):
-    def handle_fail_op(self, metainterp_sd, fail_op):
-        assert len(fail_op.args) == 1
-        valuebox = fail_op.args[0]
-        if isinstance(valuebox, BoxObj):
-            value = metainterp_sd.cpu.get_latest_value_obj(0)
-        else:
-            assert isinstance(valuebox, history.Const)
-            value = valuebox.getobj()
-        raise metainterp_sd.ExitFrameWithExceptionObj(value)
+            value = valuebox.getref_base()
+        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
 done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
-done_with_this_frame_descr_ptr = DoneWithThisFrameDescrPtr()
-done_with_this_frame_descr_obj = DoneWithThisFrameDescrObj()
-exit_frame_with_exception_descr_ptr = ExitFrameWithExceptionDescrPtr()
-exit_frame_with_exception_descr_obj = ExitFrameWithExceptionDescrObj()
+done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
+exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
 class TerminatingLoop(TreeLoop):
     pass
@@ -213,17 +192,17 @@ _loop.inputargs = [BoxInt()]
 _loop.finishdescr = done_with_this_frame_descr_int
 loops_done_with_this_frame_int = [_loop]
 
-_loop = TerminatingLoop('done_with_this_frame_ptr')
+_loop = TerminatingLoop('done_with_this_frame_ref')
 _loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxPtr()]
-_loop.finishdescr = done_with_this_frame_descr_ptr
-loops_done_with_this_frame_ptr = [_loop]
+_loop.finishdescr = done_with_this_frame_descr_ref
+llhelper.loops_done_with_this_frame_ref = [_loop]
 
-_loop = TerminatingLoop('done_with_this_frame_obj')
+_loop = TerminatingLoop('done_with_this_frame_ref')
 _loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxObj()]
-_loop.finishdescr = done_with_this_frame_descr_obj
-loops_done_with_this_frame_obj = [_loop]
+_loop.finishdescr = done_with_this_frame_descr_ref
+oohelper.loops_done_with_this_frame_ref = [_loop]
 
 _loop = TerminatingLoop('done_with_this_frame_void')
 _loop.specnodes = []
@@ -231,17 +210,17 @@ _loop.inputargs = []
 _loop.finishdescr = done_with_this_frame_descr_void
 loops_done_with_this_frame_void = [_loop]
 
-_loop = TerminatingLoop('exit_frame_with_exception_ptr')
+_loop = TerminatingLoop('exit_frame_with_exception_ref')
 _loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxPtr()]
-_loop.finishdescr = exit_frame_with_exception_descr_ptr
-loops_exit_frame_with_exception_ptr = [_loop]
+_loop.finishdescr = exit_frame_with_exception_descr_ref
+llhelper.loops_exit_frame_with_exception_ref = [_loop]
 
-_loop = TerminatingLoop('exit_frame_with_exception_obj')
+_loop = TerminatingLoop('exit_frame_with_exception_ref')
 _loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxObj()]
-_loop.finishdescr = exit_frame_with_exception_descr_obj
-loops_exit_frame_with_exception_obj = [_loop]
+_loop.finishdescr = exit_frame_with_exception_descr_ref
+oohelper.loops_exit_frame_with_exception_ref = [_loop]
 del _loop
 
 
@@ -278,12 +257,9 @@ class ResumeGuardDescr(AbstractDescr):
             if isinstance(box, BoxInt):
                 srcvalue = cpu.get_latest_value_int(i)
                 box.changevalue_int(srcvalue)
-            elif not cpu.is_oo and isinstance(box, BoxPtr):
-                srcvalue = cpu.get_latest_value_ptr(i)
-                box.changevalue_ptr(srcvalue)
-            elif cpu.is_oo and isinstance(box, BoxObj):
-                srcvalue = cpu.get_latest_value_obj(i)
-                box.changevalue_obj(srcvalue)
+            elif isinstance(box, cpu.ts.BoxRef):
+                srcvalue = cpu.get_latest_value_ref(i)
+                box.changevalue_ref(srcvalue)
             elif isinstance(box, Const):
                 pass # we don't need to do anything
             else:
@@ -296,12 +272,10 @@ class ResumeGuardDescr(AbstractDescr):
             dstbox = fail_op.args[i]
             if isinstance(dstbox, BoxInt):
                 dstbox.changevalue_int(srcbox.getint())
-            elif not metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxPtr):
-                dstbox.changevalue_ptr(srcbox.getptr_base())
+            elif isinstance(dstbox, metainterp_sd.cpu.ts.BoxRef):
+                dstbox.changevalue_ref(srcbox.getref_base())
             elif isinstance(dstbox, Const):
                 pass
-            elif metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxObj):
-                dstbox.changevalue_obj(srcbox.getobj())
             else:
                 assert False
 

@@ -62,6 +62,10 @@ class JitMixin:
 
         class DoneWithThisFrame(Exception):
             pass
+
+        class DoneWithThisFrameRef(DoneWithThisFrame):
+            def __init__(self, cpu, *args):
+                DoneWithThisFrame.__init__(self, *args)
         
         class FakeWarmRunnerDesc:
             def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
@@ -73,7 +77,7 @@ class JitMixin:
                                             self.type_system, policy=policy,
                                             optimizer=simple_optimize,
                                             **kwds)
-        cw = codewriter.CodeWriter(metainterp.staticdata, policy, self.ts)
+        cw = codewriter.CodeWriter(metainterp.staticdata, policy)
         graph = rtyper.annotator.translator.graphs[0]
         graph_key = (graph, None)
         maingraph = cw.make_one_bytecode(graph_key, False)
@@ -84,8 +88,7 @@ class JitMixin:
         metainterp.staticdata._class_sizes = cw.class_sizes
         metainterp.staticdata.state = FakeWarmRunnerDesc()
         metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
-        metainterp.staticdata.DoneWithThisFramePtr = DoneWithThisFrame
-        metainterp.staticdata.DoneWithThisFrameObj = DoneWithThisFrame
+        metainterp.staticdata.DoneWithThisFrameRef = DoneWithThisFrameRef
         self.metainterp = metainterp
         try:
             metainterp.compile_and_run_once(*args)
@@ -103,7 +106,6 @@ class JitMixin:
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
     CPUClass = runner.LLtypeCPU
-    ts = LLTypeHelper()
 
     @staticmethod
     def Ptr(T):
@@ -130,7 +132,6 @@ class LLJitMixin(JitMixin):
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     CPUClass = runner.OOtypeCPU
-    ts = OOTypeHelper()
 
     @staticmethod
     def Ptr(T):

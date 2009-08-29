@@ -13,3 +13,7 @@ class TestLLRecursive(test_recursive.RecursiveTests, LLInterpJitMixin):
         sys.setrecursionlimit(cls._recursion_limit)
 
     # ==========> test_recursive.py
+
+    @py.test.mark.xfail
+    def test_inline_faulty_can_inline(self):
+        test_recursive.RecursiveTests.test_inline_faulty_can_inline(self)

@@ -143,14 +143,14 @@ class TestX86(LLtypeBackendTest):
             self.cpu.assembler.malloc_func_addr = addr
             ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
-            res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ptr')
+            res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')
             assert allocs[0] == 7 + ofs + WORD
             resbuf = self._resbuf(res)
             assert resbuf[ofs/WORD] == 7
             
             # ------------------------------------------------------------
 
-            res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ptr')
+            res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ref')
             assert allocs[0] == 7 + ofs + WORD
             resbuf = self._resbuf(res)
             assert resbuf[ofs/WORD] == 7
@@ -162,7 +162,7 @@ class TestX86(LLtypeBackendTest):
             descr = self.cpu.arraydescrof(TP)
 
             res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
-                                             'ptr', descr)
+                                             'ref', descr)
             assert allocs[0] == 10*WORD + ofs + WORD
             resbuf = self._resbuf(res)            
             assert resbuf[ofs/WORD] == 10
@@ -170,7 +170,7 @@ class TestX86(LLtypeBackendTest):
             # ------------------------------------------------------------
 
             res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
-                                             'ptr', descr)
+                                             'ref', descr)
             assert allocs[0] == 10*WORD + ofs + WORD
             resbuf = self._resbuf(res)                        
             assert resbuf[ofs/WORD] == 10
@@ -183,7 +183,7 @@ class TestX86(LLtypeBackendTest):
         ofs = symbolic.get_field_token(STR, 'chars', False)[0]
         ofs_items = symbolic.get_field_token(STR.chars, 'items', False)[0]
 
-        res = self.execute_operation(rop.NEWSTR, [ConstInt(10)], 'ptr')
+        res = self.execute_operation(rop.NEWSTR, [ConstInt(10)], 'ref')
         self.execute_operation(rop.STRSETITEM, [res, ConstInt(2), ConstInt(ord('d'))], 'void')
         resbuf = self._resbuf(res, ctypes.c_char)
         assert resbuf[ofs + ofs_items + 2] == 'd'
@@ -198,7 +198,7 @@ class TestX86(LLtypeBackendTest):
         itemsofs = symbolic.get_field_token(TP, 'items', False)[0]
         descr = self.cpu.arraydescrof(TP)
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
-                                     'ptr', descr)
+                                     'ref', descr)
         resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
         self.execute_operation(rop.SETARRAYITEM_GC, [res,
@@ -237,7 +237,7 @@ class TestX86(LLtypeBackendTest):
         itemsofs = symbolic.get_field_token(TP, 'items', False)[0]
         descr = self.cpu.arraydescrof(TP)
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
-                                     'ptr', descr)
+                                     'ref', descr)
         resbuf = self._resbuf(res, ctypes.c_char)
         assert resbuf[ofs] == chr(10)
         for i in range(10):
@@ -260,7 +260,7 @@ class TestX86(LLtypeBackendTest):
                              ('c2', lltype.Char),
                              ('c3', lltype.Char))
         res = self.execute_operation(rop.NEW, [],
-                                     'ptr', self.cpu.sizeof(TP))
+                                     'ref', self.cpu.sizeof(TP))
         ofs_s = self.cpu.fielddescrof(TP, 's')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
         ofs_u = self.cpu.fielddescrof(TP, 'u')
@@ -332,7 +332,7 @@ class TestX86(LLtypeBackendTest):
                     if op == rop.INT_IS_TRUE:
                         self.cpu.set_future_value_int(0, b.value)
                     else:
-                        self.cpu.set_future_value_ptr(0, b.value)
+                        self.cpu.set_future_value_ref(0, b.value)
                     r = self.cpu.execute_operations(loop)
                     result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:

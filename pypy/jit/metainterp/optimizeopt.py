@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
-from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, PTR, OBJ
+from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
@@ -8,6 +8,7 @@ from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
 from pypy.jit.metainterp import resume, compile
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 
@@ -124,8 +125,8 @@ class ConstantValue(OptValue):
         self.box = box
 
 CVAL_ZERO    = ConstantValue(ConstInt(0))
-CVAL_NULLPTR = ConstantValue(ConstPtr(ConstPtr.value))
-CVAL_NULLOBJ = ConstantValue(ConstObj(ConstObj.value))
+llhelper.CVAL_NULLREF = ConstantValue(ConstPtr(ConstPtr.value))
+oohelper.CVAL_NULLREF = ConstantValue(ConstObj(ConstObj.value))
 
 
 class AbstractVirtualValue(OptValue):
@@ -336,26 +337,18 @@ class Optimizer(object):
         self.values = {}
         self.values_to_clean = []    # OptValues to clean when we see an
                                      # operation with side-effects
-        self.interned_ptrs = {}
-        self.interned_objs = {}
+        self.interned_refs = {}
 
     def getinterned(self, box):
         if not self.is_constant(box):
             return box
-        if not self.cpu.is_oo and box.type == PTR:
-            value = box.getptr_base()
-            key = lltype.cast_ptr_to_int(value)
+        if box.type == REF:
+            value = box.getref_base()
+            key = self.cpu.ts.cast_ref_to_hashable(self.cpu, value)
             try:
-                return self.interned_ptrs[key]
+                return self.interned_refs[key]
             except KeyError:
-                self.interned_ptrs[key] = box
-                return box
-        elif self.cpu.is_oo and box.type == OBJ:
-            value = box.getobj()
-            try:
-                return self.interned_objs[value]
-            except KeyError:
-                self.interned_objs[value] = box
+                self.interned_refs[key] = box
                 return box
         else:
             return box
@@ -407,10 +400,7 @@ class Optimizer(object):
         return value
 
     def new_ptr_box(self):
-        if not self.cpu.is_oo:
-            return BoxPtr()
-        else:
-            return BoxObj()
+        return self.cpu.ts.BoxRef()
 
     def new_box(self, fieldofs):
         if fieldofs.is_pointer_field():
@@ -420,10 +410,7 @@ class Optimizer(object):
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():
-            if not self.cpu.is_oo:
-                return CVAL_NULLPTR
-            else:
-                return CVAL_NULLOBJ
+            return self.cpu.ts.CVAL_NULLREF
         else:
             return CVAL_ZERO
 
@@ -435,10 +422,7 @@ class Optimizer(object):
 
     def new_const_item(self, arraydescr):
         if arraydescr.is_array_of_pointers():
-            if not self.cpu.is_oo:
-                return CVAL_NULLPTR
-            else:
-                return CVAL_NULLOBJ
+            return self.cpu.ts.CVAL_NULLREF
         else:
             return CVAL_ZERO
 

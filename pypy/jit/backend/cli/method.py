@@ -9,6 +9,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
                                          ConstObj, BoxInt)
 from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.metainterp.typesystem import oohelper
 from pypy.jit.backend.logger import AbstractLogger
 from pypy.jit.backend.cli import runner
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
@@ -24,7 +25,6 @@ Utils = CLR.pypy.runtime.Utils
 cVoid = ootype.nullruntimeclass
 
 class CliLogger(AbstractLogger):
-    is_oo = True
 
     def repr_of_descr(self, descr):
         from pypy.jit.backend.cli.runner import DescrWithKey
@@ -32,7 +32,7 @@ class CliLogger(AbstractLogger):
             return descr.short_repr()
         return AbstractLogger.repr_of_descr(self, descr)
     
-logger = CliLogger()
+logger = CliLogger(oohelper)
 runner.CliCPU.logger_cls = CliLogger     # xxx hack
 
 class __extend__(AbstractValue):
@@ -44,7 +44,7 @@ class __extend__(AbstractValue):
         
         if self.type == history.INT:
             return dotnet.typeof(System.Int32)
-        elif self.type == history.OBJ:
+        elif self.type == history.REF:
             return dotnet.typeof(System.Object)
         else:
             assert False, 'Unknown type: %s' % self.type
@@ -71,7 +71,7 @@ class __extend__(Const):
         assert False, 'cannot store() to Constant'
 
     def get_cliobj(self):
-        return dotnet.cast_to_native_object(self.getobj())
+        return dotnet.cast_to_native_object(self.getref_base())
 
 class __extend__(ConstInt):
     __metaclass__ = extendabletype
@@ -228,7 +228,6 @@ class Method(object):
         # initialize the array of genconsts
         consts = dotnet.new_array(System.Object, len(self.consts))
         for av_const, i in self.consts.iteritems():
-            #consts[i] = dotnet.cast_to_native_object(av_const.getobj())
             consts[i] = av_const.get_cliobj()
         # build the delegate
         func = self.meth_wrapper.create_delegate(delegatetype, consts)
@@ -283,7 +282,7 @@ class Method(object):
         t = dotnet.typeof(InputArgs)
         if type == history.INT:
             fieldname = 'ints'
-        elif type == history.OBJ:
+        elif type == history.REF:
             fieldname = 'objs'
         else:
             assert False, 'Unknown type %s' % type
@@ -459,7 +458,7 @@ class Method(object):
         il_label = self.newbranch(op)
         classbox = op.args[0]
         assert isinstance(classbox, ConstObj)
-        oocls = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        oocls = classbox.getref(ootype.Class)
         clitype = dotnet.class2type(oocls)
         self.av_inputargs.load(self)
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
@@ -507,7 +506,7 @@ class Method(object):
     def emit_op_new_with_vtable(self, op):
         clsbox = op.args[0]
         assert isinstance(clsbox, ConstObj)
-        cls = clsbox.getobj()
+        cls = clsbox.getref_base()
         descr = self.cpu.class_sizes[cls]
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_clitype()

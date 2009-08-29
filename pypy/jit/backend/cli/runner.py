@@ -11,6 +11,7 @@ from pypy.jit.backend import model
 from pypy.jit.backend.llgraph.runner import KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
+from pypy.jit.metainterp.typesystem import oohelper
 
 System = CLR.System
 OpCodes = System.Reflection.Emit.OpCodes
@@ -29,8 +30,8 @@ class __extend__(TreeLoop):
 
 
 class CliCPU(model.AbstractCPU):
-
-    is_oo = True
+    
+    ts = oohelper
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None, gcdescr=None):
@@ -103,14 +104,14 @@ class CliCPU(model.AbstractCPU):
     def set_future_value_int(self, index, intvalue):
         self.get_inputargs().set_int(index, intvalue)
 
-    def set_future_value_obj(self, index, objvalue):
+    def set_future_value_ref(self, index, objvalue):
         obj = dotnet.cast_to_native_object(objvalue)
         self.get_inputargs().set_obj(index, obj)
 
     def get_latest_value_int(self, index):
         return self.get_inputargs().get_int(index)
 
-    def get_latest_value_obj(self, index):
+    def get_latest_value_ref(self, index):
         obj = self.get_inputargs().get_obj(index)
         return dotnet.cast_from_native_object(obj)
 
@@ -160,7 +161,7 @@ class CliCPU(model.AbstractCPU):
         #assert len(args) == 1 # but we don't need it, so ignore
         assert descr is None
         assert len(args) == 1
-        cls = args[0].getobj()
+        cls = args[0].getref_base()
         typedescr = self.class_sizes[cls]
         return typedescr.create()
 
@@ -171,7 +172,7 @@ class CliCPU(model.AbstractCPU):
 
     def do_runtimenew(self, args, descr):
         classbox = args[0]
-        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        classobj = classbox.getref(ootype.Class)
         res = ootype.runtimenew(classobj)
         return BoxObj(ootype.cast_to_object(res))
 
@@ -294,21 +295,21 @@ class TypeDescr(DescrWithKey):
             n = lengthbox.getint()
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
         def getarrayitem(arraybox, ibox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             i = ibox.getint()
             if TYPE is not ootype.Void:
                 return boxresult(TYPE, array.ll_getitem_fast(i))
         def setarrayitem(arraybox, ibox, valuebox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             i = ibox.getint()
             value = unwrap(TYPE, valuebox)
             array.ll_setitem_fast(i, value)
         def getarraylength(arraybox):
-            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            array = arraybox.getref(ARRAY)
             return boxresult(ootype.Signed, array.ll_length())
         def instanceof(box):
             if isinstance(TYPE, ootype.Instance):
-                obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+                obj = box.getref(ootype.ROOT)
                 return BoxInt(ootype.instanceof(obj, TYPE))
             return None
         self.create = create
@@ -319,7 +320,7 @@ class TypeDescr(DescrWithKey):
         self.instanceof = instanceof
         self.ooclass = get_class_for_type(TYPE)
         self.typename = TYPE._short_name()
-        self._is_array_of_pointers = (history.getkind(TYPE) == 'obj')
+        self._is_array_of_pointers = (history.getkind(TYPE) == 'ref')
 
     def is_array_of_pointers(self):
         # for arrays, TYPE is the type of the array item.
@@ -349,7 +350,7 @@ class StaticMethDescr(DescrWithKey):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
-            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
+            funcobj = funcbox.getref(FUNC)
             funcargs = getargs(argboxes)
             res = funcobj(*funcargs)
             if RESULT is not ootype.Void:
@@ -392,7 +393,7 @@ class MethDescr(AbstractMethDescr):
         METH = ootype.typeOf(meth)
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
-            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
+            selfobj = selfbox.getref(SELFTYPE)
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
             res = meth(*methargs)
@@ -441,11 +442,11 @@ class FieldDescr(DescrWithKey):
         from pypy.jit.metainterp.warmspot import unwrap
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
-            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            obj = objbox.getref(TYPE)
             value = getattr(obj, fieldname)
             return boxresult(T, value)
         def setfield(objbox, valuebox):
-            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            obj = objbox.getref(TYPE)
             value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
             
@@ -454,7 +455,7 @@ class FieldDescr(DescrWithKey):
         self.selfclass = ootype.runtimeClass(TYPE)
         self.fieldname = fieldname
         self.key = key_manager.getkey((TYPE, fieldname))
-        self._is_pointer_field = (history.getkind(T) == 'obj')
+        self._is_pointer_field = (history.getkind(T) == 'ref')
 
     def is_pointer_field(self):
         return self._is_pointer_field

@@ -3,9 +3,10 @@
 in a nicer fashion
 """
 
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, BoxPtr, ConstInt,\
-     ConstAddr, ConstObj, ConstPtr, Box, BoxObj
+from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
+     ConstAddr, ConstObj, ConstPtr, Box
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.typesystem import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
@@ -70,10 +71,8 @@ class OpParser(object):
             _box_counter_more_than(elem[1:])
         elif elem.startswith('p'):
             # pointer
-            if getattr(self.cpu, 'is_oo', False):
-                box = BoxObj()
-            else:
-                box = BoxPtr()
+            ts = getattr(self.cpu, 'ts', llhelper)
+            box = ts.BoxRef()
             _box_counter_more_than(elem[1:])
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
