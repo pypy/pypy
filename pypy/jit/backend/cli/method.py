@@ -315,12 +315,17 @@ class Method(object):
         self.il_loop_start = self.il.DefineLabel()
         self.il.MarkLabel(self.il_loop_start)
 
-    def emit_operations(self, operations):
-        for op in operations:
+    def emit_operations(self, oplist):
+        self.i = 0
+        self.oplist = oplist
+        N = len(oplist)
+        while self.i < N:
+            op = oplist[self.i]
             self.emit_debug(op.repr())
             func = self.operations[op.opnum]
             assert func is not None
             func(self, op)
+            self.i += 1
 
     def emit_branches(self):
         while self.branches:
@@ -382,6 +387,11 @@ class Method(object):
         self.il.EndExceptionBlock()
 
     def emit_ovf_op(self, op, emit_op):
+        next_op = self.oplist[self.i+1]
+        if next_op.opnum == rop.GUARD_NO_OVERFLOW:
+                self.i += 1
+                self.emit_ovf_op_and_guard(op, next_op, emit_op)
+                return
         # clear the overflow flag
         self.il.Emit(OpCodes.Ldc_I4_0)
         self.av_ovf_flag.store(self)
@@ -391,6 +401,19 @@ class Method(object):
         self.il.BeginCatchBlock(dotnet.typeof(System.OverflowException))
         self.il.Emit(OpCodes.Ldc_I4_1)
         self.av_ovf_flag.store(self)
+        self.il.EndExceptionBlock()
+
+    def emit_ovf_op_and_guard(self, op, opguard, emit_op):
+        # emit the checked operation
+        lbl = self.il.BeginExceptionBlock()
+        emit_op(self, op)
+        self.il.Emit(OpCodes.Leave, lbl)
+        self.il.BeginCatchBlock(dotnet.typeof(System.OverflowException))
+        # emit the guard
+        assert opguard.suboperations
+        assert len(opguard.args) == 0
+        il_label = self.newbranch(opguard)
+        self.il.Emit(OpCodes.Leave, il_label)
         self.il.EndExceptionBlock()
 
     def mark(self, msg):
