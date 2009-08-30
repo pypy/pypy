@@ -426,7 +426,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         """ % funcargs).compile()
         vtableptr = v._hints['vtable']._as_ptr()
         d = {
-            'ref': S.value,
+            'ptr': S.value,
             'vtable' : vtableptr,
             'LLException' : LLException,
             }
