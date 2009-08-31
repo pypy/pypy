@@ -64,7 +64,8 @@ class Runner(object):
         loop.operations = operations
         loop.inputargs = []
         for box in valueboxes:
-            if isinstance(box, Box) and box not in loop.inputargs:
+            if isinstance(box, Box):
+                assert box not in loop.inputargs, "repeated box!"
                 loop.inputargs.append(box)
         self.cpu.compile_operations(loop)
         return loop
@@ -354,9 +355,11 @@ class BaseBackendTest(Runner):
     def test_ooops(self):
         u1_box, U_box = self.alloc_instance(self.U)
         u2_box, U_box = self.alloc_instance(self.U)
-        r = self.execute_operation(rop.OOIS, [u1_box, u1_box], 'int')
+        r = self.execute_operation(rop.OOIS, [u1_box,
+                                              u1_box.clonebox()], 'int')
         assert r.value == 1
-        r = self.execute_operation(rop.OOISNOT, [u2_box, u2_box], 'int')
+        r = self.execute_operation(rop.OOISNOT, [u2_box,
+                                                 u2_box.clonebox()], 'int')
         assert r.value == 0
         r = self.execute_operation(rop.OOIS, [u1_box, u2_box], 'int')
         assert r.value == 0
@@ -368,13 +371,15 @@ class BaseBackendTest(Runner):
         assert r.value == 1
         #
         null_box = self.null_instance()
-        r = self.execute_operation(rop.OOIS, [null_box, null_box], 'int')
+        r = self.execute_operation(rop.OOIS, [null_box,
+                                              null_box.clonebox()], 'int')
         assert r.value == 1
         r = self.execute_operation(rop.OOIS, [u1_box, null_box], 'int')
         assert r.value == 0
         r = self.execute_operation(rop.OOIS, [null_box, u2_box], 'int')
         assert r.value == 0
-        r = self.execute_operation(rop.OOISNOT, [null_box, null_box], 'int')
+        r = self.execute_operation(rop.OOISNOT, [null_box,
+                                                 null_box.clonebox()], 'int')
         assert r.value == 0
         r = self.execute_operation(rop.OOISNOT, [u2_box, null_box], 'int')
         assert r.value == 1
