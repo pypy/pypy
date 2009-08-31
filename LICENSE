@@ -27,7 +27,7 @@ documentation in the 'pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2007
+PyPy Copyright holders 2003-2009
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -116,12 +116,12 @@ copyrighted by one or more of the following people and organizations:
     Change Maker, Sweden 
 
  
-License for 'lib-python/2.4.1' and 'lib-python/2.4.1-modified'
+License for 'lib-python/2.5.2' and 'lib-python/2.5.2-modified'
 ============================================================== 
 
 Except when otherwise stated (look for LICENSE files or
 copyright/license information at the beginning of each file) the files
-in the 'lib-python/2.4.1' and 'lib-python/2.4.1-modified' directories
+in the 'lib-python/2.5.2' and 'lib-python/2.5.2-modified' directories
 are all copyrighted by the Python Software Foundation and licensed under
 the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
@@ -134,7 +134,7 @@ Lesser General Public License of which you can find a copy here:
 http://www.gnu.org/licenses/lgpl.html
 
 License for 'pypy/translator/jvm/src/jasmin.jar'
-=============================================
+================================================
 
 The file 'pypy/translator/jvm/src/jasmin.jar' is copyright (c) 1996-2004 Jon Meyer
 and distributed with permission.  The use of Jasmin by PyPy does not imply
