@@ -4,6 +4,8 @@ from pypy.translator.tool.make_dot import DotGen
 from pypy.jit.metainterp.history import Box
 from pypy.jit.metainterp.resoperation import rop
 
+SHOW_FAILS = False
+
 class SubGraph:
     def __init__(self, suboperations):
         self.suboperations = suboperations
@@ -16,10 +18,21 @@ def display_loops(loops, errmsg=None, highlight_loops=()):
     graphs = [(loop, loop in highlight_loops) for loop in loops]
     for graph, highlight in graphs:
         for op in graph.get_operations():
-            if op.is_guard():
+            if is_interesting_guard(op):
                 graphs.append((SubGraph(op.suboperations), highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
+
+def is_interesting_guard(op):
+    if not op.is_guard():
+        return False
+    if SHOW_FAILS:
+        return True
+    if len(op.suboperations) > 1:
+        return True
+    if op.suboperations[0].opnum == rop.FAIL:
+        return False
+    return True
 
 
 class ResOpGraphPage(GraphPage):
@@ -63,9 +76,16 @@ class ResOpGen(object):
         for graphindex in range(len(self.graphs)):
             self.block_starters[graphindex] = {0: True}
         for graphindex, graph in enumerate(self.graphs):
+            last_was_mergepoint = False
             for i, op in enumerate(graph.get_operations()):
-                if op.is_guard():
+                if is_interesting_guard(op):
                     self.mark_starter(graphindex, i+1)
+                if op.opnum == rop.DEBUG_MERGE_POINT:
+                    if not last_was_mergepoint:
+                        last_was_mergepoint = True
+                        self.mark_starter(graphindex, i)
+                else:
+                    last_was_mergepoint = False
 
     def set_errmsg(self, errmsg):
         self.errmsg = errmsg
@@ -138,7 +158,7 @@ class ResOpGen(object):
         while True:
             op = operations[opindex]
             lines.append(repr(op))
-            if op.is_guard():
+            if is_interesting_guard(op):
                 tgt = op.suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),

@@ -5,6 +5,7 @@ new tests from crashes
 
 import autopath
 import sys, py, re
+from pypy.jit.metainterp.resoperation import rop
 
 def count_indent(s):
     indent = 0
@@ -60,6 +61,7 @@ class Comment(BaseOperation):
         return "Comment: %r" % (self.text,)
 
 class ByteCodeRef(Comment):
+    opnum = rop.DEBUG_MERGE_POINT
     def __init__(self, text):
         Comment.__init__(self, text)
         self.address = int(text.rsplit('#')[1])
@@ -67,6 +69,7 @@ class ByteCodeRef(Comment):
 class Operation(BaseOperation):
     def __init__(self, opname, args, result=None, descr=None):
         self.opname = opname
+        self.opnum = getattr(rop, opname.upper(), -41)
         self.args   = args
         self.result = result
         self.descr = descr
