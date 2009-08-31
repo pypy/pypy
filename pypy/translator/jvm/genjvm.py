@@ -3,6 +3,7 @@ Backend for the JVM.
 """
 
 import sys
+import os
 
 import py
 from py.compat import subprocess
@@ -197,7 +198,7 @@ class JvmGeneratedSource(object):
         cmd = [getoption('java'),
                '-Xmx256M', # increase the heapsize so the microbenchmarks run
                '-cp',
-               str(self.javadir)+":"+str(self.jnajar),
+               str(self.javadir)+os.pathsep+str(self.jnajar),
                self.package+".Main"] + strargs
         print "Invoking java to run the code"
         stdout, stderr, retval = self._invoke(cmd, True)

@@ -231,6 +231,12 @@ class AppTestWeakref(object):
         del g
         gc.collect()
         assert w() is None
+        g = f(10)
+        w = _weakref.ref(g)
+        assert list(g) == range(10)
+        del g
+        gc.collect()
+        assert w() is None
 
     def test_weakref_subclass_with_del(self):
         import _weakref, gc

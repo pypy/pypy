@@ -1,5 +1,5 @@
 
-import py, sys
+import py, sys, ctypes, os
 from pypy.tool.udir import udir
 from pypy.translator.platform import CompilationError, Platform
 from pypy.translator.platform import host
@@ -102,6 +102,18 @@ class TestPlatform(object):
         res = self.platform.execute(executable)
         assert res.out.startswith('4.0')
 
+    def test_environment_inheritance(self):
+        # make sure that environment is inherited
+        cmd = 'import os; print os.environ["_SOME_VARIABLE_%d"]'
+        res = self.platform.execute('python', ['-c', cmd % 1],
+                                    env={'_SOME_VARIABLE_1':'xyz'})
+        assert 'xyz' in res.out
+        os.environ['_SOME_VARIABLE_2'] = 'zyz'
+        try:
+            res = self.platform.execute('python', ['-c', cmd % 2])
+            assert 'zyz' in res.out
+        finally:
+            del os.environ['_SOME_VARIABLE_2']
 
 def test_equality():
     class X(Platform):

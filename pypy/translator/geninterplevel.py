@@ -982,7 +982,7 @@ else:
         globname = self.nameof(self.moddict)
         self.initcode.append('space.setitem(%s, space.new_interned_str("__builtins__"), '
                              'space.builtin.w_dict)' % globname)
-        self.initcode.append('%s = space.eval("property(%s)", %s, %s. hidden_applevel=True)' %(
+        self.initcode.append('%s = space.eval("property(%s)", %s, %s, hidden_applevel=True)' %(
             name, origin, globname, globname) )
         self.initcode.append('space.delitem(%s, space.new_interned_str("__builtins__"))'
                              % globname)

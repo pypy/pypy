@@ -61,33 +61,27 @@ to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
     try:
-        # save duplication by redirecting every error to applevel
-        x = space.int_w(w_x)
+        x = space.int_w(space.int(w_x))
         if space.is_w(w_y, space.w_None):
             start, stop = 0, x
         else:
-            start, stop = x, space.int_w(w_y)
-        step = space.int_w(w_step)
+            start, stop = x, space.int_w(space.int(w_y))
+        step = space.int_w(space.int(w_step))
         howmany = get_len_of_range(start, stop, step)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            pass
-        else:
-            raise
-    except (ValueError, OverflowError):
-        pass
-    else:
-        if (space.config.objspace.std.withmultilist or
-            space.config.objspace.std.withrangelist):
-            return range_withspecialized_implementation(space, start,
-                                                        step, howmany)
-        res_w = [None] * howmany
-        v = start
-        for idx in range(howmany):
-            res_w[idx] = space.wrap(v)
-            v += step
-        return space.newlist(res_w)
-    return range_fallback(space, w_x, w_y, w_step)
+    except (ValueError, OverflowError, OperationError):
+        # save duplication by redirecting every error to applevel
+        return range_fallback(space, w_x, w_y, w_step)
+
+    if (space.config.objspace.std.withmultilist or
+        space.config.objspace.std.withrangelist):
+        return range_withspecialized_implementation(space, start,
+                                                    step, howmany)
+    res_w = [None] * howmany
+    v = start
+    for idx in range(howmany):
+        res_w[idx] = space.wrap(v)
+        v += step
+    return space.newlist(res_w)
 range_int = range
 range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 del range # don't hide the builtin one
@@ -207,7 +201,7 @@ class W_XRange(Wrappable):
 def _toint(space, w_obj):
     # trying to support float arguments, just because CPython still does
     try:
-        return space.int_w(w_obj)
+        return space.int_w(space.int(w_obj))
     except OperationError, e:
         if space.is_true(space.isinstance(w_obj, space.w_float)):
             return space.int_w(space.int(w_obj))

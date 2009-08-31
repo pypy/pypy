@@ -304,3 +304,7 @@ class TestGenRpyTestCase:
         fn = self.build_interpfunc(snippet.exception_subclass_sanity)
         result = fn(7)
         assert result == 7
+
+    def test_property(self):
+        fn = self.build_interpfunc(snippet.run_prop)
+        assert fn(23) == 23

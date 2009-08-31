@@ -101,6 +101,7 @@ class CBuilder(object):
     c_source_filename = None
     _compiled = False
     modulename = None
+    split = False
     
     def __init__(self, translator, entrypoint, config, gcpolicy=None):
         self.translator = translator
@@ -231,7 +232,8 @@ class CBuilder(object):
             assert not self.config.translation.instrument
             self.eci, cfile, extra = gen_source(db, modulename, targetdir,
                                                 self.eci,
-                                                defines = defines)
+                                                defines = defines,
+                                                split=self.split)
         else:
             pfname = db.get(pf)
             if self.config.translation.instrument:
@@ -428,9 +430,10 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def cmdexec(self, args=''):
+    def cmdexec(self, args='', env=None):
         assert self._compiled
-        res = self.translator.platform.execute(self.executable_name, args)
+        res = self.translator.platform.execute(self.executable_name, args,
+                                               env=env)
         if res.returncode != 0:
             raise Exception("Returned %d" % (res.returncode,))
         return res.out
@@ -515,7 +518,7 @@ class SourceGenerator:
         self.path = None
         self.namespace = NameManager()
 
-    def set_strategy(self, path):
+    def set_strategy(self, path, split=True):
         all_nodes = list(self.database.globalcontainers())
         # split off non-function nodes. We don't try to optimize these, yet.
         funcnodes = []
@@ -526,7 +529,8 @@ class SourceGenerator:
             else:
                 othernodes.append(node)
         # for now, only split for stand-alone programs.
-        if self.database.standalone:
+        #if self.database.standalone:
+        if split:
             self.one_source_file = False
         self.funcnodes = funcnodes
         self.othernodes = othernodes
@@ -817,7 +821,7 @@ def gen_source_standalone(database, modulename, targetdir, eci,
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)
 
-def gen_source(database, modulename, targetdir, eci, defines={}):
+def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -852,7 +856,9 @@ def gen_source(database, modulename, targetdir, eci, defines={}):
     # 2) Implementation of functions and global structures and arrays
     #
     sg = SourceGenerator(database, preimplementationlines)
-    sg.set_strategy(targetdir)
+    sg.set_strategy(targetdir, split)
+    if split:
+        database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
 
     gen_startupcode(f, database)

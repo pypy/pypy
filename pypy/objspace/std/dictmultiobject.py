@@ -1052,11 +1052,17 @@ class W_DictMultiObject(W_Object):
             w_self.implementation = SharedDictImplementation(space)
         else:
             w_self.implementation = space.emptydictimpl
+        w_self.space = space
 
     def initialize_content(w_self, list_pairs_w):
         impl = w_self.implementation
         for w_k, w_v in list_pairs_w:
             impl = impl.setitem(w_k, w_v)
+        w_self.implementation = impl
+
+    def initialize_from_strdict_shared(w_self, strdict):
+        impl = StrDictImplementation(w_self.space)
+        impl.content = strdict
         w_self.implementation = impl
 
     def __repr__(w_self):

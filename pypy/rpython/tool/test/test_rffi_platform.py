@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 
 def import_ctypes():
     try:
@@ -234,3 +235,24 @@ def test_memory_alignment():
     a = rffi_platform.memory_alignment()
     print a
     assert a % struct.calcsize("P") == 0
+
+def test_external_lib():
+    # XXX this one seems to be a bit too platform-specific. Check
+    #     how to test it on windows correctly (using so_prefix?)
+    #     and what are alternatives to LD_LIBRARY_PATH
+    eci = ExternalCompilationInfo()
+    c_source = """
+    int f(int a, int b)
+    {
+        return (a + b);
+    }
+    """
+    tmpdir = udir.join('external_lib').ensure(dir=1)
+    c_file = tmpdir.join('libc_lib.c')
+    c_file.write(c_source)
+    l = platform.compile([c_file], eci, standalone=False)
+    eci = ExternalCompilationInfo(
+        libraries = ['c_lib'],
+        library_dirs = [str(tmpdir)]
+        )
+    rffi_platform.verify_eci(eci)

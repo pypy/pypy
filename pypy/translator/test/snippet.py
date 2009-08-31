@@ -675,7 +675,20 @@ def exception_subclass_sanity(x):
         raise Exc(x)
     except Exception, e:
         return e.args[0]
-    
+
+
+class HaveProp(object):
+
+    def __init__(self, v):
+        self.v = v
+
+    def _hi(self):
+        return self.v
+    hi = property(_hi, doc="HaveProp._hi")
+
+
+def run_prop(v):
+    return HaveProp(v).hi
 
 # --------------------(Currently) Non runnable Functions ---------------------
 

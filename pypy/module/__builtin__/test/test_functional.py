@@ -117,6 +117,25 @@ class AppTestXRange:
       # test again, to make sure that xrange() is not its own iterator
       assert iter(x).next() == 2
 
+   def test_xrange_object_with___int__(self):
+       class A(object):
+          def __int__(self):
+             return 5
+
+       assert list(xrange(A())) == [0, 1, 2, 3, 4]
+       assert list(xrange(0, A())) == [0, 1, 2, 3, 4]
+       assert list(xrange(0, 10, A())) == [0, 5]
+ 
+   def test_xrange_float(self):
+      assert list(xrange(0.1, 2.0, 1.1)) == [0, 1]
+
+   def test_xrange_long(self):
+       import sys
+       a = long(10 * sys.maxint)
+       raises(OverflowError, xrange, a)
+       raises(OverflowError, xrange, 0, a)
+       raises(OverflowError, xrange, 0, 1, a)
+
 class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")

@@ -19,6 +19,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.annlowlevel import base_ptr_lltype
 from pypy.rpython import raddress
+from pypy.translator.platform import platform
 
 def uaddressof(obj):
     return fixid(ctypes.addressof(obj))
@@ -871,17 +872,16 @@ def get_ctypes_callable(funcptr, calling_conv):
         not_found = []
         for libname in libraries:
             libpath = None
+            ext = platform.so_ext
+            prefixes = platform.so_prefixes
             for dir in eci.library_dirs:
-                # xxx untested directly, what about 'lib' prefix
-                if sys.platform == "win32":
-                    tryfile = os.path.join(dir, libname + '.dll')
-                elif sys.platform == "darwin":
-                    tryfile = os.path.join(dir, libname + '.dylib')
-                else:
-                    tryfile = os.path.join(dir, libname + '.so')
-                if os.path.isfile(tryfile):
-                    libpath = tryfile
+                if libpath:
                     break
+                for prefix in prefixes:
+                    tryfile = os.path.join(dir, prefix + libname + '.' + ext)
+                    if os.path.isfile(tryfile):
+                        libpath = tryfile
+                        break
             if not libpath:
                 libpath = ctypes.util.find_library(libname)
                 if not libpath:
@@ -890,8 +890,10 @@ def get_ctypes_callable(funcptr, calling_conv):
                     libpath = libname
             if libpath:
                 dllclass = getattr(ctypes, calling_conv + 'dll')
-                # urgh, cannot pass the flag to dllclass.LoadLibrary
-                clib = dllclass._dlltype(libpath, ctypes.RTLD_GLOBAL)
+                # on ie slackware there was need for RTLD_GLOBAL here.
+                # this breaks a lot of things, since passing RTLD_GLOBAL
+                # creates symbol conflicts on C level.
+                clib = dllclass.LoadLibrary(libpath)
                 cfunc = get_on_lib(clib, funcname)
                 if cfunc is not None:
                     break

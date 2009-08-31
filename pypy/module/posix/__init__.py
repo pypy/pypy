@@ -120,6 +120,14 @@ corresponding Unix manual entries for more information on calls."""
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 
+    def __init__(self, space, w_name):
+        backend = space.config.translation.backend
+        # the Win32 urandom implementation isn't going to translate on JVM or CLI
+        # so we have to remove it
+        if backend == 'cli' or backend == 'jvm':
+            del self.interpleveldefs['urandom']
+        MixedModule.__init__(self, space, w_name)
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         interp_posix.get(space).startup(space)

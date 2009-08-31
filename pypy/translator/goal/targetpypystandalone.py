@@ -199,6 +199,16 @@ class PyPyTarget(object):
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
+        if config.translation.backend in ["cli", "jvm"] and sys.platform == "win32":
+            # HACK: The ftruncate implementation in streamio.py which is used for the Win32 platform
+            # is specific for the C backend and can't be generated on CLI or JVM. Because of that,
+            # we have to patch it out.
+            from pypy.rlib import streamio
+            def ftruncate_win32_dummy(fd, size): pass
+            def _setfd_binary_dummy(fd): pass
+            streamio.ftruncate_win32 = ftruncate_win32_dummy
+            streamio._setfd_binary = _setfd_binary_dummy
+
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):

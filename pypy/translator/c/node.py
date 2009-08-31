@@ -13,6 +13,7 @@ from pypy.translator.c.primitive import PrimitiveType
 from pypy.rlib.rarithmetic import isinf, isnan
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from py.builtin import BaseException
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -892,7 +893,7 @@ class PyObjectNode(ContainerNode):
             return 'Py_None'
         import types, py
         if isinstance(value, (type, types.ClassType)):
-            if (issubclass(value, Exception) and
+            if (issubclass(value, BaseException) and
                 (value.__module__ == 'exceptions'
                  or value is py.magic.AssertionError)):
                 return 'PyExc_' + value.__name__

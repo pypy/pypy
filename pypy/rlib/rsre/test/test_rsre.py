@@ -80,6 +80,11 @@ def test_at_boundary():
 def test_getlower():
     assert rsre_char.getlower(ord("A"), 0) == ord("a")
 
+def test_SimpleStringState():
+    state = SimpleStringState("A", 0, -1)
+    assert state.get_char_ord(0) == ord("A")
+    assert state.lower(state.get_char_ord(0)) == ord("a")
+
 def test_get_byte_array():
     if sys.byteorder == "big":
         if rsre_char.CODESIZE == 2:

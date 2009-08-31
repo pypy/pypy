@@ -505,6 +505,7 @@ class AppTestOldstyle(object):
         raises(TypeError, cmp, a, b)
 
     def test_hash(self):
+        import sys
         class A:
             pass
         hash(A()) # does not crash
@@ -528,11 +529,12 @@ class AppTestOldstyle(object):
                 return 1
         a = A()
         raises(TypeError, hash, a)
+        bigint = sys.maxint + 1
         class A: # can return long 
             def __hash__(self):
-                return long(2**31)
+                return long(bigint)
         a = A()
-        assert hash(a) == -2147483648
+        assert hash(a) == -bigint 
 
     def test_index(self):
         import sys

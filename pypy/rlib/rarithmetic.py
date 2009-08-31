@@ -5,7 +5,7 @@ classes and operations to express integer arithmetic,
 such that before and after translation semantics are
 consistent
 
-r_uint   an unsigned integer which has not overflow
+r_uint   an unsigned integer which has no overflow
          checking. It is always positive and always
          truncated to the internal machine word size.
 intmask  mask a possibly long value when running on CPython

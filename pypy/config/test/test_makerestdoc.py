@@ -5,6 +5,11 @@ from py.__.misc.rest import process as restcheck
 
 tempdir = py.test.ensuretemp('config')
 
+try:
+    import docutils
+except ImportError:
+    py.test.skip("don't have docutils")
+
 def checkrest(rest, filename):
     tempfile = tempdir.join(filename)
     tempfile.write(rest)

@@ -212,6 +212,11 @@ class SemiSpaceGC(MovingGCBase):
             start_time = 0 # Help the flow space
             start_usage = 0 # Help the flow space
         #llop.debug_print(lltype.Void, 'semispace_collect', int(size_changing))
+
+        # Switch the spaces.  We copy everything over to the empty space
+        # (self.fromspace at the beginning of the collection), and clear the old
+        # one (self.tospace at the beginning).  Their purposes will be reversed
+        # for the next collection.
         tospace = self.fromspace
         fromspace = self.tospace
         self.fromspace = fromspace

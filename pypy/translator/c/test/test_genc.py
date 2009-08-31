@@ -12,7 +12,6 @@ from pypy.tool.udir import udir
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.interactive import Translation
-from pypy import conftest
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -24,7 +23,7 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     # XXX fish
     t.driver.config.translation.countmallocs = True
     compiled_fn = t.compile_c()
-    if conftest.option.view:
+    if py.test.config.option.view:
         t.view()
     malloc_counters = t.driver.cbuilder.get_malloc_counters()
     def checking_fn(*args, **kwds):
@@ -403,6 +402,6 @@ def test_name():
     t = Translation(f, [], backend="c")
     t.annotate()
     compiled_fn = t.compile_c()
-    if conftest.option.view:
+    if py.test.config.option.view:
         t.view()
     assert 'pypy_xyz_f' in t.driver.cbuilder.c_source_filename.read()

@@ -2,7 +2,7 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_singlefloat,\
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_singlefloat,\
      isnan, isinf
 
 class TestSnippet(object):
@@ -76,12 +76,17 @@ class BaseTestRfloat(BaseRtypingTest):
         assert res == fn(2.34) 
 
     def test_longlong_conversion(self):
+        import sys
         def fn(f):
             return r_longlong(f)
 
         res = self.interpret(fn, [1.0])
         assert res == 1
-        assert self.is_of_type(res, r_longlong)
+        # r_longlong is int on a 64 bit system
+        if sys.maxint == 2**63 - 1:
+            assert self.is_of_type(res, int)
+        else:
+            assert self.is_of_type(res, r_longlong)
         res = self.interpret(fn, [2.34])
         assert res == fn(2.34) 
         big = float(0x7fffffffffffffff)

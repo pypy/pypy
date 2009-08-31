@@ -42,7 +42,7 @@ class AppTestMMap:
             raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
-            raises(TypeError, mmap, 0, -1)
+            raises((TypeError, OverflowError), mmap, 0, -1)
             raises(OverflowError, mmap, 0, sys.maxint ** 3)
             raises(ValueError, mmap, 0, 1, flags=2, access=3)
             raises(ValueError, mmap, 0, 1, access=123)
@@ -410,7 +410,7 @@ class AppTestMMap:
         def fn(m): m *= 1                         # but it
         raises((SystemError, TypeError), fn, m)   # doesn't
         def fn(): 1 * m                           # make much sense
-        raises(TypeError, fn)
+        raises((SystemError, TypeError), fn)
         m.close()
         f.close()
 #         

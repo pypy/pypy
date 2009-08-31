@@ -12,6 +12,7 @@ if rsre_core_filename[-1] in 'oc':
     rsre_core_filename = rsre_core_filename[:-1]
 rsre_core_filename = os.path.abspath(rsre_core_filename)
 del rsre_core
+from pypy.rlib.rsre.rsre_char import getlower
 
 def insert_sre_methods(locals, name):
     """A hack that inserts the SRE entry point methods into the 'locals'
@@ -58,3 +59,6 @@ class SimpleStringState(object):
 
     def get_char_ord(self, p):
         return ord(self.string[p])
+
+    def lower(self, char_ord):
+        return getlower(char_ord, 0)

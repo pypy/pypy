@@ -19,3 +19,5 @@ as well as blog posts (oldest first):
 * http://morepypy.blogspot.com/2009/04/roadmap-for-jit.html
 * http://morepypy.blogspot.com/2009/04/4-weeks-of-gdb.html
 * http://morepypy.blogspot.com/2009/05/icooolps-submissions.html
+* http://morepypy.blogspot.com/2009/06/news-from-jit-front.html
+* http://morepypy.blogspot.com/2009/06/jit-progress.html

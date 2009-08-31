@@ -261,7 +261,8 @@ namespace pypy.builtin
         public static void ll_os_close(int fd)
         {
             FileStream stream = getfd(fd).GetStream();
-            stream.Close();
+            if (stream != null)  // stdin/stdout/stderr files don't have a stream
+                stream.Close();
             FileDescriptors.Remove(fd);
         }
 

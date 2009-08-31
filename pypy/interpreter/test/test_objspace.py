@@ -8,6 +8,10 @@ import sys
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
 
+
+INT32_MAX = 2147483648
+
+
 class TestObjSpace: 
     def test_newlist(self):
         w = self.space.wrap
@@ -154,9 +158,9 @@ class TestObjSpace:
         res = space.r_longlong_w(w_value)
         assert res == 12
         assert type(res) is r_longlong
-        w_value = space.wrap(r_longlong(-sys.maxint * 42))
+        w_value = space.wrap(r_longlong(-INT32_MAX * 42))
         res = space.r_longlong_w(w_value)
-        assert res == -sys.maxint * 42
+        assert res == -INT32_MAX * 42
         assert type(res) is r_longlong
         w_obj = space.wrap("hello world")
         space.raises_w(space.w_TypeError, space.r_longlong_w, w_obj)
@@ -169,9 +173,9 @@ class TestObjSpace:
         res = space.r_ulonglong_w(w_value)
         assert res == 12
         assert type(res) is r_ulonglong
-        w_value = space.wrap(r_ulonglong(sys.maxint * 42))
+        w_value = space.wrap(r_ulonglong(INT32_MAX * 42))
         res = space.r_ulonglong_w(w_value)
-        assert res == sys.maxint * 42
+        assert res == INT32_MAX * 42
         assert type(res) is r_ulonglong
         w_obj = space.wrap("hello world")
         space.raises_w(space.w_TypeError, space.r_ulonglong_w, w_obj)

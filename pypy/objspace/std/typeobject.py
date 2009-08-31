@@ -256,14 +256,8 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
         space = w_self.space
-        dictspec = []
-        for key, w_value in w_self.dict_w.items():
-            dictspec.append((space.wrap(key), w_value))
-        # speed hack: instantiate a dict object cls directly
-        # NB: cannot use newdict, because that could return something else
-        # than an instance of DictObjectCls
         newdic = space.DictObjectCls(space)
-        newdic.initialize_content(dictspec)
+        newdic.initialize_from_strdict_shared(w_self.dict_w)
         return W_DictProxyObject(newdic)
 
     def unwrap(w_self, space):

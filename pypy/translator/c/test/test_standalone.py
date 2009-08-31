@@ -77,11 +77,11 @@ class TestStandalone(object):
         cbuilder.compile()
 
         counters_fname = udir.join("_counters_")
-        os.putenv('_INSTRUMENT_COUNTERS', str(counters_fname))
+        os.environ['_INSTRUMENT_COUNTERS'] = str(counters_fname)
         try:
             data = cbuilder.cmdexec()
         finally:
-            os.unsetenv('_INSTRUMENT_COUNTERS')
+            del os.environ['_INSTRUMENT_COUNTERS']
 
         f = counters_fname.open('rb')
         counters_data = f.read()

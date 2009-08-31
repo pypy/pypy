@@ -176,6 +176,10 @@ if sys.platform == "win32":
                                compilation_info=_eci)
     SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
                                    compilation_info=_eci)
+
+    # HACK: These implementations are specific to MSVCRT and the C backend.
+    # When generating on CLI or JVM, these are patched out.
+    # See PyPyTarget.target() in targetpypystandalone.py
     def _setfd_binary(fd):
         _setmode(fd, os.O_BINARY)
 

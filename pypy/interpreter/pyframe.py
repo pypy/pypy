@@ -23,7 +23,7 @@ class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 
-    See also pyopcode.PyStandardFrame and pynestedscope.PyNestedScopeFrame.
+    See also pyopcode.PyStandardFrame and nestedscope.PyNestedScopeFrame.
 
     Public fields:
      * 'space' is the object space this frame is running in

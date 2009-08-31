@@ -915,14 +915,19 @@ class AppTestTypeObject:
                 return 0
         raises(TypeError, X)
 
+class AppTestWithMultidictTypes:
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
+
     def test_dictproxy_is_updated(self):
-        skip("fix me")
         class A(object):
             x = 1
         d = A.__dict__
         assert d["x"] == 1
         A.y = 2
         assert d["y"] == 2
+        assert ("x", 1) in d.items()
+        assert ("y", 2) in d.items()
 
 
 class AppTestMutableBuiltintypes:

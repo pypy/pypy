@@ -6,11 +6,6 @@ This module contains functions that can read and write Python values in a binary
 import types
 from _codecs import utf_8_decode, utf_8_encode
 
-try:
-    import new
-except ImportError:
-    new = None
-
 TYPE_NULL     = '0'
 TYPE_NONE     = 'N'
 TYPE_FALSE    = 'F'
@@ -409,11 +404,9 @@ class _Unmarshaller:
         name = self.load()
         firstlineno = self.r_long()
         lnotab = self.load()
-        if not new:
-            raise RuntimeError, "can't unmarshal code objects; no 'new' module"
-        return new.code(argcount, nlocals, stacksize, flags, code, consts,
-                        names, varnames, filename, name, firstlineno, lnotab,
-                        freevars, cellvars)
+        return types.CodeType(argcount, nlocals, stacksize, flags, code, consts,
+                              names, varnames, filename, name, firstlineno,
+                              lnotab, freevars, cellvars)
     dispatch[TYPE_CODE] = load_code
 
     def load_set(self):
@@ -627,11 +620,9 @@ class _FastUnmarshaller:
         name = self.load()
         firstlineno = _r_long(self)
         lnotab = self.load()
-        if not new:
-            raise RuntimeError, "can't unmarshal code objects; no 'new' module"
-        return new.code(argcount, nlocals, stacksize, flags, code, consts,
-                        names, varnames, filename, name, firstlineno, lnotab,
-                        freevars, cellvars)
+        return types.CodeType(argcount, nlocals, stacksize, flags, code, consts,
+                              names, varnames, filename, name, firstlineno,
+                              lnotab, freevars, cellvars)
     dispatch[TYPE_CODE] = load_code
 
     def load_set(self):
@@ -647,17 +638,6 @@ class _FastUnmarshaller:
     dispatch[TYPE_FROZENSET] = load_frozenset
 
 _load_dispatch = _FastUnmarshaller.dispatch
-
-# _________________________________________________________________
-#
-# compatibility
-
-try:
-    set
-except NameError:
-    def set(x):
-        raise ValueError("cannot unmarshal set objects on Python < 2.4")
-    frozenset = set
 
 # _________________________________________________________________
 #

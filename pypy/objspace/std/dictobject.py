@@ -13,11 +13,18 @@ class W_DictObject(W_Object):
             w_self.content = r_dict(space.eq_w, space.hash_w)
         else:
             w_self.content = w_otherdict.content.copy()
+        w_self.space = space
 
     def initialize_content(w_self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
             w_self.content[w_k] = w_v
 
+    def initialize_from_strdict_shared(w_self, strdict):
+        # XXX the stuff below is slightly broken, as the dict is not really shared
+        # this would be very very annoying to fix with non-multidicts
+        for key, w_value in strdict.items():
+            w_self.content[w_self.space.wrap(key)] = w_value
+        
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.content)
