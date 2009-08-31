@@ -1,6 +1,7 @@
 from pypy.objspace.std.dictmultiobject import DictImplementation
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
+from pypy.rlib import jit
 
 class ModuleCell(object):
     def __init__(self, w_value=None):
@@ -21,13 +22,13 @@ class ModuleDictImplementation(DictImplementation):
         self.unshadowed_builtins = {}
 
     def getcell(self, key, make_new=True):
-        try:
-            return self.content[key]
-        except KeyError:
-            if not make_new:
-                raise
-            result = self.content[key] = ModuleCell()
-            return result
+        res = self.content.get(key, None)
+        if res is not None:
+            return res
+        if not make_new:
+            return None
+        result = self.content[key] = ModuleCell()
+        return result
 
     def add_unshadowed_builtin(self, name, builtin_impl):
         assert isinstance(builtin_impl, ModuleDictImplementation)
@@ -66,6 +67,8 @@ class ModuleDictImplementation(DictImplementation):
         if space.is_w(w_key_type, space.w_str):
             key = space.str_w(w_key)
             cell = self.getcell(key, False)
+            if cell is None:
+                raise KeyError
             cell.invalidate()
             del self.content[key]
             return self
@@ -81,10 +84,10 @@ class ModuleDictImplementation(DictImplementation):
         space = self.space
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
-            try:
-                return self.getcell(space.str_w(w_lookup), False).w_value
-            except KeyError:
+            res = self.getcell(space.str_w(w_lookup), False)
+            if res is None:
                 return None
+            return res.w_value
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
@@ -186,9 +189,10 @@ class GlobalCacheHolder(object):
     def getcache_slow(self, space, code, w_globals, implementation):
         state = space.fromcache(State)
         if not isinstance(implementation, ModuleDictImplementation):
-            missing_length = max(len(code.co_names_w) - len(state.always_invalid_cache), 0)
-            state.always_invalid_cache.extend([state.invalidcell] * missing_length)
             cache = state.always_invalid_cache
+            if len(code.co_names_w) > len(cache):
+                cache = [state.invalidcell] * len(code.co_names_w)
+                state.always_invalid_cache = cache
         else:
             cache = [state.invalidcell] * len(code.co_names_w)
         self.cache = cache
@@ -202,8 +206,7 @@ def init_code(code):
 
 def get_global_cache(space, code, w_globals):
     from pypy.interpreter.pycode import PyCode
-    if not isinstance(code, PyCode):
-        return []
+    assert isinstance(code, PyCode)
     holder = code.globalcacheholder
     return holder.getcache(space, code, w_globals)
 
@@ -224,12 +227,10 @@ LOAD_GLOBAL._always_inline_ = True
 
 def find_cell_from_dict(implementation, name):
     if isinstance(implementation, ModuleDictImplementation):
-        try:
-            return implementation.getcell(name, False)
-        except KeyError:
-            return None
+        return implementation.getcell(name, False)
     return None
 
+@jit.dont_look_inside
 def load_global_fill_cache(f, nameindex):
     name = f.space.str_w(f.getname_w(nameindex))
     implementation = getimplementation(f.w_globals)
