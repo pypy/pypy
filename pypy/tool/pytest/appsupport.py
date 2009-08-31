@@ -184,7 +184,7 @@ def _exc_info(space, err):
     """Hack the fact that exc_info() isn't set until a app except
     block catches it."""
     err.normalize_exception(space)
-    frame = space.getexecutioncontext().framestack.top()
+    frame = space.getexecutioncontext().gettopframe()
     old = frame.last_exception
     frame.last_exception = err
     if not hasattr(space, '_w_ExceptionInfo'):
