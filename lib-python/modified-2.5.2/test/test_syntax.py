@@ -164,13 +164,13 @@ From ast_for_expr_stmt():
 
 >>> (x for x in x) += 1 # doctest: +ELLIPSIS 
 Traceback (most recent call last):
-SyntaxError: augmented assign...generator expression not possible (<doctest test.test_syntax[29]>, line 1)
+SyntaxError: can't assign to generator expression (<doctest test.test_syntax[29]>, line 1)
 >>> None += 1 # doctest: +ELLIPSIS 
 Traceback (most recent call last):
 SyntaxError: assignment to None... (<doctest test.test_syntax[30]>, line 1)
 >>> f() += 1
 Traceback (most recent call last):
-SyntaxError: illegal expression for augmented assignment (<doctest test.test_syntax[31]>, line 1)
+SyntaxError: can't assign to function call (<doctest test.test_syntax[31]>, line 1)
 
 
 Test continue in finally in weird combinations.

@@ -10,9 +10,9 @@ class SyntaxError(Exception):
         self.filename = filename
         self.print_file_and_line = False
 
-    def wrap_info(self, space, filename):
+    def wrap_info(self, space):
         return space.newtuple([space.wrap(self.msg),
-                               space.newtuple([space.wrap(filename),
+                               space.newtuple([space.wrap(self.filename),
                                                space.wrap(self.lineno),
                                                space.wrap(self.offset),
                                                space.wrap(self.text)])])
@@ -32,8 +32,14 @@ class ASTError(Exception):
         self.ast_node = ast_node
 
 
-class TokenError(Exception):
-    def __init__(self, msg, tokens):
-        self.msg = msg
+class TokenError(SyntaxError):
+
+    def __init__(self, msg, line, lineno, column, tokens):
+        SyntaxError.__init__(self, msg, lineno, column, line)
         self.tokens = tokens
-    
+
+class TokenIndentationError(IndentationError):
+
+    def __init__(self, msg, line, lineno, column, tokens):
+        SyntaxError.__init__(self, msg, lineno, column, line)
+        self.tokens = tokens

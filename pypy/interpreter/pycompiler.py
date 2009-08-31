@@ -4,7 +4,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 """
 
 import sys
-from codeop import PyCF_DONT_IMPLY_DEDENT
+from pypy.interpreter.astcompiler.consts import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
 
 class AbstractCompiler(object):
@@ -205,6 +205,7 @@ class CPythonCompiler(PyCodeCompiler):
 
 ########
 
+
 class PythonAstCompiler(PyCodeCompiler):
     """Uses the stdlib's python implementation of compiler
 
@@ -215,122 +216,63 @@ class PythonAstCompiler(PyCodeCompiler):
     """
     def __init__(self, space, override_version=None):
 
-        from pyparser.pythonparse import make_pyparser
+        from pypy.interpreter.pyparser.pyparse import PythonParser
         PyCodeCompiler.__init__(self, space)
-        self.grammar_version = override_version or "2.5"
-        self.parser = make_pyparser(self.grammar_version)
+        self.parser = PythonParser(space)
         self.additional_rules = {}
-        if self.grammar_version >= '2.5':
-            self.futureFlags = future.futureFlags_2_5
-        else:
-            self.futureFlags = future.futureFlags_2_4
+        self.futureFlags = future.futureFlags_2_5
         self.compiler_flags = self.futureFlags.allowed_flags
 
-    def compile(self, source, filename, mode, flags):
-        from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
-        from pypy.interpreter import astcompiler
-        from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
-        from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
-        from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
-        from pypy.interpreter.astcompiler.ast import Node
-        from pypy.interpreter.astcompiler import opt
-        from pyparser.astbuilder import AstBuilder
-        from pypy.interpreter.pycode import PyCode
-        from pypy.interpreter.function import Function
+    def compile_ast(self, node, filename, mode, flags):
+        from pypy.interpreter.pyparser.pyparse import CompileInfo
+        from pypy.interpreter.astcompiler.misc import parse_future
+        info = CompileInfo(filename, mode, flags, parse_future(node))
+        return self._compile_ast(node, info)
 
-        from pypy.interpreter.pyparser.future import getFutures
-        from pypy.interpreter.pyparser.pythonlexer import TokenIndentationError
-
-##         flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
+    def _compile_ast(self, node, info):
+        from pypy.interpreter.astcompiler import optimize
+        from pypy.interpreter.astcompiler.codegen import compile_ast
+        from pypy.interpreter.pyparser.error import SyntaxError
         space = self.space
-        space.timer.start("PythonAST compile")
         try:
-            builder = AstBuilder(self.parser, self.grammar_version, space=space)
-            for rulename, buildfunc in self.additional_rules.iteritems():
-                assert isinstance(buildfunc, Function)
-                builder.user_build_rules[rulename] = buildfunc
-            flags |= getFutures(self.futureFlags, source)
-            self.parser.parse_source(source, mode, builder, flags)
-            ast_tree = builder.rule_stack[-1]
-            encoding = builder.source_encoding
+            mod = optimize.optimize_ast(space, node, info)
+            code = compile_ast(space, mod, info)
+        except SyntaxError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space))
+        return code
+
+    def compile_to_ast(self, source, filename, mode, flags):
+        from pypy.interpreter.pyparser.pyparse import CompileInfo
+        info = CompileInfo(filename, mode, flags)
+        return self._compile_to_ast(source, info)
+
+    def _compile_to_ast(self, source, info):
+        from pypy.interpreter.pyparser.future import getFutures
+        from pypy.interpreter.pyparser.error import (SyntaxError,
+                                                     IndentationError,
+                                                     TokenIndentationError)
+        from pypy.interpreter.astcompiler.astbuilder import ast_from_node
+        space = self.space
+        try:
+            f_flags, future_info = getFutures(self.futureFlags, source)
+            info.last_future_import = future_info
+            info.flags |= f_flags
+            parse_tree = self.parser.parse_source(source, info)
+            mod = ast_from_node(space, parse_tree, info)
         except IndentationError, e:
             raise OperationError(space.w_IndentationError,
-                                 e.wrap_info(space, filename))
+                                 e.wrap_info(space))
         except TokenIndentationError, e:
             raise OperationError(space.w_IndentationError,
-                                 e.wrap_info(space, filename))
+                                 e.wrap_info(space))
         except SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space, filename))
-        ast_tree = opt.optimize_ast_tree(space, ast_tree)
+                                 e.wrap_info(space))
+        return mod
 
-        if not space.is_w(self.w_compile_hook, space.w_None):
-            try:
-                w_ast_tree = space.call_function(self.w_compile_hook,
-                                                 space.wrap(ast_tree),
-                                                 space.wrap(encoding),
-                                                 space.wrap(filename))
-                ast_tree = space.interp_w(Node, w_ast_tree)
-            except OperationError:
-                self.w_compile_hook = space.w_None
-                raise
-        try:
-            astcompiler.misc.set_filename(filename, ast_tree)
-            flag_names = self.futureFlags.get_flag_names(space, flags)
-            if mode == 'exec':
-                codegenerator = ModuleCodeGenerator(space, ast_tree, flag_names)
-            elif mode == 'single':
-                codegenerator = InteractiveCodeGenerator(space, ast_tree, flag_names)
-            else: # mode == 'eval':
-                codegenerator = ExpressionCodeGenerator(space, ast_tree, flag_names)
-            c = codegenerator.getCode()
-        except SyntaxError, e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space, filename))
-        except (ValueError, TypeError), e:
-            raise OperationError(space.w_SystemError, space.wrap(str(e)))
-        assert isinstance(c, PyCode)
-        space.timer.stop("PythonAST compile")
-        return c
-
-    # interface for pypy.module.recparser
-    def get_parser(self):
-        return self.parser
-
-    def source2ast(self, source, mode='exec'):
-        from pypy.interpreter.pyparser.astbuilder import AstBuilder
-        builder = AstBuilder(self.parser, self.grammar_version,
-                             space=self.space)
-        self.parser.parse_source(source, mode, builder)
-        return builder.rule_stack[-1]
-
-
-def install_compiler_hook(space, w_callable):
-#       if not space.get( w_callable ):
-#           raise OperationError( space.w_TypeError( space.wrap( "must have a callable" ) )
-    space.default_compiler.w_compile_hook = w_callable
-
-def insert_grammar_rule(space, w_rule, w_buildfuncs):
-    """inserts new grammar rules to the default compiler"""
-    from pypy.interpreter import function
-    rule = space.str_w(w_rule)
-    #buildfuncs_w = w_buildfuncs.content
-    buildfuncs = {}
-    #for w_name, w_func in buildfuncs_w.iteritems():
-    #    buildfuncs[space.str_w(w_name)] = space.unwrap(w_func)
-    w_iter = space.iter(w_buildfuncs)
-    while 1:
-        try:
-            w_key = space.next(w_iter)
-            w_func = space.getitem(w_buildfuncs, w_key)
-            buildfuncs[space.str_w(w_key)] = space.interp_w(function.Function, w_func)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-    space.default_compiler.additional_rules = buildfuncs
-    space.default_compiler.parser.insert_rule(rule)
-
-# XXX cyclic import
-#from pypy.interpreter.baseobjspace import ObjSpace
-#insert_grammar_rule.unwrap_spec = [ObjSpace, str, dict]
+    def compile(self, source, filename, mode, flags):
+        from pypy.interpreter.pyparser.pyparse import CompileInfo
+        info = CompileInfo(filename, mode, flags)
+        mod = self._compile_to_ast(source, info)
+        return self._compile_ast(mod, info)

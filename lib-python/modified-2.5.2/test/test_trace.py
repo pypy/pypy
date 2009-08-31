@@ -336,10 +336,11 @@ class TraceTestCase(unittest.TestCase):
             for_example,
             [(0, 'call'),
              (1, 'line'),
-             (1, 'line'),
+             (2, 'line'),
              (1, 'line'),
              (2, 'line'),
-             (2, 'return')])
+             (1, 'line'),
+             (1, 'return')])
 
         def while_example():
             # While expression should be traced on every loop

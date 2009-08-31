@@ -18,7 +18,7 @@ default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "gc", "_weakref", "marshal", "errno",
      "math", "_sre", "_pickle_support", "operator",
-     "recparser", "symbol", "_random", "__pypy__"]))
+     "parser", "symbol", "token", "_ast", "_random", "__pypy__"]))
 
 
 # --allworkingmodules
@@ -26,7 +26,7 @@ working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl",
       "rctime" , "select", "zipimport", "_lsprof",
-     "crypt", "signal", "dyngram", "_rawffi", "termios", "zlib",
+     "crypt", "signal", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl"]
 ))

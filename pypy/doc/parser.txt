@@ -1,11 +1,7 @@
 
-==================
-PyPy Parser 
-==================
-
-WARNING: this document is out-of-date and unfinished.  Our compiler
-is done by now, unlike explained below.
-
+===========
+PyPy Parser
+===========
 
 Overview
 ========
@@ -15,196 +11,93 @@ The PyPy parser includes a tokenizer and a recursive descent parser.
 Tokenizer
 ---------
 
-The tokenizer accepts  as string as input and provides tokens through
-a ``next()`` and a ``peek()`` method. The tokenizer is implemented as a finite
-automata like lex.
+At the moment, the tokenizer is implemented as a single function
+(``generate_tokens`` in `pypy/interpreter/pyparser/pytokenizer.py`_) that builds
+a list of tokens.  The tokens are then fed to the parser.
 
 Parser
 ------
 
-The parser is a tree of grammar rules. EBNF grammar rules are decomposed
-as a tree of objects.
-Looking at a grammar rule one can see it is composed of a set of four basic
-subrules. In the following exemple we have all four of them: 
-
-S <- A '+' (C | D) +
-
-
-The previous line says S is a sequence of symbol A, token '+', a subrule + which
-matches one or more of an alternative between symbol C and symbol D.
-Thus the four basic grammar rule types are :
-* sequence 
-* alternative
-* multiplicity (called kleen star after the * multiplicity type)
-* token
-
-The four types are represented by a class in pyparser/grammar.py
-( Sequence, Alternative, KleeneStar, Token) all classes have a ``match()`` method
-accepting a source (the tokenizer) and a builder (an object responsible for
-building something out of the grammar).
-
-Here's a basic exemple and how the grammar is represented::
-
-    S <- A ('+'|'-') A
-    A <- V ( ('*'|'/') V )*
-    V <- 'x' | 'y'
-    
-    In python:
-    V = Alternative( Token('x'), Token('y') )
-    A = Sequence( V,
-           KleeneStar(
-               Sequence(
-                  Alternative( Token('*'), Token('/') ), V
-                       )
-                    )
-                 )
-    S = Sequence( A, Alternative( Token('+'), Token('-') ), A )
-
-
-Status
-======
-
-See README.compiling on the status of the parser(s) implementation of PyPy
-
-
-Detailed design
-===============
+The parser is a simple LL(1) parser that is similar to CPython's.
 
 Building the Python grammar
----------------------------
+***************************
 
-The python grammar is built at startup from the pristine CPython grammar file.
-The grammar framework is first used to build a simple grammar to parse the
-grammar itself.
-The builder provided to the parser generates another grammar which is the Python
-grammar itself.
-The grammar file should represent an LL(1) grammar. LL(k) should still work since
-the parser supports backtracking through the use of source and builder contexts
-(The memento patterns for those who like Design Patterns)
+The python grammar is built at startup from the pristine CPython grammar file
+(see `pypy/interpreter/pyparser/metaparser.py`_).  The grammar builder first
+represents the grammar as rules corresponding to a set of Nondeterministic
+Finite Automatons (NFAs).  It then converts them to a set of Deterministic
+Finite Automatons (DFAs).  The difference between a NFA and a DFA is that a NFA
+may have several possible next states for any given input while a DFA may only
+have one.  DFAs are therefore more limiting, but far more efficient to use in
+parsing.  Finally, the assigns the grammar builder assigns each DFA state a
+number and packs them into a list for the parser to use.  The final product is
+an instance of the ``Grammar`` class in `pypy/interpreter/pyparser/parser.py`_.
 
-The match function for a sequence is pretty simple::
+Parser implementation
+*********************
 
-    for each rule in the sequence:
-       save the source and builder context
-       if the rule doesn't match:
-           restore the source and builder context
-           return false
-    call the builder method to build the sequence
-    return true
+The workhorse of the parser is the ``add_token`` method of the ``Parser`` class.
+It tries to find a transition from the current state to another state based on
+the token it receives as a argument.  If it can't find a transition, it checks
+if the current state is accepting.  If it's not, a ``ParseError`` is
+raised. When parsing is done without error, the parser has built a tree of
+``Node``.
 
-Now this really is an LL(0) grammar since it explores the whole tree of rule
-possibilities.
-In fact there is another member of the rule objects which is built once the
-grammar is complete.
-This member is a set of the tokens that match the begining of each rule. Like
-the grammar it is precomputed at startup.
-Then each rule starts by the following test::
+Parsing Python
+**************
 
-    if source.peek() not in self.firstset: return false
+The glue code between the tokenizer and the parser as well as extra Python
+specific code is in `pypy/interpreter/pyparser/pyparse.py`_.  The
+``parse_source`` method takes a string of Python code and returns the parse
+tree.  It also detects the coding cookie if there is one and decodes the source.
+Note that __future__ imports are handled before the parser is invoked by
+manually parsing the source in `pypy/interpreter/pyparser/future.py`_.
 
+Compiler
+--------
 
-Efficiency should be similar (not too worse) to an automata based grammar since it is
-basicly building an automata but it uses the execution stack to store its parsing state.
-This also means that recursion in the grammar are directly translated as recursive calls.
+The next step in generating Python bytecode is converting the parse tree into an
+Abstract Syntax Tree (AST).
 
+Building AST
+************
 
-Redisigning the parser to remove recursion shouldn't be difficult but would make the code
-less obvious. (patches welcome). The basic idea
+Python's AST is described in `pypy/interpreter/astcompiler/tools/Python.asdl`_.
+From this definition, `pypy/interpreter/astcompiler/tools/asdl_py.py`_ generates
+`pypy/interpreter/astcompiler/ast.py`_, which RPython classes for the compiler
+as well as bindings to application level code for the AST.  Some custom
+extensions to the AST classes are in
+`pypy/interpreter/astcompiler/asthelpers.py`_.
 
+`pypy/interpreter/astcompiler/astbuilder.py`_ is responsible for converting
+parse trees into AST.  It walks down the parse tree building nodes as it goes.
+The result is a toplevel ``mod`` node.
 
-Parsing
--------
+AST Optimization
+****************
 
-This grammar is then used to parse Python input and transform it into a syntax tree.
+`pypy/interpreter/astcompiler/optimize.py`_ contains the AST optimizer.  It does
+constant folding of expressions, and other simple transformations like making a
+load of the name "None" into a constant.
 
-As of now the syntax tree is built as a tuple to match the output of the parser module
-and feed it to the compiler package
+Symbol analysis
+***************
 
-the compiler package uses the Transformer class to transform this tuple tree into an
-abstract syntax tree.
+Before writing bytecode, a symbol table is built in
+`pypy/interpreter/astcompiler/symtable.py`_.  It determines if every name in the
+source is local, implicitly global (no global declaration), explicity global
+(there's a global declaration of the name in the scope), a cell (the name in
+used in nested scopes), or free (it's used in a nested function).
 
-sticking to our previous example, the syntax tree for x+x*y would be::
+Bytecode generation
+*******************
 
-    Rule('S', nodes=[
-         Rule('A',nodes=[Rule('V', nodes=[Token('x')])]),
-         Token('+'),
-         Rule('A',nodes=[
-            Rule('V', nodes=[Token('x')]),
-            Token('*'),
-            Rule('V', nodes=[Token('y')])
-           ])
-         ])
+Bytecode is emitted in `pypy/interpreter/astcompiler/codegen.py`_.  Each
+bytecode is represented temporarily by the ``Instruction`` class in
+`pypy/interpreter/astcompiler/assemble.py`_.  After all bytecodes have been
+emitted, it's time to build the code object.  Jump offsets and bytecode
+information like the line number table and stack depth are computed.  Finally,
+everything is passed to a brand new ``PyCode`` object.
 
-
-The abstract syntax tree for the same expression would look like::
-
-    Add(Var('x'),Mul(Var('x'),Var('y')))
-
-
-
-Examples using the parser within PyPy
--------------------------------------
-
-The four parser variants are used from within interpreter/pycompiler.py
-
-API Quickref
-------------
-
-Modules
-~~~~~~~
-
-* interpreter/pyparser contains the tokenizer and grammar parser
-* interpreter/astcompiler contains the soon to be rpythonic compiler
-* interpreter/stablecompiler contains the compiler used by default
-* lib/_stablecompiler contains a modified version of stablecompiler capable
-  of running at application level (that is not recursively calling itself
-  while compiling)
-
-
-Main facade functions
-~~~~~~~~~~~~~~~~~~~~~
-
-still empty, but non-empty for ReST
-
-Grammar
-~~~~~~~
-
-still empty, but non-empty for ReST
-
-Long term goals
-===============
-
-having enough flexibility in the design that allows us to change the
-grammar at runtime. Such modification needs to be able to:
-* modify the grammar representation
-* modify the ast builder so it produces existing or new AST nodes
-* add new AST nodes
-* modify the compiler so that it knows how to deal with new AST nodes
-
-
-parser implementation
----------------------
-
-We can now build AST trees directly from the parser.
-Still missing is the ability to easily provide/change building functions
-easily. The functions are referenced at interpreter level through a dictionnary
-mapping that has rule names as keys.
-
-
-compiler implementation
------------------------
-
-For now we are working at translating the existing compiler module without
-changing its design too much. That means we won't have enough flexibility
-to be able to handle new AST nodes at runtime.
-
-parser module
--------------
-
-enhance the parser module interface so that it allows acces to the internal grammar
-representation, and allows to modify it too.
-
-compiler module
----------------
-
-same as above
+.. include:: _ref.txt

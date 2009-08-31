@@ -4,7 +4,8 @@ Implementation of the interpreter-level compile/eval builtins.
 
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import NoneNotWrapped
 
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
@@ -20,16 +21,27 @@ the effects of any future statements in effect in the code calling
 compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
-    if space.is_true(space.isinstance(w_source, space.w_unicode)):
-        # hack: encode the unicode string as UTF-8 and attach
-        # a BOM at the start
-        w_source = space.call_method(w_source, 'encode', space.wrap('utf-8'))
-        str_ = space.str_w(w_source)
-        str_ = '\xEF\xBB\xBF' + str_
+
+    ast_node = None
+    w_ast_type = space.gettypeobject(ast.AST.typedef)
+    str_ = None
+    if space.is_true(space.isinstance(w_source, w_ast_type)):
+        ast_node = space.interp_w(ast.mod, w_source)
+        ast_node.sync_app_attrs(space)
+    elif space.is_true(space.isinstance(w_source, space.w_unicode)):
+        w_utf_8_source = space.call_method(w_source, "encode",
+                                           space.wrap("utf-8"))
+        str_ = space.str_w(w_utf_8_source)
+        # This flag tells the parser to reject any coding cookies it sees.
+        flags |= consts.PyCF_SOURCE_IS_UTF8
     else:
         str_ = space.str_w(w_source)
 
     ec = space.getexecutioncontext()
+    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_AST_ONLY |
+                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("compile() unrecognized flags"))
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
         if caller:
@@ -40,7 +52,14 @@ in addition to any features explicitly specified.
                              space.wrap("compile() arg 3 must be 'exec' "
                                         "or 'eval' or 'single'"))
 
-    code = ec.compiler.compile(str_, filename, mode, flags)
+    if ast_node is None:
+        if flags & consts.PyCF_AST_ONLY:
+            mod = ec.compiler.compile_to_ast(str_, filename, mode, flags)
+            return space.wrap(mod)
+        else:
+            code = ec.compiler.compile(str_, filename, mode, flags)
+    else:
+        code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
     return space.wrap(code)
 #
 compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]

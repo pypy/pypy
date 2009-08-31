@@ -1,25 +1,16 @@
 import py
-from pypy.interpreter.astcompiler import misc, pycodegen, opt
-from pypy.interpreter.pyparser.test.support import source2ast
+from pypy.interpreter.astcompiler import codegen, astbuilder
+from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 
 def compile_with_astcompiler(expr, mode, space):
-    ast = source2ast(expr, mode, space)
-    misc.set_filename('<testing>', ast)
-    ast = opt.optimize_ast_tree(space, ast)
-    if mode == 'exec':
-        Generator = pycodegen.ModuleCodeGenerator
-    elif mode == 'single':
-        Generator = pycodegen.InteractiveCodeGenerator
-    elif mode == 'eval':
-        Generator = pycodegen.ExpressionCodeGenerator
-    codegen = Generator(space, ast)
-    rcode = codegen.getCode()
-    assert isinstance(rcode, PyCode)
-    assert rcode.co_filename == '<testing>'
-    return rcode
+    p = pyparse.PythonParser(space)
+    info = pyparse.CompileInfo("<test>", mode)
+    cst = p.parse_source(expr, info)
+    ast = astbuilder.ast_from_node(space, cst, info)
+    return codegen.compile_ast(space, ast, info)
 
 
 class TestCompiler:
@@ -55,6 +46,16 @@ class TestCompiler:
         self.check(w_g, evalexpr, expected)
 
     st = simple_test
+
+    def test_long_jump(self):
+        func = """def f(x):
+    y = 0
+    if x:
+%s        return 1
+    else:
+        return 0""" % ("        y += 1\n" * 9000,)
+        yield self.st, func, "f(1)", 1
+        yield self.st, func, "f(0)", 0
 
     def test_argtuple(self):
         yield (self.simple_test, "def f( x, (y,z) ): return x,y,z",
@@ -409,6 +410,14 @@ class TestCompiler:
         decl = str(decl) + "\n"
         yield self.st, decl, 'x', (1, 2, 3, 4)
 
+        source = """def f(a):
+    del a
+    def x():
+        a
+"""
+        exc = py.test.raises(SyntaxError, self.run, source).value
+        assert exc.msg == "Can't delete variable used in nested scopes: 'a'"
+
     def test_try_except_finally(self):
         yield self.simple_test, """
             try:
@@ -430,6 +439,12 @@ class TestCompiler:
                 comments[:0] = [comment]
                 comment = ''
         """, 'comments', ['# foo', 42]
+        yield self.simple_test, """
+             while 0:
+                 pass
+             else:
+                 x = 1
+        """, "x", 1
 
     def test_return_lineno(self):
         # the point of this test is to check that there is no code associated
@@ -690,3 +705,33 @@ class TestCompiler:
             l.append(x)
         """
         self.simple_test(source, 'l', [1, 2])
+
+    def test_lambda(self):
+        yield self.st, "y = lambda x: x", "y(4)", 4
+
+    def test_backquote_repr(self):
+        yield self.st, "x = None; y = `x`", "y", "None"
+
+    def test_deleting_attributes(self):
+        test = """class X():
+   x = 3
+del X.x
+try:
+    X.x
+except AttributeError:
+    pass
+else:
+    raise AssertionError("attribute not removed")"""
+        yield self.st, test, "X.__name__", "X"
+
+
+class AppTestPrint:
+
+    def test_print_to(self):
+         exec """from StringIO import StringIO
+s = StringIO()
+print >> s, "hi", "lovely!"
+assert s.getvalue() == "hi lovely!\\n"
+s = StringIO()
+print >> s, "hi", "lovely!",
+assert s.getvalue() == "hi lovely!\"""" in {}

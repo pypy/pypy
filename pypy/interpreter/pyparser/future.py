@@ -33,7 +33,7 @@ def getFutures(futureFlags, source):
         futures.start()
     except DoneException, e:
         pass
-    return futures.flags
+    return futures.flags, (futures.lineno, futures.col_offset)
     
 class DoneException(Exception):
     pass
@@ -67,8 +67,13 @@ class FutureAutomaton(object):
         self.futureFlags = futureFlags
         self.s = string
         self.pos = 0
+        self.current_lineno = 1
+        self.lineno = -1
+        self.line_start_pos = 0
+        self.col_offset = 0
         self.docstringConsumed = False
         self.flags = 0
+        self.got_features = 0
 
     def getc(self, offset=0):
         try:
@@ -89,6 +94,10 @@ class FutureAutomaton(object):
         else:
             return
 
+    def atbol(self):
+        self.current_lineno += 1
+        self.line_start_pos = self.pos
+
     def consumeDocstring(self):
         self.docstringConsumed = True
         endchar = self.getc()
@@ -98,15 +107,23 @@ class FutureAutomaton(object):
             while 1: # Deal with a triple quoted docstring
                 if self.getc() == '\\':
                     self.pos += 2
-                elif self.getc() != endchar:
-                    self.pos += 1
                 else:
-                    self.pos += 1
-                    if (self.getc() == endchar and
-                        self.getc(+1) == endchar):
-                        self.pos += 2
-                        self.consumeEmptyLine()
-                        break
+                    c = self.getc()
+                    if c != endchar:
+                        self.pos += 1
+                        if c == '\n':
+                            self.atbol()
+                        elif c == '\r':
+                            if self.getc() == '\n':
+                                self.pos += 1
+                                self.atbol()
+                    else:
+                        self.pos += 1
+                        if (self.getc() == endchar and
+                            self.getc(+1) == endchar):
+                            self.pos += 2
+                            self.consumeEmptyLine()
+                            break
 
         else: # Deal with a single quoted docstring
             self.pos += 1
@@ -142,11 +159,16 @@ class FutureAutomaton(object):
             self.consumeWhitespace()
             self.start()
         elif self.getc() in '\r\n':
+            c = self.getc()
             self.pos += 1
-            if self.getc() == '\n':
-                self.pos += 1
+            if c == '\r':
+                if self.getc() == '\n':
+                    self.pos += 1
+                    self.atbol()
+            else:
+                self.atbol()
             self.start()
-            
+
     def consumeComment(self):
         self.pos += 1
         while self.getc() not in '\r\n':
@@ -154,6 +176,8 @@ class FutureAutomaton(object):
         self.consumeEmptyLine()
 
     def consumeFrom(self):
+        col_offset = self.pos - self.line_start_pos
+        line = self.current_lineno
         self.pos += 1
         if self.getc() == 'r' and self.getc(+1) == 'o' and self.getc(+2) == 'm':
             self.docstringConsumed = True
@@ -167,15 +191,21 @@ class FutureAutomaton(object):
                 raise DoneException
             self.pos += 6
             self.consumeWhitespace()
-            if self.getc() == '(':
-                self.pos += 1
-                self.consumeWhitespace()
-                self.setFlag(self.getName())
-                # Set flag corresponding to name
-                self.getMore(parenList=True)
-            else:
-                self.setFlag(self.getName())
-                self.getMore()
+            old_got = self.got_features
+            try:
+                if self.getc() == '(':
+                    self.pos += 1
+                    self.consumeWhitespace()
+                    self.setFlag(self.getName())
+                    # Set flag corresponding to name
+                    self.getMore(parenList=True)
+                else:
+                    self.setFlag(self.getName())
+                    self.getMore()
+            finally:
+                if self.got_features > old_got:
+                    self.col_offset = col_offset
+                    self.lineno = line
             self.consumeEmptyLine()
         else:
             return
@@ -196,11 +226,13 @@ class FutureAutomaton(object):
                 c = self.getc()
                 if c == '\n':
                     self.pos += 1
+                    self.atbol()
                     continue
                 elif c == '\r':
                     self.pos += 1
                     if self.getc() == '\n':
                         self.pos += 1
+                        self.atbol()
                 else:
                     raise DoneException
             else:
@@ -242,6 +274,7 @@ class FutureAutomaton(object):
             self.getMore(parenList=parenList)
 
     def setFlag(self, feature):
+        self.got_features += 1
         try:
             self.flags |= self.futureFlags.compiler_features[feature]
         except KeyError:
@@ -265,12 +298,9 @@ class FutureFlags(object):
                 self.compiler_features[fname] = flag
             if version >= feature.getMandatoryRelease():
                 self.mandatory_flags |= feature.compiler_flag
-        self.allowed_flags = compiler_flags | PyCF_DONT_IMPLY_DEDENT
+        self.allowed_flags = compiler_flags
 
     def get_flag_names(self, space, flags):
-        if flags & ~self.allowed_flags:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("compile(): unrecognized flags"))
         flag_names = []
         for name, value in self.compiler_features.items():
             if flags & value:

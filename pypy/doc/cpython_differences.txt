@@ -31,7 +31,6 @@ List of extension modules that we support:
     bz2
     cStringIO
     crypt
-    `dyngram`_
     errno
     exceptions
     fcntl
@@ -42,9 +41,9 @@ List of extension modules that we support:
     md5
     mmap
     operator
+    parser
     posix
     pyexpat
-    recparser
     select
     sha
     signal
@@ -54,6 +53,7 @@ List of extension modules that we support:
     termios
     thread
     time
+    token
     unicodedata
     zipimport
     zlib
@@ -85,7 +85,6 @@ that are neither mentioned above nor in `pypy/lib/`_ are not available in PyPy.
 .. _`__pypy__`: __pypy__-module.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
-.. _`dyngram`: config/objspace.usemodules.dyngram.html
 .. _Stackless: stackless.html
 
 

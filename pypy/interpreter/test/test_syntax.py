@@ -155,6 +155,7 @@ INVALID = splitcases("""
 
     def f():
         from a import *
+        x
         def g():
             x
 
@@ -169,23 +170,27 @@ INVALID = splitcases("""
 
     def f():
         from a import *
+        x
         class g:
             x
 
     def f():
         exec "hi"
+        x = 5
         class g:
             def h():
                 x
 
     def f():
         from a import *
+        x = 4
         class g:
             def h():
                 x
 
     def f(x):
         exec "hi"
+        x = 4
         class g:
             x
 
@@ -196,12 +201,14 @@ INVALID = splitcases("""
 
     def f(x):
         exec "hi"
+        x = 5
         class g:
             def h():
                 x
 
     def f(x):
         from a import *
+        x = 5
         class g:
             def h():
                 x
@@ -276,6 +283,37 @@ class AppTestYield:
         s = "def f():\n    yield"
 
         exec s
+
+
+class AppTestDecorators:
+
+    def test_function_decorators(self):
+        def other():
+            return 4
+        def dec(f):
+            return other
+        ns = {}
+        ns["dec"] = dec
+        exec """@dec
+def g():
+    pass""" in ns
+        assert ns["g"] is other
+        assert ns["g"]() == 4
+
+    def test_application_order(self):
+        def dec1(f):
+            record.append(1)
+            return f
+        def dec2(f):
+            record.append(2)
+            return f
+        record = []
+        ns = {"dec1" : dec1, "dec2" : dec2}
+        exec """@dec1
+@dec2
+def g(): pass""" in ns
+        assert record == [2, 1]
+
 
 class AppTestWith:
     def test_with_simple(self):
@@ -602,7 +640,7 @@ class AppTestSyntaxError:
         except SyntaxError, e:
             assert e.lineno == 4
             assert e.text.endswith('a b c d e\n')
-            assert e.offset == e.text.index('b') + 1
+            assert e.offset == e.text.index('b')
         else:
             raise Exception("no SyntaxError??")
 

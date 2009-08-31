@@ -43,7 +43,7 @@ class TestTranforms(unittest.TestCase):
     def test_none_as_constant(self):
         # LOAD_GLOBAL None  -->  LOAD_CONST None
         def f(x):
-            None
+            x = None
             return x
         asm = disassemble(f)
         for elem in ('LOAD_GLOBAL',):

@@ -137,12 +137,12 @@ Verify that syntax error's are raised for genexps used as lvalues
     >>> (y for y in (1,2)) = 10 #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: assign to generator expression not possible...
+    SyntaxError: can't assign to generator expression (<doctest test.test_genexps.__test__.doctests[38]>, line 1)
 
     >>> (y for y in (1,2)) += 10 #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: augmented assign to tuple literal or generator expression not possible...
+    SyntaxError: can't assign to generator expression (<doctest test.test_genexps.__test__.doctests[39]>, line 1)
 
 
 

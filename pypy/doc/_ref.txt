@@ -30,6 +30,20 @@
 .. _`pypy/interpreter/pyopcode.py`: ../../pypy/interpreter/pyopcode.py
 .. _`interpreter/pyparser/`:
 .. _`pypy/interpreter/pyparser`: ../../pypy/interpreter/pyparser
+.. _`pypy/interpreter/pyparser/pytokenizer.py`: ../../pypy/interpreter/pyparser/pytokenizer.py
+.. _`pypy/interpreter/pyparser/parser.py`: ../../pypy/interpreter/pyparser/parser.py
+.. _`pypy/interpreter/pyparser/pyparse.py`: ../../pypy/interpreter/pyparser/pyparse.py
+.. _`pypy/interpreter/pyparser/future.py`: ../../pypy/interpreter/pyparser/future.py
+.. _`pypy/interpreter/pyparser/metaparser.py`: ../../pypy/interpreter/pyparser/metaparser.py
+.. _`pypy/interpreter/astcompiler/astbuilder.py`: ../../pypy/interpreter/astcompiler/astbuilder.py
+.. _`pypy/interpreter/astcompiler/optimize.py`: ../../pypy/interpreter/astcompiler/optimize.py
+.. _`pypy/interpreter/astcompiler/codegen.py`: ../../pypy/interpreter/astcompiler/codegen.py
+.. _`pypy/interpreter/astcompiler/tools/asdl_py.py`: ../../pypy/interpreter/astcompiler/tools/asdl_py.py
+.. _`pypy/interpreter/astcompiler/tools/Python.asdl`: ../../pypy/interpreter/astcompiler/tools/Python.asdl
+.. _`pypy/interpreter/astcompiler/assemble.py`: ../../pypy/interpreter/astcompiler/assemble.py
+.. _`pypy/interpreter/astcompiler/symtable.py`: ../../pypy/interpreter/astcompiler/symtable.py
+.. _`pypy/interpreter/astcompiler/asthelpers.py`: ../../pypy/interpreter/astcompiler/asthelpers.py
+.. _`pypy/interpreter/astcompiler/ast.py`: ../../pypy/interpreter/astcompiler/ast.py
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
 .. _`lang/`: ../../pypy/lang
 .. _`lang/js/`: ../../pypy/lang/js

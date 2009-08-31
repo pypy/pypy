@@ -165,12 +165,7 @@ if check_impl_detail(jython=True):
                         'list',))
     vereq(f5.func_code.co_varnames,
            ('(compound, first)', 'two', 'compound', 'first'))
-elif check_impl_detail(pypy=True):
-    vereq(f4.func_code.co_varnames,
-          ('two', '.2', 'compound', 'argument',  'list'))
-    vereq(f5.func_code.co_varnames,
-          ('.0', 'two', 'compound', 'first'))
-elif check_impl_detail(cpython=True):
+elif check_impl_detail(cpython=True, pypy=True):
     vereq(f4.func_code.co_varnames,
           ('two', '.1', 'compound', 'argument',  'list'))
     vereq(f5.func_code.co_varnames,
@@ -185,9 +180,7 @@ def v3(a, (b, c), *rest): return a, b, c, rest
 # thus, the names nested inside tuples must appear after these names.
 if check_impl_detail(jython=True):
     verify(v3.func_code.co_varnames == ('a', '(b, c)', 'rest', 'b', 'c'))
-elif check_impl_detail(pypy=True):
-    vereq(v3.func_code.co_varnames, ('a', '.2', 'rest', 'b', 'c'))
-elif check_impl_detail(cpython=True):
+elif check_impl_detail(cpython=True, pypy=True):
     vereq(v3.func_code.co_varnames, ('a', '.1', 'rest', 'b', 'c'))
 verify(v3(1, (2, 3), 4) == (1, 2, 3, (4,)))
 def d01(a=1): pass

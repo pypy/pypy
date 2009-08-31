@@ -5,10 +5,7 @@ at run-time.
 """
 
 from pypy.interpreter.mixedmodule import MixedModule
-
-# Forward imports so they run at startup time
-import pypy.interpreter.pyparser.pythonlexer
-import pypy.interpreter.pyparser.pythonparse
+from pypy.interpreter.pyparser import pygram
 
 
 class Module(MixedModule):
@@ -17,23 +14,11 @@ class Module(MixedModule):
     interpleveldefs = {}     # see below
 
 
-# Export the values from our custom symbol module.
-# Skip negative values (the corresponding symbols are not visible in
-# pure Python).
-sym_name = {}
-
-def _init_symbols(grammar_version):
-    global sym_name
-
+def _init_symbols():
     sym_name = {}
-    from pypy.interpreter.pyparser.pythonparse import make_pyparser
-    parser = make_pyparser(grammar_version)
-
-    for name, val in parser.symbols.items():
-        if val >= 0:
-            Module.interpleveldefs[name] = 'space.wrap(%d)' % val
-            sym_name[val] = name
+    for name, val in pygram.python_grammar.symbol_ids.iteritems():
+        Module.interpleveldefs[name] = 'space.wrap(%d)' % val
+        sym_name[val] = name
     Module.interpleveldefs['sym_name'] = 'space.wrap(%r)' % (sym_name,)
 
-# This is very evil
-_init_symbols('2.5')
+_init_symbols()

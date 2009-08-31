@@ -7,6 +7,12 @@ Papers
 
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
+* `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`_,
+  C.F. Bolz, A. Cuni, M. Fijalkowski, A. Rigo
+
+* `Faster than C#: Efficient Implementation of Dynamic Languages on .NET`_,
+  A. Cuni, D. Ancona and A. Rigo
+
 * `Automatic JIT Compiler Generation with Runtime Partial Evaluation`_
   (Master Thesis), C.F. Bolz
 
@@ -20,12 +26,6 @@ Papers
 
 
 *Non-published articles (only submitted so far, or technical reports):*
-
-* `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`_,
-  C.F. Bolz, A. Cuni, M. Fijalkowski, A. Rigo
-
-* `Faster than C#: Efficient Implementation of Dynamic Languages on .NET`_,
-  A. Cuni, D. Ancona and A. Rigo
 
 * `Automatic generation of JIT compilers for dynamic languages in .NET`_,
   D. Ancona, C.F. Bolz, A. Cuni and A. Rigo

@@ -18,6 +18,10 @@ del load_opcode
 for name in __all__:
     if name in opcode_dict:
         globals()[name] = opcode_dict[name]
+globals().update(opmap)
+SLICE = opmap["SLICE+0"]
+STORE_SLICE = opmap["STORE_SLICE+0"]
+DELETE_SLICE = opmap["DELETE_SLICE+0"]
 
 opcode_method_names = ['MISSING_OPCODE'] * 256
 for name, index in opmap.items():

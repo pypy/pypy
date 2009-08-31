@@ -400,6 +400,7 @@ class AppTestBuiltinApp:
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')
         raises(ValueError, compile, '1+2', '?', 'maybenot')
+        raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
     def test_unicode_compile(self):
