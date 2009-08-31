@@ -573,10 +573,6 @@ class ReallyRunFileExternal(py.test.collect.Item):
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
         
-        pypy_options = []
-        pypy_options.extend(
-            ['--withmod-%s' % mod for mod in regrtest.usemodules])
-        sopt = " ".join(pypy_options) 
         # we use the regrverbose script to run the test, but don't get
         # confused: it still doesn't set verbose to True by default if
         # regrtest.outputpath() is true, because output tests get confused
@@ -595,7 +591,16 @@ class ReallyRunFileExternal(py.test.collect.Item):
             if not execpath.check():
                 execpath = py.path.local.sysfind(option.pypy)
             if not execpath:
-                raise LookupError("could not find executable %r" %(option.pypy,))
+                raise LookupError("could not find executable %r" %
+                                  (option.pypy,))
+
+            # check modules
+            info = py.process.cmdexec("%s --info" % execpath)
+            for mod in regrtest.usemodules:
+                if "objspace.usemodules.%s: False" % mod in info:
+                    py.test.skip("%s module not included in %s" % (mod,
+                                                                   execpath))
+                    
             cmd = "%s %s %s %s" %(
                 execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
@@ -605,6 +610,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 python, watchdog_script, TIMEOUT,
                 cmd)
         else:
+            pypy_options = []
+            pypy_options.extend(
+                ['--withmod-%s' % mod for mod in regrtest.usemodules])
+            sopt = " ".join(pypy_options) 
+
             cmd = "%s %s %d %s %s %s %s %s" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
@@ -626,9 +636,6 @@ class ReallyRunFileExternal(py.test.collect.Item):
             else:
                 msg = regrtest.skip
             py.test.skip(msg)
-        # XXX evil hack
-        if 'thread' in regrtest.usemodules:
-            py.test.skip("uses thread")
         (skipped, exit_status, test_stdout,
                                test_stderr) = self.getresult(regrtest)
         if skipped:
