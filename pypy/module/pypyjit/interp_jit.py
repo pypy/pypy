@@ -45,9 +45,11 @@ def can_inline(next_instr, bytecode):
     return True
 
 def get_printable_location(next_instr, bytecode):
+    from pypy.tool.stdlib_opcode import opcode_method_names
     if we_are_translated():
         bytecode = cast_base_ptr_to_instance(PyCode, bytecode)
-    return '%s #%d' % (bytecode.get_repr(), next_instr)
+    name = opcode_method_names[ord(bytecode.co_code[next_instr])]
+    return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
