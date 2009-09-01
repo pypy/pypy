@@ -636,7 +636,7 @@ class __extend__(pyframe.PyFrame):
     def UNPACK_SEQUENCE(f, itemcount, *ignored):
         w_iterable = f.popvalue()
         try:
-            items = f.space.unpackiterable(w_iterable, itemcount)
+            items = f.space.viewiterable(w_iterable, itemcount)
         except UnpackValueError, e:
             raise OperationError(f.space.w_ValueError, f.space.wrap(e.msg))
         f.pushrevvalues(itemcount, items)

@@ -202,6 +202,7 @@ class PyFrame(eval.Frame):
         self.valuestackdepth = finaldepth
 
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
+        make_sure_not_resized(values_w)
         while True:
             n -= 1
             if n < 0:

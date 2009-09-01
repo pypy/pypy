@@ -264,12 +264,7 @@ class FlowObjSpace(ObjSpace):
         return graph
 
     def viewiterable(self, w_tuple, expected_length=None):
-        unwrapped = self.unwrap(w_tuple)
-        result = tuple([Constant(x) for x in unwrapped])
-        if expected_length is not None and len(result) != expected_length:
-            raise ValueError, "got a tuple of length %d instead of %d" % (
-                len(result), expected_length)
-        return result
+        return self.unpackiterable(w_tuple, expected_length)
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):
