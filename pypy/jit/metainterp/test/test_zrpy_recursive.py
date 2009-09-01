@@ -14,6 +14,5 @@ class TestLLRecursive(test_recursive.RecursiveTests, LLInterpJitMixin):
 
     # ==========> test_recursive.py
 
-    @py.test.mark.xfail
     def test_inline_faulty_can_inline(self):
-        test_recursive.RecursiveTests.test_inline_faulty_can_inline(self)
+        py.test.skip("XXX does not work with LLException")

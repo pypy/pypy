@@ -176,6 +176,41 @@ class RecursiveTests:
         else:
             py.test.fail("DID NOT RAISE")
 
+    def test_inner_failure(self):
+        from pypy.rpython.annlowlevel import hlstr
+        def p(code, pc):
+            code = hlstr(code)
+            return "%s %d %s" % (code, pc, code[pc])
+        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['n'], get_printable_location=p)
+        def f(code, n):
+            pc = 0
+            while pc < len(code):
+
+                myjitdriver.jit_merge_point(n=n, code=code, pc=pc)
+                op = code[pc]
+                if op == "-":
+                    n -= 1
+                elif op == "c":
+                    n = f("---i---", n)
+                elif op == "i":
+                    if n % 5 == 1:
+                        return n
+                elif op == "l":
+                    if n > 0:
+                        myjitdriver.can_enter_jit(n=n, code=code, pc=0)
+                        pc = 0
+                        continue
+                else:
+                    assert 0
+                pc += 1
+            return n
+        def main(n):
+            return f("c-l", n)
+        print main(100)
+        res = self.meta_interp(main, [100], optimizer=simple_optimize)
+        assert res == 0
+
+
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
 

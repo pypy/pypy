@@ -809,7 +809,8 @@ class MIFrame(object):
         pass     # xxx?
 
     def generate_merge_point(self, pc, varargs):
-        if self.metainterp.is_blackholing():
+        # XXX could be sped up by calling the portal if in_recursion is non-zero
+        if self.metainterp.is_blackholing() and not self.metainterp.in_recursion:
             raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
@@ -1246,7 +1247,6 @@ class MetaInterp(object):
                 debug_print('~~~ LEAVE', self.history.extratext)
 
     def interpret(self):
-        self.in_recursion = 0
         if we_are_translated():
             self._interpret()
         else:
@@ -1476,6 +1476,7 @@ class MetaInterp(object):
                                         *args[1:])
 
     def initialize_state_from_start(self, *args):
+        self.in_recursion = 0
         self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
         self.create_empty_history()
@@ -1492,6 +1493,7 @@ class MetaInterp(object):
 
     def initialize_state_from_guard_failure(self, guard_failure):
         # guard failure: rebuild a complete MIFrame stack
+        self.in_recursion = 0
         resumedescr = guard_failure.descr
         assert isinstance(resumedescr, compile.ResumeGuardDescr)
         warmrunnerstate = self.staticdata.state
@@ -1617,7 +1619,10 @@ class MetaInterp(object):
             jitcode, pc, exception_target = resumereader.consume_frame_info()
             env = resumereader.consume_boxes()
             f = self.newframe(jitcode)
+            if jitcode is self.staticdata.portal_code:
+                self.in_recursion += 1
             f.setup_resume_at_op(pc, exception_target, env)
+        self.in_recursion -= 1 # always one portal around
 
     def check_synchronized_virtualizable(self):
         if not we_are_translated():

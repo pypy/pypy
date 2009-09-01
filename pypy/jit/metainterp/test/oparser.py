@@ -186,8 +186,10 @@ class OpParser(object):
         ops = []
         newlines = []
         for line in lines:
-            if not line.strip() or line.strip().startswith("#"):
-                continue # a comment
+            if '#' in line:
+                line = line[:line.index('#')]    # remove comment
+            if not line.strip():
+                continue  # a comment or empty line
             newlines.append(line)
         base_indent, inpargs = self.parse_inpargs(newlines[0])
         newlines = newlines[1:]

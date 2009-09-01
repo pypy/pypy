@@ -127,6 +127,16 @@ class NodeFinder(object):
         self.nodes[box] = node
         return node
 
+    def is_constant_box(self, box):
+        if isinstance(box, Const):
+            return True
+        try:
+            node = self.nodes[box]
+        except KeyError:
+            return False
+        else:
+            return node.is_constant()
+
     def find_nodes(self, operations):
         for op in operations:
             opnum = op.opnum
@@ -156,7 +166,6 @@ class NodeFinder(object):
     find_nodes_OOISNULL    = find_nodes_no_escape
     find_nodes_OOIS        = find_nodes_no_escape
     find_nodes_OOISNOT     = find_nodes_no_escape
-    find_nodes_ARRAYLEN_GC = find_nodes_no_escape
     find_nodes_INSTANCEOF  = find_nodes_no_escape
 
     def find_nodes_NEW_WITH_VTABLE(self, op):
@@ -171,12 +180,18 @@ class NodeFinder(object):
 
     def find_nodes_NEW_ARRAY(self, op):
         lengthbox = op.args[0]
-        if not isinstance(lengthbox, ConstInt):
+        if not self.is_constant_box(lengthbox):
             return     # var-sized arrays are not virtual
         arraynode = InstanceNode()
-        arraynode.arraysize = lengthbox.value
+        arraynode.arraysize = lengthbox.getint()
         arraynode.arraydescr = op.descr
         self.nodes[op.result] = arraynode
+
+    def find_nodes_ARRAYLEN_GC(self, op):
+        arraynode = self.getnode(op.args[0])
+        if arraynode.arraydescr is not None:
+            assert op.result.getint() == arraynode.arraysize
+            self.set_constant_node(op.result)
 
     def find_nodes_GUARD_CLASS(self, op):
         instnode = self.getnode(op.args[0])
@@ -225,7 +240,7 @@ class NodeFinder(object):
 
     def find_nodes_SETARRAYITEM_GC(self, op):
         indexbox = op.args[1]
-        if not isinstance(indexbox, ConstInt):
+        if not self.is_constant_box(indexbox):
             self.find_nodes_default(op)            # not a Const index
             return
         arraynode = self.getnode(op.args[0])
@@ -235,18 +250,18 @@ class NodeFinder(object):
             return     # nothing to be gained from tracking the item
         if arraynode.curitems is None:
             arraynode.curitems = {}
-        arraynode.curitems[indexbox.value] = itemnode
+        arraynode.curitems[indexbox.getint()] = itemnode
         arraynode.add_escape_dependency(itemnode)
 
     def find_nodes_GETARRAYITEM_GC(self, op):
         indexbox = op.args[1]
-        if not isinstance(indexbox, ConstInt):
+        if not self.is_constant_box(indexbox):
             self.find_nodes_default(op)            # not a Const index
             return
         arraynode = self.getnode(op.args[0])
         if arraynode.escaped:
             return     # nothing to be gained from tracking the item
-        index = indexbox.value
+        index = indexbox.getint()
         if arraynode.curitems is not None and index in arraynode.curitems:
             itemnode = arraynode.curitems[index]
         elif arraynode.origitems is not None and index in arraynode.origitems:
