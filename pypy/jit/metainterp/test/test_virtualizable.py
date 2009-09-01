@@ -971,6 +971,59 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(run_interp, [4])
         assert res == run_interp(4)
 
+    def test_guard_failure_in_inlined_function(self):
+        from pypy.rpython.annlowlevel import hlstr
+        class Frame(object):
+            _virtualizable2_ = ['n', 'next']
+
+            def __init__(self, n):
+                self = hint(self, access_directly=True)
+                self.n = n
+                self.next = None
+
+        driver = JitDriver(greens=[], reds=['frame', 'result'],
+                           virtualizables=['frame'])
+
+        def p(code, pc):
+            code = hlstr(code)
+            return "%s %d %s" % (code, pc, code[pc])
+        def c(code, pc):
+            return "l" not in hlstr(code)
+        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['frame'],
+                                virtualizables=["frame"],
+                                get_printable_location=p, can_inline=c)
+        def f(code, frame):
+            pc = 0
+            while pc < len(code):
+
+                myjitdriver.jit_merge_point(frame=frame, code=code, pc=pc)
+                op = code[pc]
+                if op == "-":
+                    frame.n -= 1
+                elif op == "c":
+                    subframe = Frame(frame.n)
+                    frame.next = subframe
+                    frame.n = f("---i---", subframe)
+                    frame.next = None
+                elif op == "i":
+                    if frame.n % 5 == 1:
+                        return frame.n
+                elif op == "l":
+                    if frame.n > 0:
+                        myjitdriver.can_enter_jit(frame=frame, code=code, pc=0)
+                        pc = 0
+                        continue
+                else:
+                    assert 0
+                pc += 1
+            return frame.n
+        def main(n):
+            frame = Frame(n)
+            return f("c-l", frame)
+        print main(100)
+        from pypy.jit.metainterp import optimize
+        res = self.meta_interp(main, [100],
+                inline=True, optimizer=optimize)
 
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
