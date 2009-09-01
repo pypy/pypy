@@ -55,7 +55,7 @@ print config
 import sys, pdb
 
 space = Space(config)
-w_dict = space.newdict()
+w_dict = space.newdict(module=True)
 
 
 def readfile(filename):
