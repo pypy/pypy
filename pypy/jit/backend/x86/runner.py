@@ -88,12 +88,6 @@ class CPU386(AbstractLLCPU):
     def execute_operations(self, loop, verbose=False):
         assert isinstance(verbose, bool)
         func = self.get_bootstrap_code(loop)
-        # debug info
-        #if self.debug and not we_are_translated():
-        #    values_repr = ", ".join([str(values_as_int[i]) for i in
-        #                             range(len(valueboxes))])
-        #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
-        #self.assembler.logger.log_call(valueboxes) --- XXX
         guard_index = self.execute_call(loop, func, verbose)
         self._guard_index = guard_index # for tests
         op = self._guard_list[guard_index]
