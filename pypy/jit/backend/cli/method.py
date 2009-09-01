@@ -152,7 +152,7 @@ class Method(object):
 
         # ----
         cpu.logger.create_log()
-        cpu.logger.eventually_log_loop(loop)
+        cpu.logger.log_loop(loop)
         # ----
         self.box2type = {}
         if self.nocast:

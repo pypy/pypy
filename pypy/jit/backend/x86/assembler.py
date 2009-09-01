@@ -170,7 +170,7 @@ class Assembler386(object):
         self.tree = tree
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
-        self.logger.eventually_log_loop(tree)
+        self.logger.log_loop(tree)
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         self._regalloc = regalloc
         regalloc.walk_operations(tree)
