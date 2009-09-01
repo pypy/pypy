@@ -809,12 +809,25 @@ class MIFrame(object):
         pass     # xxx?
 
     def generate_merge_point(self, pc, varargs):
-        # XXX could be sped up by calling the portal if in_recursion is non-zero
-        if self.metainterp.is_blackholing() and not self.metainterp.in_recursion:
-            raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
+        if self.metainterp.is_blackholing():
+            if self.metainterp.in_recursion:
+                portal_code = self.metainterp.staticdata.portal_code
+                # small hack: fish for the result box
+                lenenv = len(self.env)
+                self.perform_call(portal_code, varargs)
+                if lenenv == len(self.env):
+                    res = None
+                else:
+                    assert lenenv == len(self.env) - 1
+                    res = self.env.pop()
+                self.metainterp.finishframe(res)
+                return True
+            else:
+                raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
             varargs[i] = self.implement_guard_value(pc, varargs[i])
+        return False
 
     @arguments("orgpc")
     def opimpl_can_enter_jit(self, pc):
@@ -829,12 +842,13 @@ class MIFrame(object):
 
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
-        self.generate_merge_point(pc, self.env)
+        res = self.generate_merge_point(pc, self.env)
         if DEBUG > 0:
             self.debug_merge_point()
         if self.metainterp.seen_can_enter_jit:
             self.metainterp.seen_can_enter_jit = False
             self.metainterp.reached_can_enter_jit(self.env)
+        return res
 
     def debug_merge_point(self):
         # debugging: produce a DEBUG_MERGE_POINT operation

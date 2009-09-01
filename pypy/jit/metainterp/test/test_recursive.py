@@ -176,12 +176,15 @@ class RecursiveTests:
         else:
             py.test.fail("DID NOT RAISE")
 
-    def test_inner_failure(self):
+    def test_guard_failure_in_inlined_function(self):
         from pypy.rpython.annlowlevel import hlstr
         def p(code, pc):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
-        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['n'], get_printable_location=p)
+        def c(code, pc):
+            return "l" not in hlstr(code)
+        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['n'],
+                                get_printable_location=p, can_inline=c)
         def f(code, n):
             pc = 0
             while pc < len(code):
@@ -207,7 +210,7 @@ class RecursiveTests:
         def main(n):
             return f("c-l", n)
         print main(100)
-        res = self.meta_interp(main, [100], optimizer=simple_optimize)
+        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
         assert res == 0
 
 

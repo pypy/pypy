@@ -141,9 +141,14 @@ class CodeWriter(object):
         return bytecode
 
     def get_jitcode_calldescr(self, graph, oosend_methdescr):
-        if self.portal_graph is None or graph is self.portal_graph:
+        if self.portal_graph is None:
             return ()
-        fnptr = self.rtyper.getcallable(graph)
+        if graph is self.portal_graph:
+            fnptr = self.metainterp_sd.warmrunnerdesc.portal_ptr
+            FUNC = self.metainterp_sd.warmrunnerdesc.PORTAL_FUNCTYPE
+        else:
+            fnptr = self.rtyper.getcallable(graph)
+            FUNC = get_functype(lltype.typeOf(fnptr))
         if self.rtyper.type_system.name == 'ootypesystem':
             if oosend_methdescr:
                 return (None, oosend_methdescr)
@@ -153,7 +158,6 @@ class CodeWriter(object):
             assert not oosend_methdescr
             cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr),
                                        self.cpu)
-        FUNC = get_functype(lltype.typeOf(fnptr))
         # <hack>
         # these functions come from somewhere and are never called. make sure
         # we never store a pointer to them since they make C explode,

@@ -371,6 +371,7 @@ class WarmRunnerDesc:
         #
         portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
                                          graph = portalgraph)
+        self.portal_ptr = portal_ptr
         portalfunc_ARGS = unrolling_iterable(
             [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(PORTALFUNC.ARGS)])
 
