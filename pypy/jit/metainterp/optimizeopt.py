@@ -534,7 +534,6 @@ class Optimizer(object):
                 self.make_constant(op.result)
                 return
         elif not op.has_no_side_effect() and not op.is_ovf():
-            print "cleaning everything", op
             self.clean_fields_of_values()
         # otherwise, the operation remains
         self.emit_operation(op)
