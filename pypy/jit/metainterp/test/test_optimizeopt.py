@@ -943,7 +943,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
-    def test_duplicate_getfield_2(self):
+    def test_getfield_after_setfield(self):
         ops = """
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -959,7 +959,36 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not, Not', expected)
 
-    def test_duplicate_getfield_3(self):
+    def test_setfield_of_different_type_does_not_clear(self):
+        ops = """
+        [p1, p2, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p2, p1, descr=nextdescr)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        escape(i2)
+        jump(p1, p2, i1)
+        """
+        expected = """
+        [p1, p2, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p2, p1, descr=nextdescr)
+        escape(i1)
+        jump(p1, p2, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
+
+    def test_setfield_of_same_type_clears(self):
+        ops = """
+        [p1, p2, i1, i2]
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p2, i2, descr=valuedescr)
+        i3 = getfield_gc(p1, descr=valuedescr)
+        escape(i3)
+        jump(p1, p2, i1, i3)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+
+    def test_duplicate_getfield_mergepoint_has_no_side_effects(self):
         ops = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
@@ -978,6 +1007,50 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(p1)
         """
         self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getfield_ovf_op_does_not_clear(self):
+        ops = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = int_add_ovf(i1, 14)
+        guard_no_overflow()
+            fail()
+        i3 = getfield_gc(p1, descr=valuedescr)
+        escape(i2)
+        escape(i3)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = int_add_ovf(i1, 14)
+        guard_no_overflow()
+            fail()
+        escape(i2)
+        escape(i1)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getfield_setarrayitem_does_not_clear(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        setarrayitem_gc(p2, 0, p1, descr=arraydescr2)
+        i3 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i3)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        setarrayitem_gc(p2, 0, p1, descr=arraydescr2)
+        escape(i1)
+        escape(i1)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_duplicate_getfield_constant(self):
         ops = """

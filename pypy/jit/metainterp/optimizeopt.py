@@ -335,8 +335,13 @@ class Optimizer(object):
         self.cpu = cpu
         self.loop = loop
         self.values = {}
-        self.values_to_clean = []    # OptValues to clean when we see an
-                                     # operation with side-effects
+        # OptValues to clean when we see an operation with side-effects
+        # they are ordered by fielddescrs of the affected fields
+        # note: it is important that this is not a av_newdict2 dict!
+        # we want more precision to not clear unrelated fields, just because
+        # they are at the same offset (but in a different struct type)
+        self.values_to_clean = {}
+                                     
         self.interned_refs = {}
 
     def getinterned(self, box):
@@ -504,6 +509,21 @@ class Optimizer(object):
         op2.suboperations = op1.suboperations
         op1.optimized = op2
 
+    def clean_fields_of_values(self, descr=None):
+        if descr is None:
+            for descr, values in self.values_to_clean.iteritems():
+                for value in values:
+                    value._fields.clear()
+            self.values_to_clean = {}
+        else:
+            for value in self.values_to_clean.get(descr, []):
+                del value._fields[descr]
+            self.values_to_clean[descr] = []
+
+    def register_value_to_clean(self, value, descr):
+        self.values_to_clean.setdefault(descr, []).append(value)
+
+
     def optimize_default(self, op):
         if op.is_always_pure():
             for arg in op.args:
@@ -513,10 +533,9 @@ class Optimizer(object):
                 # all constant arguments: constant-fold away
                 self.make_constant(op.result)
                 return
-        elif not op.has_no_side_effect():
-            for value in self.values_to_clean:
-                value._fields.clear()
-            del self.values_to_clean[:]
+        elif not op.has_no_side_effect() and not op.is_ovf():
+            print "cleaning everything", op
+            self.clean_fields_of_values()
         # otherwise, the operation remains
         self.emit_operation(op)
 
@@ -566,6 +585,12 @@ class Optimizer(object):
             return
         self.emit_operation(op)
         self.exception_might_have_happened = False
+
+    def optimize_GUARD_NO_OVERFLOW(self, op):
+        # otherwise the default optimizer will clear fields, which is unwanted
+        # in this case
+        self.emit_operation(op)
+
 
     def _optimize_nullness(self, op, expect_nonnull):
         if self.known_nonnull(op.args[0]):
@@ -635,7 +660,7 @@ class Optimizer(object):
             self.optimize_default(op)
             # then remember the result of reading the field
             value._fields[op.descr] = self.getvalue(op.result)
-            self.values_to_clean.append(value)
+            self.register_value_to_clean(value, op.descr)
 
     # note: the following line does not mean that the two operations are
     # completely equivalent, because GETFIELD_GC_PURE is_always_pure().
@@ -647,12 +672,15 @@ class Optimizer(object):
             value.setfield(op.descr, self.getvalue(op.args[1]))
         else:
             value.make_nonnull()
-            self.optimize_default(op)
+            self.emit_operation(op)
+            # kill all fields with the same descr, as those could be affected
+            # by this setfield (via aliasing)
+            self.clean_fields_of_values(op.descr)
             # remember the result of future reads of the field
             if value._fields is None:
                 value._fields = av_newdict2()
             value._fields[op.descr] = self.getvalue(op.args[1])
-            self.values_to_clean.append(value)
+            self.register_value_to_clean(value, op.descr)
 
     def optimize_NEW_WITH_VTABLE(self, op):
         self.make_virtual(op.args[0], op.result, op)
@@ -704,7 +732,9 @@ class Optimizer(object):
             value.setitem(indexbox.getint(), self.getvalue(op.args[2]))
         else:
             value.make_nonnull()
-            self.optimize_default(op)
+            # don't use optimize_default, because otherwise unrelated struct
+            # fields will be cleared
+            self.emit_operation(op)
 
     def optimize_INSTANCEOF(self, op):
         value = self.getvalue(op.args[0])
@@ -716,6 +746,7 @@ class Optimizer(object):
     def optimize_DEBUG_MERGE_POINT(self, op):
         # special-case this operation to prevent e.g. the handling of
         # 'values_to_clean' (the op cannot be marked as side-effect-free)
+        # otherwise it would be removed
         self.newoperations.append(op)
 
 optimize_ops = _findall(Optimizer, 'optimize_')
