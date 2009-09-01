@@ -9,6 +9,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.annlowlevel import llstr
 
 _cache = {}
 _default_namespace = {'lltype': {}, 'ootype': {}}
@@ -99,6 +100,11 @@ class OpParser(object):
         try:
             return ConstInt(int(arg))
         except ValueError:
+            if arg.startswith('"') or arg.startswith("'"):
+                # XXX ootype
+                info = arg.strip("'\"")
+                return ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                       llstr(info)))
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 if self.type_system == 'lltype':
