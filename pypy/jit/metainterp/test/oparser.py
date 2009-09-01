@@ -150,7 +150,10 @@ class OpParser(object):
         descr = None
         poss_descr = allargs[-1].strip()
         if poss_descr.startswith('descr='):
-            descr = self.consts[poss_descr[len('descr='):]]
+            if poss_descr.startswith('descr=<'):
+                descr = None
+            else:
+                descr = self.consts[poss_descr[len('descr='):]]
             allargs = allargs[:-1]        
         for arg in allargs:
             arg = arg.strip()

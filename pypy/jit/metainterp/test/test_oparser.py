@@ -149,3 +149,12 @@ def test_debug_merge_point():
     '''
     loop = parse(x)
     assert loop.operations[0].args[0]._get_str() == 'info'
+    assert loop.operations[1].args[0]._get_str() == 'info'
+
+def test_descr_with_obj_print():
+    x = '''
+    [p0]
+    setfield_gc(p0, 1, descr=<SomeDescr>)
+    '''
+    loop = parse(x)
+    # assert did not explode
