@@ -214,7 +214,10 @@ class Parser(object):
         if line.startswith('LOOP END'):
             raise EndOfBlock()
         if line.startswith('LOOP'):
-            _, inputargs = line.split(" ")
+            if " " in line:
+                _, inputargs = line.split(" ")
+            else:
+                inputargs = ""
             self.current_block.inputargs = self._parse_boxes(inputargs)
             return i + 1
         if line.startswith('END'):
