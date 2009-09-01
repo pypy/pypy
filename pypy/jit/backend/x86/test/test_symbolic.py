@@ -1,7 +1,9 @@
 import py
-from pypy.jit.backend.x86.symbolic import *
-from pypy.jit.backend.x86.runner import CPU386
+from pypy.jit.backend.llsupport.symbolic import *
 from pypy.rpython.lltypesystem import lltype, rffi
+
+# This test file is here and not in llsupport/test/ because it checks
+# that we get correct numbers for a 32-bit machine.
 
 class FakeStats(object):
     pass
@@ -44,15 +46,6 @@ def test_array_token():
     assert itemsize == 4
     assert ofs_length == basesize - 4
 
-def test_array_token_2():
-    cpu = CPU386(None, None)
-    A = lltype.GcArray(lltype.Ptr(lltype.Array(lltype.Signed)))
-    descr = cpu.arraydescrof(A)
-    assert not descr.flag2
-    A = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
-    descr = cpu.arraydescrof(A)
-    assert descr.flag2
-
 def test_varsized_struct_size():
     S1 = lltype.GcStruct('S1', ('parent', S),
                                ('extra', lltype.Signed),
@@ -65,16 +58,6 @@ def test_varsized_struct_size():
     assert ofs_length == ofs_extra + 4
     assert basesize == ofs_length + 4
     assert itemsize == 1
-
-def test_methods_of_cpu():
-    py.test.skip("A bit pointless")
-    cpu = CPU386(rtyper=None, stats=FakeStats())
-    assert cpu.sizeof(S) == get_size(S, False)
-    assert cpu.fielddescrof(S, 'y') & 0xffff == get_field_token(S, 'y')[0]
-    assert cpu.fielddescrof(S, 'y') >> 16 == get_field_token(S, 'y')[1]
-    A = lltype.GcArray(lltype.Char)
-    #assert cpu.itemoffsetof(A) == get_array_token(A)[0]
-    #assert cpu.arraylengthoffset(A) == get_array_token(A)[2]
 
 def test_string():
     STR = lltype.GcStruct('String', ('hash', lltype.Signed),

@@ -607,7 +607,7 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_do_malloc_fixedsize_clear(self, hop):
-        # used by the JIT (see the x86 backend)
+        # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_size, v_can_collect,
          v_has_finalizer, v_contains_weakptr] = op.args
@@ -620,7 +620,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.pop_roots(hop, livevars)
 
     def gct_do_malloc_varsize_clear(self, hop):
-        # used by the JIT (see the x86 backend)
+        # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
          v_offset_to_length, v_can_collect, v_has_finalizer] = op.args

@@ -1,24 +1,31 @@
 from pypy.rlib import rgc
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.backend.x86 import symbolic
-from pypy.jit.backend.x86.runner import ConstDescr3
-from pypy.jit.backend.x86.ri386 import MODRM, IMM32, mem, imm32, rel32, heap
-from pypy.jit.backend.x86.ri386 import REG, eax, ecx, edx
-from pypy.jit.backend.x86.assembler import WORD
+from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstPtr
+from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.symbolic import WORD
+from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
+from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
+from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
+from pypy.jit.backend.llsupport.descr import get_call_descr
 
 # ____________________________________________________________
 
-class GcLLDescription:
-    def __init__(self, gcdescr, cpu):
+class GcLLDescription(GcCache):
+    def __init__(self, gcdescr, translator=None):
+        GcCache.__init__(self, translator is not None)
         self.gcdescr = gcdescr
     def _freeze_(self):
         return True
+    def initialize(self):
+        pass
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
-    def gen_write_barrier(self, regalloc, base_reg, value_reg):
+    def rewrite_assembler(self, cpu, operations):
         pass
 
 # ____________________________________________________________
@@ -26,9 +33,9 @@ class GcLLDescription:
 class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
-    array_length_ofs = 0
 
-    def __init__(self, gcdescr, cpu):
+    def __init__(self, gcdescr, translator):
+        GcLLDescription.__init__(self, gcdescr, translator)
         # grab a pointer to the Boehm 'malloc' function
         compilation_info = ExternalCompilationInfo(libraries=['gc'])
         malloc_fn_ptr = rffi.llexternal("GC_local_malloc",
@@ -49,56 +56,40 @@ class GcLLDescr_boehm(GcLLDescription):
 
         init_fn_ptr()
 
-    def sizeof(self, S, translate_support_code):
-        size = symbolic.get_size(S, translate_support_code)
-        return ConstDescr3(size, 0, False)
-
-    def arraydescrof(self, A, translate_support_code):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A,
-                                                       translate_support_code)
-        assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        # assert ofs_length == 0 --- but it's symbolic...
-        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
-            ptr = True
-        else:
-            ptr = False
-        return ConstDescr3(basesize, itemsize, ptr)
-
-    def gc_malloc(self, descrsize):
-        assert isinstance(descrsize, ConstDescr3)
-        size = descrsize.v0
-        return self.funcptr_for_new(size)
+    def gc_malloc(self, sizedescr):
+        assert isinstance(sizedescr, BaseSizeDescr)
+        return self.funcptr_for_new(sizedescr.size)
 
     def gc_malloc_array(self, arraydescr, num_elem):
-        assert isinstance(arraydescr, ConstDescr3)
-        basesize = arraydescr.v0
-        itemsize = arraydescr.v1
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
         size = basesize + itemsize * num_elem
         res = self.funcptr_for_new(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
         return res
 
-    def gc_malloc_str(self, num_elem, translate_support_code):
+    def gc_malloc_str(self, num_elem):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                                      translate_support_code)
+                                                   self.translate_support_code)
         assert itemsize == 1
         size = basesize + num_elem
         res = self.funcptr_for_new(size)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
         return res
 
-    def gc_malloc_unicode(self, num_elem, translate_support_code):
+    def gc_malloc_unicode(self, num_elem):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                                      translate_support_code)
+                                                   self.translate_support_code)
         size = basesize + num_elem * itemsize
         res = self.funcptr_for_new(size)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
         return res
 
-    def args_for_new(self, descrsize):
-        assert isinstance(descrsize, ConstDescr3)
-        size = descrsize.v0
-        return [size]
+    def args_for_new(self, sizedescr):
+        assert isinstance(sizedescr, BaseSizeDescr)
+        return [sizedescr.size]
 
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
@@ -107,7 +98,10 @@ class GcLLDescr_boehm(GcLLDescription):
     get_funcptr_for_newstr = None
     get_funcptr_for_newunicode = None
 
+
 # ____________________________________________________________
+# All code below is for the hybrid GC
+
 
 class GcRefList:
     """Handles all references from the generated assembler to GC objects.
@@ -120,8 +114,10 @@ class GcRefList:
     HASHTABLE_BITS = 10
     HASHTABLE_SIZE = 1 << HASHTABLE_BITS
 
-    def __init__(self):
-        self.list = self.alloc_gcref_list(2000)
+    def initialize(self):
+        if we_are_translated(): n = 2000
+        else:                   n = 10    # tests only
+        self.list = self.alloc_gcref_list(n)
         self.nextindex = 0
         self.oldlists = []
         # A pseudo dictionary: it is fixed size, and it may contain
@@ -139,8 +135,11 @@ class GcRefList:
     def alloc_gcref_list(self, n):
         # Important: the GRREF_LISTs allocated are *non-movable*.  This
         # requires support in the gc (only the hybrid GC supports it so far).
-        list = rgc.malloc_nonmovable(self.GCREF_LIST, n)
-        assert list, "malloc_nonmovable failed!"
+        if we_are_translated():
+            list = rgc.malloc_nonmovable(self.GCREF_LIST, n)
+            assert list, "malloc_nonmovable failed!"
+        else:
+            list = lltype.malloc(self.GCREF_LIST, n)     # for tests only
         return list
 
     def get_address_of_gcref(self, gcref):
@@ -153,7 +152,9 @@ class GcRefList:
         hash &= self.HASHTABLE_SIZE - 1
         addr_ref = self.hashtable[hash]
         # the following test is safe anyway, because the addresses found
-        # in the hashtable are always the addresses of nonmovable stuff:
+        # in the hashtable are always the addresses of nonmovable stuff
+        # ('addr_ref' is an address inside self.list, not directly the
+        # address of a real moving GC object -- that's 'addr_ref.address[0]'.)
         if addr_ref.address[0] == addr:
             return addr_ref
         # if it fails, add an entry to the list
@@ -201,8 +202,10 @@ class GcRootMap_asmgcc:
         return llmemory.cast_ptr_to_adr(self._gcmap)
 
     def gcmapend(self):
-        start = self.gcmapstart()
-        return start + llmemory.sizeof(llmemory.Address)*self._gcmap_curlength
+        addr = self.gcmapstart()
+        if self._gcmap_curlength:
+            addr += llmemory.sizeof(llmemory.Address)*self._gcmap_curlength
+        return addr
 
     def put(self, retaddr, callshapeaddr):
         """'retaddr' is the address just after the CALL.
@@ -215,7 +218,7 @@ class GcRootMap_asmgcc:
         self._gcmap_curlength = index + 2
 
     def _enlarge_gcmap(self):
-        newlength = 128 + self._gcmap_maxlength * 5 // 4
+        newlength = 250 + self._gcmap_maxlength * 2
         newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw')
         oldgcmap = self._gcmap
         for i in range(self._gcmap_curlength):
@@ -225,26 +228,31 @@ class GcRootMap_asmgcc:
         if oldgcmap:
             lltype.free(oldgcmap, flavor='raw')
 
-    def encode_callshape(self, gclocs):
-        """Encode a callshape from the list of locations containing GC
-        pointers."""
-        shape = self._get_callshape(gclocs)
-        return self._compress_callshape(shape)
+    def get_basic_shape(self):
+        return [self.LOC_EBP_BASED | 4,     # return addr: at   4(%ebp)
+                self.LOC_EBP_BASED | (-4),  # saved %ebx:  at  -4(%ebp)
+                self.LOC_EBP_BASED | (-8),  # saved %esi:  at  -8(%ebp)
+                self.LOC_EBP_BASED | (-12), # saved %edi:  at -12(%ebp)
+                self.LOC_EBP_BASED | 0,     # saved %ebp:  at    (%ebp)
+                0]
 
-    def _get_callshape(self, gclocs):
-        shape = [self.LOC_EBP_BASED | 4,     # return addr: at   4(%ebp)
-                 self.LOC_EBP_BASED | (-4),  # saved %ebx:  at  -4(%ebp)
-                 self.LOC_EBP_BASED | (-8),  # saved %esi:  at  -8(%ebp)
-                 self.LOC_EBP_BASED | (-12), # saved %edi:  at -12(%ebp)
-                 self.LOC_EBP_BASED | 0,     # saved %ebp:  at    (%ebp)
-                 0]
-        for loc in gclocs:
-            assert isinstance(loc, MODRM)
-            assert loc.is_relative_to_ebp()
-            shape.append(self.LOC_EBP_BASED | (-4 * (4 + loc.position)))
-        return shape
+    def add_ebp_offset(self, shape, offset):
+        assert (offset & 3) == 0
+        shape.append(self.LOC_EBP_BASED | offset)
 
-    def _compress_callshape(self, shape):
+    def add_ebx(self, shape):
+        shape.append(self.LOC_REG | 0)
+
+    def add_esi(self, shape):
+        shape.append(self.LOC_REG | 4)
+
+    def add_edi(self, shape):
+        shape.append(self.LOC_REG | 8)
+
+    def add_ebp(self, shape):
+        shape.append(self.LOC_REG | 12)
+
+    def compress_callshape(self, shape):
         # Similar to compress_callshape() in trackgcroot.py.  XXX a bit slowish
         result = []
         for loc in shape:
@@ -269,13 +277,15 @@ class GcRootMap_asmgcc:
 
 
 class GcLLDescr_framework(GcLLDescription):
-    GcRefList = GcRefList
 
-    def __init__(self, gcdescr, cpu):
+    def __init__(self, gcdescr, translator, llop1=llop):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
+        from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
-        self.cpu = cpu
-        self.translator = cpu.mixlevelann.rtyper.annotator.translator
+        GcLLDescription.__init__(self, gcdescr, translator)
+        assert self.translate_support_code, "required with the framework GC"
+        self.translator = translator
+        self.llop1 = llop1
 
         # we need the hybrid GC for GcRefList.alloc_gcref_list() to work
         if gcdescr.config.translation.gc != 'hybrid':
@@ -291,6 +301,8 @@ class GcLLDescr_framework(GcLLDescription):
                                       " with the JIT" % (name,))
         gcrootmap = cls()
         self.gcrootmap = gcrootmap
+        self.gcrefs = GcRefList()
+        self.single_gcref_descr = GcPtrFieldDescr(0)
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
@@ -304,15 +316,20 @@ class GcLLDescr_framework(GcLLDescription):
         self.GCClass, _ = choose_gc_from_config(gcdescr.config)
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
-        self.fielddescr_tid = cpu.fielddescrof(self.GCClass.HDR, 'tid')
-        _, _, self.array_length_ofs = symbolic.get_array_token(
-            lltype.GcArray(lltype.Signed), True)
+        self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
+        self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+        self.c_jit_wb_if_flag = ConstInt(self.GCClass.JIT_WB_IF_FLAG)
+        self.calldescr_jit_wb = get_call_descr(self, [llmemory.GCREF,
+                                                      llmemory.GCREF],
+                                               lltype.Void)
+        (self.array_basesize, _, self.array_length_ofs) = \
+             symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
 
         # make a malloc function, with three arguments
         def malloc_basic(size, type_id, has_finalizer):
-            res = llop.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                 type_id, size, True,
-                                                 has_finalizer, False)
+            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                  type_id, size, True,
+                                                  has_finalizer, False)
             #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
             #                 "-->", res)
             return res
@@ -322,14 +339,14 @@ class GcLLDescr_framework(GcLLDescription):
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
         #
-        def malloc_array(basesize, itemsize, type_id, num_elem):
-            return llop.do_malloc_varsize_clear(
+        def malloc_array(itemsize, type_id, num_elem):
+            return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                type_id, num_elem, basesize, itemsize,
+                type_id, num_elem, self.array_basesize, itemsize,
                 self.array_length_ofs, True, False)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
-            [lltype.Signed] * 4, llmemory.GCREF))
+            [lltype.Signed] * 3, llmemory.GCREF))
         #
         (str_basesize, str_itemsize, str_ofs_length
          ) = symbolic.get_array_token(rstr.STR, True)
@@ -339,12 +356,12 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
-            return llop.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 str_type_id, length, str_basesize, str_itemsize,
                 str_ofs_length, True, False)
         def malloc_unicode(length):
-            return llop.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 unicode_type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length, True, False)
@@ -353,68 +370,55 @@ class GcLLDescr_framework(GcLLDescription):
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
             [lltype.Signed], llmemory.GCREF))
 
-    def sizeof(self, S, translate_support_code):
+    def initialize(self):
+        self.gcrefs.initialize()
+        self.gcrootmap.initialize()
+
+    def init_size_descr(self, S, descr):
         from pypy.rpython.memory.gctypelayout import weakpointer_offset
-        assert translate_support_code, "required with the framework GC"
-        size = symbolic.get_size(S, True)
         type_id = self.layoutbuilder.get_type_id(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
         assert weakpointer_offset(S) == -1     # XXX
-        descr = ConstDescr3(size, 0, has_finalizer)
         descr.type_id = type_id
-        return descr
+        descr.has_finalizer = has_finalizer
 
-    def arraydescrof(self, A, translate_support_code):
-        assert translate_support_code, "required with the framework GC"
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A, True)
-        assert rffi.sizeof(A.OF) in [1, 2, WORD]
-        # assert ofs_length == self.array_length_ofs --- but it's symbolics...
-        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
-            ptr = True
-        else:
-            ptr = False
+    def init_array_descr(self, A, descr):
         type_id = self.layoutbuilder.get_type_id(A)
-        descr = ConstDescr3(basesize, itemsize, ptr)
         descr.type_id = type_id
-        return descr
 
-    def gc_malloc(self, descrsize):
-        assert isinstance(descrsize, ConstDescr3)
-        size = descrsize.v0
-        type_id = descrsize.type_id
-        has_finalizer = descrsize.flag2
+    def gc_malloc(self, sizedescr):
+        assert isinstance(sizedescr, BaseSizeDescr)
+        size = sizedescr.size
+        type_id = sizedescr.type_id
+        has_finalizer = sizedescr.has_finalizer
         assert type_id > 0
         return self.malloc_basic(size, type_id, has_finalizer)
 
     def gc_malloc_array(self, arraydescr, num_elem):
-        assert isinstance(arraydescr, ConstDescr3)
-        basesize = arraydescr.v0
-        itemsize = arraydescr.v1
+        assert isinstance(arraydescr, BaseArrayDescr)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
         type_id = arraydescr.type_id
         assert type_id > 0
-        return self.malloc_array(basesize, itemsize, type_id, num_elem)
+        return self.malloc_array(itemsize, type_id, num_elem)
 
-    def gc_malloc_str(self, num_elem, translate_support_code):
-        assert translate_support_code, "required with the framework GC"
+    def gc_malloc_str(self, num_elem):
         return self.malloc_str(num_elem)
 
-    def gc_malloc_unicode(self, num_elem, translate_support_code):
-        assert translate_support_code, "required with the framework GC"
+    def gc_malloc_unicode(self, num_elem):
         return self.malloc_unicode(num_elem)
 
-    def args_for_new(self, descrsize):
-        assert isinstance(descrsize, ConstDescr3)
-        size = descrsize.v0
-        type_id = descrsize.type_id
-        has_finalizer = descrsize.flag2
+    def args_for_new(self, sizedescr):
+        assert isinstance(sizedescr, BaseSizeDescr)
+        size = sizedescr.size
+        type_id = sizedescr.type_id
+        has_finalizer = sizedescr.has_finalizer
         return [size, type_id, has_finalizer]
 
     def args_for_new_array(self, arraydescr):
-        assert isinstance(arraydescr, ConstDescr3)
-        basesize = arraydescr.v0
-        itemsize = arraydescr.v1
+        assert isinstance(arraydescr, BaseArrayDescr)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
         type_id = arraydescr.type_id
-        return [basesize, itemsize, type_id]
+        return [itemsize, type_id]
 
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)
@@ -430,54 +434,86 @@ class GcLLDescr_framework(GcLLDescription):
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
+        hdr_addr -= self.gcheaderbuilder.size_gc_header
         hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
         if hdr.tid & self.GCClass.JIT_WB_IF_FLAG:
             # get a pointer to the 'remember_young_pointer' function from
             # the GC, and call it immediately
-            funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
+            llop1 = self.llop1
+            funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
-    def gen_write_barrier(self, assembler, base_reg, value_reg):
-        from pypy.jit.backend.x86.regalloc import REGS
-        bytes_count = 11
+    def rewrite_assembler(self, cpu, operations):
+        # Perform two kinds of rewrites in parallel:
         #
-        if isinstance(value_reg, IMM32):
-            if value_reg.value == 0:
-                return      # writing NULL: don't need the write barrier at all
-            bytes_count += 4
-        else:
-            assert isinstance(value_reg, REG)
+        # - Add COND_CALLs to the write barrier before SETFIELD_GC and
+        #   SETARRAYITEM_GC operations.
         #
-        if isinstance(base_reg, IMM32):
-            bytes_count += 4
-            tidaddr = heap(base_reg.value + 0)
-        else:
-            assert isinstance(base_reg, REG)
-            tidaddr = mem(base_reg, 0)
+        # - Remove all uses of ConstPtrs away from the assembler.
+        #   Idea: when running on a moving GC, we can't (easily) encode
+        #   the ConstPtrs in the assembler, because they can move at any
+        #   point in time.  Instead, we store them in 'gcrefs.list', a GC
+        #   but nonmovable list; and here, we modify 'operations' to
+        #   replace direct usage of ConstPtr with a BoxPtr loaded by a
+        #   GETFIELD_RAW from the array 'gcrefs.list'.
         #
-        assembler.mc.TEST(tidaddr, imm32(self.GCClass.JIT_WB_IF_FLAG))
-        # do the rest using 'mc._mc' directly instead of 'mc', to avoid
-        # bad surprizes if the code buffer is mostly full
-        mc = assembler.mc._mc
-        mc.write('\x74')             # JZ label_end
-        mc.write(chr(bytes_count))
-        start = mc.tell()
-        mc.PUSHA()                   # 1 byte
-        mc.PUSH(value_reg)           # 1 or 5 bytes
-        mc.PUSH(base_reg)            # 1 or 5 bytes
-        funcptr = llop.get_write_barrier_failing_case(self.WB_FUNCPTR)
-        funcaddr = rffi.cast(lltype.Signed, funcptr)
-        mc.CALL(rel32(funcaddr))     # 5 bytes
-        mc.POP(eax)                  # 1 byte
-        mc.POP(eax)                  # 1 byte
-        mc.POPA()                    # 1 byte
-                              # total: 11+(4?)+(4?) bytes
-        assert mc.tell() == start + bytes_count
+        newops = []
+        for op in operations:
+            if op.opnum == rop.DEBUG_MERGE_POINT:
+                continue
+            # ---------- replace ConstPtrs with GETFIELD_RAW ----------
+            # xxx some performance issue here
+            for i in range(len(op.args)):
+                v = op.args[i]
+                if (isinstance(v, ConstPtr) and bool(v.value)
+                                            and rgc.can_move(v.value)):
+                    box = BoxPtr(v.value)
+                    addr = self.gcrefs.get_address_of_gcref(v.value)
+                    addr = cpu.cast_adr_to_int(addr)
+                    newops.append(ResOperation(rop.GETFIELD_RAW,
+                                               [ConstInt(addr)], box,
+                                               self.single_gcref_descr))
+                    op.args[i] = box
+            # ---------- write barrier for SETFIELD_GC ----------
+            if op.opnum == rop.SETFIELD_GC:
+                v = op.args[1]
+                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                             bool(v.value)): # store a non-NULL
+                    self._gen_write_barrier(cpu, newops, op.args[0], v)
+                    op = ResOperation(rop.SETFIELD_RAW, op.args, None,
+                                      descr=op.descr)
+            # ---------- write barrier for SETARRAYITEM_GC ----------
+            if op.opnum == rop.SETARRAYITEM_GC:
+                v = op.args[2]
+                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                             bool(v.value)): # store a non-NULL
+                    self._gen_write_barrier(cpu, newops, op.args[0], v)
+                    op = ResOperation(rop.SETARRAYITEM_RAW, op.args, None,
+                                      descr=op.descr)
+            # ----------
+            if op.is_guard():
+                self.rewrite_assembler(cpu, op.suboperations)
+            newops.append(op)
+        del operations[:]
+        operations.extend(newops)
+
+    def _gen_write_barrier(self, cpu, newops, v_base, v_value):
+        v_tid = BoxInt()
+        newops.append(ResOperation(rop.GETFIELD_RAW, [v_base], v_tid,
+                                   descr=self.fielddescr_tid))
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        c_func = ConstInt(cpu.cast_adr_to_int(funcaddr))
+        args = [v_tid, self.c_jit_wb_if_flag, c_func, v_base, v_value]
+        newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
+                                   descr=self.calldescr_jit_wb))
 
 # ____________________________________________________________
 
-def get_ll_description(gcdescr, cpu):
+def get_ll_description(gcdescr, translator=None):
+    # translator is None if translate_support_code is False.
     if gcdescr is not None:
         name = gcdescr.config.translation.gctransformer
     else:
@@ -486,5 +522,5 @@ def get_ll_description(gcdescr, cpu):
         cls = globals()['GcLLDescr_' + name]
     except KeyError:
         raise NotImplementedError("GC transformer %r not supported by "
-                                  "the x86 backend" % (name,))
-    return cls(gcdescr, cpu)
+                                  "the JIT backend" % (name,))
+    return cls(gcdescr, translator)

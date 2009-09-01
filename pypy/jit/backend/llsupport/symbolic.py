@@ -1,6 +1,7 @@
 import ctypes
-from pypy.rpython.lltypesystem import lltype, ll2ctypes, llmemory
+from pypy.rpython.lltypesystem import lltype, ll2ctypes, llmemory, rffi
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.unroll import unrolling_iterable
 
 @specialize.memo()
 def get_field_token(STRUCT, fieldname, translate_support_code):
@@ -19,6 +20,10 @@ def get_size(TYPE, translate_support_code):
         return llmemory.sizeof(TYPE)
     ctype = ll2ctypes.get_ctypes_type(TYPE)
     return ctypes.sizeof(ctype)
+
+@specialize.memo()
+def get_size_of_ptr(translate_support_code):
+    return get_size(llmemory.GCREF, translate_support_code)
 
 @specialize.memo()
 def get_array_token(T, translate_support_code):
@@ -50,3 +55,14 @@ def get_array_token(T, translate_support_code):
         itemsize = ctypes.sizeof(carrayitem)
     return basesize, itemsize, ofs_length
 
+# ____________________________________________________________
+
+WORD         = get_size(lltype.Signed, False)
+SIZEOF_CHAR  = get_size(lltype.Char, False)
+SIZEOF_SHORT = get_size(rffi.SHORT, False)
+SIZEOF_INT   = get_size(rffi.INT, False)
+
+unroll_basic_sizes = unrolling_iterable([(lltype.Signed, WORD),
+                                         (lltype.Char,   SIZEOF_CHAR),
+                                         (rffi.SHORT,    SIZEOF_SHORT),
+                                         (rffi.INT,      SIZEOF_INT)])

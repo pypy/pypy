@@ -11,12 +11,20 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.x86.gc import GcRefList, GcRootMap_asmgcc
+from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.x86.regalloc import stack_pos
 
 
 class X(object):
     next = None
+
+class CheckError(Exception):
+    pass
+
+def check(flag):
+    if not flag:
+        raise CheckError
+
 
 def get_test(main):
     main._dont_inline_ = True
@@ -82,22 +90,6 @@ def test_compile_boehm():
     res = compile_and_run(get_test(main), "boehm", jit=True)
     assert int(res) >= 16
 
-def test_GcRefList():
-    S = lltype.GcStruct('S')
-    order = range(20000) * 4
-    random.shuffle(order)
-    def fn(args):
-        allocs = [lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
-                  for i in range(20000)]
-        allocs = [allocs[i] for i in order]
-        #
-        gcrefs = GcRefList()
-        addrs = [gcrefs.get_address_of_gcref(ptr) for ptr in allocs]
-        for i in range(len(allocs)):
-            assert addrs[i].address[0] == llmemory.cast_ptr_to_adr(allocs[i])
-        return 0
-    compile_and_run(fn, "hybrid", gcrootfinder="asmgcc", jit=False)
-
 def test_compile_hybrid_1():
     # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
     # without write_barriers and root stack enumeration.
@@ -112,40 +104,6 @@ def test_compile_hybrid_1():
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
-
-def test_GcRootMap_asmgcc():
-    gcrootmap = GcRootMap_asmgcc()
-    shape = gcrootmap._get_callshape([stack_pos(1), stack_pos(55)])
-    num1 = stack_pos(1).ofs_relative_to_ebp()
-    num2 = stack_pos(55).ofs_relative_to_ebp()
-    assert shape == [6, -2, -6, -10, 2, 0, num1|2, num2|2]
-    #
-    shapeaddr = gcrootmap.encode_callshape([stack_pos(1), stack_pos(55)])
-    PCALLSHAPE = lltype.Ptr(GcRootMap_asmgcc.CALLSHAPE_ARRAY)
-    p = llmemory.cast_adr_to_ptr(shapeaddr, PCALLSHAPE)
-    num1a = -2*(num1|2)-1
-    num2a = ((-2*(num2|2)-1) >> 7) | 128
-    num2b = (-2*(num2|2)-1) & 127
-    for i, expected in enumerate([num2a, num2b, num1a, 0, 4, 19, 11, 3, 12]):
-        assert p[i] == expected
-    #
-    retaddr = rffi.cast(llmemory.Address, 1234567890)
-    gcrootmap.put(retaddr, shapeaddr)
-    assert gcrootmap._gcmap[0] == retaddr
-    assert gcrootmap._gcmap[1] == shapeaddr
-    assert gcrootmap.gcmapstart().address[0] == retaddr
-    #
-    # the same as before, but enough times to trigger a few resizes
-    expected_shapeaddr = {}
-    for i in range(1, 600):
-        shapeaddr = gcrootmap.encode_callshape([stack_pos(i)])
-        expected_shapeaddr[i] = shapeaddr
-        retaddr = rffi.cast(llmemory.Address, 123456789 + i)
-        gcrootmap.put(retaddr, shapeaddr)
-    for i in range(1, 600):
-        expected_retaddr = rffi.cast(llmemory.Address, 123456789 + i)
-        assert gcrootmap._gcmap[i*2+0] == expected_retaddr
-        assert gcrootmap._gcmap[i*2+1] == expected_shapeaddr[i]
 
 def test_compile_hybrid_2():
     # More complex test, requires root stack enumeration but
@@ -178,18 +136,65 @@ def test_compile_hybrid_3():
                 y.foo = j+1
                 y.next = x.next
                 x.next = y
-            assert x.next.foo == 101
+            check(x.next.foo == 101)
             total = 0
             y = x
             for j in range(101):
                 y = y.next
                 total += y.foo
-            assert not y.next
-            assert total == 101*102/2
+            check(not y.next)
+            check(total == 101*102/2)
             n -= x.foo
     x_test = X()
     x_test.foo = 5
-    main(6, x_test)     # check that it does not raise AssertionError
+    main(6, x_test)     # check that it does not raise CheckError
+    res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
+                          jit=True)
+    assert int(res) == 20
+
+def test_compile_hybrid_3_extra():
+    # Extra version of the test, with tons of live vars around the residual
+    # call that all contain a GC pointer.
+    myjitdriver = JitDriver(greens = [], reds = ['n', 'x0', 'x1', 'x2', 'x3',
+                                                      'x4', 'x5', 'x6', 'x7'])
+    def residual(n=26):
+        x = X()
+        x.next = X()
+        x.next.foo = n
+        return x
+    residual._look_inside_me_ = False
+    #
+    def main(n, x):
+        residual(5)
+        x0 = residual()
+        x1 = residual()
+        x2 = residual()
+        x3 = residual()
+        x4 = residual()
+        x5 = residual()
+        x6 = residual()
+        x7 = residual()
+        n *= 19
+        while n > 0:
+            myjitdriver.can_enter_jit(n=n, x0=x0, x1=x1, x2=x2, x3=x3,
+                                           x4=x4, x5=x5, x6=x6, x7=x7)
+            myjitdriver.jit_merge_point(n=n, x0=x0, x1=x1, x2=x2, x3=x3,
+                                             x4=x4, x5=x5, x6=x6, x7=x7)
+            x8 = residual()
+            x9 = residual()
+            check(x0.next.foo == 26)
+            check(x1.next.foo == 26)
+            check(x2.next.foo == 26)
+            check(x3.next.foo == 26)
+            check(x4.next.foo == 26)
+            check(x5.next.foo == 26)
+            check(x6.next.foo == 26)
+            check(x7.next.foo == 26)
+            check(x8.next.foo == 26)
+            check(x9.next.foo == 26)
+            x0, x1, x2, x3, x4, x5, x6, x7 = x7, x4, x6, x5, x3, x2, x9, x8
+            n -= 1
+    main(6, None)     # check that it does not raise AssertionError
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
@@ -206,7 +211,7 @@ def test_compile_hybrid_4():
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     def main(n, x):
         debug_print('counter.cnt =', counter.cnt)
-        assert counter.cnt < 5
+        check(counter.cnt < 5)
         counter.cnt = n // x.foo
         while n > 0:
             myjitdriver.can_enter_jit(n=n, x=x)
@@ -227,7 +232,7 @@ def test_compile_hybrid_5():
             myjitdriver.jit_merge_point(n=n, x=x, s=s)
             n -= x.foo
             s += str(n)
-        assert len(s) == 1*5 + 2*45 + 3*450 + 4*500
+        check(len(s) == 1*5 + 2*45 + 3*450 + 4*500)
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
@@ -243,15 +248,15 @@ def test_compile_hybrid_6():
             if n < 200:
                 l = [n, n, n]
             if n < 100:
-                assert len(l) == 3
-                assert l[0] == n
-                assert l[1] == n
-                assert l[2] == n
+                check(len(l) == 3)
+                check(l[0] == n)
+                check(l[1] == n)
+                check(l[2] == n)
             n -= x.foo
-        assert len(l) == 3
-        assert l[0] == 2
-        assert l[1] == 2
-        assert l[2] == 2
+        check(len(l) == 3)
+        check(l[0] == 2)
+        check(l[1] == 2)
+        check(l[2] == 2)
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20
@@ -268,7 +273,7 @@ def test_compile_hybrid_7():
             myjitdriver.can_enter_jit(n=n, x=x, l=l)
             myjitdriver.jit_merge_point(n=n, x=x, l=l)
             if n < 1900:
-                assert l[0].x == 123
+                check(l[0].x == 123)
                 l = [None] * 16
                 l[0] = X(123)
                 l[1] = X(n)
@@ -287,41 +292,41 @@ def test_compile_hybrid_7():
                 l[14] = X(n+130)
                 l[15] = X(n+140)
             if n < 1800:
-                assert len(l) == 16
-                assert l[0].x == 123
-                assert l[1].x == n
-                assert l[2].x == n+10
-                assert l[3].x == n+20
-                assert l[4].x == n+30
-                assert l[5].x == n+40
-                assert l[6].x == n+50
-                assert l[7].x == n+60
-                assert l[8].x == n+70
-                assert l[9].x == n+80
-                assert l[10].x == n+90
-                assert l[11].x == n+100
-                assert l[12].x == n+110
-                assert l[13].x == n+120
-                assert l[14].x == n+130
-                assert l[15].x == n+140
+                check(len(l) == 16)
+                check(l[0].x == 123)
+                check(l[1].x == n)
+                check(l[2].x == n+10)
+                check(l[3].x == n+20)
+                check(l[4].x == n+30)
+                check(l[5].x == n+40)
+                check(l[6].x == n+50)
+                check(l[7].x == n+60)
+                check(l[8].x == n+70)
+                check(l[9].x == n+80)
+                check(l[10].x == n+90)
+                check(l[11].x == n+100)
+                check(l[12].x == n+110)
+                check(l[13].x == n+120)
+                check(l[14].x == n+130)
+                check(l[15].x == n+140)
             n -= x.foo
-        assert len(l) == 16
-        assert l[0].x == 123
-        assert l[1].x == 2
-        assert l[2].x == 12
-        assert l[3].x == 22
-        assert l[4].x == 32
-        assert l[5].x == 42
-        assert l[6].x == 52
-        assert l[7].x == 62
-        assert l[8].x == 72
-        assert l[9].x == 82
-        assert l[10].x == 92
-        assert l[11].x == 102
-        assert l[12].x == 112
-        assert l[13].x == 122
-        assert l[14].x == 132
-        assert l[15].x == 142
+        check(len(l) == 16)
+        check(l[0].x == 123)
+        check(l[1].x == 2)
+        check(l[2].x == 12)
+        check(l[3].x == 22)
+        check(l[4].x == 32)
+        check(l[5].x == 42)
+        check(l[6].x == 52)
+        check(l[7].x == 62)
+        check(l[8].x == 72)
+        check(l[9].x == 82)
+        check(l[10].x == 92)
+        check(l[11].x == 102)
+        check(l[12].x == 112)
+        check(l[13].x == 122)
+        check(l[14].x == 132)
+        check(l[15].x == 142)
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
                           jit=True)
     assert int(res) == 20

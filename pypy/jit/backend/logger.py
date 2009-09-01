@@ -4,7 +4,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
      BoxInt, ConstAddr
 
-class AbstractLogger(object):
+class Logger(object):
 
     def __init__(self, ts):
         self._log_fd = -1
@@ -30,7 +30,7 @@ class AbstractLogger(object):
                                        compute_unique_id(loop))
 
     def repr_of_descr(self, descr):
-        return ''
+        return descr.repr_of_descr()
 
     def repr_of_arg(self, memo, arg):
         try:

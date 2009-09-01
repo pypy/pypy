@@ -18,13 +18,18 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         self._size = map_size
         self._pos = 0
 
-    def write(self, data):
-        p = self._pos
-        assert p + len(data) <= self._size
+    def overwrite(self, pos, data):
+        assert pos + len(data) <= self._size
         for c in data:
-            self._data[p] = c
-            p += 1
-        self._pos = p
+            self._data[pos] = c
+            pos += 1
+        return pos
+
+    def write(self, data):
+        self._pos = self.overwrite(self._pos, data)
+
+    def get_relative_pos(self):
+        return self._pos
 
     def tell(self):
         baseaddr = rffi.cast(lltype.Signed, self._data)

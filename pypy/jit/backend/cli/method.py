@@ -10,7 +10,6 @@ from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
                                          ConstObj, BoxInt)
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.metainterp.typesystem import oohelper
-from pypy.jit.backend.logger import AbstractLogger
 from pypy.jit.backend.cli import runner
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 
@@ -24,16 +23,6 @@ Utils = CLR.pypy.runtime.Utils
 
 cVoid = ootype.nullruntimeclass
 
-class CliLogger(AbstractLogger):
-
-    def repr_of_descr(self, descr):
-        from pypy.jit.backend.cli.runner import DescrWithKey
-        if isinstance(descr, DescrWithKey):
-            return descr.short_repr()
-        return AbstractLogger.repr_of_descr(self, descr)
-    
-logger = CliLogger(oohelper)
-runner.CliCPU.logger_cls = CliLogger     # xxx hack
 
 class __extend__(AbstractValue):
     __metaclass__ = extendabletype
@@ -162,8 +151,8 @@ class Method(object):
             self.av_ZeroDivisionError = None
 
         # ----
-        logger.create_log()
-        logger.eventually_log_loop(loop)
+        cpu.logger.create_log()
+        cpu.logger.eventually_log_loop(loop)
         # ----
         self.box2type = {}
         if self.nocast:

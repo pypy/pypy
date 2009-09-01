@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Box)
 from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.regalloc import WORD
-from pypy.jit.backend.x86 import symbolic
+from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest

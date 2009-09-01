@@ -230,6 +230,18 @@ def do_debug_merge_point(cpu, args, descr=None):
 
 def make_execute_list(cpuclass):
     from pypy.jit.backend.model import AbstractCPU
+    if 0:     # enable this to trace calls to do_xxx
+        def wrap(fn):
+            def myfn(*args):
+                print '<<<', fn.__name__
+                try:
+                    return fn(*args)
+                finally:
+                    print fn.__name__, '>>>'
+            return myfn
+    else:
+        def wrap(fn):
+            return fn
     execute = [None] * (rop._LAST+1)
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
@@ -242,9 +254,9 @@ def make_execute_list(cpuclass):
                 key = key[:-5]
             name = 'do_' + key.lower()
             if hasattr(cpuclass, name):
-                execute[value] = getattr(cpuclass, name)
+                execute[value] = wrap(getattr(cpuclass, name))
             elif name in globals():
-                execute[value] = globals()[name]
+                execute[value] = wrap(globals()[name])
             else:
                 assert hasattr(AbstractCPU, name), name
     cpuclass._execute_list = execute

@@ -8,6 +8,7 @@ from pypy.jit.metainterp.history import TreeLoop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
+from pypy.jit.backend.logger import Logger
 from pypy.jit.backend.llgraph.runner import KeyManager
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -44,6 +45,7 @@ class CliCPU(model.AbstractCPU):
         self.failing_ops = [] # index --> op
         self.ll_ovf_exc = self._get_prebuilt_exc(OverflowError)
         self.ll_zero_exc = self._get_prebuilt_exc(ZeroDivisionError)
+        self.logger = Logger(self.ts)
 
     def _get_prebuilt_exc(self, cls):
         if self.rtyper is None:
@@ -260,6 +262,9 @@ class DescrWithKey(AbstractDescr):
 
     def short_repr(self):
         return ''
+
+    def repr_of_descr(self):
+        return self.short_repr()
 
 
 def get_class_for_type(T):

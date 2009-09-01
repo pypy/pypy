@@ -217,7 +217,7 @@ class WarmRunnerDesc:
         else:
             annhelper = None
         cpu = CPUClass(self.translator.rtyper, self.stats,
-                       translate_support_code, annhelper, self.gcdescr)
+                       translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
         self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
                                                   self.translator.graphs, cpu,

@@ -107,9 +107,9 @@ class BaseBackendTest(Runner):
             func_ptr = llhelper(FPTR, func)
             FUNC = deref(FPTR)
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
             res = self.execute_operation(rop.CALL,
-                                         [self.get_funcbox(cpu, func_ptr),
-                                          BoxInt(num), BoxInt(num)],
+                                         [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
 
@@ -270,6 +270,11 @@ class BaseBackendTest(Runner):
         t_box, T_box = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
+        #
+        self.cpu.do_setfield_gc([t_box, BoxInt(1333)], fielddescr)
+        r = self.cpu.do_getfield_gc([t_box], fielddescr)
+        assert r.value == 1333
+        #
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
                                      'void', descr=fielddescr)
         assert res is None
@@ -394,6 +399,13 @@ class BaseBackendTest(Runner):
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
         arraydescr = self.cpu.arraydescrof(A)
         assert not arraydescr.is_array_of_pointers()
+        #
+        r = self.cpu.do_arraylen_gc([a_box], arraydescr)
+        assert r.value == 342
+        self.cpu.do_setarrayitem_gc([a_box, BoxInt(311), BoxInt(170)], arraydescr)
+        r = self.cpu.do_getarrayitem_gc([a_box, BoxInt(311)], arraydescr)
+        assert r.value == 170
+        #
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
         assert r.value == 342
@@ -404,11 +416,6 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
                                    'int', descr=arraydescr)
         assert r.value == 7441
-        r = self.cpu.do_getarrayitem_gc([a_box, BoxInt(310)], arraydescr)
-        assert r.value == 7441
-        self.cpu.do_setarrayitem_gc([a_box, BoxInt(3), BoxInt(170)], arraydescr)
-        r = self.cpu.do_getarrayitem_gc([a_box, BoxInt(3)], arraydescr)
-        assert r.value == 170
         #
         a_box, A = self.alloc_array_of(lltype.Char, 11)
         arraydescr = self.cpu.arraydescrof(A)
@@ -507,6 +514,11 @@ class BaseBackendTest(Runner):
         assert r.value == 153
 
     def test_unicode_basic(self):
+        u_box = self.cpu.do_newunicode([ConstInt(5)])
+        self.cpu.do_unicodesetitem([u_box, BoxInt(4), BoxInt(123)])
+        r = self.cpu.do_unicodegetitem([u_box, BoxInt(4)])
+        assert r.value == 123
+        #
         u_box = self.alloc_unicode(u"hello\u1234")
         r = self.execute_operation(rop.UNICODELEN, [u_box], 'int')
         assert r.value == 6
@@ -522,10 +534,6 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(4)],
                                    'int')
         assert r.value == 31313
-        u_box = self.cpu.do_newunicode([ConstInt(5)])
-        self.cpu.do_unicodesetitem([u_box, BoxInt(4), BoxInt(123)])
-        r = self.cpu.do_unicodegetitem([u_box, BoxInt(4)])
-        assert r.value == 123
 
     def test_same_as(self):
         r = self.execute_operation(rop.SAME_AS, [ConstInt(5)], 'int')
@@ -673,6 +681,8 @@ class LLtypeBackendTest(BaseBackendTest):
         r = self.cpu.do_getfield_gc([r1], descrshort)
         assert r.value == 1313
         self.cpu.do_setfield_gc([r1, BoxInt(1333)], descrshort)
+        r = self.cpu.do_getfield_gc([r1], descrshort)
+        assert r.value == 1333
         r = self.execute_operation(rop.GETFIELD_GC, [r1], 'int',
                                    descr=descrshort)
         assert r.value == 1333
@@ -931,6 +941,32 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.execute_operations(loop)
         assert self.cpu.get_latest_value_int(0) == 0
         self.cpu.clear_exception()
+
+    def test_cond_call_gc_wb(self):
+        def func_void(a, b):
+            record.append((a, b))
+        record = []
+        #
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        for cond in [False, True]:
+            value = random.randrange(-sys.maxint, sys.maxint)
+            if cond:
+                value |= 4096
+            else:
+                value &= ~4096
+            del record[:]
+            self.execute_operation(rop.COND_CALL_GC_WB,
+                                   [BoxInt(value), ConstInt(4096),
+                                    funcbox, BoxInt(655360), BoxInt(-2121)],
+                                   'void', descr=calldescr)
+            if cond:
+                assert record == [(655360, -2121)]
+            else:
+                assert record == []
+
 
 class OOtypeBackendTest(BaseBackendTest):
 

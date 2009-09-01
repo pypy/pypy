@@ -104,6 +104,7 @@ TYPES = {
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_pure'       : (('ref', 'varargs'), 'intorptr'),
+    'cond_call_gc_wb' : (('int', 'int', 'ptr', 'varargs'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -679,6 +680,10 @@ class Frame(object):
         return _do_call_common(func, self.memocast, err_result)
 
     op_call_pure = op_call
+
+    def op_cond_call_gc_wb(self, calldescr, a, b, func, *args):
+        if a & b:
+            self.op_call(calldescr, func, *args)
 
     def op_oosend(self, descr, obj, *args):
         raise NotImplementedError("oosend for lltype backend??")

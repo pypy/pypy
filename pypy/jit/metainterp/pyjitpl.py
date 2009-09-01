@@ -9,6 +9,7 @@ from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import codewriter, executor
+from pypy.jit.backend.logger import Logger
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 
@@ -1004,8 +1005,7 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = stats
         self.options = options
-        if cpu.logger_cls is not None:
-            options.logger_noopt = cpu.logger_cls(cpu.ts)
+        options.logger_noopt = Logger(cpu.ts)
 
         RESULT = portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
@@ -1057,8 +1057,7 @@ class MetaInterpStaticData(object):
                 self.profiler.start()
                 self.profiler.initialized = True
             self.globaldata.initialized = True
-            if self.options.logger_noopt is not None:
-                self.options.logger_noopt.create_log('.noopt')
+            self.options.logger_noopt.create_log('.noopt')
 
     def _setup_class_sizes(self):
         class_sizes = {}

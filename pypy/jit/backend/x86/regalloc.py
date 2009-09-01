@@ -9,9 +9,11 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rgc
-from pypy.jit.backend.x86 import symbolic
+from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_stack_layout
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
+from pypy.jit.backend.llsupport.descr import BaseCallDescr
 
 REGS = [eax, ecx, edx, ebx, esi, edi]
 WORD = 4
@@ -57,7 +59,8 @@ class RegAlloc(object):
         self.assembler = assembler
         self.translate_support_code = translate_support_code
         if regalloc is None:
-            self._rewrite_const_ptrs(tree.operations)
+            cpu = self.assembler.cpu
+            cpu.gc_ll_descr.rewrite_assembler(cpu, tree.operations)
             self.tree = tree
             self.reg_bindings = newcheckdict()
             self.stack_bindings = newcheckdict()
@@ -212,38 +215,6 @@ class RegAlloc(object):
         #                               self.max_stack_depth)
         self.max_stack_depth = max(self.max_stack_depth,
                                    self.current_stack_depth + 1)
-
-    def _rewrite_const_ptrs(self, operations):
-        # Idea: when running on a moving GC, we can't (easily) encode
-        # the ConstPtrs in the assembler, because they can move at any
-        # point in time.  Instead, we store them in 'gcrefs.list', a GC
-        # but nonmovable list; and here, we modify 'operations' to
-        # replace direct usage of ConstPtr with a BoxPtr loaded by a
-        # GETFIELD_RAW from the array 'gcrefs.list'.
-        gcrefs = self.assembler.gcrefs
-        if gcrefs is None:
-            return
-        single_gcref_descr = self.assembler.single_gcref_descr
-        newops = []
-        for op in operations:
-            if op.opnum == rop.DEBUG_MERGE_POINT:
-                continue
-            for i in range(len(op.args)):
-                v = op.args[i]
-                if (isinstance(v, ConstPtr) and v.value
-                                            and rgc.can_move(v.value)):
-                    box = BoxPtr(v.value)
-                    addr = gcrefs.get_address_of_gcref(v.value)
-                    addr = rffi.cast(lltype.Signed, addr)
-                    newops.append(ResOperation(rop.GETFIELD_RAW,
-                                               [ConstInt(addr)], box,
-                                               single_gcref_descr))
-                    op.args[i] = box
-            if op.is_guard():
-                self._rewrite_const_ptrs(op.suboperations)
-            newops.append(op)
-        del operations[:]
-        operations.extend(newops)
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -715,14 +686,26 @@ class RegAlloc(object):
         self.Perform(op, arglocs, eax)
 
     def consider_call(self, op, ignored):
-        from pypy.jit.backend.x86.runner import CPU386
         calldescr = op.descr
-        numargs, size, _ = CPU386.unpack_calldescr(calldescr)
-        assert numargs == len(op.args) - 1
-        return self._call(op, [imm(size)] +
-                          [self.loc(arg) for arg in op.args])
+        assert isinstance(calldescr, BaseCallDescr)
+        assert len(calldescr.arg_classes) == len(op.args) - 1
+        size = calldescr.get_result_size(self.translate_support_code)
+        self._call(op, [imm(size)] + [self.loc(arg) for arg in op.args])
 
     consider_call_pure = consider_call
+
+    def consider_cond_call_gc_wb(self, op, ignored):
+        assert op.result is None
+        arglocs = [self.loc(arg) for arg in op.args]
+        # add eax, ecx and edx as extra "arguments" to ensure they are
+        # saved and restored.
+        for v, reg in self.reg_bindings.items():
+            if ((reg is eax or reg is ecx or reg is edx)
+                and self.longevity[v][1] > self.position
+                and reg not in arglocs[3:]):
+                arglocs.append(reg)
+        self.PerformDiscard(op, arglocs)
+        self.eventually_free_vars(op.args)
 
     def consider_new(self, op, ignored):
         args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
@@ -766,14 +749,14 @@ class RegAlloc(object):
         else:
             assert False, itemsize
 
-    def _malloc_varsize(self, ofs_items, ofs_length, size, v, res_v):
+    def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
         # XXX kill this function at some point
         if isinstance(v, Box):
             loc = self.make_sure_var_in_reg(v, [v])
             other_loc = self.force_allocate_reg(TempBox(), [v])
-            self.assembler.load_effective_addr(loc, ofs_items, size, other_loc)
+            self.assembler.load_effective_addr(loc, ofs_items,scale, other_loc)
         else:
-            other_loc = imm(ofs_items + (v.getint() << size))
+            other_loc = imm(ofs_items + (v.getint() << scale))
         self._call(ResOperation(rop.NEW, [v], res_v),
                    [other_loc], [v])
         loc = self.make_sure_var_in_reg(v, [res_v])
@@ -792,20 +775,29 @@ class RegAlloc(object):
             arglocs.append(self.loc(op.args[0]))
             return self._call(op, arglocs)
         # boehm GC (XXX kill the following code at some point)
-        size_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
-        return self._malloc_varsize(basesize, 0, size_of_field, op.args[0],
+        scale_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
+        return self._malloc_varsize(basesize, 0, scale_of_field, op.args[0],
                                     op.result)
 
     def _unpack_arraydescr(self, arraydescr):
-        from pypy.jit.backend.x86.runner import CPU386
-        return CPU386.unpack_arraydescr(arraydescr)
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs = arraydescr.get_base_size(self.translate_support_code)
+        size = arraydescr.get_item_size(self.translate_support_code)
+        ptr = arraydescr.is_array_of_pointers()
+        scale = 0
+        while (1 << scale) < size:
+            scale += 1
+        assert (1 << scale) == size
+        return scale, ofs, ptr
 
     def _unpack_fielddescr(self, fielddescr):
-        from pypy.jit.backend.x86.runner import CPU386
-        ofs, size, ptr = CPU386.unpack_fielddescr(fielddescr)
+        assert isinstance(fielddescr, BaseFieldDescr)
+        ofs = fielddescr.offset
+        size = fielddescr.get_field_size(self.translate_support_code)
+        ptr = fielddescr.is_pointer_field()
         return imm(ofs), imm(size), ptr
 
-    def _common_consider_setfield(self, op, ignored, raw):
+    def consider_setfield_gc(self, op, ignored):
         ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
         assert isinstance(size_loc, IMM32)
         if size_loc.value == 1:
@@ -815,20 +807,10 @@ class RegAlloc(object):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         value_loc = self.make_sure_var_in_reg(op.args[1], op.args,
                                               need_lower_byte=need_lower_byte)
-        if ptr:
-            if raw:
-                print "Setfield of raw structure with gc pointer"
-                assert False
-            gc_ll_descr = self.assembler.cpu.gc_ll_descr
-            gc_ll_descr.gen_write_barrier(self.assembler, base_loc, value_loc)
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
-    def consider_setfield_gc(self, op, ignored):
-        self._common_consider_setfield(op, ignored, raw=False)
-    
-    def consider_setfield_raw(self, op, ignored):
-        self._common_consider_setfield(op, ignored, raw=True)
+    consider_setfield_raw = consider_setfield_gc
 
     def consider_strsetitem(self, op, ignored):
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
@@ -850,12 +832,11 @@ class RegAlloc(object):
         value_loc = self.make_sure_var_in_reg(op.args[2], op.args,
                                               need_lower_byte=need_lower_byte)
         ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        if ptr:
-            gc_ll_descr = self.assembler.cpu.gc_ll_descr
-            gc_ll_descr.gen_write_barrier(self.assembler, base_loc, value_loc)
         self.eventually_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
                                  imm(scale), imm(ofs)])
+
+    consider_setarrayitem_raw = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op, ignored):
         ofs_loc, size_loc, _ = self._unpack_fielddescr(op.descr)
@@ -916,7 +897,9 @@ class RegAlloc(object):
     consider_unicodelen = consider_strlen
 
     def consider_arraylen_gc(self, op, ignored):
-        _, ofs, _ = self._unpack_arraydescr(op.descr)
+        arraydescr = op.descr
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs = arraydescr.get_ofs_length(self.translate_support_code)
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
         self.eventually_free_vars(op.args)
         result_loc = self.force_allocate_reg(op.result, [])
@@ -948,6 +931,26 @@ class RegAlloc(object):
     def consider_debug_merge_point(self, op, ignored):
         pass
 
+    def get_mark_gc_roots(self, gcrootmap):
+        shape = gcrootmap.get_basic_shape()
+        for v, val in self.stack_bindings.items():
+            if (isinstance(v, BoxPtr) and
+                self.longevity[v][1] > self.position):
+                assert isinstance(val, MODRM)
+                gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
+        for v, reg in self.reg_bindings.items():
+            if (isinstance(v, BoxPtr) and
+                self.longevity[v][1] > self.position):
+                if reg is ebx:
+                    gcrootmap.add_ebx(shape)
+                elif reg is esi:
+                    gcrootmap.add_esi(shape)
+                elif reg is edi:
+                    gcrootmap.add_edi(shape)
+                else:
+                    assert reg is eax     # ok to ignore this one
+        return gcrootmap.compress_callshape(shape)
+
     def not_implemented_op(self, op, ignored):
         print "[regalloc] Not implemented operation: %s" % op.getopname()
         raise NotImplementedError
@@ -960,12 +963,15 @@ for name, value in RegAlloc.__dict__.iteritems():
         num = getattr(rop, name.upper())
         oplist[num] = value
 
-def stack_pos(i):
+def get_ebp_ofs(position):
     # Argument is a stack position (0, 1, 2...).
     # Returns (ebp-16), (ebp-20), (ebp-24)...
     # This depends on the fact that our function prologue contains
     # exactly 4 PUSHes.
-    res = mem(ebp, -WORD * (4 + i))
+    return -WORD * (4 + position)
+
+def stack_pos(i):
+    res = mem(ebp, get_ebp_ofs(i))
     res.position = i
     return res
 

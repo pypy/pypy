@@ -1,5 +1,4 @@
 class AbstractCPU(object):
-    logger_cls = None
 
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes
@@ -70,6 +69,8 @@ class AbstractCPU(object):
 
     @staticmethod
     def calldescrof(FUNC, ARGS, RESULT):
+        # FUNC is the original function type, but ARGS is a list of types
+        # with Voids removed
         raise NotImplementedError
 
     @staticmethod
@@ -81,11 +82,11 @@ class AbstractCPU(object):
     def typedescrof(TYPE):
         raise NotImplementedError
 
-    def cast_adr_to_int(self, adr):
-        raise NotImplementedError
+    #def cast_adr_to_int(self, adr):
+    #    raise NotImplementedError
 
-    def cast_int_to_adr(self, int):
-        raise NotImplementedError
+    #def cast_int_to_adr(self, int):
+    #    raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------
 
@@ -119,13 +120,16 @@ class AbstractCPU(object):
     def do_new(self, args, sizedescr):
         raise NotImplementedError
 
-    def do_new_with_vtable(self, args, sizedescr):
+    def do_new_with_vtable(self, args, descr=None):
         raise NotImplementedError
     
     def do_new_array(self, args, arraydescr):
         raise NotImplementedError
     
     def do_setarrayitem_gc(self, args, arraydescr):
+        raise NotImplementedError
+
+    def do_setarrayitem_raw(self, args, arraydescr):
         raise NotImplementedError
 
     def do_setfield_gc(self, args, fielddescr):
@@ -148,6 +152,13 @@ class AbstractCPU(object):
 
     def do_call(self, args, calldescr):
         raise NotImplementedError
+
+    def do_cond_call_gc_wb(self, args, calldescr):
+        if args[0].getint() & args[1].getint():
+            self.do_call(args[2:], calldescr)
+
+    def do_cond_call_gc_malloc(self, args, calldescr):
+        xxx
 
     def do_cast_int_to_ptr(self, args, descr=None):
         raise NotImplementedError

@@ -123,6 +123,8 @@ class AbstractDescr(AbstractValue):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
+    def repr_of_descr(self):
+        return '%r' % (self,)
 
 class AbstractMethDescr(AbstractDescr):
     # the base class of the result of cpu.methdescrof()
