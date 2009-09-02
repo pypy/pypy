@@ -17,13 +17,13 @@ class JitPolicy(object):
         return True
 
     def look_inside_graph(self, graph):
-        if contains_unsupported_variable_type(graph):
-            return False
         try:
             func = graph.func
         except AttributeError:
-            return True
-        return self.look_inside_function(func)
+            see_function = True
+        else:
+            see_function = self.look_inside_function(func)
+        return see_function and not contains_unsupported_variable_type(graph)
 
     def graphs_from(self, op):
         if op.opname == 'direct_call':
