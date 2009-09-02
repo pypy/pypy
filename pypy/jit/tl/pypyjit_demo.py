@@ -5,16 +5,50 @@ def do():
     __import__('test.' + TESTNAME)
     print "---ending 1---"
 
+class A(object):
+    def __init__(self, x):
+        self.x = x
+        self.y = x
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+        count = self.count
+        self.reset(self.count)
+        self.count += count
+    
+    def reset(self, howmuch):
+        for i in range(howmuch):
+            self.count -= 1
+
+    def f(self):
+        self.increment()
+        return self.x + self.y + 1
+
 def simple_loop():
     print "simple loop"
     import time
+    global a
+    a = A(10)
+    a = A(10)
+    a = A(10)
+    a = A(10)
+    a = A(10)
+    a = A(1)
+    print a
+    print a
     i = 0
-    N = 100
+    N = 1000
     #N = 10000000
     step = 3
     start = time.clock()
+    odd = 0
     while i < N:
-        i = i + step
+        i = i + a.f()
+        if i % 2:
+            i += 2
+            odd += 1
+    print a.count, i, odd
     end = time.clock()
     print i
     print end-start, 'seconds'
