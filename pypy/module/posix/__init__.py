@@ -124,7 +124,7 @@ corresponding Unix manual entries for more information on calls."""
         backend = space.config.translation.backend
         # the Win32 urandom implementation isn't going to translate on JVM or CLI
         # so we have to remove it
-        if backend == 'cli' or backend == 'jvm':
+        if 'urandom' in self.interpleveldefs and (backend == 'cli' or backend == 'jvm'):
             del self.interpleveldefs['urandom']
         MixedModule.__init__(self, space, w_name)
 
