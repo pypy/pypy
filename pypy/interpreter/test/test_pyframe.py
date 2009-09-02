@@ -140,20 +140,25 @@ class AppTestPyFrame:
         assert len(l) == 1
         assert isinstance(l[0][1], Exception)
 
-    def test_trace_print_hidden(self):
+    def test_trace_ignore_hidden(self):
         import sys
+        import _testing
+            
         l = []
         def trace(a,b,c):
             l.append((a,b,c))
 
         def f():
-            print 'foo!'
+            h = _testing.Hidden()
+            r = h.meth()
+            return r
 
         sys.settrace(trace)
-        f()
+        res = f()
         sys.settrace(None)
         assert len(l) == 1
         assert l[0][1] == 'call'
+        assert res == 'hidden' # sanity
 
     def test_trace_return_exc(self):
         import sys
