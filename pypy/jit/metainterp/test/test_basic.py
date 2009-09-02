@@ -915,16 +915,21 @@ class BaseLLtypeTests(BasicTests):
         lltype.free(x, flavor='raw')
 
     def test_casts(self):
+        if not self.basic:
+            py.test.skip("test written in a style that "
+                         "means it's frontend only")
         from pypy.rpython.lltypesystem import lltype, llmemory
         
         TP = lltype.GcStruct('x')
         def f(p):
             n = lltype.cast_ptr_to_int(p)
-            return lltype.cast_int_to_ptr(lltype.Ptr(TP), n)
+            return n
 
         x = lltype.malloc(TP)
-        expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
-        assert self.interp_operations(f, [x]) == expected
+        res = self.interp_operations(f, [x])
+        expected = self.metainterp.cpu.do_cast_ptr_to_int(
+            [history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))]).value
+        assert res == expected
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

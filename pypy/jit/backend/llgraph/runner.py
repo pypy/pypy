@@ -421,12 +421,6 @@ class LLtypeCPU(BaseCPU):
         else:  # calldescr.typeinfo == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
 
-    def do_cast_int_to_ptr(self, args, descr=None):
-        assert descr is None
-        return history.BoxPtr(llimpl.cast_from_int(llmemory.GCREF,
-                                                   args[0].getint(),
-                                                   self.memo_cast))
-
     def do_cast_ptr_to_int(self, args, descr=None):
         assert descr is None
         return history.BoxInt(llimpl.cast_to_int(args[0].getref_base(),

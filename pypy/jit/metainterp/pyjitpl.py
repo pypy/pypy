@@ -243,7 +243,7 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
-                    'cast_ptr_to_int', 'cast_int_to_ptr',
+                    'cast_ptr_to_int',
                     ]:
         exec py.code.Source('''
             @arguments("box")

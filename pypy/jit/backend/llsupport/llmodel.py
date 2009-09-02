@@ -54,13 +54,14 @@ class AbstractLLCPU(AbstractCPU):
                                             immortal=True)
         setattr(self, '_%s_error_vtable' % prefix,
                 llmemory.cast_ptr_to_adr(ll_inst.typeptr))
-        setattr(self, '_%s_error_inst' % prefix,
-                llmemory.cast_ptr_to_adr(ll_inst))
+        setattr(self, '_%s_error_inst' % prefix, ll_inst)
 
     # ------------------- helpers and descriptions --------------------
 
     @staticmethod
-    def cast_int_to_gcref(x):
+    def _cast_int_to_gcref(x):
+        # dangerous!  only use if you are sure no collection could occur
+        # between reading the integer and casting it to a pointer
         if not we_are_translated():
             _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
@@ -109,14 +110,14 @@ class AbstractLLCPU(AbstractCPU):
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
-        ovf_inst = self.cast_int_to_gcref(
-            self.cast_adr_to_int(self._ovf_error_inst))
+        ovf_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                          self._ovf_error_inst)
         return ovf_vtable, ovf_inst
 
     def get_zero_division_error(self):
         zer_vtable = self.cast_adr_to_int(self._zer_error_vtable)
-        zer_inst = self.cast_int_to_gcref(
-            self.cast_adr_to_int(self._zer_error_inst))
+        zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                          self._zer_error_inst)
         return zer_vtable, zer_inst
 
     # ____________________________________________________________
@@ -142,7 +143,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
         if ptr:
-            return BoxPtr(self.cast_int_to_gcref(val))
+            return BoxPtr(self._cast_int_to_gcref(val))
         else:
             return BoxInt(val)
 
@@ -207,7 +208,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
         if ptr:
-            return BoxPtr(self.cast_int_to_gcref(val))
+            return BoxPtr(self._cast_int_to_gcref(val))
         else:
             return BoxInt(val)
 
@@ -310,9 +311,6 @@ class AbstractLLCPU(AbstractCPU):
 
     def do_cast_ptr_to_int(self, args, descr=None):
         return BoxInt(self.cast_gcref_to_int(args[0].getref_base()))
-
-    def do_cast_int_to_ptr(self, args, descr=None):
-        return BoxPtr(self.cast_int_to_gcref(args[0].getint()))
 
 
 import pypy.jit.metainterp.executor

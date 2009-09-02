@@ -26,9 +26,9 @@ class CPU386(AbstractLLCPU):
 
             def _store_exception(lle):
                 tp_i = self.cast_ptr_to_int(lle.args[0])
-                v_i = self.cast_gcref_to_int(lle.args[1])
-                self.assembler._exception_data[0] = tp_i
-                self.assembler._exception_data[1] = v_i
+                v_i = lltype.cast_opaque_ptr(llmemory.GCREF, lle.args[1])
+                self.assembler._exception_emulator.type = tp_i
+                self.assembler._exception_emulator.value = v_i
             
             self.current_interpreter._store_exception = _store_exception
         TP = lltype.GcArray(llmemory.GCREF)
@@ -46,17 +46,14 @@ class CPU386(AbstractLLCPU):
         pass
 
     def get_exception(self):
-        self.assembler.make_sure_mc_exists()
-        return self.assembler._exception_bck[0]
+        return self.assembler._exception_copy.type
 
     def get_exc_value(self):
-        self.assembler.make_sure_mc_exists()
-        return self.cast_int_to_gcref(self.assembler._exception_bck[1])
+        return self.assembler._exception_copy.value
 
     def clear_exception(self):
-        self.assembler.make_sure_mc_exists()
-        self.assembler._exception_bck[0] = 0
-        self.assembler._exception_bck[1] = 0
+        self.assembler._exception_copy.type = 0
+        self.assembler._exception_copy.value= lltype.nullptr(llmemory.GCREF.TO)
 
     def compile_operations(self, tree, bridge=None):
         old_loop = tree._x86_compiled

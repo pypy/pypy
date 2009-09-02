@@ -124,7 +124,6 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
-    'cast_int_to_ptr' : (('int',), 'ref'),
     'debug_merge_point': (('ref',), None),
     #'getitem'         : (('void', 'ref', 'int'), 'int'),
     #'setitem'         : (('void', 'ref', 'int', 'int'), None),
@@ -695,9 +694,6 @@ class Frame(object):
 
     def op_cast_ptr_to_int(self, descr, ptr):
         return cast_to_int(ptr, self.memocast)
-
-    def op_cast_int_to_ptr(self, descr, val):
-        return cast_from_int(llmemory.GCREF, val, self.memocast)
 
     def op_uint_xor(self, descr, arg1, arg2):
         return arg1 ^ arg2
