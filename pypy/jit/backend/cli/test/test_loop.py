@@ -18,4 +18,5 @@ class TestLoop(CliJitMixin, test_loop.TestOOtype):
     test_path_with_operations_not_from_start_2 = skip
     test_loop_unicode = skip
     test_loop_string = skip
-
+    test_loop_with_delayed_setfield = skip
+    

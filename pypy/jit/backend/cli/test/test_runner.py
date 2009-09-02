@@ -33,6 +33,9 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     def test_ovf_operations(self, reversed=False):
         self.skip()
 
+    def test_unicode_basic(self):
+        py.test.skip('fixme!')
+
 def test_pypycliopt():
     import os
     from pypy.jit.backend.cli.method import Method
