@@ -2785,6 +2785,64 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[2], annmodel.SomeInstance)
         assert s.items[2].flags == {}
 
+    def test_no_access_directly_on_heap(self):
+        from pypy.rlib.jit import hint
+
+        class A:
+            _virtualizable2_ = []
+
+        class I:
+            pass
+
+        def f():
+            x = A()
+            x = hint(x, access_directly=True)
+            i = I()
+            i.x = x
+
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [])        
+
+
+        class M:
+            def __init__(self):
+                self.l = []
+                self.d = {}
+
+        class C:
+            def _freeze_(self):
+                return True
+
+            def __init__(self):
+                self.m = M()
+                self.l2 = []
+
+        c = C()
+         
+        def f():
+            x = A()
+            x = hint(x, access_directly=True)
+            c.m.l.append(x)
+
+        a = self.RPythonAnnotator()
+        py.test.raises(AssertionError, a.build_types, f, [])        
+
+        def f():
+            x = A()
+            x = hint(x, access_directly=True)
+            c.m.d[None] = x
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(AssertionError, a.build_types, f, [])        
+
+        def f():
+            x = A()
+            x = hint(x, access_directly=True)
+            c.m.d[x] = None
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(AssertionError, a.build_types, f, [])        
+
     def test_ctr_location(self):
         from pypy.rlib.jit import hint
 

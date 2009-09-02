@@ -11,8 +11,8 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
      SomeWeakRef, lltype_to_annotation
-from pypy.annotation.classdef import InstanceSource
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.classdef import InstanceSource, ClassDef
+from pypy.annotation.listdef import ListDef, ListItem
 from pypy.annotation.dictdef import DictDef
 from pypy.annotation import description
 from pypy.annotation.signature import annotationoftype
@@ -227,6 +227,38 @@ class Bookkeeper:
                         break
         finally:
             self.leave()
+
+        # sanity check: no flags attached to heap stored instances
+
+        seen = set()
+
+        def check_no_flags(s_value_or_def):
+            if isinstance(s_value_or_def, SomeInstance):
+                assert not s_value_or_def.flags, "instance annotation with flags escaped to the heap"
+                check_no_flags(s_value_or_def.classdef)
+            elif isinstance(s_value_or_def, SomeList):
+                check_no_flags(s_value_or_def.listdef.listitem)
+            elif isinstance(s_value_or_def, SomeDict):
+                check_no_flags(s_value_or_def.dictdef.dictkey)
+                check_no_flags(s_value_or_def.dictdef.dictvalue)                
+            elif isinstance(s_value_or_def, SomeTuple):
+                for s_item in s_value_or_def.items:
+                    check_no_flags(s_item)
+            elif isinstance(s_value_or_def, ClassDef):
+                if s_value_or_def in seen:
+                    return
+                seen.add(s_value_or_def)
+                for attr in s_value_or_def.attrs.values():
+                    s_attr = attr.s_value
+                    check_no_flags(s_attr)
+            elif isinstance(s_value_or_def, ListItem):
+                if s_value_or_def in seen:
+                    return
+                seen.add(s_value_or_def)                
+                check_no_flags(s_value_or_def.s_value)
+            
+        for clsdef in self.classdefs:
+            check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
         binding = self.annotator.binding
