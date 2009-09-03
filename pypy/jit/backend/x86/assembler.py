@@ -5,7 +5,6 @@ from pypy.jit.metainterp.history import Const, Box, BoxPtr, REF
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.logger import Logger
 from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
@@ -79,10 +78,6 @@ class MachineCodeStack(object):
         assert self.mcstack[self.counter - 1] is mc
         self.counter -= 1
 
-EXCEPTION_STORAGE = lltype.GcStruct('EXCEPTION_STORAGE',
-                                    ('type', lltype.Signed),
-                                    ('value', llmemory.GCREF))
-
 
 class Assembler386(object):
     mc = None
@@ -97,10 +92,6 @@ class Assembler386(object):
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
-        # The '_exception_emulator' is only used when non-translated.
-        # The '_exception_copy' is preallocated, so non-moving.
-        self._exception_emulator = lltype.malloc(EXCEPTION_STORAGE, zero=True)
-        self._exception_copy     = lltype.malloc(EXCEPTION_STORAGE, zero=True)
         self.mcstack = MachineCodeStack()
         self.logger = Logger(cpu.ts)
         self.fail_boxes_int = lltype.malloc(lltype.GcArray(lltype.Signed),
@@ -631,50 +622,20 @@ class Assembler386(object):
         self.mc.TEST(loc, loc)
         self.implement_guard(addr, op, self.mc.JZ)
 
-    def pos_exception(self):
-        if we_are_translated():
-            addr = llop.get_exception_addr(llmemory.Address)
-            return llmemory.cast_adr_to_int(addr)
-        else:
-            i = rffi.cast(lltype.Signed, self._exception_emulator)
-            return i + 0 # xxx hard-coded offset of 'type' when non-translated
-
-    def pos_exc_value(self):
-        if we_are_translated():
-            addr = llop.get_exc_value_addr(llmemory.Address)
-            return llmemory.cast_adr_to_int(addr)
-        else:
-            i = rffi.cast(lltype.Signed, self._exception_emulator)
-            return i + 4 # xxx hard-coded offset of 'value' when non-translated
-
-    def pos_exception_copy(self):
-        i = rffi.cast(lltype.Signed, self._exception_copy)
-        if we_are_translated():
-            return i + llmemory.offsetof(EXCEPTION_STORAGE, 'type')
-        else:
-            return i + 0 # xxx hard-coded offset of 'type' when non-translated
-
-    def pos_exc_value_copy(self):
-        i = rffi.cast(lltype.Signed, self._exception_copy)
-        if we_are_translated():
-            return i + llmemory.offsetof(EXCEPTION_STORAGE, 'value')
-        else:
-            return i + 4 # xxx hard-coded offset of 'value' when non-translated
-
     def genop_guard_guard_no_exception(self, op, ign_1, addr, locs, ign_2):
-        self.mc.CMP(heap(self.pos_exception()), imm(0))
+        self.mc.CMP(heap(self.cpu.pos_exception()), imm(0))
         self.implement_guard(addr, op, self.mc.JNZ)
 
     def genop_guard_guard_exception(self, op, ign_1, addr, locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
-        self.mc.MOV(loc1, heap(self.pos_exception()))
+        self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
         self.mc.CMP(loc1, loc)
         self.implement_guard(addr, op, self.mc.JNE)
         if resloc is not None:
-            self.mc.MOV(resloc, heap(self.pos_exc_value()))
-        self.mc.MOV(heap(self.pos_exception()), imm(0))
-        self.mc.MOV(heap(self.pos_exc_value()), imm(0))
+            self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
+        self.mc.MOV(heap(self.cpu.pos_exception()), imm(0))
+        self.mc.MOV(heap(self.cpu.pos_exc_value()), imm(0))
 
     def genop_guard_guard_no_overflow(self, op, ign_1, addr, locs, resloc):
         self.implement_guard(addr, op, self.mc.JO)
@@ -740,7 +701,9 @@ class Assembler386(object):
                                  imm(len(locs) * WORD)),
                                  eax)
         if exc:
-            self.generate_exception_handling(eax)
+            # note that we don't have to save and restore eax, ecx and edx here
+            addr = self.cpu.get_save_exception_int()
+            self.mc.CALL(rel32(addr))
         # don't break the following code sequence!
         mc = self.mc._mc
         self.places_to_patch_framesize.append(mc.tell())
@@ -752,16 +715,6 @@ class Assembler386(object):
         mc.POP(ebx)
         mc.POP(ebp)
         mc.RET()
-
-    def generate_exception_handling(self, loc):
-        self.mc.MOV(loc, heap(self.pos_exception()))
-        self.mc.MOV(heap(self.pos_exception_copy()), loc)
-        self.mc.MOV(loc, heap(self.pos_exc_value()))
-        self.mc.MOV(heap(self.pos_exc_value_copy()), loc)
-        # clean up the original exception, we don't want
-        # to enter more rpython code with exc set
-        self.mc.MOV(heap(self.pos_exception()), imm(0))
-        self.mc.MOV(heap(self.pos_exc_value()), imm(0))
 
     @specialize.arg(3)
     def implement_guard(self, addr, guard_op, emit_jump):

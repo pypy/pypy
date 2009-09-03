@@ -21,16 +21,6 @@ class CPU386(AbstractLLCPU):
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, translate_support_code,
                                gcdescr)
-        if not translate_support_code:
-            self.current_interpreter = LLInterpreter(self.rtyper)
-
-            def _store_exception(lle):
-                tp_i = self.cast_ptr_to_int(lle.args[0])
-                v_i = lltype.cast_opaque_ptr(llmemory.GCREF, lle.args[1])
-                self.assembler._exception_emulator.type = tp_i
-                self.assembler._exception_emulator.value = v_i
-            
-            self.current_interpreter._store_exception = _store_exception
         TP = lltype.GcArray(llmemory.GCREF)
         self._bootstrap_cache = {}
         self._guard_list = []
@@ -44,16 +34,6 @@ class CPU386(AbstractLLCPU):
 
     def setup_once(self):
         pass
-
-    def get_exception(self):
-        return self.assembler._exception_copy.type
-
-    def get_exc_value(self):
-        return self.assembler._exception_copy.value
-
-    def clear_exception(self):
-        self.assembler._exception_copy.type = 0
-        self.assembler._exception_copy.value= lltype.nullptr(llmemory.GCREF.TO)
 
     def compile_operations(self, tree, bridge=None):
         old_loop = tree._x86_compiled
@@ -116,7 +96,7 @@ class CPU386(AbstractLLCPU):
         prev_interpreter = None
         if not self.translate_support_code:
             prev_interpreter = LLInterpreter.current_interpreter
-            LLInterpreter.current_interpreter = self.current_interpreter
+            LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
             self.caught_exception = None
