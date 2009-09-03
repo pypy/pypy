@@ -620,14 +620,10 @@ class LLtypeBackendTest(BaseBackendTest):
         x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [BoxPtr(x)],  'int').value
-        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
-                                      [BoxInt(res)], 'ref').value
-        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        assert res == self.cpu.cast_gcref_to_int(x)
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [ConstPtr(x)],  'int').value
-        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
-                                      [ConstInt(res)], 'ref').value
-        assert res2 == x
+        assert res == self.cpu.cast_gcref_to_int(x)
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
@@ -851,9 +847,7 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.do_newstr([BoxInt(5)])
         y = cpu.do_cast_ptr_to_int([x])
         assert isinstance(y, BoxInt)
-        z = cpu.do_cast_int_to_ptr([y])
-        assert isinstance(z, BoxPtr)
-        assert z.value == x.value
+        assert y.value == cpu.cast_gcref_to_int(x.value)
 
     def test_sorting_of_fields(self):
         S = self.S

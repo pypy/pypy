@@ -228,6 +228,9 @@ class BaseCPU(model.AbstractCPU):
     def cast_int_to_adr(self, int):
         return llimpl.cast_int_to_adr(self.memo_cast, int)
 
+    def cast_gcref_to_int(self, gcref):
+        return self.cast_adr_to_int(llmemory.cast_ptr_to_adr(gcref))
+
 
 
 class LLtypeCPU(BaseCPU):
