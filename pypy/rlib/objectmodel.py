@@ -31,6 +31,7 @@ class _AttachSpecialization(object):
         specialcase = "specialize:%s%s" % (self.tag, args)
         
         def specialize_decorator(func):
+            "NOT_RPYTHON"
             func._annspecialcase_ = specialcase
             return func
 
