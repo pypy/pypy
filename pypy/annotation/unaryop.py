@@ -2,6 +2,7 @@
 Unary operations on SomeValues.
 """
 
+from types import MethodType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeTuple, SomeImpossibleValue, \
@@ -727,8 +728,19 @@ class __extend__(SomePtr):
 
     def getattr(p, s_attr):
         assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
-        v = getattr(p.ll_ptrtype._example(), s_attr.const)
-        return ll_to_annotation(v)
+        example = p.ll_ptrtype._example()
+        try:
+            v = example._lookup_adtmeth(s_attr.const)
+        except AttributeError:
+            v = getattr(example, s_attr.const)
+            return ll_to_annotation(v)
+        else:
+            if isinstance(v, MethodType):
+                from pypy.rpython.lltypesystem import lltype
+                ll_ptrtype = lltype.typeOf(v.im_self)
+                assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
+                return SomeLLADTMeth(ll_ptrtype, v.im_func)
+            return getbookkeeper().immutablevalue(v)
     getattr.can_only_throw = []
 
     def len(p):

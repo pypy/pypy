@@ -632,15 +632,6 @@ def ll_to_annotation(v):
         # i think we can only get here in the case of void-returning
         # functions
         return s_None
-    if isinstance(v, MethodType):
-        ll_ptrtype = lltype.typeOf(v.im_self)
-        assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
-        return SomeLLADTMeth(ll_ptrtype, v.im_func)
-    if isinstance(v, FunctionType):
-        # this case should only be for staticmethod instances used in
-        # adtmeths: the getattr() result is then a plain FunctionType object.
-        from pypy.annotation.bookkeeper import getbookkeeper
-        return getbookkeeper().immutablevalue(v)
     if isinstance(v, lltype._interior_ptr):
         ob = v._parent
         if ob is None:

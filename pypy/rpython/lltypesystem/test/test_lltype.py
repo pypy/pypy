@@ -528,7 +528,8 @@ def test_adtmeths():
 
     A = GcArray(Signed,
                 adtmeths={"h_alloc": h_alloc,
-                          "h_length": h_length})
+                          "h_length": h_length,
+                          "stuff": 12})
 
     a = A.h_alloc(10)
 
@@ -536,6 +537,9 @@ def test_adtmeths():
     assert len(a) == 10
 
     assert a.h_length() == 10
+    assert a._lookup_adtmeth("h_length")() == 10
+    assert a.stuff == 12
+    assert a._lookup_adtmeth("stuff") == 12
 
 def test_adt_typemethod():
     def h_newstruct(S):

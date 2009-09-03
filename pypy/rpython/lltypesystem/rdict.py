@@ -507,7 +507,6 @@ def ll_dict_resize(d):
 PERTURB_SHIFT = 5
 
 def ll_dict_lookup(d, key, hash):
-    DICT = lltype.typeOf(d).TO
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
@@ -520,7 +519,7 @@ def ll_dict_lookup(d, key, hash):
             # correct hash, maybe the key is e.g. a different pointer to
             # an equal object
             found = d.keyeq(checkingkey, key)
-            if DICT.paranoia:
+            if d.paranoia:
                 if (entries != d.entries or
                     not entries.valid(i) or entries[i].key != checkingkey):
                     # the compare did major nasty stuff to the dict: start over
@@ -555,7 +554,7 @@ def ll_dict_lookup(d, key, hash):
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
                 found = d.keyeq(checkingkey, key)
-                if DICT.paranoia:
+                if d.paranoia:
                     if (entries != d.entries or
                         not entries.valid(i) or entries[i].key != checkingkey):
                         # the compare did major nasty stuff to the dict:

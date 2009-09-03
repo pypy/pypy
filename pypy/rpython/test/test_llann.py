@@ -389,6 +389,26 @@ class TestLowLevelAnnotateTestCase:
             lst.append(6)
         self.annotate(llf, [])
 
+    def test_adtmeths(self):
+        def h_length(s):
+            return s.foo
+        S = GcStruct("S", ('foo', Signed),
+                     adtmeths={"h_length": h_length,
+                               "stuff": 12})
+        def llf():
+            s = malloc(S)
+            s.foo = 321
+            return s.h_length()
+        s = self.annotate(llf, [])
+        assert s.knowntype == int and not s.is_constant()
+
+        def llf():
+            s = malloc(S)
+            return s.stuff
+        s = self.annotate(llf, [])
+        assert s.is_constant() and s.const == 12
+
+
 def test_pseudohighlevelcallable():
     t = TranslationContext()
     t.buildannotator()

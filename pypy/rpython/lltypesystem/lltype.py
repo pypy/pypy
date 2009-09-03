@@ -994,25 +994,31 @@ class _abstract_ptr(object):
         return (type(self._obj0) not in (type(None), int) and
                 self._getobj(check=False)._was_freed())
 
+    def _lookup_adtmeth(self, member_name):
+        if isinstance(self._T, ContainerType):
+            try:
+                adtmember = self._T._adtmeths[member_name]
+            except KeyError:
+                pass
+            else:
+                try:
+                    getter = adtmember.__get__
+                except AttributeError:
+                    return adtmember
+                else:
+                    return getter(self)
+        raise AttributeError
+
     def __getattr__(self, field_name): # ! can only return basic or ptr !
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
                 o = self._obj._getattr(field_name)
                 return self._expose(field_name, o)
-        if isinstance(self._T, ContainerType):
-            try:
-                adtmeth = self._T._adtmeths[field_name]
-            except KeyError:
-                pass
-            else:
-                try:
-                    getter = adtmeth.__get__
-                except AttributeError:
-                    return adtmeth
-                else:
-                    return getter(self)
-        raise AttributeError("%r instance has no field %r" % (self._T,
-                                                              field_name))
+        try:
+            return self._lookup_adtmeth(field_name)
+        except AttributeError:
+            raise AttributeError("%r instance has no field %r" % (self._T,
+                                                                  field_name))
 
     def __setattr__(self, field_name, val):
         if isinstance(self._T, Struct):
