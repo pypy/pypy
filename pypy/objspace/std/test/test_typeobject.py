@@ -991,3 +991,82 @@ class AppTestGetattributeShortcut:
         X.__getattribute__ = ga
 
         assert y.x == 'GA'
+
+class TestNewShortcut:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+                        **{"objspace.std.newshortcut": True})   
+
+    def test_mechanics(self):
+        space = self.space
+        w_tup = space.appexec([], """():
+    class A(object):
+        pass
+    class B(object):
+        __new__ = staticmethod(lambda t: 1)
+    class M(type):
+        pass
+    return A, B, M
+""")
+        w_A, w_B, w_M = space.unpackiterable(w_tup)
+
+        assert w_A.w_bltin_new is None
+        assert w_B.w_bltin_new is None
+        assert w_M.w_bltin_new is None                
+
+        _, w_object_newdescr = space.lookup_in_type_where(space.w_object,
+                                                          '__new__')
+        w_object___new__ = space.get(w_object_newdescr, None,
+                                     w_type=space.w_object)
+
+        w_a = space.call_function(w_A)
+        assert w_A.w_bltin_new is w_object___new__
+
+        # will shortcut
+        w_a = space.call_function(w_A)
+
+        w_b = space.call_function(w_B)
+        assert w_B.w_bltin_new is None
+
+        w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
+                                  space.newdict())
+        assert w_M.w_bltin_new is None                                  
+
+
+class AppTestNewShortcut:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+                        **{"objspace.std.newshortcut": True})
+
+    def test_reset_logic(self):
+        class X(object):
+            pass
+
+        class Y(X):
+            pass
+
+        y = Y()
+
+        assert isinstance(y, Y)
+
+
+        X.__new__ = staticmethod(lambda t: 1)
+
+        y = Y()
+
+        assert y == 1
+
+    def test_dont_explode_on_non_types(self):
+        class A:
+            __new__ = staticmethod(lambda t: 1)
+
+        class B(A, object):
+            pass
+
+        b = B()
+
+        assert b == 1
+
+        

@@ -52,9 +52,14 @@ class W_TypeObject(W_Object):
 
     _immutable_fields_ = ["__flags__"]
 
-    uses_object_getattribute = False
-    # ^^^ for config.objspace.std.getattributeshortcut
+    # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
+    uses_object_getattribute = False
+
+    # used to cache the type __new__ function if it comes from a builtin type
+    # != 'type', in that case call__Type will also assumes the result
+    # of the __new__ is an instance of the type
+    w_bltin_new = None
 
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
@@ -87,12 +92,16 @@ class W_TypeObject(W_Object):
     def mutated(w_self):
         space = w_self.space
         if (not space.config.objspace.std.withtypeversion and
-            not space.config.objspace.std.getattributeshortcut):
+            not space.config.objspace.std.getattributeshortcut and
+            not space.config.objspace.std.newshortcut):
             return
 
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
+
+        if space.config.objspace.std.newshortcut:
+            w_self.w_bltin_new = None
 
         if (space.config.objspace.std.withtypeversion
             and w_self.version_tag is not None):
@@ -570,10 +579,23 @@ def call__Type(space, w_type, __args__):
         else:
             return space.type(w_obj)
     # invoke the __new__ of the type
-    w_newfunc = space.getattr(w_type, space.wrap('__new__'))
-    w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
+    w_bltin_new = w_type.w_bltin_new
+    call_init = True
+    if w_bltin_new is not None:
+        w_newobject = space.call_obj_args(w_bltin_new, w_type, __args__)
+    else:
+        w_newtype, w_newdescr = w_type.lookup_where('__new__')
+        w_newfunc = space.get(w_newdescr, w_type)
+        if (space.config.objspace.std.newshortcut and
+            isinstance(w_newtype, W_TypeObject) and
+            not w_newtype.is_heaptype() and
+            not space.is_w(w_newtype, space.w_type)):
+            w_type.w_bltin_new = w_newfunc
+        w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
+        call_init = space.is_true(space.isinstance(w_newobject, w_type))
+
     # maybe invoke the __init__ of the type
-    if space.is_true(space.isinstance(w_newobject, w_type)):
+    if call_init:
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
         if not space.is_w(w_result, space.w_None):

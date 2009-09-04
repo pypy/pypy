@@ -328,6 +328,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
                    default=False),
+        BoolOption("newshortcut",
+                   "cache and shortcut calling __new__ from builtin types",
+                   default=False),        
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -369,6 +372,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(builtinshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
+        config.objspace.std.suggest(newshortcut=True)        
 
     # extra costly optimizations only go in level 3
     if level == '3':
