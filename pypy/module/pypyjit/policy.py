@@ -2,6 +2,9 @@ from pypy.jit.metainterp.policy import JitPolicy
 
 class PyPyJitPolicy(JitPolicy):
 
+    def __init__(self, translator=None):
+        pass       # xxx
+
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
         if (func.__name__.startswith('_mm_') or
