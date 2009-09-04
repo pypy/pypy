@@ -160,8 +160,7 @@ class GenerationGC(SemiSpaceGC):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect,
-                             has_finalizer=False):
+                             offset_to_length, can_collect):
         # Only use the nursery if there are not too many items.
         if not raw_malloc_usage(itemsize):
             too_many_items = False
@@ -180,7 +179,7 @@ class GenerationGC(SemiSpaceGC):
             maxlength = maxlength_for_minimal_nursery << self.nursery_scale
             too_many_items = length > maxlength
 
-        if (has_finalizer or not can_collect or
+        if (not can_collect or
             too_many_items or
             (raw_malloc_usage(size) > self.lb_young_var_basesize and
              raw_malloc_usage(size) > self.largest_young_var_basesize)):
@@ -190,7 +189,7 @@ class GenerationGC(SemiSpaceGC):
             #     second comparison as well.
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
                                                     itemsize, offset_to_length,
-                                                    can_collect, has_finalizer)
+                                                    can_collect)
         # with the above checks we know now that totalsize cannot be more
         # than about half of the nursery size; in particular, the + and *
         # cannot overflow
@@ -392,6 +391,9 @@ class GenerationGC(SemiSpaceGC):
         if self.is_in_nursery(pointer.address[0]):
             pointer.address[0] = self.copy(pointer.address[0])
 
+    # The code relies on the fact that no weakref can be an old object
+    # weakly pointing to a young object.  Indeed, weakrefs are immutable
+    # so they cannot point to an object that was created after it.
     def invalidate_young_weakrefs(self):
         # walk over the list of objects that contain weakrefs and are in the
         # nursery.  if the object it references survives then update the

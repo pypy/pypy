@@ -100,6 +100,7 @@ class GCBase(object):
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
             assert not contains_weakptr
+            assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             if zero or not hasattr(self, 'malloc_varsize'):
@@ -107,7 +108,7 @@ class GCBase(object):
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
-                                 offset_to_length, True, needs_finalizer)
+                                 offset_to_length, True)
         else:
             if zero or not hasattr(self, 'malloc_fixedsize'):
                 malloc_fixedsize = self.malloc_fixedsize_clear

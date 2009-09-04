@@ -343,7 +343,7 @@ class GcLLDescr_framework(GcLLDescription):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 type_id, num_elem, self.array_basesize, itemsize,
-                self.array_length_ofs, True, False)
+                self.array_length_ofs, True)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
             [lltype.Signed] * 3, llmemory.GCREF))
@@ -359,12 +359,12 @@ class GcLLDescr_framework(GcLLDescription):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 str_type_id, length, str_basesize, str_itemsize,
-                str_ofs_length, True, False)
+                str_ofs_length, True)
         def malloc_unicode(length):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 unicode_type_id, length, unicode_basesize, unicode_itemsize,
-                unicode_ofs_length, True, False)
+                unicode_ofs_length, True)
         self.malloc_str = malloc_str
         self.malloc_unicode = malloc_unicode
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(

@@ -132,12 +132,11 @@ class HybridGC(GenerationGC):
     # 'large'.
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect,
-                             has_finalizer=False):
-        if has_finalizer or not can_collect:
+                             offset_to_length, can_collect):
+        if not can_collect:
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
                                                     itemsize, offset_to_length,
-                                                    can_collect, has_finalizer)
+                                                    can_collect)
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
 

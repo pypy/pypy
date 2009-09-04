@@ -83,8 +83,7 @@ class SemiSpaceGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect,
-                             has_finalizer=False):
+                             offset_to_length, can_collect):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         try:
@@ -101,8 +100,6 @@ class SemiSpaceGC(MovingGCBase):
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.free = result + llarena.round_up_for_allocation(totalsize)
-        if has_finalizer:
-            self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def obtain_free_space(self, needed):

@@ -94,6 +94,8 @@ class Arena(object):
         return addr2
 
     def setobject(self, objaddr, offset, bytes):
+        assert bytes > 0, ("llarena does not support GcStructs with no field"
+                           " or empty arrays")
         assert offset not in self.objectptrs
         self.objectptrs[offset] = objaddr.ptr
         self.objectsizes[offset] = bytes

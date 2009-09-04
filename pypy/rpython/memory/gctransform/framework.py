@@ -235,7 +235,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-            + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
+            + [annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -285,7 +285,7 @@ class FrameworkGCTransformer(GCTransformer):
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
-                 s_True, s_False], s_gcref,
+                 s_True], s_gcref,
                 inline = True)
         else:
             self.malloc_varsize_clear_fast_ptr = None
@@ -524,30 +524,28 @@ class FrameworkGCTransformer(GCTransformer):
             args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
                     c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
         else:
+            assert not c_has_finalizer.value
             v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info.ofstolength)
             c_varitemsize = rmodel.inputconst(lltype.Signed, info.varitemsize)
             if flags.get('resizable') and self.malloc_varsize_resizable_ptr:
                 assert c_can_collect.value
-                assert not c_has_finalizer.value
                 malloc_ptr = self.malloc_varsize_resizable_ptr
                 args = [self.c_const_gc, c_type_id, v_length]                
             elif flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
                 # we don't have tests for such cases, let's fail
                 # explicitely
                 assert c_can_collect.value
-                assert not c_has_finalizer.value
                 malloc_ptr = self.malloc_varsize_nonmovable_ptr
                 args = [self.c_const_gc, c_type_id, v_length]
             else:
                 if (self.malloc_varsize_clear_fast_ptr is not None and
-                    c_can_collect.value and not c_has_finalizer.value):
+                    c_can_collect.value):
                     malloc_ptr = self.malloc_varsize_clear_fast_ptr
                 else:
                     malloc_ptr = self.malloc_varsize_clear_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
-                        c_varitemsize, c_ofstolength, c_can_collect,
-                        c_has_finalizer]
+                        c_varitemsize, c_ofstolength, c_can_collect]
         keep_current_args = flags.get('keep_current_args', False)
         livevars = self.push_roots(hop, keep_current_args=keep_current_args)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
@@ -623,12 +621,12 @@ class FrameworkGCTransformer(GCTransformer):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
-         v_offset_to_length, v_can_collect, v_has_finalizer] = op.args
+         v_offset_to_length, v_can_collect] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_varsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_length, v_size, v_itemsize,
-                   v_offset_to_length, v_can_collect, v_has_finalizer],
+                   v_offset_to_length, v_can_collect],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 

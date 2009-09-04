@@ -151,7 +151,7 @@ class MarkSweepGC(GCBase):
     malloc_fixedsize_clear._dont_inline_ = True
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect, has_finalizer=False):
+                       can_collect):
         if can_collect:
             self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -170,12 +170,8 @@ class MarkSweepGC(GCBase):
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
+        hdr.next = self.malloced_objects
+        self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
             
         result += size_gc_header
@@ -187,8 +183,7 @@ class MarkSweepGC(GCBase):
     malloc_varsize._dont_inline_ = True
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect,
-                             has_finalizer=False):
+                             offset_to_length, can_collect):
         if can_collect:
             self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -208,12 +203,8 @@ class MarkSweepGC(GCBase):
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
+        hdr.next = self.malloced_objects
+        self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
             
         result += size_gc_header
