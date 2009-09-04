@@ -184,28 +184,30 @@ class PyCode(eval.Code):
         
         self.fast_natural_arity = PyCode.FLATPYCALL | self.co_argcount
 
-    @jit.dont_look_inside
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func.closure)
         sig = self._signature
         # speed hack
-        args_matched = args.parse_into_scope(None, frame.fastlocals_w,
+        fresh_frame = jit.hint(frame, access_directly=True,
+                                      fresh_virtualizable=True)
+        args_matched = args.parse_into_scope(None, fresh_frame.fastlocals_w,
                                              func.name,
                                              sig, func.defs_w)
-        frame.init_cells()
+        fresh_frame.init_cells()
         return frame.run()
 
-    @jit.dont_look_inside
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func.closure)
         sig = self._signature
         # speed hack
-        args_matched = args.parse_into_scope(w_obj, frame.fastlocals_w,
+        fresh_frame = jit.hint(frame, access_directly=True,
+                                      fresh_virtualizable=True)        
+        args_matched = args.parse_into_scope(w_obj, fresh_frame.fastlocals_w,
                                              func.name,
                                              sig, func.defs_w)
-        frame.init_cells()
+        fresh_frame.init_cells()
         return frame.run()
 
     def getvarnames(self):
