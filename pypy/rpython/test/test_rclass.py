@@ -266,6 +266,26 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 246
 
+    def test_method_specialized_with_subclass(self):
+        py.test.skip('fixme!')
+        class A:
+            def meth(self, n):
+                return -1
+            meth._annspecialcase_ = 'specialize:arg(1)'
+
+        class B(A):
+            pass
+        
+        def f():
+            a = A()
+            b = B()
+            a.meth(1) # the self of this variant is annotated with A
+            b.meth(2) # the self of this variant is annotated with B, then explodes
+            return 42
+        
+        res = self.interpret(f, [])
+        assert res == 42
+
     def test_issubclass_type(self):
         class Abstract:
             pass
