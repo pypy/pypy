@@ -1,3 +1,4 @@
+import py
 from pypy.rlib import rgc
 from pypy.rlib.rweakref import RWeakValueDictionary
 from pypy.rpython.test.test_llinterp import interpret
@@ -107,3 +108,12 @@ def test_rpython_merge_RWeakValueDictionary():
     interpret(f, [0])
     f(1)
     interpret(f, [1])
+
+    def g(x):
+        if x:
+            d = RWeakValueDictionary(X)
+        else:
+            d = RWeakValueDictionary(Y)
+        d.set("x", X())
+        return 41
+    py.test.raises(Exception, interpret, g, [1])

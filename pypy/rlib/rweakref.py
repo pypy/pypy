@@ -3,7 +3,6 @@ Weakref support in RPython.  Supports ref() without callbacks,
 and a limited version of WeakValueDictionary.  LLType only for now!
 """
 
-from pypy.tool.pairtype import pairtype
 import weakref
 from weakref import ref
 
@@ -33,6 +32,7 @@ class RWeakValueDictionary(object):
 from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.tool.pairtype import pairtype
 
 class SomeWeakValueDict(annmodel.SomeObject):
     knowntype = RWeakValueDictionary
@@ -57,10 +57,9 @@ class SomeWeakValueDict(annmodel.SomeObject):
 
 class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
     def union((s_wvd1, s_wvd2)):
-        basedef = s_wvd1.valueclassdef.commonbase(s_wvd2.valueclassdef)
-        if basedef is None:    # no common base class! complain...
-            return SomeObject()
-        return SomeWeakValueDict(basedef)
+        if s_wvd1.valueclassdef is not s_wvd2.valueclassdef:
+            return SomeObject() # not the same class! complain...
+        return s_wvd1
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = RWeakValueDictionary
