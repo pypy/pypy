@@ -948,3 +948,46 @@ class AppTestMutableBuiltintypes:
         del list.a
         raises(AttributeError, "l.a")
 
+class AppTestGetattributeShortcut:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+                        **{"objspace.std.getattributeshortcut": True})
+
+    def test_reset_logic(self):
+        class X(object):
+            pass
+
+        class Y(X):
+            pass
+
+        y = Y()
+        y.x = 3
+        assert y.x == 3
+
+        def ga(self, name):
+            return 'GA'
+
+        X.__getattribute__ = ga
+
+        assert y.x == 'GA'
+
+        class M(type):
+            pass
+
+        class X(object):
+            __metaclass__ = M
+
+        class Y(X):
+            pass
+
+        y = Y()
+        y.x = 3
+        assert y.x == 3
+
+        def ga(self, name):
+            return 'GA'
+
+        X.__getattribute__ = ga
+
+        assert y.x == 'GA'

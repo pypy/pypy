@@ -86,24 +86,22 @@ class W_TypeObject(W_Object):
 
     def mutated(w_self):
         space = w_self.space
+        if (not space.config.objspace.std.withtypeversion and
+            not space.config.objspace.std.getattributeshortcut):
+            return
+
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
-        if not space.config.objspace.std.withtypeversion:
-            return
-        # Invariant: version_tag is None if and only if
-        # 'w_self.instancetypedef.hasdict' is True, which is the case
-        # for a built-in type that provides its instances with their own
-        # __dict__.  If 'hasdict' is True for a type T then it is also
-        # True for all subtypes of T; so we don't need to look for
-        # version_tags to update in the subclasses of a type T whose
-        # version_tag is None.
-        if w_self.version_tag is not None:
+
+        if (space.config.objspace.std.withtypeversion
+            and w_self.version_tag is not None):
             w_self.version_tag = VersionTag()
-            subclasses_w = w_self.get_subclasses()
-            for w_subclass in subclasses_w:
-                assert isinstance(w_subclass, W_TypeObject)
-                w_subclass.mutated()
+
+        subclasses_w = w_self.get_subclasses()
+        for w_subclass in subclasses_w:
+            assert isinstance(w_subclass, W_TypeObject)
+            w_subclass.mutated()
 
     def ready(w_self):
         for w_base in w_self.bases_w:
