@@ -3,6 +3,7 @@ Weakref support in RPython.  Supports ref() without callbacks,
 and a limited version of WeakValueDictionary.  LLType only for now!
 """
 
+from pypy.tool.pairtype import pairtype
 import weakref
 from weakref import ref
 
@@ -53,6 +54,13 @@ class SomeWeakValueDict(annmodel.SomeObject):
     def method_set(self, s_key, s_value):
         s_oldvalue = self.method_get(s_key)
         assert s_oldvalue.contains(s_value)
+
+class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
+    def union((s_wvd1, s_wvd2)):
+        basedef = s_wvd1.valueclassdef.commonbase(s_wvd2.valueclassdef)
+        if basedef is None:    # no common base class! complain...
+            return SomeObject()
+        return SomeWeakValueDict(basedef)
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = RWeakValueDictionary

@@ -86,3 +86,24 @@ def test_rpython_prebuilt():
     #
     f()
     interpret(f, [])
+
+
+def test_rpython_merge_RWeakValueDictionary():
+    class A(object):
+        def __init__(self):
+            self.d = RWeakValueDictionary(A)
+        def f(self, key):
+            a = A()
+            self.d.set(key, a)
+            return a
+    empty = A()
+    def f(x):
+        a = A()
+        if x:
+            a = empty
+        a2 = a.f("a")
+        assert a.d.get("a") is a2
+    f(0)
+    interpret(f, [0])
+    f(1)
+    interpret(f, [1])
