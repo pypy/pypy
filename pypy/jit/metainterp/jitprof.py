@@ -3,6 +3,7 @@
 """
 
 import time
+from pypy.rlib.debug import debug_print
 
 TRACING = 0
 BACKEND = 1
@@ -69,11 +70,11 @@ class Profiler(object):
         t0 = self.t1
         self.t1 = self.timer()
         if not self.current:
-            print "BROKEN PROFILER DATA!"
+            debug_print("BROKEN PROFILER DATA!")
             return
         ev1 = self.current.pop()
         if ev1 != event:
-            print "BROKEN PROFILER DATA!"
+            debug_print("BROKEN PROFILER DATA!")
             return
         self.times[ev1] += self.t1 - t0
 
