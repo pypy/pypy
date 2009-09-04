@@ -1,6 +1,6 @@
-from pypy.jit.metainterp.policy import ManualJitPolicy
+from pypy.jit.metainterp.policy import JitPolicy
 
-class PyPyJitPolicy(ManualJitPolicy):
+class PyPyJitPolicy(JitPolicy):
 
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
