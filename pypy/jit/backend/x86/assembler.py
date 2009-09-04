@@ -323,9 +323,7 @@ class Assembler386(object):
         nargs = len(args)
         extra_on_stack = self.align_stack_for_call(nargs)
         for i in range(nargs-1, -1, -1):
-            arg = args[i]
-            assert not isinstance(arg, MODRM)
-            self.mc.PUSH(arg)
+            self.mc.PUSH(args[i])
         self.mc.CALL(rel32(addr))
         self.mark_gc_roots()
         self.mc.ADD(esp, imm(extra_on_stack * WORD))
