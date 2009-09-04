@@ -5,6 +5,7 @@ from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTIN
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
 from pypy.rlib.jit import purefunction
+from pypy.rlib.rweakref import RWeakValueDictionary
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -687,7 +688,6 @@ class RDictItemIteratorImplementation(IteratorImplementation):
 
 class SharedStructure(object):
     def __init__(self, keys=None, length=0,
-                 other_structs=None,
                  last_key=None,
                  back_struct=None):
         if keys is None:
@@ -695,20 +695,18 @@ class SharedStructure(object):
         self.keys = keys
         self.length = length
         self.back_struct = back_struct
-        if other_structs is None:
-            other_structs = {}
+        other_structs = RWeakValueDictionary(SharedStructure)
         self.other_structs = other_structs
         self.last_key = last_key
         if last_key is not None:
             assert back_struct is not None
-        self.propagating = False
 
     def new_structure(self, added_key):
         keys = self.keys.copy()
         keys[added_key] = len(self.keys)
         new_structure = SharedStructure(keys, self.length + 1,
-                                        {}, added_key, self)
-        self.other_structs[added_key] = new_structure
+                                        added_key, self)
+        self.other_structs.set(added_key, new_structure)
         return new_structure
 
     def lookup_position(self, key):
@@ -725,7 +723,6 @@ def _lookup_position_shared(self, key):
 class State(object):
     def __init__(self, space):
         self.empty_structure = SharedStructure()
-        self.empty_structure.propagating = True
 
 
 class SharedDictImplementation(DictImplementation):
@@ -762,13 +759,9 @@ class SharedDictImplementation(DictImplementation):
         if i != -1:
             self.entries[i] = w_value
             return self
-        if not self.structure.propagating:
-            return self._as_rdict(as_strdict=True).setitem_str(w_key, w_value)
-        new_structure = self.structure.other_structs.get(key, None)
+        new_structure = self.structure.other_structs.get(key)
         if new_structure is None:
             new_structure = self.structure.new_structure(key)
-        else:
-            new_structure.propagating = True
         self.entries.append(w_value)
         assert self.structure.length + 1 == new_structure.length
         self.structure = new_structure
