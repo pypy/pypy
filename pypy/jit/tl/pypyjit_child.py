@@ -38,6 +38,7 @@ def run_child(glob, loc):
 
     print 'warmspot.jittify_and_run() started...'
     from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    LLtypeCPU.supports_floats = False    # for now
     policy = PyPyJitPolicy(interp.typer.annotator.translator)
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
