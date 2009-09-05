@@ -223,6 +223,9 @@ def do_int_mul_ovf(cpu, args, descr=None):
 def do_float_neg(cpu, args, descr=None):
     return ConstFloat(-args[0].getfloat())
 
+def do_float_abs(cpu, args, descr=None):
+    return ConstFloat(abs(args[0].getfloat()))
+
 def do_float_is_true(cpu, args, descr=None):
     return ConstInt(bool(args[0].getfloat()))
 

@@ -142,6 +142,8 @@ _oplist = [
     'FLOAT_SUB',
     'FLOAT_MUL',
     'FLOAT_TRUEDIV',
+    'FLOAT_NEG',
+    'FLOAT_ABS',
     'CAST_FLOAT_TO_INT',
     'CAST_INT_TO_FLOAT',
     #

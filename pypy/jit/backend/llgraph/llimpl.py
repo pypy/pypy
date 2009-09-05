@@ -93,6 +93,8 @@ TYPES = {
     'float_ne'        : (('float', 'float'), 'int'),
     'float_gt'        : (('float', 'float'), 'int'),
     'float_ge'        : (('float', 'float'), 'int'),
+    'float_neg'       : (('float',), 'float'),
+    'float_abs'       : (('float',), 'float'),
     'cast_float_to_int':(('float',), 'int'),
     'cast_int_to_float':(('int',), 'float'),
     'same_as'         : (('int',), 'int'),      # could also be ptr=>ptr

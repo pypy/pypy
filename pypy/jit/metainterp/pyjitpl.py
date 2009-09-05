@@ -247,7 +247,7 @@ class MIFrame(object):
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
                     'cast_ptr_to_int', 'cast_float_to_int',
-                    'cast_int_to_float',
+                    'cast_int_to_float', 'float_neg', 'float_abs',
                     ]:
         exec py.code.Source('''
             @arguments("box")
