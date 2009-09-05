@@ -19,10 +19,28 @@ def test_find_all_graphs():
 
     jitpolicy = policy.JitPolicy()
     translator = rtyper.annotator.translator
-    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator)
+    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator,
+                                   True)
 
     funcs = [graph.func for graph in res]
     assert funcs == [i, f]
+
+def test_find_all_graphs_without_floats():
+    def g(x):
+        return int(x * 12.5)
+    def f(x):
+        return g(x) + 1
+    rtyper = support.annotate(f, [7])
+    jitpolicy = policy.JitPolicy()
+    translator = rtyper.annotator.translator
+    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator,
+                                   supports_floats=True)
+    funcs = [graph.func for graph in res]
+    assert funcs == [f, g]
+    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator,
+                                   supports_floats=False)
+    funcs = [graph.func for graph in res]
+    assert funcs == [f]
 
 def test_find_all_graphs_str_join():
     def i(x, y):
@@ -32,7 +50,8 @@ def test_find_all_graphs_str_join():
 
     jitpolicy = policy.JitPolicy()
     translator = rtyper.annotator.translator
-    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator)
+    res = warmspot.find_all_graphs(translator.graphs[0], jitpolicy, translator,
+                                   True)
 
     funcs = [graph.func for graph in res]
     assert funcs[:1] == [i]
