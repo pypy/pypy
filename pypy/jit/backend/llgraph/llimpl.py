@@ -8,7 +8,8 @@ import sys
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr,
-                                         BoxInt, BoxPtr, BoxObj, REF)
+                                         BoxInt, BoxPtr, BoxObj, BoxFloat,
+                                         REF, INT, FLOAT)
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
@@ -82,6 +83,10 @@ TYPES = {
     'uint_ge'         : (('int', 'int'), 'bool'),
     'uint_xor'        : (('int', 'int'), 'int'),
     'uint_rshift'     : (('int', 'int'), 'int'),
+    'float_add'       : (('float', 'float'), 'float'),
+    'float_sub'       : (('float', 'float'), 'float'),
+    'float_mul'       : (('float', 'float'), 'float'),
+    'float_truediv'   : (('float', 'float'), 'float'),
     'same_as'         : (('int',), 'int'),      # could also be ptr=>ptr
     'new_with_vtable' : (('ref',), 'ref'),
     'new'             : ((), 'ref'),
@@ -248,6 +253,8 @@ def repr1(x, tp, memocast):
         return str(bool(x))
     #elif tp == 'fieldname':
     #    return str(symbolic.TokenToField[x...][1])
+    elif tp == 'float':
+        return str(x)
     else:
         raise NotImplementedError("tp = %s" % tp)
 
@@ -258,14 +265,10 @@ def compile_start():
     return _to_opaque(CompiledLoop())
 
 def compile_start_int_var(loop):
-    loop = _from_opaque(loop)
-    assert not loop.operations
-    v = Variable()
-    v.concretetype = lltype.Signed
-    loop.inputargs.append(v)
-    r = len(_variables)
-    _variables.append(v)
-    return r
+    return compile_start_ref_var(loop, lltype.Signed)
+
+def compile_start_float_var(loop):
+    return compile_start_ref_var(loop, lltype.Float)
 
 def compile_start_ref_var(loop, TYPE):
     loop = _from_opaque(loop)
@@ -294,11 +297,10 @@ def compile_add_var(loop, intvar):
     op.args.append(_variables[intvar])
 
 def compile_add_int_const(loop, value):
-    loop = _from_opaque(loop)
-    const = Constant(value)
-    const.concretetype = lltype.Signed
-    op = loop.operations[-1]
-    op.args.append(const)
+    compile_add_ref_const(loop, value, lltype.Signed)
+
+def compile_add_float_const(loop, value):
+    compile_add_ref_const(loop, value, lltype.Float)
 
 def compile_add_ref_const(loop, value, TYPE):
     loop = _from_opaque(loop)
@@ -308,14 +310,10 @@ def compile_add_ref_const(loop, value, TYPE):
     op.args.append(const)
 
 def compile_add_int_result(loop):
-    loop = _from_opaque(loop)
-    v = Variable()
-    v.concretetype = lltype.Signed
-    op = loop.operations[-1]
-    op.result = v
-    r = len(_variables)
-    _variables.append(v)
-    return r
+    return compile_add_ref_result(loop, lltype.Signed)
+
+def compile_add_float_result(loop):
+    return compile_add_ref_result(loop, lltype.Float)
 
 def compile_add_ref_result(loop, TYPE):
     loop = _from_opaque(loop)
@@ -410,6 +408,8 @@ class Frame(object):
                         x = self.as_ptr(result)
                     elif RESTYPE is ootype.Object:
                         x = self.as_object(result)
+                    elif RESTYPE is lltype.Float:
+                        x = self.as_float(result)
                     else:
                         raise Exception("op.result.concretetype is %r"
                                         % (RESTYPE,))
@@ -472,6 +472,9 @@ class Frame(object):
     def as_object(self, x):
         return ootype.cast_to_object(x)
 
+    def as_float(self, x):
+        return cast_to_float(x)
+
     def log_progress(self):
         count = sum(_stats.exec_counters.values())
         count_jumps = _stats.exec_jumps
@@ -500,6 +503,8 @@ class Frame(object):
                     for x in args:
                         if type(x) is int:
                             boxedargs.append(BoxInt(x))
+                        elif type(x) is float:
+                            boxedargs.append(BoxFloat(x))
                         elif isinstance(ootype.typeOf(x), ootype.OOType):
                             boxedargs.append(BoxObj(ootype.cast_to_object(x)))
                         else:
@@ -616,24 +621,36 @@ class Frame(object):
     def op_getarrayitem_gc(self, arraydescr, array, index):
         if arraydescr.typeinfo == REF:
             return do_getarrayitem_gc_ptr(array, index)
-        else:
+        elif arraydescr.typeinfo == INT:
             return do_getarrayitem_gc_int(array, index, self.memocast)
+        elif arraydescr.typeinfo == FLOAT:
+            return do_getarrayitem_gc_float(array, index)
+        else:
+            raise NotImplementedError
 
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
     def op_getfield_gc(self, fielddescr, struct):
         if fielddescr.typeinfo == REF:
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
-        else:
+        elif fielddescr.typeinfo == INT:
             return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
+        elif fielddescr.typeinfo == FLOAT:
+            return do_getfield_gc_float(struct, fielddescr.ofs)
+        else:
+            raise NotImplementedError
 
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
         if fielddescr.typeinfo == REF:
             return do_getfield_raw_ptr(struct, fielddescr.ofs, self.memocast)
-        else:
+        elif fielddescr.typeinfo == INT:
             return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
+        elif fielddescr.typeinfo == FLOAT:
+            return do_getfield_raw_float(struct, fielddescr.ofs, self.memocast)
+        else:
+            raise NotImplementedError
 
     def op_new(self, size):
         return do_new(size.ofs)
@@ -649,23 +666,36 @@ class Frame(object):
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
         if arraydescr.typeinfo == REF:
             do_setarrayitem_gc_ptr(array, index, newvalue)
-        else:
+        elif arraydescr.typeinfo == INT:
             do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
+        elif arraydescr.typeinfo == FLOAT:
+            do_setarrayitem_gc_float(array, index, newvalue)
+        else:
+            raise NotImplementedError
 
     def op_setfield_gc(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
-        else:
+        elif fielddescr.typeinfo == INT:
             do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
                                self.memocast)
+        elif fielddescr.typeinfo == FLOAT:
+            do_setfield_gc_float(struct, fielddescr.ofs, newvalue)
+        else:
+            raise NotImplementedError
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
                                 self.memocast)
-        else:
+        elif fielddescr.typeinfo == INT:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
                                 self.memocast)
+        elif fielddescr.typeinfo == FLOAT:
+            do_setfield_raw_float(struct, fielddescr.ofs, newvalue,
+                                  self.memocast)
+        else:
+            raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
         _call_args[:] = args
@@ -673,9 +703,12 @@ class Frame(object):
             err_result = None
         elif calldescr.typeinfo == REF:
             err_result = lltype.nullptr(llmemory.GCREF.TO)
-        else:
-            assert calldescr.typeinfo == 'i'
+        elif calldescr.typeinfo == INT:
             err_result = 0
+        elif calldescr.typeinfo == FLOAT:
+            err_result = 0.0
+        else:
+            raise NotImplementedError
         return _do_call_common(func, self.memocast, err_result)
 
     op_call_pure = op_call
@@ -830,6 +863,15 @@ def cast_to_ptr(x):
 def cast_from_ptr(TYPE, x):
     return lltype.cast_opaque_ptr(TYPE, x)
 
+def cast_to_float(x):      # not really a cast, just a type check
+    assert isinstance(x, float)
+    return x
+
+def cast_from_float(TYPE, x):   # not really a cast, just a type check
+    assert TYPE is lltype.Float
+    assert isinstance(x, float)
+    return x
+
 
 def new_frame(memocast, is_oo):
     if is_oo:
@@ -853,9 +895,10 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
-    del _future_values[index:]
-    assert len(_future_values) == index
-    _future_values.append(value)
+    set_future_value_ref(index, value)
+
+def set_future_value_float(index, value):
+    set_future_value_ref(index, value)
 
 def set_future_value_ref(index, value):
     del _future_values[index:]
@@ -883,6 +926,10 @@ def frame_execute(frame):
     return result
 
 def frame_int_getvalue(frame, num):
+    frame = _from_opaque(frame)
+    return frame.fail_args[num]
+
+def frame_float_getvalue(frame, num):
     frame = _from_opaque(frame)
     return frame.fail_args[num]
 
@@ -1009,33 +1056,41 @@ def do_getarrayitem_gc_int(array, index, memocast):
     array = array._obj.container
     return cast_to_int(array.getitem(index), memocast)
 
+def do_getarrayitem_gc_float(array, index):
+    array = array._obj.container
+    return cast_to_float(array.getitem(index))
+
 def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
     return cast_to_ptr(array.getitem(index))
 
-def do_getfield_gc_int(struct, fieldnum, memocast):
+def _getfield_gc(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    x = getattr(ptr, fieldname)
-    return cast_to_int(x, memocast)
+    return getattr(ptr, fieldname)
+
+def do_getfield_gc_int(struct, fieldnum, memocast):
+    return cast_to_int(_getfield_gc(struct, fieldnum), memocast)
+
+def do_getfield_gc_float(struct, fieldnum):
+    return cast_to_float(_getfield_gc(struct, fieldnum))
 
 def do_getfield_gc_ptr(struct, fieldnum):
+    return cast_to_ptr(_getfield_gc(struct, fieldnum))
+
+def _getfield_raw(struct, fieldnum, memocast):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    x = getattr(ptr, fieldname)
-    return cast_to_ptr(x)
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    return getattr(ptr, fieldname)
 
 def do_getfield_raw_int(struct, fieldnum, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
-    x = getattr(ptr, fieldname)
-    return cast_to_int(x, memocast)
+    return cast_to_int(_getfield_raw(struct, fieldnum, memocast), memocast)
+
+def do_getfield_raw_float(struct, fieldnum, memocast):
+    return cast_to_float(_getfield_raw(struct, fieldnum, memocast))
 
 def do_getfield_raw_ptr(struct, fieldnum, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
-    x = getattr(ptr, fieldname)
-    return cast_to_ptr(x)
+    return cast_to_ptr(_getfield_raw(struct, fieldnum, memocast))
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
@@ -1053,6 +1108,12 @@ def do_setarrayitem_gc_int(array, index, newvalue, memocast):
     newvalue = cast_from_int(ITEMTYPE, newvalue, memocast)
     array.setitem(index, newvalue)
 
+def do_setarrayitem_gc_float(array, index, newvalue):
+    array = array._obj.container
+    ITEMTYPE = lltype.typeOf(array).OF
+    newvalue = cast_from_float(ITEMTYPE, newvalue)
+    array.setitem(index, newvalue)
+
 def do_setarrayitem_gc_ptr(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
@@ -1064,6 +1125,13 @@ def do_setfield_gc_int(struct, fieldnum, newvalue, memocast):
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
+    setattr(ptr, fieldname, newvalue)
+
+def do_setfield_gc_float(struct, fieldnum, newvalue):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
+    FIELDTYPE = getattr(STRUCT, fieldname)
+    newvalue = cast_from_float(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_gc_ptr(struct, fieldnum, newvalue):
@@ -1078,6 +1146,13 @@ def do_setfield_raw_int(struct, fieldnum, newvalue, memocast):
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
+    setattr(ptr, fieldname, newvalue)
+
+def do_setfield_raw_float(struct, fieldnum, newvalue, memocast):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    FIELDTYPE = getattr(STRUCT, fieldname)
+    newvalue = cast_from_float(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_raw_ptr(struct, fieldnum, newvalue, memocast):
@@ -1107,6 +1182,9 @@ def do_unicodesetitem(_, string, index, newvalue):
 _call_args = []
 
 def do_call_pushint(x):
+    _call_args.append(x)
+
+def do_call_pushfloat(x):
     _call_args.append(x)
 
 def do_call_pushptr(x):
@@ -1139,6 +1217,10 @@ def do_call_int(f, memocast):
     x = _do_call_common(f, memocast, 0)
     return cast_to_int(x, memocast)
 
+def do_call_float(f, memocast):
+    x = _do_call_common(f, memocast, 0)
+    return cast_to_float(x)
+
 def do_call_ptr(f, memocast):
     x = _do_call_common(f, memocast, lltype.nullptr(llmemory.GCREF.TO))
     return cast_to_ptr(x)
@@ -1155,6 +1237,8 @@ def cast_call_args(ARGS, args, memocast):
                 x = ootype.cast_from_object(TYPE, x)
             elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
                 x = cast_from_ptr(TYPE, x)
+            elif TYPE is lltype.Float:
+                x = cast_from_float(TYPE, x)
             else:
                 x = cast_from_int(TYPE, x, memocast)
         args.append(x)
@@ -1244,13 +1328,16 @@ s_MemoCast = annmodel.SomePtr(MEMOCAST)
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
+setannotation(compile_start_float_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)
+setannotation(compile_add_float_const, annmodel.s_None)
 setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ref_result, annmodel.SomeInteger())
+setannotation(compile_add_float_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.s_None)
 setannotation(compile_suboperations, s_CompiledLoop)
@@ -1260,9 +1347,11 @@ setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
 setannotation(set_future_value_int, annmodel.s_None)
 setannotation(set_future_value_ref, annmodel.s_None)
+setannotation(set_future_value_float, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
+setannotation(frame_float_getvalue, annmodel.SomeFloat())
 
 setannotation(get_exception, annmodel.SomeAddress())
 setannotation(get_exc_value, annmodel.SomePtr(llmemory.GCREF))
@@ -1284,18 +1373,24 @@ setannotation(do_unicodelen, annmodel.SomeInteger())
 setannotation(do_unicodegetitem, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_int, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_getarrayitem_gc_float, annmodel.SomeFloat())
 setannotation(do_getfield_gc_int, annmodel.SomeInteger())
 setannotation(do_getfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_getfield_gc_float, annmodel.SomeFloat())
 setannotation(do_getfield_raw_int, annmodel.SomeInteger())
 setannotation(do_getfield_raw_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_getfield_raw_float, annmodel.SomeFloat())
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
 setannotation(do_setarrayitem_gc_ptr, annmodel.s_None)
+setannotation(do_setarrayitem_gc_float, annmodel.s_None)
 setannotation(do_setfield_gc_int, annmodel.s_None)
 setannotation(do_setfield_gc_ptr, annmodel.s_None)
+setannotation(do_setfield_gc_float, annmodel.s_None)
 setannotation(do_setfield_raw_int, annmodel.s_None)
 setannotation(do_setfield_raw_ptr, annmodel.s_None)
+setannotation(do_setfield_raw_float, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
 setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))
@@ -1304,4 +1399,5 @@ setannotation(do_call_pushint, annmodel.s_None)
 setannotation(do_call_pushptr, annmodel.s_None)
 setannotation(do_call_int, annmodel.SomeInteger())
 setannotation(do_call_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_call_float, annmodel.SomeFloat())
 setannotation(do_call_void, annmodel.s_None)

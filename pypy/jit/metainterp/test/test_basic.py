@@ -89,6 +89,7 @@ class JitMixin:
         metainterp.staticdata.state = FakeWarmRunnerDesc()
         metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
         metainterp.staticdata.DoneWithThisFrameRef = DoneWithThisFrameRef
+        metainterp.staticdata.DoneWithThisFrameFloat = DoneWithThisFrame
         self.metainterp = metainterp
         try:
             metainterp.compile_and_run_once(*args)

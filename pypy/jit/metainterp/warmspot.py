@@ -135,7 +135,7 @@ class WarmRunnerDesc:
         self.set_translator(translator)
         self.find_portal()
         graphs = find_all_graphs(self.portal_graph, policy, self.translator,
-                                 CPUClass)
+                                 CPUClass.supports_floats)
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
@@ -395,6 +395,13 @@ class WarmRunnerDesc:
             def __str__(self):
                 return 'DoneWithThisFrameRef(%s)' % (self.result,)
 
+        class DoneWithThisFrameFloat(JitException):
+            def __init__(self, cpu, result):
+                assert lltype.typeOf(result) is lltype.Float
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameFloat(%s)' % (self.result,)
+
         class ExitFrameWithExceptionRef(JitException):
             def __init__(self, cpu, value):
                 assert lltype.typeOf(value) == cpu.ts.BASETYPE
@@ -418,11 +425,13 @@ class WarmRunnerDesc:
         self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
         self.DoneWithThisFrameInt = DoneWithThisFrameInt
         self.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.DoneWithThisFrameFloat = DoneWithThisFrameFloat
         self.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
         self.ContinueRunningNormally = ContinueRunningNormally
         self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
         self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
         self.metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrameFloat
         self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
         self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
         rtyper = self.translator.rtyper
@@ -449,6 +458,9 @@ class WarmRunnerDesc:
                 except DoneWithThisFrameRef, e:
                     assert result_kind == 'ref'
                     return ts.cast_from_ref(RESULT, e.result)
+                except DoneWithThisFrameFloat, e:
+                    assert result_kind == 'float'
+                    return e.result
                 except ExitFrameWithExceptionRef, e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
@@ -512,9 +524,8 @@ class WarmRunnerDesc:
             op.args[:3] = [closures[funcname]]
 
 
-def find_all_graphs(portal, policy, translator, CPUClass):
+def find_all_graphs(portal, policy, translator, supports_floats):
     from pypy.translator.simplify import get_graph
-    supports_floats = CPUClass.supports_floats
     all_graphs = [portal]
     seen = set([portal])
     todo = [portal]
@@ -555,6 +566,8 @@ def unwrap(TYPE, box):
         return box.getref(TYPE)
     if isinstance(TYPE, ootype.OOType):
         return box.getref(TYPE)
+    if TYPE == lltype.Float:
+        return box.getfloat()
     else:
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
@@ -577,6 +590,11 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
+    elif isinstance(value, float):
+        if in_const_box:
+            return history.ConstFloat(value)
+        else:
+            return history.BoxFloat(value)
     else:
         value = intmask(value)
     if in_const_box:
@@ -686,6 +704,9 @@ def make_state_class(warmrunnerdesc):
         elif typecode == 'int':
             intvalue = lltype.cast_primitive(lltype.Signed, value)
             cpu.set_future_value_int(j, intvalue)
+        elif typecode == 'float':
+            assert isinstance(value, float)
+            cpu.set_future_value_float(j, value)
         else:
             assert False
     set_future_value._annspecialcase_ = 'specialize:ll_and_arg(2)'

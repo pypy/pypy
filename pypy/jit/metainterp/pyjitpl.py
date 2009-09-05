@@ -227,6 +227,7 @@ class MIFrame(object):
                     'int_and', 'int_or', 'int_xor',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
+                    'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
@@ -1148,6 +1149,8 @@ class MetaInterp(object):
                 raise sd.DoneWithThisFrameInt(resultbox.getint())
             elif sd.result_type == 'ref':
                 raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+            elif sd.result_type == 'float':
+                raise sd.DoneWithThisFrameFloat(resultbox.getfloat())
             else:
                 assert False
 
@@ -1456,6 +1459,9 @@ class MetaInterp(object):
         elif sd.result_type == 'ref':
             exits = [exitbox]
             loops = sd.cpu.ts.loops_done_with_this_frame_ref
+        elif sd.result_type == 'float':
+            exits = [exitbox]
+            loops = compile.loops_done_with_this_frame_float
         else:
             assert False
         self.history.record(rop.JUMP, exits, None)

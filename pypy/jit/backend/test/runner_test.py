@@ -1,8 +1,8 @@
 
 import py, sys, random
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
-                                         ConstInt, ConstPtr, BoxObj,
-                                         ConstObj)
+                                         ConstInt, ConstPtr, BoxObj, Const,
+                                         ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
@@ -26,6 +26,11 @@ class Runner(object):
             elif isinstance(box, (BoxPtr, BoxObj)):
                 self.cpu.set_future_value_ref(j, box.getref_base())
                 j += 1
+            elif isinstance(box, BoxFloat):
+                self.cpu.set_future_value_float(j, box.getfloat())
+                j += 1
+            else:
+                assert isinstance(box, Const)
         res = self.cpu.execute_operations(loop)
         if res is loop.operations[-1]:
             self.guard_failed = False
@@ -35,6 +40,8 @@ class Runner(object):
             return BoxInt(self.cpu.get_latest_value_int(0))
         elif result_type == 'ref':
             return BoxPtr(self.cpu.get_latest_value_ref(0))
+        elif result_type == 'float':
+            return BoxFloat(self.cpu.get_latest_value_float(0))
         elif result_type == 'void':
             return None
         else:
@@ -48,6 +55,8 @@ class Runner(object):
             result = BoxInt()
         elif result_type == 'ref':
             result = BoxPtr()
+        elif result_type == 'float':
+            result = BoxFloat()
         else:
             raise ValueError(result_type)
         if result is None:
@@ -209,6 +218,23 @@ class BaseBackendTest(Runner):
                 res = self.execute_operation(opnum, [BoxInt(x)],
                                              'int')
                 assert res.value == y
+
+    def _requires_floats(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires float support from the backend")
+
+    def test_float_binary_operations(self):
+        self._requires_floats()
+        for opnum, testcases in [
+            (rop.FLOAT_ADD, [(10.5, -2.25, 8.25)]),
+            (rop.FLOAT_SUB, [(10.5, -2.25, 12.75)]),
+            (rop.FLOAT_MUL, [(-6.5, -3.5, 22.75)]),
+            (rop.FLOAT_TRUEDIV, [(118.75, 12.5, 9.5)]),
+            ]:
+            for x, y, z in testcases:
+                res = self.execute_operation(opnum, [BoxFloat(x), BoxFloat(y)],
+                                             'float')
+                assert res.value == z
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1

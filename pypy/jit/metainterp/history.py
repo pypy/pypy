@@ -163,6 +163,8 @@ class Const(AbstractValue):
             return ConstInt(intval)
         elif kind == "ref":
             return cpu.ts.new_ConstRef(x)
+        elif kind == "float":
+            return ConstFloat(x)
         else:
             raise NotImplementedError(kind)
 
@@ -428,6 +430,8 @@ class Box(AbstractValue):
             # XXX add ootype support?
             ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
             return BoxPtr(ptrval)
+        elif kind == "float":
+            return BoxFloat(x)
         else:
             raise NotImplementedError(kind)
 

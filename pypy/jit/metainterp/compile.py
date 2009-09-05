@@ -7,7 +7,7 @@ from pypy.conftest import option
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr, BoxObj,\
-     Const
+     BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
@@ -163,6 +163,17 @@ class DoneWithThisFrameDescrRef(AbstractDescr):
             result = resultbox.getref_base()
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
+class DoneWithThisFrameDescrFloat(AbstractDescr):
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        assert metainterp_sd.result_type == 'float'
+        resultbox = fail_op.args[0]
+        if isinstance(resultbox, BoxFloat):
+            result = metainterp_sd.cpu.get_latest_value_float(0)
+        else:
+            assert isinstance(resultbox, history.Const)
+            result = resultbox.getfloat()
+        raise metainterp_sd.DoneWithThisFrameFloat(result)
+
 class ExitFrameWithExceptionDescrRef(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
         assert len(fail_op.args) == 1
@@ -178,6 +189,7 @@ class ExitFrameWithExceptionDescrRef(AbstractDescr):
 done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
 done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
 done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
+done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat()
 exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
 class TerminatingLoop(TreeLoop):
@@ -203,6 +215,12 @@ _loop.specnodes = [prebuiltNotSpecNode]
 _loop.inputargs = [BoxObj()]
 _loop.finishdescr = done_with_this_frame_descr_ref
 oohelper.loops_done_with_this_frame_ref = [_loop]
+
+_loop = TerminatingLoop('done_with_this_frame_float')
+_loop.specnodes = [prebuiltNotSpecNode]
+_loop.inputargs = [BoxFloat()]
+_loop.finishdescr = done_with_this_frame_descr_float
+loops_done_with_this_frame_float = [_loop]
 
 _loop = TerminatingLoop('done_with_this_frame_void')
 _loop.specnodes = []
