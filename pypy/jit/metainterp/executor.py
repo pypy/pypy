@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
-from pypy.jit.metainterp.history import INT, REF
+from pypy.jit.metainterp.history import INT, REF, ConstFloat
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -217,6 +217,44 @@ def do_int_mul_ovf(cpu, args, descr=None):
         ovf = False
     cpu._overflow_flag = ovf
     return BoxInt(z)
+
+# ----------
+
+def do_float_neg(cpu, args, descr=None):
+    return ConstFloat(-args[0].getfloat())
+
+def do_float_is_true(cpu, args, descr=None):
+    return ConstInt(bool(args[0].getfloat()))
+
+def do_float_add(cpu, args, descr=None):
+    return ConstFloat(args[0].getfloat() + args[1].getfloat())
+
+def do_float_sub(cpu, args, descr=None):
+    return ConstFloat(args[0].getfloat() - args[1].getfloat())
+
+def do_float_mul(cpu, args, descr=None):
+    return ConstFloat(args[0].getfloat() * args[1].getfloat())
+
+def do_float_truediv(cpu, args, descr=None):
+    return ConstFloat(args[0].getfloat() / args[1].getfloat())
+
+def do_float_lt(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() < args[1].getfloat())
+
+def do_float_le(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() <= args[1].getfloat())
+
+def do_float_eq(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() == args[1].getfloat())
+
+def do_float_ne(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() != args[1].getfloat())
+
+def do_float_gt(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() > args[1].getfloat())
+
+def do_float_ge(cpu, args, descr=None):
+    return ConstInt(args[0].getfloat() >= args[1].getfloat())
 
 # ____________________________________________________________
 

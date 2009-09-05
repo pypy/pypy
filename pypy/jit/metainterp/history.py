@@ -16,13 +16,16 @@ py.log.setconsumer('compiler', ansi_log)
 
 # ____________________________________________________________
 
-INT = 'i'
-REF = 'r'
+INT   = 'i'
+REF   = 'r'
+FLOAT = 'f'
 
-def getkind(TYPE):
+def getkind(TYPE, supports_floats=False):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
+        if TYPE is lltype.Float and supports_floats:
+            return 'float'
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
@@ -77,6 +80,9 @@ class AbstractValue(object):
     __slots__ = ()
 
     def getint(self):
+        raise NotImplementedError
+
+    def getfloat(self):
         raise NotImplementedError
 
     def getref_base(self):
@@ -276,6 +282,38 @@ class ConstAddr(Const):       # only for constants built before translation
     def repr_rpython(self):
         return repr_rpython(self, 'ca')
 
+class ConstFloat(Const):
+    type = FLOAT
+    value = 0.0
+    _attrs_ = ('value',)
+
+    def __init__(self, floatval):
+        assert isinstance(floatval, float)
+        self.value = floatval
+
+    def clonebox(self):
+        return BoxFloat(self.value)
+
+    nonconstbox = clonebox
+
+    def getfloat(self):
+        return self.value
+
+    def _get_hash_(self):
+        return hash(self.value)
+
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_float(j, self.getfloat())
+
+    def equals(self, other):
+        return self.value == other.getfloat()
+
+    def _getrepr_(self):
+        return self.value
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'cf')
+
 class ConstPtr(Const):
     type = REF
     value = lltype.nullptr(llmemory.GCREF.TO)
@@ -467,6 +505,40 @@ class BoxInt(Box):
         self.changevalue_int(srcbox.getint())
 
     changevalue_int = __init__
+
+class BoxFloat(Box):
+    type = FLOAT
+    _attrs_ = ('value',)
+    
+    def __init__(self, floatval=0.0):
+        assert isinstance(floatval, float)
+        self.value = floatval
+
+    def clonebox(self):
+        return BoxFloat(self.value)
+
+    def constbox(self):
+        return ConstFloat(self.value)
+
+    def getfloat(self):
+        return self.value
+
+    def _get_hash_(self):
+        return hash(self.value)
+
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_float(j, self.value)
+
+    def _getrepr_(self):
+        return self.value
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'bf')
+
+    def changevalue_box(self, srcbox):
+        self.changevalue_float(srcbox.getfloat())
+
+    changevalue_float = __init__
 
 class BoxPtr(Box):
     type = REF

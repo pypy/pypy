@@ -138,6 +138,10 @@ _oplist = [
     'INT_RSHIFT',
     'INT_LSHIFT',
     'UINT_RSHIFT',
+    'FLOAT_ADD',
+    'FLOAT_SUB',
+    'FLOAT_MUL',
+    'FLOAT_TRUEDIV',
     #
     '_COMPARISON_FIRST',
     'INT_LT',

@@ -3,6 +3,7 @@ from pypy.jit.metainterp import support, history
 from pypy.rpython.lltypesystem import lltype
 
 class JitPolicy(object):
+    supports_floats = False     # patched to True if supported by the backend
 
     def look_inside_function(self, func):
         if hasattr(func, '_look_inside_me_'):
@@ -23,7 +24,9 @@ class JitPolicy(object):
             see_function = True
         else:
             see_function = self.look_inside_function(func)
-        return see_function and not contains_unsupported_variable_type(graph)
+        return (see_function and
+                not contains_unsupported_variable_type(graph,
+                                                       self.supports_floats))
 
     def graphs_from(self, op):
         if op.opname == 'direct_call':
@@ -73,16 +76,16 @@ class JitPolicy(object):
             return 'residual'
         return 'regular'
 
-def contains_unsupported_variable_type(graph):
+def contains_unsupported_variable_type(graph, supports_floats):
     getkind = history.getkind
     try:
         for block in graph.iterblocks():
             for v in block.inputargs:
-                getkind(v.concretetype)
+                getkind(v.concretetype, supports_floats)
             for op in block.operations:
                 for v in op.args:
-                    getkind(v.concretetype)
-                getkind(op.result.concretetype)
+                    getkind(v.concretetype, supports_floats)
+                getkind(op.result.concretetype, supports_floats)
     except NotImplementedError, e:
         history.log.WARNING('%s, ignoring graph' % (e,))
         history.log.WARNING('  %s' % (graph,))
