@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rmodel import Repr
 from pypy.rlib.rweakref import RWeakValueDictionary
+from pypy.rlib import jit
 
 
 class WeakValueDictRepr(Repr):
@@ -90,12 +91,15 @@ WEAKDICTENTRYARRAY = lltype.GcArray(WEAKDICTENTRY,
                                     adtmeths=entrymeths,
                                     hints={'weakarray': 'value'})
 
+@jit.dont_look_inside
 def ll_new_weakdict():
     d = lltype.malloc(WEAKDICT)
     d.entries = WEAKDICT.entries.TO.allocate(rdict.DICT_INITSIZE)
+    d.num_items = 0
     d.num_pristine_entries = rdict.DICT_INITSIZE
     return d
 
+@jit.dont_look_inside
 def ll_get(d, llkey):
     i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
     #llop.debug_print(lltype.Void, i, 'get')
@@ -105,12 +109,14 @@ def ll_get(d, llkey):
     else:
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
+@jit.dont_look_inside
 def ll_set(d, llkey, llvalue):
     if llvalue:
         ll_set_nonnull(d, llkey, llvalue)
     else:
         ll_set_null(d, llkey)
 
+@jit.dont_look_inside
 def ll_set_nonnull(d, llkey, llvalue):
     valueref = weakref_create(llvalue)    # GC effects here, before the rest
     i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
@@ -124,6 +130,7 @@ def ll_set_nonnull(d, llkey, llvalue):
             #llop.debug_print(lltype.Void, 'RESIZE')
             ll_weakdict_resize(d)
 
+@jit.dont_look_inside
 def ll_set_null(d, llkey):
     i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
     if d.entries.everused(i):
