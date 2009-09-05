@@ -20,7 +20,7 @@ INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
 
-def getkind(TYPE, supports_floats=False):
+def getkind(TYPE, supports_floats=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):

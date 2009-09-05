@@ -127,18 +127,20 @@ class CannotInlineCanEnterJit(JitException):
 
 class WarmRunnerDesc:
 
-    def __init__(self, translator, policy=None, backendopt=True, **kwds):
+    def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
+                 **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         if policy is None:
             policy = JitPolicy()
         self.set_translator(translator)
         self.find_portal()
-        graphs = find_all_graphs(self.portal_graph, policy, self.translator)
+        graphs = find_all_graphs(self.portal_graph, policy, self.translator,
+                                 CPUClass)
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
 
-        self.build_meta_interp(**kwds)
+        self.build_meta_interp(CPUClass, **kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
         self.make_driverhook_graph()
@@ -206,7 +208,7 @@ class WarmRunnerDesc:
                               remove_asserts=True,
                               really_remove_asserts=True)
 
-    def build_meta_interp(self, CPUClass=None, translate_support_code=False,
+    def build_meta_interp(self, CPUClass, translate_support_code=False,
                           view="auto", optimizer=None, profile=None, **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
@@ -510,8 +512,9 @@ class WarmRunnerDesc:
             op.args[:3] = [closures[funcname]]
 
 
-def find_all_graphs(portal, policy, translator):
+def find_all_graphs(portal, policy, translator, CPUClass):
     from pypy.translator.simplify import get_graph
+    supports_floats = CPUClass.supports_floats
     all_graphs = [portal]
     seen = set([portal])
     todo = [portal]
@@ -520,13 +523,13 @@ def find_all_graphs(portal, policy, translator):
         for _, op in top_graph.iterblockops():
             if op.opname not in ("direct_call", "indirect_call", "oosend"):
                 continue
-            kind = policy.guess_call_kind(op)
+            kind = policy.guess_call_kind(op, supports_floats)
             if kind != "regular":
                 continue
-            for graph in policy.graphs_from(op):
+            for graph in policy.graphs_from(op, supports_floats):
                 if graph in seen:
                     continue
-                if policy.look_inside_graph(graph):
+                if policy.look_inside_graph(graph, supports_floats):
                     todo.append(graph)
                     all_graphs.append(graph)
                     seen.add(graph)

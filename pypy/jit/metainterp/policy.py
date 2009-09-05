@@ -3,7 +3,6 @@ from pypy.jit.metainterp import support, history
 from pypy.rpython.lltypesystem import lltype
 
 class JitPolicy(object):
-    supports_floats = False     # patched to True if supported by the backend
 
     def look_inside_function(self, func):
         if hasattr(func, '_look_inside_me_'):
@@ -17,7 +16,7 @@ class JitPolicy(object):
             return False
         return True
 
-    def look_inside_graph(self, graph):
+    def look_inside_graph(self, graph, supports_floats):
         try:
             func = graph.func
         except AttributeError:
@@ -26,13 +25,13 @@ class JitPolicy(object):
             see_function = self.look_inside_function(func)
         return (see_function and
                 not contains_unsupported_variable_type(graph,
-                                                       self.supports_floats))
+                                                       supports_floats))
 
-    def graphs_from(self, op):
+    def graphs_from(self, op, supports_floats):
         if op.opname == 'direct_call':
             funcobj = get_funcobj(op.args[0].value)
             graph = funcobj.graph
-            if self.look_inside_graph(graph):
+            if self.look_inside_graph(graph, supports_floats):
                 return [graph]     # common case: look inside this graph
         else:
             assert op.opname in ('indirect_call', 'oosend')
@@ -43,13 +42,13 @@ class JitPolicy(object):
                 graphs = v_obj._lookup_graphs(op.args[0].value)
             if graphs is not None:
                 for graph in graphs:
-                    if self.look_inside_graph(graph):
+                    if self.look_inside_graph(graph, supports_floats):
                         return graphs  # common case: look inside at
                                        # least one of the graphs
         # residual call case: we don't need to look into any graph
         return None
 
-    def guess_call_kind(self, op):
+    def guess_call_kind(self, op, supports_floats):
         if op.opname == 'direct_call':
             funcobj = get_funcobj(op.args[0].value)
             if isinstance(lltype.typeOf(funcobj), lltype.Ptr):
@@ -72,7 +71,7 @@ class JitPolicy(object):
                 return 'builtin'
             # TODO: return 'recursive' if the oosend ends with calling the
             # portal
-        if self.graphs_from(op) is None:
+        if self.graphs_from(op, supports_floats) is None:
             return 'residual'
         return 'regular'
 

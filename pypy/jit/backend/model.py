@@ -1,4 +1,5 @@
 class AbstractCPU(object):
+    supports_floats = False
 
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes

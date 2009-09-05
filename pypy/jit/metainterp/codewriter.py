@@ -251,7 +251,8 @@ class BytecodeMaker(object):
         graph, oosend_methdescr = graph_key
         self.bytecode = self.codewriter.get_jitcode(graph,
                                              oosend_methdescr=oosend_methdescr)
-        if not codewriter.policy.look_inside_graph(graph):
+        if not codewriter.policy.look_inside_graph(graph,
+                                                   self.cpu.supports_floats):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
@@ -1003,20 +1004,24 @@ class BytecodeMaker(object):
             self.emit('can_enter_jit')
 
     def serialize_op_direct_call(self, op):
-        kind = self.codewriter.policy.guess_call_kind(op)
+        kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_call' % kind)(op)
 
     def serialize_op_indirect_call(self, op):
-        kind = self.codewriter.policy.guess_call_kind(op)
+        kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
     def serialize_op_oosend(self, op):
-        kind = self.codewriter.policy.guess_call_kind(op)
+        kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_oosend' % kind)(op)
 
     def handle_regular_call(self, op, oosend_methdescr=None):
         self.minimize_variables()
-        [targetgraph] = self.codewriter.policy.graphs_from(op)
+        [targetgraph] = self.codewriter.policy.graphs_from(op,
+                                           self.codewriter.cpu.supports_floats)
         jitbox = self.codewriter.get_jitcode(targetgraph, self.graph,
                                              oosend_methdescr=oosend_methdescr)
         if oosend_methdescr:
@@ -1071,7 +1076,8 @@ class BytecodeMaker(object):
     handle_residual_indirect_call = handle_residual_call
 
     def handle_regular_indirect_call(self, op):
-        targets = self.codewriter.policy.graphs_from(op)
+        targets = self.codewriter.policy.graphs_from(op,
+                                           self.codewriter.cpu.supports_floats)
         assert targets is not None
         self.minimize_variables()
         indirectcallset = self.codewriter.get_indirectcallset(targets)
