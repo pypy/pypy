@@ -613,6 +613,9 @@ class BytecodeMaker(object):
     def serialize_op_uint_xor(self, op): self._defl(op, 'int_xor')
     def serialize_op_uint_lshift(self, op): self._defl(op, 'int_lshift')
 
+    def serialize_op_cast_bool_to_float(self, op):
+        self.default_serialize_op(op, 'cast_int_to_float')
+
     serialize_op_unichar_eq = serialize_op_char_eq
     serialize_op_unichar_ne = serialize_op_char_ne
 
