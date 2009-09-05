@@ -27,6 +27,33 @@ class DelTests:
                           'guard_true': 1,
                           'jump': 1})
 
+    def test_class_of_allocated(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        class Foo:
+            def __del__(self):
+                pass
+            def f(self):
+                return self.meth()
+        class X(Foo):
+            def meth(self):
+                return 456
+        class Y(Foo):
+            def meth(self):
+                return 123
+        def f(n):
+            x = None
+            while n > 0:
+                myjitdriver.can_enter_jit(x=x, n=n)
+                myjitdriver.jit_merge_point(x=x, n=n)
+                x = X()
+                y = Y()
+                assert x.f() == 456
+                assert y.f() == 123
+                n -= 1
+            return 42
+        res = self.meta_interp(f, [20])
+        assert res == 42
+
 
 class TestLLtype(DelTests, LLJitMixin):
     def test_signal_action(self):
@@ -52,6 +79,6 @@ class TestLLtype(DelTests, LLJitMixin):
         self.check_loops(getfield_raw=1, call=0, call_pure=0)
 
 class TestOOtype(DelTests, OOJitMixin):
-    def test_del_keep_obj(self):
+    def setup_class(cls):
         py.test.skip("XXX dels are not implemented in the"
                      " static CLI or JVM backend")

@@ -718,7 +718,8 @@ class BytecodeMaker(object):
                 pass
             else:
                 if hasattr(rtti._obj, 'destructor_funcptr'):
-                    self.handle_builtin_call(op)
+                    c_vtable = Constant(vtable, lltype.typeOf(vtable))
+                    self._do_builtin_call(op, 'alloc_with_del', [c_vtable])
                     return
             # store the vtable as an address -- that's fine, because the
             # GC doesn't need to follow them
@@ -1107,6 +1108,9 @@ class BytecodeMaker(object):
 
     def handle_builtin_call(self, op):
         oopspec_name, args = support.decode_builtin_call(op)
+        return self._do_builtin_call(op, oopspec_name, args)
+
+    def _do_builtin_call(self, op, oopspec_name, args):
         argtypes = [v.concretetype for v in args]
         resulttype = op.result.concretetype
         c_func, TP = support.builtin_func_for_spec(self.codewriter.rtyper,

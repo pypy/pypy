@@ -186,9 +186,11 @@ class LLtypeHelpers:
 
     # ---------- malloc with del ----------
 
-    def _ll_0_alloc_with_del(RESULT):
-        return lltype.malloc(RESULT)
-    _ll_0_alloc_with_del.need_result_type = True
+    def _ll_1_alloc_with_del(RESULT, vtable):
+        p = lltype.malloc(RESULT)
+        lltype.cast_pointer(rclass.OBJECTPTR, p).typeptr = vtable
+        return p
+    _ll_1_alloc_with_del.need_result_type = True
 
 
 class OOtypeHelpers:
@@ -341,10 +343,6 @@ def get_oohash_oopspec(op):
     else:
         raise Exception("oohash() of type %r" % (T,))
 
-def get_malloc_oopspec(op):
-    assert op.args[1].value == {'flavor': 'gc'}
-    return 'alloc_with_del', []
-
 
 RENAMED_ADT_NAME = {
     'list': {
@@ -375,8 +373,6 @@ def decode_builtin_call(op):
         return get_oostring_oopspec(op)
     elif op.opname == 'oohash':
         return get_oohash_oopspec(op)
-    elif op.opname == 'malloc':         # for malloc with a __del__
-        return get_malloc_oopspec(op)
     else:
         raise ValueError(op.opname)
 
