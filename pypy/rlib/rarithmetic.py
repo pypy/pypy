@@ -67,6 +67,7 @@ def intmask(n):
         return int(n)   # possibly bool->int
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
+    assert not isinstance(n, float)
     n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
