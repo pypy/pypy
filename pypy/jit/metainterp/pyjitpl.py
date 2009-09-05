@@ -228,6 +228,8 @@ class MIFrame(object):
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
+                    'float_lt', 'float_le', 'float_eq',
+                    'float_ne', 'float_gt', 'float_ge',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
@@ -244,7 +246,8 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
-                    'cast_ptr_to_int',
+                    'cast_ptr_to_int', 'cast_float_to_int',
+                    'cast_int_to_float',
                     ]:
         exec py.code.Source('''
             @arguments("box")
@@ -471,9 +474,8 @@ class MIFrame(object):
     def opimpl_ptr_iszero(self, box):
         self.execute(rop.OOISNULL, [box])
 
-    @arguments("box")
-    def opimpl_oononnull(self, box):
-        self.execute(rop.OONONNULL, [box])
+    opimpl_oononnull = opimpl_ptr_nonzero
+    opimpl_ooisnull = opimpl_ptr_iszero
 
     @arguments("box", "box")
     def opimpl_ptr_eq(self, box1, box2):
@@ -484,6 +486,7 @@ class MIFrame(object):
         self.execute(rop.OOISNOT, [box1, box2])
 
     opimpl_oois = opimpl_ptr_eq
+    opimpl_ooisnot = opimpl_ptr_ne
 
     @arguments("box", "descr")
     def opimpl_getfield_gc(self, box, fielddesc):

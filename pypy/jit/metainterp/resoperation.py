@@ -142,6 +142,8 @@ _oplist = [
     'FLOAT_SUB',
     'FLOAT_MUL',
     'FLOAT_TRUEDIV',
+    'CAST_FLOAT_TO_INT',
+    'CAST_INT_TO_FLOAT',
     #
     '_COMPARISON_FIRST',
     'INT_LT',
@@ -155,6 +157,12 @@ _oplist = [
     'UINT_GT',
     'UINT_GE',
     '_COMPARISON_LAST',
+    'FLOAT_LT',          # maybe these ones should be comparisons too
+    'FLOAT_LE',
+    'FLOAT_EQ',
+    'FLOAT_NE',
+    'FLOAT_GT',
+    'FLOAT_GE',
     #
     'INT_IS_TRUE',
     'INT_NEG',

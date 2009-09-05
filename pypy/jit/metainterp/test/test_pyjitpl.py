@@ -1,7 +1,7 @@
 
 # some unit tests for the bytecode decoding
 
-from pypy.jit.metainterp import pyjitpl, codewriter
+from pypy.jit.metainterp import pyjitpl, codewriter, resoperation
 
 def make_frame(code):
     bytecode = codewriter.JitCode("hello")
@@ -24,3 +24,11 @@ def test_decode_bool():
 
     frame = make_frame("\x01")
     assert frame.load_bool()
+
+def test_simple_opimpl_exist():
+    rop = resoperation.rop
+    for opnum, opname in resoperation.opname.items():
+        if opnum in (rop.SAME_AS, rop.CALL_PURE, rop.OOSEND_PURE):
+            continue
+        if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
+            assert hasattr(pyjitpl.MIFrame, 'opimpl_' + opname.lower()), opname

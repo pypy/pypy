@@ -219,22 +219,18 @@ class BaseBackendTest(Runner):
                                              'int')
                 assert res.value == y
 
-    def _requires_floats(self):
-        if not self.cpu.supports_floats:
-            py.test.skip("requires float support from the backend")
-
-    def test_float_binary_operations(self):
-        self._requires_floats()
-        for opnum, testcases in [
-            (rop.FLOAT_ADD, [(10.5, -2.25, 8.25)]),
-            (rop.FLOAT_SUB, [(10.5, -2.25, 12.75)]),
-            (rop.FLOAT_MUL, [(-6.5, -3.5, 22.75)]),
-            (rop.FLOAT_TRUEDIV, [(118.75, 12.5, 9.5)]),
-            ]:
-            for x, y, z in testcases:
-                res = self.execute_operation(opnum, [BoxFloat(x), BoxFloat(y)],
-                                             'float')
-                assert res.value == z
+    def test_float_operations(self):
+        from pypy.jit.metainterp.test.test_executor import get_float_tests
+        for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
+            if len(boxargs) == 2:
+                args_variants = [(boxargs[0], boxargs[1]),
+                                 (boxargs[0], boxargs[1].constbox()),
+                                 (boxargs[0].constbox(), boxargs[1])]
+            else:
+                args_variants = [boxargs]
+            for argboxes in args_variants:
+                res = self.execute_operation(opnum, argboxes, rettype)
+                assert res.value == retvalue
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1

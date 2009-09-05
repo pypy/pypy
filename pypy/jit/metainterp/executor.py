@@ -256,6 +256,12 @@ def do_float_gt(cpu, args, descr=None):
 def do_float_ge(cpu, args, descr=None):
     return ConstInt(args[0].getfloat() >= args[1].getfloat())
 
+def do_cast_float_to_int(cpu, args, descr=None):
+    return ConstInt(int(args[0].getfloat()))
+
+def do_cast_int_to_float(cpu, args, descr=None):
+    return ConstFloat(float(args[0].getint()))
+
 # ____________________________________________________________
 
 def do_debug_merge_point(cpu, args, descr=None):
