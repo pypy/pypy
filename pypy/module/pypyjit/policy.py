@@ -56,6 +56,9 @@ class PyPyJitPolicy(JitPolicy):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
+        # rweakvaluedict implementation
+        if mod == 'pypy.rlib.rweakrefimpl':
+            return False
         #if (mod == 'pypy.rpython.rlist' or
         #    mod == 'pypy.rpython.lltypesystem.rdict' or
         #    mod == 'pypy.rpython.lltypesystem.rlist'):
