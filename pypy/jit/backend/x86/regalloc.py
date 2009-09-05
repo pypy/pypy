@@ -64,6 +64,7 @@ class RegAlloc(object):
         self.tree = tree
         if guard_op is not None:
             locs = guard_op._x86_faillocs
+            cpu.gc_ll_descr.rewrite_assembler(cpu, guard_op.suboperations)
             inpargs = [arg for arg in guard_op._fail_op.args if
                        isinstance(arg, Box)]
             self._compute_vars_longevity(inpargs, guard_op.suboperations)
@@ -71,7 +72,6 @@ class RegAlloc(object):
             self.position = -1
             self._update_bindings(locs, inpargs)
             self.current_stack_depth = guard_op._x86_current_stack_depth
-            cpu.gc_ll_descr.rewrite_assembler(cpu, guard_op.suboperations)
             self.loop_consts = {}
         else:
             cpu.gc_ll_descr.rewrite_assembler(cpu, tree.operations)
