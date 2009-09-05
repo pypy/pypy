@@ -502,6 +502,7 @@ class RandomLoop(object):
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
                                            op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
+        dont_compile = False
         if r.random() < 0.1:
             subset = bridge_builder.subset_of_intvars(r)
             if len(subset) == 0:
@@ -517,17 +518,22 @@ class RandomLoop(object):
             if self.guard_op is None:
                 guard_op.suboperations[-1] = jump_op
             else:
+                self.guard_op.suboperations[0].args.extend(subset)
+                self.builder.cpu.compile_operations(self.loop, guard_op)
                 if self.guard_op.is_guard_exception():
                     # exception clearing
                     self.guard_op.suboperations.insert(-1, exc_handling(
                         self.guard_op))
                 self.guard_op.suboperations[-1] = jump_op
+                self.builder.cpu.compile_operations(self.loop, self.guard_op)
+                dont_compile = True
             self.guard_op = jump_target.guard_op
             self.prebuilt_ptr_consts += jump_target.prebuilt_ptr_consts
             self.dont_generate_more = True
         if r.random() < .05:
             return False
-        self.builder.cpu.compile_operations(self.loop)
+        if not dont_compile:
+            self.builder.cpu.compile_operations(self.loop, guard_op)
         return True
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):

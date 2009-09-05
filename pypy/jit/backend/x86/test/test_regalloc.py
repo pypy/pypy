@@ -2,6 +2,7 @@
 """ Tests for register allocation for common constructs
 """
 
+import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -247,9 +248,9 @@ class BaseTestRegalloc(object):
         gcref = self.cpu.get_latest_value_ref(index)
         return lltype.cast_opaque_ptr(T, gcref)
 
-    def attach_bridge(self, ops, loop, guard_op):
+    def attach_bridge(self, ops, loop, guard_op, **kwds):
         assert guard_op.is_guard()
-        bridge = self.parse(ops)
+        bridge = self.parse(ops, **kwds)
         guard_op.suboperations = bridge.operations
         self.cpu.compile_operations(loop, guard_op)
         return bridge
@@ -268,34 +269,6 @@ class TestRegallocSimple(BaseTestRegalloc):
         self.interpret(ops, [0])
         assert self.getint(0) == 20
 
-    def test_compile_and_recompile(self):
-        ops = '''
-        [i0]
-        i1 = int_add(i0, 1)
-        i2 = int_lt(i1, 20)
-        guard_true(i2)
-           fail(i1)
-        jump(i1)
-        '''
-        loop = self.interpret(ops, [0])
-        assert self.getint(0) == 20
-        ops = '''
-        [i1]
-        i3 = int_add(i1, 1)
-        i4 = int_add(i3, 1)
-        i5 = int_add(i4, 1)
-        i6 = int_add(i5, 1)
-        fail(i3, i4, i5, i6)
-        '''
-        bridge = self.attach_bridge(ops, loop, loop.operations[-2])
-        self.cpu.set_future_value_int(0, 0)
-        op = self.cpu.execute_operations(loop)
-        assert op is bridge.operations[-1]
-        assert self.getint(0) == 21
-        assert self.getint(1) == 22
-        assert self.getint(2) == 23
-        assert self.getint(3) == 24
-
     def test_two_loops_and_a_bridge(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -305,7 +278,7 @@ class TestRegallocSimple(BaseTestRegalloc):
            fail(i4, i1, i2, i3)
         jump(i4, i1, i2, i3)
         '''
-        loop = self.interpret(ops, [0])
+        loop = self.interpret(ops, [0, 0, 0, 0])
         ops2 = '''
         [i5]
         i1 = int_add(i5, 1)
@@ -313,10 +286,18 @@ class TestRegallocSimple(BaseTestRegalloc):
         i4 = int_add(i3, 1)
         i2 = int_lt(i4, 30)
         guard_true(i2)
-           jump(i4, i4, i4, i4)
+           fail(i4)
         jump(i4)
         '''
-        loop2 = self.interpret(ops2, [0], jump_targets=[loop, 'self'])
+        loop2 = self.interpret(ops2, [0])
+        bridge_ops = '''
+        [i4]
+        jump(i4, i4, i4, i4)
+        '''
+        bridge = self.attach_bridge(bridge_ops, loop2, loop2.operations[4],
+                                    jump_targets=[loop])
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop2)
         assert self.getint(0) == 31
         assert self.getint(1) == 30
         assert self.getint(2) == 30
@@ -339,18 +320,24 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert not self.cpu.assembler.fail_boxes_ptr[1]
 
     def test_exception_bridge_no_exception(self):
-
-        
         ops = '''
         [i0]
         call(ConstClass(raising_fptr), i0, descr=raising_calldescr)
         guard_exception(ConstClass(zero_division_error))
-            guard_no_exception()
-                fail(2)
             fail(1)
         fail(0)
         '''
-        self.interpret(ops, [0])
+        bridge_ops = '''
+        []
+        guard_no_exception()
+            fail(2)
+        fail(1)
+        '''
+        loop = self.interpret(ops, [0])
+        assert self.getint(0) == 1
+        bridge = self.attach_bridge(bridge_ops, loop, loop.operations[1])
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_operations(loop)
         assert self.getint(0) == 1
 
     def test_inputarg_unused(self):
@@ -365,14 +352,42 @@ class TestRegallocSimple(BaseTestRegalloc):
         ops = '''
         [i0, i1]
         guard_true(i0)
-            guard_true(i0)
-                fail(i0, i1)
-            fail(3)
+            fail(i0, i1)
         fail(4)
         '''
-        self.interpret(ops, [0, 10])
+        bridge_ops = '''
+        [i0, i1]
+        guard_true(i0)
+            fail(i0, i1)
+        fail(3)
+        '''
+        loop = self.interpret(ops, [0, 10])
         assert self.getint(0) == 0
         assert self.getint(1) == 10
+        bridge = self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.set_future_value_int(1, 10)
+        self.cpu.execute_operations(loop)
+        assert self.getint(0) == 0
+        assert self.getint(1) == 10
+
+    def test_nested_unused_arg(self):
+        ops = '''
+        [i0, i1]
+        guard_true(i0)
+           fail(i0, i1)
+        fail(1)
+        '''
+        loop = self.interpret(ops, [0, 1])
+        assert self.getint(0) == 0
+        bridge_ops = '''
+        [i0, i1]
+        fail(1, 2)
+        '''
+        self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.set_future_value_int(1, 1)
+        self.cpu.execute_operations(loop)
 
     def test_spill_for_constant(self):
         ops = '''
@@ -475,6 +490,26 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0])
         assert self.getint(0) == 0
+
+    def test_bug_wrong_stack_adj(self):
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        guard_true(i0)
+            fail(0, i0, i1, i2, i3, i4, i5, i6, i7, i8)
+        fail(1, i0, i1, i2, i3, i4, i5, i6, i7, i8)
+        '''
+        loop = self.interpret(ops, [0, 1, 2, 3, 4, 5, 6, 7, 8])
+        assert self.getint(0) == 0
+        bridge_ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
+        fail(i0, i1, i2, i3, i4, i5, i6, i7, i8)
+        '''
+        self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        for i in range(9):
+            self.cpu.set_future_value_int(i, i)
+        self.cpu.execute_operations(loop)
+        assert self.getints(9) == range(9)
 
 class TestRegallocCompOps(BaseTestRegalloc):
     
@@ -614,18 +649,7 @@ class TestRegallocGc(BaseTestRegalloc):
         '''
         self.interpret(ops, [])
         assert not self.getptr(0, lltype.Ptr(self.S))
-        
-    def test_rewrite_constptr_in_brdige(self):
-        ops = '''
-        [i0]
-        guard_true(i0)
-            p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
-            fail(p1)
-        fail(0)
-        '''
-        self.interpret(ops, [0])
-        assert not self.getptr(0, lltype.Ptr(self.S))
-
+    
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
