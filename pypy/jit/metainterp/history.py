@@ -68,7 +68,7 @@ class ReprRPython:
         self.seen = {}
     def repr_rpython(self, box, typechars):
         n = self.seen.setdefault(box, len(self.seen))
-        return '%s/%s%d' % (box.get_(), typechars, n)
+        return '%s/%s%d' % (box._get_hash_(), typechars, n)
 
 repr_rpython = ReprRPython().repr_rpython
 
@@ -86,7 +86,7 @@ class AbstractValue(object):
         raise NotImplementedError
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def get_(self):
+    def _get_hash_(self):
         raise NotImplementedError
 
     def nonnull(self):
@@ -212,7 +212,7 @@ class ConstInt(Const):
     def getaddr(self, cpu):
         return cpu.cast_int_to_adr(self.value)
 
-    def get_(self):
+    def _get_hash_(self):
         return self.value
 
     def nonnull(self):
@@ -258,7 +258,7 @@ class ConstAddr(Const):       # only for constants built before translation
     def getaddr(self, cpu):
         return self.value
 
-    def get_(self):
+    def _get_hash_(self):
         return llmemory.cast_adr_to_int(self.value)
 
     def nonnull(self):
@@ -297,7 +297,7 @@ class ConstPtr(Const):
         return lltype.cast_opaque_ptr(PTR, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def get_(self):
+    def _get_hash_(self):
         return lltype.cast_ptr_to_int(self.value)
 
     def getaddr(self, cpu):
@@ -343,9 +343,9 @@ class ConstObj(Const):
         return ootype.cast_from_object(OBJ, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def get_(self):
+    def _get_hash_(self):
         if self.value:
-            return ootype.ooidentityhash(self.value) # XXX: check me
+            return ootype.ooidentityhash(self.value)
         else:
             return 0
 
@@ -448,7 +448,7 @@ class BoxInt(Box):
     def getaddr(self, cpu):
         return cpu.cast_int_to_adr(self.value)
 
-    def get_(self):
+    def _get_hash_(self):
         return self.value
 
     def nonnull(self):
@@ -492,7 +492,7 @@ class BoxPtr(Box):
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
 
-    def get_(self):
+    def _get_hash_(self):
         return lltype.cast_ptr_to_int(self.value)
 
     def nonnull(self):
@@ -534,9 +534,9 @@ class BoxObj(Box):
         return ootype.cast_from_object(OBJ, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def get_(self):
+    def _get_hash_(self):
         if self.value:
-            return ootype.ooidentityhash(self.value) # XXX: check me
+            return ootype.ooidentityhash(self.value)
         else:
             return 0
 
@@ -577,7 +577,7 @@ def dc_hash(c):
     if isinstance(c.value, Symbolic):
         return id(c.value)
     try:
-        return c.get_()
+        return c._get_hash_()
     except lltype.DelayedPointer:
         return -2      # xxx risk of changing hash...
 

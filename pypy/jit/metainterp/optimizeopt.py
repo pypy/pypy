@@ -560,7 +560,8 @@ class Optimizer(object):
 
     def optimize_GUARD_VALUE(self, op):
         assert isinstance(op.args[1], Const)
-        assert op.args[0].get_() == op.args[1].get_()
+        if not we_are_translated():
+            assert op.args[0].value == op.args[1].value
         self.optimize_guard(op)
 
     def optimize_GUARD_TRUE(self, op):
