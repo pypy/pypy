@@ -660,12 +660,11 @@ class TestRegallocGc(BaseTestRegalloc):
         ops = '''
         [i0]
         guard_true(i0)
-            fail(1, ConstPtr(struct_ref))
+            fail(1)
         fail(0)
         '''
         loop = self.interpret(ops, [0])
         assert self.getint(0) == 1
-        assert self.getptr(1, lltype.Ptr(self.S))
         bridge_ops = '''
         [i0]
         p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
