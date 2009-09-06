@@ -8,7 +8,9 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.objectmodel import specialize
 from pypy.module.__builtin__.app_functional import range as app_range
 from inspect import getsource, getfile
 
@@ -100,7 +102,244 @@ def range_withspecialized_implementation(space, start, step, howmany):
         return W_ListMultiObject(space, impl)
 
 
+@specialize.arg(2)
+def min_max(space, arguments, implementation_of):
+    if implementation_of == "max":
+        compare = space.gt
+    else:
+        compare = space.lt
+    args, kwargs = arguments.unpack()
+    if len(args) > 1:
+        w_sequence = space.newtuple(args)
+    elif len(args):
+        w_sequence = args[0]
+    else:
+        msg = "%s() expects at least one argument" % (implementation_of,)
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    try:
+        w_key = kwargs["key"]
+    except KeyError:
+        w_key = None
+    else:
+        del kwargs["key"]
+    if kwargs:
+        msg = "%s() got unexpected keyword argument" % (implementation_of,)
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    w_iter = space.iter(w_sequence)
+    w_max_item = None
+    w_max_val = None
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if w_key is not None:
+            w_compare_with = space.call_function(w_key, w_item)
+        else:
+            w_compare_with = w_item
+        if w_max_item is None or \
+                space.is_true(compare(w_compare_with, w_max_val)):
+            w_max_item = w_item
+            w_max_val = w_compare_with
+    if w_max_item is None:
+        msg = "arg is an empty sequence"
+        raise OperationError(space.w_ValueError, space.wrap(msg))
+    return w_max_item
 
+def max(space, __args__):
+    """Return the largest item in a sequence.
+
+    If more than one argument is passed, return the maximum of them.
+    """
+    return min_max(space, __args__, "max")
+max.unwrap_spec = [ObjSpace, Arguments]
+
+def min(space, __args__):
+    """Return the smallest item in a sequence.
+
+    If more than one argument is passed, return the minimum of them.
+    """
+    return min_max(space, __args__, "min")
+min.unwrap_spec = [ObjSpace, Arguments]
+
+def map(space, w_func, collections_w):
+    """does 3 separate things, hence this enormous docstring.
+       1.  if function is None, return a list of tuples, each with one
+           item from each collection.  If the collections have different
+           lengths,  shorter ones are padded with None.
+
+       2.  if function is not None, and there is only one collection,
+           apply function to every item in the collection and return a
+           list of the results.
+
+       3.  if function is not None, and there are several collections,
+           repeatedly call the function with one argument from each
+           collection.  If the collections have different lengths,
+           shorter ones are padded with None
+    """
+    if not collections_w:
+        msg = "map() requires at least two arguments"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    num_collections = len(collections_w)
+    none_func = space.is_w(w_func, space.w_None)
+    if none_func and num_collections == 1:
+        return space.call_function(space.w_list, collections_w[0])
+    result_w = []
+    iterators_w = [space.iter(w_seq) for w_seq in collections_w]
+    num_iterators = len(iterators_w)
+    while True:
+        cont = False
+        args_w = [space.w_None] * num_iterators
+        for i in range(len(iterators_w)):
+            try:
+                args_w[i] = space.next(iterators_w[i])
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+            else:
+                cont = True
+        w_args = space.newtuple(args_w)
+        if cont:
+            if none_func:
+                result_w.append(w_args)
+            else:
+                w_res = space.call(w_func, w_args)
+                result_w.append(w_res)
+        else:
+            return space.newlist(result_w)
+map.unwrap_spec = [ObjSpace, W_Root, "args_w"]
+
+def sum(space, w_sequence, w_start=None):
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    elif space.is_true(space.isinstance(w_start, space.w_basestring)):
+        msg = "sum() can't sum strings"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    w_iter = space.iter(w_sequence)
+    w_last = w_start
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        w_last = space.add(w_last, w_next)
+    return w_last
+sum.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+def zip(space, sequences_w):
+    """Return a list of tuples, where the nth tuple contains every nth item of
+    each collection.
+
+    If the collections have different lengths, zip returns a list as long as the
+    shortest collection, ignoring the trailing items in the other collections.
+    """
+    if not sequences_w:
+        return space.newlist([])
+    result_w = []
+    iterators_w = [space.iter(w_seq) for w_seq in sequences_w]
+    while True:
+        try:
+            items_w = [space.next(w_it) for w_it in iterators_w]
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return space.newlist(result_w)
+        result_w.append(space.newtuple(items_w))
+zip.unwrap_spec = [ObjSpace, "args_w"]
+
+def reduce(space, w_func, w_sequence, rest_w):
+    """ Apply function of two arguments cumulatively to the items of sequence,
+        from left to right, so as to reduce the sequence to a single value.
+        Optionally begin with an initial value.
+    """
+    w_iter = space.iter(w_sequence)
+    if rest_w:
+        if len(rest_w) > 1:
+            msg = "reduce() takes only 3 possible arguments"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_initial, = rest_w
+    else:
+        try:
+            w_initial = space.next(w_iter)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration):
+                msg = "reduce() of empty sequence with no initial value"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise
+    w_result = w_initial
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        w_result = space.call_function(w_func, w_result, w_next)
+    return w_result
+reduce.unwrap_spec = [ObjSpace, W_Root, W_Root, "args_w"]
+
+def filter(space, w_func, w_seq):
+    """construct a list of those elements of collection for which function
+       is True.  If function is None, then return the items in the sequence
+       which are True.
+    """
+    if space.is_true(space.isinstance(w_seq, space.w_str)):
+        return _filter_string(space, w_func, w_seq, space.w_str)
+    if space.is_true(space.isinstance(w_seq, space.w_unicode)):
+        return _filter_string(space, w_func, w_seq, space.w_unicode)
+    if space.is_true(space.isinstance(w_seq, space.w_tuple)):
+        return _filter_tuple(space, w_func, w_seq)
+    w_iter = space.iter(w_seq)
+    result_w = []
+    none_func = space.is_w(w_func, space.w_None)
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if none_func:
+            w_keep = w_next
+        else:
+            w_keep = space.call_function(w_func, w_next)
+        if space.is_true(w_keep):
+            result_w.append(w_next)
+    return space.newlist(result_w)
+
+def _filter_tuple(space, w_func, w_tuple):
+    none_func = space.is_w(w_func, space.w_None)
+    length = space.int_w(space.len(w_tuple))
+    result_w = []
+    for i in range(length):
+        w_item = space.getitem(w_tuple, space.wrap(i))
+        if none_func:
+            w_keep = w_item
+        else:
+            w_keep = space.call_function(w_func, w_item)
+        if space.is_true(w_keep):
+            result_w.append(w_item)
+    return space.newtuple(result_w)
+
+def _filter_string(space, w_func, w_string, w_str_type):
+    none_func = space.is_w(w_func, space.w_None)
+    if none_func and space.is_w(space.type(w_string), w_str_type):
+        return w_string
+    length = space.int_w(space.len(w_string))
+    result_w = []
+    for i in range(length):
+        w_item = space.getitem(w_string, space.wrap(i))
+        if none_func or space.is_true(space.call_function(w_func, w_item)):
+            if not space.is_true(space.isinstance(w_item, w_str_type)):
+                msg = "__getitem__ returned a non-string type"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            result_w.append(w_item)
+    w_empty = space.call_function(w_str_type)
+    return space.call_method(w_empty, "join", space.newlist(result_w))
 
 def all(space, w_S):
     """all(iterable) -> bool
@@ -136,6 +375,77 @@ Return True if bool(x) is True for any x in the iterable."""
             return space.w_True
     return space.w_False
 any.unwrap_spec = [ObjSpace, W_Root]
+
+
+class W_Enumerate(Wrappable):
+
+    def __init__(self, w_iter, w_start):
+        self.w_iter = w_iter
+        self.w_index = w_start
+
+    def descr___new__(space, w_subtype, w_iterable):
+        self = space.allocate_instance(W_Enumerate, w_subtype)
+        self.__init__(space.iter(w_iterable), space.wrap(0))
+        return space.wrap(self)
+
+    def descr___iter__(self, space):
+        return space.wrap(self)
+    descr___iter__.unwrap_spec = ["self", ObjSpace]
+
+    def descr_next(self, space):
+        w_item = space.next(self.w_iter)
+        w_index = self.w_index
+        self.w_index = space.add(w_index, space.wrap(1))
+        return space.newtuple([w_index, w_item])
+    descr_next.unwrap_spec = ["self", ObjSpace]
+
+
+W_Enumerate.typedef = TypeDef("enumerate",
+    __new__=interp2app(W_Enumerate.descr___new__.im_func),
+    __iter__=interp2app(W_Enumerate.descr___iter__),
+    next=interp2app(W_Enumerate.descr_next),
+)
+
+
+def reversed(space, w_sequence):
+    """Return a iterator that yields items of sequence in reverse."""
+    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+    if w_reversed_descr is None:
+        return space.wrap(W_ReversedIterator(space, w_sequence))
+    return space.get_and_call_function(w_reversed_descr, w_sequence)
+reversed.unwrap_spec = [ObjSpace, W_Root]
+
+class W_ReversedIterator(Wrappable):
+
+    def __init__(self, space, w_sequence):
+        self.remaining = space.int_w(space.len(w_sequence)) - 1
+        self.w_sequence = w_sequence
+
+    def descr___iter__(self, space):
+        return space.wrap(self)
+    descr___iter__.unwrap_spec = ["self", ObjSpace]
+
+    def descr_next(self, space):
+        if self.remaining >= 0:
+            w_index = space.wrap(self.remaining)
+            try:
+                w_item = space.getitem(self.w_sequence, w_index)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+            else:
+                self.remaining -= 1
+                return w_item
+
+        # Done
+        self.remaining = -1
+        raise OperationError(space.w_StopIteration, space.w_None)
+    descr_next.unwrap_spec = ["self", ObjSpace]
+
+W_ReversedIterator.typedef = TypeDef("reversed",
+    __iter__=interp2app(W_ReversedIterator.descr___iter__),
+    next=interp2app(W_ReversedIterator.descr_next),
+)
 
 
 class W_XRange(Wrappable):

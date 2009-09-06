@@ -27,23 +27,11 @@ class Module(MixedModule):
         'raw_input'     : 'app_io.raw_input',
         'input'         : 'app_io.input',
 
-        'sum'           : 'app_functional.sum',
         'apply'         : 'app_functional.apply',
-        'map'           : 'app_functional.map',
-        'filter'        : 'app_functional.filter',
-        'zip'           : 'app_functional.zip',
-        'reduce'        : 'app_functional.reduce',
         #'range'         : 'app_functional.range',
         # redirected to functional.py, applevel version
         # is still needed and should stay where it is.
-        'min'           : 'app_functional.min',
-        'max'           : 'app_functional.max',
-        'enumerate'     : 'app_functional.enumerate',
         'sorted'        : 'app_functional.sorted',
-        'reversed'      : 'app_functional.reversed',
-        '_install_pickle_support_for_reversed_iterator':
-        'app_functional._install_pickle_support_for_reversed_iterator',
-
         'globals'       : 'app_inspect.globals',
         'locals'        : 'app_inspect.locals',
         'vars'          : 'app_inspect.vars',
@@ -106,8 +94,17 @@ class Module(MixedModule):
 
         'range'         : 'functional.range_int',
         'xrange'        : 'functional.W_XRange',
+        'enumerate'     : 'functional.W_Enumerate',
         'all'           : 'functional.all',
         'any'           : 'functional.any',
+        'min'           : 'functional.min',
+        'max'           : 'functional.max',
+        'sum'           : 'functional.sum',
+        'map'           : 'functional.map',
+        'zip'           : 'functional.zip',
+        'reduce'        : 'functional.reduce',
+        'reversed'      : 'functional.reversed',
+        'filter'        : 'functional.filter',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
         'classmethod'   : 'descriptor.ClassMethod',
