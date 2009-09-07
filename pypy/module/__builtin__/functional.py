@@ -251,18 +251,13 @@ def zip(space, sequences_w):
         result_w.append(space.newtuple(items_w))
 zip.unwrap_spec = [ObjSpace, "args_w"]
 
-def reduce(space, w_func, w_sequence, rest_w):
+def reduce(space, w_func, w_sequence, w_initial=NoneNotWrapped):
     """ Apply function of two arguments cumulatively to the items of sequence,
         from left to right, so as to reduce the sequence to a single value.
         Optionally begin with an initial value.
     """
     w_iter = space.iter(w_sequence)
-    if rest_w:
-        if len(rest_w) > 1:
-            msg = "reduce() takes only 3 possible arguments"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        w_initial, = rest_w
-    else:
+    if w_initial is None:
         try:
             w_initial = space.next(w_iter)
         except OperationError, e:
@@ -280,7 +275,7 @@ def reduce(space, w_func, w_sequence, rest_w):
             break
         w_result = space.call_function(w_func, w_result, w_next)
     return w_result
-reduce.unwrap_spec = [ObjSpace, W_Root, W_Root, "args_w"]
+reduce.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 def filter(space, w_func, w_seq):
     """construct a list of those elements of collection for which function
