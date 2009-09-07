@@ -267,7 +267,6 @@ class BaseTestRclass(BaseRtypingTest):
         assert res == 246
 
     def test_method_specialized_with_subclass(self):
-        py.test.skip('fixme!')
         class A:
             def meth(self, n):
                 return -1
@@ -280,7 +279,7 @@ class BaseTestRclass(BaseRtypingTest):
             a = A()
             b = B()
             a.meth(1) # the self of this variant is annotated with A
-            b.meth(2) # the self of this variant is annotated with B, then explodes
+            b.meth(2) # the self of this variant is annotated with B
             return 42
         
         res = self.interpret(f, [])

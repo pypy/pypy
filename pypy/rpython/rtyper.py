@@ -198,7 +198,9 @@ class RPythonTyper(object):
         if self.exceptiondata is not None:
             self.exceptiondata.make_helpers(self)
             self.specialize_more_blocks()   # for the helpers just made
-
+        if self.type_system.name == 'ootypesystem':
+            self.attach_methods_to_subclasses()
+        
         #
         from pypy.annotation import listdef
         ldef = listdef.ListDef(None, annmodel.SomeString())
@@ -267,6 +269,40 @@ class RPythonTyper(object):
         del self.annmixlevel
         if annmixlevel is not None:
             annmixlevel.finish()
+
+    def attach_methods_to_subclasses(self):
+        # in ootype, it might happen that a method is defined in the
+        # superclass but the annotator discovers that it's always called
+        # through instances of a subclass (e.g. because of specialization, see
+        # test_rclass.test_method_specialized_with_subclass).  In that cases,
+        # we copy the method also in the ootype.Instance of the subclass, so
+        # that the type of v_self coincides with the type returned by
+        # _lookup().
+        assert self.type_system.name == 'ootypesystem'
+        def allclasses(TYPE, seen):
+            '''Yield TYPE and all its subclasses'''
+            if TYPE in seen:
+                return
+            seen.add(TYPE)
+            yield TYPE
+            for SUB in TYPE._subclasses:
+                for T in allclasses(SUB, seen):
+                    yield T
+
+        for TYPE in allclasses(ootype.ROOT, set()):
+            for methname, meth in TYPE._methods.iteritems():
+                try:
+                    graph = meth.graph
+                except AttributeError:
+                    continue
+                SELF = graph.getargs()[0].concretetype
+                if TYPE != SELF and ootype.isSubclass(SELF, TYPE):
+                    # the annotator found that this method has a more precise
+                    # type. Attach it to the proper subclass, so that the type
+                    # of 'self' coincides with the type returned by _lookup(),
+                    # else we might have type errors
+                    if methname not in SELF._methods:
+                        ootype.addMethods(SELF, {methname: meth})
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False): 
         c = 0
