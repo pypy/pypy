@@ -370,15 +370,18 @@ class _parentable_mixin(object):
         self._storage = None
 
     def __eq__(self, other):
-        if not isinstance(other, lltype._parentable):
-            return False
-        if self._storage is None or other._storage is None:
-            raise RuntimeError("pointer comparison with a freed structure")
-        if other._storage is True:
-            return False    # the other container is not ctypes-based
+        if isinstance(other, _llgcopaque):
+            addressof_other = other.intval
+        else:
+            if not isinstance(other, lltype._parentable):
+                return False
+            if self._storage is None or other._storage is None:
+                raise RuntimeError("pointer comparison with a freed structure")
+            if other._storage is True:
+                return False    # the other container is not ctypes-based
+            addressof_other = ctypes.addressof(other._storage)
         # both containers are ctypes-based, compare by address
-        return (ctypes.addressof(self._storage) ==
-                ctypes.addressof(other._storage))
+        return (ctypes.addressof(self._storage) == addressof_other)
 
     def __ne__(self, other):
         return not (self == other)
@@ -624,6 +627,7 @@ def lltype2ctypes(llobj, normalize=True):
         if isinstance(container, lltype._subarray):
             topmost, index = _find_parent(container)
             container = topmost
+            T = lltype.Ptr(lltype.typeOf(container))
 
         if container._storage is None:
             raise RuntimeError("attempting to pass a freed structure to C")
@@ -1099,7 +1103,13 @@ class _llgcopaque(lltype._container):
     def __eq__(self, other):
         if isinstance(other, _llgcopaque):
             return self.intval == other.intval
-        if other.container._storage in (None, True):
+        storage = object()
+        if hasattr(other, 'container'):
+            storage = other.container._storage
+        else:
+            storage = other._storage
+
+        if storage in (None, True):
             return False
         return force_cast(lltype.Signed, other._as_ptr()) == self.intval
 

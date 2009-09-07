@@ -1091,8 +1091,38 @@ class TestLL2Ctypes(object):
         assert ref1 == ref2
         assert ref2 == ref1
         assert not (ref1 != ref2)
-        assert not (ref2 != ref1)        
-   
+        assert not (ref2 != ref1)
+
+    def test_convert_subarray(self):
+        A = lltype.GcArray(lltype.Signed)
+        a = lltype.malloc(A, 20)
+        inside = lltype.direct_ptradd(lltype.direct_arrayitems(a), 3)
+ 
+        lltype2ctypes(inside)
+
+        start = rffi.cast(lltype.Signed, lltype.direct_arrayitems(a))
+        inside_int = rffi.cast(lltype.Signed, inside)
+
+        assert inside_int == start+rffi.sizeof(lltype.Signed)*3
+
+    def test_gcref_comparisons_through_addresses(self):
+        NODE = lltype.GcStruct('NODE')
+        n0 = lltype.malloc(NODE)
+        adr0 = llmemory.cast_ptr_to_adr(n0)
+
+        n1 = lltype.malloc(NODE)
+        i1 = rffi.cast(lltype.Signed, n1)
+        ref1 = rffi.cast(llmemory.GCREF, i1)        
+        adr1 = llmemory.cast_ptr_to_adr(ref1)
+
+        assert adr1 != adr0
+        assert adr0 != adr1
+
+        adr1_2 = llmemory.cast_ptr_to_adr(n1)
+
+        #import pdb; pdb.set_trace()
+        assert adr1_2 == adr1
+        assert adr1 == adr1_2
         
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
