@@ -59,7 +59,7 @@ class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
     def union((s_wvd1, s_wvd2)):
         if s_wvd1.valueclassdef is not s_wvd2.valueclassdef:
             return SomeObject() # not the same class! complain...
-        return s_wvd1
+        return SomeWeakValueDict(s_wvd1.valueclassdef)
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = RWeakValueDictionary
