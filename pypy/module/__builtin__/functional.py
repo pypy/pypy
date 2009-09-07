@@ -394,11 +394,21 @@ class W_Enumerate(Wrappable):
         return space.newtuple([w_index, w_item])
     descr_next.unwrap_spec = ["self", ObjSpace]
 
+    def descr___reduce__(self, space):
+        w_info = space.newtuple([self.w_iter, self.w_index])
+        return space.newtuple([space.wrap(_make_enumerate), w_info])
+    descr___reduce__.unwrap_spec = ["self", ObjSpace]
+
+def _make_enumerate(space, w_iter, w_index):
+    return space.wrap(W_Enumerate(w_iter, w_index))
+_make_enumerate.unwrap_spec = [ObjSpace, W_Root, W_Root]
+_make_enumerate = interp2app(_make_enumerate)
 
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__.im_func),
     __iter__=interp2app(W_Enumerate.descr___iter__),
     next=interp2app(W_Enumerate.descr_next),
+    __reduce__=interp2app(W_Enumerate.descr___reduce__),
 )
 
 
