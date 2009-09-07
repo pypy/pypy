@@ -369,7 +369,19 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         raises(TypeError, len, diter)
         assert list(diter) == list(result)
-    
+
+    def test_pickle_reversed(self):
+        import pickle
+        r = reversed(tuple(range(10)))
+        r.next()
+        r.next()
+        pickled = pickle.dumps(r)
+        result = pickle.loads(pickled)
+        result.next()
+        r.next()
+        assert type(r) is type(result)
+        assert list(r) == list(result)
+
     def test_pickle_enum(self):
         import pickle
         e      = enumerate(range(10))

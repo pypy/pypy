@@ -437,10 +437,26 @@ class W_ReversedIterator(Wrappable):
         raise OperationError(space.w_StopIteration, space.w_None)
     descr_next.unwrap_spec = ["self", ObjSpace]
 
+    def descr___reduce__(self, space):
+        info_w = [self.w_sequence, space.wrap(self.remaining)]
+        w_info = space.newtuple(info_w)
+        return space.newtuple([space.wrap(_make_reversed), w_info])
+    descr___reduce__.unwrap_spec = ["self", ObjSpace]
+
 W_ReversedIterator.typedef = TypeDef("reversed",
     __iter__=interp2app(W_ReversedIterator.descr___iter__),
     next=interp2app(W_ReversedIterator.descr_next),
+    __reduce__=interp2app(W_ReversedIterator.descr___reduce__),
 )
+
+def _make_reversed(space, w_seq, w_remaining):
+    w_type = space.gettypeobject(W_ReversedIterator.typedef)
+    iterator = space.allocate_instance(W_ReversedIterator, w_type)
+    iterator.w_sequence = w_seq
+    iterator.remaining = space.int_w(w_remaining)
+    return space.wrap(iterator)
+_make_reversed.unwrap_spec = [ObjSpace, W_Root, W_Root]
+_make_reversed = interp2app(_make_reversed)
 
 
 class W_XRange(Wrappable):
