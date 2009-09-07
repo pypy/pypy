@@ -18,6 +18,9 @@ from pypy.jit.backend.llsupport.descr import BaseCallDescr
 REGS = [eax, ecx, edx, ebx, esi, edi]
 WORD = 4
 
+class NoVariableToSpill(Exception):
+    pass
+
 class TempBox(Box):
     def __init__(self):
         pass
@@ -424,24 +427,30 @@ class RegAlloc(object):
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
                 continue
-            if selected_reg is not None and reg is selected_reg:
-                return next
+            if selected_reg is not None:
+                if reg is selected_reg:
+                    return next
+                else:
+                    continue
             if need_lower_byte and (reg is esi or reg is edi):
                 continue
-            candidates.append(next)
-        assert candidates
-        if len(candidates) == 1:
-            return candidates[0]
-        max = 0
-        chosen = None
-        for one in candidates:
-            next_usage = self._compute_next_usage(one, self.position)
-            if next_usage == -1:
-                return one
-            elif next_usage > max:
-                next_usage = max
-                chosen = one
-        return chosen
+            return next
+        raise NoVariableToSpill
+        # below is the slightly better (even optimal, under certain
+        # assumptions) algorithm, which is slow. Just go with the
+        # first hit
+        #if len(candidates) == 1:
+        #    return candidates[0]
+        #max = 0
+        #chosen = None
+        #for one in candidates:
+        #    next_usage = self._compute_next_usage(one, self.position)
+        #    if next_usage == -1:
+        #        return one
+        #    elif next_usage > max:
+        #        next_usage = max
+        #        chosen = one
+        #return chosen
 
     def move_variable_away(self, v, prev_loc):
         reg = None
@@ -508,6 +517,7 @@ class RegAlloc(object):
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
         self.free_regs.insert(0, tmpreg)
+        assert tmpreg not in locs
         tree.arglocs = locs
         self.assembler.make_merge_point(tree, locs)
         self.eventually_free_vars(inputargs)
