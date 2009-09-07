@@ -756,6 +756,21 @@ class BytecodeMaker(object):
                   self.const_position(cls))
         self.codewriter.register_known_ooclass(cls, TYPE)
         self.register_var(op.result)
+        # initialize fields with a non-default value: while in ootype it's
+        # new() that takes care of it, for the jit we explicitly insert the
+        # corresponding setfields(). This way, the backends don't need to care
+        # about default fields and moreover the resulting code is more similar
+        # to the lltype version, so the optimizer doesn't need to take special
+        # care for them.
+        if isinstance(TYPE, ootype.Instance):
+            fields = TYPE._get_fields_with_different_default()
+            var_inst = self.var_position(op.result)
+            for name, (T, value) in fields:
+                descr = self.cpu.fielddescrof(TYPE, name)
+                self.emit('setfield_gc')
+                self.emit(var_inst)
+                self.emit(self.get_position(descr))
+                self.emit(self.var_position(Constant(value)))
 
     def serialize_op_oonewarray(self, op):
         ARRAY = op.args[0].value

@@ -654,3 +654,11 @@ def test_bool_default_sm():
     SM = StaticMethod([], Void)
     sm = SM._defl()
     assert not bool(sm)
+
+def test_get_fields_with_different_default():
+    A = Instance("A", ROOT, {"a": (Signed, 3),
+                             "b": (Signed, 0),
+                             "c": (ROOT, ROOT._defl())
+                             })
+    fields = A._get_fields_with_different_default()
+    assert fields == [("a", (Signed, 3))]

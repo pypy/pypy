@@ -300,6 +300,30 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
     def _new():
         return MyClass()
 
+    def test_class_with_default_fields(self):
+        class MyClass:
+            value = 2
+
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
+        def f(n):
+            res = 0
+            node = MyClass()
+            node.value = n # so that the annotator doesn't think that value is constant
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, res=res)
+                myjitdriver.jit_merge_point(n=n, res=res)
+                node = MyClass()
+                res += node.value
+                n -= 1
+            return res
+        assert f(10) == 20
+        res = self.meta_interp(f, [10])
+        assert res == 20
+        self.check_loop_count(1)
+        self.check_loops(new=0, new_with_vtable=0,
+                                getfield_gc=0, setfield_gc=0)
+
+
 
 class TestOOtype_Instance(VirtualTests, OOJitMixin):
     _new_op = 'new_with_vtable'
@@ -308,6 +332,8 @@ class TestOOtype_Instance(VirtualTests, OOJitMixin):
     @staticmethod
     def _new():
         return MyClass()
+
+    test_class_with_default_fields = TestLLtype_Instance.test_class_with_default_fields.im_func
 
 # ____________________________________________________________
 # Run 2: all the tests use lltype.malloc to make a NODE

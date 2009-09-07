@@ -258,6 +258,14 @@ class Instance(OOType):
             graphs.update(SUBTYPE._lookup_graphs(meth_name))
         return graphs
 
+    def _get_fields_with_different_default(self):
+        fields = []
+        example = self._example()
+        for field in self._allfields().iteritems():
+            name, (T, value) = field
+            if T._defl() != value:
+                fields.append(field)
+        return fields
 
 
 class SpecializableType(OOType):
