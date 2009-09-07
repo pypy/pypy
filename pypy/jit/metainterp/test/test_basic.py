@@ -403,6 +403,24 @@ class BasicTests:
         assert res == 210
         self.check_history_(getfield_gc=0)
 
+    def test_setfield_bool(self):
+        class A:
+            def __init__(self):
+                self.flag = True
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'obj'])
+        def f(n):
+            obj = A()
+            res = False
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, obj=obj)
+                myjitdriver.jit_merge_point(n=n, obj=obj)
+                obj.flag = False
+                n -= 1
+            return res
+        res = self.meta_interp(f, [7])
+        assert type(res) == bool
+        assert not res
+
     def test_switch_dict(self):
         def f(x):
             if   x == 1: return 61

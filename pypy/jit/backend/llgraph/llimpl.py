@@ -775,6 +775,8 @@ class OOFrame(Frame):
         obj = ootype.cast_from_object(TYPE, obj)
         if isinstance(ootype.typeOf(newvalue), ootype.OOType):
             newvalue = ootype.cast_from_object(T, newvalue)
+        elif isinstance(T, lltype.Primitive):
+            newvalue = lltype.cast_primitive(T, newvalue)
         setattr(obj, fieldname, newvalue)
 
     def op_getarrayitem_gc(self, typedescr, obj, index):
