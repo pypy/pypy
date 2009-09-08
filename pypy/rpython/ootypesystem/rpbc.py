@@ -21,9 +21,7 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
     if robj1 == none_frozen_pbc_repr:
         return hop.inputconst(ootype.Bool, True)
     v1 = hop.inputarg(robj1, pos)
-    v2 = hop.genop('oononnull', [v1], resulttype=ootype.Bool)
-    v3 = hop.genop('bool_not', [v2], resulttype=ootype.Bool)
-    return v3
+    return hop.genop('ooisnull', [v1], resulttype=ootype.Bool)
 
 
 class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
