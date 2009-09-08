@@ -22,4 +22,6 @@ class Module(MixedModule):
         'xrangeiter_new': 'maker.xrangeiter_new',
         'builtin_code': 'maker.builtin_code',
         'builtin_function' : 'maker.builtin_function',
+        'enumerate_new': 'maker.enumerate_new',
+        'reversed_new': 'maker.reversed_new'
     }

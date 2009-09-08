@@ -100,6 +100,17 @@ def builtin_function(space, identifier):
 builtin_function.unwrap_spec = [ObjSpace, str]
 
 
+def enumerate_new(space, w_iter, w_index):
+    from pypy.module.__builtin__.functional import _make_enumerate
+    return _make_enumerate(space, w_iter, w_index)
+enumerate_new.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+def reversed_new(space, w_seq, w_remaining):
+    from pypy.module.__builtin__.functional import _make_reversed
+    return _make_reversed(space, w_seq, w_remaining)
+reversed_new.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+
 # ___________________________________________________________________
 # Helper functions for internal use
 
