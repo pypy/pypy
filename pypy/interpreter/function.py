@@ -39,11 +39,11 @@ class Function(Wrappable):
 
     def call_args(self, args):
         # delegate activation to code        
-        return self.code.funcrun(self, args)
+        return self.getcode().funcrun(self, args)
 
     def call_obj_args(self, w_obj, args):
         # delegate activation to code
-        return self.code.funcrun_obj(self, w_obj, args)
+        return self.getcode().funcrun_obj(self, w_obj, args)
 
     def getcode(self):
         return hint(self.code, promote=True)
