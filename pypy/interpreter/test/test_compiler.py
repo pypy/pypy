@@ -641,21 +641,17 @@ class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = CPythonCompiler(self.space)
 
-    _unicode_error_kind = "w_SyntaxError"
-
-    if sys.version_info < (2, 4):
-        def skip_on_2_3(self):
-            py.test.skip("syntax not supported by the CPython 2.3 compiler")
-        test_unicodeliterals = skip_on_2_3
-        test_none_assignment = skip_on_2_3
-        test_import = skip_on_2_3
-    elif sys.version_info < (2, 5):
+    if sys.version_info < (2, 5):
         def skip_on_2_4(self):
             py.test.skip("syntax not supported by the CPython 2.4 compiler")
         _unicode_error_kind = "w_UnicodeError"
         test_continue_in_nested_finally = skip_on_2_4
         test_try_except_finally = skip_on_2_4
         test_yield_in_finally = skip_on_2_4
+    elif sys.version_info < (2, 6):
+        _unicode_error_kind = "w_UnicodeDecodeError"
+    else:
+        _unicode_error_kind = "w_SyntaxError"
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
