@@ -9,7 +9,6 @@ def test_basic_parse():
     x = """
     [i0, i1]
     i2 = int_add(i0, i1)
-    # a comment
     i3 = int_sub(i2, 3)
     fail()
     """
@@ -146,10 +145,12 @@ def test_debug_merge_point():
     []
     debug_merge_point("info")
     debug_merge_point('info')
+    debug_merge_point('<some ('other,')> info')
     '''
     loop = parse(x)
     assert loop.operations[0].args[0]._get_str() == 'info'
     assert loop.operations[1].args[0]._get_str() == 'info'
+    assert loop.operations[2].args[0]._get_str() == "<some ('other,')> info"
 
 def test_descr_with_obj_print():
     x = '''

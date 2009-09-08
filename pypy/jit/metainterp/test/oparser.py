@@ -97,6 +97,8 @@ class OpParser(object):
         return vars
 
     def getvar(self, arg):
+        if not arg:
+            return ConstInt(0)
         try:
             return ConstInt(int(arg))
         except ValueError:
@@ -145,7 +147,10 @@ class OpParser(object):
         argspec = line[num + 1:endnum]
         if not argspec.strip():
             return opnum, [], None
-        allargs = argspec.split(",")
+        if opname == 'debug_merge_point':
+            allargs = [argspec]
+        else:
+            allargs = argspec.split(",")
         args = []
         descr = None
         poss_descr = allargs[-1].strip()
@@ -160,6 +165,8 @@ class OpParser(object):
             try:
                 args.append(self.getvar(arg))
             except KeyError:
+                import pdb
+                pdb.set_trace()
                 raise ParseError("Unknown var: %s" % arg)
         if hasattr(descr, '_oparser_uses_descr'):
             descr._oparser_uses_descr(self, args)
@@ -195,8 +202,6 @@ class OpParser(object):
         ops = []
         newlines = []
         for line in lines:
-            if '#' in line:
-                line = line[:line.index('#')]    # remove comment
             if not line.strip():
                 continue  # a comment or empty line
             newlines.append(line)

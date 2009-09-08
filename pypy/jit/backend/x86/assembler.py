@@ -156,7 +156,7 @@ class Assembler386(object):
             regalloc.walk_operations(tree)
         else:
             inputargs = regalloc.inputargs
-            self.logger.log_operations
+            self.logger.log_operations(inputargs, guard_op.suboperations, {})
             mc = self.mc._mc
             adr_lea = mc.tell()
             mc.LEA(esp, fixedsize_ebp_ofs(0))
