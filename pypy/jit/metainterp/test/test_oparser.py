@@ -8,9 +8,10 @@ from pypy.jit.metainterp.history import AbstractDescr, BoxInt
 def test_basic_parse():
     x = """
     [i0, i1]
+    # a comment
     i2 = int_add(i0, i1)
-    i3 = int_sub(i2, 3)
-    fail()
+    i3 = int_sub(i2, 3) # another comment
+    fail() # (tricky)
     """
     loop = parse(x)
     assert len(loop.operations) == 3
@@ -146,11 +147,14 @@ def test_debug_merge_point():
     debug_merge_point("info")
     debug_merge_point('info')
     debug_merge_point('<some ('other,')> info')
+    debug_merge_point('(stuff) #1')
     '''
     loop = parse(x)
     assert loop.operations[0].args[0]._get_str() == 'info'
     assert loop.operations[1].args[0]._get_str() == 'info'
     assert loop.operations[2].args[0]._get_str() == "<some ('other,')> info"
+    assert loop.operations[3].args[0]._get_str() == "(stuff) #1"
+    
 
 def test_descr_with_obj_print():
     x = '''

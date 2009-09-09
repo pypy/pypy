@@ -165,8 +165,6 @@ class OpParser(object):
             try:
                 args.append(self.getvar(arg))
             except KeyError:
-                import pdb
-                pdb.set_trace()
                 raise ParseError("Unknown var: %s" % arg)
         if hasattr(descr, '_oparser_uses_descr'):
             descr._oparser_uses_descr(self, args)
@@ -202,6 +200,15 @@ class OpParser(object):
         ops = []
         newlines = []
         for line in lines:
+            # for simplicity comments are not allowed on
+            # debug_merge_point lines
+            if '#' in line and 'debug_merge_point(' not in line:
+                if line.lstrip()[0] == '#': # comment only
+                    continue
+                comm = line.rfind('#')
+                rpar = line.find(')') # assume there's a op(...)
+                if comm > rpar:
+                    line = line[:comm].rstrip()
             if not line.strip():
                 continue  # a comment or empty line
             newlines.append(line)
