@@ -7,7 +7,9 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
 if sys.platform == 'win32':
-    py.test.skip("No asmgcc on Windows")
+    if not ('mingw' in os.popen('gcc --version').read() and
+            'GNU' in os.popen('make --version').read()):
+        py.test.skip("mingw32 and MSYS are required for asmgcc on Windows")
 
 class AbstractTestAsmGCRoot:
     # the asmgcroot gc transformer doesn't generate gc_reload_possibly_moved
@@ -30,6 +32,8 @@ class AbstractTestAsmGCRoot:
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
         config.translation.gcrootfinder = "asmgcc"
+        if sys.platform == 'win32':
+            config.translation.cc = 'mingw32'
         t = TranslationContext(config=config)
         self.t = t
         a = t.buildannotator()
@@ -48,7 +52,7 @@ class AbstractTestAsmGCRoot:
         def run():
             lines = []
             print >> sys.stderr, 'RUN: starting', exe_name
-            g = os.popen("'%s'" % (exe_name,), 'r')
+            g = os.popen('"%s"' % (exe_name,), 'r')
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)

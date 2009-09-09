@@ -110,9 +110,9 @@ class Platform(object):
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr)
             stderrlines = stderr.splitlines()
-            for line in stderrlines[:20]:
+            for line in stderrlines[:50]:
                 log.ERROR(line)
-            if len(stderrlines) > 20:
+            if len(stderrlines) > 50:
                 log.ERROR('...')
             raise CompilationError(stdout, stderr)
 

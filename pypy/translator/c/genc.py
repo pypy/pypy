@@ -492,8 +492,14 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('GCMAPFILES', gcmapfiles)
             mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
             mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
-            mk.rule('%.lbl.s %.gcmap', '%.s', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $*.gcmap')
-            mk.rule('gcmaptable.s', '$(GCMAPFILES)', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
+            if sys.platform == 'win32':
+                python = sys.executable.replace('\\', '/') + ' '
+            else:
+                python = ""
+            mk.rule('%.lbl.s %.gcmap', '%.s',
+                    python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $*.gcmap')
+            mk.rule('gcmaptable.s', '$(GCMAPFILES)',
+                    python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
 
         mk.write()
         #self.translator.platform,

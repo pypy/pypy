@@ -281,4 +281,7 @@ class MingwPlatform(posix.BasePosix):
     def library_dirs_for_libffi(self):
         return []
 
-
+    def _handle_error(self, returncode, stderr, stdout, outname):
+        # Mingw tools write compilation errors to stdout
+        super(MingwPlatform, self)._handle_error(
+            returncode, stderr + stdout, '', outname)

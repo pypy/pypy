@@ -23,15 +23,16 @@ r_sectionstart         = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
 r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 
 # inside functions
-r_label         = re.compile(r"([.]?\w+)[:]\s*$")
+LABEL           = r'([.]?[\w$@]+)'
+r_label         = re.compile(LABEL+"[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
-r_jump          = re.compile(r"\tj\w+\s+([.]?[\w$]+)\s*$")
+r_jump          = re.compile(r"\tj\w+\s+"+LABEL+"\s*$")
 OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
 r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+OPERAND+")\s*$")
 r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+([*]"+OPERAND+")\s*$")
-r_jmp_switch    = re.compile(r"\tjmp\t[*]([.]?\w+)[(]")
-r_jmptable_item = re.compile(r"\t.long\t([.]?\w+)\s*$")
+r_jmp_switch    = re.compile(r"\tjmp\t[*]"+LABEL+"[(]")
+r_jmptable_item = re.compile(r"\t.long\t"+LABEL+"\s*$")
 r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text")
 r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+("+OPERAND+"),\s*("+OPERAND+")\s*$")
 LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|\d*[(]%esp[)]"
@@ -75,23 +76,22 @@ class GcRootTracker(object):
         shapelines = []
         shapeofs = 0
         def _globalname(name):
-            if self.format == 'darwin':
+            if self.format in ('darwin', 'mingw32'):
                 return '_' + name
             return name
         def _globl(name):
             print >> output, "\t.globl %s" % _globalname(name)
         def _label(name):
             print >> output, "%s:" % _globalname(name)
-        def _variant(elf, darwin):
-            if self.format == 'darwin':
-                txt = darwin
-            else:
-                txt = elf
+        def _variant(**kwargs):
+            txt = kwargs[self.format]
             print >> output, "\t%s" % txt
-        
+
         print >> output, "\t.text"
         _globl('pypy_asm_stackwalk')
-        _variant('.type pypy_asm_stackwalk, @function', '')
+        _variant(elf='.type pypy_asm_stackwalk, @function',
+                 darwin='',
+                 mingw32='')
         _label('pypy_asm_stackwalk')
         print >> output, """\
             /* See description in asmgcroot.py */
@@ -114,7 +114,9 @@ class GcRootTracker(object):
             popl   %eax
             ret
 """
-        _variant('.size pypy_asm_stackwalk, .-pypy_asm_stackwalk', '')
+        _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
+                 darwin='',
+                 mingw32='')
         print >> output, '\t.data'
         print >> output, '\t.align\t4'
         _globl('__gcmapstart')
@@ -135,7 +137,9 @@ class GcRootTracker(object):
             print >> output, '\t.long\t%d' % (n,)
         _globl('__gcmapend')
         _label('__gcmapend')
-        _variant('.section\t.rodata', '.const')
+        _variant(elf='.section\t.rodata',
+                 darwin='.const',
+                 mingw32='')
         _globl('__gccallshapes')
         _label('__gccallshapes')
         output.writelines(shapelines)
@@ -188,8 +192,10 @@ class GcRootTracker(object):
         if functionlines:
             yield in_function, functionlines
 
+    _find_functions_mingw32 = _find_functions_darwin
+
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
-        if self.format == 'darwin':
+        if self.format in ('darwin', 'mingw32'):
             entrypoint = '_' + entrypoint
         for in_function, lines in self.find_functions(iterlines):
             if in_function:
@@ -230,6 +236,9 @@ class FunctionGcRootTracker(object):
             assert funcname == match.group(1)
             assert funcname == match.group(2)
         elif format == 'darwin':
+            match = r_functionstart_darwin.match(lines[0])
+            funcname = '_'+match.group(1)
+        elif format == 'mingw32':
             match = r_functionstart_darwin.match(lines[0])
             funcname = '_'+match.group(1)
         else:
@@ -738,8 +747,15 @@ class FunctionGcRootTracker(object):
                 if lineoffset >= 0:
                     assert  lineoffset in (1,2)
                     return [InsnStackAdjust(-4)]
-        return [InsnCall(self.currentlineno),
-                InsnSetLocal('%eax')]      # the result is there
+        insns = [InsnCall(self.currentlineno),
+                 InsnSetLocal('%eax')]      # the result is there
+        if sys.platform == 'win32':
+            # handle __stdcall calling convention:
+            # Stack cleanup is performed by the called function,
+            # Function name is decorated with "@N" where N is the stack size
+            if match and '@' in target:
+                insns.append(InsnStackAdjust(int(target.split('@')[1])))
+        return insns
 
 
 class UnrecognizedOperation(Exception):
@@ -1108,6 +1124,8 @@ if __name__ == '__main__':
             break
     if sys.platform == 'darwin':
         format = 'darwin'
+    elif sys.platform == 'win32':
+        format = 'mingw32'
     else:
         format = 'elf'
     tracker = GcRootTracker(verbose=verbose, shuffle=shuffle, format=format)
