@@ -218,5 +218,4 @@ class TestLLtype(RecursiveTests, LLJitMixin):
     pass
 
 class TestOOtype(RecursiveTests, OOJitMixin):
-    def test_simple_recursion_with_exc(self):
-        py.test.skip("Fails")
+    pass

@@ -1268,15 +1268,15 @@ def call_maybe_on_top_of_llinterp(meth, args):
     else:
         mymethod = meth
         myargs = args
-    if hasattr(mymethod, 'graph'):
-        llinterp = _llinterp      # it's a global set here by CPU.__init__()
-        try:
+    try:
+        if hasattr(mymethod, 'graph'):
+            llinterp = _llinterp      # it's a global set here by CPU.__init__()
             result = llinterp.eval_graph(mymethod.graph, myargs)
-        except LLException, e:
-            _last_exception = e
-            result = get_err_result_for_type(mymethod._TYPE.RESULT)
-    else:
-        result = meth(*args)  # no exception support in this case
+        else:
+            result = meth(*args)
+    except LLException, e:
+        _last_exception = e
+        result = get_err_result_for_type(mymethod._TYPE.RESULT)
     return result
 
 def get_err_result_for_type(T):
