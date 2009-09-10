@@ -472,7 +472,7 @@ class CStandaloneBuilder(CBuilder):
             ('linuxmemchk', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
-            ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
+            ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
             rules.append(
