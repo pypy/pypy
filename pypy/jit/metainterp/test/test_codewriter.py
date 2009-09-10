@@ -57,6 +57,5 @@ class ImmutableFieldsTests:
 class TestLLtypeImmutableFieldsTests(ImmutableFieldsTests, LLJitMixin):
     pass
 
-# XXX implement
-# class TestOOtypeImmutableFieldsTests(ImmutableFieldsTests, OOJitMixin):
-#    pass
+class TestOOtypeImmutableFieldsTests(ImmutableFieldsTests, OOJitMixin):
+   pass
