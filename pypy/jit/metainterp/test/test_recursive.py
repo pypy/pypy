@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, we_are_jitted
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp import simple_optimize
 from pypy.jit.metainterp.policy import StopAtXPolicy
@@ -377,6 +377,71 @@ class RecursiveTests:
         self.check_loops(call=0)
 
 
+    @py.test.mark.xfail
+    def test_leave_jit_hook(self):
+        from pypy.rpython.annlowlevel import hlstr
+        def p(code, pc):
+            code = hlstr(code)
+            return "%s %d %s" % (code, pc, code[pc])
+        def c(code, pc):
+            return "l" not in hlstr(code)
+
+        def leave(frame, code):
+            frame.hookcalled = True
+
+        class ExpectedHook(Exception):
+            pass
+        class UnexpectedHook(Exception):
+            pass
+
+        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['self'],
+                                get_printable_location=p, can_inline=c)
+        class Frame(object):
+            def __init__(self, n):
+                self.n = n
+                self.hookcalled = False
+            def f(self, code):
+                pc = 0
+                while pc < len(code):
+
+                    myjitdriver.jit_merge_point(self=self, code=code, pc=pc)
+                    op = code[pc]
+                    if op == "-":
+                        self.n -= 1
+                    elif op == "c":
+                        frame = Frame(self.n)
+                        self.n = frame.f("---i---")
+                        if we_are_jitted():
+                            if frame.hookcalled:
+                                raise UnexpectedHook
+                    elif op == "C":
+                        frame = Frame(self.n)
+                        self.n = frame.f("cL")
+                        if we_are_jitted():
+                            if not frame.hookcalled:
+                                raise ExpectedHook
+                    elif op == "i":
+                        if self.n % 5 == 1:
+                            return self.n
+                    elif op == "l":
+                        if self.n > 0:
+                            myjitdriver.can_enter_jit(self=self, code=code, pc=0)
+                            pc = 0
+                            continue
+                    elif op == "L":
+                        if self.n > 50:
+                            myjitdriver.can_enter_jit(self=self, code=code, pc=0)
+                            pc = 0
+                            continue
+                    else:
+                        assert 0
+                    pc += 1
+                return self.n
+        def main(n):
+            frame = Frame(n)
+            return frame.f("C-l")
+        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
+        assert res == main(100)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
