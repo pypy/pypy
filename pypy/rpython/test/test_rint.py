@@ -327,6 +327,16 @@ class BaseTestRint(BaseRtypingTest):
         res = self.interpret(f, [sys.maxint])
         assert res == 0
 
+    def test_cast_to_float_exc_check(self):
+        def f(x):
+            try:
+                return float(x)
+            except ValueError:
+                return 3.0
+
+        res = self.interpret(f, [3])
+        assert res == 3
+
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
 
