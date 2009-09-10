@@ -1,7 +1,6 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted
+from pypy.rlib.jit import JitDriver, we_are_jitted, OPTIMIZER_SIMPLE
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.jit.metainterp import simple_optimize
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
 from pypy.jit.metainterp.warmspot import CannotInlineCanEnterJit, get_stats
@@ -23,7 +22,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=simple_optimize)
+        res = self.meta_interp(main, [20], optimizer=OPTIMIZER_SIMPLE)
         assert res == main(20)
 
     def test_simple_recursion_with_exc(self):
@@ -49,7 +48,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=simple_optimize)
+        res = self.meta_interp(main, [20], optimizer=OPTIMIZER_SIMPLE)
         assert res == main(20)
 
     def test_recursion_three_times(self):
@@ -72,7 +71,7 @@ class RecursiveTests:
         print
         for i in range(1, 11):
             print '%3d %9d' % (i, f(i))
-        res = self.meta_interp(main, [10], optimizer=simple_optimize)
+        res = self.meta_interp(main, [10], optimizer=OPTIMIZER_SIMPLE)
         assert res == main(10)
         self.check_enter_count_at_most(10)
 
@@ -92,7 +91,7 @@ class RecursiveTests:
                 opaque(n, i)
                 i += 1
             return stack.pop()
-        res = self.meta_interp(f, [1], optimizer=simple_optimize, repeat=2,
+        res = self.meta_interp(f, [1], optimizer=OPTIMIZER_SIMPLE, repeat=2,
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
@@ -144,9 +143,9 @@ class RecursiveTests:
         codes = [code, subcode]
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize) == 42
+        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE) == 42
         self.check_loops(int_add = 1, call = 1)
-        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
+        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE,
                                 inline=True) == 42
         self.check_loops(int_add = 2, call = 0, guard_no_exception = 0)
 
@@ -157,7 +156,7 @@ class RecursiveTests:
 
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
+        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE,
                                 inline=True) == 42
         self.check_loops(call = 1)
 
@@ -169,7 +168,7 @@ class RecursiveTests:
         f = self.get_interpreter(codes, always_inline=True)
 
         try:
-            self.meta_interp(f, [0, 0, 0], optimizer=simple_optimize,
+            self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE,
                              inline=True)
         except CannotInlineCanEnterJit:
             pass
@@ -210,7 +209,7 @@ class RecursiveTests:
         def main(n):
             return f("c-l", n)
         print main(100)
-        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
+        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
         assert res == 0
 
     def test_exception_in_inlined_function(self):
@@ -253,7 +252,7 @@ class RecursiveTests:
             return n
         def main(n):
             return f("c-l", n)
-        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
+        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
         assert res == main(100)
 
     def test_recurse_during_blackholing(self):
@@ -295,7 +294,7 @@ class RecursiveTests:
             myjitdriver.set_param('trace_eagerness', 5)            
             return f("c-l", n)
         expected = main(100)
-        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
+        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
         assert res == expected
 
     def check_max_trace_length(self, length):
@@ -321,7 +320,7 @@ class RecursiveTests:
                 n -= 1
             return n
         TRACE_LIMIT = 66
-        res = self.meta_interp(loop, [100], optimizer=simple_optimize, inline=True, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count(15) # maybe
@@ -345,7 +344,7 @@ class RecursiveTests:
                     n = recursive(n)
                 n -= 1
         TRACE_LIMIT = 20
-        res = self.meta_interp(loop, [100], optimizer=simple_optimize, inline=True, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_aborted_count(8)
         self.check_enter_count_at_most(30)
@@ -370,10 +369,10 @@ class RecursiveTests:
                 myjitdriver.set_param('inlining', False)
             return loop(100)
 
-        res = self.meta_interp(main, [0], optimizer=simple_optimize, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(main, [0], optimizer=OPTIMIZER_SIMPLE, trace_limit=TRACE_LIMIT)
         self.check_loops(call=1)
 
-        res = self.meta_interp(main, [1], optimizer=simple_optimize, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(main, [1], optimizer=OPTIMIZER_SIMPLE, trace_limit=TRACE_LIMIT)
         self.check_loops(call=0)
 
     def test_leave_jit_hook(self):
@@ -441,7 +440,7 @@ class RecursiveTests:
         def main(n):
             frame = Frame(n)
             return frame.f("C-l")
-        res = self.meta_interp(main, [100], optimizer=simple_optimize, inline=True)
+        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
         assert res == main(100)
 
 class TestLLtype(RecursiveTests, LLJitMixin):

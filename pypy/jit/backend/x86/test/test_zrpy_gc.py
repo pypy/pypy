@@ -9,7 +9,7 @@ import py
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.x86.regalloc import stack_pos
@@ -58,7 +58,6 @@ def compile_and_run(f, gc, **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
-    from pypy.jit.metainterp import simple_optimize
     from pypy.translator.c import genc
     #
     t = TranslationContext()
@@ -69,7 +68,7 @@ def compile_and_run(f, gc, **kwds):
     t.buildannotator().build_types(f, [s_list_of_strings])
     t.buildrtyper().specialize()
     if kwds['jit']:
-        apply_jit(t, CPUClass=CPU386, optimizer=simple_optimize)
+        apply_jit(t, CPUClass=CPU386, optimizer=OPTIMIZER_SIMPLE)
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source()
     cbuilder.compile()

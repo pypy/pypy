@@ -1,6 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import support, codewriter, pyjitpl, history
@@ -12,7 +13,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
-                   listops=False, optimizer=None):
+                   listops=False, optimizer=OPTIMIZER_FULL):
     from pypy.annotation.policy import AnnotatorPolicy
     from pypy.annotation.model import lltype_to_annotation
     from pypy.rpython.test.test_llinterp import gengraph
@@ -23,9 +24,8 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
     cpu = CPUClass(rtyper, stats, False)
     graph = rtyper.annotator.translator.graphs[0]
     opt = history.Options(specialize=False, listops=listops)
-    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt,
-                                                 optimizer=optimizer)
-    metainterp_sd.finish_setup()
+    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
+    metainterp_sd.finish_setup(optimizer=optimizer)
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
     return metainterp, rtyper
 
@@ -74,13 +74,17 @@ class JitMixin:
             def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
                 pass
 
+            # pick the optimizer this way
+            optimize_loop = staticmethod(simple_optimize.optimize_loop)
+            optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
+
             trace_limit = sys.maxint
         
         if policy is None:
             policy = JitPolicy()
         metainterp, rtyper = get_metainterp(f, args, self.CPUClass,
                                             self.type_system, policy=policy,
-                                            optimizer=simple_optimize,
+                                            optimizer="bogus",
                                             **kwds)
         cw = codewriter.CodeWriter(metainterp.staticdata, policy)
         graph = rtyper.annotator.translator.graphs[0]
@@ -785,7 +789,6 @@ class BasicTests:
         self.meta_interp(f, [40, 0])
 
     def test_const_inputargs(self):
-        from pypy.jit.metainterp import simple_optimize
         myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'x'])
         def f(n, x):
             m = 0x7FFFFFFF
@@ -798,7 +801,7 @@ class BasicTests:
             return x
 
         res = self.meta_interp(f, [50, 1],
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert res == 42
 
     def test_set_param(self):
@@ -832,7 +835,7 @@ class BasicTests:
         res = self.interp_operations(f, [3, 5])
         assert res == 8
         self.check_history_(int_add=0, call=1)
-
+      
 
 class TestOOtype(BasicTests, OOJitMixin):
 
@@ -886,7 +889,6 @@ class TestOOtype(BasicTests, OOJitMixin):
 
 
     def test_subclassof(self):
-        from pypy.jit.metainterp import simple_optimize
         A = ootype.Instance("A", ootype.ROOT)
         B = ootype.Instance("B", A)
         clsA = ootype.runtimeClass(A)
@@ -911,12 +913,12 @@ class TestOOtype(BasicTests, OOJitMixin):
 
         res = self.meta_interp(f, [1, 100],
                                policy=StopAtXPolicy(getcls),
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert not res
         
         res = self.meta_interp(f, [0, 100],
                                policy=StopAtXPolicy(getcls),
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert res
 
 

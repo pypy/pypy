@@ -104,8 +104,8 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
         loop.operations = history.operations
     loop.operations[-1].jump_target = loop
     metainterp_sd = metainterp.staticdata
-    old_loop = metainterp_sd.optimize_loop(metainterp_sd.options, old_loops,
-                                           loop, metainterp.cpu)
+    old_loop = metainterp_sd.state.optimize_loop(metainterp_sd.options, old_loops,
+                                                 loop, metainterp.cpu)
     if old_loop is not None:
         if we_are_translated() and DEBUG > 0:
             debug_print("reusing old loop")
@@ -374,9 +374,9 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     new_loop = create_empty_loop(metainterp)
     new_loop.operations = metainterp.history.operations
     metainterp_sd = metainterp.staticdata
-    target_loop = metainterp_sd.optimize_bridge(metainterp_sd.options,
-                                                old_loops, new_loop,
-                                                metainterp.cpu)
+    target_loop = metainterp_sd.state.optimize_bridge(metainterp_sd.options,
+                                                      old_loops, new_loop,
+                                                      metainterp.cpu)
     # Did it work?  If not, prepare_loop_from_bridge() will probably be used.
     if target_loop is not None:
         # Yes, we managed to create a bridge.  Dispatch to resumekey to

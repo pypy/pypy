@@ -10,7 +10,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import PARAMETERS
+from pypy.rlib.jit import PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -135,7 +135,7 @@ class CannotInlineCanEnterJit(JitException):
 class WarmRunnerDesc:
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 **kwds):
+                 optimizer=None, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         if policy is None:
             policy = JitPolicy()
@@ -160,7 +160,7 @@ class WarmRunnerDesc:
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
         self.add_profiler_finish()
-        self.metainterp_sd.finish_setup()
+        self.metainterp_sd.finish_setup(optimizer=optimizer)
 
     def finish(self):
         vinfo = self.metainterp_sd.virtualizable_info
@@ -217,7 +217,7 @@ class WarmRunnerDesc:
                               really_remove_asserts=True)
 
     def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", optimizer=None, profile=None, **kwds):
+                          view="auto", profile=None, **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
         self.stats = history.Stats()
@@ -232,7 +232,6 @@ class WarmRunnerDesc:
         self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
                                                   self.translator.graphs, cpu,
                                                   self.stats, opt,
-                                                  optimizer=optimizer,
                                                   profile=profile,
                                                   warmrunnerdesc=self,
                                                   leave_graph=self.leave_graph)
@@ -771,6 +770,18 @@ def make_state_class(warmrunnerdesc):
             self.mcentrypoints = [None]
             # invariant: (self.mccounters[j] < 0) if and only if
             #            (self.mcentrypoints[j] is not None)
+
+        def set_param_optimizer(self, optimizer):
+            if optimizer == OPTIMIZER_SIMPLE:
+                from pypy.jit.metainterp import simple_optimize
+                self.optimize_loop = simple_optimize.optimize_loop
+                self.optimize_bridge = simple_optimize.optimize_bridge
+            elif optimizer == OPTIMIZER_FULL:
+                from pypy.jit.metainterp import optimize
+                self.optimize_loop = optimize.optimize_loop
+                self.optimize_bridge = optimize.optimize_bridge                
+            else:
+                raise ValueError("unknown optimizer")
 
         def create_tables_now(self):
             count = 1 << self.hashbits

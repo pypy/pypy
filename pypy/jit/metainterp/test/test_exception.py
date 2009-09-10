@@ -1,9 +1,8 @@
 import py, sys
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.metainterp.policy import StopAtXPolicy
-from pypy.jit.metainterp import simple_optimize
 
 
 class ExceptionTests:
@@ -447,10 +446,10 @@ class ExceptionTests:
                 n += 1
             return m
 
-        res = self.meta_interp(f, [1, 1, 0], optimizer=simple_optimize)
+        res = self.meta_interp(f, [1, 1, 0], optimizer=OPTIMIZER_SIMPLE)
         assert res == f(1, 1, 0)
         res = self.meta_interp(f, [809644098, 16, 0],
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert res == f(809644098, 16, 0)
 
     def test_int_neg_ovf(self):
@@ -471,7 +470,7 @@ class ExceptionTests:
             return m
 
         res = self.meta_interp(f, [-sys.maxint-1+100, 0],
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert res == 16
 
     def test_reraise_through_portal(self):
@@ -554,7 +553,7 @@ class ExceptionTests:
                 return 8
 
         res = self.meta_interp(main, [41], repeat=7, policy=StopAtXPolicy(x),
-                               optimizer=simple_optimize)
+                               optimizer=OPTIMIZER_SIMPLE)
         assert res == 8
 
 class MyError(Exception):

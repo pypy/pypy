@@ -1018,7 +1018,7 @@ class MetaInterpStaticData(object):
     virtualizable_info = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 optimizer=None, profile=None, warmrunnerdesc=None,
+                 profile=None, warmrunnerdesc=None,
                  leave_graph=None):
         self.portal_graph = portal_graph
         self.cpu = cpu
@@ -1032,10 +1032,6 @@ class MetaInterpStaticData(object):
         self.opcode_implementations = []
         self.opcode_names = []
         self.opname_to_index = {}
-        if optimizer is None:
-            from pypy.jit.metainterp import optimize as optimizer
-        self.optimize_loop = optimizer.optimize_loop
-        self.optimize_bridge = optimizer.optimize_bridge
 
         if profile is not None:
             self.profiler = profile()
@@ -1046,23 +1042,21 @@ class MetaInterpStaticData(object):
         self.warmrunnerdesc = warmrunnerdesc
         self._op_goto_if_not = self.find_opcode('goto_if_not')
 
-        optmodule = self.optimize_loop.__module__
-        optmodule = optmodule.split('.')[-1]
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
-        self.jit_starting_line = 'JIT starting (%s, %s)' % (optmodule,
-                                                            backendmodule)
-
+        self.jit_starting_line = 'JIT starting (%s)' % backendmodule
         self.leave_graph = leave_graph
 
     def _freeze_(self):
         return True
 
-    def finish_setup(self):
+    def finish_setup(self, optimizer=None):
         warmrunnerdesc = self.warmrunnerdesc
         if warmrunnerdesc is not None:
             self.num_green_args = warmrunnerdesc.num_green_args
             self.state = warmrunnerdesc.state
+            if optimizer is not None:
+                self.state.set_param_optimizer(optimizer)
         else:
             self.num_green_args = 0
             self.state = None

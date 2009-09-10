@@ -4,12 +4,13 @@ from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
-from pypy.jit.metainterp import history, heaptracker, simple_optimize
+from pypy.jit.metainterp import history, heaptracker
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
 def promote_virtualizable(*args):
@@ -437,7 +438,7 @@ class ExplicitVirtualizableTests:
             promote_virtualizable(xy2, 'inst_l2')                
             return xy2.inst_l2[0]
         expected = f(20)
-        res = self.meta_interp(f, [20], optimizer=simple_optimize)
+        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
         assert res == expected
         self.check_loops(getfield_gc=3, setfield_gc=0,
                          arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
@@ -1021,9 +1022,8 @@ class ImplicitVirtualizableTests:
             frame = Frame(n)
             return f("c-l", frame)
         print main(100)
-        from pypy.jit.metainterp import optimize
-        res = self.meta_interp(main, [100],
-                inline=True, optimizer=optimize)
+        res = self.meta_interp(main, [100], inline=True,
+                                            optimizer=OPTIMIZER_FULL)
 
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

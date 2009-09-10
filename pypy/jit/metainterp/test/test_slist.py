@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 
 class ListTests:
 
@@ -61,7 +61,7 @@ class ListTests:
                 myjitdriver.jit_merge_point(n=n, lst=lst)
                 n -= 1
             return lst[n]
-        res = self.meta_interp(f, [21], listops=True, optimizer=simple_optimize)
+        res = self.meta_interp(f, [21], listops=True, optimizer=OPTIMIZER_SIMPLE)
         assert res == 0
 
     def test_getitem(self):

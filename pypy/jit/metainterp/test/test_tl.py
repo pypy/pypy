@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
 
@@ -144,7 +144,7 @@ class ToyLanguageTests:
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
         
-        res = self.meta_interp(main, [0, 20], optimizer=simple_optimize,
+        res = self.meta_interp(main, [0, 20], optimizer=OPTIMIZER_SIMPLE,
                                listops=listops, backendopt=True, policy=policy)
         assert res == 0
 
