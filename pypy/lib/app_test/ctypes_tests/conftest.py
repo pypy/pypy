@@ -16,4 +16,6 @@ def compile_so_file():
     return platform.compile([cfile], eci, str(udir.join('_ctypes_test')),
                             standalone=False)
 
-sofile = compile_so_file()
+def pytest_configure(config):
+    global sofile
+    sofile = compile_so_file()
