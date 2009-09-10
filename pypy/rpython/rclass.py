@@ -149,6 +149,17 @@ class AbstractInstanceRepr(Repr):
     def _setup_repr(self):
         pass
 
+    def _check_for_immutable_hints(self, hints):
+        if '_immutable_' in self.classdef.classdesc.classdict:
+            hints = hints.copy()
+            hints['immutable'] = True
+        if '_immutable_fields_' in self.classdef.classdesc.classdict:
+            hints = hints.copy()
+            self.immutable_field_list = self.classdef.classdesc.classdict['_immutable_fields_'].value
+            accessor = FieldListAccessor()
+            hints['immutable_fields'] = accessor
+        return hints
+
     def __repr__(self):
         if self.classdef is None:
             clsname = 'object'
@@ -164,7 +175,10 @@ class AbstractInstanceRepr(Repr):
         return 'InstanceR %s' % (clsname,)
 
     def _setup_repr_final(self):
-        pass
+        hints = self.object_type._hints
+        if "immutable_fields" in hints:
+            accessor = hints["immutable_fields"]
+            self._parse_field_list(self.immutable_field_list, accessor)
 
     def _parse_field_list(self, fields, accessor):
         with_suffix = {}

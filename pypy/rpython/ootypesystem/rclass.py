@@ -182,9 +182,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 hints = classdef.classdesc.pyobj._rpython_hints
             else:
                 hints = {}
-            if '_immutable_' in self.classdef.classdesc.classdict:
-                hints = hints.copy()
-                hints['immutable'] = True
+            hints = self._check_for_immutable_hints(hints)
             self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
@@ -318,7 +316,8 @@ class InstanceRepr(AbstractInstanceRepr):
     def _setup_repr_final(self):
         if self.classdef is None:
             return
-
+        AbstractInstanceRepr._setup_repr_final(self)
+        
         # we attach methods here and not in _setup(), because we want
         # to be sure that all the reprs of the input arguments of all
         # our methods have been computed at this point

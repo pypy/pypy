@@ -8,8 +8,7 @@ from pypy.rpython.rclass import AbstractClassRepr,\
                                 AbstractInstanceRepr,\
                                 MissingRTypeAttribute,\
                                 getclassrepr, getinstancerepr,\
-                                get_type_repr, rtype_new_instance, \
-                                FieldListAccessor
+                                get_type_repr, rtype_new_instance
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, Struct, GcStruct, malloc, \
      cast_pointer, cast_ptr_to_int, castable, nullptr, \
@@ -348,14 +347,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 adtmeths = {}
             if hints is None:
                 hints = {}
-            if '_immutable_' in self.classdef.classdesc.classdict:
-                hints = hints.copy()
-                hints['immutable'] = True
-            if '_immutable_fields_' in self.classdef.classdesc.classdict:
-                hints = hints.copy()
-                self.immutable_field_list = self.classdef.classdesc.classdict['_immutable_fields_'].value
-                accessor = FieldListAccessor()
-                hints['immutable_fields'] = accessor
+            hints = self._check_for_immutable_hints(hints)
             if ('_hash_cache_' in fields or
                 '_hash_cache_' in self.rbase.allinstancefields):
                 adtmeths = adtmeths.copy()
@@ -374,10 +366,7 @@ class InstanceRepr(AbstractInstanceRepr):
             attachRuntimeTypeInfo(self.object_type)
 
     def _setup_repr_final(self):
-        hints = self.object_type._hints
-        if "immutable_fields" in hints:
-            accessor = hints["immutable_fields"]
-            self._parse_field_list(self.immutable_field_list, accessor)
+        AbstractInstanceRepr._setup_repr_final(self)
         if self.gcflavor == 'gc':
             if (self.classdef is not None and
                 self.classdef.classdesc.lookup('__del__') is not None):

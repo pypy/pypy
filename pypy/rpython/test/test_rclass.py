@@ -700,6 +700,60 @@ class BaseTestRclass(BaseRtypingTest):
         assert res == 0
 
 
+    def test_immutable(self):
+        class I(object):
+            _immutable_ = True
+            
+            def __init__(self, v):
+                self.v = v
+
+        i = I(3)
+        def f():
+            return i.v
+
+        t, typer, graph = self.gengraph(f, [], backendopt=True)
+        assert summary(graph) == {}
+
+    def test_immutable_fields(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ["x", "y[*]"]
+
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        def f():
+            return A(3, [])
+        t, typer, graph = self.gengraph(f, [])
+        A_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = A_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"} or \
+               accessor.fields == {"ox" : "", "oy" : "[*]"} # for ootype
+
+    def test_immutable_inheritance(self):
+        if self.type_system == 'ootype':
+            py.test.skip('fixme!')
+        class I(object):
+            def __init__(self, v):
+                self.v = v
+        
+        class J(I):
+            _immutable_ = True
+            def __init__(self, v, w):
+                self.w = w
+                I.__init__(self, v)
+
+        j = J(3, 4)
+        def f():
+            j.v = j.v * 1 # make the annotator think it is mutated
+            j.w = j.w * 1 # make the annotator think it is mutated
+            return j.v + j.w
+
+        t, typer, graph = self.gengraph(f, [], backendopt=True)
+        assert summary(graph) == {"setfield": 2}
+
+
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 
     def test__del__(self):
@@ -765,55 +819,6 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
         assert destrptra is not None
         assert destrptrb is not None
-
-    def test_immutable(self):
-        class I(object):
-            _immutable_ = True
-            
-            def __init__(self, v):
-                self.v = v
-
-        i = I(3)
-        def f():
-            return i.v
-
-        t, typer, graph = self.gengraph(f, [], backendopt=True)
-        assert summary(graph) == {}
-
-    def test_immutable_fields(self):
-        class A(object):
-            _immutable_fields_ = ["x", "y[*]"]
-
-            def __init__(self, x, y):
-                self.x = x
-                self.y = y
-
-        def f():
-            return A(3, [])
-        t, typer, graph = self.gengraph(f, [])
-        A_TYPE = graph.getreturnvar().concretetype
-        accessor = A_TYPE.TO._hints["immutable_fields"]
-        assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"}
-
-    def test_immutable_inheritance(self):
-        class I(object):
-            def __init__(self, v):
-                self.v = v
-        
-        class J(I):
-            _immutable_ = True
-            def __init__(self, v, w):
-                self.w = w
-                I.__init__(self, v)
-
-        j = J(3, 4)
-        def f():
-            j.v = j.v * 1 # make the annotator think it is mutated
-            j.w = j.w * 1 # make the annotator think it is mutated
-            return j.v + j.w
-
-        t, typer, graph = self.gengraph(f, [], backendopt=True)
-        assert summary(graph) == {"setfield": 2}
         
     def test_instance_repr(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
