@@ -1087,6 +1087,8 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
                                                                 args,
                                                                 op.result)
+        self.emit('recursion_leave_prep')
+        self.emit_varargs(non_void_args)        
         self.emit('recursive_call')
         self.emit(self.get_position(calldescr))
         self.emit_varargs([op.args[0]] + non_void_args)

@@ -376,17 +376,15 @@ class RecursiveTests:
         res = self.meta_interp(main, [1], optimizer=simple_optimize, trace_limit=TRACE_LIMIT)
         self.check_loops(call=0)
 
-
-    @py.test.mark.xfail
     def test_leave_jit_hook(self):
         from pypy.rpython.annlowlevel import hlstr
         def p(code, pc):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
         def c(code, pc):
-            return "l" not in hlstr(code)
+            return "L" not in hlstr(code)
 
-        def leave(frame, code):
+        def leave(code, pc, frame):
             frame.hookcalled = True
 
         class ExpectedHook(Exception):
@@ -395,8 +393,11 @@ class RecursiveTests:
             pass
 
         myjitdriver = JitDriver(greens=['code', 'pc'], reds=['self'],
-                                get_printable_location=p, can_inline=c)
+                                get_printable_location=p, can_inline=c,
+                                leave=leave)
         class Frame(object):
+            hookcalled = True
+            
             def __init__(self, n):
                 self.n = n
                 self.hookcalled = False

@@ -100,7 +100,8 @@ class JitDriver:
     virtualizables = []
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
-                 can_inline=None, get_printable_location=None):
+                 can_inline=None, get_printable_location=None,
+                 leave=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -115,6 +116,7 @@ class JitDriver:
         self._make_extregistryentries()
         self.get_printable_location = get_printable_location
         self.can_inline = can_inline
+        self.leave = leave
 
     def _freeze_(self):
         return True

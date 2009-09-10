@@ -141,6 +141,7 @@ class WarmRunnerDesc:
             policy = JitPolicy()
         self.set_translator(translator)
         self.find_portal()
+        self.make_leave_jit_graph()
         graphs = find_all_graphs(self.portal_graph, policy, self.translator,
                                  CPUClass.supports_floats)
         self.check_access_directly_sanity(graphs)
@@ -233,7 +234,8 @@ class WarmRunnerDesc:
                                                   self.stats, opt,
                                                   optimizer=optimizer,
                                                   profile=profile,
-                                                  warmrunnerdesc=self)
+                                                  warmrunnerdesc=self,
+                                                  leave_graph=self.leave_graph)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
@@ -268,6 +270,21 @@ class WarmRunnerDesc:
 
         self.maybe_enter_jit_fn = maybe_enter_jit
 
+    def make_leave_jit_graph(self):
+        self.leave_graph = None
+        if self.jitdriver.leave:
+            graph, block, index = self.jit_merge_point_pos
+            op = block.operations[index]
+            args = op.args[2:]
+            s_binding = self.translator.annotator.binding
+            args_s = [s_binding(v) for v in args]            
+            from pypy.annotation import model as annmodel
+            annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
+            s_result = annmodel.s_None
+            self.leave_graph = annhelper.getgraph(self.jitdriver.leave,
+                                                  args_s, s_result)
+            annhelper.finish()
+        
     def make_driverhook_graph(self):
         self.can_inline_ptr = self._make_hook_graph(
             self.jitdriver.can_inline, bool)

@@ -643,6 +643,19 @@ class MIFrame(object):
     def opimpl_residual_call(self, calldescr, varargs):
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
+    @arguments("varargs")
+    def opimpl_recursion_leave_prep(self, varargs):
+        warmrunnerstate = self.metainterp.staticdata.state
+        if warmrunnerstate.inlining:
+            num_green_args = self.metainterp.staticdata.num_green_args
+            greenkey = varargs[:num_green_args]
+            if warmrunnerstate.can_inline_callable(greenkey):
+                return False
+        leave_code = self.metainterp.staticdata.leave_code
+        if leave_code is None:
+            return False
+        return self.perform_call(leave_code, varargs)
+        
     @arguments("descr", "varargs")
     def opimpl_recursive_call(self, calldescr, varargs):
         warmrunnerstate = self.metainterp.staticdata.state
@@ -650,7 +663,7 @@ class MIFrame(object):
             num_green_args = self.metainterp.staticdata.num_green_args
             portal_code = self.metainterp.staticdata.portal_code
             greenkey = varargs[1:num_green_args + 1]
-            if self.metainterp.staticdata.state.can_inline_callable(greenkey):
+            if warmrunnerstate.can_inline_callable(greenkey):
                 return self.perform_call(portal_code, varargs[1:])
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
@@ -1005,7 +1018,8 @@ class MetaInterpStaticData(object):
     virtualizable_info = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 optimizer=None, profile=None, warmrunnerdesc=None):
+                 optimizer=None, profile=None, warmrunnerdesc=None,
+                 leave_graph=None):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
@@ -1038,6 +1052,8 @@ class MetaInterpStaticData(object):
         backendmodule = backendmodule.split('.')[-2]
         self.jit_starting_line = 'JIT starting (%s, %s)' % (optmodule,
                                                             backendmodule)
+
+        self.leave_graph = leave_graph
 
     def _freeze_(self):
         return True
@@ -1075,6 +1091,11 @@ class MetaInterpStaticData(object):
         self._codewriter = codewriter.CodeWriter(self, policy)
         self.portal_code = self._codewriter.make_portal_bytecode(
             self.portal_graph)
+        self.leave_code = None
+        if self.leave_graph:
+            self.leave_code = self._codewriter.make_one_bytecode(
+                                                    (self.leave_graph, None),
+                                                    False)
         self._class_sizes = self._codewriter.class_sizes
 
     # ---------- construction-time interface ----------
