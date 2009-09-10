@@ -843,7 +843,7 @@ if _WIN:
     from pypy.rlib import rwin32
 
     eci = ExternalCompilationInfo(
-        includes = ['windows.h'],
+        includes = ['windows.h', 'wincrypt.h'],
         libraries = ['advapi32'],
         )
 

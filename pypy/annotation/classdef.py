@@ -442,6 +442,13 @@ FORCE_ATTRIBUTES_INTO_CLASSES = {
     }
 
 try:
+    WindowsError
+except NameError:
+    pass
+else:
+    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}
+
+try:
     import termios
 except ImportError:
     pass

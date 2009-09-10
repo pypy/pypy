@@ -249,6 +249,8 @@ class ExternalCompilationInfo(object):
             f = filename.open("w")
             if being_main:
                 f.write("#define PYPY_NOT_MAIN_FILE\n")
+            if sys.platform == 'win32':
+                f.write("#define WIN32_LEAN_AND_MEAN\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)

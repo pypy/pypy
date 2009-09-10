@@ -173,6 +173,19 @@ def test_os_stat():
         if has_blocks:
             assert res[4] == os.stat(filename).st_blocks
 
+def test_os_stat_raises_winerror():
+    if sys.platform != 'win32':
+        py.test.skip("no WindowsError on this platform")
+    def call_stat():
+        try:
+            os.stat("nonexistentdir/nonexistentfile")
+        except WindowsError, e:
+            return e.winerror
+    f = compile(call_stat, [])
+    res = f()
+    expected = call_stat()
+    assert res == expected
+
 def test_os_fstat():
     if os.environ.get('PYPY_CC', '').startswith('tcc'):
         py.test.skip("segfault with tcc :-(")

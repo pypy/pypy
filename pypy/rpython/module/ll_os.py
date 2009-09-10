@@ -468,24 +468,22 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.times)
     def register_os_times(self):
         if sys.platform.startswith('win'):
-            HANDLE = rffi.ULONG
-            FILETIME = rffi.CStruct('_FILETIME', ('dwLowDateTime', rffi.LONG),
-                                                 ('dwHighDateTime', rffi.LONG))
+            from pypy.rlib import rwin32
             GetCurrentProcess = self.llexternal('GetCurrentProcess', [],
-                                                HANDLE)
+                                                rwin32.HANDLE)
             GetProcessTimes = self.llexternal('GetProcessTimes',
-                                              [HANDLE,
-                                               lltype.Ptr(FILETIME),
-                                               lltype.Ptr(FILETIME),
-                                               lltype.Ptr(FILETIME),
-                                               lltype.Ptr(FILETIME)],
-                                              lltype.Bool)
+                                              [rwin32.HANDLE,
+                                               lltype.Ptr(rwin32.FILETIME),
+                                               lltype.Ptr(rwin32.FILETIME),
+                                               lltype.Ptr(rwin32.FILETIME),
+                                               lltype.Ptr(rwin32.FILETIME)],
+                                              rwin32.BOOL)
 
             def times_lltypeimpl():
-                pcreate = lltype.malloc(FILETIME, flavor='raw')
-                pexit   = lltype.malloc(FILETIME, flavor='raw')
-                pkernel = lltype.malloc(FILETIME, flavor='raw')
-                puser   = lltype.malloc(FILETIME, flavor='raw')
+                pcreate = lltype.malloc(rwin32.FILETIME, flavor='raw')
+                pexit   = lltype.malloc(rwin32.FILETIME, flavor='raw')
+                pkernel = lltype.malloc(rwin32.FILETIME, flavor='raw')
+                puser   = lltype.malloc(rwin32.FILETIME, flavor='raw')
                 hProc = GetCurrentProcess()
                 GetProcessTimes(hProc, pcreate, pexit, pkernel, puser)
                 # The fields of a FILETIME structure are the hi and lo parts
@@ -904,47 +902,29 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(posix, '_getfullpathname')
     def register_posix__getfullpathname(self):
+        from pypy.rlib import rwin32
         # this nt function is not exposed via os, but needed
         # to get a correct implementation of os.abspath
         # XXX why do we ignore WINAPI conventions everywhere?
-        class CConfig:
-            _compilation_info_ = ExternalCompilationInfo(
-                includes = ['Windows.h']
-            )
-            MAX_PATH = platform.ConstantInteger('MAX_PATH')
-            DWORD    = platform.SimpleType("DWORD", rffi.ULONG)
-            LPCTSTR  = platform.SimpleType("LPCTSTR", rffi.CCHARP)
-            LPTSTR   = platform.SimpleType("LPTSTR", rffi.CCHARP)
-            LPTSTRP  = platform.SimpleType("LPTSTR*", rffi.CCHARPP)
-
-        config = platform.configure(CConfig)
-        MAX_PATH = config['MAX_PATH']
-        DWORD    = config['DWORD']
-        LPCTSTR  = config['LPCTSTR']
-        LPTSTR   = config['LPTSTR']
-        LPTSTRP  = config['LPTSTRP']
+        LPSTRP = rffi.CArrayPtr(rwin32.LPSTR)
         # XXX unicode?
-        GetFullPathName = self.llexternal('GetFullPathNameA',
-                         [LPCTSTR, DWORD, LPTSTR, LPTSTRP], DWORD)
-        GetLastError = self.llexternal('GetLastError', [], DWORD)
-        ##DWORD WINAPI GetFullPathName(
-        ##  __in          LPCTSTR lpFileName,
-        ##  __in          DWORD nBufferLength,
-        ##  __out         LPTSTR lpBuffer,
-        ##  __out         LPTSTR* lpFilePart
-        ##);
+        GetFullPathName = self.llexternal(
+            'GetFullPathNameA',
+            [rwin32.LPCSTR,
+             rwin32.DWORD,
+             rwin32.LPSTR,
+             rffi.CArrayPtr(rwin32.LPSTR)],
+            rwin32.DWORD)
 
         def _getfullpathname_llimpl(lpFileName):
-            nBufferLength = MAX_PATH + 1
-            lpBuffer = lltype.malloc(LPTSTR.TO, nBufferLength, flavor='raw')
+            nBufferLength = rwin32.MAX_PATH + 1
+            lpBuffer = lltype.malloc(rwin32.LPSTR.TO, nBufferLength, flavor='raw')
             try:
                 res = GetFullPathName(
-                    lpFileName, rffi.cast(DWORD, nBufferLength),
-                    lpBuffer, lltype.nullptr(LPTSTRP.TO))
+                    lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
+                    lpBuffer, lltype.nullptr(LPSTRP.TO))
                 if res == 0:
-                    error = GetLastError()
-                    raise OSError(error, "_getfullpathname failed")
-                # XXX ntpath expects WindowsError :-(
+                    raise rwin32.lastWindowsError("_getfullpathname failed")
                 result = rffi.charp2str(lpBuffer)
                 return result
             finally:
@@ -991,14 +971,13 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_listdir(self):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
+            from pypy.rlib import rwin32
             class CConfig:
                 _compilation_info_ = ExternalCompilationInfo(
                     includes = ['windows.h']
                 )
                 WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAA',
                     [('cFileName', lltype.FixedSizeArray(rffi.CHAR, 1))])
-                INVALID_HANDLE_VALUE = platform.ConstantInteger(
-                    'INVALID_HANDLE_VALUE')
                 ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
                     'ERROR_FILE_NOT_FOUND')
                 ERROR_NO_MORE_FILES = platform.ConstantInteger(
@@ -1006,23 +985,19 @@ class RegisterOs(BaseLazyRegistering):
 
             config = platform.configure(CConfig)
             WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
-            INVALID_HANDLE_VALUE = config['INVALID_HANDLE_VALUE']
             ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
             ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
             LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
-            HANDLE               = rffi.ULONG
-            #MAX_PATH = WIN32_FIND_DATA.c_cFileName.length
 
-            GetLastError = self.llexternal('GetLastError', [], lltype.Signed)
             FindFirstFile = self.llexternal('FindFirstFile',
-                                            [rffi.CCHARP, LPWIN32_FIND_DATA],
-                                            HANDLE)
+                                            [rwin32.LPCSTR, LPWIN32_FIND_DATA],
+                                            rwin32.HANDLE)
             FindNextFile = self.llexternal('FindNextFile',
-                                           [HANDLE, LPWIN32_FIND_DATA],
-                                           rffi.INT)
+                                           [rwin32.HANDLE, LPWIN32_FIND_DATA],
+                                           rwin32.BOOL)
             FindClose = self.llexternal('FindClose',
-                                        [HANDLE],
-                                        rffi.INT)
+                                        [rwin32.HANDLE],
+                                        rwin32.BOOL)
 
             def os_listdir_llimpl(path):
                 if path and path[-1] not in ('/', '\\', ':'):
@@ -1032,13 +1007,12 @@ class RegisterOs(BaseLazyRegistering):
                 try:
                     result = []
                     hFindFile = FindFirstFile(path, filedata)
-                    if hFindFile == INVALID_HANDLE_VALUE:
-                        error = GetLastError()
+                    if hFindFile == rwin32.INVALID_HANDLE_VALUE:
+                        error = rwin32.GetLastError()
                         if error == ERROR_FILE_NOT_FOUND:
                             return result
                         else:
-                            # XXX guess error code :-(
-                            raise OSError(errno.ENOENT, "FindFirstFile failed")
+                            raise WindowsError(error,  "FindFirstFile failed")
                     while True:
                         name = rffi.charp2str(rffi.cast(rffi.CCHARP,
                                                         filedata.c_cFileName))
@@ -1048,13 +1022,12 @@ class RegisterOs(BaseLazyRegistering):
                             break
                     # FindNextFile sets error to ERROR_NO_MORE_FILES if
                     # it got to the end of the directory
-                    error = GetLastError()
+                    error = rwin32.GetLastError()
                     FindClose(hFindFile)
                     if error == ERROR_NO_MORE_FILES:
                         return result
                     else:
-                        # XXX guess error code :-(
-                        raise OSError(errno.EIO, "FindNextFile failed")
+                        raise WindowsError(error,  "FindNextFile failed")
                 finally:
                     lltype.free(filedata, flavor='raw')
 
@@ -1107,28 +1080,31 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_pipe(self):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
-            HANDLE = rffi.ULONG
-            HANDLEP = lltype.Ptr(lltype.FixedSizeArray(HANDLE, 1))
-            CreatePipe = self.llexternal('CreatePipe', [HANDLEP,
-                                                        HANDLEP,
+            from pypy.rlib import rwin32
+            CreatePipe = self.llexternal('CreatePipe', [rwin32.LPHANDLE,
+                                                        rwin32.LPHANDLE,
                                                         rffi.VOIDP,
-                                                        rffi.ULONG],
-                                         rffi.INT)
+                                                        rwin32.DWORD],
+                                         rwin32.BOOL)
             _open_osfhandle = self.llexternal('_open_osfhandle', [rffi.ULONG,
                                                                   rffi.INT],
                                               rffi.INT)
             null = lltype.nullptr(rffi.VOIDP.TO)
 
             def os_pipe_llimpl():
-                pread  = lltype.malloc(HANDLEP.TO, flavor='raw')
-                pwrite = lltype.malloc(HANDLEP.TO, flavor='raw')
+                pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+                pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
                 ok = CreatePipe(pread, pwrite, null, 0)
+                if ok:
+                    error = 0
+                else:
+                    error = rwin32.GetLastError()
                 hread = pread[0]
                 hwrite = pwrite[0]
                 lltype.free(pwrite, flavor='raw')
                 lltype.free(pread, flavor='raw')
-                if not ok:    # XXX guess the error, can't use GetLastError()
-                    raise OSError(errno.EMFILE, "os_pipe failed")
+                if error:
+                    raise WindowsError(error, "os_pipe failed")
                 fdread = _open_osfhandle(hread, 0)
                 fdwrite = _open_osfhandle(hwrite, 1)
                 return (fdread, fdwrite)

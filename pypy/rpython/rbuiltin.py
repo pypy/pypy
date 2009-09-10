@@ -268,6 +268,16 @@ def rtype_OSError__init__(hop):
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
+def rtype_WindowsError__init__(hop):
+    if hop.nb_args == 2:
+        raise TyperError("WindowsError() should not be called with "
+                         "a single argument")
+    if hop.nb_args >= 3:
+        v_self = hop.args_v[0]
+        r_self = hop.args_r[0]
+        v_error = hop.inputarg(lltype.Signed, arg=1)
+        r_self.setfield(v_self, 'winerror', v_error, hop.llops)
+
 def rtype_we_are_translated(hop):
     hop.exception_cannot_occur()
     return hop.inputconst(lltype.Bool, True)
@@ -317,6 +327,15 @@ for name, value in globals().items():
 
 BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     rtype_OSError__init__)
+
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    BUILTIN_TYPER[
+        getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
+        rtype_WindowsError__init__)
 
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types

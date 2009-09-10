@@ -270,6 +270,9 @@ def builtin_apply(*stuff):
 def OSError_init(s_self, *args):
     pass
 
+def WindowsError_init(s_self, *args):
+    pass
+
 def termios_error_init(s_self, *args):
     pass
 
@@ -385,6 +388,15 @@ BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_int_to_adr] = llmemory
 
 BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     OSError_init)
+
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    BUILTIN_ANALYZERS[getattr(WindowsError.__init__, 'im_func',
+                              WindowsError.__init__)] = (
+        WindowsError_init)
 
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 try:

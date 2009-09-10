@@ -55,7 +55,8 @@ class CConfig:
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
-              """.split():
+                       MAX_PATH
+                    """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
 
@@ -112,10 +113,9 @@ if WIN32:
         LocalFree(buf[0])
         return result
 
-    def lastWindowsError(context=None):
+    def lastWindowsError(context="Windows Error"):
         code = GetLastError()
-        message = FormatError(code)
-        return WindowsError(code, message)
+        return WindowsError(code, context)
 
     def FAILED(hr):
         return rffi.cast(HRESULT, hr) < 0
@@ -125,7 +125,7 @@ if WIN32:
                                      DWORD)
 
     def GetModuleFileName(module):
-        size = 255 # MAX_PATH
+        size = MAX_PATH
         buf = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
             res = _GetModuleFileName(module, buf, size)

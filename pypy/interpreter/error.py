@@ -262,8 +262,33 @@ def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
     ansi_print(text, esc="31", file=file, newline=newline)
 
+try:
+    WindowsError
+except NameError:
+    _WINDOWS = False
+else:
+    _WINDOWS = True
+
+    def wrap_windowserror(space, e):
+        from pypy.rlib import rwin32
+
+        winerror = e.winerror
+        try:
+            msg = rwin32.FormatError(winerror)
+        except ValueError:
+            msg = 'Windows Error %d' % winerror
+        exc = space.w_WindowsError
+        w_error = space.call_function(exc,
+                                      space.wrap(winerror),
+                                      space.wrap(msg))
+        return OperationError(exc, w_error)
+
 def wrap_oserror(space, e, exception_name='w_OSError'): 
     assert isinstance(e, OSError) 
+
+    if _WINDOWS and isinstance(e, WindowsError):
+        return wrap_windowserror(space, e)
+
     errno = e.errno
     try:
         msg = os.strerror(errno)

@@ -311,8 +311,6 @@ if _WIN32:
                 "Procedure called with too many "
                 "arguments (%d bytes in excess) " % (result,))
 
-    
-    FormatError = rwin32.FormatError
     LoadLibrary = rwin32.LoadLibrary
 
     get_libc_handle = external('get_libc_handle', [], rwin32.HANDLE)

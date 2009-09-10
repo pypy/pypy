@@ -129,6 +129,19 @@ class AppTestPosix:
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
 
+    def test_stat_exception(self):
+        import sys, errno
+        try:
+            self.posix.stat("nonexistentdir/nonexistentfile")
+        except OSError, e:
+            assert e.errno == errno.ENOENT
+            # On Windows, when the parent directory does not exist,
+            # the winerror is 3 (cannot find the path specified)
+            # instead of 2 (cannot find the file specified)
+            if sys.platform == 'win32':
+                assert isinstance(e, WindowsError)
+                assert e.winerror == 3
+
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)
