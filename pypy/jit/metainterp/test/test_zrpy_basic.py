@@ -90,7 +90,9 @@ class LLInterpJitMixin:
         pass
     def check_enter_count_at_most(self, count):
         pass
-    def check_jumps(self, maxcount):
+    def check_jumps(self, maxcount):        
+        pass
+    def check_aborted_count(self, count):
         pass
 
     def interp_operations(self, *args, **kwds):
