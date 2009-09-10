@@ -482,7 +482,7 @@ LL_OPERATIONS = {
     'oonewcustomdict':      LLOp(oo=True, canraise=(MemoryError,)),
     'oonewarray':           LLOp(oo=True, canraise=(MemoryError,)),
     'oosetfield':           LLOp(oo=True),
-    'oogetfield':           LLOp(oo=True, sideeffects=False),
+    'oogetfield':           LLOp(oo=True, sideeffects=False, canrun=True),
     'oosend':               LLOp(oo=True, canraise=(Exception,)),
     'ooupcast':             LLOp(oo=True, canfold=True),
     'oodowncast':           LLOp(oo=True, canfold=True),

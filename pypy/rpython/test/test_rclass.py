@@ -732,8 +732,6 @@ class BaseTestRclass(BaseRtypingTest):
                accessor.fields == {"ox" : "", "oy" : "[*]"} # for ootype
 
     def test_immutable_inheritance(self):
-        if self.type_system == 'ootype':
-            py.test.skip('fixme!')
         class I(object):
             def __init__(self, v):
                 self.v = v
@@ -751,7 +749,9 @@ class BaseTestRclass(BaseRtypingTest):
             return j.v + j.w
 
         t, typer, graph = self.gengraph(f, [], backendopt=True)
-        assert summary(graph) == {"setfield": 2}
+        f_summary = summary(graph)
+        assert f_summary == {"setfield": 2} or \
+               f_summary == {"oosetfield": 2} # for ootype
 
 
 class TestLltype(BaseTestRclass, LLRtypeMixin):

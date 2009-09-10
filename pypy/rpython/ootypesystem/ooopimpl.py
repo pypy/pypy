@@ -51,6 +51,11 @@ def op_classof(inst):
 def op_subclassof(class1, class2):
     return ootype.subclassof(class1, class2)
 
+def op_oogetfield(inst, name):
+    checkinst(inst)
+    if not ootype.typeOf(inst)._hints.get('immutable'):
+        raise TypeError("cannot fold oogetfield on mutable instance")
+    return getattr(inst, name)
 
 def is_inst(inst):
     T = ootype.typeOf(inst)
