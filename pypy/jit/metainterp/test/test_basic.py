@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
@@ -49,6 +50,8 @@ class JitMixin:
         assert get_stats().enter_count <= count
     def check_jumps(self, maxcount):
         assert get_stats().exec_jumps <= maxcount
+    def check_aborted_count(self, maxcount):
+        assert get_stats().aborted_count == maxcount
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
@@ -70,6 +73,8 @@ class JitMixin:
         class FakeWarmRunnerDesc:
             def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
                 pass
+
+            trace_limit = sys.maxint
         
         if policy is None:
             policy = JitPolicy()

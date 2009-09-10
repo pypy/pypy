@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib.unroll import unrolling_iterable
@@ -82,6 +83,8 @@ class JitHintError(Exception):
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'hash_bits': 14,
+              'trace_limit': 10000,
+              'inlining': False,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 

@@ -26,7 +26,9 @@ from pypy.jit.metainterp.jitprof import Profiler
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", debug_level="steps", **kwds):
+def apply_jit(translator, backend_name="auto", debug_level="steps",
+              inline=False,
+              **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -38,9 +40,9 @@ def apply_jit(translator, backend_name="auto", debug_level="steps", **kwds):
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    #inline=True,
                                     profile=profile,
                                     **kwds)
+    warmrunnerdesc.state.set_param_inlining(inline)    
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -52,13 +54,15 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False,
-                    **kwds):
+def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False, trace_limit=sys.maxint,
+                    inline=False, **kwds):
     translator = interp.typer.annotator.translator
     translator.config.translation.gc = "boehm"
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
+    warmrunnerdesc.state.set_param_trace_limit(trace_limit)
+    warmrunnerdesc.state.set_param_inlining(inline)
     warmrunnerdesc.state.create_tables_now()             # for tests
     if hash_bits:
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
@@ -119,6 +123,9 @@ def debug_checks():
 
 class JitException(Exception):
     _go_through_llinterp_uncaught_ = True     # ugh
+
+class ContinueRunningNormallyBase(JitException):
+    pass
 
 class CannotInlineCanEnterJit(JitException):
     pass
@@ -409,7 +416,7 @@ class WarmRunnerDesc:
             def __str__(self):
                 return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
 
-        class ContinueRunningNormally(JitException):
+        class ContinueRunningNormally(ContinueRunningNormallyBase):
             def __init__(self, argboxes):
                 # accepts boxes as argument, but unpacks them immediately
                 # before we raise the exception -- the boxes' values will
@@ -728,6 +735,12 @@ def make_state_class(warmrunnerdesc):
         def set_param_trace_eagerness(self, value):
             self.trace_eagerness = value
 
+        def set_param_trace_limit(self, value):
+            self.trace_limit = value
+
+        def set_param_inlining(self, value):
+            self.inlining = value
+
         def set_param_hash_bits(self, value):
             if value < 1:
                 value = 1
@@ -772,7 +785,13 @@ def make_state_class(warmrunnerdesc):
                     self.create_tables_now()
                     return
                 metainterp = MetaInterp(metainterp_sd)
-                loop = metainterp.compile_and_run_once(*args)
+                try:
+                    loop = metainterp.compile_and_run_once(*args)
+                except warmrunnerdesc.ContinueRunningNormally:
+                    # the trace got too long, reset the counter
+                    self.mccounters[argshash] = 0
+                    raise
+
             else:
                 # machine code was already compiled for these greenargs
                 # (or we have a hash collision)
@@ -860,6 +879,9 @@ def make_state_class(warmrunnerdesc):
         def must_compile_from_failure(self, key):
             key.counter += 1
             return key.counter >= self.trace_eagerness
+
+        def reset_counter_from_failure(self, key):
+            key.counter = 0
 
         def attach_unoptimized_bridge_from_interp(self, greenkey, bridge):
             greenargs = self.unwrap_greenkey(greenkey)
