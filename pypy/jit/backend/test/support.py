@@ -76,6 +76,12 @@ class BaseCompiledMixin(object):
     def check_enter_count_at_most(self, *args, **kwds):
         pass
 
+    def check_max_trace_length(self, *args, **kwds):
+        pass
+
+    def check_aborted_count(self, *args, **kwds):
+        pass
+
     def interp_operations(self, *args, **kwds):
         py.test.skip("interp_operations test skipped")
 

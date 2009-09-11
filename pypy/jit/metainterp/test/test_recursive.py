@@ -343,6 +343,7 @@ class RecursiveTests:
                 if n < 50:
                     n = recursive(n)
                 n -= 1
+            return n
         TRACE_LIMIT = 20
         res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
         self.check_max_trace_length(TRACE_LIMIT)
