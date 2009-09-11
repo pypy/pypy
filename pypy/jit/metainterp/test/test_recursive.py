@@ -212,6 +212,50 @@ class RecursiveTests:
         res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
         assert res == 0
 
+    def test_guard_failure_and_then_exception_in_inlined_function(self):
+        from pypy.rpython.annlowlevel import hlstr
+        def p(code, pc):
+            code = hlstr(code)
+            return "%s %d %s" % (code, pc, code[pc])
+        def c(code, pc):
+            return "l" not in hlstr(code)
+        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['n', 'flag'],
+                                get_printable_location=p, can_inline=c)
+        def f(code, n):
+            pc = 0
+            flag = False
+            while pc < len(code):
+
+                myjitdriver.jit_merge_point(n=n, code=code, pc=pc, flag=flag)
+                op = code[pc]
+                if op == "-":
+                    n -= 1
+                elif op == "c":
+                    try:
+                        n = f("---ir---", n)
+                    except Exception:
+                        return n
+                elif op == "i":
+                    if n < 200:
+                        flag = True
+                elif op == "r":
+                    if flag:
+                        raise Exception
+                elif op == "l":
+                    if n > 0:
+                        myjitdriver.can_enter_jit(n=n, code=code, pc=0, flag=flag)
+                        pc = 0
+                        continue
+                else:
+                    assert 0
+                pc += 1
+            return n
+        def main(n):
+            return f("c-l", n)
+        print main(1000)
+        res = self.meta_interp(main, [1000], optimizer=OPTIMIZER_SIMPLE, inline=True)
+        assert res == main(1000)
+
     def test_exception_in_inlined_function(self):
         from pypy.rpython.annlowlevel import hlstr
         def p(code, pc):

@@ -836,7 +836,13 @@ class MIFrame(object):
                 portal_code = self.metainterp.staticdata.portal_code
                 # small hack: fish for the result box
                 lenenv = len(self.env)
-                self.perform_call(portal_code, varargs)
+                raised = self.perform_call(portal_code, varargs)
+                # in general this cannot be assumed, but when blackholing,
+                # perform_call returns True only if an exception is called. In
+                # this case perform_call has called finishframe_exception
+                # already, so we need to return.
+                if raised:
+                    return True
                 if lenenv == len(self.env):
                     res = None
                 else:
