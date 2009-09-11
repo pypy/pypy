@@ -79,8 +79,9 @@ def _set_shape(tp, rawfields):
     tp._fficompositesize = tp._ffistruct.size
 
 def struct_getattr(self, name):
-    if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
-        return self._fieldtypes[name]
+    if name not in ('_fields_', '_fieldtypes'):
+        if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
+            return self._fieldtypes[name]
     return _CDataMeta.__getattribute__(self, name)
 
 def struct_setattr(self, name, value):

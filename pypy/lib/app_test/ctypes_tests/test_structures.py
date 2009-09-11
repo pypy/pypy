@@ -392,6 +392,27 @@ class TestStructure(BaseCTypesTestChecker):
         x.other = 42
         assert x.other == 42
 
+    def test_getattr_recursion(self):
+        # Structure.__getattr__ used to call itself recursively
+        # and hit the recursion limit.
+        import sys
+        events = []
+
+        def tracefunc(frame, event, arg):
+            funcname = frame.f_code.co_name
+            if 'getattr' in funcname:
+                events.append(funcname)
+
+        oldtrace = sys.settrace(tracefunc)
+        try:
+            class X(Structure):
+                _fields_ = [("a", c_int)]
+
+            assert len(events) < 20
+        finally:
+            sys.settrace(oldtrace)
+            events = None
+
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):
