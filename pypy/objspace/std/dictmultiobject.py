@@ -710,15 +710,27 @@ class SharedStructure(object):
         return new_structure
 
     def lookup_position(self, key):
-       # jit helper
-       self = hint(self, promote=True)
-       key = hint(key, promote=True)
-       return _lookup_position_shared(self, key)
+        # jit helper
+        self = hint(self, promote=True)
+        key = hint(key, promote=True)
+        return _lookup_position_shared(self, key)
+
+    def get_next_structure(self, key):
+        # jit helper
+        self = hint(self, promote=True)
+        key = hint(key, promote=True)
+        return _get_next_structure_shared(self, key)
 
 @purefunction
 def _lookup_position_shared(self, key):
     return self.keys.get(key, -1)
 
+@purefunction
+def _get_next_structure_shared(self, key):
+    new_structure = self.other_structs.get(key)
+    if new_structure is None:
+        new_structure = self.new_structure(key)
+    return new_structure
 
 class State(object):
     def __init__(self, space):
@@ -759,9 +771,7 @@ class SharedDictImplementation(DictImplementation):
         if i != -1:
             self.entries[i] = w_value
             return self
-        new_structure = self.structure.other_structs.get(key)
-        if new_structure is None:
-            new_structure = self.structure.new_structure(key)
+        new_structure = self.structure.get_next_structure(key)
         self.entries.append(w_value)
         assert self.structure.length + 1 == new_structure.length
         self.structure = new_structure
