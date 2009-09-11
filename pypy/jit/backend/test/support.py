@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.jit.metainterp.history import log
 from pypy.translator.translator import TranslationContext
 
@@ -15,7 +16,7 @@ class BaseCompiledMixin(object):
         raise NotImplementedError
 
     # XXX backendopt is ignored
-    def meta_interp(self, function, args, repeat=1, backendopt=None, **kwds): # XXX ignored
+    def meta_interp(self, function, args, repeat=1, inline=False, trace_limit=sys.maxint, backendopt=None, **kwds): # XXX ignored
         from pypy.jit.metainterp.warmspot import WarmRunnerDesc
         from pypy.annotation.listdef import s_list_of_strings
         from pypy.annotation import model as annmodel
@@ -52,6 +53,8 @@ class BaseCompiledMixin(object):
                                         **kwds)
         warmrunnerdesc.state.set_param_threshold(3)          # for tests
         warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
+        warmrunnerdesc.state.set_param_trace_limit(trace_limit)
+        warmrunnerdesc.state.set_param_inlining(inline)
         mixlevelann = warmrunnerdesc.annhelper
         entry_point_graph = mixlevelann.getgraph(entry_point, [s_list_of_strings],
                                                  annmodel.SomeInteger())
