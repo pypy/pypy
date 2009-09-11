@@ -518,10 +518,10 @@ class MIFrame(object):
         eqbox = self.metainterp.execute_and_record(rop.OOIS,
                                                    [box, standard_box])
         eqbox = self.implement_guard_value(pc, eqbox)
-        result = not eqbox.getint()
-        if not result:
+        isstandard = eqbox.getint()
+        if isstandard:
             self.metainterp.replace_box(box, standard_box)
-        return result
+        return not isstandard
 
     def _get_virtualizable_field_descr(self, index):
         vinfo = self.metainterp.staticdata.virtualizable_info
