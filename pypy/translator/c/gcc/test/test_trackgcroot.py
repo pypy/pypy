@@ -8,6 +8,7 @@ from pypy.translator.c.gcc.trackgcroot import GcRootTracker
 from pypy.translator.c.gcc.trackgcroot import FunctionGcRootTracker
 from pypy.translator.c.gcc.trackgcroot import compress_callshape
 from pypy.translator.c.gcc.trackgcroot import decompress_callshape
+from pypy.translator.c.gcc.trackgcroot import OFFSET_LABELS
 from StringIO import StringIO
 
 this_dir = py.path.local(__file__).dirpath()
@@ -119,7 +120,7 @@ def test_computegcmaptable():
     for format, _, path in tests:
         yield check_computegcmaptable, format, path
 
-r_globallabel = re.compile(r"([\w]+)[:]")
+r_globallabel = re.compile(r"([\w]+)=[.]+")
 r_expected = re.compile(r"\s*;;\s*expected\s+([{].+[}])")
 
 def check_computegcmaptable(format, path):
@@ -148,7 +149,7 @@ def check_computegcmaptable(format, path):
             assert format_callshape(got) == expected
             seen[label] = True
             expectedlines.insert(i-2, '\t.globl\t%s\n' % (label,))
-            expectedlines.insert(i-1, '%s:\n' % (label,))
+            expectedlines.insert(i-1, '%s=.+%d\n' % (label, OFFSET_LABELS))
         prevline = line
     assert len(seen) == len(tabledict), (
         "computed table contains unexpected entries:\n%r" %

@@ -22,10 +22,13 @@ OTHERSECTIONS = ['section', 'zerofill',
 r_sectionstart         = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
 r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 
+OFFSET_LABELS   = 2**30
+
 # inside functions
 LABEL           = r'([.]?[\w$@]+)'
 r_label         = re.compile(LABEL+"[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
+r_globllabel    = re.compile(LABEL+r"=[.][+]%d\s*$"%OFFSET_LABELS)
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
 r_jump          = re.compile(r"\tj\w+\s+"+LABEL+"\s*$")
 OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
@@ -133,7 +136,7 @@ class GcRootTracker(object):
                 shapeofs += len(bytes)
             if is_range:
                 n = ~ n
-            print >> output, '\t.long\t%s' % (label,)
+            print >> output, '\t.long\t%s-%d' % (label, OFFSET_LABELS)
             print >> output, '\t.long\t%d' % (n,)
         _globl('__gcmapend')
         _label('__gcmapend')
@@ -487,7 +490,7 @@ class FunctionGcRootTracker(object):
         match = r_globl.match(self.lines[call.lineno+1])
         if match:
             label1 = match.group(1)
-            match = r_label.match(self.lines[call.lineno+2])
+            match = r_globllabel.match(self.lines[call.lineno+2])
             if match:
                 label2 = match.group(1)
                 if label1 == label2:
@@ -500,7 +503,13 @@ class FunctionGcRootTracker(object):
                     break
                 k += 1
             self.labels[label] = None
-            self.lines.insert(call.lineno+1, '%s:\n' % (label,))
+            # These global symbols are not directly labels pointing to the
+            # code location because such global labels in the middle of
+            # functions confuse gdb.  Instead, we add to the global symbol's
+            # value a big constant, which is subtracted again when we need
+            # the original value for gcmaptable.s.  That's a hack.
+            self.lines.insert(call.lineno+1, '%s=.+%d\n' % (label,
+                                                            OFFSET_LABELS))
             self.lines.insert(call.lineno+1, '\t.globl\t%s\n' % (label,))
         call.global_label = label
 
