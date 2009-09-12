@@ -25,7 +25,6 @@ class CPU386(AbstractLLCPU):
         self._bootstrap_cache = {}
         self._guard_list = []
         self.setup()
-        self.caught_exception = None
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
 
@@ -57,7 +56,6 @@ class CPU386(AbstractLLCPU):
         assert isinstance(verbose, bool)
         func = self.get_bootstrap_code(loop)
         guard_index = self.execute_call(loop, func, verbose)
-        self._guard_index = guard_index # for tests
         op = self._guard_list[guard_index]
         if verbose:
             print "Leaving at: %d" % self.assembler.fail_boxes_int[
@@ -90,30 +88,16 @@ class CPU386(AbstractLLCPU):
             LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
-            self.caught_exception = None
             if verbose:
                 print "Entering: %d" % rffi.cast(lltype.Signed, func)
             #llop.debug_print(lltype.Void, ">>>> Entering",
             #                 rffi.cast(lltype.Signed, func))
             res = func()
             #llop.debug_print(lltype.Void, "<<<< Back")
-            self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
-
-    def reraise_caught_exception(self):
-        # this helper is in its own function so that the call to it
-        # shows up in traceback -- useful to avoid confusing tracebacks,
-        # which are typical when using the 3-arguments raise.
-        if self.caught_exception is not None:
-            if not we_are_translated():
-                exc, val, tb = self.caught_exception
-                raise exc, val, tb
-            else:
-                exc = self.caught_exception
-                raise exc
 
     def make_guard_index(self, guard_op):
         index = len(self._guard_list)
