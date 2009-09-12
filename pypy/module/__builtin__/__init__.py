@@ -141,14 +141,6 @@ class Module(MixedModule):
         self.builtins_by_index = [None] * len(OPTIMIZED_BUILTINS)
         for i, name in enumerate(OPTIMIZED_BUILTINS):
             self.builtins_by_index[i] = space.getattr(self, space.wrap(name))
-        # call installations for pickle support
-        for name in self.loaders.keys():
-            if name.startswith('_install_pickle_support_for_'):
-                w_install = self.get(name)
-                space.call_function(w_install)
-                # xxx hide the installer
-                space.delitem(self.w_dict, space.wrap(name))
-                del self.loaders[name]
         # install the more general version of isinstance() & co. in the space
         from pypy.module.__builtin__ import abstractinst as ab
         space.abstract_isinstance_w = ab.abstract_isinstance_w.__get__(space)
