@@ -21,10 +21,9 @@ class AppTestMin:
    def test_min_strings(self):
       assert min('aaa', 'bbb', 'c') == 'aaa'
 
-   # write an imaginary test when we have complex numbers
-  
-   # XXX we have no mixed comparison operator yet on StdObjSpace
-   def _test_min_mixed(self):
+   # write an imaginary test when we have complex numbers  
+
+   def test_min_mixed(self):
       assert min('1', 2, 3, 'aa') == 2
 
    def test_min_noargs(self):
@@ -55,9 +54,8 @@ class AppTestMax:
       assert max('aaa', 'bbb', 'c') == 'c'
 
    # write an imaginary test when we have complex numbers
-   
-   # XXX we have no mixed comparison operator yet on StdObjSpace
-   def _test_max_mixed(self):
+
+   def test_max_mixed(self):
       assert max('1', 2, 3, 'aa') == 'aa'
 
    def test_max_noargs(self):
