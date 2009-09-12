@@ -261,7 +261,9 @@ def main():
         if config.translation.jit:
             if 'jitpolicy' not in targetspec_dic:
                 raise Exception('target has no jitpolicy defined.')
-            drv.set_extra_goals(['pyjitpl'])
+            if (translateconfig.goals != ['annotate'] and
+                translateconfig.goals != ['rtype']):
+                drv.set_extra_goals(['pyjitpl'])
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
