@@ -322,7 +322,6 @@ class RecursiveTests:
                     n -= 1
                 elif op == "c":
                     if n < 70 and n % 3 == 1:
-                        print "F"
                         n = f("--", n)
                 elif op == "l":
                     if n > 0:
