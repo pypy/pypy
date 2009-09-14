@@ -620,6 +620,30 @@ class BasicTests:
         res = self.interp_operations(f, [13])
         assert res == 72
 
+    @py.test.mark.xfail
+    def test_instantiate_does_not_call(self):
+        mydriver = JitDriver(reds = ['n', 'x'], greens = [])
+        class Base: pass
+        class A(Base): foo = 72
+        class B(Base): foo = 8
+
+        def f(n):
+            x = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, x=x)
+                mydriver.jit_merge_point(n=n, x=x)
+                if n % 2 == 0:
+                    cls = A
+                else:
+                    cls = B
+                inst = cls()
+                x += inst.foo
+                n -= 1
+            return 
+        res = self.meta_interp(f, [20])
+        assert res == f(20)
+        self.check_loops(call=0)
+
     def test_zerodivisionerror(self):
         # test the case of exception-raising operation that is not delegated
         # to the backend at all: ZeroDivisionError
