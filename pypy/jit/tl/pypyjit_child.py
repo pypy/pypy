@@ -2,6 +2,7 @@ from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
 from pypy.module.pypyjit.policy import PyPyJitPolicy
+from pypy.rlib.jit import OPTIMIZER_FULL
 
 # Current output: http://paste.pocoo.org/show/106540/
 #
@@ -41,7 +42,7 @@ def run_child(glob, loc):
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=LLtypeCPU,
                              backendopt=True, inline=True,
-                             optimizer=optimize)
+                             optimizer=OPTIMIZER_FULL)
 
 
 def run_child_ootype(glob, loc):
