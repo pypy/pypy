@@ -38,7 +38,6 @@ def _attach_helpers(space):
         assert w_last
         w_saved = w_last.f_back()
         w_last.f_back_some = None
-        w_saved.f_forward = None
         return w_saved
 
     def restore_top_frame(space, w_frame, w_saved):
@@ -46,7 +45,6 @@ def _attach_helpers(space):
             assert w_frame.f_back_forced
             w_frame = w_frame.f_back()
         w_frame.f_back_some = w_saved
-        w_saved.f_forward = w_frame
 
     def read_exc_type(space, w_frame):
         if w_frame.last_exception is None:
@@ -193,7 +191,7 @@ class AppTestInterpObjectPickling:
     def test_pickle_frame_with_exc(self):
         #import sys
         # avoid creating a closure for now
-        del self
+        self = None
         def f():
             try:
                 raise ValueError
