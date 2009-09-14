@@ -69,10 +69,17 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                                                                 srcmodule='<ann_override.wrap>')
                     return funcdesc.cachedgraph((typ, x), builder=builder)
         return funcdesc.cachedgraph(typ)
+
+    def _remember_immutable(pol, t, cached):
+        # for jit benefit
+        if cached not in t._immutable_fields_: # accessed this way just
+                                               # for convenience
+            t._immutable_fields_.append(cached)        
     
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
         if not t.is_heaptype():
+            pol._remember_immutable(t, cached)
             setattr(t, cached, t._lookup(attr))
             return True
         return False
@@ -80,6 +87,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     def attach_lookup_in_type_where(pol, t, attr):
         cached = "cached_where_%s" % attr
         if not t.is_heaptype():
+            pol._remember_immutable(t, cached)
             setattr(t, cached, t._lookup_where(attr))
             return True
         return False
