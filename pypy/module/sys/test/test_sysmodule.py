@@ -337,6 +337,16 @@ class AppTestSysModulePortedFromCPython:
         #    is sys._getframe().f_code
         #)
 
+    def test_getframe_in_returned_func(self):
+        def f():
+            return g()
+        def g():
+            return sys._getframe(0)
+        frame = f()
+        assert frame.f_code.co_name == 'g'
+        assert frame.f_back.f_code.co_name == 'f'
+        assert frame.f_back.f_back.f_code.co_name == 'test_getframe_in_returned_func'
+
     def test_attributes(self):
         assert sys.__name__ == 'sys'
         assert isinstance(sys.modules, dict)

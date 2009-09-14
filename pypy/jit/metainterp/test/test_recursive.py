@@ -427,8 +427,11 @@ class RecursiveTests:
         def c(code, pc):
             return "L" not in hlstr(code)
 
-        def leave(code, pc, frame):
+        def really_leave(frame):
             frame.hookcalled = True
+
+        def leave(code, pc, frame):
+            really_leave(frame)
 
         class ExpectedHook(Exception):
             pass

@@ -5,6 +5,7 @@ from pypy.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
 import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
@@ -33,14 +34,13 @@ class PyFrame(eval.Frame):
      * 'builtin' is the attached built-in module
      * 'valuestack_w', 'blockstack', control the interpretation
     """
+    
 
     __metaclass__ = extendabletype
 
     frame_finished_execution = False
     last_instr               = -1
     last_exception           = None
-    f_back                   = None    # these two should be modified together
-    f_forward                = None    # they make a doubly-linked list
     w_f_trace                = None
     # For tracing
     instr_lb                 = 0
@@ -64,6 +64,7 @@ class PyFrame(eval.Frame):
         self.fastlocals_w = [None]*self.numlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
+        ExecutionContext._init_chaining_attributes(self)
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:
@@ -286,7 +287,7 @@ class PyFrame(eval.Frame):
             w_tb = w(self.last_exception.application_traceback)
         
         tup_state = [
-            w(self.f_back),
+            w(self.f_back()),
             w(self.get_builtin()),
             w(self.pycode),
             w_valuestack,
@@ -338,7 +339,9 @@ class PyFrame(eval.Frame):
         # do not use the instance's __init__ but the base's, because we set
         # everything like cells from here
         PyFrame.__init__(self, space, pycode, w_globals, closure)
-        new_frame.f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
+        new_frame.f_back_some = space.interp_w(PyFrame, w_f_back, can_be_None=True)
+        new_frame.f_back_forced = True
+
         new_frame.builtin = space.interp_w(Module, w_builtin)
         new_frame.blockstack = [unpickle_block(space, w_blk)
                                 for w_blk in space.unpackiterable(w_blockstack)]
@@ -406,6 +409,12 @@ class PyFrame(eval.Frame):
 
     def _setcellvars(self, cellvars):
         pass
+
+    def f_back(self):
+        return ExecutionContext._extract_back_from_frame(self)
+
+    def force_f_back(self):
+        return ExecutionContext._force_back_of_frame(self)
 
     ### line numbers ###
 
@@ -550,7 +559,7 @@ class PyFrame(eval.Frame):
         return self.get_builtin().getdict()
 
     def fget_f_back(space, self):
-        return self.space.wrap(self.f_back)
+        return self.space.wrap(self.f_back())
 
     def fget_f_lasti(space, self):
         return self.space.wrap(self.last_instr)
@@ -571,27 +580,27 @@ class PyFrame(eval.Frame):
 
     def fget_f_exc_type(space, self):
         if self.last_exception is not None:
-            f = self.f_back
+            f = self.f_back()
             while f is not None and f.last_exception is None:
-                f = f.f_back
+                f = f.f_back()
             if f is not None:
                 return f.last_exception.w_type
         return space.w_None
          
     def fget_f_exc_value(space, self):
         if self.last_exception is not None:
-            f = self.f_back
+            f = self.f_back()
             while f is not None and f.last_exception is None:
-                f = f.f_back
+                f = f.f_back()
             if f is not None:
                 return f.last_exception.w_value
         return space.w_None
 
     def fget_f_exc_traceback(space, self):
         if self.last_exception is not None:
-            f = self.f_back
+            f = self.f_back()
             while f is not None and f.last_exception is None:
-                f = f.f_back
+                f = f.f_back()
             if f is not None:
                 return space.wrap(f.last_exception.application_traceback)
         return space.w_None

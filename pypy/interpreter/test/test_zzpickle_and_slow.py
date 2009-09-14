@@ -30,18 +30,23 @@ def _attach_helpers(space):
     from pypy.interpreter import pytraceback
     def hide_top_frame(space, w_frame):
         w_last = None
-        while w_frame.f_back:
+        while w_frame.f_back():
+            # should have been forced by traceback capturing
+            assert w_frame.f_back_forced
             w_last = w_frame
-            w_frame = w_frame.f_back
+            w_frame = w_frame.f_back()
         assert w_last
-        w_saved = w_last.f_back
-        w_last.f_back = None
+        w_saved = w_last.f_back()
+        w_last.f_back_some = None
+        w_saved.f_forward = None
         return w_saved
 
     def restore_top_frame(space, w_frame, w_saved):
-        while w_frame.f_back:
-            w_frame = w_frame.f_back
-        w_frame.f_back = w_saved
+        while w_frame.f_back():
+            assert w_frame.f_back_forced
+            w_frame = w_frame.f_back()
+        w_frame.f_back_some = w_saved
+        w_saved.f_forward = w_frame
 
     def read_exc_type(space, w_frame):
         if w_frame.last_exception is None:

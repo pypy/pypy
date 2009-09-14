@@ -116,6 +116,35 @@ class AppTest_Coroutine:
         co.bind(f)
         raises(ValueError, co.bind, f)
 
+    def test__framestack(self):
+        import _stackless as stackless
+        main = stackless.coroutine.getmain()
+        co = stackless.coroutine()
+        def g():
+            return co._framestack
+        def f():
+            return g()
+
+        co.bind(f)
+        stack = co.switch()
+        assert stack == () # running corountine, _framestack is empty
+
+        co = stackless.coroutine()
+        def g():
+            return main.switch()
+        def f():
+            return g()
+
+        co.bind(f)
+        co.switch()
+        stack = co._framestack
+        assert len(stack) == 2
+        assert stack[0].f_code is f.func_code
+        assert stack[1].f_code is g.func_code
+
+        co = stackless.coroutine()
+
+
 
 class AppTestDirect:
     def setup_class(cls):

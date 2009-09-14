@@ -40,7 +40,8 @@ def run_child(glob, loc):
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=LLtypeCPU,
-                             backendopt=True)
+                             backendopt=True, inline=True,
+                             optimizer=optimize)
 
 
 def run_child_ootype(glob, loc):

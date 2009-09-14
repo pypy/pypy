@@ -271,12 +271,15 @@ AppCoroutine.w_get_is_alive = w_get_is_alive
 def w_descr__framestack(space, self):
     assert isinstance(self, AppCoroutine)
     index = self.subctx.framestackdepth
+    if not index:
+        return space.newtuple([])
     items = [None] * index
     f = self.subctx.topframe
+    f.force_f_back()
     while index > 0:
         index -= 1
         items[index] = space.wrap(f)
-        f = f.f_back
+        f = f.f_back()
     assert f is None
     return space.newtuple(items)
 

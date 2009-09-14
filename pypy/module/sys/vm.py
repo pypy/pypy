@@ -31,6 +31,7 @@ purposes only."""
                              space.wrap("frame index must not be negative"))
     ec = space.getexecutioncontext()
     f = ec.gettopframe_nohidden()
+    f.force_f_back()
     while True:
         if f is None:
             raise OperationError(space.w_ValueError,

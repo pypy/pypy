@@ -51,6 +51,12 @@ def get_printable_location(next_instr, bytecode):
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
+def leave(next_instr, pycode, frame, ec):
+    from pypy.interpreter.executioncontext import ExecutionContext
+    # can't use a method here, since this function is seen later than the main
+    # annotation
+    ExecutionContext._jit_rechain_frame(ec, frame)
+
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'pycode']
@@ -65,7 +71,8 @@ class PyPyJitDriver(JitDriver):
 ##        return (valuestackdepth, blockstack)
 
 pypyjitdriver = PyPyJitDriver(can_inline = can_inline,
-                              get_printable_location = get_printable_location)
+                              get_printable_location = get_printable_location,
+                              leave = leave)
 
 class __extend__(PyFrame):
 

@@ -1092,13 +1092,13 @@ class MetaInterpStaticData(object):
 
     def generate_bytecode(self, policy):
         self._codewriter = codewriter.CodeWriter(self, policy)
-        self.portal_code = self._codewriter.make_portal_bytecode(
-            self.portal_graph)
         self.leave_code = None
         if self.leave_graph:
             self.leave_code = self._codewriter.make_one_bytecode(
                                                     (self.leave_graph, None),
                                                     False)
+        self.portal_code = self._codewriter.make_portal_bytecode(
+            self.portal_graph)
         self._class_sizes = self._codewriter.class_sizes
 
     # ---------- construction-time interface ----------

@@ -64,7 +64,7 @@ return next yielded value or raise StopIteration."""
             else:
                 return w_result     # YIELDed
         finally:
-            self.frame.f_back = None
+            self.frame.f_back_some = None
             self.running = False
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):

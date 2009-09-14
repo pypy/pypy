@@ -11,16 +11,13 @@ def app_profile_call(space, w_callable, frame, event, w_arg):
                         space.wrap(frame),
                         space.wrap(event), w_arg)
 
-class ExecutionContext:
+class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
     in the Python interpreter."""
 
     def __init__(self, space):
         self.space = space
-        # 'some_frame' points to any frame from this thread's frame stack
-        # (although in general it should point to the top one).
-        self.some_frame = None
-        self.framestackdepth = 0
+        self._init_frame_chain()
         # tracing: space.frame_trace_action.fire() must be called to ensure
         # that tracing occurs whenever self.w_tracefunc or self.is_tracing
         # is modified.
@@ -30,23 +27,17 @@ class ExecutionContext:
         self.profilefunc = None
         self.w_profilefuncarg = None
 
-    def gettopframe(self):
-        frame = self.some_frame
-        if frame is not None:
-            while frame.f_forward is not None:
-                frame = frame.f_forward
-        return frame
-
     def gettopframe_nohidden(self):
         frame = self.gettopframe()
+        # I guess this should just use getnextframe_nohidden XXX
         while frame and frame.hide():
-            frame = frame.f_back
+            frame = frame.f_back()
         return frame
 
     def getnextframe_nohidden(frame):
-        frame = frame.f_back
+        frame = frame.f_back()
         while frame and frame.hide():
-            frame = frame.f_back
+            frame = frame.f_back()
         return frame
     getnextframe_nohidden = staticmethod(getnextframe_nohidden)
 
@@ -54,29 +45,143 @@ class ExecutionContext:
         if self.framestackdepth > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("maximum recursion depth exceeded"))
-        self.framestackdepth += 1
-        #
-        curtopframe = self.gettopframe()
-        frame.f_back = curtopframe
-        if curtopframe is not None:
-            curtopframe.f_forward = frame
-        if not we_are_jitted():
-            self.some_frame = frame
+        self._chain(frame)
 
     def leave(self, frame):
         if self.profilefunc:
             self._trace(frame, 'leaveframe', self.space.w_None)
 
-        #assert frame is self.gettopframe() --- slowish
-        f_back = frame.f_back
-        if f_back is not None:
-            f_back.f_forward = None
-        if not we_are_jitted() or self.some_frame is frame:
-            self.some_frame = f_back
-        self.framestackdepth -= 1
+        self._unchain(frame)
         
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()
+
+    # ________________________________________________________________
+    # the methods below are used for chaining frames in JIT-friendly way
+    # part of that stuff is obscure
+
+    def gettopframe(self):
+        frame = self.some_frame
+        if frame is not None:
+            while frame.f_forward is not None:
+                frame = frame.f_forward
+        return frame
+
+    def _init_frame_chain(self):
+        # 'some_frame' points to any frame from this thread's frame stack
+        # (although in general it should point to the top one).
+        self.some_frame = None
+        self.framestackdepth = 0
+
+    @staticmethod
+    def _init_chaining_attributes(frame):
+        """
+        explanation of the f_back handling:
+        -----------------------------------
+
+        in the non-JIT case, the frames simply form a doubly linked list via the
+        attributes f_back_some and f_forward.
+
+        When the JIT is used, things become more complex, as functions can be
+        inlined into each other. In this case a frame chain can look like this:
+
+        +---------------+
+        | real_frame    |
+        +---------------+
+           |      
+           | f_back_some
+           |      
+           |      
+           |  +--------------+
+           |  | virtual frame|
+           |  +--------------+
+           |      ^ 
+           |      | f_forward
+           |  +--------------+
+           |  | virtual frame|
+           |  +--------------+
+           |      ^
+           |      |
+           v      | f_forward
+        +---------------+
+        | real_frame    |
+        +---------------+
+           |
+           |
+           v
+          ...
+        
+        This ensures that the virtual frames don't escape via the f_back of the
+        real frames. For the same reason, the executioncontext's some_frame
+        attribute should only point to real frames.
+
+        All places where a frame can become accessed from applevel-code (like
+        sys._getframe and traceback catching) need to call force_f_back to ensure
+        that the intermediate virtual frames are forced to be real ones.
+
+        """ 
+        frame.f_back_some = None
+        frame.f_forward = None
+        frame.f_back_forced = False
+
+    def _chain(self, frame):
+        self.framestackdepth += 1
+        #
+        frame.f_back_some = self.some_frame
+        if self._we_are_jitted():
+            curtopframe = self.gettopframe()
+            assert curtopframe is not None
+            curtopframe.f_forward = frame
+        else:
+            self.some_frame = frame
+
+    def _unchain(self, frame):
+        #assert frame is self.gettopframe() --- slowish
+        if self.some_frame is frame:
+            self.some_frame = frame.f_back_some
+        else:
+            f_back = frame.f_back()
+            if f_back is not None:
+                f_back.f_forward = None
+
+        self.framestackdepth -= 1
+
+    def _jit_rechain_frame(self, frame):
+        # this method is called after the jit has seen enter (and thus _chain)
+        # of a frame, but then does not actually inline it. This method thus
+        # needs to make sure that the state is as if the _chain method had been
+        # executed outside of the jit. Note that this makes it important that
+        # _unchain does not call we_are_jitted
+        frame.f_back().f_forward = None
+        self.some_frame = frame
+
+    @staticmethod
+    def _extract_back_from_frame(frame):
+        back_some = frame.f_back_some
+        if frame.f_back_forced:
+            # don't check back_some.f_forward in this case
+            return back_some
+        if back_some is None:
+            return None
+        while True:
+            f_forward = back_some.f_forward
+            if f_forward is frame or f_forward is None:
+                return back_some
+            back_some = f_forward
+
+    @staticmethod
+    def _force_back_of_frame(frame):
+        orig_frame = frame
+        while frame is not None and not frame.f_back_forced:
+            frame.f_back_some = f_back = ExecutionContext._extract_back_from_frame(frame)
+            frame.f_back_forced = True
+            frame = f_back
+        return orig_frame.f_back_some
+
+    _we_are_jitted = staticmethod(we_are_jitted) # indirection for testing
+    
+    # the methods above are used for chaining frames in JIT-friendly way
+    # ________________________________________________________________
 
 
     class Subcontext(object):
@@ -134,7 +239,7 @@ class ExecutionContext:
             while index > 0:
                 index -= 1
                 lst[index] = f
-                f = f.f_back
+                f = f.f_back()
             assert f is None
             return lst
         # coroutine: I think this is all, folks!
