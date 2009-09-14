@@ -7,7 +7,7 @@ from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int
-from pypy.rlib.jit import hint, purefunction
+from pypy.rlib.jit import hint, purefunction, we_are_jitted, dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
@@ -53,7 +53,8 @@ class W_TypeObject(W_Object):
     _immutable_fields_ = ["__flags__",
                           'needsdel',
                           'weakrefable',
-                          'hasdict']
+                          'hasdict',
+                          'nslots']
 
     # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
@@ -176,6 +177,7 @@ class W_TypeObject(W_Object):
         return None
                 
 
+    @dont_look_inside
     def _lookup(w_self, key):
         space = w_self.space
         for w_class in w_self.mro_w:
@@ -184,6 +186,7 @@ class W_TypeObject(W_Object):
                 return w_value
         return None
 
+    @dont_look_inside
     def _lookup_where(w_self, key):
         # like lookup() but also returns the parent class in which the
         # attribute was found
@@ -194,15 +197,25 @@ class W_TypeObject(W_Object):
                 return w_class, w_value
         return None, None
 
+    @purefunction
+    def _pure_lookup_where_builtin_type(w_self, name):
+        assert not w_self.is_heaptype()
+        return w_self._lookup_where(name)
+
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
+        w_self = hint(w_self, promote=True)
         assert space.config.objspace.std.withmethodcache
+        if (space.config.objspace.std.immutable_builtintypes and
+                we_are_jitted() and not w_self.is_heaptype()):
+            w_self = hint(w_self, promote=True)
+            name = hint(name, promote=True)
+            return w_self._pure_lookup_where_builtin_type(name)
         version_tag = w_self.version_tag
         version_tag = hint(version_tag, promote=True)
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        w_self = hint(w_self, promote=True)
         name = hint(name, promote=True)
         return w_self._pure_lookup_where_with_method_cache(name, version_tag)
 
@@ -606,8 +619,36 @@ def call__Type(space, w_type, __args__):
                                  space.wrap("__init__() should return None"))
     return w_newobject
 
+def _issubtype(w_type1, w_type2):
+    return w_type2 in w_type1.mro_w
+
+@purefunction
+def _pure_issubtype_builtin(w_type1, w_type2):
+    return _issubtype(w_type1, w_type2)
+
+@purefunction
+def _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2):
+    return _issubtype(w_type1, w_type2)
+
 def issubtype__Type_Type(space, w_type1, w_type2):
-    return space.newbool(w_type2 in w_type1.mro_w)
+    w_type1 = hint(w_type1, promote=True)
+    w_type2 = hint(w_type2, promote=True)
+    if space.config.objspace.std.withtypeversion and we_are_jitted():
+        if (space.config.objspace.std.immutable_builtintypes and
+            not w_type1.is_heaptype() and
+            not w_type2.is_heaptype()):
+            res = _pure_issubtype_builtin(w_type1, w_type2)
+            return space.newbool(res)
+        else:
+            version_tag1 = w_type1.version_tag
+            version_tag2 = w_type2.version_tag
+            if version_tag1 is not None and version_tag2 is not None:
+                version_tag1 = hint(version_tag1, promote=True)
+                version_tag2 = hint(version_tag2, promote=True)
+                res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
+                return space.newbool(res)
+    res = _issubtype(w_type1, w_type2)
+    return space.newbool(res)
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
