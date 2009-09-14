@@ -37,18 +37,14 @@ def simple_loop():
     a = A(1)
     print a
     print a
-    i = 0
-    N = 1000
-    #N = 10000000
+    i = 0L
+    N = 1000L
+    N = 10000000L
     step = 3
     start = time.clock()
     odd = 0
     while i < N:
-        i = i + a.f()
-        if i % 2:
-            i += 2
-            odd += 1
-    print a.count, i, odd
+        i = i + 1
     end = time.clock()
     print i
     print end-start, 'seconds'
