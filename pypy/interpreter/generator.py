@@ -129,6 +129,7 @@ return next yielded value or raise StopIteration."""
             for block in self.frame.blockstack:
                 if not isinstance(block, LoopBlock):
                     self.descr_close()
+                    return
 
     def __del__(self):
         self._enqueue_for_destruction(self.space)
