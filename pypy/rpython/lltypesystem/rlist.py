@@ -390,6 +390,7 @@ def ll_list2fixed(l):
 ll_list2fixed.oopspec = 'list.list2fixed(l)'
 
 def ll_list2fixed_exact(l):
+    ll_assert(l.length == len(l.items), "ll_list2fixed_exact: bad length")
     return l.items
 
 # ____________________________________________________________
