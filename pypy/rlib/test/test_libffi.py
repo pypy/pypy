@@ -377,6 +377,37 @@ class TestDLOperations:
 
         assert not ALLOCATED
 
+    def test_cdll_life_time(self):
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.translator.platform import platform
+        from pypy.tool.udir import udir
+
+        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
+        c_file.write(py.code.Source('''
+        long fun(long i) {
+            return i + 42;
+        }
+        '''))
+        eci = ExternalCompilationInfo(export_symbols=['fun'])
+        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
+
+        lib = CDLL(lib_name)
+        slong = cast_type_to_ffitype(rffi.LONG)
+        fun = lib.getrawpointer('fun', [slong], slong)
+        del lib     # already delete here
+
+        buffer = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw')
+        buffer[0] = 200
+        buffer[1] = -1
+        fun.call([rffi.cast(rffi.VOIDP, buffer)],
+                 rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1)))
+        assert buffer[1] == 242
+
+        lltype.free(buffer, flavor='raw')
+        del fun
+
+        assert not ALLOCATED
+
 class TestWin32Handles:
     def setup_class(cls):
         if sys.platform != 'win32':
