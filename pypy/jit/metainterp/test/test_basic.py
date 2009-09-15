@@ -639,7 +639,7 @@ class BasicTests:
                 inst = cls()
                 x += inst.foo
                 n -= 1
-            return 
+            return x
         res = self.meta_interp(f, [20])
         assert res == f(20)
         self.check_loops(call=0)
