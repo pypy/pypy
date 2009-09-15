@@ -348,8 +348,7 @@ class TestLLSpecializeListComprehension:
         if conftest.option.view:
             t.view()
         t.buildrtyper(self.typesystem).specialize()
-        if self.typesystem == 'lltype':
-            backend_optimizations(t)
+        backend_optimizations(t)
         if conftest.option.view:
             t.view()
         graph = graphof(t, func)
@@ -363,6 +362,14 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
+
+    def test_simple_non_exact(self):
+        def main(n):
+            lst = [x*17 for x in range(n) if x < 5]
+            return len(lst)
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [10])
+        assert res == 5
 
     def test_mutated_after_listcomp(self):
         def main(n):
@@ -424,7 +431,6 @@ class TestLLSpecializeListComprehension:
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
 
-## TODO: maxlength and fence hints are not supported by ootype
-## see doc/discussion/list_comprehension_ootype.txt
-##class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
-##    typesystem = 'ootype'
+
+class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
+   typesystem = 'ootype'

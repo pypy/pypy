@@ -41,7 +41,8 @@ from pypy.rlib.objectmodel import keepalive_until_here
 class BaseListRepr(AbstractBaseListRepr):
     rstr_ll = rstr.LLHelpers
 
-    def __init__(self, rtyper, item_repr, listitem=None):
+    # known_maxlength is ignored by lltype but used by ootype
+    def __init__(self, rtyper, item_repr, listitem=None, known_maxlength=False):
         self.rtyper = rtyper
         self.LIST = GcForwardReference()
         self.lowleveltype = Ptr(self.LIST)
@@ -136,15 +137,8 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         hints = hop.args_s[-1].const
         if 'maxlength' in hints:
             if optimized:
-                v_iterable = hop.args_v[1]
-                s_iterable = hop.args_s[1]
-                r_iterable = hop.args_r[1]
                 v_list = hop.inputarg(self, arg=0)
-                hop2 = hop.copy()
-                while hop2.nb_args > 0:
-                    hop2.r_s_popfirstarg()
-                hop2.v_s_insertfirstarg(v_iterable, s_iterable)
-                v_maxlength = r_iterable.rtype_len(hop2)
+                v_maxlength = self._get_v_maxlength(hop)
                 hop.llops.gendirectcall(ll_set_maxlength, v_list, v_maxlength)
                 return v_list
         if 'fence' in hints:

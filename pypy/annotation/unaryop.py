@@ -342,6 +342,8 @@ class __extend__(SomeList):
             # not over an iterator object (because it has no known length)
             s_iterable = args_s[0]
             if isinstance(s_iterable, (SomeList, SomeDict)):
+                lst = SomeList(lst.listdef) # create a fresh copy
+                lst.known_maxlength = True
                 lst.listdef.resize()
                 lst.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:

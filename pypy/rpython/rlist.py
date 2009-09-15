@@ -42,16 +42,17 @@ class __extend__(annmodel.SomeList):
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
             rlist = rtyper.type_system.rlist
+            item_repr = lambda: rtyper.getrepr(listitem.s_value)
+            known_maxlength = getattr(self, 'known_maxlength', False)
             if self.listdef.listitem.resized:
-                return rlist.ListRepr(rtyper,
-                        lambda: rtyper.getrepr(listitem.s_value), listitem)
+                return rlist.ListRepr(rtyper, item_repr, listitem, known_maxlength)
             else:
-                return rlist.FixedSizeListRepr(rtyper,
-                        lambda: rtyper.getrepr(listitem.s_value), listitem)
+                return rlist.FixedSizeListRepr(rtyper, item_repr, listitem)
 
     def rtyper_makekey(self):
         self.listdef.listitem.dont_change_any_more = True
-        return self.__class__, self.listdef.listitem
+        known_maxlength = getattr(self, 'known_maxlength', False)
+        return self.__class__, self.listdef.listitem, known_maxlength
 
 
 class AbstractBaseListRepr(Repr):
@@ -159,6 +160,17 @@ class AbstractBaseListRepr(Repr):
         # ^^^ do this first, before item_repr.get_ll_eq_function()
         item_eq_func = self.item_repr.get_ll_eq_function()
         return list_eq
+
+    def _get_v_maxlength(self, hop):
+        v_iterable = hop.args_v[1]
+        s_iterable = hop.args_s[1]
+        r_iterable = hop.args_r[1]
+        hop2 = hop.copy()
+        while hop2.nb_args > 0:
+            hop2.r_s_popfirstarg()
+        hop2.v_s_insertfirstarg(v_iterable, s_iterable)
+        v_maxlength = r_iterable.rtype_len(hop2)
+        return v_maxlength
 
 
 class AbstractListRepr(AbstractBaseListRepr):
