@@ -180,6 +180,10 @@ class WarmRunnerDesc:
         graphs = self.translator.graphs
         self.jit_merge_point_pos = find_jit_merge_point(graphs)
         graph, block, pos = self.jit_merge_point_pos
+        op = block.operations[pos]
+        args = op.args[2:]
+        s_binding = self.translator.annotator.binding
+        self.portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
         graph.startblock.isstartblock = False
         graph.startblock = support.split_before_jit_merge_point(
@@ -272,11 +276,7 @@ class WarmRunnerDesc:
     def make_leave_jit_graph(self):
         self.leave_graph = None
         if self.jitdriver.leave:
-            graph, block, index = self.jit_merge_point_pos
-            op = block.operations[index]
-            args = op.args[2:]
-            s_binding = self.translator.annotator.binding
-            args_s = [s_binding(v) for v in args]            
+            args_s = self.portal_args_s
             from pypy.annotation import model as annmodel
             annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
             s_result = annmodel.s_None
@@ -298,7 +298,7 @@ class WarmRunnerDesc:
         s_result = annotationoftype(rettype)
         RETTYPE = annhelper.rtyper.getrepr(s_result).lowleveltype
         FUNC, PTR = self.cpu.ts.get_FuncType(self.green_args_spec, RETTYPE)
-        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+        args_s = self.portal_args_s[:len(self.green_args_spec)]
         graph = annhelper.getgraph(func, args_s, s_result)
         funcptr = annhelper.graph2delayed(graph, FUNC)
         annhelper.finish()
