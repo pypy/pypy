@@ -203,7 +203,27 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         for name in driver.greens:
             s_green_key = kwds_s['s_' + name]
             s_green_key.hash()      # force the hash cache to appear
+
+        self.annotate_hooks(**kwds_s)
         return annmodel.s_None
+
+    def annotate_hooks(self, **kwds_s):
+        driver = self.instance.im_self
+        self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
+        self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
+        self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
+
+    def annotate_hook(self, func, variables, **kwds_s):
+        if func is None:
+            return
+        bk = self.bookkeeper
+        s_func = bk.immutablevalue(func)
+        uniquekey = 'jitdriver.%s' % func.func_name
+        args_s = []
+        for name in variables:
+            s_arg = kwds_s['s_' + name]
+            args_s.append(s_arg)
+        bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
