@@ -613,9 +613,7 @@ class CDLL:
         lltype.free(ll_libname, flavor='raw')
 
     def __del__(self):
-        print 'in __del__'
         if self.lib and self.unload_on_finalization:
-            print 'calling dlclose()'
             dlclose(self.lib)
             self.lib = lltype.nullptr(rffi.CCHARP.TO)
 
