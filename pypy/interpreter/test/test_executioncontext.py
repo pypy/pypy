@@ -671,7 +671,7 @@ class TestFrameChaining(object):
         # recursive enter/leave seen by the jit
         frame3 = self.Frame(ec, frame)
         ec._chain(frame3)
-        ec._jit_rechain_frame(frame3)
+        ExecutionContext._jit_rechain_frame(ec, frame3)
         ec.jitted = False
         frame3.look_at()
         assert not frame2.escaped
@@ -691,7 +691,7 @@ class TestFrameChaining(object):
         # recursive enter/leave seen by the jit
         frame3 = self.Frame(ec, frame)
         ec._chain(frame3)
-        ec._jit_rechain_frame(frame3)
+        ExecutionContext._jit_rechain_frame(ec, frame3)
         ec.jitted = False
 
         assert frame3.escaped
@@ -720,7 +720,7 @@ class TestFrameChaining(object):
         ec._chain(frame3)
         # frame3 is not inlined, but contains a loop itself, for which code has
         # been generated
-        ec._jit_rechain_frame(frame3)
+        ExecutionContext._jit_rechain_frame(ec, frame3)
         ec.virtualizable = frame3
 
         frame3.look_at()

@@ -146,14 +146,15 @@ class ExecutionContext(object):
 
         self.framestackdepth -= 1
 
-    def _jit_rechain_frame(self, frame):
+    @staticmethod
+    def _jit_rechain_frame(ec, frame):
         # this method is called after the jit has seen enter (and thus _chain)
         # of a frame, but then does not actually inline it. This method thus
         # needs to make sure that the state is as if the _chain method had been
         # executed outside of the jit. Note that this makes it important that
         # _unchain does not call we_are_jitted
         frame.f_back().f_forward = None
-        self.some_frame = frame
+        ec.some_frame = frame
 
     @staticmethod
     def _extract_back_from_frame(frame):
