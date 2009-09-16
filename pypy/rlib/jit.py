@@ -210,10 +210,11 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
-        driver = self.instance.im_self
-        self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
-        self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
-        self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
+        if self.instance.im_func is JitDriver.jit_merge_point.im_func:
+            driver = self.instance.im_self
+            self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
+            self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
+            self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
 
     def annotate_hook(self, func, variables, **kwds_s):
         if func is None:
