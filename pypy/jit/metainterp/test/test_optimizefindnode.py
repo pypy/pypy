@@ -892,6 +892,19 @@ class BaseTestOptimizeFindNode(BaseTest):
                         i16=0, i25=0, i39=0, i52=0, i55=0, i59=0,
                         i43=1, i45=1, i48=1, i40=1)
 
+    def test_bug_2(self):
+        py.test.skip("fix me")
+        ops = """
+        [p1]
+        i1 = ooisnull(p1)
+        guard_true(i1)
+            fail()
+        #
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        jump(p2)
+        """
+        self.find_nodes(ops, 'Not',
+                        i1=1)
     # ------------------------------
     # Bridge tests
 
