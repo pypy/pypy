@@ -400,6 +400,18 @@ class TestLLSpecializeListComprehension:
         res = interp.eval_graph(graph, [8, 3])
         assert res == 28 - 3
 
+    def test_dict(self):
+        def main(n, m):
+            d = {n: m, m: n}
+            lst = [i*17 for i in d]
+            return len(lst) + lst[0] + lst[-1]
+        interp, graph = self.specialize(main, [int, int])
+        res = interp.eval_graph(graph, [8, 5])
+        assert res == 2 + 8 * 17 + 5 * 17
+        res = interp.eval_graph(graph, [4, 4])
+        assert res == 1 + 4 * 17 + 4 * 17
+
+
     def test_list_iterator(self):
         # for now, this is not optimized as a list comp
         def main(n):

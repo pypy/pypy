@@ -162,6 +162,7 @@ class AbstractBaseListRepr(Repr):
         return list_eq
 
     def _get_v_maxlength(self, hop):
+        from pypy.rpython.rint import signed_repr
         v_iterable = hop.args_v[1]
         s_iterable = hop.args_s[1]
         r_iterable = hop.args_r[1]
@@ -169,6 +170,7 @@ class AbstractBaseListRepr(Repr):
         while hop2.nb_args > 0:
             hop2.r_s_popfirstarg()
         hop2.v_s_insertfirstarg(v_iterable, s_iterable)
+        hop2.r_result = signed_repr
         v_maxlength = r_iterable.rtype_len(hop2)
         return v_maxlength
 
