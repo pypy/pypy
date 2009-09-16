@@ -200,21 +200,20 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             raise JitHintError("%s expects the following keyword "
                                "arguments: %s" % (self.instance,
                                                   expected))
+        for name in driver.greens:
+            s_green_key = kwds_s['s_' + name]
+            s_green_key.hash()      # force the hash cache to appear
+
         if self.instance.__name__ == 'jit_merge_point':
-            for name in driver.greens:
-                s_green_key = kwds_s['s_' + name]
-                s_green_key.hash()      # force the hash cache to appear
-
-                self.annotate_hooks(**kwds_s)
-
+            self.annotate_hooks(**kwds_s)
+            
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
-        if self.instance.im_func is JitDriver.jit_merge_point.im_func:
-            driver = self.instance.im_self
-            self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
-            self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
-            self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
+        driver = self.instance.im_self
+        self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
+        self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
+        self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
 
     def annotate_hook(self, func, variables, **kwds_s):
         if func is None:
