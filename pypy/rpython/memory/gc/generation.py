@@ -223,6 +223,12 @@ class GenerationGC(SemiSpaceGC):
     # ____________________________________________________________
     # Support code for full collections
 
+    def collect(self, gen=1):
+        if gen == 0:
+            self.collect_nursery()
+        else:
+            SemiSpaceGC.collect(self)
+
     def semispace_collect(self, size_changing=False):
         self.reset_young_gcflags() # we are doing a full collection anyway
         self.weakrefs_grow_older()

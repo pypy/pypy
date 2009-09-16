@@ -114,6 +114,21 @@ class GCTest(object):
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
 
+    def test_collect_0(self):
+        #curr = simulator.current_size
+        def concat(j):
+            lst = []
+            for i in range(j):
+                lst.append(str(i))
+            result = len("".join(lst))
+            if we_are_translated():
+                # can't call llop.gc__collect directly
+                llop.gc__collect(lltype.Void, 0)
+            return result
+        res = self.interpret(concat, [100])
+        assert res == concat(100)
+        #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
+        
     def test_finalizer(self):
         class B(object):
             pass

@@ -188,7 +188,7 @@ class SemiSpaceGC(MovingGCBase):
         while self.max_space_size > size:
             self.max_space_size >>= 1
 
-    def collect(self):
+    def collect(self, gen=0):
         self.debug_check_consistency()
         self.semispace_collect()
         # the indirection is required by the fact that collect() is referred

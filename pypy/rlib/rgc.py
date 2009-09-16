@@ -143,13 +143,17 @@ class CloneFnEntry(ExtRegistryEntry):
 class CollectEntry(ExtRegistryEntry):
     _about_ = gc.collect
 
-    def compute_result_annotation(self):
+    def compute_result_annotation(self, s_gen=None):
         from pypy.annotation import model as annmodel
         return annmodel.s_None
 
     def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype        
         hop.exception_cannot_occur()
-        return hop.genop('gc__collect', [], resulttype=hop.r_result)
+        args_v = []
+        if len(hop.args_s) == 1:
+            args_v = hop.inputargs(lltype.Signed)
+        return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
     
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size

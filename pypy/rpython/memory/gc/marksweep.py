@@ -215,7 +215,7 @@ class MarkSweepGC(GCBase):
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_varsize_clear._dont_inline_ = True
 
-    def collect(self):
+    def collect(self, gen=0):
         # 1. mark from the roots, and also the objects that objects-with-del
         #    point to (using the list of malloced_objects_with_finalizer)
         # 2. walk the list of objects-without-del and free the ones not marked
@@ -708,6 +708,6 @@ class PrintingMarkSweepGC(MarkSweepGC):
     def write_free_statistics(self, typeid, result):
         llop.debug_print(lltype.Void, "free", typeid, " ", result)
 
-    def collect(self):
+    def collect(self, gen=0):
         self.count_mallocs = 0
-        MarkSweepGC.collect(self)
+        MarkSweepGC.collect(self, gen)

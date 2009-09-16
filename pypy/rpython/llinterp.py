@@ -818,8 +818,8 @@ class LLFrame(object):
         return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
-    def op_gc__collect(self):
-        self.heap.collect()
+    def op_gc__collect(self, *gen):
+        self.heap.collect(*gen)
 
     def op_gc_can_move(self, ptr):
         addr = llmemory.cast_ptr_to_adr(ptr)

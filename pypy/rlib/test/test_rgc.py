@@ -13,11 +13,27 @@ def test_collect():
     assert len(ops) == 1
     op = ops[0][1]
     assert op.opname == 'gc__collect'
-
+    assert len(op.args) == 0
 
     res = interpret(f, [])
     
     assert res is None
+
+def test_collect_0():
+    def f():
+        return gc.collect(0)
+
+    t, typer, graph = gengraph(f, [])
+    ops = list(graph.iterblockops())
+    assert len(ops) == 1
+    op = ops[0][1]
+    assert op.opname == 'gc__collect'
+    assert len(op.args) == 1    
+    assert op.args[0].value == 0
+
+    res = interpret(f, [])
+    
+    assert res is None    
     
 def test_can_move():
     T0 = lltype.GcStruct('T')

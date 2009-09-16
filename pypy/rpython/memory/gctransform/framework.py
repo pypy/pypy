@@ -237,7 +237,7 @@ class FrameworkGCTransformer(GCTransformer):
             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
             + [annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
-            [s_gc], annmodel.s_None)
+            [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
                                   [s_gc, annmodel.SomeAddress()],
                                   annmodel.SomeBool())
@@ -557,8 +557,13 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_gc__collect(self, hop):
         op = hop.spaceop
+        if len(op.args) == 1:
+            v_gen = op.args[0]
+        else:
+            # pick a number larger than expected different gc gens :-)
+            v_gen = rmodel.inputconst(lltype.Signed, 9)
         livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.collect_ptr, self.c_const_gc],
+        hop.genop("direct_call", [self.collect_ptr, self.c_const_gc, v_gen],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 

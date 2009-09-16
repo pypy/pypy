@@ -101,8 +101,8 @@ class GCManagedHeap(object):
                                   llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 
-    def collect(self):
-        self.gc.collect()
+    def collect(self, *gen):
+        self.gc.collect(*gen)
 
     def can_move(self, addr):
         return self.gc.can_move(addr)

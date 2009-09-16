@@ -193,7 +193,7 @@ class MarkCompactGC(MovingGCBase):
         self.totalsize_of_objs = totalsize
         return num
 
-    def collect(self):
+    def collect(self, gen=0):
         self.markcompactcollect()
     
     def markcompactcollect(self, needed=0):

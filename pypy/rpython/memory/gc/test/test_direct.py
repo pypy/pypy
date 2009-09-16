@@ -271,6 +271,37 @@ class TestSemiSpaceGC(DirectGCTest):
 class TestGenerationGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
 
+    def test_collect_gen(self):
+        gc = self.gc
+        old_semispace_collect = gc.semispace_collect
+        old_collect_nursery = gc.collect_nursery
+        calls = []
+        def semispace_collect():
+            calls.append('semispace_collect')
+            return old_semispace_collect()
+        def collect_nursery():
+            calls.append('collect_nursery')
+            return old_collect_nursery()
+        gc.collect_nursery = collect_nursery
+        gc.semispace_collect = semispace_collect
+
+        gc.collect()
+        assert calls == ['semispace_collect']
+        calls = []
+
+        gc.collect(0)
+        assert calls == ['collect_nursery']
+        calls = []
+
+        gc.collect(1)
+        assert calls == ['semispace_collect']
+        calls = []
+
+        gc.collect(9)
+        assert calls == ['semispace_collect']
+        calls = []                
+
+
 class TestHybridGC(TestGenerationGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
 
@@ -281,6 +312,42 @@ class TestHybridGC(TestGenerationGC):
                  'large_object_gcptrs': 12,
                  'generation3_collect_threshold': 5,
                  }
+
+    def test_collect_gen(self):
+        gc = self.gc
+        old_semispace_collect = gc.semispace_collect
+        old_collect_nursery = gc.collect_nursery
+        calls = []
+        def semispace_collect():
+            gen3 = gc.is_collecting_gen3()
+            calls.append(('semispace_collect', gen3))
+            return old_semispace_collect()
+        def collect_nursery():
+            calls.append('collect_nursery')
+            return old_collect_nursery()
+        gc.collect_nursery = collect_nursery
+        gc.semispace_collect = semispace_collect
+
+        gc.collect()
+        assert calls == [('semispace_collect', True)]
+        calls = []
+
+        gc.collect(0)
+        assert calls == ['collect_nursery']
+        calls = []
+
+        gc.collect(1)
+        assert calls == [('semispace_collect', False)]
+        calls = []
+
+        gc.collect(2)
+        assert calls == [('semispace_collect', True)]
+        calls = []
+
+        gc.collect(9)
+        assert calls == [('semispace_collect', True)]
+        calls = []                        
+
 
 class TestMarkCompactGC(DirectGCTest):
     from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass

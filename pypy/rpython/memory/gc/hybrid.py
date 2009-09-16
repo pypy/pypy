@@ -314,9 +314,10 @@ class HybridGC(GenerationGC):
     # the semispaces and not always doing the mark-n-sweep pass over the
     # external objects of 3rd generation.
 
-    def collect(self):
-        self.count_semispaceonly_collects = self.generation3_collect_threshold
-        GenerationGC.collect(self)
+    def collect(self, gen=2):
+        if gen > 1:
+            self.count_semispaceonly_collects = self.generation3_collect_threshold
+        GenerationGC.collect(self, gen)
 
     def is_collecting_gen3(self):
         count = self.count_semispaceonly_collects

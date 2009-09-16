@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
-from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
 from pypy.rlib.debug import ll_assert
 from pypy import conftest
 from pypy.rlib.rstring import StringBuilder
@@ -375,6 +375,19 @@ class GenericGCTests(GCTest):
         # runs collect recursively 4 times
         res = run([4, 42]) #XXX pure lazyness here too
         assert res == 12
+
+    def test_collect_0(self):
+        def concat(j, dummy):
+            lst = []
+            for i in range(j):
+                lst.append(str(i))
+            result = len("".join(lst))
+            if we_are_translated():
+                llop.gc__collect(lltype.Void, 0)
+            return result
+        run = self.runner(concat, nbargs=2)
+        res = run([100, 0])
+        assert res == concat(100, 0)
 
     def test_interior_ptrs(self):
         from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, GcArray
