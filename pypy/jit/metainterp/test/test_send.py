@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, hint, purefunction
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
@@ -532,6 +532,31 @@ class SendTests:
             self.check_loops(oosend=1)
         else:
             self.check_loops(call=1)
+
+    def test_constfold_pure_oosend(self):
+        myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
+        class A:
+            @purefunction
+            def foo(self):
+                return 42
+        def fn(n, i):
+            res = 0
+            obj = A()
+            while i > 0:
+                myjitdriver.can_enter_jit(i=i, obj=obj)
+                myjitdriver.jit_merge_point(i=i, obj=obj)
+                obj = hint(obj, promote=True)
+                res = obj.foo()
+                i-=1
+            return res
+        policy = StopAtXPolicy(A.foo.im_func)
+        res = self.meta_interp(fn, [1, 20], policy=policy)
+        assert res == 42
+        if self.type_system == 'ootype':
+            self.check_loops(oosend=0)
+        else:
+            self.check_loops(call=0)
+        
 
 class TestOOtype(SendTests, OOJitMixin):
     pass

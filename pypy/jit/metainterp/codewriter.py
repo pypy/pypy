@@ -1384,12 +1384,26 @@ class BytecodeMaker(object):
         self.minimize_variables()
         SELFTYPE, methname, meth = support.lookup_oosend_method(op)
         methdescr = self.codewriter.get_methdescr(SELFTYPE, methname, False)
-        self.emit('residual_oosend_canraise')
+        graphs = SELFTYPE._lookup_graphs(methname)
+        kind = self.get_kind_of_graphs(graphs)
+        self.emit('residual_oosend_%s' % kind)
         self.emit(self.get_position(methdescr))
         non_void_args = [arg for arg in op.args[1:]
                          if arg.concretetype is not ootype.Void]
         self.emit_varargs(non_void_args)
         self.register_var(op.result)
+
+    def get_kind_of_graphs(self, graphs):
+        pure = True
+        for graph in graphs:
+            if not hasattr(graph, 'func'):
+                pure = False
+            pure = pure and getattr(graph.func, '_pure_function_', False)
+            
+        if pure:
+            return 'pure'
+        else:
+            return 'canraise'
 
     def serialize_op_debug_assert(self, op):
         log.WARNING("found debug_assert in %r; should have be removed" %
