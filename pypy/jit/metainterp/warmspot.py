@@ -943,7 +943,7 @@ def make_state_class(warmrunnerdesc):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                   get_printable_location_ptr)
                 res = fn(*args)
-                if we_are_translated() or not isinstance(res, str):
+                if not we_are_translated() and not isinstance(res, str):
                     res = hlstr(res)
                 return res
 

@@ -28,8 +28,6 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def can_inline(next_instr, bytecode):
-    if we_are_translated():
-        bytecode = cast_base_ptr_to_instance(PyCode, bytecode)
     co_code = bytecode.co_code
     next_instr = 0
     while next_instr < len(co_code):
@@ -46,8 +44,6 @@ def can_inline(next_instr, bytecode):
 
 def get_printable_location(next_instr, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    if we_are_translated():
-        bytecode = cast_base_ptr_to_instance(PyCode, bytecode)
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
