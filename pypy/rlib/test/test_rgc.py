@@ -2,7 +2,7 @@ from pypy.rpython.test.test_llinterp import gengraph, interpret
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import rgc # Force registration of gc.collect
 import gc
-import py
+import py, sys
 
 def test_collect():
     def f():
@@ -20,6 +20,9 @@ def test_collect():
     assert res is None
 
 def test_collect_0():
+    if sys.version_info < (2, 5):
+        py.test.skip("requires Python 2.5 to call gc.collect() with an arg")
+
     def f():
         return gc.collect(0)
 
