@@ -5,7 +5,7 @@ from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctransform import framework
-from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem.lloperation import llop, void
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
 from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
 from pypy.rlib.debug import ll_assert
@@ -1109,6 +1109,27 @@ class TestHybridGC(TestGenerationGC):
         run = self.runner(f, nbargs=2)
         res = run([100, 100])
         assert res == 200
+
+    def test_assume_young_pointers(self):
+        from pypy.rlib import rgc
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S',
+                                 ('x', lltype.Signed),
+                                 ('prev', lltype.Ptr(S)),
+                                 ('next', lltype.Ptr(S))))
+        s0 = lltype.malloc(S, immortal=True)
+        def f():
+            s = lltype.malloc(S)
+            s.x = 42
+            llop.bare_setfield(lltype.Void, s0, void('next'), s)
+            llop.gc_assume_young_pointers(lltype.Void,
+                                          llmemory.cast_ptr_to_adr(s0))
+            rgc.collect(0)
+            return s0.next.x
+
+        run = self.runner(f, nbargs=0)
+        res = run([])
+        assert res == 42
 
     def test_malloc_nonmovable_fixsize(self):
         py.test.skip("not supported")

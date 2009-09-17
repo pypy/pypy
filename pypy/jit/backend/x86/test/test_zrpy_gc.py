@@ -54,7 +54,7 @@ def get_test(main):
     return entrypoint
 
 
-def compile_and_run(f, gc, **kwds):
+def compile_and_run(f, gc, CPUClass=CPU386, **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
@@ -68,7 +68,7 @@ def compile_and_run(f, gc, **kwds):
     t.buildannotator().build_types(f, [s_list_of_strings])
     t.buildrtyper().specialize()
     if kwds['jit']:
-        apply_jit(t, CPUClass=CPU386, optimizer=OPTIMIZER_SIMPLE)
+        apply_jit(t, CPUClass=CPUClass, optimizer=OPTIMIZER_SIMPLE)
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source()
     cbuilder.compile()
@@ -326,6 +326,14 @@ def test_compile_hybrid_7():
         check(l[13].x == 122)
         check(l[14].x == 132)
         check(l[15].x == 142)
+
+    class CPU386CollectOnLeave(CPU386):
+
+        def execute_operations(self, loop, verbose=False):
+            op = CPU386.execute_operations(self, loop, verbose)
+            rgc.collect(0)
+            return op            
+        
     res = compile_and_run(get_test(main), "hybrid", gcrootfinder="asmgcc",
-                          jit=True)
+                          CPUClass=CPU386CollectOnLeave, jit=True)
     assert int(res) == 20

@@ -100,6 +100,28 @@ class _LLOP(object):
         return True
 llop = _LLOP()
 
+class VoidMarker(object):
+    # marker wrapper for void arguments to llops
+    def __init__(self, value):
+        self.value = value
+    def _freeze_(self):
+        return True
+
+def void(value):
+    return VoidMarker(value)
+
+class Entry(ExtRegistryEntry):
+    _about_ = void
+
+    def compute_result_annotation(self, s_value):
+        assert s_value.is_constant()
+        from pypy.annotation.bookkeeper import getbookkeeper
+        bk = getbookkeeper()
+        return bk.immutablevalue(VoidMarker(s_value.const))
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        return hop.inputconst(lltype.Void, None)
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
     """Enumerate operations that have no side-effects
@@ -127,8 +149,16 @@ class Entry(ExtRegistryEntry):
         return lltype_to_annotation(RESULTTYPE.const)
 
     def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
         op = self.instance    # the LLOp object that was called
-        args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
+        args_v = []
+        for i, s_arg in enumerate(hop.args_s[1:]):
+            if s_arg.is_constant() and isinstance(s_arg.const, VoidMarker):
+                v_arg = hop.inputconst(lltype.Void, s_arg.const.value)
+            else:
+                v_arg = hop.inputarg(hop.args_r[i+1], i+1)
+            args_v.append(v_arg)
+
         if op.canraise:
             hop.exception_is_here()
         else:
@@ -408,6 +438,7 @@ LL_OPERATIONS = {
     'gc_thread_prepare'   : LLOp(canraise=(MemoryError,)),
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
+    'gc_assume_young_pointers': LLOp(),
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),

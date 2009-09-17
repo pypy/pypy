@@ -83,6 +83,9 @@ class BasicGcPolicy(object):
     def OP_GC_THREAD_DIE(self, funcgen, op):
         return ''
 
+    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+        return ''
+
 
 class RefcountingInfo:
     static_deallocator = None

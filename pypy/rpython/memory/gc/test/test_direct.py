@@ -299,7 +299,19 @@ class TestGenerationGC(TestSemiSpaceGC):
 
         gc.collect(9)
         assert calls == ['semispace_collect']
-        calls = []                
+        calls = []
+
+    def test_assume_young_pointers(self):
+        s0 = lltype.malloc(S, immortal=True)
+        self.consider_constant(s0)
+        s = self.malloc(S)
+        s.x = 1
+        s0.next = s
+        self.gc.assume_young_pointers(llmemory.cast_ptr_to_adr(s0))
+
+        self.gc.collect(0)
+
+        assert s0.next.x == 1
 
 
 class TestHybridGC(TestGenerationGC):

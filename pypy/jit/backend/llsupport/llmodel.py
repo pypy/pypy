@@ -44,6 +44,14 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.clear_exception()
+        self.setup()
+        if translate_support_code:
+            self._setup_on_leave_jitted_translated()
+        else:
+            self._setup_on_leave_jitted_untranslated()
+
+    def setup(self):
+        pass
 
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes
@@ -131,10 +139,35 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
 
-    _SAVE_EXCEPTION_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    def _setup_on_leave_jitted_untranslated(self):
+        # assume we don't need a backend leave in this case
+        self.on_leave_jitted_save_exc = self.save_exception
+        self.on_leave_jitted_noexc = lambda : None
 
-    def get_save_exception_int(self):
-        f = llhelper(self._SAVE_EXCEPTION_FUNC, self.save_exception)
+    def _setup_on_leave_jitted_translated(self):
+        on_leave_jitted_hook = self.get_on_leave_jitted_hook()
+        save_exception = self.save_exception
+
+        def on_leave_jitted_noexc():
+            on_leave_jitted_hook()
+
+        def on_leave_jitted_save_exc():
+            on_leave_jitted_hook()
+            save_exception()
+
+        self.on_leave_jitted_noexc = on_leave_jitted_noexc
+        self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
+
+    def get_on_leave_jitted_hook(self):
+        return lambda : None
+
+    _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+    def get_on_leave_jitted_int(self, save_exception):
+        if save_exception:
+            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
+        else:
+            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
         return rffi.cast(lltype.Signed, f)
 
     def get_exception(self):

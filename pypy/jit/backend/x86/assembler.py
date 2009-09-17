@@ -83,6 +83,11 @@ class Assembler386(object):
         self.fail_boxes_ptr = lltype.malloc(lltype.GcArray(llmemory.GCREF),
                                             MAX_FAIL_BOXES, zero=True)
 
+    def leave_jitted_hook(self):
+        fail_boxes_ptr = self.fail_boxes_ptr
+        llop.gc_assume_young_pointers(lltype.Void,
+                                      llmemory.cast_ptr_to_adr(fail_boxes_ptr))
+
     def make_sure_mc_exists(self):
         if self.mc is None:
             rffi.cast(lltype.Signed, self.fail_boxes_int)   # workaround
@@ -653,10 +658,15 @@ class Assembler386(object):
             mc.MOV(addr_add(imm(self.fail_box_int_addr),
                                  imm(len(locs) * WORD)),
                                  eax)
-        if exc:
-            # note that we don't have to save and restore eax, ecx and edx here
-            addr = self.cpu.get_save_exception_int()
-            mc.CALL(rel32(addr))
+
+        # we call a provided function that will
+        # - call our on_leave_jitted_hook which will mark
+        #   the fail_boxes_ptr array as pointing to young objects to
+        #   avoid unwarranted freeing
+        # - optionally save exception depending on the flag
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=exc)
+        mc.CALL(rel32(addr))
+
         # don't break the following code sequence!
         mc = mc._mc
         mc.LEA(esp, addr_add(imm(0), ebp, (-RET_BP + 2) * WORD))

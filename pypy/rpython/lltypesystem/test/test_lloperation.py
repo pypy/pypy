@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS, llop
+from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS, llop, void
 from pypy.rpython.lltypesystem import lltype, opimpl
 from pypy.rpython.ootypesystem import ootype, ooopimpl
 from pypy.rpython.llinterp import LLFrame
@@ -38,6 +38,19 @@ def test_llop_interp():
         return llop.int_add(lltype.Signed, x, y)
     res = interpret(llf, [5, 7], policy=LowLevelAnnotatorPolicy())
     assert res == 12
+
+def test_llop_with_voids_interp():
+    from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+    S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    name_y = void('y')
+    def llf():
+        s = lltype.malloc(S)
+        llop.bare_setfield(lltype.Void, s, void('x'), 3)
+        llop.bare_setfield(lltype.Void, s, name_y, 2)        
+        return s.x + s.y
+    res = interpret(llf, [], policy=LowLevelAnnotatorPolicy())
+    assert res == 5
+    
 
 # ___________________________________________________________________________
 # This tests that the LLInterpreter and the LL_OPERATIONS tables are in sync.

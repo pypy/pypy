@@ -1,6 +1,7 @@
 import py
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
 from pypy.rpython.tool.rffi_platform import check_boehm
 from pypy.translator.c.genc import CExtModuleBuilder
@@ -410,6 +411,17 @@ class TestUsingBoehm(AbstractGCTestClass):
 
         run = self.getcompiled(f)
         assert run() == True
+
+    def test_assume_young_pointers_nop(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        s = lltype.malloc(S)
+        s.x = 0
+        def f():
+            llop.gc_assume_young_pointers(lltype.Void,
+                                          llmemory.cast_ptr_to_adr(s))
+            return True
+        run = self.getcompiled(f)
+        assert run() == True        
 
     # reusing some tests from pypy.rpython.memory.test.snippet
     large_tests_ok = True

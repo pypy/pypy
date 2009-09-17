@@ -21,15 +21,16 @@ class CPU386(AbstractLLCPU):
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, translate_support_code,
                                gcdescr)
-        TP = lltype.GcArray(llmemory.GCREF)
         self._bootstrap_cache = {}
         self._guard_list = []
-        self.setup()
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
+
+    def get_on_leave_jitted_hook(self):
+        return self.assembler.leave_jitted_hook
 
     def setup_once(self):
         pass

@@ -242,6 +242,13 @@ class FrameworkGCTransformer(GCTransformer):
                                   [s_gc, annmodel.SomeAddress()],
                                   annmodel.SomeBool())
 
+        if hasattr(GCClass, 'assume_young_pointers'):
+            # xxx should really be a noop for gcs without generations
+            self.assume_young_pointers_ptr = getfn(
+                GCClass.assume_young_pointers.im_func,
+                [s_gc, annmodel.SomeAddress()],
+                annmodel.s_None)
+
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, True, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
@@ -573,6 +580,12 @@ class FrameworkGCTransformer(GCTransformer):
                            [op.args[0]], resulttype=llmemory.Address)
         hop.genop("direct_call", [self.can_move_ptr, self.c_const_gc, v_addr],
                   resultvar=op.result)
+
+    def gct_gc_assume_young_pointers(self, hop):
+        op = hop.spaceop
+        v_addr = op.args[0]
+        hop.genop("direct_call", [self.assume_young_pointers_ptr,
+                                  self.c_const_gc, v_addr])
 
     def _can_realloc(self):
         return self.gcdata.gc.can_realloc
