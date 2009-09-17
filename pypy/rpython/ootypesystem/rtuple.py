@@ -2,14 +2,14 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rstr
-
+from pypy.rpython.ootypesystem.rtupletype import TUPLE_TYPE
 
 class TupleRepr(AbstractTupleRepr):
     rstr_ll = rstr.LLHelpers
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
-        self.lowleveltype = ootype.Record(dict(zip(self.fieldnames, self.lltypes)))
+        self.lowleveltype = TUPLE_TYPE(self.lltypes)
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs
