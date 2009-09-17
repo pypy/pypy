@@ -183,7 +183,6 @@ def ll_known_maxlength2fixed(ARRAY, l):
             item = olditems.ll_getitem_fast(i)
             newitems.ll_setitem_fast(i, item)
         return newitems
-ll_known_maxlength2fixed.oopspec = 'list.list2fixed(l)'
 
 def ll_known_maxlength2fixed_exact(ARRAY, l):
     return l.items

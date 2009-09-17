@@ -859,6 +859,21 @@ class BasicTests:
         res = self.interp_operations(f, [3, 5])
         assert res == 8
         self.check_history_(int_add=0, call=1)
+
+    def test_listcomp(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'lst'])
+        def f(x, y):
+            lst = [0, 0, 0]
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, lst=lst)
+                myjitdriver.jit_merge_point(x=x, y=y, lst=lst)
+                lst = [i+x for i in lst if i >=0]
+                y -= 1
+            return lst[0]
+        res = self.meta_interp(f, [6, 7], listcomp=True, backendopt=True, listops=True)
+        # XXX: the loop looks inefficient
+        assert res == 42
+        
       
 
 class TestOOtype(BasicTests, OOJitMixin):

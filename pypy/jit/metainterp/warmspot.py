@@ -47,10 +47,15 @@ def apply_jit(translator, backend_name="auto", debug_level="steps",
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
 def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
-                   **kwds):
+                   listcomp=False, **kwds):
+    if listcomp:
+        extraconfigopts = {'translation.list_comprehension_operations': True}
+    else:
+        extraconfigopts = {}
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
-                                    type_system=type_system)
+                                    type_system=type_system,
+                                    **extraconfigopts)
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
