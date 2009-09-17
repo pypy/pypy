@@ -873,9 +873,17 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7], listcomp=True, backendopt=True, listops=True)
         # XXX: the loop looks inefficient
         assert res == 42
-        
-      
 
+    def test_tuple_immutable(self):
+        def new(a, b):
+            return a, b
+        def f(a, b):
+            tup = new(a, b)
+            return tup[1]
+        res = self.interp_operations(f, [3, 5])
+        assert res == 5
+        self.check_history_(setfield_gc=2, getfield_gc_pure=1)
+        
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
