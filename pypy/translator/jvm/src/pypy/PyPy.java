@@ -924,7 +924,7 @@ public class PyPy implements Constants {
     
     public String ll_join(String a, String b)
     {
-        return a + "/" + b; // XXX
+        return a + File.separator + b;
     }
 
     public String ll_strtod_formatd(String format, double d)

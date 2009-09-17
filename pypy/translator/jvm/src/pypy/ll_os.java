@@ -10,6 +10,7 @@ import java.util.Arrays;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+import com.sun.jna.Platform;
 
 abstract class FileWrapper
 {
@@ -172,15 +173,29 @@ public class ll_os implements Constants {
         public int symlink(String path1, String path2);
         public int access(String path, int mode);
     }
+
+    static public interface Msvcrt extends Library {
+         public int _access(String path, int mode);
+    }
+
     static final Libc libc;
+    static final Msvcrt msvcrt;
     static {
-        Libc res;
+        Libc res = null;
+        Msvcrt vcrt = null;
         try {
-            res = (Libc) Native.loadLibrary("c", Libc.class);
+            if ((Platform.isWindows())) {
+                vcrt = (Msvcrt) Native.loadLibrary("msvcrt", Msvcrt.class);
+            }
+            else {
+                res = (Libc) Native.loadLibrary("c", Libc.class);
+            }
         } catch (Throwable t) {
             res = null;
+            vcrt = null;
         }
         libc = res;
+        msvcrt = vcrt;
     }
 
     // NB: these values are those used by Windows and they differs
@@ -297,6 +312,10 @@ public class ll_os implements Constants {
         //
         //if ((mode & X_OK) != 0 && !file.canExecute())
         //    return false;
+        
+        if (msvcrt != null) {
+            return msvcrt._access(path, mode) == 0;
+        }
         
         return libc.access(path, mode) == 0; // note that 0==success
     }
@@ -532,7 +551,7 @@ public class ll_os implements Constants {
 
     public void checkLibc() {
         if (libc == null)
-            throwOSError(EPERM, "jna.jar required");
+            throwOSError(EPERM, "jna.jar and an Unix are required");
     }
 
     public int ll_os_getpid() 
@@ -547,5 +566,10 @@ public class ll_os implements Constants {
         int res = libc.symlink(path1, path2);
         if (res != 0)
             throwOSError(res, "");
+    }
+
+    public String posix__getfullpathname(String name)
+    {
+        return new File(name).getAbsolutePath();
     }
 }
