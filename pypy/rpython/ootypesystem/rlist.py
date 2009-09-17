@@ -85,7 +85,10 @@ class BaseListRepr(AbstractBaseListRepr):
             else:
                 llfn = ll_known_maxlength2list
         else:
-            llfn = ll_list2fixed
+            if isinstance(hop.r_result, FixedSizeListRepr):
+                llfn = ll_list2fixed
+            else:
+                return v_list
         return hop.llops.gendirectcall(llfn, cRESLIST, v_list)
 
 

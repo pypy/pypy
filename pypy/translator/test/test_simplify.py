@@ -422,6 +422,18 @@ class TestLLSpecializeListComprehension:
         res = interp.eval_graph(graph, [8])
         assert res == 5 * 17
 
+    def test_list_iterator_mutated_after_listcomp(self):
+        # for now, this is not optimized as a list comp
+        def main(n):
+            r = range(n)
+            lst = [i*17 for i in iter(r)]
+            lst.append(42)
+            return lst[5]
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [8])
+        assert res == 5 * 17
+
+
     def test_dict_iterator(self):
         # for now, this is not optimized as a list comp
         def main(n, m):
