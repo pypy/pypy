@@ -328,8 +328,8 @@ class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
 
-    def OP_GC_STACK_BOTTOM(self, funcgen, v):
-        return 'pypy_asm_stack_bottom(%s);'  % funcgen.expr(v)
+    def OP_GC_STACK_BOTTOM(self, funcgen, op):
+        return 'pypy_asm_stack_bottom(%s);'  % funcgen.expr(op.result)
 
 
 name_to_gcpolicy = {
