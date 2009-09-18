@@ -132,7 +132,7 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %eax (and possibly %edx) are unmodified  */
             ret
-"""
+""".replace("__gcrootanchor", _globalname("__gcrootanchor"))
         _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                  darwin='',
                  mingw32='')
@@ -140,10 +140,12 @@ class GcRootTracker(object):
         print >> output, '\t.align\t4'
         _globl('__gcrootanchor')
         _label('__gcrootanchor')
-        print >> output, '\t/* A circular doubly-linked list of all */'
-        print >> output, '\t/* the ASM_FRAMEDATAs currently alive */'
-        print >> output, '\t.long\t__gcrootanchor       /* prev */'
-        print >> output, '\t.long\t__gcrootanchor       /* next */'
+        print >> output, """\
+            /* A circular doubly-linked list of all */
+            /* the ASM_FRAMEDATAs currently alive */
+            .long\t__gcrootanchor       /* prev */
+            .long\t__gcrootanchor       /* next */
+""".replace("__gcrootanchor", _globalname("__gcrootanchor"))
         _globl('__gcmapstart')
         _label('__gcmapstart')
         for label, state, is_range in self.gcmaptable:
