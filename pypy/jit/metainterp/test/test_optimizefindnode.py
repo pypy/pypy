@@ -10,7 +10,7 @@ from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          ConstObj, AbstractDescr)
 from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
 from pypy.jit.metainterp.optimizefindnode import BridgeSpecializationFinder
-from pypy.jit.metainterp.optimizeutil import sort_descrs
+from pypy.jit.metainterp.optimizeutil import sort_descrs, InvalidLoop
 from pypy.jit.metainterp.specnode import NotSpecNode, prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
@@ -54,6 +54,7 @@ class LLtypeMixin(object):
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
     node = lltype.malloc(NODE)
+    node.parent.typeptr = node_vtable
     nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     myptr = nodebox.value
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
@@ -217,11 +218,10 @@ class BaseTest(object):
 
 class BaseTestOptimizeFindNode(BaseTest):
 
-    def find_nodes(self, ops, spectext, boxkinds=None, **values):
+    def find_nodes(self, ops, spectext, boxkinds=None):
         assert boxkinds is None or isinstance(boxkinds, dict)
         loop = self.parse(ops, boxkinds=boxkinds)
-        loop.setvalues(**values)
-        perfect_specialization_finder = PerfectSpecializationFinder()
+        perfect_specialization_finder = PerfectSpecializationFinder(self.cpu)
         perfect_specialization_finder.find_nodes_loop(loop)
         self.check_specnodes(loop.specnodes, spectext)
         return (loop.getboxes(), perfect_specialization_finder.getnode)
@@ -418,9 +418,9 @@ class BaseTestOptimizeFindNode(BaseTest):
         p2 = new_with_vtable(ConstClass(node_vtable2))
         jump(p2)
         """
-        # this must give 'Not', not 'Virtual', because optimizeopt.py would
-        # remove the guard_class for a virtual.
-        self.find_nodes(ops, 'Not')
+        # this is not a valid loop at all, because of the mismatch
+        # between the produced and the consumed class.
+        py.test.raises(InvalidLoop, self.find_nodes, ops, None)
 
     def test_find_nodes_new_aliasing_mismatch(self):
         ops = """
@@ -432,6 +432,8 @@ class BaseTestOptimizeFindNode(BaseTest):
         p2 = new_with_vtable(ConstClass(node_vtable2))
         jump(p2, p2)
         """
+        # this is also not really a valid loop, but it's not detected
+        # because p2 is passed more than once in the jump().
         self.find_nodes(ops, 'Not, Not')
 
     def test_find_nodes_new_escapes(self):
@@ -518,14 +520,14 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [p0]
         i0 = getfield_gc(p0, descr=valuedescr)
-        guard_value(i0, 0)
+        guard_value(i0, 5)
           fail()
         p1 = new_with_vtable(ConstClass(node_vtable))
         # the field 'value' has its default value of 0
         jump(p1)
         """
         # The answer must contain the 'value' field, because otherwise
-        # we might get incorrect results: when tracing, maybe i0 was not 0.
+        # we might get incorrect results: when tracing, i0 was 5.
         self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
 
     def test_find_nodes_nonvirtual_guard_class(self):
@@ -722,6 +724,15 @@ class BaseTestOptimizeFindNode(BaseTest):
         """
         self.find_nodes(ops, 'Constant(myptr)')
 
+    def test_find_nodes_guard_value_constant_mismatch(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr2))
+            fail()
+        jump(ConstPtr(myptr))
+        """
+        py.test.raises(InvalidLoop, self.find_nodes, ops, None)
+
     def test_find_nodes_guard_value_escaping_constant(self):
         ops = """
         [p1]
@@ -740,7 +751,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         p2 = same_as(ConstPtr(myptr))
         jump(p2)
         """
-        self.find_nodes(ops, 'Constant(myptr)', p2=self.myptr)
+        self.find_nodes(ops, 'Constant(myptr)')
 
     def test_find_nodes_store_into_loop_constant_1(self):
         ops = """
@@ -781,7 +792,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         setarrayitem_gc(p2, 0, i3, descr=arraydescr)
         jump(p2)
         """
-        self.find_nodes(ops, 'VArray(arraydescr, Not)', i2=1)
+        self.find_nodes(ops, 'VArray(arraydescr, Not)')
 
     def test_find_nodes_arithmetic_propagation_bug_1(self):
         ops = """
@@ -793,7 +804,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         setarrayitem_gc(p2, 0, 5)
         jump(p2)
         """
-        self.find_nodes(ops, 'VArray(arraydescr, Not)', i2=1)
+        self.find_nodes(ops, 'VArray(arraydescr, Not)')
 
     def test_find_nodes_arithmetic_propagation_bug_2(self):
         ops = """
@@ -807,7 +818,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         setarrayitem_gc(p2, i0, i3, descr=arraydescr)
         jump(p2)
         """
-        self.find_nodes(ops, 'VArray(arraydescr, Not)', i2=1, i0=0)
+        self.find_nodes(ops, 'VArray(arraydescr, Not)')
 
     def test_find_nodes_arithmetic_propagation_bug_3(self):
         ops = """
@@ -821,7 +832,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         setarrayitem_gc(p2, 0, i3, descr=arraydescr)
         jump(p2)
         """
-        self.find_nodes(ops, 'VArray(arraydescr, Not)', i2=1)
+        self.find_nodes(ops, 'VArray(arraydescr, Not)')
 
     def test_find_nodes_bug_1(self):
         ops = """
@@ -888,34 +899,18 @@ class BaseTestOptimizeFindNode(BaseTest):
             fail()
         jump(p58)
         """
-        self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)',
-                        i16=0, i25=0, i39=0, i52=0, i55=0, i59=0,
-                        i43=1, i45=1, i48=1, i40=1)
+        self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
 
-    def test_bug_2(self):
-        py.test.skip("fix me")
-        ops = """
-        [p1]
-        i1 = ooisnull(p1)
-        guard_true(i1)
-            fail()
-        #
-        p2 = new_with_vtable(ConstClass(node_vtable))
-        jump(p2)
-        """
-        self.find_nodes(ops, 'Not',
-                        i1=1)
     # ------------------------------
     # Bridge tests
 
     def find_bridge(self, ops, inputspectext, outputspectext, boxkinds=None,
-                    mismatch=False, **values):
+                    mismatch=False):
         assert boxkinds is None or isinstance(boxkinds, dict)
         inputspecnodes = self.unpack_specnodes(inputspectext)
         outputspecnodes = self.unpack_specnodes(outputspectext)
         bridge = self.parse(ops, boxkinds=boxkinds)
-        bridge.setvalues(**values)
-        bridge_specialization_finder = BridgeSpecializationFinder()
+        bridge_specialization_finder = BridgeSpecializationFinder(self.cpu)
         bridge_specialization_finder.find_nodes_bridge(bridge, inputspecnodes)
         matches = bridge_specialization_finder.bridge_matches(outputspecnodes)
         if mismatch:
@@ -1140,6 +1135,22 @@ class BaseTestOptimizeFindNode(BaseTest):
         self.find_bridge(ops, 'Not', 'Not')
         self.find_bridge(ops, 'Not', 'VArray(arraydescr, Not, Not, Not)',
                          mismatch=True)
+
+    def test_bridge_nested_structs(self):
+        ops = """
+        []
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p2, descr=nextdescr)
+        jump(p1)
+        """
+        self.find_bridge(ops, '', 'Not')
+        self.find_bridge(ops, '', 'Virtual(node_vtable, nextdescr=Not)')
+        self.find_bridge(ops, '',
+                   'Virtual(node_vtable, nextdescr=Virtual(node_vtable))')
+        self.find_bridge(ops, '',
+                   'Virtual(node_vtable, nextdescr=Virtual(node_vtable2))',
+                   mismatch=True)
 
 
 class TestLLtype(BaseTestOptimizeFindNode, LLtypeMixin):

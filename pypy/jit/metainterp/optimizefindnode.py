@@ -6,7 +6,9 @@ from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.executor import _execute_nonspec
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
 # ____________________________________________________________
 
@@ -30,7 +32,7 @@ class InstanceNode(object):
     origfields = None   # optimization; equivalent to an empty dict
     curfields = None    # optimization; equivalent to an empty dict
 
-    knownvaluebox = None # Used to store value of this box if constant
+    knownvaluebox = None # a Const with the value of this box, if constant
 
     # fields used to store the shape of the potential VirtualList
     arraydescr = None   # set only on freshly-allocated or fromstart arrays
@@ -112,30 +114,32 @@ class NodeFinder(object):
     node_escaped.unique = UNIQUE_NO
     node_escaped.escaped = True
 
-    def __init__(self):
+    def __init__(self, cpu):
+        self.cpu = cpu
         self.nodes = {}     # Box -> InstanceNode
 
     def getnode(self, box):
         if isinstance(box, Const):
-            return self.set_constant_node(box)
+            return self.set_constant_node(box, box)
         return self.nodes.get(box, self.node_escaped)
 
-    def set_constant_node(self, box):
+    def set_constant_node(self, box, constbox):
+        assert isinstance(constbox, Const)
         node = InstanceNode()
         node.unique = UNIQUE_NO
-        node.knownvaluebox = box
+        node.knownvaluebox = constbox
         self.nodes[box] = node
         return node
 
-    def is_constant_box(self, box):
+    def get_constant_box(self, box):
         if isinstance(box, Const):
-            return True
+            return box
         try:
             node = self.nodes[box]
         except KeyError:
-            return False
+            return None
         else:
-            return node.is_constant()
+            return node.knownvaluebox
 
     def find_nodes(self, operations):
         for op in operations:
@@ -150,11 +154,13 @@ class NodeFinder(object):
     def find_nodes_default(self, op):
         if op.is_always_pure():
             for arg in op.args:
-                node = self.getnode(arg)
-                if not node.is_constant():
+                if self.get_constant_box(arg) is None:
                     break
             else:
-                self.set_constant_node(op.result)
+                # all constant arguments: we can constant-fold
+                argboxes = [self.get_constant_box(arg) for arg in op.args]
+                resbox = _execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
+                self.set_constant_node(op.result, resbox.constbox())
         # default case: mark the arguments as escaping
         for box in op.args:
             self.getnode(box).mark_escaped()
@@ -170,7 +176,9 @@ class NodeFinder(object):
 
     def find_nodes_NEW_WITH_VTABLE(self, op):
         instnode = InstanceNode()
-        instnode.knownclsbox = op.args[0]
+        box = op.args[0]
+        assert isinstance(box, Const)
+        instnode.knownclsbox = box
         self.nodes[op.result] = instnode
 
     def find_nodes_NEW(self, op):
@@ -180,7 +188,8 @@ class NodeFinder(object):
 
     def find_nodes_NEW_ARRAY(self, op):
         lengthbox = op.args[0]
-        if not self.is_constant_box(lengthbox):
+        lengthbox = self.get_constant_box(lengthbox)
+        if lengthbox is None:
             return     # var-sized arrays are not virtual
         arraynode = InstanceNode()
         arraynode.arraysize = lengthbox.getint()
@@ -190,18 +199,22 @@ class NodeFinder(object):
     def find_nodes_ARRAYLEN_GC(self, op):
         arraynode = self.getnode(op.args[0])
         if arraynode.arraydescr is not None:
-            assert op.result.getint() == arraynode.arraysize
-            self.set_constant_node(op.result)
+            resbox = ConstInt(arraynode.arraysize)
+            self.set_constant_node(op.result, resbox)
 
     def find_nodes_GUARD_CLASS(self, op):
         instnode = self.getnode(op.args[0])
         if instnode.fromstart:    # only useful (and safe) in this case
-            instnode.knownclsbox = op.args[1]
+            box = op.args[1]
+            assert isinstance(box, Const)
+            instnode.knownclsbox = box
 
     def find_nodes_GUARD_VALUE(self, op):
         instnode = self.getnode(op.args[0])
         if instnode.fromstart:    # only useful (and safe) in this case
-            instnode.knownvaluebox = op.args[1]
+            box = op.args[1]
+            assert isinstance(box, Const)
+            instnode.knownvaluebox = box
 
     def find_nodes_SETFIELD_GC(self, op):
         instnode = self.getnode(op.args[0])
@@ -240,7 +253,8 @@ class NodeFinder(object):
 
     def find_nodes_SETARRAYITEM_GC(self, op):
         indexbox = op.args[1]
-        if not self.is_constant_box(indexbox):
+        indexbox = self.get_constant_box(indexbox)
+        if indexbox is None:
             self.find_nodes_default(op)            # not a Const index
             return
         arraynode = self.getnode(op.args[0])
@@ -255,7 +269,8 @@ class NodeFinder(object):
 
     def find_nodes_GETARRAYITEM_GC(self, op):
         indexbox = op.args[1]
-        if not self.is_constant_box(indexbox):
+        indexbox = self.get_constant_box(indexbox)
+        if indexbox is None:
             self.find_nodes_default(op)            # not a Const index
             return
         arraynode = self.getnode(op.args[0])
@@ -327,9 +342,11 @@ class PerfectSpecializationFinder(NodeFinder):
     def intersect(self, inputnode, exitnode):
         assert inputnode.fromstart
         if inputnode.is_constant() and \
-           exitnode.is_constant() and \
-           inputnode.knownvaluebox.equals(exitnode.knownvaluebox):
-            return ConstantSpecNode(inputnode.knownvaluebox)
+           exitnode.is_constant():
+            if inputnode.knownvaluebox.same_constant(exitnode.knownvaluebox):
+                return ConstantSpecNode(inputnode.knownvaluebox)
+            else:
+                raise InvalidLoop
         if inputnode.escaped:
             return prebuiltNotSpecNode
         unique = exitnode.unique
@@ -371,9 +388,9 @@ class PerfectSpecializationFinder(NodeFinder):
 
     def intersect_instance(self, inputnode, exitnode):
         if (inputnode.knownclsbox is not None and
-            not inputnode.knownclsbox.equals(exitnode.knownclsbox)):
+            not inputnode.knownclsbox.same_constant(exitnode.knownclsbox)):
             # unique match, but the class is known to be a mismatch
-            return prebuiltNotSpecNode
+            raise InvalidLoop
         #
         fields = self.compute_common_fields(inputnode.origfields,
                                             exitnode.curfields)
@@ -424,7 +441,7 @@ class __extend__(ConstantSpecNode):
     def matches_instance_node(self, exitnode):
         if exitnode.knownvaluebox is None:
             return False
-        return self.constbox.equals(exitnode.knownvaluebox)
+        return self.constbox.same_constant(exitnode.knownvaluebox)
 
 class __extend__(VirtualInstanceSpecNode):
     def make_instance_node(self):
@@ -440,7 +457,7 @@ class __extend__(VirtualInstanceSpecNode):
             return False
         #
         assert exitnode.unique == UNIQUE_INST
-        if not self.known_class.equals(exitnode.knownclsbox):
+        if not self.known_class.same_constant(exitnode.knownclsbox):
             # unique match, but the class is known to be a mismatch
             return False
         #

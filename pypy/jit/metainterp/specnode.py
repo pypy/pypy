@@ -1,4 +1,5 @@
 from pypy.tool.pairtype import extendabletype
+from pypy.jit.metainterp.history import Const
 
 
 class SpecNode(object):
@@ -27,12 +28,12 @@ prebuiltNotSpecNode = NotSpecNode()
 
 class ConstantSpecNode(SpecNode):
     def __init__(self, constbox):
-        assert constbox is not None
+        assert isinstance(constbox, Const)
         self.constbox = constbox
 
     def equals(self, other):
         return isinstance(other, ConstantSpecNode) and \
-               self.constbox.equals(other.constbox)
+               self.constbox.same_constant(other.constbox)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         pass
@@ -64,11 +65,12 @@ class AbstractVirtualStructSpecNode(SpecNode):
 class VirtualInstanceSpecNode(AbstractVirtualStructSpecNode):
     def __init__(self, known_class, fields):
         AbstractVirtualStructSpecNode.__init__(self, fields)
+        assert isinstance(known_class, Const)
         self.known_class = known_class
 
     def equals(self, other):
         if not (isinstance(other, VirtualInstanceSpecNode) and
-                self.known_class.equals(other.known_class)):
+                self.known_class.same_constant(other.known_class)):
             return False
         return self.equal_fields(other)
 

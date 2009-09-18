@@ -146,17 +146,12 @@ def do_ooisnot(cpu, args, descr=None):
 
 def do_ooidentityhash(cpu, args, descr=None):
     obj = args[0].getref_base()
-    return ConstInt(ootype.ooidentityhash(obj))
+    return ConstInt(cpu.ts.ooidentityhash(obj))
 
-
-def do_subclassof(self, args, descr=None):
+def do_subclassof(cpu, args, descr=None):
     assert len(args) == 2
     box1, box2 = args
-    cls1 = box1.getref(ootype.Class)
-    cls2 = box2.getref(ootype.Class)
-    res = ootype.subclassof(cls1, cls2)
-    return BoxInt(res)
-
+    return ConstInt(cpu.ts.subclassOf(cpu, box1, box2))
 
 # ----------
 # the following operations just delegate to the cpu:

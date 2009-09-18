@@ -2,6 +2,11 @@ from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation
 
+class InvalidLoop(Exception):
+    """Raised when the optimize*.py detect that the loop that
+    we are trying to build cannot possibly make sense as a
+    long-running loop (e.g. it cannot run 2 complete iterations)."""
+
 # ____________________________________________________________
 # Misc. utilities
 

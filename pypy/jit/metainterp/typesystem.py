@@ -136,6 +136,9 @@ class LLTypeHelper(TypeSystemHelper):
     def getaddr_for_box(self, cpu, box):
         return box.getaddr(cpu)
 
+    def ooidentityhash(self, x):
+        raise NotImplementedError
+
 class OOTypeHelper(TypeSystemHelper):
 
     name = 'ootype'
@@ -231,6 +234,8 @@ class OOTypeHelper(TypeSystemHelper):
 
     def getaddr_for_box(self, cpu, box):
         return box.getref_base()
+
+    ooidentityhash = staticmethod(ootype.ooidentityhash)
     
 llhelper = LLTypeHelper()
 oohelper = OOTypeHelper()

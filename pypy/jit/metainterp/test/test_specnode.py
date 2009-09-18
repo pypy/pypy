@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.jit.metainterp.history import AbstractDescr, BoxPtr, ConstInt
+from pypy.jit.metainterp.history import AbstractDescr, BoxPtr, ConstInt, ConstPtr
 from pypy.jit.metainterp.specnode import prebuiltNotSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
@@ -25,7 +25,7 @@ def _get_sspecnode():
 def _get_cspecnode(s):
     from pypy.rpython.module.support import LLSupport        
     llstr = lltype.cast_opaque_ptr(llmemory.GCREF, LLSupport.to_rstr(s))
-    box = BoxPtr(llstr)
+    box = ConstPtr(llstr)
     return ConstantSpecNode(box)
 
 def test_equals_specnodes():
@@ -56,7 +56,7 @@ def test_equals_specnodes():
 
 def test_extract_runtime_data_0():
     res = []
-    node = ConstantSpecNode('foo')
+    node = _get_cspecnode('foo')
     node.extract_runtime_data("cpu", "box1", res)
     assert res == []
 

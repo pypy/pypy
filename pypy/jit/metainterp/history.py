@@ -96,9 +96,6 @@ class AbstractValue(object):
     def _get_hash_(self):
         raise NotImplementedError
 
-    def nonnull(self):
-        raise NotImplementedError
-
     def clonebox(self):
         raise NotImplementedError
 
@@ -109,9 +106,6 @@ class AbstractValue(object):
         raise NotImplementedError
 
     def getaddr(self, cpu):
-        raise NotImplementedError
-
-    def equals(self, other):
         raise NotImplementedError
 
     def sort_key(self):
@@ -172,6 +166,12 @@ class Const(AbstractValue):
     def constbox(self):
         return self
 
+    def same_constant(self, other):
+        raise NotImplementedError
+
+    def nonnull_constant(self):
+        raise NotImplementedError
+
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
 
@@ -224,14 +224,15 @@ class ConstInt(Const):
     def _get_hash_(self):
         return self.value
 
-    def nonnull(self):
-        return self.value != 0
-
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.value)
 
-    def equals(self, other):
+    def same_constant(self, other):
+        assert isinstance(other, Const)
         return self.value == other.getint()
+
+    def nonnull_constant(self):
+        return self.value != 0
 
     def _getrepr_(self):
         return self.value
@@ -270,14 +271,15 @@ class ConstAddr(Const):       # only for constants built before translation
     def _get_hash_(self):
         return llmemory.cast_adr_to_int(self.value)
 
-    def nonnull(self):
-        return self.value != llmemory.NULL
-
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.getint())
 
-    def equals(self, other):
+    def same_constant(self, other):
+        assert isinstance(other, Const)
         return self.value == other.getaddr(self.cpu)
+
+    def nonnull_constant(self):
+        return bool(self.value)
 
     def _getrepr_(self):
         return self.value
@@ -308,8 +310,12 @@ class ConstFloat(Const):
     def set_future_value(self, cpu, j):
         cpu.set_future_value_float(j, self.getfloat())
 
-    def equals(self, other):
-        return self.value == other.getfloat()
+    def same_constant(self, other):
+        assert isinstance(other, ConstFloat)
+        return self.value == other.value
+
+    def nonnull_constant(self):
+        return self.value != 0.0
 
     def _getrepr_(self):
         return self.value
@@ -344,14 +350,15 @@ class ConstPtr(Const):
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
 
-    def nonnull(self):
-        return bool(self.value)
-
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)
 
-    def equals(self, other):
-        return self.value == other.getref_base()
+    def same_constant(self, other):
+        assert isinstance(other, ConstPtr)
+        return self.value == other.value
+
+    def nonnull_constant(self):
+        return bool(self.value)
 
     _getrepr_ = repr_pointer
 
@@ -390,9 +397,6 @@ class ConstObj(Const):
         else:
             return 0
 
-    def nonnull(self):
-        return bool(self.value)
-
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)
 
@@ -402,8 +406,12 @@ class ConstObj(Const):
 ##        # real addr, but just a key for the dictionary
 ##        return self.value
 
-    def equals(self, other):
-        return self.value == other.getref_base()
+    def same_constant(self, other):
+        assert isinstance(other, ConstObj)
+        return self.value == other.value
+
+    def nonnull_constant(self):
+        return bool(self.value)
 
     _getrepr_ = repr_object
 
@@ -435,9 +443,6 @@ class Box(AbstractValue):
             return BoxFloat(x)
         else:
             raise NotImplementedError(kind)
-
-    def equals(self, other):
-        return self is other
 
     def nonconstbox(self):
         return self
@@ -493,9 +498,6 @@ class BoxInt(Box):
 
     def _get_hash_(self):
         return self.value
-
-    def nonnull(self):
-        return self.value != 0
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.value)
@@ -572,9 +574,6 @@ class BoxPtr(Box):
     def _get_hash_(self):
         return lltype.cast_ptr_to_int(self.value)
 
-    def nonnull(self):
-        return bool(self.value)
-
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)
 
@@ -616,9 +615,6 @@ class BoxObj(Box):
             return ootype.ooidentityhash(self.value)
         else:
             return 0
-
-    def nonnull(self):
-        return bool(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)

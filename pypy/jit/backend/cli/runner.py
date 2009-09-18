@@ -86,6 +86,11 @@ class CliCPU(model.AbstractCPU):
         T1, _ = T._lookup_field(fieldname)
         return FieldDescr.new(T1, fieldname)
 
+    @staticmethod
+    def typedescr2classbox(descr):
+        assert isinstance(descr, TypeDescr)
+        return ConstObj(ootype.cast_to_object(descr.ooclass))
+
     # ----------------------
 
     def compile_operations(self, loop, bridge=None):

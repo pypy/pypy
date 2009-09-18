@@ -305,7 +305,7 @@ class MIFrame(object):
         box = self.implement_guard_value(pc, valuebox)
         for i in range(len(constargs)):
             casebox = constargs[i]
-            if box.equals(casebox):
+            if box.same_constant(casebox):
                 self.pc = jumptargets[i]
                 break
 
@@ -998,13 +998,13 @@ class MIFrame(object):
         return guard_op
 
     def implement_guard_value(self, pc, box):
-        if isinstance(box, Box):
+        if isinstance(box, Const):
+            return box     # no promotion needed, already a Const
+        else:
             promoted_box = box.constbox()
             self.generate_guard(pc, rop.GUARD_VALUE, box, [promoted_box])
             self.metainterp.replace_box(box, promoted_box)
             return promoted_box
-        else:
-            return box     # no promotion needed, already a Const
 
     def cls_of_box(self, box):
         return self.metainterp.cpu.ts.cls_of_box(self.metainterp.cpu, box)
@@ -1422,10 +1422,12 @@ class MetaInterp(object):
             for i in range(self.staticdata.num_green_args):
                 box1 = original_boxes[i]
                 box2 = live_arg_boxes[i]
-                if not box1.equals(box2):
+                assert isinstance(box1, Const)
+                if not box1.same_constant(box2):
                     break
             else:
                 # Found!  Compile it as a loop.
+                oldops = self.history.operations[:]
                 if j > 0:
                     # clean up, but without shifting the end of the list
                     # (that would make 'history_guard_index' invalid)
@@ -1445,7 +1447,16 @@ class MetaInterp(object):
                             self.history.operations[i] = None
                         compile.prepare_loop_from_bridge(self, self.resumekey)
                 loop = self.compile(original_boxes, live_arg_boxes, start)
-                raise GenerateMergePoint(live_arg_boxes, loop)
+                if loop is not None:
+                    raise GenerateMergePoint(live_arg_boxes, loop)
+                # creation of the loop was cancelled!  Patch
+                # history.operations so that it contains again
+                # exactly its old list of operations...
+                # xxx maybe we could patch history.operations with
+                # Nones after calling self.compile() instead of
+                # before...
+                del self.history.operations[:]
+                self.history.operations.extend(oldops)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -1504,8 +1515,7 @@ class MetaInterp(object):
         old_loops = glob.compiled_merge_points.setdefault(greenargs, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop = compile.compile_new_loop(self, old_loops, greenkey, start)
-        assert loop is not None
-        if not we_are_translated():
+        if not we_are_translated() and loop is not None:
             loop._call_history = self._debug_history
         return loop
 

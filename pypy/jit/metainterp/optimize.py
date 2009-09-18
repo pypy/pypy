@@ -12,7 +12,7 @@ def optimize_loop(options, old_loops, loop, cpu):
             return None
     if options.logger_noopt is not None:
         options.logger_noopt.log_loop(loop)
-    finder = PerfectSpecializationFinder()
+    finder = PerfectSpecializationFinder(cpu)
     finder.find_nodes_loop(loop)
     for old_loop in old_loops:
         if equals_specnodes(old_loop.specnodes, loop.specnodes):
@@ -30,7 +30,7 @@ def optimize_bridge(options, old_loops, bridge, cpu):
         return old_loops[0]
     if options.logger_noopt is not None:
         options.logger_noopt.log_loop(bridge)
-    finder = BridgeSpecializationFinder()
+    finder = BridgeSpecializationFinder(cpu)
     finder.find_nodes_bridge(bridge)
     for old_loop in old_loops:
         if finder.bridge_matches(old_loop.specnodes):

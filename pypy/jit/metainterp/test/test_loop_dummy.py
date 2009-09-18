@@ -17,6 +17,9 @@ class LoopDummyTest(test_loop.LoopTest, test_send.SendTests):
     def check_loop_count(self, count):
         pass
 
+    def check_jumps(self, maxcount):
+        pass
+
 class TestLLtype(LoopDummyTest, LLJitMixin):
     pass
 

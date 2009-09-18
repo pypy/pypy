@@ -47,7 +47,9 @@ def from_opaque_string(s):
         return LLSupport.from_rstr(s)
 
 # a list of argtypes of all operations - couldn't find any and it's
-# very useful
+# very useful.  Note however that the table is half-broken here and
+# there, in ways that are sometimes a bit hard to fix; that's why
+# it is not "official".
 TYPES = {
     'int_add'         : (('int', 'int'), 'int'),
     'int_sub'         : (('int', 'int'), 'int'),

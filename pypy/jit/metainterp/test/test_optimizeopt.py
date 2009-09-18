@@ -7,6 +7,7 @@ from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
                                                             BaseTest)
 from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt
 from pypy.jit.metainterp import resume, executor, compile
 from pypy.jit.metainterp.resoperation import rop, opname
@@ -96,15 +97,14 @@ class BaseTestOptimizeOpt(BaseTest):
                             expected.operations,
                             remap)
 
-    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True,
-                      **values):
+    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True):
         loop = self.parse(ops)
-        loop.setvalues(**values)
         #
         if checkspecnodes:
             # verify that 'spectext' is indeed what optimizefindnode would
             # compute for this loop
-            perfect_specialization_finder = PerfectSpecializationFinder()
+            cpu = self.cpu
+            perfect_specialization_finder = PerfectSpecializationFinder(cpu)
             perfect_specialization_finder.find_nodes_loop(loop)
             self.check_specnodes(loop.specnodes, spectext)
         else:
@@ -128,7 +128,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail(i0)
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', ops, i0=0)
+        self.optimize_loop(ops, 'Not', ops)
 
     def test_constant_propagate(self):
         ops = """
@@ -148,23 +148,40 @@ class BaseTestOptimizeOpt(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, '', expected, i0=5, i1=1, i2=0)
+        self.optimize_loop(ops, '', expected)
 
     def test_constfold_all(self):
-        for op in range(rop.INT_ADD, rop.BOOL_NOT+1):
+        from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
+        from pypy.jit.metainterp.executor import _execute_nonspec
+        from pypy.jit.metainterp.history import BoxInt
+        import random
+        for opnum in range(rop.INT_ADD, rop.BOOL_NOT+1):
             try:
-                op = opname[op]
+                op = opname[opnum]
             except KeyError:
                 continue
+            if 'FLOAT' in op:
+                continue
+            argtypes, restype = TYPES[op.lower()]
+            args = []
+            for argtype in argtypes:
+                assert argtype in ('int', 'bool')
+                args.append(random.randrange(1, 20))
+            assert restype in ('int', 'bool')
             ops = """
             []
-            i1 = %s(3, 2)
+            i1 = %s(%s)
+            escape(i1)
             jump()
-            """ % op.lower()
+            """ % (op.lower(), ', '.join(map(str, args)))
+            argboxes = [BoxInt(a) for a in args]
+            expected_value = _execute_nonspec(self.cpu, opnum,
+                                              argboxes).getint()
             expected = """
             []
+            escape(%d)
             jump()
-            """
+            """ % expected_value
             self.optimize_loop(ops, '', expected)
 
     # ----------
@@ -203,24 +220,42 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
-    def test_remove_consecutive_guard_value_constfold(self):
+    def test_remove_guard_class_constant(self):
         ops = """
         [i0]
+        p0 = same_as(ConstPtr(myptr))
+        guard_class(p0, ConstClass(node_vtable))
+          fail()
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_remove_consecutive_guard_value_constfold(self):
+        ops = """
+        []
+        i0 = escape()
         guard_value(i0, 0)
           fail()
         i1 = int_add(i0, 1)
         guard_value(i1, 1)
           fail()
         i2 = int_add(i1, 2)
-        jump(i2)
+        escape(i2)
+        jump()
         """
         expected = """
-        [i0]
+        []
+        i0 = escape()
         guard_value(i0, 0)
-            fail()
-        jump(3)
+          fail()
+        escape(3)
+        jump()
         """
-        self.optimize_loop(ops, 'Not', expected, i0=0, i1=1, i2=3)
+        self.optimize_loop(ops, '', expected)
 
     def test_remove_guard_value_if_constant(self):
         ops = """
@@ -233,7 +268,7 @@ class BaseTestOptimizeOpt(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, 'Constant(myptr)', expected, p1=self.nodebox.value)
+        self.optimize_loop(ops, 'Constant(myptr)', expected)
         
     def test_ooisnull_oononnull_1(self):
         ops = """
@@ -254,7 +289,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_int_is_true_1(self):
         ops = """
@@ -274,7 +309,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=123, i1=1, i2=1)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_ooisnull_oononnull_2(self):
         ops = """
@@ -294,8 +329,67 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0,
-                           p0=self.nodebox.value)
+        self.optimize_loop(ops, 'Not', expected)
+        ops = """
+        [p0]
+        i1 = ooisnull(p0)
+        guard_false(i1)
+          fail()
+        i0 = oononnull(p0)         # p0 != NULL
+        guard_true(i0)
+          fail()
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i1 = ooisnull(p0)
+        guard_false(i1)
+          fail()
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_ooisnull_on_null_ptr_1(self):
+        ops = """
+        []
+        p0 = escape()
+        i0 = ooisnull(p0)
+        guard_true(i0)
+          fail()
+        i1 = oononnull(p0)
+        guard_false(i1)
+          fail()
+        jump()
+        """
+        expected = """
+        []
+        p0 = escape()
+        i0 = ooisnull(p0)
+        guard_true(i0)
+          fail()
+        jump()
+        """
+        self.optimize_loop(ops, '', expected)
+        ops = """
+        []
+        p0 = escape()
+        i0 = oononnull(p0)
+        guard_false(i0)
+          fail()
+        i1 = ooisnull(p0)
+        guard_true(i1)
+          fail()
+        jump()
+        """
+        expected = """
+        []
+        p0 = escape()
+        i0 = oononnull(p0)
+        guard_false(i0)
+          fail()
+        jump()
+        """
+        self.optimize_loop(ops, '', expected)
 
     def test_ooisnull_oononnull_via_virtual(self):
         ops = """
@@ -318,8 +412,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0,
-                           p0=self.nodebox.value)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_oois_1(self):
         ops = """
@@ -346,7 +439,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected, i0=1, i1=0, i2=1, i3=0)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_nonnull_1(self):
         ops = """
@@ -377,8 +470,7 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p0, 5, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected,
-                           i0=1, i1=0, i2=1, i3=0, i4=1, i5=0)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_const_guard_value(self):
         ops = """
@@ -392,7 +484,7 @@ class BaseTestOptimizeOpt(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, '', expected, i=8)
+        self.optimize_loop(ops, '', expected)
 
     def test_constptr_guard_value(self):
         ops = """
@@ -402,7 +494,7 @@ class BaseTestOptimizeOpt(BaseTest):
             fail()
         jump()
         """
-        self.optimize_loop(ops, '', ops, p1=self.nodebox.value)
+        self.optimize_loop(ops, '', ops)
 
 
     def test_p123_simple(self):
@@ -562,9 +654,7 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, '''Virtual(node_vtable),
                                    Virtual(node_vtable),
                                    Not''',
-                           expected, checkspecnodes=False,
-                           i1=1, i2=0, i3=1, i4=0, i5=1, i6=0,
-                           i7=1, i8=0, i9=1, i10=0, i11=1, i12=0)
+                           expected, checkspecnodes=False)
         #
         # to be complete, we also check the no-opt case where most comparisons
         # are not removed.  The exact set of comparisons removed depends on
@@ -615,7 +705,7 @@ class BaseTestOptimizeOpt(BaseTest):
         # the 'expected' is sub-optimal, but it should be done by another later
         # optimization step.  See test_find_nodes_default_field() for why.
         self.optimize_loop(ops, 'Virtual(node_vtable, valuedescr=Not)',
-                           expected, i0=0)
+                           expected)
 
     def test_virtual_3(self):
         ops = """
@@ -711,7 +801,7 @@ class BaseTestOptimizeOpt(BaseTest):
         [i0]
         jump(0)
         """
-        self.optimize_loop(ops, 'Not', expected, p2=self.nodebox.value, i1=0)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_nonvirtual_1(self):
         ops = """
@@ -794,7 +884,8 @@ class BaseTestOptimizeOpt(BaseTest):
         [i]
         jump(5)
         """
-        self.optimize_loop(ops, 'Not', expected, i1=5)
+        self.node.value = 5
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_getfield_gc_nonpure_2(self):
         ops = """
@@ -803,7 +894,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1)
         """
         expected = ops
-        self.optimize_loop(ops, 'Not', expected, i1=5)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_varray_1(self):
         ops = """
@@ -821,7 +912,7 @@ class BaseTestOptimizeOpt(BaseTest):
         [i1]
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected, i3=3)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_array_non_optimized(self):
         ops = """
@@ -860,8 +951,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail()
         jump(i0, 20, i0)
         """
-        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not, Not)', expected,
-                           i3=15)
+        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not, Not)', expected)
 
     def test_p123_array(self):
         ops = """
@@ -895,7 +985,7 @@ class BaseTestOptimizeOpt(BaseTest):
         escape(i2)
         jump()
         """
-        self.optimize_loop(ops, '', expected, i1=3, i2=3)
+        self.optimize_loop(ops, '', expected)
 
     def test_vstruct_1(self):
         ops = """
@@ -1088,7 +1178,7 @@ class BaseTestOptimizeOpt(BaseTest):
         escape(i1)
         jump()
         """
-        self.optimize_loop(ops, 'Constant(myptr)', expected, p1=self.nodebox.value)
+        self.optimize_loop(ops, 'Constant(myptr)', expected)
 
     def test_duplicate_getfield_sideeffects_1(self):
         ops = """
@@ -1138,11 +1228,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0, p3)
         """
         self.optimize_loop(ops, 'Not, Virtual(node_vtable, nextdescr=Not)',
-                           expected, i2=0,
-                           p1=self.nodebox.value,
-                           p2=self.nodebox.value,
-                           p3=self.nodebox.value,
-                           p4=self.nodebox.value)
+                           expected)
 
     def test_bug_2(self):
         ops = """
@@ -1169,9 +1255,51 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0, p3)
         """
         self.optimize_loop(ops, 'Not, VArray(arraydescr2, Not)',
-                           expected, i2=0,
-                           p3=self.sbox.value,
-                           p4=self.sbox.value)
+                           expected)
+
+    def test_invalid_loop_1(self):
+        ops = """
+        [p1]
+        i1 = ooisnull(p1)
+        guard_true(i1)
+            fail()
+        #
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        jump(p2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop,
+                       ops, 'Virtual(node_vtable)', None)
+
+    def test_invalid_loop_2(self):
+        py.test.skip("this would fail if we had Fixed again in the specnodes")
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2))
+            fail()
+        #
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        escape(p2)      # prevent it from staying Virtual
+        jump(p2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop,
+                       ops, '...', None)
+
+    def test_invalid_loop_3(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr)
+        i1 = ooisnull(p2)
+        guard_true(i1)
+            fail()
+        #
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p4, descr=nextdescr)
+        jump(p3)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops,
+                       'Virtual(node_vtable, nextdescr=Virtual(node_vtable))',
+                       None)
 
     # ----------
 
@@ -1298,7 +1426,7 @@ class BaseTestOptimizeOpt(BaseTest):
             fail(i3, descr=fdescr)
         jump(1, i3)
         """
-        self.optimize_loop(ops, 'Not, Not', expected, i1=1, i2=15)
+        self.optimize_loop(ops, 'Not, Not', expected)
         self.check_expanded_fail_descr('15, i3')
 
     def test_expand_fail_2(self):
@@ -1318,7 +1446,7 @@ class BaseTestOptimizeOpt(BaseTest):
             fail(i2, descr=fdescr)
         jump(1, i2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not, Not', expected)
         self.check_expanded_fail_descr('''ptr
             where ptr is a node_vtable, valuedescr=i2
             ''')
@@ -1343,8 +1471,7 @@ class BaseTestOptimizeOpt(BaseTest):
             fail(i3, i2, p3, descr=fdescr)
         jump(i2, 1, i3, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, i1=1,
-                           p3=self.nodebox.value)
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
         self.check_expanded_fail_descr('''p1, i3
             where p1 is a node_vtable, valuedescr=1, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p3
@@ -1374,7 +1501,7 @@ class BaseTestOptimizeOpt(BaseTest):
                 fail(i3, i2, descr=fdescr)
             jump(1, i2, i3)
             """
-            self.optimize_loop(ops % arg, 'Not, Not, Not', expected, i1=1)
+            self.optimize_loop(ops % arg, 'Not, Not, Not', expected)
             self.check_expanded_fail_descr('''i3, %s, i3
                 where p1 is a node_vtable, valuedescr=i2, nextdescr=p2
                 where p2 is a node_vtable, valuedescr=i2''' % arg)
@@ -1400,7 +1527,7 @@ class BaseTestOptimizeOpt(BaseTest):
             fail(i3, i4, i2, descr=fdescr)
         jump(i2, 1, i3, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
         self.check_expanded_fail_descr('''p1, i3, p2, i4
             where p1 is a node_vtable, valuedescr=i4, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p1
@@ -1423,7 +1550,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1, i1, i1)
         """
         self.optimize_loop(ops, '''Virtual(node_vtable, valuedescr=Not),
-                                   Not, Not''', expected, i0=1)
+                                   Not, Not''', expected)
         self.check_expanded_fail_descr('''p0
             where p0 is a node_vtable, valuedescr=i1b
             ''')
@@ -1446,7 +1573,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail(i1, descr=fdescr)
         jump(1)
         """
-        self.optimize_loop(ops, 'Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not', expected)
         self.check_expanded_fail_descr('''p1
             where p1 is a varray arraydescr: 25, i1
             ''')
@@ -1470,7 +1597,7 @@ class BaseTestOptimizeOpt(BaseTest):
           fail(i1, p1, descr=fdescr)
         jump(1, p1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not, Not', expected)
         self.check_expanded_fail_descr('''p2
             where p2 is a vstruct ssize, adescr=i1, bdescr=p1
             ''')
@@ -1510,7 +1637,7 @@ class BaseTestOptimizeOpt(BaseTest):
                            bdescr=Virtual(node_vtable,
                                           valuedescr=Not)),
                    Not),
-            Not''', expected, i1=1)
+            Not''', expected)
         self.check_expanded_fail_descr('''p1a
             where p1a is a varray arraydescr2: p6s, p5s
             where p6s is a vstruct ssize, adescr=ia, bdescr=p7v
@@ -1535,5 +1662,5 @@ class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
         [i0]
         jump(1)
         """
-        self.optimize_loop(ops, 'Not', expected, i1=1)
+        self.optimize_loop(ops, 'Not', expected)
  
