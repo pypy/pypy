@@ -1,11 +1,5 @@
-
 import py
-import sys
-import os
-
-from pypy.tool.autopath import pypydir
-from pypy.translator.c.test.test_genc import compile
-from pypy.tool.udir import udir
+# tests here are run as snippets through a pexpected python subprocess
 
 def setup_module(mod):
     try:
@@ -16,7 +10,6 @@ def setup_module(mod):
 
 class ExpectTestLLTermios(object):
     def test_tcgetattr(self):
-
         from pypy.translator.c.test.test_genc import compile
         import termios
         from pypy.rlib import rtermios

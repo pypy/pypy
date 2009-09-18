@@ -23,7 +23,7 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     # XXX fish
     t.driver.config.translation.countmallocs = True
     compiled_fn = t.compile_c()
-    if py.test.config.option.view:
+    if getattr(py.test.config.option, 'view', False):
         t.view()
     malloc_counters = t.driver.cbuilder.get_malloc_counters()
     def checking_fn(*args, **kwds):

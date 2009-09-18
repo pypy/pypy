@@ -1,12 +1,9 @@
-
-from pypy.translator.c.test.test_genc import compile
-from pypy.module._minimal_curses import interp_curses
-from pypy.module._minimal_curses import fficurses        
-from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.tool.udir import udir
 import py
 import sys
+# tests here are run as snippets through a pexpected python subprocess
+
 
 def setup_module(mod):
     try:
@@ -73,7 +70,6 @@ class TestCurses(object):
         child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
         
-
 class ExpectTestCCurses(object):
     """ Test compiled version
     """

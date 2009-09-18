@@ -486,8 +486,8 @@ class ExpectTestMethod(py.test.collect.Function):
     def spawn(self, argv):
         return self._spawn(sys.executable, argv)
 
-    def execute(self, target, *args):
-        assert not args
+    def runtest(self):
+        target = self.obj
         import pexpect
         source = py.code.Source(target)[1:].deindent()
         filename = self.safe_filename()
