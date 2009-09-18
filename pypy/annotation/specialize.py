@@ -48,16 +48,15 @@ def flatten_star_args(funcdesc, args_s):
             checkgraph(graph)
             return graph
 
-        key = nb_extra_args
-        name_suffix = '_star%d' % (nb_extra_args,) # xxx kill
-        return flattened_s, key, name_suffix, builder
+        key = ('star', nb_extra_args)
+        return flattened_s, key, builder
 
     else:
-        return args_s, None, '', None
+        return args_s, None, None
 
 def default_specialize(funcdesc, args_s):
     # first flatten the *args
-    args_s, key, name_suffix, builder = flatten_star_args(funcdesc, args_s)
+    args_s, key, builder = flatten_star_args(funcdesc, args_s)
     # two versions: a regular one and one for instances with 'access_directly'
     jit_look_inside = getattr(funcdesc.pyobj, '_look_inside_me_', True)
     # change args_s in place, "official" interface
@@ -68,7 +67,6 @@ def default_specialize(funcdesc, args_s):
             if jit_look_inside:
                 access_directly = True
                 key = (AccessDirect, key)
-                name_suffix += '_AccessDirect'
                 break                
             else:
                 new_flags = s_obj.flags.copy()
@@ -78,11 +76,7 @@ def default_specialize(funcdesc, args_s):
                 args_s[i] = new_s_obj
 
     # done
-    if name_suffix:
-        alt_name = '%s%s' % (funcdesc.name, name_suffix)
-    else:
-        alt_name = None
-    graph = funcdesc.cachedgraph(key, alt_name=alt_name, builder=builder)
+    graph = funcdesc.cachedgraph(key, builder=builder)
     if access_directly:
         graph.access_directly = True
     return graph
@@ -336,9 +330,9 @@ def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
     return constgraphbuilder
 
 def maybe_star_args(funcdesc, key, args_s):
-    args_s, key1, ignore, builder = flatten_star_args(funcdesc, args_s)
+    args_s, key1, builder = flatten_star_args(funcdesc, args_s)
     if key1 is not None:
-        key = key + (key1,) # xxx make sure key1 is already a tuple
+        key = key + key1
     return funcdesc.cachedgraph(key, builder=builder)
  
 def specialize_argvalue(funcdesc, args_s, *argindices):

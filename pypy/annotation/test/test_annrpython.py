@@ -1141,8 +1141,8 @@ class TestAnnotateTestCase:
         executedesc = a.bookkeeper.getdesc(I.execute.im_func)
         assert len(executedesc._cache) == 2       
 
-        assert len(executedesc._cache[(0, 2)].startblock.inputargs) == 4
-        assert len(executedesc._cache[(1, 3)].startblock.inputargs) == 5
+        assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
+        assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
 
     def test_assert_list_doesnt_lose_info(self):
         class T(object):

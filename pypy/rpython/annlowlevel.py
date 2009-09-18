@@ -42,7 +42,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         pol.rtyper = rtyper
 
     def lowlevelspecialize(funcdesc, args_s, key_for_args):
-        args_s, key1, ignored, builder = flatten_star_args(funcdesc, args_s)
+        args_s, key1, builder = flatten_star_args(funcdesc, args_s)
         key = []
         new_args_s = []
         for i, s_obj in enumerate(args_s):
