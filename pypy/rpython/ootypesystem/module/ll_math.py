@@ -1,8 +1,9 @@
 import math
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.rtupletype import TUPLE_TYPE
 
-FREXP_RESULT = ootype.Record({"item0": ootype.Float, "item1": ootype.Signed})
-MODF_RESULT = ootype.Record({"item0": ootype.Float, "item1": ootype.Float})
+FREXP_RESULT = TUPLE_TYPE([ootype.Float, ootype.Signed])
+MODF_RESULT = TUPLE_TYPE([ootype.Float, ootype.Float])
 
 def ll_frexp_result(mantissa, exponent):
     tup = ootype.new(FREXP_RESULT)
