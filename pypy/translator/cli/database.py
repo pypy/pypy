@@ -9,7 +9,8 @@ from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal, Counter
 from pypy.translator.cli.cts import types
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.module import ll_os
+from pypy.rpython.ootypesystem.module import ll_os, ll_math
+from pypy.rpython.ootypesystem.rtupletype import TUPLE_TYPE
 from pypy.translator.cli import dotnet
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.oosupport.database import Database as OODatabase
@@ -20,18 +21,13 @@ except NameError:
     from sets import Set as set
 
 BUILTIN_RECORDS = {
-    ootype.Record({"item0": ootype.Signed, "item1": ootype.Signed}):
-    '[pypylib]pypy.runtime.Record_Signed_Signed',
-    
-    ootype.Record({"item0": ootype.Float, "item1": ootype.Signed}):
-    '[pypylib]pypy.runtime.Record_Float_Signed',
-    
-    ootype.Record({"item0": ootype.Float, "item1": ootype.Float}):
-    '[pypylib]pypy.runtime.Record_Float_Float',
+    TUPLE_TYPE([ootype.Signed, ootype.Signed]):
+        '[pypylib]pypy.runtime.Record_Signed_Signed',
+    TUPLE_TYPE([ootype.String, ootype.String]): 
+        '[pypylib]pypy.runtime.Record_String_String',
 
-    ootype.Record({"item0": ootype.String, "item1": ootype.String}):
-    '[pypylib]pypy.runtime.Record_String_String',
-
+    ll_math.FREXP_RESULT: '[pypylib]pypy.runtime.Record_Float_Signed',    
+    ll_math.MODF_RESULT: '[pypylib]pypy.runtime.Record_Float_Float',
     ll_os.STAT_RESULT: '[pypylib]pypy.runtime.Record_Stat_Result',
     }
 
