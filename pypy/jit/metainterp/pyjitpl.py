@@ -1288,6 +1288,9 @@ class MetaInterp(object):
             op = self.history.record(opnum, argboxes, resbox, descr)
             profiler.count_ops(opnum, self.history.OPS_KIND)
             self.attach_debug_info(op)
+        else:
+            if self.is_blackholing():
+                profiler.count_ops(opnum, self.history.OPS_KIND) # canfold blackholed
         if require_attention:
             self.after_generate_residual_call()
         return resbox
