@@ -900,6 +900,7 @@ namespace pypy.runtime
         private TValue elem = default(TValue);
 
         public DictOfVoidKey() {}
+        public DictOfVoidKey(IEqualityComparer<TKey> comparer) {}
 
         public int ll_length() { return this.length; }
         public TValue ll_get() { return this.elem; }
