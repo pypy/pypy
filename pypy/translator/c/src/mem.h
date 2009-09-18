@@ -49,7 +49,7 @@ extern long pypy_asm_stackwalk(void*);
                                              "g" (v))
 
 /* marker for trackgcroot.py */
-#define OP_GC_STACK_BOTTOM(r)  asm volatile ("/* GC_STACK_BOTTOM */" : : )
+#define pypy_asm_stack_bottom(r)  asm volatile ("/* asm_stack_bottom */" : : )
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
                i == 0 ? (void*)&__gcmapstart :         \
