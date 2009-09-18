@@ -8,6 +8,7 @@ from pypy.tool.uid import uid
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.jitprof import BLACKHOLED_OPS, RECORDED_OPS
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -769,6 +770,7 @@ class RunningMatcher(Base):
         raise NotImplementedError
 
 class History(RunningMatcher):
+    OPS_KIND = RECORDED_OPS
     extratext = ''
     def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
@@ -776,6 +778,7 @@ class History(RunningMatcher):
         return op
 
 class BlackHole(RunningMatcher):
+    OPS_KIND = BLACKHOLED_OPS
     extratext = ' (BlackHole)'
     def record(self, opnum, argboxes, resbox, descr=None):
         return None

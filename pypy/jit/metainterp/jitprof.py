@@ -9,6 +9,10 @@ TRACING = 0
 BACKEND = 1
 RUNNING = 2
 BLACKHOLE = 3
+OPS = 4
+RECORDED_OPS = 5
+BLACKHOLED_OPS = 6
+GUARDS = 7
 
 class EmptyProfiler(object):
     initialized = True
@@ -43,6 +47,10 @@ class EmptyProfiler(object):
     def end_blackhole(self):
         pass
 
+    def count_ops(self, opnum, kind=OPS):
+        pass
+
+
 class Profiler(object):
     initialized = False
     timer = time.time
@@ -51,7 +59,8 @@ class Profiler(object):
         self.starttime = self.timer()
         self.t1 = self.starttime
         self.times = [0, 0, 0, 0]
-        self.counters = [0, 0, 0, 0]
+        self.counters = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.calls = [[0, 0], [0, 0], [0, 0]]
         self.current = []
 
     def finish(self):
@@ -90,14 +99,34 @@ class Profiler(object):
     def start_blackhole(self): self._start(BLACKHOLE)
     def end_blackhole(self):   self._end  (BLACKHOLE)
 
+    def count_ops(self, opnum, kind=OPS):
+        from pypy.jit.metainterp.resoperation import rop
+        self.counters[kind] += 1
+        if opnum == rop.CALL or opnum == rop.OOSEND:
+            self.calls[kind-OPS][0] += 1
+        elif opnum == rop.CALL_PURE or opnum == rop.OOSEND_PURE:
+            self.calls[kind-OPS][1] += 1        
+
     def print_stats(self):
         cnt = self.counters
         tim = self.times
+        calls = self.calls
         lines = ("Tracing:    \t%d\t%f\n" % (cnt[TRACING],   tim[TRACING]) +
                  "Backend:    \t%d\t%f\n" % (cnt[BACKEND],   tim[BACKEND]) +
                  "Running asm:\t%d\t%f\n" % (cnt[RUNNING],   tim[RUNNING]) +
                  "Blackhole:  \t%d\t%f\n" % (cnt[BLACKHOLE], tim[BLACKHOLE]) +
-                 "TOTAL:      \t\t%f\n" % (self.tk - self.starttime))
+                 "TOTAL:      \t\t%f\n" % (self.tk - self.starttime) + 
+                 "ops:           \t%d\n" % cnt[OPS] +
+                 "  calls:       \t%d\n" % calls[0][0] +
+                 "  pure calls:  \t%d\n" % calls[0][1] +                 
+                 "recorded ops:  \t%d\n" % cnt[RECORDED_OPS] +
+                 "  calls:       \t%d\n" % calls[1][0] +
+                 "  pure calls:  \t%d\n" % calls[1][1] +                 
+                 "guards:        \t%d\n" % cnt[GUARDS] +                  
+                 "blackholed ops:\t%d\n" % cnt[BLACKHOLED_OPS] +
+                 "  calls:       \t%d\n" % calls[2][0] +
+                 "  pure calls:  \t%d\n" % calls[2][1]
+                 )
         import os
         os.write(2, lines)
 

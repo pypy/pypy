@@ -10,6 +10,7 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.backend.logger import Logger
+from pypy.jit.metainterp.jitprof import EmptyProfiler, GUARDS
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 
@@ -989,6 +990,7 @@ class MIFrame(object):
         resumedescr = compile.ResumeGuardDescr(
             metainterp.history, len(metainterp.history.operations)-1)
         liveboxes = resumebuilder.finish(resumedescr)
+        self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS) # count
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
         metainterp.attach_debug_info(guard_op)
@@ -1045,7 +1047,6 @@ class MetaInterpStaticData(object):
         if profile is not None:
             self.profiler = profile()
         else:
-            from pypy.jit.metainterp.jitprof import EmptyProfiler
             self.profiler = EmptyProfiler()
 
         self.warmrunnerdesc = warmrunnerdesc
@@ -1280,9 +1281,12 @@ class MetaInterp(object):
                 resbox = resbox.nonconstbox()    # ensure it is a Box
         else:
             assert resbox is None or isinstance(resbox, Box)
+        profiler = self.staticdata.profiler
+        profiler.count_ops(opnum)
         # record the operation if not constant-folded away
         if not canfold:
             op = self.history.record(opnum, argboxes, resbox, descr)
+            profiler.count_ops(opnum, self.history.OPS_KIND)
             self.attach_debug_info(op)
         if require_attention:
             self.after_generate_residual_call()

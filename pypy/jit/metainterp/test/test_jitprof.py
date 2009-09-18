@@ -1,6 +1,6 @@
 
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
@@ -55,3 +55,26 @@ class TestProfile(ProfilerMixin):
             ]
         assert profiler.events == expected
         assert profiler.times == [2, 1, 1, 1]
+        assert profiler.counters == [1, 1, 1, 1, 4, 3, 1, 1]
+
+    def test_simple_loop_with_call(self):
+        @dont_look_inside
+        def g(n):
+            pass
+        
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res += x
+                g(x)
+                y -= 1
+            return res * 2
+        res = self.meta_interp(f, [6, 7])
+        assert res == 84
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
+        # calls = (executed, recorded, blackholed) x (inpure, pure)
+        assert profiler.calls == [[1, 0], [1, 0], [0, 0]]
+
