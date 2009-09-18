@@ -185,6 +185,5 @@ class AbstractCPU(object):
     def do_instanceof(self, args, descr=None):
         raise NotImplementedError
 
-    @staticmethod
-    def typedescr2classbox(descr):
+    def typedescr2classbox(self, descr):
         raise NotImplementedError

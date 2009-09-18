@@ -507,8 +507,7 @@ class OOtypeCPU(BaseCPU):
         TYPE = A.ITEM
         return TypeDescr.new(TYPE)
 
-    @staticmethod
-    def typedescr2classbox(descr):
+    def typedescr2classbox(self, descr):
         assert isinstance(descr, TypeDescr)
         return history.ConstObj(ootype.cast_to_object(
                             ootype.runtimeClass(descr.TYPE)))
