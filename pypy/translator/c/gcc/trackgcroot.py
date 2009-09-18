@@ -41,6 +41,7 @@ r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+("+OPERAND+"),\s*("+OPERAND+")\s*$")
 LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|\d*[(]%esp[)]"
 LOCALVARFP      = LOCALVAR + r"|-?\d*[(]%ebp[)]"
 r_gcroot_marker = re.compile(r"\t/[*] GCROOT ("+LOCALVARFP+") [*]/")
+r_bottom_marker = re.compile(r"\t/[*] GC_STACK_BOTTOM [*]/")
 r_localvarnofp  = re.compile(LOCALVAR)
 r_localvarfp    = re.compile(LOCALVARFP)
 r_localvar_esp  = re.compile(r"(\d*)[(]%esp[)]")
@@ -100,21 +101,36 @@ class GcRootTracker(object):
             /* See description in asmgcroot.py */
             movl   4(%esp), %edx     /* my argument, which is the callback */
             movl   %esp, %eax        /* my frame top address */
-            pushl  %eax              /* ASM_FRAMEDATA[4] */
-            pushl  %ebp              /* ASM_FRAMEDATA[3] */
-            pushl  %edi              /* ASM_FRAMEDATA[2] */
-            pushl  %esi              /* ASM_FRAMEDATA[1] */
-            pushl  %ebx              /* ASM_FRAMEDATA[0] */
-            movl   %esp, %eax        /* address of ASM_FRAMEDATA */
-            pushl  %eax              /* respect Mac OS X 16 bytes aligment */ 
-            pushl  %eax              /* the one argument to the callback */
-            call   *%edx             /* invoke the callback */
-            addl   $8, %esp
-            popl   %ebx              /* restore from ASM_FRAMEDATA[0] */
-            popl   %esi              /* restore from ASM_FRAMEDATA[1] */
-            popl   %edi              /* restore from ASM_FRAMEDATA[2] */
-            popl   %ebp              /* restore from ASM_FRAMEDATA[3] */
-            popl   %eax
+            pushl  %eax              /* ASM_FRAMEDATA[6] */
+            pushl  %ebp              /* ASM_FRAMEDATA[5] */
+            pushl  %edi              /* ASM_FRAMEDATA[4] */
+            pushl  %esi              /* ASM_FRAMEDATA[3] */
+            pushl  %ebx              /* ASM_FRAMEDATA[2] */
+
+            /* Add this ASM_FRAMEDATA to the front of the circular linked */
+            /* list.  Let's call it 'self'. */
+            movl   __gcrootanchor+4, %eax  /* next = gcrootanchor->next */
+            pushl  %eax                    /* self->next = next         */
+            pushl  $__gcrootanchor         /* self->prev = gcrootanchor */
+            movl   %esp, __gcrootanchor+4  /* gcrootanchor->next = self */
+            movl   %esp, (%eax)            /* next->prev = self         */
+
+            /* note: the Mac OS X 16 bytes aligment must be respected. */
+            call   *%edx                   /* invoke the callback */
+
+            /* Detach this ASM_FRAMEDATA from the circular linked list */
+            popl   %esi                    /* prev = self->prev         */
+            popl   %edi                    /* next = self->next         */
+            movl   %edi, 4(%esi)           /* prev->next = next         */
+            movl   %esi, (%edi)            /* next->prev = prev         */
+
+            popl   %ebx              /* restore from ASM_FRAMEDATA[2] */
+            popl   %esi              /* restore from ASM_FRAMEDATA[3] */
+            popl   %edi              /* restore from ASM_FRAMEDATA[4] */
+            popl   %ebp              /* restore from ASM_FRAMEDATA[5] */
+            popl   %ecx              /* ignored      ASM_FRAMEDATA[6] */
+            /* the return value is the one of the 'call' above, */
+            /* because %eax (and possibly %edx) are unmodified  */
             ret
 """
         _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
@@ -122,6 +138,12 @@ class GcRootTracker(object):
                  mingw32='')
         print >> output, '\t.data'
         print >> output, '\t.align\t4'
+        _globl('__gcrootanchor')
+        _label('__gcrootanchor')
+        print >> output, '\t/* A circular doubly-linked list of all */'
+        print >> output, '\t/* the ASM_FRAMEDATAs currently alive */'
+        print >> output, '\t.long\t__gcrootanchor       /* prev */'
+        print >> output, '\t.long\t__gcrootanchor       /* next */'
         _globl('__gcmapstart')
         _label('__gcmapstart')
         for label, state, is_range in self.gcmaptable:
@@ -210,7 +232,8 @@ class GcRootTracker(object):
     def process_function(self, lines, entrypoint, filename):
         tracker = FunctionGcRootTracker(lines, filetag=getidentifier(filename),
                                         format=self.format)
-        tracker.is_main = tracker.funcname == entrypoint
+        is_main = tracker.funcname == entrypoint
+        tracker.is_stack_bottom = is_main
         if self.verbose == 1:
             sys.stderr.write('.')
         elif self.verbose > 1:
@@ -225,7 +248,7 @@ class GcRootTracker(object):
             self.gcmaptable[:0] = table
         else:
             self.gcmaptable.extend(table)
-        self.seen_main |= tracker.is_main
+        self.seen_main |= is_main
         return tracker.lines
 
 
@@ -252,7 +275,8 @@ class FunctionGcRootTracker(object):
         self.uses_frame_pointer = False
         self.r_localvar = r_localvarnofp
         self.filetag = filetag
-        self.is_main = False
+        # a "stack bottom" function is either main() or a callback from C code
+        self.is_stack_bottom = False
 
     def computegcmaptable(self, verbose=0):
         self.findlabels()
@@ -278,7 +302,7 @@ class FunctionGcRootTracker(object):
         for insn in self.list_call_insns():
             if not hasattr(insn, 'framesize'):
                 continue     # calls that never end up reaching a RET
-            if self.is_main:
+            if self.is_stack_bottom:
                 retaddr = LOC_NOWHERE     # end marker for asmgcroot.py
             elif self.uses_frame_pointer:
                 retaddr = frameloc(LOC_EBP_BASED, 4)
@@ -304,7 +328,7 @@ class FunctionGcRootTracker(object):
                 else:
                     regindex = CALLEE_SAVE_REGISTERS.index(tag)
                     shape[1 + regindex] = loc
-            if LOC_NOWHERE in shape and not self.is_main:
+            if LOC_NOWHERE in shape and not self.is_stack_bottom:
                 reg = CALLEE_SAVE_REGISTERS[shape.index(LOC_NOWHERE) - 1]
                 raise AssertionError("cannot track where register %s is saved"
                                      % (reg,))
@@ -339,6 +363,8 @@ class FunctionGcRootTracker(object):
                     insn = meth(line)
             elif r_gcroot_marker.match(line):
                 insn = self._visit_gcroot_marker(line)
+            elif r_bottom_marker.match(line):
+                self.is_stack_bottom = True
             elif line == '\t/* ignore_in_trackgcroot */\n':
                 ignore_insns = True
             elif line == '\t/* end_ignore_in_trackgcroot */\n':
@@ -450,7 +476,7 @@ class FunctionGcRootTracker(object):
                 yield source
 
         for insn in self.insns:
-            for loc, tag in insn.requestgcroots().items():
+            for loc, tag in insn.requestgcroots(self).items():
                 self.walk_instructions_backwards(walker, insn, loc)
 
     def dump(self):
@@ -683,7 +709,7 @@ class FunctionGcRootTracker(object):
         return self._visit_epilogue() + self._visit_pop('%ebp')
 
     def visit_ret(self, line):
-        return InsnRet(self.is_main)
+        return InsnRet()
 
     def visit_jmp(self, line):
         match = r_jmp_switch.match(line)
@@ -705,7 +731,7 @@ class FunctionGcRootTracker(object):
         if r_unaryinsn_star.match(line):
             # that looks like an indirect tail-call.
             # tail-calls are equivalent to RET for us
-            return InsnRet(self.is_main)
+            return InsnRet()
         try:
             self.conditional_jump(line)
         except KeyError:
@@ -714,7 +740,7 @@ class FunctionGcRootTracker(object):
             target = match.group(1)
             assert not target.startswith('.')
             # tail-calls are equivalent to RET for us
-            return InsnRet(self.is_main)
+            return InsnRet()
         return InsnStop()
 
     def register_jump_to(self, label):
@@ -818,7 +844,7 @@ class Insn(object):
         return '%s(%s)' % (self.__class__.__name__,
                            ', '.join([str(getattr(self, name))
                                       for name in self._args_]))
-    def requestgcroots(self):
+    def requestgcroots(self, tracker):
         return {}
 
     def source_of(self, localvar, tag):
@@ -891,11 +917,12 @@ class InsnStop(Insn):
 
 class InsnRet(InsnStop):
     framesize = 0
-    def __init__(self, is_main):
-        self.is_main = is_main
-    def requestgcroots(self):
-        if self.is_main:  # no need to track the value of these registers in
-            return {}     # the caller function if we are the main()
+    def requestgcroots(self, tracker):
+        # no need to track the value of these registers in the caller
+        # function if we are the main(), or if we are flagged as a
+        # "bottom" function (a callback from C code)
+        if tracker.is_stack_bottom:
+            return {}
         else:
             return dict(zip(CALLEE_SAVE_REGISTERS, CALLEE_SAVE_REGISTERS))
 
@@ -938,7 +965,7 @@ class InsnGCROOT(Insn):
     _locals_ = ['loc']
     def __init__(self, loc):
         self.loc = loc
-    def requestgcroots(self):
+    def requestgcroots(self, tracker):
         return {self.loc: None}
 
 class InsnPrologue(Insn):

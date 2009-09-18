@@ -223,7 +223,7 @@ def invoke_around_extcall(before, after):
 
 def is_in_callback():
     from pypy.rpython.lltypesystem import rffi
-    return rffi.aroundstate.callback_counter > 0
+    return rffi.stackcounter.stacks_counter > 1
 
 
 class UnboxedValue(object):

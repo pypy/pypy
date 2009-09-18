@@ -2,6 +2,7 @@ import py
 import sys, os, re
 
 from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.debug import ll_assert, debug_print
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
@@ -286,29 +287,55 @@ class TestMaemo(TestStandalone):
 
 
 class TestThread(object):
+    gcrootfinder = 'shadowstack'
+
+    def compile(self, entry_point):
+        t = TranslationContext()
+        t.config.translation.gc = "semispace"
+        t.config.translation.gcrootfinder = self.gcrootfinder
+        t.config.translation.thread = True
+        t.buildannotator().build_types(entry_point, [s_list_of_strings])
+        t.buildrtyper().specialize()
+        #
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+        cbuilder.generate_source()
+        cbuilder.compile()
+        #
+        return t, cbuilder
+
+
     def test_stack_size(self):
         import time
         from pypy.module.thread import ll_thread
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rlib.objectmodel import invoke_around_extcall
 
         class State:
             pass
         state = State()
 
+        def before():
+            debug_print("releasing...")
+            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+                      "lock not held!")
+            ll_thread.release_NOAUTO(state.ll_lock)
+            debug_print("released")
+        def after():
+            debug_print("waiting...")
+            ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            debug_print("acquired")
+
         def recurse(n):
             if n > 0:
                 return recurse(n-1)+1
             else:
-                state.ll_lock.release()
-                time.sleep(0.2)
-                state.ll_lock.acquire(True)
+                time.sleep(0.2)      # invokes before/after
                 return 0
 
         def bootstrap():
-            # recurse a lot, like 2500 times
-            state.ll_lock.acquire(True)
-            recurse(2500)
+            # recurse a lot, like 19500 times
+            recurse(19500)
             state.count += 1
-            state.ll_lock.release()
 
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -318,18 +345,18 @@ class TestThread(object):
             s1 = State(); s2 = State(); s3 = State()
             s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333
             # start 3 new threads
-            state.ll_lock = ll_thread.Lock(ll_thread.allocate_ll_lock())
+            state.ll_lock = ll_thread.allocate_ll_lock()
+            after()
             state.count = 0
+            invoke_around_extcall(before, after)
             ident1 = ll_thread.start_new_thread(bootstrap, ())
             ident2 = ll_thread.start_new_thread(bootstrap, ())
             ident3 = ll_thread.start_new_thread(bootstrap, ())
             # wait for the 3 threads to finish
             while True:
-                state.ll_lock.acquire(True)
                 if state.count == 3:
                     break
-                state.ll_lock.release()
-                time.sleep(0.1)
+                time.sleep(0.1)      # invokes before/after
             # check that the malloced structures were not overwritten
             assert s1.x == 0x11111111
             assert s2.x == 0x22222222
@@ -337,17 +364,12 @@ class TestThread(object):
             os.write(1, "done\n")
             return 0
 
-        t = TranslationContext()
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
-        cbuilder.compile()
+        t, cbuilder = self.compile(entry_point)
 
         # recursing should crash with only 32 KB of stack,
         # and it should eventually work with more stack
-        for test_kb in [32, 128, 512, 1024, 2048, 4096, 8192, 16384]:
+        for test_kb in [32, 128, 512, 1024, 2048, 4096, 8192, 16384,
+                        32768, 65536]:
             print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
             try:
                 data = cbuilder.cmdexec(str(test_kb * 1024))
@@ -364,3 +386,74 @@ class TestThread(object):
                 break    # finish
         else:
             py.test.fail("none of the stack sizes worked")
+
+
+    def test_thread_and_gc(self):
+        import time, gc
+        from pypy.module.thread import ll_thread
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rlib.objectmodel import invoke_around_extcall
+
+        class State:
+            pass
+        state = State()
+
+        def before():
+            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+                      "lock not held!")
+            ll_thread.release_NOAUTO(state.ll_lock)
+        def after():
+            ll_thread.acquire_NOAUTO(state.ll_lock, True)
+
+        class Cons:
+            def __init__(self, head, tail):
+                self.head = head
+                self.tail = tail
+
+        def bootstrap():
+            state.xlist.append(Cons(123, Cons(456, None)))
+            gc.collect()
+
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            state.xlist = []
+            x2 = Cons(51, Cons(62, Cons(74, None)))
+            # start 5 new threads
+            state.ll_lock = ll_thread.allocate_ll_lock()
+            after()
+            invoke_around_extcall(before, after)
+            ident1 = ll_thread.start_new_thread(bootstrap, ())
+            ident2 = ll_thread.start_new_thread(bootstrap, ())
+            #
+            gc.collect()
+            #
+            ident3 = ll_thread.start_new_thread(bootstrap, ())
+            ident4 = ll_thread.start_new_thread(bootstrap, ())
+            ident5 = ll_thread.start_new_thread(bootstrap, ())
+            # wait for the 5 threads to finish
+            while True:
+                gc.collect()
+                if len(state.xlist) == 5:
+                    break
+                time.sleep(0.1)      # invokes before/after
+            # check that the malloced structures were not overwritten
+            assert x2.head == 51
+            assert x2.tail.head == 62
+            assert x2.tail.tail.head == 74
+            assert x2.tail.tail.tail is None
+            # check the structures produced by the threads
+            for i in range(5):
+                assert state.xlist[i].head == 123
+                assert state.xlist[i].tail.head == 456
+                assert state.xlist[i].tail.tail is None
+                os.write(1, "%d ok\n" % (i+1))
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        assert data.splitlines() == ['hello world',
+                                     '1 ok',
+                                     '2 ok',
+                                     '3 ok',
+                                     '4 ok',
+                                     '5 ok']

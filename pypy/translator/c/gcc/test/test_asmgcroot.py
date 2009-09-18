@@ -95,5 +95,34 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
     # for the individual tests see
     # ====> ../../test/test_newgc.py
 
-    def test_callback_with_collect(self):
-        py.test.skip("in-progress")
+    def test_callback_simple(self):
+        import gc
+        from pypy.rpython.lltypesystem import lltype, rffi
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+        c_source = py.code.Source("""
+        int mystuff(int(*cb)(int, int))
+        {
+            return cb(40, 2) + cb(3, 4);
+        }
+        """)
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        CALLBACK = lltype.FuncType([lltype.Signed, lltype.Signed],
+                                   lltype.Signed)
+        z = rffi.llexternal('mystuff', [lltype.Ptr(CALLBACK)], lltype.Signed,
+                            compilation_info=eci)
+
+        def mycallback(a, b):
+            gc.collect()
+            return a + b
+
+        def f():
+            p = lltype.malloc(S)
+            p.x = 100
+            result = z(mycallback)
+            return result * p.x
+
+        c_fn = self.getcompiled(f)
+        assert c_fn() == 4900

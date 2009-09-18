@@ -151,6 +151,7 @@ class FrameworkGCTransformer(GCTransformer):
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
         root_walker = self.build_root_walker()
+        self.root_walker = root_walker
         gcdata.set_query_functions(gcdata.gc)
         gcdata.gc.set_root_walker(root_walker)
         self.num_pushs = 0
@@ -377,17 +378,7 @@ class FrameworkGCTransformer(GCTransformer):
 
         # thread support
         if translator.config.translation.thread:
-            if not hasattr(root_walker, "need_thread_support"):
-                raise Exception("%s does not support threads" % (
-                    root_walker.__class__.__name__,))
-            root_walker.need_thread_support()
-            self.thread_prepare_ptr = getfn(root_walker.thread_prepare,
-                                            [], annmodel.s_None)
-            self.thread_run_ptr = getfn(root_walker.thread_run,
-                                        [], annmodel.s_None,
-                                        inline=True)
-            self.thread_die_ptr = getfn(root_walker.thread_die,
-                                        [], annmodel.s_None)
+            root_walker.need_thread_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
 
@@ -721,15 +712,18 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_gc_thread_prepare(self, hop):
         assert self.translator.config.translation.thread
-        hop.genop("direct_call", [self.thread_prepare_ptr])
+        if hasattr(self.root_walker, 'thread_prepare_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_prepare_ptr])
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
-        hop.genop("direct_call", [self.thread_run_ptr])
+        if hasattr(self.root_walker, 'thread_run_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_run_ptr])
 
     def gct_gc_thread_die(self, hop):
         assert self.translator.config.translation.thread
-        hop.genop("direct_call", [self.thread_die_ptr])
+        if hasattr(self.root_walker, 'thread_die_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_die_ptr])
 
     def gct_malloc_nonmovable_varsize(self, hop):
         TYPE = hop.spaceop.result.concretetype
@@ -918,6 +912,10 @@ class BaseRootWalker:
         if collect_stack_root:
             self.walk_stack_roots(collect_stack_root)     # abstract
 
+    def need_thread_support(self, gctransformer, getfn):
+        raise Exception("%s does not support threads" % (
+            self.__class__.__name__,))
+
 
 class ShadowStackRootWalker(BaseRootWalker):
     need_root_stack = True
@@ -976,7 +974,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         if self.collect_stacks_from_other_threads is not None:
             self.collect_stacks_from_other_threads(collect_stack_root)
 
-    def need_thread_support(self):
+    def need_thread_support(self, gctransformer, getfn):
         from pypy.module.thread import ll_thread    # xxx fish
         from pypy.rpython.memory.support import AddressDict
         from pypy.rpython.memory.support import copy_without_null_values
@@ -1087,7 +1085,8 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.thread_stacks.foreach(collect_stack, callback)
 
         self.thread_setup = thread_setup
-        self.thread_prepare = thread_prepare
-        self.thread_run = thread_run
-        self.thread_die = thread_die
+        self.thread_prepare_ptr = getfn(thread_prepare, [], annmodel.s_None)
+        self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
+                                    inline=True)
+        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
         self.collect_stacks_from_other_threads = collect_more_stacks

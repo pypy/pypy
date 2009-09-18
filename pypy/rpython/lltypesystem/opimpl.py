@@ -382,6 +382,9 @@ def op_debug_print(*args):
         print arg,
     print
 
+def op_gc_stack_bottom():
+    pass       # marker for trackgcroot.py
+
 def op_promote_virtualizable(object, fieldname, flags):
     pass # XXX should do something
 

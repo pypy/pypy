@@ -20,6 +20,8 @@ struct rpy_memory_alignment_test2 {
 extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
+extern void *__gcrootanchor;
+extern long pypy_asm_stackwalk(void*);
 #define __gcnoreorderhack __gcmapend
 
 /* The following pseudo-instruction is used by --gcrootfinder=asmgcc
@@ -43,10 +45,18 @@ extern char __gccallshapes;
                     "0" (p), "m" (__gcnoreorderhack)); \
                _r; })
 
-#define OP_LLVM_GCMAPSTART(r)	r = &__gcmapstart
-#define OP_LLVM_GCMAPEND(r)	r = &__gcmapend
-#define OP_LLVM_GCCALLSHAPES(r)	r = &__gccallshapes
+#define pypy_asm_keepalive(v)  asm volatile ("/* keepalive %0 */" : : \
+                                             "g" (v))
 
+/* marker for trackgcroot.py */
+#define OP_GC_STACK_BOTTOM(r)  asm volatile ("/* GC_STACK_BOTTOM */" : : )
+
+#define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
+               i == 0 ? (void*)&__gcmapstart :         \
+               i == 1 ? (void*)&__gcmapend :           \
+               i == 2 ? (void*)&__gccallshapes :       \
+               i == 3 ? (void*)&__gcrootanchor :       \
+               NULL
 
 #define RAW_MALLOC_ZERO_FILLED 0
 

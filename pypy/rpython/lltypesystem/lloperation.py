@@ -446,13 +446,10 @@ LL_OPERATIONS = {
                                  canunwindgc=True),
     'gc_x_size_header':     LLOp(),
 
-    # for llvm.gcroot() support.  can change at any time
-    'llvm_frameaddress':    LLOp(sideeffects=False),
-    'llvm_gcmapstart':      LLOp(sideeffects=False),
-    'llvm_gcmapend':        LLOp(sideeffects=False),
-    'llvm_gccallshapes':    LLOp(sideeffects=False),
-    'llvm_store_gcroot':    LLOp(),
-    'llvm_load_gcroot':     LLOp(),
+    # for asmgcroot support to get the address of various static structures
+    # see translator/c/src/mem.h for the valid indices
+    'gc_asmgcroot_static':  LLOp(sideeffects=False),
+    'gc_stack_bottom':      LLOp(canrun=True),
 
     # NOTE NOTE NOTE! don't forget *** canunwindgc=True *** for anything that
     # can go through a stack unwind, in particular anything that mallocs!

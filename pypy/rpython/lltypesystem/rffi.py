@@ -136,6 +136,7 @@ def llexternal(name, args, result, _callable=None,
         call_external_function = miniglobals['call_external_function']
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
+        call_external_function._gctransformer_hint_close_stack_ = True
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -205,6 +206,8 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
@@ -213,6 +216,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 before = aroundstate.before
                 after = aroundstate.after
@@ -222,8 +226,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
             if after:
                 after()
             # from now on we hold the GIL
-            if aroundstate is not None:
-                aroundstate.callback_counter += 1
+            stackcounter.stacks_counter += 1
             try:
                 result = callable(%s)
             except Exception, e:
@@ -234,8 +237,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
                     import traceback
                     traceback.print_exc()
                 result = errorcode
-            if aroundstate is not None:
-                aroundstate.callback_counter -= 1
+            stackcounter.stacks_counter -= 1
             if before:
                 before()
             # here we don't hold the GIL any more. As in the wrapper() produced
@@ -247,6 +249,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
+    miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
@@ -256,10 +259,16 @@ class AroundState:
     def _freeze_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
-        self.callback_counter = 0
         return False
 aroundstate = AroundState()
 aroundstate._freeze_()
+
+class StackCounter:
+    def _freeze_(self):
+        self.stacks_counter = 1     # number of "stack pieces": callbacks
+        return False                # and threads increase it by one
+stackcounter = StackCounter()
+stackcounter._freeze_()
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive

@@ -18,8 +18,9 @@ from pypy.rlib.objectmodel import free_non_gc_object
 #   stored in the global bootstrapper object.
 #
 # * The GC is notified that a new thread is about to start; in the
-#   framework GC, this allocates a fresh new shadow stack (but doesn't
-#   use it yet).  See gc_thread_prepare().
+#   framework GC with shadow stacks, this allocates a fresh new shadow
+#   stack (but doesn't use it yet).  See gc_thread_prepare().  This
+#   has no effect in asmgcc.
 #
 # * The new thread is launched at RPython level using an rffi call
 #   to the C function RPyThreadStart() defined in
@@ -35,6 +36,7 @@ from pypy.rlib.objectmodel import free_non_gc_object
 #   called from the rffi-generated wrapper).  The gc_thread_run()
 #   operation will automatically notice that the current thread id was
 #   not seen before, and start using the freshly prepared shadow stack.
+#   Again, this has no effect in asmgcc.
 #
 # * Only then does bootstrap() really run.  The first thing it does
 #   is grab the start-up information (app-level callable and args)
@@ -47,7 +49,7 @@ from pypy.rlib.objectmodel import free_non_gc_object
 #   thread.
 #
 # * Just before a thread finishes, gc_thread_die() is called to free
-#   its shadow stack.
+#   its shadow stack.  This has no effect in asmgcc.
 
 
 class Bootstrapper(object):

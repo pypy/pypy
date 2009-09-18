@@ -322,6 +322,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
 
+    def GC_KEEPALIVE(self, funcgen, v):
+        return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
+
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
