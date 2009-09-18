@@ -49,7 +49,7 @@ def flatten_star_args(funcdesc, args_s):
             return graph
 
         key = nb_extra_args
-        name_suffix = '_star%d' % (nb_extra_args,)
+        name_suffix = '_star%d' % (nb_extra_args,) # xxx kill
         return flattened_s, key, name_suffix, builder
 
     else:
@@ -442,6 +442,12 @@ def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
         return translator.buildflowgraph(miniglobals['constf'])
     return constgraphbuilder
 
+def maybe_star_args(funcdesc, key, args_s):
+    args_s, key1, ignore, builder = flatten_star_args(funcdesc, args_s)
+    if key1 is not None:
+        key = key + (key1,) # xxx make sure key1 is already a tuple
+    return funcdesc.cachedgraph(key, builder=builder)
+ 
 def specialize_argvalue(funcdesc, args_s, *argindices):
     from pypy.annotation.model import SomePBC
     key = []
@@ -456,11 +462,11 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
             raise Exception("specialize:arg(%d): argument not constant: %r"
                             % (i, s))
     key = tuple(key)
-    return funcdesc.cachedgraph(key)
+    return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_argtype(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].knowntype for i in argindices])
-    return funcdesc.cachedgraph(key)
+    return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_arglistitemtype(funcdesc, args_s, i):
     s = args_s[i]
@@ -468,4 +474,4 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
         key = None
     else:
         key = s.listdef.listitem.s_value.knowntype
-    return funcdesc.cachedgraph(key)        
+    return maybe_star_args(funcdesc, key, args_s)

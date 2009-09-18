@@ -1120,6 +1120,30 @@ class TestAnnotateTestCase:
         assert s.items[3].const == 7
         assert s.items[4].const == 2
 
+    def test_specialize_and_star_args(self):
+        class I(object):
+            def execute(self, op, *args):
+                if op == 0:
+                    return args[0]+args[1]
+                if op == 1:
+                    return args[0] * args[1] + args[2]
+            execute._annspecialcase_ = "specialize:arg(1)"
+
+        def f(x, y):
+            i = I()
+            a = i.execute(0, x, y)
+            b = i.execute(1, y, y, 5)
+            return a+b
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, int])
+       
+        executedesc = a.bookkeeper.getdesc(I.execute.im_func)
+        assert len(executedesc._cache) == 2       
+
+        assert len(executedesc._cache[(0, 2)].startblock.inputargs) == 4
+        assert len(executedesc._cache[(1, 3)].startblock.inputargs) == 5
+
     def test_assert_list_doesnt_lose_info(self):
         class T(object):
             pass
