@@ -57,6 +57,111 @@ def test_frame_info():
     assert not reader.has_more_frame_infos()
 
 
+class FakeFrame(object):
+    parent_resumedata = None
+
+    def __init__(self, code, pc, exc_target, *boxes):
+        self.jitcode = code
+        self.pc = pc
+        self.exception_target = exc_target
+        self.env = list(boxes)
+
+def test_ResumeDataBuilder_clone():
+    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
+    rd = ResumeDataBuilder()
+    rd.generate_boxes([b1, c1, b2])
+    rd.generate_frame_info(('code1', 2, -1))
+
+    rd1 = rd.clone()
+    assert rd1.liveboxes == rd.liveboxes
+    assert rd1.memo == rd.memo
+    assert rd1.consts == rd.consts
+    assert rd1.nums == rd.nums
+    assert rd1.frame_infos == rd.frame_infos
+
+    assert rd1 is not rd
+    assert rd1.liveboxes is not rd.liveboxes
+    assert rd1.memo is not rd.memo
+    assert rd1.consts is not rd.consts
+    assert rd1.nums is not rd.nums
+    assert rd1.frame_infos is not rd.frame_infos
+
+
+def test_ResumeDataBuilder_make():
+    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2)]
+    rd = ResumeDataBuilder.make(fs)
+    assert rd.liveboxes == [b1, b2]
+    assert rd.consts == [c1]
+    assert rd.nums == [0, -2, 1, -1]
+    assert rd.frame_infos == [('code0', 0, -1)]
+
+    assert fs[0].parent_resumedata is not None
+    prd = fs[0].parent_resumedata
+    assert prd.nums == []
+
+    assert rd is not prd
+    
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
+          FakeFrame("code1", 3, 7, b3, c2, b1),
+          FakeFrame("code2", 9, -1, c3, b2)]
+    rd = ResumeDataBuilder.make(fs)
+    assert rd.liveboxes == [b1, b2, b3]
+    assert rd.consts == [c1, c2, c3]
+    assert rd.nums == [0, -2, 1, -1,
+                       2, -3, 0, -1,
+                       -4, 1, -1]
+                       
+    assert rd.frame_infos == [('code0', 0, -1),
+                              ('code1', 3, 7),
+                              ('code2', 9, -1)]
+
+    assert fs[0].parent_resumedata is not None
+    assert fs[1].parent_resumedata is not None
+    assert fs[2].parent_resumedata is not None
+
+    prd = fs[0].parent_resumedata
+    assert prd.nums == []
+
+    prd = fs[1].parent_resumedata
+    assert prd.nums == [0, -2, 1, -1]
+    
+    prd = fs[2].parent_resumedata
+    assert prd.nums == [0, -2, 1, -1,
+                       2, -3, 0, -1]
+
+    rds = (rd, fs[0].parent_resumedata, fs[1].parent_resumedata,
+               fs[2].parent_resumedata)
+    for i in range(len(rds)):
+        for j in range(i+1, len(rds)):
+            assert rds[i] is not rds[j]
+
+    fs[2].env = [b2, b3]
+    fs[2].pc = 15
+    rd = ResumeDataBuilder.make(fs)
+    assert rd.liveboxes == [b1, b2, b3]
+    assert rd.consts == [c1, c2]
+    assert rd.nums == [0, -2, 1, -1,
+                       2, -3, 0, -1,
+                       1, 2, -1]
+                       
+    assert rd.frame_infos == [('code0', 0, -1),
+                              ('code1', 3, 7),
+                              ('code2', 15, -1)]
+
+    assert fs[2].parent_resumedata is prd
+
+    rds = (rd, fs[0].parent_resumedata, fs[1].parent_resumedata,
+               fs[2].parent_resumedata)
+    for i in range(len(rds)):
+        for j in range(i+1, len(rds)):
+            assert rds[i] is not rds[j]    
+
+
+# ____________________________________________________________
+
 class MyMetaInterp:
     def __init__(self, cpu):
         self.cpu = cpu

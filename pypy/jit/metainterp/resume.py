@@ -12,16 +12,26 @@ from pypy.jit.metainterp.resoperation import rop
 
 debug = False
 
-
+# xxx we would like more "chaining" instead of copying
 class ResumeDataBuilder(object):
 
-    def __init__(self):
-        self.memo = {}
-        self.liveboxes = []
-        self.consts = []
-        self.nums = []
-        self.frame_infos = []
+    def __init__(self, _other=None):
+        if _other is None:
+            self.memo = {}
+            self.liveboxes = []
+            self.consts = []
+            self.nums = []
+            self.frame_infos = []
+        else:
+            self.memo = _other.memo.copy()
+            self.liveboxes = _other.liveboxes[:]
+            self.consts = _other.consts[:]
+            self.nums = _other.nums[:]
+            self.frame_infos = _other.frame_infos[:]
 
+    def clone(self):
+        return ResumeDataBuilder(self)
+        
     def generate_boxes(self, boxes):
         for box in boxes:
             assert box is not None
@@ -41,6 +51,32 @@ class ResumeDataBuilder(object):
     def generate_frame_info(self, *frame_info):
         self.frame_infos.append(frame_info)
 
+    def _add_level(self, frame):
+        self.generate_frame_info(frame.jitcode, frame.pc,
+                                    frame.exception_target)
+        self.generate_boxes(frame.env)        
+
+    @staticmethod
+    def _get_fresh_parent_resumedata(framestack, n):
+        target = framestack[n]
+        if target.parent_resumedata is not None:
+            return target.parent_resumedata.clone()
+        if n == 0:
+            parent_resumedata = ResumeDataBuilder()
+        else:
+            parent_resumedata = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n-1)
+            parent_resumedata._add_level(framestack[n-1])
+        target.parent_resumedata = parent_resumedata
+        return parent_resumedata.clone()
+
+    @staticmethod
+    def make(framestack):
+        n = len(framestack)-1
+        top = framestack[-1]
+        builder = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n)
+        builder._add_level(top)
+        return builder
+         
     def finish(self, storage):
         storage.rd_frame_infos = self.frame_infos[:]
         storage.rd_nums = self.nums[:]

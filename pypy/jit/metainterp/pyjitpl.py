@@ -118,6 +118,7 @@ class arguments(object):
 class MIFrame(object):
     exception_box = None
     exc_value_box = None
+    parent_resumedata = None # for resume.py operation
 
     def __init__(self, metainterp, jitcode):
         assert isinstance(jitcode, codewriter.JitCode)
@@ -975,13 +976,9 @@ class MIFrame(object):
             return
         saved_pc = self.pc
         self.pc = pc
-        resumebuilder = resume.ResumeDataBuilder()
+        resumebuilder = resume.ResumeDataBuilder.make(metainterp.framestack)
         if metainterp.staticdata.virtualizable_info is not None:
             resumebuilder.generate_boxes(metainterp.virtualizable_boxes)
-        for frame in metainterp.framestack:
-            resumebuilder.generate_frame_info(frame.jitcode, frame.pc,
-                                              frame.exception_target)
-            resumebuilder.generate_boxes(frame.env)
         if box is not None:
             moreargs = [box] + extraargs
         else:
@@ -1717,6 +1714,12 @@ class MetaInterp(object):
             self._debug_history.append(['guard_failure', None, None])
         vinfo = self.staticdata.virtualizable_info
         resumereader = resume.ResumeDataReader(resumedescr, newboxes, self)
+        self.framestack = []
+        while resumereader.has_more_frame_infos():
+            jitcode, pc, exception_target = resumereader.consume_frame_info()
+            env = resumereader.consume_boxes()
+            f = self.newframe(jitcode)
+            f.setup_resume_at_op(pc, exception_target, env)
         if vinfo is not None:
             self.virtualizable_boxes = resumereader.consume_boxes()
             # just jumped away from assembler (case 4 in the comment in
@@ -1726,13 +1729,6 @@ class MetaInterp(object):
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             assert not virtualizable.vable_rti
             self.synchronize_virtualizable()
-            #
-        self.framestack = []
-        while resumereader.has_more_frame_infos():
-            jitcode, pc, exception_target = resumereader.consume_frame_info()
-            env = resumereader.consume_boxes()
-            f = self.newframe(jitcode)
-            f.setup_resume_at_op(pc, exception_target, env)
 
     def check_synchronized_virtualizable(self):
         if not we_are_translated():
