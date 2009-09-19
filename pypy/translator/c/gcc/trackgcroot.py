@@ -688,6 +688,9 @@ class FunctionGcRootTracker(object):
         source = match.group(1)
         return [InsnStackAdjust(-4)] + self.insns_for_copy(source, '0(%esp)')
 
+    def visit_pushw(self, line):
+        return [InsnStackAdjust(-2)]   # rare but not impossible
+
     def _visit_pop(self, target):
         return self.insns_for_copy('0(%esp)', target) + [InsnStackAdjust(+4)]
 
@@ -907,8 +910,8 @@ class InsnCopyLocal(Insn):
 class InsnStackAdjust(Insn):
     _args_ = ['delta']
     def __init__(self, delta):
-        assert delta % 4 == 0
-        self.delta = delta
+        assert delta % 2 == 0     # should be "% 4", but there is the special
+        self.delta = delta        # case of 'pushw' to handle
 
 class InsnCannotFollowEsp(InsnStackAdjust):
     def __init__(self):
