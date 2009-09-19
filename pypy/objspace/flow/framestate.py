@@ -20,7 +20,7 @@ class FrameState:
             recursively_flatten(state.space, data)
             self.mergeable = data
             self.nonmergeable = (
-                state.blockstack[:],
+                state.get_blocklist(),
                 state.last_instr,   # == next_instr when between bytecodes
                 state.w_locals,
             )
@@ -47,10 +47,11 @@ class FrameState:
             else:
                 frame.last_exception = OperationError(data[-2], data[-1])
             (
-                frame.blockstack[:],
+                blocklist,
                 frame.last_instr,
                 frame.w_locals,
             ) = self.nonmergeable
+            frame.set_blocklist(blocklist)
         else:
             raise TypeError("can't set framestate for %r" % 
                             frame.__class__.__name__)

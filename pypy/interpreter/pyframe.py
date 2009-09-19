@@ -55,7 +55,8 @@ class PyFrame(eval.Frame):
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
-        self.blockstack = []
+        self.lastblock = None
+        self.blockcount = 0
         if space.config.objspace.honor__builtins__:
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
@@ -65,6 +66,37 @@ class PyFrame(eval.Frame):
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
         ExecutionContext._init_chaining_attributes(self)
+
+    def append_block(self, block):
+        block.previous = self.lastblock
+        self.lastblock = block
+        self.blockcount += 1
+
+    def pop_block(self):
+        block = self.lastblock
+        self.lastblock = block.previous
+        self.blockcount -= 1
+        return block
+
+    def get_blocklist(self):
+        """Returns a list containing all the blocks in the frame"""
+        lst = [None] * self.blockcount
+        block = self.lastblock
+        i = 0
+        while block is not None:
+            lst[i] = block
+            i += 1
+            block = block.previous
+        return lst
+
+    def set_blocklist(self, lst):
+        self.lastblock = None
+        self.blockcount = 0
+        i = len(lst)
+        while i > 0:
+            block = lst[i-1]
+            i -= 1
+            self.append_block(block)
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:
@@ -277,7 +309,7 @@ class PyFrame(eval.Frame):
         values_w = self.valuestack_w[0:self.valuestackdepth]
         w_valuestack = maker.slp_into_tuple_with_nulls(space, values_w)
         
-        w_blockstack = nt([block._get_state_(space) for block in self.blockstack])
+        w_blockstack = nt([block._get_state_(space) for block in self.get_blocklist()])
         w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
         if self.last_exception is None:
             w_exc_value = space.w_None
@@ -343,8 +375,8 @@ class PyFrame(eval.Frame):
         new_frame.f_back_forced = True
 
         new_frame.builtin = space.interp_w(Module, w_builtin)
-        new_frame.blockstack = [unpickle_block(space, w_blk)
-                                for w_blk in space.unpackiterable(w_blockstack)]
+        new_frame.set_blocklist([unpickle_block(space, w_blk)
+                                 for w_blk in space.unpackiterable(w_blockstack)])
         values_w = maker.slp_from_tuple_with_nulls(space, w_valuestack)
         for w_value in values_w:
             new_frame.pushvalue(w_value)
@@ -532,7 +564,7 @@ class PyFrame(eval.Frame):
             else:
                 addr += 1
 
-        f_iblock = len(self.blockstack)
+        f_iblock = self.blockcount
         min_iblock = f_iblock + min_delta_iblock
         if new_lasti > self.last_instr:
             new_iblock = f_iblock + delta_iblock
@@ -544,7 +576,7 @@ class PyFrame(eval.Frame):
                                  space.wrap("can't jump into the middle of a block"))
 
         while f_iblock > new_iblock:
-            block = self.blockstack.pop()
+            block = self.pop_block()
             block.cleanup(self)
             f_iblock -= 1
             

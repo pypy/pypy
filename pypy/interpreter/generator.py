@@ -126,10 +126,12 @@ return next yielded value or raise StopIteration."""
         # Only bother raising an exception if the frame is still not
         # finished and finally or except blocks are present.
         if not self.frame.frame_finished_execution:
-            for block in self.frame.blockstack:
+            block = self.frame.lastblock
+            while block is not None:
                 if not isinstance(block, LoopBlock):
                     self.descr_close()
                     return
+                block = block.previous
 
     def __del__(self):
         self._enqueue_for_destruction(self.space)

@@ -273,10 +273,10 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
     def unrollstack(self, unroller_kind):
-        n = len(self.blockstack)
+        n = self.blockcount
         n = hint(n, promote=True)
         while n > 0:
-            block = self.blockstack.pop()
+            block = self.pop_block()
             n -= 1
             if (block.handling_mask & unroller_kind) != 0:
                 return block
@@ -591,7 +591,7 @@ class __extend__(pyframe.PyFrame):
             f.setdictscope(w_locals)
 
     def POP_BLOCK(f, *ignored):
-        block = f.blockstack.pop()
+        block = f.pop_block()
         block.cleanup(f)  # the block knows how to clean up the value stack
 
     def end_finally(f):
@@ -860,15 +860,15 @@ class __extend__(pyframe.PyFrame):
 
     def SETUP_LOOP(f, offsettoend, next_instr, *ignored):
         block = LoopBlock(f, next_instr + offsettoend)
-        f.blockstack.append(block)
+        f.append_block(block)
 
     def SETUP_EXCEPT(f, offsettoend, next_instr, *ignored):
         block = ExceptBlock(f, next_instr + offsettoend)
-        f.blockstack.append(block)
+        f.append_block(block)
 
     def SETUP_FINALLY(f, offsettoend, next_instr, *ignored):
         block = FinallyBlock(f, next_instr + offsettoend)
-        f.blockstack.append(block)
+        f.append_block(block)
 
     def WITH_CLEANUP(f, *ignored):
         # see comment in END_FINALLY for stack state
@@ -1130,6 +1130,7 @@ class FrameBlock:
     def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
+        self.previous = None # this makes a linked list of blocks
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1175,7 +1176,7 @@ class LoopBlock(FrameBlock):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
-            frame.blockstack.append(self)
+            frame.append_block(self)
             return unroller.jump_to
         else:
             # jump to the end of the loop
