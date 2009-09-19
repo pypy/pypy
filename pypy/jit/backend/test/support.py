@@ -16,7 +16,8 @@ class BaseCompiledMixin(object):
         raise NotImplementedError
 
     # XXX backendopt is ignored
-    def meta_interp(self, function, args, repeat=1, inline=False, trace_limit=sys.maxint, backendopt=None, **kwds): # XXX ignored
+    def meta_interp(self, function, args, repeat=1, inline=False, trace_limit=sys.maxint,
+                    backendopt=None, listcomp=False, **kwds): # XXX ignored
         from pypy.jit.metainterp.warmspot import WarmRunnerDesc
         from pypy.annotation.listdef import s_list_of_strings
         from pypy.annotation import model as annmodel
@@ -26,6 +27,9 @@ class BaseCompiledMixin(object):
 
         t = self._get_TranslationContext()
         t.config.translation.type_system = self.type_system # force typesystem-specific options
+        if listcomp:
+            t.config.translation.list_comprehension_operations = True
+
         if repeat != 1:
             src = py.code.Source("""
             def entry_point(argv):
