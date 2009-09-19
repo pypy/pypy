@@ -69,8 +69,6 @@ class JitPolicy(object):
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
                 return 'builtin'
-            # TODO: return 'recursive' if the oosend ends with calling the
-            # portal
         if self.graphs_from(op, supports_floats) is None:
             return 'residual'
         return 'regular'
