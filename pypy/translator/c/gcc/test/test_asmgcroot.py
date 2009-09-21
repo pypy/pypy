@@ -6,10 +6,11 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
-if sys.platform == 'win32':
-    if not ('mingw' in os.popen('gcc --version').read() and
-            'GNU' in os.popen('make --version').read()):
-        py.test.skip("mingw32 and MSYS are required for asmgcc on Windows")
+def setup_module(module):
+    if sys.platform == 'win32':
+        if not ('mingw' in os.popen('gcc --version').read() and
+                'GNU' in os.popen('make --version').read()):
+            py.test.skip("mingw32 and MSYS are required for asmgcc on Windows")
 
 class AbstractTestAsmGCRoot:
     # the asmgcroot gc transformer doesn't generate gc_reload_possibly_moved
@@ -126,3 +127,7 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
 
         c_fn = self.getcompiled(f)
         assert c_fn() == 4900
+
+    if sys.platform == 'win32':
+        def test_callback_with_collect(self):
+            py.test.skip("No libffi yet with mingw32")

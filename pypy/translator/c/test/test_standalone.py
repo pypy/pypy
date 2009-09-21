@@ -288,9 +288,10 @@ class TestMaemo(TestStandalone):
 
 class TestThread(object):
     gcrootfinder = 'shadowstack'
+    config = None
 
     def compile(self, entry_point):
-        t = TranslationContext()
+        t = TranslationContext(self.config)
         t.config.translation.gc = "semispace"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
