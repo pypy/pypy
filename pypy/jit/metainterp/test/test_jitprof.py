@@ -1,6 +1,6 @@
 
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver, dont_look_inside
+from pypy.rlib.jit import JitDriver, dont_look_inside, purefunction
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
@@ -78,3 +78,24 @@ class TestProfile(ProfilerMixin):
         # calls = (executed, recorded, blackholed) x (inpure, pure)
         assert profiler.calls == [[1, 0], [1, 0], [0, 0]]
 
+    def test_blackhole_pure(self):
+        @purefunction
+        def g(n):
+            return n+1
+        
+        myjitdriver = JitDriver(greens = ['z'], reds = ['y', 'x','res'])
+        def f(x, y, z):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, z=z)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, z=z)
+                res += x
+                if y == 1:
+                    res += g(z)
+                y -= 1
+            return res * 2
+        res = self.meta_interp(f, [6, 7, 2])
+        assert res == 90
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
+        # calls = (executed, recorded, blackholed) x (inpure, pure)
+        assert profiler.calls == [[0, 1], [0, 0], [0, 1]]

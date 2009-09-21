@@ -336,9 +336,9 @@ class TestX86(LLtypeBackendTest):
                     r = self.cpu.execute_operations(loop)
                     result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
-                        assert result == execute(self.cpu, op, [b]).value
+                        assert result == execute(self.cpu, op, None, b).value
                     else:
-                        assert result != execute(self.cpu, op, [b]).value
+                        assert result != execute(self.cpu, op, None, b).value
                     
 
     def test_stuff_followed_by_guard(self):
@@ -378,10 +378,11 @@ class TestX86(LLtypeBackendTest):
                         self.cpu.set_future_value_int(i, box.value)
                     r = self.cpu.execute_operations(loop)
                     result = self.cpu.get_latest_value_int(0)
+                    expected = execute(self.cpu, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
-                        assert result == execute(self.cpu, op, (a, b)).value
+                        assert result == expected
                     else:
-                        assert result != execute(self.cpu, op, (a, b)).value
+                        assert result != expected
 
     def test_overflow_mc(self):
         from pypy.jit.backend.x86.assembler import MachineCodeBlockWrapper
@@ -404,6 +405,7 @@ class TestX86(LLtypeBackendTest):
             loop.operations = ops
             loop.inputargs = [base_v]
             self.cpu.compile_operations(loop)
+            assert self.cpu.assembler.mc != old_mc   # overflowed
             self.cpu.set_future_value_int(0, base_v.value)
             op = self.cpu.execute_operations(loop)
             assert self.cpu.get_latest_value_int(0) == 1024

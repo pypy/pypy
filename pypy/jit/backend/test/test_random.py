@@ -5,7 +5,7 @@ from pypy.jit.backend.test import conftest as demo_conftest
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstAddr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.executor import execute
+from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.resoperation import opname
 
 class PleaseRewriteMe(Exception):
@@ -32,7 +32,7 @@ class OperationBuilder(object):
         return fork
 
     def do(self, opnum, argboxes, descr=None):
-        v_result = execute(self.cpu, opnum, argboxes, descr)
+        v_result = execute_nonspec(self.cpu, opnum, argboxes, descr)
         if isinstance(v_result, ConstInt):
             v_result = BoxInt(v_result.value)
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result,

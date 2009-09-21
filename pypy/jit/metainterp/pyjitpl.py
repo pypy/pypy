@@ -10,7 +10,8 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.backend.logger import Logger
-from pypy.jit.metainterp.jitprof import EmptyProfiler, GUARDS
+from pypy.jit.metainterp.jitprof import EmptyProfiler, BLACKHOLED_OPS
+from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 
@@ -236,14 +237,14 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
-                self.execute(rop.%s, [b1, b2])
+                self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
-                self.execute(rop.%s, [b1, b2])
+                self.execute(rop.%s, b1, b2)
                 return self.metainterp.handle_overflow_error()
         ''' % (_opimpl, _opimpl.upper())).compile()
 
@@ -255,7 +256,7 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box")
             def opimpl_%s(self, b):
-                self.execute(rop.%s, [b])
+                self.execute(rop.%s, b)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     @arguments()
@@ -322,112 +323,106 @@ class MIFrame(object):
 
     @arguments("descr")
     def opimpl_new(self, size):
-        self.execute(rop.NEW, [], descr=size)
+        self.execute_with_descr(rop.NEW, descr=size)
 
     @arguments("constbox")
     def opimpl_new_with_vtable(self, vtablebox):
-        self.execute(rop.NEW_WITH_VTABLE, [vtablebox])
+        self.execute(rop.NEW_WITH_VTABLE, vtablebox)
 
     @arguments("box")
     def opimpl_runtimenew(self, classbox):
-        self.execute(rop.RUNTIMENEW, [classbox])
+        self.execute(rop.RUNTIMENEW, classbox)
 
     @arguments("box", "descr")
     def opimpl_instanceof(self, box, typedescr):
-        self.execute(rop.INSTANCEOF, [box], descr=typedescr)
+        self.execute_with_descr(rop.INSTANCEOF, typedescr, box)
 
     @arguments("box", "box")
     def opimpl_subclassof(self, box1, box2):
-        self.execute(rop.SUBCLASSOF, [box1, box2], descr=None)
+        self.execute(rop.SUBCLASSOF, box1, box2)
 
     @arguments("box")
     def opimpl_ooidentityhash(self, box):
-        self.execute(rop.OOIDENTITYHASH, [box], descr=None)
+        self.execute(rop.OOIDENTITYHASH, box)
 
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsize, countbox):
-        self.execute(rop.NEW_ARRAY, [countbox], descr=itemsize)
+        self.execute_with_descr(rop.NEW_ARRAY, itemsize, countbox)
 
     @arguments("box", "descr", "box")
     def opimpl_getarrayitem_gc(self, arraybox, arraydesc, indexbox):
-        self.execute(rop.GETARRAYITEM_GC, [arraybox, indexbox],
-                     descr=arraydesc)
+        self.execute_with_descr(rop.GETARRAYITEM_GC, arraydesc, arraybox, indexbox)
 
     @arguments("box", "descr", "box")
     def opimpl_getarrayitem_gc_pure(self, arraybox, arraydesc, indexbox):
-        self.execute(rop.GETARRAYITEM_GC_PURE, [arraybox, indexbox],
-                     descr=arraydesc)
+        self.execute_with_descr(rop.GETARRAYITEM_GC_PURE, arraydesc, arraybox, indexbox)
 
     @arguments("box", "descr", "box", "box")
     def opimpl_setarrayitem_gc(self, arraybox, arraydesc, indexbox, itembox):
-        self.execute(rop.SETARRAYITEM_GC, [arraybox, indexbox, itembox],
-                     descr=arraydesc)
+        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydesc, arraybox, indexbox, itembox)
 
     @arguments("box", "descr")
     def opimpl_arraylen_gc(self, arraybox, arraydesc):
-        self.execute(rop.ARRAYLEN_GC, [arraybox], descr=arraydesc)
+        self.execute_with_descr(rop.ARRAYLEN_GC, arraydesc, arraybox)
 
     @arguments("orgpc", "box", "descr", "box")
     def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
         negbox = self.metainterp.execute_and_record(
-            rop.INT_LT, [indexbox, ConstInt(0)])
+            rop.INT_LT, None, indexbox, ConstInt(0))
         # xxx inefficient
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
             lenbox = self.metainterp.execute_and_record(
-                rop.ARRAYLEN_GC, [arraybox], descr=arraydesc)
+                rop.ARRAYLEN_GC, arraydesc, arraybox)
             indexbox = self.metainterp.execute_and_record(
-                rop.INT_ADD, [indexbox, lenbox])
+                rop.INT_ADD, None, indexbox, lenbox)
         self.make_result_box(indexbox)
 
     @arguments("descr", "descr", "descr", "descr", "box")
     def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
                        sizebox):
-        sbox = self.metainterp.execute_and_record(rop.NEW, [],
-                                                  descr=structdescr)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, [sbox, sizebox],
-                                           descr=lengthdescr)
-        abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, [sizebox],
-                                                  descr=arraydescr)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, [sbox, abox],
-                                           descr=itemsdescr)
+        sbox = self.metainterp.execute_and_record(rop.NEW, structdescr)
+        self.metainterp.execute_and_record(rop.SETFIELD_GC, lengthdescr, 
+                                           sbox, sizebox)
+        abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, arraydescr,
+                                                  sizebox)
+        self.metainterp.execute_and_record(rop.SETFIELD_GC, itemsdescr,
+                                           sbox, abox)
         self.make_result_box(sbox)
 
     @arguments("box", "descr", "descr", "box")
     def opimpl_getlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox):
         arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                          [listbox], descr=itemsdescr)
-        self.execute(rop.GETARRAYITEM_GC, [arraybox, indexbox],
-                     descr=arraydescr)
+                                                      itemsdescr, listbox)
+        self.execute_with_descr(rop.GETARRAYITEM_GC, arraydescr, arraybox, indexbox)
 
     @arguments("box", "descr", "descr", "box", "box")
     def opimpl_setlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox,
                               valuebox):
         arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                          [listbox], descr=itemsdescr) 
-        self.execute(rop.SETARRAYITEM_GC, [arraybox, indexbox, valuebox],
-                     descr=arraydescr)
+                                                      itemsdescr, listbox)
+        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox, indexbox, valuebox)
 
     @arguments("orgpc", "box", "descr", "box")
     def opimpl_check_resizable_neg_index(self, pc, listbox, lengthdesc,
                                          indexbox):
         negbox = self.metainterp.execute_and_record(
-            rop.INT_LT, [indexbox, ConstInt(0)])
+            rop.INT_LT, None, indexbox, ConstInt(0))
         # xxx inefficient
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
             lenbox = self.metainterp.execute_and_record(
-                rop.GETFIELD_GC, [listbox], descr=lengthdesc)
+                rop.GETFIELD_GC, lengthdesc, listbox)
             indexbox = self.metainterp.execute_and_record(
-                rop.INT_ADD, [indexbox, lenbox])
+                rop.INT_ADD, None, indexbox, lenbox)
         self.make_result_box(indexbox)
 
     @arguments("orgpc", "box")
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(
-            rop.INT_NE, [box, ConstInt(0)])
+            rop.INT_NE, None, box, ConstInt(0))
         # xxx inefficient
         nonzerobox = self.implement_guard_value(pc, nonzerobox)
         if nonzerobox.getint():
@@ -441,11 +436,11 @@ class MIFrame(object):
         # detect the combination "box1 = -sys.maxint-1, box2 = -1".
         import sys
         tmp1 = self.metainterp.execute_and_record(    # combination to detect:
-            rop.INT_ADD, [box1, ConstInt(sys.maxint)])    # tmp1=-1, box2=-1
+            rop.INT_ADD, None, box1, ConstInt(sys.maxint))    # tmp1=-1, box2=-1
         tmp2 = self.metainterp.execute_and_record(
-            rop.INT_AND, [tmp1, box2])                    # tmp2=-1
+            rop.INT_AND, None, tmp1, box2)                    # tmp2=-1
         tmp3 = self.metainterp.execute_and_record(
-            rop.INT_EQ, [tmp2, ConstInt(-1)])             # tmp3?
+            rop.INT_EQ, None, tmp2, ConstInt(-1))             # tmp3?
         # xxx inefficient
         tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
         if not tmp4.getint():
@@ -461,55 +456,55 @@ class MIFrame(object):
     @arguments("orgpc", "box")
     def opimpl_int_abs(self, pc, box):
         nonneg = self.metainterp.execute_and_record(
-            rop.INT_GE, [box, ConstInt(0)])
+            rop.INT_GE, None, box, ConstInt(0))
         # xxx inefficient
         nonneg = self.implement_guard_value(pc, nonneg)
         if nonneg.getint():
             self.make_result_box(box)
         else:
-            self.execute(rop.INT_NEG, [box])
+            self.execute(rop.INT_NEG, box)
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
-        self.execute(rop.OONONNULL, [box])
+        self.execute(rop.OONONNULL, box)
 
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
-        self.execute(rop.OOISNULL, [box])
+        self.execute(rop.OOISNULL, box)
 
     opimpl_oononnull = opimpl_ptr_nonzero
     opimpl_ooisnull = opimpl_ptr_iszero
 
     @arguments("box", "box")
     def opimpl_ptr_eq(self, box1, box2):
-        self.execute(rop.OOIS, [box1, box2])
+        self.execute(rop.OOIS, box1, box2)
 
     @arguments("box", "box")
     def opimpl_ptr_ne(self, box1, box2):
-        self.execute(rop.OOISNOT, [box1, box2])
+        self.execute(rop.OOISNOT, box1, box2)
 
     opimpl_oois = opimpl_ptr_eq
     opimpl_ooisnot = opimpl_ptr_ne
 
     @arguments("box", "descr")
     def opimpl_getfield_gc(self, box, fielddesc):
-        self.execute(rop.GETFIELD_GC, [box], descr=fielddesc)
+        self.execute_with_descr(rop.GETFIELD_GC, fielddesc, box)
     @arguments("box", "descr")
     def opimpl_getfield_gc_pure(self, box, fielddesc):
-        self.execute(rop.GETFIELD_GC_PURE, [box], descr=fielddesc)
+        self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddesc, box)
     @arguments("box", "descr", "box")
     def opimpl_setfield_gc(self, box, fielddesc, valuebox):
-        self.execute(rop.SETFIELD_GC, [box, valuebox], descr=fielddesc)
+        self.execute_with_descr(rop.SETFIELD_GC, fielddesc, box, valuebox)
 
     @arguments("box", "descr")
     def opimpl_getfield_raw(self, box, fielddesc):
-        self.execute(rop.GETFIELD_RAW, [box], descr=fielddesc)
+        self.execute_with_descr(rop.GETFIELD_RAW, fielddesc, box)
     @arguments("box", "descr")
     def opimpl_getfield_raw_pure(self, box, fielddesc):
-        self.execute(rop.GETFIELD_RAW_PURE, [box], descr=fielddesc)
+        self.execute_with_descr(rop.GETFIELD_RAW_PURE, fielddesc, box)
     @arguments("box", "descr", "box")
     def opimpl_setfield_raw(self, box, fielddesc, valuebox):
-        self.execute(rop.SETFIELD_RAW, [box, valuebox], descr=fielddesc)
+        self.execute_with_descr(rop.SETFIELD_RAW, fielddesc, box, valuebox)
 
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable
@@ -517,8 +512,8 @@ class MIFrame(object):
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is box:
             return False
-        eqbox = self.metainterp.execute_and_record(rop.OOIS,
-                                                   [box, standard_box])
+        eqbox = self.metainterp.execute_and_record(rop.OOIS, None,
+                                                   box, standard_box)
         eqbox = self.implement_guard_value(pc, eqbox)
         isstandard = eqbox.getint()
         if isstandard:
@@ -540,8 +535,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "int")
     def opimpl_getfield_vable(self, pc, basebox, index):
         if self._nonstandard_virtualizable(pc, basebox):
-            self.execute(rop.GETFIELD_GC, [basebox],
-                         descr=self._get_virtualizable_field_descr(index))
+            self.execute_with_descr(rop.GETFIELD_GC, self._get_virtualizable_field_descr(index), basebox)
             return
         self.metainterp.check_synchronized_virtualizable()
         resbox = self.metainterp.virtualizable_boxes[index]
@@ -549,8 +543,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "int", "box")
     def opimpl_setfield_vable(self, pc, basebox, index, valuebox):
         if self._nonstandard_virtualizable(pc, basebox):
-            self.execute(rop.SETFIELD_GC, [basebox, valuebox],
-                         descr=self._get_virtualizable_field_descr(index))
+            self.execute_with_descr(rop.SETFIELD_GC, self._get_virtualizable_field_descr(index), basebox, valuebox)
             return
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
@@ -570,12 +563,12 @@ class MIFrame(object):
     @arguments("orgpc", "box", "int", "box")
     def opimpl_getarrayitem_vable(self, pc, basebox, arrayindex, indexbox):
         if self._nonstandard_virtualizable(pc, basebox):
-            arraybox = self.metainterp.execute_and_record(
-                rop.GETFIELD_GC, [basebox],
-                descr=self._get_virtualizable_array_field_descr(arrayindex))
-            self.execute(
-                rop.GETARRAYITEM_GC, [arraybox, indexbox],
-                descr=self._get_virtualizable_array_descr(arrayindex))
+            descr = self._get_virtualizable_array_field_descr(arrayindex)
+            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
+                                                          descr, basebox)
+            descr = self._get_virtualizable_array_descr(arrayindex)
+            self.execute_with_descr(rop.GETARRAYITEM_GC, descr,
+                                    arraybox, indexbox)
             return
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
@@ -585,12 +578,12 @@ class MIFrame(object):
     def opimpl_setarrayitem_vable(self, pc, basebox, arrayindex, indexbox,
                                   valuebox):
         if self._nonstandard_virtualizable(pc, basebox):
-            arraybox = self.metainterp.execute_and_record(
-                rop.GETFIELD_GC, [basebox],
-                descr=self._get_virtualizable_array_field_descr(arrayindex))
-            self.execute(
-                rop.SETARRAYITEM_GC, [arraybox, indexbox, valuebox],
-                descr=self._get_virtualizable_array_descr(arrayindex))
+            descr = self._get_virtualizable_array_field_descr(arrayindex)
+            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
+                                                          descr, basebox)
+            descr = self._get_virtualizable_array_descr(arrayindex)
+            self.execute_with_descr(rop.SETARRAYITEM_GC, descr,
+                                    arraybox, indexbox, valuebox)
             return
         index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
         self.metainterp.virtualizable_boxes[index] = valuebox
@@ -599,12 +592,11 @@ class MIFrame(object):
     @arguments("orgpc", "box", "int")
     def opimpl_arraylen_vable(self, pc, basebox, arrayindex):
         if self._nonstandard_virtualizable(pc, basebox):
-            arraybox = self.metainterp.execute_and_record(
-                rop.GETFIELD_GC, [basebox],
-                descr=self._get_virtualizable_array_field_descr(arrayindex))
-            self.execute(
-                rop.ARRAYLEN_GC, [arraybox],
-                descr=self._get_virtualizable_array_descr(arrayindex))
+            descr = self._get_virtualizable_array_field_descr(arrayindex)
+            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
+                                                          descr, basebox)
+            descr = self._get_virtualizable_array_descr(arrayindex)
+            self.execute_with_descr(rop.ARRAYLEN_GC, descr, arraybox)
             return
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
@@ -625,12 +617,12 @@ class MIFrame(object):
             if jitcode.cfnptr is not None:
                 # for non-oosends
                 varargs = [jitcode.cfnptr] + varargs
-                res = self.execute_with_exc(rop.CALL, varargs,
-                                             descr=jitcode.calldescr)
+                res = self.execute_varargs(rop.CALL, varargs,
+                                             descr=jitcode.calldescr, exc=True)
             else:
                 # for oosends (ootype only): calldescr is a MethDescr
-                res = self.execute_with_exc(rop.OOSEND, varargs,
-                                             descr=jitcode.calldescr)
+                res = self.execute_varargs(rop.OOSEND, varargs,
+                                             descr=jitcode.calldescr, exc=True)
             if vi:
                 globaldata.blackhole_virtualizable = vi.null_vable
             return res
@@ -646,7 +638,7 @@ class MIFrame(object):
 
     @arguments("descr", "varargs")
     def opimpl_residual_call(self, calldescr, varargs):
-        return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
+        return self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=True)
 
     @arguments("varargs")
     def opimpl_recursion_leave_prep(self, varargs):
@@ -670,68 +662,15 @@ class MIFrame(object):
             greenkey = varargs[1:num_green_args + 1]
             if warmrunnerstate.can_inline_callable(greenkey):
                 return self.perform_call(portal_code, varargs[1:])
-        return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
+        return self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=True)
 
     @arguments("descr", "varargs")
     def opimpl_residual_call_noexception(self, calldescr, varargs):
-        if not we_are_translated():
-            self.metainterp._debug_history.append(['call',
-                                                  varargs[0], varargs[1:]])
-        self.execute(rop.CALL, varargs, descr=calldescr)
+        self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=False)
 
     @arguments("descr", "varargs")
     def opimpl_residual_call_pure(self, calldescr, varargs):
-        self.execute(rop.CALL_PURE, varargs, descr=calldescr)
-
-##    @arguments("fixedlist", "box", "box")
-##    def opimpl_list_getitem(self, descr, listbox, indexbox):
-##        args = [descr.getfunc, listbox, indexbox]
-##        return self.execute_with_exc(rop.LIST_GETITEM, args, descr.tp)
-
-##    @arguments("fixedlist", "box", "box", "box")
-##    def opimpl_list_setitem(self, descr, listbox, indexbox, newitembox):
-##        args = [descr.setfunc, listbox, indexbox, newitembox]
-##        return self.execute_with_exc(rop.LIST_SETITEM, args, 'void')
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_getitem_foldable(self, descr, varargs):
-##        args = [descr.getfunc] + varargs
-##        return self.execute_with_exc('getitem', args, descr.tp, True)
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_setitem_foldable(self, descr, varargs):
-##        args = [descr.setfunc] + varargs
-##        return self.execute_with_exc('setitem', args, 'void', True)
-
-##    @arguments("fixedlist", "box", "box")
-##    def opimpl_newlist(self, descr, countbox, defaultbox):
-##        args = [descr.malloc_func, countbox, defaultbox]
-##        return self.execute_with_exc(rop.NEWLIST, args, 'ptr')
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_append(self, descr, varargs):
-##        args = [descr.append_func] + varargs
-##        return self.execute_with_exc('append', args, 'void')
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_insert(self, descr, varargs):
-##        args = [descr.insert_func] + varargs
-##        return self.execute_with_exc('insert', args, 'void')
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_pop(self, descr, varargs):
-##        args = [descr.pop_func] + varargs
-##        return self.execute_with_exc('pop', args, descr.tp)
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_len(self, descr, varargs):
-##        args = [descr.len_func] + varargs
-##        return self.execute_with_exc('len', args, 'int')
-
-##    @arguments("builtin", "varargs")
-##    def opimpl_listnonzero(self, descr, varargs):
-##        args = [descr.nonzero_func] + varargs
-##        return self.execute_with_exc('listnonzero', args, 'int')
+        self.execute_varargs(rop.CALL_PURE, varargs, descr=calldescr, exc=False)
 
 
     @arguments("orgpc", "indirectcallset", "box", "varargs")
@@ -756,55 +695,47 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_strlen(self, str):
-        self.execute(rop.STRLEN, [str])
+        self.execute(rop.STRLEN, str)
 
     @arguments("box")
     def opimpl_unicodelen(self, str):
-        self.execute(rop.UNICODELEN, [str])
+        self.execute(rop.UNICODELEN, str)
 
     @arguments("box", "box")
     def opimpl_strgetitem(self, str, index):
-        self.execute(rop.STRGETITEM, [str, index])
+        self.execute(rop.STRGETITEM, str, index)
 
     @arguments("box", "box")
     def opimpl_unicodegetitem(self, str, index):
-        self.execute(rop.UNICODEGETITEM, [str, index])
+        self.execute(rop.UNICODEGETITEM, str, index)
 
     @arguments("box", "box", "box")
     def opimpl_strsetitem(self, str, index, newchar):
-        self.execute(rop.STRSETITEM, [str, index, newchar])
+        self.execute(rop.STRSETITEM, str, index, newchar)
 
     @arguments("box", "box", "box")
     def opimpl_unicodesetitem(self, str, index, newchar):
-        self.execute(rop.UNICODESETITEM, [str, index, newchar])
+        self.execute(rop.UNICODESETITEM, str, index, newchar)
 
     @arguments("box")
     def opimpl_newstr(self, length):
-        self.execute(rop.NEWSTR, [length])
+        self.execute(rop.NEWSTR, length)
 
     @arguments("box")
     def opimpl_newunicode(self, length):
-        self.execute(rop.NEWUNICODE, [length])
+        self.execute(rop.NEWUNICODE, length)
 
     @arguments("descr", "varargs")
     def opimpl_residual_oosend_canraise(self, methdescr, varargs):
-        return self.execute_with_exc(rop.OOSEND, varargs, descr=methdescr)
+        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr, exc=True)
 
     @arguments("descr", "varargs")
     def opimpl_residual_oosend_noraise(self, methdescr, varargs):
-        self.execute(rop.OOSEND, varargs, descr=methdescr)
+        self.execute_varargs(rop.OOSEND, varargs, descr=methdescr, exc=False)
 
     @arguments("descr", "varargs")
     def opimpl_residual_oosend_pure(self, methdescr, boxes):
-        self.execute(rop.OOSEND_PURE, boxes, descr=methdescr)
-
-#    @arguments("box", "box")
-#    def opimpl_oostring_char(self, obj, base):
-#        self.execute(rop.OOSTRING_CHAR, [obj, base])
-#
-#    @arguments("box", "box")
-#    def opimpl_oounicode_unichar(self, obj, base):
-#        self.execute(rop.OOUNICODE_UNICHAR, [obj, base])
+        self.execute_varargs(rop.OOSEND_PURE, boxes, descr=methdescr, exc=False)
 
     @arguments("orgpc", "box")
     def opimpl_guard_value(self, pc, box):
@@ -833,31 +764,30 @@ class MIFrame(object):
         pass     # xxx?
 
     def generate_merge_point(self, pc, varargs):
-        if self.metainterp.is_blackholing():
-            if self.metainterp.in_recursion:
-                portal_code = self.metainterp.staticdata.portal_code
-                # small hack: fish for the result box
-                lenenv = len(self.env)
-                raised = self.perform_call(portal_code, varargs)
-                # in general this cannot be assumed, but when blackholing,
-                # perform_call returns True only if an exception is called. In
-                # this case perform_call has called finishframe_exception
-                # already, so we need to return.
-                if raised:
-                    return True
-                if lenenv == len(self.env):
-                    res = None
-                else:
-                    assert lenenv == len(self.env) - 1
-                    res = self.env.pop()
-                self.metainterp.finishframe(res)
-                return True
-            else:
-                raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
             varargs[i] = self.implement_guard_value(pc, varargs[i])
-        return False
+
+    def blackhole_reached_merge_point(self, varargs):
+        if self.metainterp.in_recursion:
+            portal_code = self.metainterp.staticdata.portal_code
+            # small hack: fish for the result box
+            lenenv = len(self.env)
+            raised = self.perform_call(portal_code, varargs)
+            # in general this cannot be assumed, but when blackholing,
+            # perform_call returns True only if an exception is called. In
+            # this case perform_call has called finishframe_exception
+            # already, so we need to return.
+            if raised:
+                return
+            if lenenv == len(self.env):
+                res = None
+            else:
+                assert lenenv == len(self.env) - 1
+                res = self.env.pop()
+            self.metainterp.finishframe(res)
+        else:
+            raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
 
     @arguments("orgpc")
     def opimpl_can_enter_jit(self, pc):
@@ -872,13 +802,17 @@ class MIFrame(object):
 
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
-        res = self.generate_merge_point(pc, self.env)
-        if DEBUG > 0:
-            self.debug_merge_point()
-        if self.metainterp.seen_can_enter_jit:
-            self.metainterp.seen_can_enter_jit = False
-            self.metainterp.reached_can_enter_jit(self.env)
-        return res
+        if self.metainterp.is_blackholing():
+            self.blackhole_reached_merge_point(self.env)
+            return True
+        else:
+            self.generate_merge_point(pc, self.env)
+            if DEBUG > 0:
+                self.debug_merge_point()
+            if self.metainterp.seen_can_enter_jit:
+                self.metainterp.seen_can_enter_jit = False
+                self.metainterp.reached_can_enter_jit(self.env)
+            return False
 
     def debug_merge_point(self):
         # debugging: produce a DEBUG_MERGE_POINT operation
@@ -1007,18 +941,29 @@ class MIFrame(object):
         return self.metainterp.cpu.ts.cls_of_box(self.metainterp.cpu, box)
 
     @specialize.arg(1)
-    def execute(self, opnum, argboxes, descr=None):
-        resbox = self.metainterp.execute_and_record(opnum, argboxes, descr)
+    def execute(self, opnum, *argboxes):
+        self.execute_with_descr(opnum, None, *argboxes)
+
+    @specialize.arg(1)
+    def execute_with_descr(self, opnum, descr, *argboxes):
+        resbox = self.metainterp.execute_and_record(opnum, descr, *argboxes)
         if resbox is not None:
             self.make_result_box(resbox)
 
     @specialize.arg(1)
-    def execute_with_exc(self, opnum, argboxes, descr=None):
-        self.execute(opnum, argboxes, descr)
+    def execute_varargs(self, opnum, argboxes, descr, exc):
+        resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
+                                                            descr=descr)
+        if resbox is not None:
+            self.make_result_box(resbox)
         if not we_are_translated():
+            # this assumes that execute_varargs() is only used for calls,
+            # which is the case so far
             self.metainterp._debug_history.append(['call',
                                                   argboxes[0], argboxes[1:]])
-        return self.metainterp.handle_exception()
+        if exc:
+            return self.metainterp.handle_exception()
+        return False
 
 # ____________________________________________________________
 
@@ -1145,7 +1090,13 @@ class MetaInterp(object):
             self._debug_history = staticdata.globaldata._debug_history
 
     def is_blackholing(self):
-        return isinstance(self.history, history.BlackHole)
+        return self.history is None
+
+    def blackholing_text(self):
+        if self.history is None:
+            return " (BlackHole)"
+        else:
+            return ""
 
     def newframe(self, jitcode):
         if not we_are_translated():
@@ -1247,49 +1198,90 @@ class MetaInterp(object):
         if self.staticdata.stats is not None:
             self.staticdata.stats.history = self.history
 
-    def _all_constants(self, boxes):
+    def _all_constants(self, *boxes):
+        if len(boxes) == 0:
+            return True
+        return isinstance(boxes[0], Const) and self._all_constants(*boxes[1:])
+
+    def _all_constants_varargs(self, boxes):
         for box in boxes:
             if not isinstance(box, Const):
                 return False
         return True
 
     @specialize.arg(1)
-    def execute_and_record(self, opnum, argboxes, descr=None):
+    def execute_and_record(self, opnum, descr, *argboxes):
+        history.check_descr(descr)
+        assert opnum != rop.CALL and opnum != rop.OOSEND
+        # execute the operation
+        profiler = self.staticdata.profiler
+        profiler.count_ops(opnum)
+        resbox = executor.execute(self.cpu, opnum, descr, *argboxes)
+        if self.is_blackholing():
+            profiler.count_ops(opnum, BLACKHOLED_OPS)            
+            return resbox
+        if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
+            return self._record_helper_pure(opnum, resbox, descr, *argboxes)
+        else:
+            return self._record_helper_nonpure_varargs(opnum, resbox, descr,
+                                                       list(argboxes))
+
+    @specialize.arg(1)
+    def execute_and_record_varargs(self, opnum, argboxes, descr=None):
         history.check_descr(descr)
         # residual calls require attention to keep virtualizables in-sync.
         # CALL_PURE doesn't need it because so far 'promote_virtualizable'
         # as an operation is enough to make the called function non-pure.
         require_attention = (opnum == rop.CALL or opnum == rop.OOSEND)
-        if require_attention:
+        if require_attention and not self.is_blackholing():
             self.before_residual_call()
         # execute the operation
-        resbox = executor.execute(self.cpu, opnum, argboxes, descr)
-        if require_attention:
-            require_attention = self.after_residual_call()
-        # check if the operation can be constant-folded away
-        canfold = False
-        if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
-            # this part disappears if execute() is specialized for an
-            # opnum that is not within the range
-            canfold = self._all_constants(argboxes)
-            if canfold:
-                resbox = resbox.constbox()       # ensure it is a Const
-            else:
-                resbox = resbox.nonconstbox()    # ensure it is a Box
-        else:
-            assert resbox is None or isinstance(resbox, Box)
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
-        # record the operation if not constant-folded away
-        if not canfold:
-            op = self.history.record(opnum, argboxes, resbox, descr)
-            profiler.count_ops(opnum, self.history.OPS_KIND)
-            self.attach_debug_info(op)
+        resbox = executor.execute_varargs(self.cpu, opnum, argboxes, descr)
+        if self.is_blackholing():
+            profiler.count_ops(opnum, BLACKHOLED_OPS)
+        else:
+            if require_attention:
+                require_attention = self.after_residual_call()
+            # check if the operation can be constant-folded away
+            if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
+                resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
+            else:
+                resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
+        # if we are blackholing require_attention has the initial meaning
         else:
             if self.is_blackholing():
                 profiler.count_ops(opnum, self.history.OPS_KIND) # canfold blackholed
         if require_attention:
             self.after_generate_residual_call()
+        return resbox
+
+    def _record_helper_pure(self, opnum, resbox, descr, *argboxes): 
+        canfold = self._all_constants(*argboxes)
+        if canfold:
+            resbox = resbox.constbox()       # ensure it is a Const
+            return resbox
+        else:
+            resbox = resbox.nonconstbox()    # ensure it is a Box
+            return self._record_helper_nonpure_varargs(opnum, resbox, descr, list(argboxes))
+
+    def _record_helper_pure_varargs(self, opnum, resbox, descr, argboxes): 
+        canfold = self._all_constants_varargs(argboxes)
+        if canfold:
+            resbox = resbox.constbox()       # ensure it is a Const
+            return resbox
+        else:
+            resbox = resbox.nonconstbox()    # ensure it is a Box
+            return self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
+
+    def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
+        assert resbox is None or isinstance(resbox, Box)
+        # record the operation
+        profiler = self.staticdata.profiler
+        profiler.count_ops(opnum, RECORDED_OPS)        
+        op = self.history.record(opnum, argboxes, resbox, descr)
+        self.attach_debug_info(op)
         return resbox
 
     def attach_debug_info(self, op):
@@ -1302,12 +1294,12 @@ class MetaInterp(object):
         if not self.is_blackholing():
             warmrunnerstate = self.staticdata.state
             if len(self.history.operations) > warmrunnerstate.trace_limit:
-                self.history = history.BlackHole(self.cpu)
+                self.history = None   # start blackholing
                 if not we_are_translated():
                     self.staticdata.stats.aborted_count += 1
-                    history.log.event('ABORTING TRACING' + self.history.extratext)
+                    history.log.event('ABORTING TRACING')
                 elif DEBUG:
-                    debug_print('~~~ ABORTING TRACING', self.history.extratext)
+                    debug_print('~~~ ABORTING TRACING')
                 self.staticdata.profiler.end_tracing()
                 self.staticdata.profiler.start_blackhole()
 
@@ -1315,10 +1307,10 @@ class MetaInterp(object):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
         if not we_are_translated():
-            history.log.event('ENTER' + self.history.extratext)
+            history.log.event('ENTER' + self.blackholing_text())
             self.staticdata.stats.enter_count += 1
         elif DEBUG:
-            debug_print('~~~ ENTER', self.history.extratext)
+            debug_print('~~~ ENTER', self.blackholing_text())
         try:
             while True:
                 self.framestack[-1].run_one_step()
@@ -1331,9 +1323,9 @@ class MetaInterp(object):
             else:
                 self.staticdata.profiler.end_tracing()
             if not we_are_translated():
-                history.log.event('LEAVE' + self.history.extratext)
+                history.log.event('LEAVE' + self.blackholing_text())
             elif DEBUG:
-                debug_print('~~~ LEAVE', self.history.extratext)
+                debug_print('~~~ LEAVE', self.blackholing_text())
 
     def interpret(self):
         if we_are_translated():
@@ -1624,9 +1616,7 @@ class MetaInterp(object):
             self.staticdata.profiler.start_tracing()
         else:
             self.staticdata.profiler.start_blackhole()
-            self.history = history.BlackHole(self.cpu)
-            # the BlackHole is invalid because it doesn't start with
-            # guard_failure.key.guard_op.suboperations, but that's fine
+            self.history = None   # this means that is_blackholing() is true
         self.rebuild_state_after_failure(resumedescr, guard_failure.args)
         return resumedescr
 
@@ -1670,9 +1660,8 @@ class MetaInterp(object):
                 # as it contains the old values (before the call)!
                 self.gen_store_back_in_virtualizable_no_perform()
                 return True    # must call after_generate_residual_call()
-        # xxx don't call after_generate_residual_call() or
-        # in the case of blackholing abuse it to resynchronize
-        return self.is_blackholing()
+        # otherwise, don't call after_generate_residual_call()
+        return False
 
     def after_generate_residual_call(self):
         # Called after generating a residual call, and only if
@@ -1748,18 +1737,19 @@ class MetaInterp(object):
         if vinfo is not None:
             vbox = self.virtualizable_boxes[-1]
             for i in range(vinfo.num_static_extra_boxes):
-                fieldbox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
-                                        descr=vinfo.static_field_descrs[i])
+                descr = vinfo.static_field_descrs[i]
+                fieldbox = self.execute_and_record(rop.GETFIELD_GC, descr,
+                                                   vbox)
                 self.virtualizable_boxes[i] = fieldbox
             i = vinfo.num_static_extra_boxes
             virtualizable = vinfo.unwrap_virtualizable_box(vbox)
             for k in range(vinfo.num_arrays):
-                abox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
-                                         descr=vinfo.array_field_descrs[k])
+                descr = vinfo.array_field_descrs[k]
+                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
+                descr = vinfo.array_descrs[k]
                 for j in range(vinfo.get_array_length(virtualizable, k)):
                     itembox = self.execute_and_record(rop.GETARRAYITEM_GC,
-                                                      [abox, ConstInt(j)],
-                                            descr=vinfo.array_descrs[k])
+                                                      descr, abox, ConstInt(j))
                     self.virtualizable_boxes[i] = itembox
                     i += 1
             assert i + 1 == len(self.virtualizable_boxes)
@@ -1771,19 +1761,19 @@ class MetaInterp(object):
             vbox = self.virtualizable_boxes[-1]
             for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
-                self.execute_and_record(rop.SETFIELD_GC, [vbox, fieldbox],
-                                        descr=vinfo.static_field_descrs[i])
+                descr = vinfo.static_field_descrs[i]
+                self.execute_and_record(rop.SETFIELD_GC, descr, vbox, fieldbox)
             i = vinfo.num_static_extra_boxes
             virtualizable = vinfo.unwrap_virtualizable_box(vbox)
             for k in range(vinfo.num_arrays):
-                abox = self.execute_and_record(rop.GETFIELD_GC, [vbox],
-                                         descr=vinfo.array_field_descrs[k])
+                descr = vinfo.array_field_descrs[k]
+                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
+                descr = vinfo.array_descrs[k]
                 for j in range(vinfo.get_array_length(virtualizable, k)):
                     itembox = self.virtualizable_boxes[i]
                     i += 1
-                    self.execute_and_record(rop.SETARRAYITEM_GC,
-                                            [abox, ConstInt(j), itembox],
-                                            descr=vinfo.array_descrs[k])
+                    self.execute_and_record(rop.SETARRAYITEM_GC, descr,
+                                            abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
 
     def gen_store_back_in_virtualizable_no_perform(self):

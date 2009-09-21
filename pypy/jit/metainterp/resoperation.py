@@ -126,97 +126,97 @@ _oplist = [
     'OOSEND_PURE',    # ootype operation
     'CALL_PURE',
     #
-    'CAST_PTR_TO_INT',
-    'INT_ADD',
-    'INT_SUB',
-    'INT_MUL',
-    'INT_FLOORDIV',
-    'INT_MOD',
-    'INT_AND',
-    'INT_OR',
-    'INT_XOR',
-    'INT_RSHIFT',
-    'INT_LSHIFT',
-    'UINT_RSHIFT',
-    'FLOAT_ADD',
-    'FLOAT_SUB',
-    'FLOAT_MUL',
-    'FLOAT_TRUEDIV',
-    'FLOAT_NEG',
-    'FLOAT_ABS',
-    'FLOAT_IS_TRUE',
-    'CAST_FLOAT_TO_INT',
-    'CAST_INT_TO_FLOAT',
+    'CAST_PTR_TO_INT/1',
+    'INT_ADD/2',
+    'INT_SUB/2',
+    'INT_MUL/2',
+    'INT_FLOORDIV/2',
+    'INT_MOD/2',
+    'INT_AND/2',
+    'INT_OR/2',
+    'INT_XOR/2',
+    'INT_RSHIFT/2',
+    'INT_LSHIFT/2',
+    'UINT_RSHIFT/2',
+    'FLOAT_ADD/2',
+    'FLOAT_SUB/2',
+    'FLOAT_MUL/2',
+    'FLOAT_TRUEDIV/2',
+    'FLOAT_NEG/1',
+    'FLOAT_ABS/1',
+    'FLOAT_IS_TRUE/1',
+    'CAST_FLOAT_TO_INT/1',
+    'CAST_INT_TO_FLOAT/1',
     #
     '_COMPARISON_FIRST',
-    'INT_LT',
-    'INT_LE',
-    'INT_EQ',
-    'INT_NE',
-    'INT_GT',
-    'INT_GE',
-    'UINT_LT',
-    'UINT_LE',
-    'UINT_GT',
-    'UINT_GE',
+    'INT_LT/2',
+    'INT_LE/2',
+    'INT_EQ/2',
+    'INT_NE/2',
+    'INT_GT/2',
+    'INT_GE/2',
+    'UINT_LT/2',
+    'UINT_LE/2',
+    'UINT_GT/2',
+    'UINT_GE/2',
     '_COMPARISON_LAST',
-    'FLOAT_LT',          # maybe these ones should be comparisons too
-    'FLOAT_LE',
-    'FLOAT_EQ',
-    'FLOAT_NE',
-    'FLOAT_GT',
-    'FLOAT_GE',
+    'FLOAT_LT/2',          # maybe these ones should be comparisons too
+    'FLOAT_LE/2',
+    'FLOAT_EQ/2',
+    'FLOAT_NE/2',
+    'FLOAT_GT/2',
+    'FLOAT_GE/2',
     #
-    'INT_IS_TRUE',
-    'INT_NEG',
-    'INT_INVERT',
-    'BOOL_NOT',
+    'INT_IS_TRUE/1',
+    'INT_NEG/1',
+    'INT_INVERT/1',
+    'BOOL_NOT/1',
     #
-    'SAME_AS',      # gets a Const, turns it into a Box
+    'SAME_AS/1',      # gets a Const, turns it into a Box
     #
-    'OONONNULL',
-    'OOISNULL',
-    'OOIS',
-    'OOISNOT',
+    'OONONNULL/1',
+    'OOISNULL/1',
+    'OOIS/2',
+    'OOISNOT/2',
     #
-    'ARRAYLEN_GC',
-    'STRLEN',
-    'STRGETITEM',
-    'GETFIELD_GC_PURE',
-    'GETFIELD_RAW_PURE',
-    'GETARRAYITEM_GC_PURE',
-    'UNICODELEN',
-    'UNICODEGETITEM',
+    'ARRAYLEN_GC/1d',
+    'STRLEN/1',
+    'STRGETITEM/2',
+    'GETFIELD_GC_PURE/1d',
+    'GETFIELD_RAW_PURE/1d',
+    'GETARRAYITEM_GC_PURE/2d',
+    'UNICODELEN/1',
+    'UNICODEGETITEM/2',
     #
     # ootype operations
-    'OOIDENTITYHASH',
-    'INSTANCEOF',
-    'SUBCLASSOF',
+    'OOIDENTITYHASH/1',
+    'INSTANCEOF/1d',
+    'SUBCLASSOF/2',
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
-    'GETARRAYITEM_GC',
-    'GETFIELD_GC',
-    'GETFIELD_RAW',
-    'NEW',
-    'NEW_WITH_VTABLE',
-    'NEW_ARRAY',
+    'GETARRAYITEM_GC/2d',
+    'GETFIELD_GC/1d',
+    'GETFIELD_RAW/1d',
+    'NEW/0d',
+    'NEW_WITH_VTABLE/1',
+    'NEW_ARRAY/1d',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
-    'SETARRAYITEM_GC',
-    'SETARRAYITEM_RAW',  # only added by backend.llsupport.gc.rewrite_assembler
-    'SETFIELD_GC',
-    'SETFIELD_RAW',
-    'NEWSTR',
-    'STRSETITEM',
-    'UNICODESETITEM',
-    'NEWUNICODE',
-    'RUNTIMENEW',     # ootype operation
+    'SETARRAYITEM_GC/3d',
+    'SETARRAYITEM_RAW/3d',#only added by backend.llsupport.gc.rewrite_assembler
+    'SETFIELD_GC/2d',
+    'SETFIELD_RAW/2d',
+    'NEWSTR/1',
+    'STRSETITEM/3',
+    'UNICODESETITEM/3',
+    'NEWUNICODE/1',
+    'RUNTIMENEW/1',     # ootype operation
     'COND_CALL_GC_WB',      # [cond, imm_and, if_true_call, args_for_call...]
                             #        => no result       (for the write barrier)
     'COND_CALL_GC_MALLOC',  # [a, b, if_(a<=b)_result, if_(a>b)_call, args...]
                             #        => result          (for mallocs)
-    'DEBUG_MERGE_POINT',      # debugging only
+    'DEBUG_MERGE_POINT/1',      # debugging only
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',
@@ -224,27 +224,39 @@ _oplist = [
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----
-    'INT_ADD_OVF',
-    'INT_SUB_OVF',
-    'INT_MUL_OVF',
+    'INT_ADD_OVF/2',
+    'INT_SUB_OVF/2',
+    'INT_MUL_OVF/2',
     '_OVF_LAST', # ----- end of is_ovf operations -----
     '_LAST',     # for the backend to add more internal operations
 ]
 
+# ____________________________________________________________
+
 class rop(object):
     pass
 
-i = 0
-for opname in _oplist:
-    if __name__ == '__main__':
-        print '%30s = %d' % (opname, i) # print out the table when run directly
-    setattr(rop, opname, i)
-    i += 1
-del _oplist
-
 opname = {}      # mapping numbers to the original names, for debugging
-for _key, _value in rop.__dict__.items():
-    if type(_value) is int and _key.isupper() and not _key.startswith('_'):
-        assert _value not in opname, "collision! %s and %s" % (
-            opname[_value], _key)
-        opname[_value] = _key
+oparity = []     # mapping numbers to the arity of the operation or -1
+opwithdescr = [] # mapping numbers to a flag "takes a descr"
+
+
+def setup(debug_print=False):
+    for i, name in enumerate(_oplist):
+        if debug_print:
+            print '%30s = %d' % (name, i)
+        if '/' in name:
+            name, arity = name.split('/')
+            withdescr = arity.endswith('d')
+            arity = int(arity.rstrip('d'))
+        else:
+            arity, withdescr = -1, True       # default
+        setattr(rop, name, i)
+        if not name.startswith('_'):
+            opname[i] = name
+        oparity.append(arity)
+        opwithdescr.append(withdescr)
+    assert len(oparity) == len(opwithdescr) == len(_oplist)
+
+setup(__name__ == '__main__')   # print out the table when run directly
+del _oplist

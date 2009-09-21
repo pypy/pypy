@@ -103,61 +103,61 @@ class AbstractCPU(object):
     # lltype specific operations
     # --------------------------
     
-    def do_arraylen_gc(self, args, arraydescr):
+    def do_arraylen_gc(self, arraybox, arraydescr):
         raise NotImplementedError
 
-    def do_strlen(self, args, descr=None):
+    def do_strlen(self, stringbox):
         raise NotImplementedError
 
-    def do_strgetitem(self, args, descr=None):
+    def do_strgetitem(self, stringbox, indexbox):
         raise NotImplementedError
 
-    def do_unicodelen(self, args, descr=None):
+    def do_unicodelen(self, stringbox):
         raise NotImplementedError
 
-    def do_unicodegetitem(self, args, descr=None):
+    def do_unicodegetitem(self, stringbox, indexbox):
         raise NotImplementedError
 
-    def do_getarrayitem_gc(self, args, arraydescr):
+    def do_getarrayitem_gc(self, arraybox, indexbox, arraydescr):
         raise NotImplementedError
     
-    def do_getfield_gc(self, args, fielddescr):
+    def do_getfield_gc(self, structbox, fielddescr):
         raise NotImplementedError
     
-    def do_getfield_raw(self, args, fielddescr):
+    def do_getfield_raw(self, structbox, fielddescr):
         raise NotImplementedError
 
-    def do_new(self, args, sizedescr):
+    def do_new(self, sizedescr):
         raise NotImplementedError
 
-    def do_new_with_vtable(self, args, descr=None):
+    def do_new_with_vtable(self, classbox):
         raise NotImplementedError
     
-    def do_new_array(self, args, arraydescr):
+    def do_new_array(self, lengthbox, arraydescr):
         raise NotImplementedError
     
-    def do_setarrayitem_gc(self, args, arraydescr):
+    def do_setarrayitem_gc(self, arraybox, indexbox, newvaluebox, arraydescr):
         raise NotImplementedError
 
-    def do_setarrayitem_raw(self, args, arraydescr):
+    def do_setarrayitem_raw(self, arraybox, indexbox, newvaluebox, arraydescr):
         raise NotImplementedError
 
-    def do_setfield_gc(self, args, fielddescr):
+    def do_setfield_gc(self, structbox, newvaluebox, fielddescr):
         raise NotImplementedError
 
-    def do_setfield_raw(self, args, fielddescr):
+    def do_setfield_raw(self, structbox, newvaluebox, fielddescr):
         raise NotImplementedError
         
-    def do_newstr(self, args, descr=None):
+    def do_newstr(self, lengthbox):
         raise NotImplementedError
 
-    def do_newunicode(self, args, descr=None):
+    def do_newunicode(self, lengthbox):
         raise NotImplementedError
 
-    def do_strsetitem(self, args, descr=None):
+    def do_strsetitem(self, stringbox, indexbox, charbox):
         raise NotImplementedError
 
-    def do_unicodesetitem(self, args, descr=None):
+    def do_unicodesetitem(self, stringbox, indexbox, charbox):
         raise NotImplementedError
 
     def do_call(self, args, calldescr):
@@ -170,19 +170,19 @@ class AbstractCPU(object):
     def do_cond_call_gc_malloc(self, args, calldescr):
         raise NotImplementedError
 
-    def do_cast_ptr_to_int(self, args, descr=None):
+    def do_cast_ptr_to_int(self, ptrbox):
         raise NotImplementedError
 
     # ootype specific operations
     # --------------------------
 
-    def do_runtimenew(self, args, descr=None):
+    def do_runtimenew(self, classbox):
         raise NotImplementedError
 
-    def do_oosend(self, args, descr=None):
+    def do_oosend(self, args, descr):
         raise NotImplementedError
 
-    def do_instanceof(self, args, descr=None):
+    def do_instanceof(self, instancebox, typedescr):
         raise NotImplementedError
 
     def typedescr2classbox(self, descr):

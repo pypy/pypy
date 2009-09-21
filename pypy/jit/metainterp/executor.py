@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
 from pypy.jit.metainterp.history import INT, REF, ConstFloat
+from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -17,166 +18,145 @@ from pypy.jit.metainterp.resoperation import rop
 
 # ____________________________________________________________
 
-def do_int_add(cpu, args, descr=None):
-    return ConstInt(intmask(args[0].getint() + args[1].getint()))
+def do_int_add(cpu, box1, box2):
+    return ConstInt(intmask(box1.getint() + box2.getint()))
 
-def do_int_sub(cpu, args, descr=None):
-    return ConstInt(intmask(args[0].getint() - args[1].getint()))
+def do_int_sub(cpu, box1, box2):
+    return ConstInt(intmask(box1.getint() - box2.getint()))
 
-def do_int_mul(cpu, args, descr=None):
-    return ConstInt(intmask(args[0].getint() * args[1].getint()))
+def do_int_mul(cpu, box1, box2):
+    return ConstInt(intmask(box1.getint() * box2.getint()))
 
-def do_int_floordiv(cpu, args, descr=None):
-    z = llop.int_floordiv(lltype.Signed, args[0].getint(), args[1].getint())
+def do_int_floordiv(cpu, box1, box2):
+    z = llop.int_floordiv(lltype.Signed, box1.getint(), box2.getint())
     return ConstInt(z)
 
-def do_int_mod(cpu, args, descr=None):
-    z = llop.int_mod(lltype.Signed, args[0].getint(), args[1].getint())
+def do_int_mod(cpu, box1, box2):
+    z = llop.int_mod(lltype.Signed, box1.getint(), box2.getint())
     return ConstInt(z)
 
-def do_int_and(cpu, args, descr=None):
-    return ConstInt(args[0].getint() & args[1].getint())
+def do_int_and(cpu, box1, box2):
+    return ConstInt(box1.getint() & box2.getint())
 
-def do_int_or(cpu, args, descr=None):
-    return ConstInt(args[0].getint() | args[1].getint())
+def do_int_or(cpu, box1, box2):
+    return ConstInt(box1.getint() | box2.getint())
 
-def do_int_xor(cpu, args, descr=None):
-    return ConstInt(args[0].getint() ^ args[1].getint())
+def do_int_xor(cpu, box1, box2):
+    return ConstInt(box1.getint() ^ box2.getint())
 
-def do_int_rshift(cpu, args, descr=None):
-    return ConstInt(args[0].getint() >> args[1].getint())
+def do_int_rshift(cpu, box1, box2):
+    return ConstInt(box1.getint() >> box2.getint())
 
-def do_int_lshift(cpu, args, descr=None):
-    return ConstInt(intmask(args[0].getint() << args[1].getint()))
+def do_int_lshift(cpu, box1, box2):
+    return ConstInt(intmask(box1.getint() << box2.getint()))
 
-def do_uint_rshift(cpu, args, descr=None):
-    v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
+def do_uint_rshift(cpu, box1, box2):
+    v = r_uint(box1.getint()) >> r_uint(box2.getint())
     return ConstInt(intmask(v))
 
 # ----------
 
-def do_int_lt(cpu, args, descr=None):
-    return ConstInt(args[0].getint() < args[1].getint())
+def do_int_lt(cpu, box1, box2):
+    return ConstInt(box1.getint() < box2.getint())
 
-def do_int_le(cpu, args, descr=None):
-    return ConstInt(args[0].getint() <= args[1].getint())
+def do_int_le(cpu, box1, box2):
+    return ConstInt(box1.getint() <= box2.getint())
 
-def do_int_eq(cpu, args, descr=None):
-    return ConstInt(args[0].getint() == args[1].getint())
+def do_int_eq(cpu, box1, box2):
+    return ConstInt(box1.getint() == box2.getint())
 
-def do_int_ne(cpu, args, descr=None):
-    return ConstInt(args[0].getint() != args[1].getint())
+def do_int_ne(cpu, box1, box2):
+    return ConstInt(box1.getint() != box2.getint())
 
-def do_int_gt(cpu, args, descr=None):
-    return ConstInt(args[0].getint() > args[1].getint())
+def do_int_gt(cpu, box1, box2):
+    return ConstInt(box1.getint() > box2.getint())
 
-def do_int_ge(cpu, args, descr=None):
-    return ConstInt(args[0].getint() >= args[1].getint())
+def do_int_ge(cpu, box1, box2):
+    return ConstInt(box1.getint() >= box2.getint())
 
-def do_uint_lt(cpu, args, descr=None):
-    return ConstInt(r_uint(args[0].getint()) < r_uint(args[1].getint()))
+def do_uint_lt(cpu, box1, box2):
+    return ConstInt(r_uint(box1.getint()) < r_uint(box2.getint()))
 
-def do_uint_le(cpu, args, descr=None):
-    return ConstInt(r_uint(args[0].getint()) <= r_uint(args[1].getint()))
+def do_uint_le(cpu, box1, box2):
+    return ConstInt(r_uint(box1.getint()) <= r_uint(box2.getint()))
 
-def do_uint_gt(cpu, args, descr=None):
-    return ConstInt(r_uint(args[0].getint()) > r_uint(args[1].getint()))
+def do_uint_gt(cpu, box1, box2):
+    return ConstInt(r_uint(box1.getint()) > r_uint(box2.getint()))
 
-def do_uint_ge(cpu, args, descr=None):
-    return ConstInt(r_uint(args[0].getint()) >= r_uint(args[1].getint()))
+def do_uint_ge(cpu, box1, box2):
+    return ConstInt(r_uint(box1.getint()) >= r_uint(box2.getint()))
 
 # ----------
 
-def do_int_is_true(cpu, args, descr=None):
-    return ConstInt(bool(args[0].getint()))
+def do_int_is_true(cpu, box1):
+    return ConstInt(bool(box1.getint()))
 
-def do_int_neg(cpu, args, descr=None):
-    return ConstInt(intmask(-args[0].getint()))
+def do_int_neg(cpu, box1):
+    return ConstInt(intmask(-box1.getint()))
 
-def do_int_invert(cpu, args, descr=None):
-    return ConstInt(~args[0].getint())
+def do_int_invert(cpu, box1):
+    return ConstInt(~box1.getint())
 
-def do_bool_not(cpu, args, descr=None):
-    return ConstInt(not args[0].getint())
+def do_bool_not(cpu, box1):
+    return ConstInt(not box1.getint())
 
-def do_same_as(cpu, args, descr=None):
-    return args[0]
+def do_same_as(cpu, box1):
+    return box1
 
-def do_oononnull(cpu, args, descr=None):
-    tp = args[0].type
+def do_oononnull(cpu, box1):
+    tp = box1.type
     if tp == INT:
-        x = bool(args[0].getint())
+        x = bool(box1.getint())
     elif tp == REF:
-        x = bool(args[0].getref_base())
+        x = bool(box1.getref_base())
     else:
         assert False
     return ConstInt(x)
 
-def do_ooisnull(cpu, args, descr=None):
-    tp = args[0].type
+def do_ooisnull(cpu, box1):
+    tp = box1.type
     if tp == INT:
-        x = bool(args[0].getint())
+        x = bool(box1.getint())
     elif tp == REF:
-        x = bool(args[0].getref_base())
+        x = bool(box1.getref_base())
     else:
         assert False
     return ConstInt(not x)
 
-def do_oois(cpu, args, descr=None):
-    tp = args[0].type
-    assert tp == args[1].type
+def do_oois(cpu, box1, box2):
+    tp = box1.type
+    assert tp == box2.type
     if tp == INT:
-        x = args[0].getint() == args[1].getint()
+        x = box1.getint() == box2.getint()
     elif tp == REF:
-        x = args[0].getref_base() == args[1].getref_base()
+        x = box1.getref_base() == box2.getref_base()
     else:
         assert False
     return ConstInt(x)
 
-def do_ooisnot(cpu, args, descr=None):
-    tp = args[0].type
-    assert tp == args[1].type
+def do_ooisnot(cpu, box1, box2):
+    tp = box1.type
+    assert tp == box2.type
     if tp == INT:
-        x = args[0].getint() != args[1].getint()
+        x = box1.getint() != box2.getint()
     elif tp == REF:
-        x = args[0].getref_base() != args[1].getref_base()
+        x = box1.getref_base() != box2.getref_base()
     else:
         assert False
     return ConstInt(x)
 
-def do_ooidentityhash(cpu, args, descr=None):
-    obj = args[0].getref_base()
+def do_ooidentityhash(cpu, box1):
+    obj = box1.getref_base()
     return ConstInt(cpu.ts.ooidentityhash(obj))
 
-def do_subclassof(cpu, args, descr=None):
-    assert len(args) == 2
-    box1, box2 = args
+def do_subclassof(cpu, box1, box2):
     return ConstInt(cpu.ts.subclassOf(cpu, box1, box2))
 
 # ----------
-# the following operations just delegate to the cpu:
 
-#   do_arraylen_gc
-#   do_strlen
-#   do_strgetitem
-#   do_getarrayitem_gc
-#   do_getfield_gc
-#   do_getfield_raw
-#   do_new
-#   do_new_with_vtable
-#   do_new_array
-#   do_setarrayitem_gc
-#   do_setfield_gc
-#   do_setfield_raw
-#   do_newstr
-#   do_strsetitem
-#   do_call
-
-# ----------
-
-def do_int_add_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
+def do_int_add_ovf(cpu, box1, box2):
+    x = box1.getint()
+    y = box2.getint()
     try:
         z = ovfcheck(x + y)
     except OverflowError:
@@ -187,9 +167,9 @@ def do_int_add_ovf(cpu, args, descr=None):
     cpu._overflow_flag = ovf
     return BoxInt(z)
 
-def do_int_sub_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
+def do_int_sub_ovf(cpu, box1, box2):
+    x = box1.getint()
+    y = box2.getint()
     try:
         z = ovfcheck(x - y)
     except OverflowError:
@@ -200,9 +180,9 @@ def do_int_sub_ovf(cpu, args, descr=None):
     cpu._overflow_flag = ovf
     return BoxInt(z)
 
-def do_int_mul_ovf(cpu, args, descr=None):
-    x = args[0].getint()
-    y = args[1].getint()
+def do_int_mul_ovf(cpu, box1, box2):
+    x = box1.getint()
+    y = box2.getint()
     try:
         z = ovfcheck(x * y)
     except OverflowError:
@@ -215,56 +195,56 @@ def do_int_mul_ovf(cpu, args, descr=None):
 
 # ----------
 
-def do_float_neg(cpu, args, descr=None):
-    return ConstFloat(-args[0].getfloat())
+def do_float_neg(cpu, box1):
+    return ConstFloat(-box1.getfloat())
 
-def do_float_abs(cpu, args, descr=None):
-    return ConstFloat(abs(args[0].getfloat()))
+def do_float_abs(cpu, box1):
+    return ConstFloat(abs(box1.getfloat()))
 
-def do_float_is_true(cpu, args, descr=None):
-    return ConstInt(bool(args[0].getfloat()))
+def do_float_is_true(cpu, box1):
+    return ConstInt(bool(box1.getfloat()))
 
-def do_float_add(cpu, args, descr=None):
-    return ConstFloat(args[0].getfloat() + args[1].getfloat())
+def do_float_add(cpu, box1, box2):
+    return ConstFloat(box1.getfloat() + box2.getfloat())
 
-def do_float_sub(cpu, args, descr=None):
-    return ConstFloat(args[0].getfloat() - args[1].getfloat())
+def do_float_sub(cpu, box1, box2):
+    return ConstFloat(box1.getfloat() - box2.getfloat())
 
-def do_float_mul(cpu, args, descr=None):
-    return ConstFloat(args[0].getfloat() * args[1].getfloat())
+def do_float_mul(cpu, box1, box2):
+    return ConstFloat(box1.getfloat() * box2.getfloat())
 
-def do_float_truediv(cpu, args, descr=None):
-    return ConstFloat(args[0].getfloat() / args[1].getfloat())
+def do_float_truediv(cpu, box1, box2):
+    return ConstFloat(box1.getfloat() / box2.getfloat())
 
-def do_float_lt(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() < args[1].getfloat())
+def do_float_lt(cpu, box1, box2):
+    return ConstInt(box1.getfloat() < box2.getfloat())
 
-def do_float_le(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() <= args[1].getfloat())
+def do_float_le(cpu, box1, box2):
+    return ConstInt(box1.getfloat() <= box2.getfloat())
 
-def do_float_eq(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() == args[1].getfloat())
+def do_float_eq(cpu, box1, box2):
+    return ConstInt(box1.getfloat() == box2.getfloat())
 
-def do_float_ne(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() != args[1].getfloat())
+def do_float_ne(cpu, box1, box2):
+    return ConstInt(box1.getfloat() != box2.getfloat())
 
-def do_float_gt(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() > args[1].getfloat())
+def do_float_gt(cpu, box1, box2):
+    return ConstInt(box1.getfloat() > box2.getfloat())
 
-def do_float_ge(cpu, args, descr=None):
-    return ConstInt(args[0].getfloat() >= args[1].getfloat())
+def do_float_ge(cpu, box1, box2):
+    return ConstInt(box1.getfloat() >= box2.getfloat())
 
-def do_cast_float_to_int(cpu, args, descr=None):
-    return ConstInt(int(args[0].getfloat()))
+def do_cast_float_to_int(cpu, box1):
+    return ConstInt(int(box1.getfloat()))
 
-def do_cast_int_to_float(cpu, args, descr=None):
-    return ConstFloat(float(args[0].getint()))
+def do_cast_int_to_float(cpu, box1):
+    return ConstFloat(float(box1.getint()))
 
 # ____________________________________________________________
 
-def do_debug_merge_point(cpu, args, descr=None):
+def do_debug_merge_point(cpu, box1):
     from pypy.jit.metainterp.warmspot import get_stats
-    loc = args[0]._get_str()
+    loc = box1._get_str()
     get_stats().locations.append(loc)
 
 # ____________________________________________________________
@@ -284,12 +264,22 @@ def make_execute_list(cpuclass):
     else:
         def wrap(fn):
             return fn
-    execute = [None] * (rop._LAST+1)
+    #
+    execute_by_num_args = {}
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
             if (rop._FINAL_FIRST <= value <= rop._FINAL_LAST or
                 rop._GUARD_FIRST <= value <= rop._GUARD_LAST):
                 continue
+            # find which list to store the operation in, based on num_args
+            num_args = resoperation.oparity[value]
+            withdescr = resoperation.opwithdescr[value]
+            if withdescr and num_args >= 0:
+                num_args += 1
+            if num_args not in execute_by_num_args:
+                execute_by_num_args[num_args] = [None] * (rop._LAST+1)
+            execute = execute_by_num_args[num_args]
+            #
             if execute[value] is not None:
                 raise Exception("duplicate entry for op number %d" % value)
             if key.endswith('_PURE'):
@@ -301,23 +291,78 @@ def make_execute_list(cpuclass):
                 execute[value] = wrap(globals()[name])
             else:
                 assert hasattr(AbstractCPU, name), name
-    cpuclass._execute_list = execute
+    cpuclass._execute_by_num_args = execute_by_num_args
 
-def get_execute_function(cpu, opnum):
+
+def get_execute_funclist(cpu, num_args):
+    # workaround, similar to the next one
+    return cpu._execute_by_num_args[num_args]
+get_execute_funclist._annspecialcase_ = 'specialize:memo'
+
+def get_execute_function(cpu, opnum, num_args):
     # workaround for an annotation limitation: putting this code in
     # a specialize:memo function makes sure the following line is
-    # constant-folded away.  Only works if opnum is a constant, of course.
-    return cpu._execute_list[opnum]
+    # constant-folded away.  Only works if opnum and num_args are
+    # constants, of course.
+    return cpu._execute_by_num_args[num_args][opnum]
 get_execute_function._annspecialcase_ = 'specialize:memo'
 
-def execute(cpu, opnum, argboxes, descr=None):
-    check_descr(descr)
-    func = get_execute_function(cpu, opnum)
+def has_descr(opnum):
+    # workaround, similar to the previous one
+    return resoperation.opwithdescr[opnum]
+has_descr._annspecialcase_ = 'specialize:memo'
+
+
+def execute(cpu, opnum, descr, *argboxes):
+    # only for opnums with a fixed arity
+    if has_descr(opnum):
+        check_descr(descr)
+        argboxes = argboxes + (descr,)
+    else:
+        assert descr is None
+    func = get_execute_function(cpu, opnum, len(argboxes))
     assert func is not None
-    return func(cpu, argboxes, descr)
+    return func(cpu, *argboxes)
 execute._annspecialcase_ = 'specialize:arg(1)'
 
-def _execute_nonspec(cpu, opnum, argboxes, descr=None):
+def execute_varargs(cpu, opnum, argboxes, descr):
+    # only for opnums with a variable arity (calls, typically)
     check_descr(descr)
-    func = cpu._execute_list[opnum]
+    func = get_execute_function(cpu, opnum, -1)
+    assert func is not None
     return func(cpu, argboxes, descr)
+execute_varargs._annspecialcase_ = 'specialize:arg(1)'
+
+
+def execute_nonspec(cpu, opnum, argboxes, descr=None):
+    arity = resoperation.oparity[opnum]
+    assert arity == -1 or len(argboxes) == arity
+    if resoperation.opwithdescr[opnum]:
+        check_descr(descr)
+        if arity == -1:
+            func = get_execute_funclist(cpu, -1)[opnum]
+            return func(cpu, argboxes, descr)
+        if arity == 0:
+            func = get_execute_funclist(cpu, 1)[opnum]
+            return func(cpu, descr)
+        if arity == 1:
+            func = get_execute_funclist(cpu, 2)[opnum]
+            return func(cpu, argboxes[0], descr)
+        if arity == 2:
+            func = get_execute_funclist(cpu, 3)[opnum]
+            return func(cpu, argboxes[0], argboxes[1], descr)
+        if arity == 3:
+            func = get_execute_funclist(cpu, 4)[opnum]
+            return func(cpu, argboxes[0], argboxes[1], argboxes[2], descr)
+    else:
+        assert descr is None
+        if arity == 1:
+            func = get_execute_funclist(cpu, 1)[opnum]
+            return func(cpu, argboxes[0])
+        if arity == 2:
+            func = get_execute_funclist(cpu, 2)[opnum]
+            return func(cpu, argboxes[0], argboxes[1])
+        if arity == 3:
+            func = get_execute_funclist(cpu, 3)[opnum]
+            return func(cpu, argboxes[0], argboxes[1], argboxes[2])
+    raise NotImplementedError

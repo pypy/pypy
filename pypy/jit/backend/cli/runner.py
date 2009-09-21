@@ -162,38 +162,30 @@ class CliCPU(model.AbstractCPU):
 
     # ----------------------
 
-    def do_new_with_vtable(self, args, descr):
-        #assert isinstance(typedescr, TypeDescr)
-        #assert len(args) == 1 # but we don't need it, so ignore
-        assert descr is None
-        assert len(args) == 1
-        cls = args[0].getref_base()
+    def do_new_with_vtable(self, classbox):
+        cls = classbox.getref_base()
         typedescr = self.class_sizes[cls]
         return typedescr.create()
 
-    def do_new_array(self, args, typedescr):
+    def do_new_array(self, lengthbox, typedescr):
         assert isinstance(typedescr, TypeDescr)
-        assert len(args) == 1
-        return typedescr.create_array(args[0])
+        return typedescr.create_array(lengthbox)
 
-    def do_runtimenew(self, args, descr):
-        classbox = args[0]
+    def do_runtimenew(self, classbox):
         classobj = classbox.getref(ootype.Class)
         res = ootype.runtimenew(classobj)
         return BoxObj(ootype.cast_to_object(res))
 
-    def do_instanceof(self, args, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        assert len(args) == 1
-        return typedescr.instanceof(args[0])
+    def do_instanceof(self, instancebox, typedescr):
+        return typedescr.instanceof(instancebox)
 
-    def do_getfield_gc(self, args, fielddescr):
+    def do_getfield_gc(self, instancebox, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
-        return fielddescr.getfield(args[0])
+        return fielddescr.getfield(instancebox)
 
-    def do_setfield_gc(self, args, fielddescr):
+    def do_setfield_gc(self, instancebox, newvaluebox, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
-        return fielddescr.setfield(args[0], args[1])
+        return fielddescr.setfield(instancebox, newvaluebox)
 
     def do_call(self, args, calldescr):
         assert isinstance(calldescr, StaticMethDescr)
@@ -212,31 +204,22 @@ class CliCPU(model.AbstractCPU):
         obj = ootype.cast_to_object(inst)        # SomeOOObject
         return dotnet.cast_to_native_object(obj) # System.Object
 
-    def do_oosend(self, args, descr=None):
+    def do_oosend(self, args, descr):
         assert isinstance(descr, MethDescr)
         selfbox = args[0]
         argboxes = args[1:]
         return descr.callmeth(selfbox, argboxes)
 
-    def do_getarrayitem_gc(self, args, descr):
+    def do_getarrayitem_gc(self, arraybox, indexbox, descr):
         assert isinstance(descr, TypeDescr)
-        assert len(args) == 2
-        arraybox = args[0]
-        ibox = args[1]
-        return descr.getarrayitem(arraybox, ibox)
+        return descr.getarrayitem(arraybox, indexbox)
 
-    def do_setarrayitem_gc(self, args, descr):
+    def do_setarrayitem_gc(self, arraybox, indexbox, newvaluebox, descr):
         assert isinstance(descr, TypeDescr)
-        assert len(args) == 3
-        arraybox = args[0]
-        ibox = args[1]
-        valuebox = args[2]
-        descr.setarrayitem(arraybox, ibox, valuebox)
+        descr.setarrayitem(arraybox, indexbox, newvaluebox)
 
-    def do_arraylen_gc(self, args, descr):
+    def do_arraylen_gc(self, arraybox, descr):
         assert isinstance(descr, TypeDescr)
-        assert len(args) == 1
-        arraybox = args[0]
         return descr.getarraylength(arraybox)
 
 # ----------------------------------------------------------------------

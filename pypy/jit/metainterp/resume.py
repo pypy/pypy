@@ -189,8 +189,8 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
         for i in range(len(self.fielddescrs)):
             fieldbox = fn_decode_box(self.fieldnums[i])
             metainterp.execute_and_record(rop.SETFIELD_GC,
-                                          [box, fieldbox],
-                                          descr=self.fielddescrs[i])
+                                          self.fielddescrs[i],
+                                          box, fieldbox)
 
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
@@ -199,7 +199,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
 
     def allocate(self, metainterp):
         return metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
-                                             [self.known_class])
+                                             None, self.known_class)
 
     def repr_rpython(self):
         return 'VirtualInfo("%s", %s, %s)' % (
@@ -213,8 +213,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         self.typedescr = typedescr
 
     def allocate(self, metainterp):
-        return metainterp.execute_and_record(rop.NEW, [],
-                                             descr=self.typedescr)
+        return metainterp.execute_and_record(rop.NEW, self.typedescr)
 
     def repr_rpython(self):
         return 'VStructInfo("%s", %s, %s)' % (
@@ -230,15 +229,15 @@ class VArrayInfo(AbstractVirtualInfo):
     def allocate(self, metainterp):
         length = len(self.fieldnums)
         return metainterp.execute_and_record(rop.NEW_ARRAY,
-                                             [ConstInt(length)],
-                                             descr=self.arraydescr)
+                                             self.arraydescr,
+                                             ConstInt(length))
 
     def setfields(self, metainterp, box, fn_decode_box):
         for i in range(len(self.fieldnums)):
             itembox = fn_decode_box(self.fieldnums[i])
             metainterp.execute_and_record(rop.SETARRAYITEM_GC,
-                                          [box, ConstInt(i), itembox],
-                                          descr=self.arraydescr)
+                                          self.arraydescr,
+                                          box, ConstInt(i), itembox)
 
     def repr_rpython(self):
         return 'VArrayInfo("%s", %s)' % (self.arraydescr,

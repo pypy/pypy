@@ -6,7 +6,7 @@ from pypy.jit.metainterp.history import Const, INT
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.x86 import symbolic     # xxx
+from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llvm.runner import SizeDescr, CallDescr
 from pypy.jit.backend.llvm.runner import FieldDescr, ArrayDescr
 

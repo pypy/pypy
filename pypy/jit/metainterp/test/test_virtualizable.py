@@ -909,12 +909,50 @@ class ImplicitVirtualizableTests:
         somewhere_else = SomewhereElse()
 
         def g(frame):
+            assert frame.x == 2
+            assert frame.y == 52
             frame.y += 100
 
         def f(n):
             frame = Frame(n, 0)
             somewhere_else.top_frame = frame        # escapes
             frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                if frame.x == 2:
+                    g(frame)
+                frame.y += frame.x
+                frame.x -= 1
+            return somewhere_else.top_frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 155
+        self.check_loops(getfield_gc=0, setfield_gc=0)
+
+    def test_blackhole_should_synchronize(self):
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g(frame):
+            assert frame.x == 2
+            assert frame.y == 52
+            frame.y += 100
+
+        def f(n):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
             while frame.x > 0:
                 myjitdriver.can_enter_jit(frame=frame)
                 myjitdriver.jit_merge_point(frame=frame)

@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import Box, BoxInt
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.executor import _execute_nonspec
+from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
@@ -553,7 +553,7 @@ class Optimizer(object):
             else:
                 # all constant arguments: constant-fold away
                 argboxes = [self.get_constant_box(arg) for arg in op.args]
-                resbox = _execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
+                resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
                 self.make_constant(op.result, resbox.constbox())
                 return
         elif not op.has_no_side_effect() and not op.is_ovf():

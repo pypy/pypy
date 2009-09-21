@@ -9,7 +9,7 @@ from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llvm import llvm_rffi
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.backend.x86 import symbolic     # xxx
+from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.typesystem import llhelper
 
 history.TreeLoop._llvm_compiled_index = -1

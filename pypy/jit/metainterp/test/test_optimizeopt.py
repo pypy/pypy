@@ -152,7 +152,7 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def test_constfold_all(self):
         from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
-        from pypy.jit.metainterp.executor import _execute_nonspec
+        from pypy.jit.metainterp.executor import execute_nonspec
         from pypy.jit.metainterp.history import BoxInt
         import random
         for opnum in range(rop.INT_ADD, rop.BOOL_NOT+1):
@@ -175,8 +175,8 @@ class BaseTestOptimizeOpt(BaseTest):
             jump()
             """ % (op.lower(), ', '.join(map(str, args)))
             argboxes = [BoxInt(a) for a in args]
-            expected_value = _execute_nonspec(self.cpu, opnum,
-                                              argboxes).getint()
+            expected_value = execute_nonspec(self.cpu, opnum,
+                                             argboxes).getint()
             expected = """
             []
             escape(%d)
@@ -1386,14 +1386,14 @@ class BaseTestOptimizeOpt(BaseTest):
                     fielddescr = self.namespace[fieldname.strip()]
                     fieldbox = executor.execute(self.cpu,
                                                 rop.GETFIELD_GC,
-                                                [resolved],
-                                                descr=fielddescr)
+                                                fielddescr,
+                                                resolved)
                 elif tag[0] == 'varray':
                     fieldvalue = fieldtext
                     fieldbox = executor.execute(self.cpu,
                                                 rop.GETARRAYITEM_GC,
-                                                [resolved, ConstInt(index)],
-                                                descr=tag[1])
+                                                tag[1],
+                                                resolved, ConstInt(index))
                 else:
                     assert 0
                 _variables_equal(fieldbox, fieldvalue.strip(), strict=False)

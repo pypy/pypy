@@ -166,8 +166,8 @@ class MyMetaInterp:
     def __init__(self, cpu):
         self.cpu = cpu
         self.trace = []
-    def execute_and_record(self, opnum, argboxes, descr=None):
-        resbox = executor.execute(self.cpu, opnum, argboxes, descr)
+    def execute_and_record(self, opnum, descr, *argboxes):
+        resbox = executor.execute(self.cpu, opnum, descr, *argboxes)
         self.trace.append((opnum,
                            [box.value for box in argboxes],
                            resbox and resbox.value,

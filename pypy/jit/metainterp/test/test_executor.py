@@ -1,19 +1,93 @@
 import py
 from pypy.jit.metainterp.executor import make_execute_list, execute
+from pypy.jit.metainterp.executor import execute_varargs, execute_nonspec
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat
+from pypy.jit.metainterp.history import AbstractDescr, Box
 from pypy.jit.backend.model import AbstractCPU
 
 
+class FakeDescr(AbstractDescr):
+    pass
+
+class FakeBox(Box):
+    def __init__(self, *args):
+        self.args = args
+
 class FakeCPU(AbstractCPU):
     supports_floats = True
+
+    def do_new(self, descr):
+        return FakeBox('new', descr)
+
+    def do_arraylen_gc(self, box1, descr):
+        return FakeBox('arraylen_gc', box1, descr)
+
+    def do_setfield_gc(self, box1, box2, descr):
+        return FakeBox('setfield_gc', box1, box2, descr)
+
+    def do_setarrayitem_gc(self, box1, box2, box3, descr):
+        return FakeBox('setarrayitem_gc', box1, box2, box3, descr)
+
+    def do_call(self, args, descr):
+        return FakeBox('call', args, descr)
+
+    def do_strsetitem(self, box1, box2, box3):
+        return FakeBox('strsetitem', box1, box2, box3)
+
 make_execute_list(FakeCPU)
 
 
-def test_int_ops():
-    box = execute(FakeCPU(), rop.INT_ADD, [BoxInt(40), ConstInt(2)])
+def test_execute():
+    cpu = FakeCPU()
+    descr = FakeDescr()
+    box = execute(cpu, rop.INT_ADD, None, BoxInt(40), ConstInt(2))
     assert box.value == 42
+    box = execute(cpu, rop.NEW, descr)
+    assert box.args == ('new', descr)
+
+def test_execute_varargs():
+    cpu = FakeCPU()
+    descr = FakeDescr()
+    argboxes = [BoxInt(321), ConstInt(123)]
+    box = execute_varargs(cpu, rop.CALL, argboxes, descr)
+    assert box.args == ('call', argboxes, descr)
+
+def test_execute_nonspec():
+    cpu = FakeCPU()
+    descr = FakeDescr()
+    # cases with a descr
+    # arity == -1
+    argboxes = [BoxInt(321), ConstInt(123)]
+    box = execute_nonspec(cpu, rop.CALL, argboxes, descr)
+    assert box.args == ('call', argboxes, descr)
+    # arity == 0
+    box = execute_nonspec(cpu, rop.NEW, [], descr)
+    assert box.args == ('new', descr)
+    # arity == 1
+    box1 = BoxInt(515)
+    box = execute_nonspec(cpu, rop.ARRAYLEN_GC, [box1], descr)
+    assert box.args == ('arraylen_gc', box1, descr)
+    # arity == 2
+    box2 = BoxInt(222)
+    box = execute_nonspec(cpu, rop.SETFIELD_GC, [box1, box2], descr)
+    assert box.args == ('setfield_gc', box1, box2, descr)
+    # arity == 3
+    box3 = BoxInt(-33)
+    box = execute_nonspec(cpu, rop.SETARRAYITEM_GC, [box1, box2, box3], descr)
+    assert box.args == ('setarrayitem_gc', box1, box2, box3, descr)
+    # cases without descr
+    # arity == 1
+    box = execute_nonspec(cpu, rop.INT_INVERT, [box1])
+    assert box.value == ~515
+    # arity == 2
+    box = execute_nonspec(cpu, rop.INT_LSHIFT, [box1, BoxInt(3)])
+    assert box.value == 515 << 3
+    # arity == 3
+    box = execute_nonspec(cpu, rop.STRSETITEM, [box1, box2, box3])
+    assert box.args == ('strsetitem', box1, box2, box3)
+
 
 def _float_binary_operations():
     for opnum, testcases in [
@@ -63,7 +137,7 @@ def get_float_tests(cpu):
 def test_float_ops():
     cpu = FakeCPU()
     for opnum, boxargs, rettype, retvalue in get_float_tests(cpu):
-        box = execute(cpu, opnum, boxargs)
+        box = execute_nonspec(cpu, opnum, boxargs)
         if rettype == 'float':
             assert box.getfloat() == retvalue
         elif rettype == 'int':

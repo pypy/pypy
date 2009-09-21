@@ -6,7 +6,7 @@ from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.executor import _execute_nonspec
+from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
@@ -159,7 +159,7 @@ class NodeFinder(object):
             else:
                 # all constant arguments: we can constant-fold
                 argboxes = [self.get_constant_box(arg) for arg in op.args]
-                resbox = _execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
+                resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
                 self.set_constant_node(op.result, resbox.constbox())
         # default case: mark the arguments as escaping
         for box in op.args:

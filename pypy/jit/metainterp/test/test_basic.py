@@ -1001,7 +1001,7 @@ class BaseLLtypeTests(BasicTests):
         x = lltype.malloc(TP)
         res = self.interp_operations(f, [x])
         expected = self.metainterp.cpu.do_cast_ptr_to_int(
-            [history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))]).value
+            history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))).value
         assert res == expected
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
