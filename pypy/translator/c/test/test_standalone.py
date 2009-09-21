@@ -332,9 +332,21 @@ class TestThread(object):
                 time.sleep(0.2)      # invokes before/after
                 return 0
 
+        # recurse a lot
+        RECURSION = 19500
+        if sys.platform == 'win32':
+            # If I understand it correctly:
+            # - The stack size "reserved" for a new thread is a compile-time
+            #   option (by default: 1Mb).  This is a minimum that user code
+            #   cannot control.
+            # - set_stacksize() only sets the initially "committed" size,
+            #   which eventually requires a larger "reserved" size.
+            # - The limit below is large enough to exceed the "reserved" size,
+            #   for small values of set_stacksize().
+            RECURSION = 150 * 1000
+
         def bootstrap():
-            # recurse a lot, like 19500 times
-            recurse(19500)
+            recurse(RECURSION)
             state.count += 1
 
         def entry_point(argv):
