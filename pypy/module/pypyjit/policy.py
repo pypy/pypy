@@ -46,6 +46,10 @@ class PyPyJitPolicy(JitPolicy):
         if mod.startswith('pypy.interpreter.pyparser.'):
             return False
         if mod.startswith('pypy.module.'):
+            if mod.startswith('pypy.module.__builtin__'):
+                if mod.endswith('operation') or mod.endswith('abstractinst'):
+                    return True
+
             if (not mod.startswith('pypy.module.pypyjit.') and
                 not mod.startswith('pypy.module.signal.') and
                 not mod.startswith('pypy.module.micronumpy.')):

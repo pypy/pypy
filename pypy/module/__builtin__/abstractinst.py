@@ -7,6 +7,7 @@ issubclass() follow and trust these attributes is they are present, in
 addition to checking for instances and subtypes in the normal way.
 """
 
+from pypy.rlib.jit import dont_look_inside
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
@@ -76,7 +77,10 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
         oldstyleinst = space.interpclass_w(w_obj)
         if isinstance(oldstyleinst, W_InstanceObject):
             return oldstyleinst.w_class.is_subclass_of(oldstyleclass)
+    return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
+@dont_look_inside
+def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
     # -- case (anything, tuple)
     if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
         for w_klass in space.viewiterable(w_klass_or_tuple):
@@ -98,6 +102,7 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
         return _issubclass_recurse(space, w_abstractclass, w_klass_or_tuple)
 
 
+@dont_look_inside
 def _issubclass_recurse(space, w_derived, w_top):
     """Internal helper for abstract cases.  Here, w_top cannot be a tuple."""
     if space.is_w(w_derived, w_top):
