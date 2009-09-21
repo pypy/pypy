@@ -89,6 +89,23 @@ class AbstractTestAsmGCRoot:
         f.writelines(lines)
         f.close()
 
+    def test_large_function(self):
+        class A(object):
+            def __init__(self):
+                self.x = 0
+        d = dict(A=A)
+        exec ("def g(a):\n" +
+              "    a.x += 1\n" * 1000 +
+              "    return A()\n"
+              ) in d
+        g = d['g']
+        def f():
+            a = A()
+            g(a)
+            return a.x
+        c_fn = self.getcompiled(f)
+        assert c_fn() == 1000
+
 
 class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
                                    test_newgc.TestSemiSpaceGC):

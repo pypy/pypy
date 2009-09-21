@@ -782,6 +782,14 @@ class FunctionGcRootTracker(object):
             target = match.group(1)
             if target in FUNCTIONS_NOT_RETURNING:
                 return InsnStop()
+            if sys.platform == 'win32' and target == '__alloca':
+                # in functions with large stack requirements, windows
+                # needs a call to _alloca(), to turn reserved pages
+                # into committed memory.
+                # With mingw32 gcc at least, %esp is not used before
+                # this call.  So we don't bother to compute the exact
+                # stack effect.
+                return [InsnCannotFollowEsp()]
             if target in self.labels:
                 lineoffset = self.labels[target].lineno - self.currentlineno
                 if lineoffset >= 0:
