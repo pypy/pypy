@@ -1250,9 +1250,6 @@ class MetaInterp(object):
             else:
                 resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
         # if we are blackholing require_attention has the initial meaning
-        else:
-            if self.is_blackholing():
-                profiler.count_ops(opnum, self.history.OPS_KIND) # canfold blackholed
         if require_attention:
             self.after_generate_residual_call()
         return resbox
