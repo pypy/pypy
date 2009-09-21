@@ -57,10 +57,36 @@ def loop():
     for i in range(10000):
         g(i)
 
+
+class B(object):
+    def foo(self, n):
+        return n+1
+
+
+def method(n):
+    obj = B()
+    i = 0
+    while i<n:
+        i = obj.foo(i)
+    return i
+
+
+def add(a, b):
+    return a+b
+
+def funccall(n):
+    i = 0
+    while i<n:
+        i = add(i, 1)
+    return i
+
+
 try:
     #do()
     #loop()
-    simple_loop()
+    #simple_loop()
+    method(100)
+    #funccall(100)
     print "---ending 2---"
 except BaseException, e:
     print "---ending 0---"
