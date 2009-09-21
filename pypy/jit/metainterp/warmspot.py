@@ -155,7 +155,7 @@ class WarmRunnerDesc:
 
         self.build_meta_interp(CPUClass, **kwds)
         self.make_args_specification()
-        self.rewrite_jit_merge_point()
+        self.rewrite_jit_merge_point(policy)
         self.make_driverhook_graph()
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
@@ -361,7 +361,7 @@ class WarmRunnerDesc:
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
 
-    def rewrite_jit_merge_point(self):
+    def rewrite_jit_merge_point(self, policy):
         #
         # Mutate the original portal graph from this:
         #
@@ -496,10 +496,10 @@ class WarmRunnerDesc:
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
-        ll_portal_runner._recursive_portal_call_ = True
-
+        
         portal_runner_ptr = self.helper_func(self.PTR_PORTAL_FUNCTYPE,
                                              ll_portal_runner)
+        policy.portal_runner_ptr = portal_runner_ptr
 
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr

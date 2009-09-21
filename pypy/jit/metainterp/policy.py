@@ -4,6 +4,8 @@ from pypy.rpython.lltypesystem import lltype
 
 class JitPolicy(object):
 
+    portal_runner_ptr = None # set by WarmRunnerDesc.rewrite_jit_merge_point
+
     def look_inside_function(self, func):
         if hasattr(func, '_look_inside_me_'):
             return func._look_inside_me_
@@ -50,14 +52,9 @@ class JitPolicy(object):
 
     def guess_call_kind(self, op, supports_floats):
         if op.opname == 'direct_call':
-            funcobj = get_funcobj(op.args[0].value)
-            if isinstance(lltype.typeOf(funcobj), lltype.Ptr):
-                try:
-                    funcobj._obj
-                except lltype.DelayedPointer:
-                    return 'recursive'
-            if (hasattr(funcobj, '_callable') and
-                getattr(funcobj._callable, '_recursive_portal_call_', False)):
+            funcptr = op.args[0].value
+            funcobj = get_funcobj(funcptr)
+            if funcptr is self.portal_runner_ptr:
                 return 'recursive'
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
