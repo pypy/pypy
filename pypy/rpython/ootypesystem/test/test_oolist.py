@@ -64,8 +64,8 @@ def test_optional_itemtype():
     LT = List()
     LT2 = List(Signed)
     assert LT != Signed
-    py.test.raises(TypeError, "LT == LT2")
-    py.test.raises(TypeError, "LT2 == LT")
+    assert LT != LT2
+    assert LT2 != LT
     py.test.raises(TypeError, hash, LT)
     setItemType(LT, Signed)
     assert LT == LT2

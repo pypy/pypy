@@ -583,7 +583,7 @@ class List(BuiltinADTType):
         if not isinstance(other, List):
             return False
         if self.ITEM is None or other.ITEM is None:
-            raise TypeError("Can't compare uninitialized List type.")
+            return False # behave like a ForwardReference, i.e. compare by identity
         return BuiltinADTType.__eq__(self, other)
 
     def __ne__(self, other):
@@ -664,7 +664,7 @@ class Array(BuiltinADTType):
         if not isinstance(other, Array):
             return False
         if self.ITEM is None or other.ITEM is None:
-            raise TypeError("Can't compare uninitialized List type.")
+            return False # behave like a ForwardReference, i.e. compare by identity
         return BuiltinADTType.__eq__(self, other)
 
     def __ne__(self, other):
@@ -768,7 +768,7 @@ class Dict(BuiltinADTType):
         if not isinstance(other, Dict):
             return False
         if not self._is_initialized() or not other._is_initialized():
-            raise TypeError("Can't compare uninitialized Dict type.")
+            return False # behave like a ForwardReference, i.e. compare by identity
         return BuiltinADTType.__eq__(self, other) 
 
     def __ne__(self, other):

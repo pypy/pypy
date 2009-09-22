@@ -36,8 +36,8 @@ def test_optional_types():
     DT = Dict()
     DT2 = Dict(Signed, Float)
     assert DT != Signed
-    py.test.raises(TypeError, "DT == DT2")
-    py.test.raises(TypeError, "DT2 == DT")
+    assert DT != DT2
+    assert DT2 != DT
     py.test.raises(TypeError, hash, DT)
     setDictTypes(DT, Signed, Float)
     assert DT == DT2
