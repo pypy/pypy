@@ -111,36 +111,36 @@ def test_find_functions_mingw32():
 \t.text
 \t.globl _pypy_g_funccall_valuestack__AccessDirect_None
 _pypy_g_funccall_valuestack__AccessDirect_None:
-\t$pushl %ebp
-\t$movl %esp, %ebp
-\t$subl $40, %esp
+\tpushl %ebp
+\tmovl %esp, %ebp
+\tsubl $40, %esp
 L410:
-\t$movl $10, %eax
-\t$movl %eax, -12(%ebp)
-\t$movl -4(%ebp), %eax
-\t$movl L9341(%eax), %eax
-\t$jmp *%eax
-\t$.section .rdata,"dr"
-\t$.align 4
+\tmovl $10, %eax
+\tmovl %eax, -12(%ebp)
+\tmovl -4(%ebp), %eax
+\tmovl L9341(%eax), %eax
+\tjmp *%eax
+\t.section .rdata,"dr"
+\t.align 4
 L9341:
-\t$.long L9331
-\t$.long L9332
-\t$.long L9333
-\t$.long L9334
-\t$.long L9335
-\t$.text
+\t.long\tL9331
+\t.long\tL9332
+\t.long\tL9333
+\t.long\tL9334
+\t.long\tL9335
+\t.text
 L9331:
 L9332:
 L9333:
 L9334:
 L9335:
-\t$movl -12(%ebp), %eax
+\tmovl -12(%ebp), %eax
 /APP
-\t$/* GCROOT %eax */
+\t/* GCROOT %eax */
 /NO_APP
 \tcall\t_someFunction
-\t$leave
-\t$ret
+\tleave
+\tret
 """
     lines = source.splitlines(True)
     parts = list(GcRootTracker(format='mingw32').find_functions(iter(lines)))
