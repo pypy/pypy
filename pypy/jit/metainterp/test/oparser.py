@@ -11,9 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llstr
 
-_cache = {}
-_default_namespace = {'lltype': {}, 'ootype': {}}
-
 class ParseError(Exception):
     pass
 
@@ -60,10 +57,11 @@ class OpParser(object):
         self.boxkinds = boxkinds or {}
         self.jumps = []
         self.jump_targets = jump_targets
+        self._cache = namespace.setdefault('_CACHE_', {})
 
     def box_for_var(self, elem):
         try:
-            return _cache[self.type_system, elem]
+            return self._cache[self.type_system, elem]
         except KeyError:
             pass
         if elem.startswith('i'):
@@ -82,7 +80,7 @@ class OpParser(object):
                     break
             else:
                 raise ParseError("Unknown variable type: %s" % elem)
-        _cache[self.type_system, elem] = box
+        self._cache[self.type_system, elem] = box
         box._str = elem
         return box
 
@@ -264,7 +262,7 @@ class OpParser(object):
 def parse(descr, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, jump_targets=None):
     if namespace is None:
-        namespace = _default_namespace[type_system]
+        namespace = {}
     return OpParser(descr, cpu, namespace, type_system, boxkinds, jump_targets).parse()
 
 def _box_counter_more_than(s):

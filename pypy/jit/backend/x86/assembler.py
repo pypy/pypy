@@ -6,7 +6,6 @@ from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.tool.uid import fixid
-from pypy.jit.backend.logger import Logger
 from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
                                            lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize
@@ -77,7 +76,6 @@ class Assembler386(object):
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
-        self.logger = Logger(cpu.ts)
         self.fail_boxes_int = lltype.malloc(lltype.GcArray(lltype.Signed),
                                             MAX_FAIL_BOXES, zero=True)
         self.fail_boxes_ptr = lltype.malloc(lltype.GcArray(llmemory.GCREF),
@@ -97,7 +95,6 @@ class Assembler386(object):
             self.fail_box_ptr_addr = rffi.cast(lltype.Signed,
                 lltype.direct_arrayitems(self.fail_boxes_ptr))
 
-            self.logger.create_log()
             # the address of the function called by 'new'
             gc_ll_descr = self.cpu.gc_ll_descr
             gc_ll_descr.initialize()
@@ -158,11 +155,9 @@ class Assembler386(object):
         adr_lea = 0
         if guard_op is None:
             inputargs = tree.inputargs
-            self.logger.log_loop(tree)
             regalloc.walk_operations(tree)
         else:
             inputargs = regalloc.inputargs
-            self.logger.log_operations(inputargs, guard_op.suboperations, {})
             mc = self.mc._mc
             adr_lea = mc.tell()
             mc.LEA(esp, fixedsize_ebp_ofs(0))

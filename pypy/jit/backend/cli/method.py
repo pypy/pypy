@@ -151,9 +151,6 @@ class Method(object):
             self.av_ZeroDivisionError = None
 
         # ----
-        cpu.logger.create_log()
-        cpu.logger.log_loop(loop)
-        # ----
         self.box2type = {}
         if self.nocast:
             self.compute_types()

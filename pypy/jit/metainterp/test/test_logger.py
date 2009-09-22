@@ -1,6 +1,6 @@
 
 from pypy.jit.metainterp.test.oparser import parse
-from pypy.jit.backend import logger
+from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
@@ -25,7 +25,7 @@ class Logger(logger.Logger):
 class TestLogger(object):
     ts = llhelper
 
-    def reparse(self, inp, namespace=None):
+    def reparse(self, inp, namespace={}):
         """ parse loop once, then log it and parse again,
         return both
         """

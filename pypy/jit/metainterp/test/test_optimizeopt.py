@@ -48,9 +48,11 @@ def test_equaloplists():
         fail(i2)
     jump(i1)
     """
-    loop1 = parse(ops)
-    loop2 = parse(ops)
-    loop3 = parse(ops.replace("i2 = int_add", "i2 = int_sub"))
+    namespace = {}
+    loop1 = parse(ops, namespace=namespace)
+    loop2 = parse(ops, namespace=namespace)
+    loop3 = parse(ops.replace("i2 = int_add", "i2 = int_sub"),
+                  namespace=namespace)
     assert equaloplists(loop1.operations, loop2.operations)
     py.test.raises(AssertionError,
                    "equaloplists(loop1.operations, loop3.operations)")
