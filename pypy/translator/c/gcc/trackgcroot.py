@@ -1037,13 +1037,21 @@ class InsnEpilogue(Insn):
             self.framesize = framesize
 
 
-FUNCTIONS_NOT_RETURNING = {
-    'abort': None,
-    '_exit': None,
-    '__assert_fail': None,
-    '___assert_rtn': None,
-    'L___assert_rtn$stub': None
-    }
+if sys.platform != 'win32':
+    FUNCTIONS_NOT_RETURNING = {
+        'abort': None,
+        '_exit': None,
+        '__assert_fail': None,
+        '___assert_rtn': None,
+        'L___assert_rtn$stub': None
+        }
+else:
+    FUNCTIONS_NOT_RETURNING = {
+        '_abort': None,
+        '__exit': None,
+        '__assert': None,
+        '__wassert': None,
+        }
 
 CALLEE_SAVE_REGISTERS_NOEBP = ['%ebx', '%esi', '%edi']
 CALLEE_SAVE_REGISTERS = CALLEE_SAVE_REGISTERS_NOEBP + ['%ebp']
