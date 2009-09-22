@@ -774,6 +774,16 @@ class FunctionGcRootTracker(object):
     visit_jo = conditional_jump
     visit_jno = conditional_jump
 
+    def visit_xchgl(self, line):
+        # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
+        # which is to use a marker no-op "xchgl %ebx, %ebx"
+        match = r_binaryinsn.match(line)
+        source = match.group(1)
+        target = match.group(2)
+        if source == target:
+            return []
+        raise UnrecognizedOperation(line)
+
     def visit_call(self, line):
         match = r_unaryinsn.match(line)
         if match is None:

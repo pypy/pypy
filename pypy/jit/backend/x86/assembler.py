@@ -139,8 +139,9 @@ class Assembler386(object):
         newaddr = self.assemble(tree, guard_op.suboperations, guard_op)
         # patch the jump from original guard
         addr = guard_op._x86_addr
-        mc = codebuf.InMemoryCodeBuilder(addr, addr + 128)
+        mc = codebuf.InMemoryCodeBuilder(addr, addr + 4)
         mc.write(packimm32(newaddr - addr - 4))
+        mc.valgrind_invalidated()
         mc.done()
 
     def assemble(self, tree, operations, guard_op):
@@ -176,9 +177,9 @@ class Assembler386(object):
             if not we_are_translated():
                 # for the benefit of tests
                 guard_op._x86_bridge_stack_depth = stack_depth
-            mc = codebuf.InMemoryCodeBuilder(adr_lea, adr_lea + 128)
-            
+            mc = codebuf.InMemoryCodeBuilder(adr_lea, adr_lea + 8)
             mc.LEA(esp, fixedsize_ebp_ofs(-(stack_depth + RET_BP - 2) * WORD))
+            mc.valgrind_invalidated()
             mc.done()
         if we_are_translated():
             self._regalloc = None   # else keep it around for debugging

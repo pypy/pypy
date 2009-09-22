@@ -61,6 +61,11 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         if machine_code_dumper.enabled:
             machine_code_dumper.dump(self, 'LOG', self._pos, msg)
 
+    def valgrind_invalidated(self):
+        # mark the range of the InMemoryCodeBuilder as invalidated for Valgrind
+        from pypy.jit.backend.x86 import valgrind
+        valgrind.discard_translations(self._data, self._size)
+
 
 BINARYFN = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 
