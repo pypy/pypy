@@ -664,20 +664,21 @@ class FunctionGcRootTracker(object):
         match = r_binaryinsn.match(line)
         target = match.group(2)
         if target == '%esp':
-            # only for  leal -12(%ebp), %esp  in function epilogues
             source = match.group(1)
             match = r_localvar_ebp.match(source)
-            if not match:
-                framesize = None    # strange instruction
-            else:
+            # leal -12(%ebp), %esp  in function epilogues
+            if match:
                 if not self.uses_frame_pointer:
                     raise UnrecognizedOperation('epilogue without prologue')
                 ofs_from_ebp = int(match.group(1) or '0')
                 assert ofs_from_ebp <= 0
                 framesize = 4 - ofs_from_ebp
-            return InsnEpilogue(framesize)
-        else:
-            return self.binary_insn(line)
+                return InsnEpilogue(framesize)
+            match = r_localvar_esp.match(source)
+            # leal 12(%esp), %esp
+            if match:
+                return InsnStackAdjust(int(match.group(1)))
+        return self.binary_insn(line)
 
     def insns_for_copy(self, source, target):
         if source == '%esp' or target == '%esp':
