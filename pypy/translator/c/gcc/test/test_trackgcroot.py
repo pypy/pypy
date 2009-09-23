@@ -151,33 +151,6 @@ L9335:
     tracker = FunctionGcRootTracker(lines, format='mingw32')
     tracker.computegcmaptable(verbose=sys.maxint)
 
-def test_leal_esp():
-    # "leal 2(%esp), %esp" is equivalent to "addl $2, %esp"
-    source = """\
-\t.text
-\t.globl _someFunction
-_someFunction:
-\tpushl %ebp
-\tmovl %esp, %ebp
-\tsubl $40, %esp
-\tmovl $10, -4(%ebp)
-\tcmpb $0, -26(%ebp)
-\tje L7816
-\tleal 2(%esp), %esp
-\tjmp L7817
-L7816:
-\taddl $2, %esp
-L7817:
-\tmovl -4(%ebp), %eax
-\t/* GCROOT %eax */
-\tcall\t_someFunction
-"""
-    lines = source.splitlines(True)
-    parts = list(GcRootTracker(format='mingw32').find_functions(iter(lines)))
-    lines = parts[1][1]
-    tracker = FunctionGcRootTracker(lines, format='mingw32')
-    tracker.computegcmaptable(verbose=sys.maxint)
-
 def test_computegcmaptable():
     tests = []
     for format in ('elf', 'darwin'):
