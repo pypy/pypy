@@ -219,24 +219,7 @@ class GcRootTracker(object):
         if functionlines:
             yield in_function, functionlines
 
-    def _find_functions_mingw32(self, iterlines):
-        functionlines = []
-        in_text = False
-        in_function = False
-        for n, line in enumerate(iterlines):
-            if r_textstart.match(line):
-                assert not in_text, "unexpected repeated .text start: %d" % n
-                in_text = True
-            elif r_sectionstart.match(line):
-                in_text = False
-            elif in_text and r_functionstart_darwin.match(line):
-                yield in_function, functionlines
-                functionlines = []
-                in_function = True
-            functionlines.append(line)
-
-        if functionlines:
-            yield in_function, functionlines
+    _find_functions_mingw32 = _find_functions_darwin
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
         if self.format in ('darwin', 'mingw32'):
@@ -734,27 +717,12 @@ class FunctionGcRootTracker(object):
         return InsnRet()
 
     def visit_jmp(self, line):
-        tablelabel = None
         match = r_jmp_switch.match(line)
         if match:
             # this is a jmp *Label(%index), used for table-based switches.
             # Assume that the table is just a list of lines looking like
             # .long LABEL or .long 0, ending in a .text or .section .text.hot.
             tablelabel = match.group(1)
-        elif r_unaryinsn_star.match(line):
-            # maybe a jmp similar to the above, but stored in a
-            # registry:
-            #     movl L9341(%eax), %eax
-            #     jmp *%eax
-            operand = r_unaryinsn_star.match(line).group(1)[1:]
-            prev_line = self.lines[self.currentlineno-1]
-            match = r_insn.match(prev_line)
-            binaryinsn = r_binaryinsn.match(prev_line)
-            if (match and binaryinsn and
-                match.group(1) == 'movl' and binaryinsn.group(2) == operand
-                and '(' in binaryinsn.group(1)):
-                tablelabel = binaryinsn.group(1).split('(')[0]
-        if tablelabel:
             tablelin = self.labels[tablelabel].lineno + 1
             while not r_jmptable_end.match(self.lines[tablelin]):
                 match = r_jmptable_item.match(self.lines[tablelin])

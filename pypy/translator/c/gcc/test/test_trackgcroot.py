@@ -105,52 +105,7 @@ _pypy_g_RPyRaiseException:
     assert parts[4] == (False, lines[13:18])
     assert parts[5] == (True,  lines[18:20])
     assert parts[6] == (False, lines[20:])
-
-def test_find_functions_mingw32():
-    source = """\
-\t.text
-\t.globl _pypy_g_funccall_valuestack__AccessDirect_None
-_pypy_g_funccall_valuestack__AccessDirect_None:
-\tpushl %ebp
-\tmovl %esp, %ebp
-\tsubl $40, %esp
-L410:
-\tmovl $10, %eax
-\tmovl %eax, -12(%ebp)
-\tmovl -4(%ebp), %eax
-\tmovl L9341(%eax), %eax
-\tjmp *%eax
-\t.section .rdata,"dr"
-\t.align 4
-L9341:
-\t.long\tL9331
-\t.long\tL9332
-\t.long\tL9333
-\t.long\tL9334
-\t.long\tL9335
-\t.text
-L9331:
-L9332:
-L9333:
-L9334:
-L9335:
-\tmovl -12(%ebp), %eax
-/APP
-\t/* GCROOT %eax */
-/NO_APP
-\tcall\t_someFunction
-\tleave
-\tret
-"""
-    lines = source.splitlines(True)
-    parts = list(GcRootTracker(format='mingw32').find_functions(iter(lines)))
-    assert len(parts) == 2
-    assert parts[0] == (False, lines[:2])
-    assert parts[1] == (True,  lines[2:])
-    lines = parts[1][1]
-    tracker = FunctionGcRootTracker(lines, format='mingw32')
-    tracker.computegcmaptable(verbose=sys.maxint)
-
+ 
 def test_computegcmaptable():
     tests = []
     for format in ('elf', 'darwin'):
