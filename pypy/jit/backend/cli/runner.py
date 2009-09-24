@@ -409,6 +409,8 @@ class MethDescr(AbstractMethDescr):
     def get_call_opcode(self):
         return OpCodes.Callvirt
 
+    def repr_of_descr(self):
+        return "'%s'" % self.methname
 
 class StringMethDescr(MethDescr):
 
