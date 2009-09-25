@@ -514,6 +514,12 @@ ADDSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x58', register(1, 8), modrm(2)])
 SUBSD = Instruction()
 SUBSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x5C', register(1, 8), modrm(2)])
 
+MULSD = Instruction()
+MULSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x59', register(1, 8), modrm(2)])
+
+DIVSD = Instruction()
+DIVSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x5E', register(1, 8), modrm(2)])
+
 # ------------------------------ end of SSE2 -----------------------------
 
 UD2 = Instruction()      # reserved as an illegal instruction
