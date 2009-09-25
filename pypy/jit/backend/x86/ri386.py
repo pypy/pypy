@@ -198,7 +198,6 @@ class MODRM(OPERAND):
 
 class MODRM64(MODRM):
     width = 8
-    # XXX some logic that it cannot be register
 
 class MODRM8(MODRM):
     width = 1
