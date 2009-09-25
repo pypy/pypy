@@ -16,8 +16,7 @@ from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
-from pypy.jit.metainterp.test.oparser import parse
-
+from pypy.jit.metainterp.test.oparser import pure_parse as parse
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):

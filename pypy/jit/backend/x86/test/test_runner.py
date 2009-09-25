@@ -1,8 +1,8 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
-from pypy.jit.metainterp.history import ResOperation, TreeLoop
+from pypy.jit.metainterp.history import ResOperation
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         Box)
+                                         Box, BasicFailDescr)
 from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.regalloc import WORD
 from pypy.jit.backend.llsupport import symbolic
@@ -80,15 +80,13 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.GUARD_FALSE, [u], None),
             ResOperation(rop.JUMP, [z, t], None),
             ]
-        loop = TreeLoop('loop')
-        loop.operations = operations
-        loop.inputargs = [x, y]
-        operations[-1].jump_target = loop
-        operations[-2].suboperations = [ResOperation(rop.FAIL, [t, z], None)]
-        cpu.compile_operations(loop)
+        operations[-1].jump_target = None
+        operations[-2].suboperations = [ResOperation(rop.FAIL, [t, z], None,
+                                                     descr=BasicFailDescr())]
+        executable_token = cpu.compile_loop([x, y], operations)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 10)
-        res = self.cpu.execute_operations(loop)
+        res = self.cpu.execute_token(executable_token)
         assert self.cpu.get_latest_value_int(0) == 0
         assert self.cpu.get_latest_value_int(1) == 55
 
@@ -322,18 +320,18 @@ class TestX86(LLtypeBackendTest):
                     ops = [
                         ResOperation(op, [b], f),
                         ResOperation(guard, [f], None),
-                        ResOperation(rop.FAIL, [ConstInt(0)], None),
+                        ResOperation(rop.FAIL, [ConstInt(0)], None,
+                                     descr=BasicFailDescr()),
                         ]
-                    ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-                    loop = TreeLoop('name')
-                    loop.operations = ops
-                    loop.inputargs = [b]
-                    self.cpu.compile_operations(loop)
+                    ops[1].suboperations = [ResOperation(rop.FAIL,
+                                                        [ConstInt(1)], None,
+                                                        descr=BasicFailDescr())]
+                    executable_token = self.cpu.compile_loop([b], ops)
                     if op == rop.INT_IS_TRUE:
                         self.cpu.set_future_value_int(0, b.value)
                     else:
                         self.cpu.set_future_value_ref(0, b.value)
-                    r = self.cpu.execute_operations(loop)
+                    r = self.cpu.execute_token(executable_token)
                     result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, op, None, b).value
@@ -367,16 +365,17 @@ class TestX86(LLtypeBackendTest):
                     ops = [
                         ResOperation(op, [a, b], res),
                         ResOperation(guard, [res], None),
-                        ResOperation(rop.FAIL, [ConstInt(0)], None),
+                        ResOperation(rop.FAIL, [ConstInt(0)], None,
+                                     descr=BasicFailDescr()),
                         ]
-                    ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-                    loop = TreeLoop('name')
-                    loop.operations = ops
-                    loop.inputargs = [i for i in (a, b) if isinstance(i, Box)]
-                    self.cpu.compile_operations(loop)
-                    for i, box in enumerate(loop.inputargs):
+                    ops[1].suboperations = [ResOperation(rop.FAIL,
+                                                        [ConstInt(1)], None,
+                                                        descr=BasicFailDescr())]
+                    inputargs = [i for i in (a, b) if isinstance(i, Box)]
+                    executable_token = self.cpu.compile_loop(inputargs, ops)
+                    for i, box in enumerate(inputargs):
                         self.cpu.set_future_value_int(i, box.value)
-                    r = self.cpu.execute_operations(loop)
+                    r = self.cpu.execute_token(executable_token)
                     result = self.cpu.get_latest_value_int(0)
                     expected = execute(self.cpu, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
@@ -400,14 +399,12 @@ class TestX86(LLtypeBackendTest):
                 next_v = BoxInt()
                 ops.append(ResOperation(rop.INT_ADD, [v, ConstInt(1)], next_v))
                 v = next_v
-            ops.append(ResOperation(rop.FAIL, [v], None))
-            loop = TreeLoop('name')
-            loop.operations = ops
-            loop.inputargs = [base_v]
-            self.cpu.compile_operations(loop)
+            ops.append(ResOperation(rop.FAIL, [v], None,
+                                    descr=BasicFailDescr()))
+            executable_token = self.cpu.compile_loop([base_v], ops)
             assert self.cpu.assembler.mc != old_mc   # overflowed
             self.cpu.set_future_value_int(0, base_v.value)
-            op = self.cpu.execute_operations(loop)
+            self.cpu.execute_token(executable_token)
             assert self.cpu.get_latest_value_int(0) == 1024
         finally:
             MachineCodeBlockWrapper.MC_SIZE = orig_size

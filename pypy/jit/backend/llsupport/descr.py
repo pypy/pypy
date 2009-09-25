@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
-from pypy.jit.metainterp.history import TreeLoop
+from pypy.jit.metainterp.history import BasicFailDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 
 # The point of the class organization in this file is to make instances
@@ -165,7 +165,7 @@ def get_array_descr(gccache, ARRAY):
 
 class BaseCallDescr(AbstractDescr):
     _clsname = ''
-    call_loop = None
+    executable_token = None
     arg_classes = ''     # <-- annotation hack
 
     def __init__(self, arg_classes):
@@ -185,9 +185,9 @@ class BaseCallDescr(AbstractDescr):
     def get_result_size(self, translate_support_code):
         raise NotImplementedError
 
-    def get_loop_for_call(self, cpu):
-        if self.call_loop is not None:
-            return self.call_loop
+    def get_token_for_call(self, cpu):
+        if self.executable_token is not None:
+            return self.executable_token
         args = [BoxInt()] + self.instantiate_arg_classes()
         if self.get_result_size(cpu.translate_support_code) == 0:
             result = None
@@ -201,14 +201,13 @@ class BaseCallDescr(AbstractDescr):
         operations = [
             ResOperation(rop.CALL, args, result, self),
             ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-            ResOperation(rop.FAIL, result_list, None)]
-        operations[1].suboperations = [ResOperation(rop.FAIL, [], None)]
-        loop = TreeLoop('call')
-        loop.inputargs = args
-        loop.operations = operations
-        cpu.compile_operations(loop)
-        self.call_loop = loop
-        return loop
+            ResOperation(rop.FAIL, result_list, None,
+                         descr=BasicFailDescr())]
+        operations[1].suboperations = [ResOperation(rop.FAIL, [], None,
+                                              descr=BasicFailDescr())]
+        executable_token = cpu.compile_loop(args, operations)
+        self.executable_token = executable_token
+        return executable_token
 
     def repr_of_descr(self):
         return '<%s>' % self._clsname

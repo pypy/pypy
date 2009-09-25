@@ -106,6 +106,7 @@ _oplist = [
     '_FINAL_FIRST',
     'JUMP',
     'FAIL',
+    'FINISH',
     '_FINAL_LAST',
 
     '_GUARD_FIRST',

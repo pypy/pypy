@@ -119,12 +119,18 @@ class AbstractValue(object):
 class AbstractDescr(AbstractValue):
     __slots__ = ()
 
-    def handle_fail_op(self, metainterp, fail_op):
+    def repr_of_descr(self):
+        return '%r' % (self,)
+
+class AbstractFailDescr(AbstractDescr):
+
+    def handle_fail(self, metainterp_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
-    def repr_of_descr(self):
-        return '%r' % (self,)
+
+class BasicFailDescr(AbstractFailDescr):
+    pass
 
 class AbstractMethDescr(AbstractDescr):
     # the base class of the result of cpu.methdescrof()
@@ -662,6 +668,12 @@ def dc_hash(c):
 class Base(object):
     """Common base class for TreeLoop and History."""
 
+class LoopToken(object):
+    """loop token"""
+    terminating = False # see TerminatingLoopToken in compile.py
+    # specnodes
+    # executable_token
+
 class TreeLoop(Base):
     inputargs = None
     specnodes = None
@@ -701,14 +713,19 @@ class TreeLoop(Base):
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
-        for box in self.inputargs:
-            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
-        seen = dict.fromkeys(self.inputargs)
-        assert len(seen) == len(self.inputargs), (
-               "duplicate Box in the Loop.inputargs")
-        self.check_consistency_of_branch(self.operations, seen)
+        self.check_consistency_of(self.inputargs, self.operations)
 
-    def check_consistency_of_branch(self, operations, seen):
+    @staticmethod
+    def check_consistency_of(inputargs, operations):
+        for box in inputargs:
+            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
+        seen = dict.fromkeys(inputargs)
+        assert len(seen) == len(inputargs), (
+               "duplicate Box in the Loop.inputargs")
+        TreeLoop.check_consistency_of_branch(operations, seen)
+        
+    @staticmethod
+    def check_consistency_of_branch(operations, seen):
         "NOT_RPYTHON"
         for op in operations:
             for box in op.args:
@@ -716,7 +733,11 @@ class TreeLoop(Base):
                     assert box in seen
             assert (op.suboperations is not None) == op.is_guard()
             if op.is_guard():
-                self.check_consistency_of_branch(op.suboperations, seen.copy())
+                if hasattr(op, '_debug_suboperations'):
+                    ops = op._debug_suboperations
+                else:
+                    ops = op.suboperations
+                TreeLoop.check_consistency_of_branch(ops, seen.copy())
             box = op.result
             if box is not None:
                 assert isinstance(box, Box)
@@ -724,7 +745,9 @@ class TreeLoop(Base):
                 seen[box] = True
         assert operations[-1].is_final()
         if operations[-1].opnum == rop.JUMP:
-            assert isinstance(operations[-1].jump_target, TreeLoop)
+            target = operations[-1].jump_target
+            if target is not None:
+                assert isinstance(target, LoopToken)
 
     def dump(self):
         # RPython-friendly
@@ -746,12 +769,19 @@ class TreeLoop(Base):
         return '<%s>' % (self.name,)
 
 def _list_all_operations(result, operations, omit_fails=True):
-    if omit_fails and operations[-1].opnum == rop.FAIL:
+    if omit_fails and operations[-1].opnum in (rop.FAIL, rop.FINISH):
+        # xxx obscure
         return
     result.extend(operations)
     for op in operations:
         if op.is_guard():
-            _list_all_operations(result, op.suboperations, omit_fails)
+            if hasattr(op, '_debug_suboperations'):
+                ops = op._debug_suboperations
+            else:
+                if omit_fails:
+                    continue
+                ops = op.suboperations
+            _list_all_operations(result, ops, omit_fails)
 
 # ____________________________________________________________
 
@@ -769,6 +799,29 @@ class History(Base):
 # ____________________________________________________________
 
 
+class NoStats(object):
+
+    def set_history(self, history):
+        pass
+
+    def aborted(self):
+        pass
+
+    def entered(self):
+        pass
+
+    def compiled(self):
+        pass
+
+    def add_merge_point_location(self, loc):
+        pass
+
+    def name_for_new_loop(self):
+        return 'Loop'
+
+    def add_new_loop(self, loop):
+        pass
+
 class Stats(object):
     """For tests."""
 
@@ -779,6 +832,29 @@ class Stats(object):
     def __init__(self):
         self.loops = []
         self.locations = []
+
+    def set_history(self, history):
+        self.history = history
+
+    def aborted(self):
+        self.aborted_count += 1
+
+    def entered(self):
+        self.enter_count += 1        
+
+    def compiled(self):
+        self.compiled_count += 1
+
+    def add_merge_point_location(self, loc):
+        self.locations.append(loc)
+
+    def name_for_new_loop(self):
+        return 'Loop #%d' % len(self.loops)
+
+    def add_new_loop(self, loop):
+        self.loops.append(loop)
+        
+    # test read interface
 
     def get_all_loops(self):
         return self.loops
@@ -825,7 +901,7 @@ class Stats(object):
 
     def view(self, errmsg=None, extraloops=[]):
         from pypy.jit.metainterp.graphpage import display_loops
-        loops = self.get_all_loops()
+        loops = self.get_all_loops()[:]
         for loop in extraloops:
             if loop in loops:
                 loops.remove(loop)

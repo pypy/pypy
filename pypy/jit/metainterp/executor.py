@@ -245,7 +245,7 @@ def do_cast_int_to_float(cpu, box1):
 def do_debug_merge_point(cpu, box1):
     from pypy.jit.metainterp.warmspot import get_stats
     loc = box1._get_str()
-    get_stats().locations.append(loc)
+    get_stats().add_merge_point_location(loc)
 
 # ____________________________________________________________
 

@@ -4,7 +4,7 @@
 
 import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, TreeLoop
+     BoxPtr, ConstPtr, LoopToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.x86.runner import CPU
@@ -14,11 +14,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.backend.x86.ri386 import *
-
-
-class DummyTree(object):
-    operations = [ResOperation(rop.FAIL, [], None)]
-    inputargs = []
 
 class MockGcDescr(GcCache):
     def get_funcptr_for_new(self):
@@ -78,7 +73,7 @@ class RegAllocForTests(RegAlloc):
 class TestRegallocDirect(object):
 
     def test_make_sure_var_in_reg(self):
-        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        regalloc = RegAlloc(MockAssembler())
         boxes = fill_regs(regalloc)
         box = boxes[-1]
         oldloc = regalloc.loc(box)
@@ -87,17 +82,17 @@ class TestRegallocDirect(object):
         regalloc._check_invariants()
 
     def test_make_sure_var_in_reg_need_lower_byte(self):
-        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        regalloc = RegAlloc(MockAssembler())
         box = BoxInt()
         regalloc.reg_bindings[box] = edi
-        regalloc.free_regs.remove(edi)
+        regalloc.free_regs = [eax, ecx, edx, ebx, esi]
         loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
         assert loc is not edi and loc is not esi
         assert len(regalloc.assembler.loads) == 1
         regalloc._check_invariants()
 
     def test_make_sure_var_in_reg_need_lower_byte_no_free_reg(self):
-        regalloc = RegAllocForTests(MockAssembler(), DummyTree())
+        regalloc = RegAllocForTests(MockAssembler())
         box = BoxInt()
         regalloc.reg_bindings = {BoxInt(): eax, BoxInt(): ebx, BoxInt(): ecx,
                                  BoxInt(): edx, box:edi}
@@ -109,7 +104,8 @@ class TestRegallocDirect(object):
         regalloc._check_invariants()
 
     def test_make_sure_var_in_reg_mem(self):
-        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        regalloc = RegAlloc(MockAssembler())
+        regalloc.free_regs = REGS[:]
         box = BoxInt()
         regalloc.stack_loc(box)
         loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
@@ -119,13 +115,12 @@ class TestRegallocDirect(object):
 
     def test_registers_around_call(self):
         cpu = CPU(None, None)
-        regalloc = RegAlloc(MockAssembler(cpu), DummyTree())
+        regalloc = RegAlloc(MockAssembler(cpu))
         boxes = fill_regs(regalloc)
         TP = lltype.FuncType([], lltype.Void)
         calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         regalloc._check_invariants()
-        for box in boxes:
-            regalloc.longevity[box] = (0, 1)
+        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
         box = boxes[0]
         regalloc.position = 0
         regalloc.consider_call(ResOperation(rop.CALL, [box], None, calldescr),
@@ -135,11 +130,11 @@ class TestRegallocDirect(object):
 
     def test_registers_around_newstr(self):
         cpu = CPU(None, None)
-        regalloc = RegAllocForTests(MockAssembler(cpu), DummyTree())
+        regalloc = RegAllocForTests(MockAssembler(cpu))
         boxes = fill_regs(regalloc)
         regalloc._check_invariants()
-        for box in boxes:
-            regalloc.longevity[box] = (0, 1)
+        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
+        box = boxes[-1]
         regalloc.position = 0
         resbox = BoxInt()
         regalloc.longevity[resbox] = (1, 1)
@@ -148,7 +143,7 @@ class TestRegallocDirect(object):
         regalloc._check_invariants()
 
     def test_move_away_does_not_spill(self):
-        regalloc = RegAlloc(MockAssembler(), DummyTree())
+        regalloc = RegAlloc(MockAssembler())
         regalloc.position = 0
         resbox = BoxInt()
         box = BoxInt()
@@ -187,7 +182,8 @@ class BaseTestRegalloc(object):
 
     def interpret(self, ops, args, jump_targets=None, run=True):
         loop = self.parse(ops, jump_targets=jump_targets)
-        self.cpu.compile_operations(loop)
+        executable_token = self.cpu.compile_loop(loop.inputargs,
+                                                 loop.operations)
         for i, arg in enumerate(args):
             if isinstance(arg, int):
                 self.cpu.set_future_value_int(i, arg)
@@ -196,8 +192,11 @@ class BaseTestRegalloc(object):
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
                 self.cpu.set_future_value_ref(i, llgcref)
         if run:
-            self.cpu.execute_operations(loop)
-        return loop
+            self.cpu.execute_token(executable_token)
+        loop_token = LoopToken()
+        loop_token.executable_token = executable_token
+        loop_token._loop = loop
+        return loop_token
 
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
@@ -210,13 +209,16 @@ class BaseTestRegalloc(object):
         gcref = self.cpu.get_latest_value_ref(index)
         return lltype.cast_opaque_ptr(T, gcref)
 
-    def attach_bridge(self, ops, loop, guard_op, **kwds):
+    def attach_bridge(self, ops, loop_token, guard_op_index, **kwds):
+        guard_op = loop_token._loop.operations[guard_op_index]
         assert guard_op.is_guard()
         bridge = self.parse(ops, **kwds)
-        guard_op.suboperations = bridge.operations
-        self.cpu.compile_operations(loop, guard_op)
+        faildescr = guard_op.suboperations[0].descr
+        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations)
         return bridge
 
+    def run(self, loop_token):
+        return self.cpu.execute_token(loop_token.executable_token)
 
 class TestRegallocSimple(BaseTestRegalloc):
     def test_simple_loop(self):
@@ -256,10 +258,9 @@ class TestRegallocSimple(BaseTestRegalloc):
         [i4]
         jump(i4, i4, i4, i4)
         '''
-        bridge = self.attach_bridge(bridge_ops, loop2, loop2.operations[4],
-                                    jump_targets=[loop])
+        bridge = self.attach_bridge(bridge_ops, loop2, 4, jump_targets=[loop])
         self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_operations(loop2)
+        self.run(loop2)
         assert self.getint(0) == 31
         assert self.getint(1) == 30
         assert self.getint(2) == 30
@@ -297,9 +298,9 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         loop = self.interpret(ops, [0])
         assert self.getint(0) == 1
-        bridge = self.attach_bridge(bridge_ops, loop, loop.operations[1])
+        bridge = self.attach_bridge(bridge_ops, loop, 1)
         self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_operations(loop)
+        self.run(loop)
         assert self.getint(0) == 1
 
     def test_inputarg_unused(self):
@@ -326,10 +327,10 @@ class TestRegallocSimple(BaseTestRegalloc):
         loop = self.interpret(ops, [0, 10])
         assert self.getint(0) == 0
         assert self.getint(1) == 10
-        bridge = self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        bridge = self.attach_bridge(bridge_ops, loop, 0)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 10)
-        self.cpu.execute_operations(loop)
+        self.run(loop)
         assert self.getint(0) == 0
         assert self.getint(1) == 10
 
@@ -346,10 +347,10 @@ class TestRegallocSimple(BaseTestRegalloc):
         [i0, i1]
         fail(1, 2)
         '''
-        self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        self.attach_bridge(bridge_ops, loop, 0)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 1)
-        self.cpu.execute_operations(loop)
+        self.run(loop)
 
     def test_spill_for_constant(self):
         ops = '''
@@ -467,10 +468,10 @@ class TestRegallocSimple(BaseTestRegalloc):
         call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
         fail(i0, i1, i2, i3, i4, i5, i6, i7, i8)
         '''
-        self.attach_bridge(bridge_ops, loop, loop.operations[0])
+        self.attach_bridge(bridge_ops, loop, 0)
         for i in range(9):
             self.cpu.set_future_value_int(i, i)
-        self.cpu.execute_operations(loop)
+        self.run(loop)
         assert self.getints(9) == range(9)
 
 class TestRegallocCompOps(BaseTestRegalloc):

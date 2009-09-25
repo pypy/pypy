@@ -564,7 +564,11 @@ class Optimizer(object):
     def optimize_JUMP(self, op):
         orgop = self.loop.operations[-1]
         exitargs = []
-        specnodes = orgop.jump_target.specnodes
+        target = orgop.jump_target
+        if target is None:
+            specnodes = self.loop.specnodes
+        else:
+            specnodes = target.specnodes
         assert len(op.args) == len(specnodes)
         for i in range(len(specnodes)):
             value = self.getvalue(op.args[i])

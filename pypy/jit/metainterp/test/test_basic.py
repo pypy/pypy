@@ -177,12 +177,6 @@ class BasicTests:
         res = self.interp_operations(f, [40, 2])
         assert res == 42
 
-    def test_basic_mp(self):
-        def f(x, y):
-            return x + y
-        res = self.interp_operations(f, [40, 2])
-        assert res == 42
-
     def test_basic_inst(self):
         class A:
             pass
@@ -237,6 +231,35 @@ class BasicTests:
                         assert isinstance(box, history.BoxInt)
                     found += 1
             assert found == 1
+
+    def test_loops_are_transient(self):
+        import gc, weakref
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res += x
+                if y%2:
+                    res *= 2
+                y -= 1
+            return res
+        wr_loops = []
+        old_init = history.TreeLoop.__init__.im_func
+        try:
+            def track_init(self, name):
+                old_init(self, name)
+                wr_loops.append(weakref.ref(self))
+            history.TreeLoop.__init__ = track_init
+            res = self.meta_interp(f, [6, 15], no_stats=True)
+        finally:
+            history.TreeLoop.__init__ = old_init
+            
+        assert res == f(6, 15)
+        gc.collect()
+
+        assert not [wr for wr in wr_loops if wr()]
 
     def test_string(self):
         def f(n):

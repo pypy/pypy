@@ -18,6 +18,7 @@ def test_basic_parse():
     assert [op.opnum for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
                                                     rop.FAIL]
     assert len(loop.inputargs) == 2
+    assert loop.operations[-1].descr
 
 def test_const_ptr_subops():
     x = """
@@ -30,6 +31,7 @@ def test_const_ptr_subops():
     loop = parse(x, None, locals())
     assert len(loop.operations) == 1
     assert len(loop.operations[0].suboperations) == 1
+    assert loop.operations[0].suboperations[-1].descr
 
 def test_descr():
     class Xyz(AbstractDescr):
@@ -118,7 +120,7 @@ def test_jump_target():
     jump()
     '''
     loop = parse(x)
-    assert loop.operations[0].jump_target is loop
+    assert loop.operations[0].jump_target is None
 
 def test_jump_target_other():
     x = '''
@@ -137,8 +139,8 @@ def test_jump_target_self():
     jump()
     '''
     obj = object()
-    loop = parse(x, jump_targets=[obj, 'self'])
-    assert loop.operations[-1].jump_target is loop
+    loop = parse(x, jump_targets=[obj, None])
+    assert loop.operations[-1].jump_target is None
     assert loop.operations[0].suboperations[0].jump_target is obj
 
 def test_debug_merge_point():

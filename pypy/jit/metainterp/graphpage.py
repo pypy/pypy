@@ -4,8 +4,6 @@ from pypy.translator.tool.make_dot import DotGen
 from pypy.jit.metainterp.history import Box
 from pypy.jit.metainterp.resoperation import rop
 
-SHOW_FAILS = False
-
 class SubGraph:
     def __init__(self, suboperations):
         self.suboperations = suboperations
@@ -15,30 +13,27 @@ class SubGraph:
         return None
 
 def display_loops(loops, errmsg=None, highlight_loops=()):
-    graphs = [(loop, loop in highlight_loops) for loop in loops]
+    graphs = [(loop, loop in highlight_loops) for loop in loops]    
     for graph, highlight in graphs:
         for op in graph.get_operations():
             if is_interesting_guard(op):
-                graphs.append((SubGraph(op.suboperations), highlight))
+                graphs.append((SubGraph(op._debug_suboperations),
+                               highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
 
 def is_interesting_guard(op):
-    if not op.is_guard():
-        return False
-    if SHOW_FAILS:
-        return True
-    if len(op.suboperations) > 1:
-        return True
-    if op.suboperations[0].opnum == rop.FAIL:
-        return False
-    return True
+    return hasattr(op, '_debug_suboperations')
 
 
 class ResOpGraphPage(GraphPage):
 
     def compute(self, graphs, errmsg=None):
         resopgen = ResOpGen()
+        for graph, highlight in graphs:
+            if hasattr(graph, 'token'):
+                resopgen.jumps_to_graphs[graph.token] = graph
+        
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
         if errmsg:
@@ -57,6 +52,7 @@ class ResOpGen(object):
         self.block_starters = {}    # {graphindex: {set-of-operation-indices}}
         self.all_operations = {}
         self.errmsg = None
+        self.jumps_to_graphs = {}
 
     def op_name(self, graphindex, opindex):
         return 'g%dop%d' % (graphindex, opindex)
@@ -159,7 +155,7 @@ class ResOpGen(object):
             op = operations[opindex]
             lines.append(repr(op))
             if is_interesting_guard(op):
-                tgt = op.suboperations[0]
+                tgt = op._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),
                              (tgt_g, tgt_i),
@@ -171,12 +167,19 @@ class ResOpGen(object):
                 self.genedge((graphindex, opstartindex),
                              (graphindex, opindex))
                 break
-        tgt = getattr(op, 'jump_target', None)
-        if tgt is not None and tgt in self.graphs:
-            tgt_g = self.graphs.index(tgt)
-            self.genedge((graphindex, opstartindex),
-                         (tgt_g, 0),
-                         weight="0")
+        if op.opnum == rop.JUMP:
+            tgt = op.jump_target
+            tgt_g = -1
+            if tgt is None:
+                tgt_g = graphindex
+            else:
+                tgt = self.jumps_to_graphs.get(tgt)
+                if tgt is not None:
+                    tgt_g = self.graphs.index(tgt)
+            if tgt_g != -1:
+                self.genedge((graphindex, opstartindex),
+                             (tgt_g, 0),
+                             weight="0")
         lines.append("")
         label = "\\l".join(lines)
         kwds = {}

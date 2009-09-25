@@ -8,21 +8,19 @@ from pypy.jit.metainterp import history
 from pypy.jit.backend.x86.assembler import Assembler386, MAX_FAIL_BOXES
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 
-history.TreeLoop._x86_compiled = 0
-history.TreeLoop._x86_bootstrap_code = 0
-history.TreeLoop._x86_stack_depth = 0
 
 class CPU386(AbstractLLCPU):
     debug = True
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
+    dont_keepalive_stuff = False # for tests
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, translate_support_code,
                                gcdescr)
         self._bootstrap_cache = {}
-        self._guard_list = []
+        self._faildescr_list = []
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
 
@@ -35,33 +33,16 @@ class CPU386(AbstractLLCPU):
     def setup_once(self):
         pass
 
-    def compile_operations(self, tree, guard_op=None):
-        if guard_op is not None:
-            self.assembler.assemble_from_guard(tree, guard_op)
-        else:
-            self.assembler.assemble_loop(tree)
-        
-    def get_bootstrap_code(self, loop):
-        addr = loop._x86_bootstrap_code
-        if not addr:
-            arglocs = loop.arglocs
-            addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
-                                                          arglocs,
-                                                          loop.inputargs,
-                                                          loop._x86_stack_depth)
-            loop._x86_bootstrap_code = addr
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        return func
+    def compile_loop(self, inputargs, operations):
+        return self.assembler.assemble_loop(inputargs, operations)
 
-    def execute_operations(self, loop, verbose=False):
-        assert isinstance(verbose, bool)
-        func = self.get_bootstrap_code(loop)
-        guard_index = self.execute_call(loop, func, verbose)
-        op = self._guard_list[guard_index]
-        if verbose:
-            print "Leaving at: %d" % self.assembler.fail_boxes_int[
-                len(op.args)]
-        return op
+    def compile_bridge(self, faildescr, inputargs, operations):
+        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+
+    def make_fail_index(self, faildescr):
+        index = len(self._faildescr_list)
+        self._faildescr_list.append(faildescr)
+        return index
 
     def set_future_value_int(self, index, intvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
@@ -81,7 +62,14 @@ class CPU386(AbstractLLCPU):
             llmemory.GCREF.TO)
         return ptrvalue
 
-    def execute_call(self, loop, func, verbose):
+    def execute_token(self, executable_token):
+        addr = executable_token._x86_bootstrap_code
+        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+        faildescr_index = self._execute_call(func)
+        faildescr = self._faildescr_list[faildescr_index]
+        return faildescr       
+
+    def _execute_call(self, func):
         # help flow objspace
         prev_interpreter = None
         if not self.translate_support_code:
@@ -89,8 +77,6 @@ class CPU386(AbstractLLCPU):
             LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
-            if verbose:
-                print "Entering: %d" % rffi.cast(lltype.Signed, func)
             #llop.debug_print(lltype.Void, ">>>> Entering",
             #                 rffi.cast(lltype.Signed, func))
             res = func()
@@ -99,11 +85,6 @@ class CPU386(AbstractLLCPU):
             if not self.translate_support_code:
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
-
-    def make_guard_index(self, guard_op):
-        index = len(self._guard_list)
-        self._guard_list.append(guard_op)
-        return index
 
     @staticmethod
     def cast_ptr_to_int(x):

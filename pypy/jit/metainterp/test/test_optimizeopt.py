@@ -11,7 +11,8 @@ from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt
 from pypy.jit.metainterp import resume, executor, compile
 from pypy.jit.metainterp.resoperation import rop, opname
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.metainterp.test.oparser import pure_parse as parse
+    
 
 # ____________________________________________________________
 

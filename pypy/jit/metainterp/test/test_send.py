@@ -374,6 +374,35 @@ class SendTests:
         self.check_loops(new_with_vtable=0)
         self.check_loop_count(2)
 
+    def test_behavior_change_after_a_while(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
+        class Base:
+            def __init__(self, value):
+                self.value = value
+        class Int1(Base):
+            pass
+        class Int2(Base):
+            pass
+        cases = [False, True, True, True, True]*40
+        def f(y):
+            x = Int1(0)
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y)
+                myjitdriver.jit_merge_point(x=x, y=y)
+                y -= 1
+                value = x.value + 1
+                if cases[y]:
+                    x = Int1(value)
+                else:
+                    x = Int2(value)
+            return x.value
+        res = self.meta_interp(f, [len(cases)])
+        assert res == 200
+        # for now, we really expect only 1 loop.  This is known to be kind
+        # of wrong.  XXX later...
+        self.check_loop_count(2)        # 1 loop + 1 bridge
+        self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+
     def test_three_cases(self):
         class Node:
             def __init__(self, x):

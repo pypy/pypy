@@ -107,7 +107,7 @@ class ToyLanguageTests:
               PUSH 1
               ADD
               PICK 0
-              PUSH 3
+              PUSH 5
               LE
               BR_COND inside
               PUSH 1

@@ -41,6 +41,7 @@ def apply_jit(translator, backend_name="auto", debug_level="steps",
                                     translate_support_code=True,
                                     listops=True,
                                     profile=profile,
+                                    no_stats = True,
                                     **kwds)
     warmrunnerdesc.state.set_param_inlining(inline)    
     warmrunnerdesc.finish()
@@ -226,10 +227,14 @@ class WarmRunnerDesc:
                               really_remove_asserts=True)
 
     def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", profile=None, **kwds):
+                          view="auto", profile=None, no_stats=False, **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
-        self.stats = history.Stats()
+        if no_stats:
+            stats = history.NoStats()
+        else:
+            stats = history.Stats()
+        self.stats = stats 
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
             annhelper = self.annhelper
@@ -690,8 +695,8 @@ def make_state_class(warmrunnerdesc):
     #
     class MachineCodeEntryPoint(object):
         next = None    # linked list
-        def __init__(self, bridge, *greenargs):
-            self.bridge = bridge
+        def __init__(self, entry_executable_token, *greenargs):
+            self.entry_executable_token = entry_executable_token
             i = 0
             for name in green_args_names:
                 setattr(self, 'green_' + name, greenargs[i])
@@ -819,7 +824,7 @@ def make_state_class(warmrunnerdesc):
                     return
                 metainterp = MetaInterp(metainterp_sd)
                 try:
-                    loop = metainterp.compile_and_run_once(*args)
+                    executable_token = metainterp.compile_and_run_once(*args)
                 except warmrunnerdesc.ContinueRunningNormally:
                     # the trace got too long, reset the counter
                     self.mccounters[argshash] = 0
@@ -831,19 +836,22 @@ def make_state_class(warmrunnerdesc):
                 cell = self.mcentrypoints[argshash]
                 if not cell.equalkey(*greenargs):
                     # hash collision
-                    loop = self.handle_hash_collision(cell, argshash, *args)
-                    if loop is None:
+                    executable_token = self.handle_hash_collision(cell,
+                                                                  argshash,
+                                                                  *args)
+                    if executable_token is None:
                         return
                 else:
                     # get the assembler and fill in the boxes
                     cell.set_future_values(*args[num_green_args:])
-                    loop = cell.bridge
+                    executable_token = cell.entry_executable_token
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
-                fail_op = metainterp_sd.cpu.execute_operations(loop)
+                fail_descr = metainterp_sd.cpu.execute_token(executable_token)
                 metainterp_sd.profiler.end_running()
-                loop = fail_op.descr.handle_fail_op(metainterp_sd, fail_op)
+                executable_token = fail_descr.handle_fail(metainterp_sd)
+
         maybe_compile_and_run._dont_inline_ = True
 
         def handle_hash_collision(self, firstcell, argshash, *args):
@@ -858,7 +866,7 @@ def make_state_class(warmrunnerdesc):
                     nextcell.next = firstcell
                     self.mcentrypoints[argshash] = nextcell
                     nextcell.set_future_values(*args[num_green_args:])
-                    return nextcell.bridge
+                    return nextcell.entry_executable_token
                 cell = nextcell
             # not found at all, do profiling
             counter = self.mccounters[argshash]
@@ -916,9 +924,10 @@ def make_state_class(warmrunnerdesc):
         def reset_counter_from_failure(self, key):
             key.counter = 0
 
-        def attach_unoptimized_bridge_from_interp(self, greenkey, bridge):
+        def attach_unoptimized_bridge_from_interp(self, greenkey,
+                                                  entry_executable_token):
             greenargs = self.unwrap_greenkey(greenkey)
-            newcell = MachineCodeEntryPoint(bridge, *greenargs)
+            newcell = MachineCodeEntryPoint(entry_executable_token, *greenargs)
             argshash = self.getkeyhash(*greenargs) & self.hashtablemask
             oldcell = self.mcentrypoints[argshash]
             newcell.next = oldcell     # link

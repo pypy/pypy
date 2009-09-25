@@ -353,7 +353,6 @@ def compile_add_jump_target(loop, loop_target):
 def compile_add_fail(loop, fail_index):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    assert op.opnum == rop.FAIL
     op.fail_index = fail_index
 
 def compile_suboperations(loop):
@@ -363,16 +362,15 @@ def compile_suboperations(loop):
     op.subloop = CompiledLoop()
     return _to_opaque(op.subloop)
 
-def compile_redirect_code(old_loop, new_loop):
+def compile_redirect_fail(old_loop, new_loop):
     old_loop = _from_opaque(old_loop)
     new_loop = _from_opaque(new_loop)
-    # we patch the old_loop so that it starts with a JUMP to the new_loop
-    # (but only if we can reasonably -- if new arguments grew, it is not)
-    if len(old_loop.inputargs) == len(new_loop.inputargs):
-        op = Operation(rop.JUMP)
-        op.args = old_loop.inputargs
-        op.jump_target = new_loop
-        old_loop.operations[0] = op
+    assert len(old_loop.operations) == 1
+    assert old_loop.operations[-1].opnum == rop.FAIL
+    op = Operation(rop.JUMP)
+    op.args = old_loop.operations[-1].args
+    op.jump_target = new_loop
+    old_loop.operations[0] = op
 
 # ------------------------------
 
@@ -441,6 +439,13 @@ class Frame(object):
                         ', '.join(map(str, args)),))
                 self.fail_args = args
                 return op.fail_index
+            elif op.opnum == rop.FINISH:
+                if self.verbose:
+                    log.trace('finished: %s' % (
+                        ', '.join(map(str, args)),))
+                self.fail_args = args
+                return op.fail_index
+ 
             else:
                 assert 0, "unknown final operation %d" % (op.opnum,)
 
@@ -1356,7 +1361,7 @@ setannotation(compile_add_float_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.s_None)
 setannotation(compile_suboperations, s_CompiledLoop)
-setannotation(compile_redirect_code, annmodel.s_None)
+setannotation(compile_redirect_fail, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)

@@ -1,4 +1,5 @@
 # nightly test configuration for the paraller runner
+import os
 
 def collect_one_testdir(testdirs, reldir, tests):
     if (reldir.startswith('translator/c/') or 
@@ -10,4 +11,7 @@ def collect_one_testdir(testdirs, reldir, tests):
     else:
         testdirs.append(reldir)
 
-    
+
+_cherrypick = os.getenv('PYPYCHERRYPICK', '')
+if _cherrypick:
+    cherrypick = _cherrypick.split(':')

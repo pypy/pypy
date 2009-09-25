@@ -2,7 +2,8 @@ import py, sys
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
 from pypy.jit.backend.test import conftest as demo_conftest
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
+from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
+from pypy.jit.metainterp.history import BoxInt, ConstInt, LoopToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstAddr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute_nonspec
@@ -139,11 +140,10 @@ class OperationBuilder(object):
         print_loop_prebuilt(self.loop.operations)
         #
         print >>s, '    cpu = CPU(None, None)'
-        print >>s, "    loop = TreeLoop('test')"
         if hasattr(self.loop, 'inputargs'):
-            print >>s, '    loop.inputargs = [%s]' % (
+            print >>s, '    inputargs = [%s]' % (
                 ', '.join([names[v] for v in self.loop.inputargs]))
-        print >>s, '    loop.operations = ['
+        print >>s, '    operations = ['
         for op in self.loop.operations:
             self.process_operation(s, op, names, subops)
         print >>s, '        ]'
@@ -156,15 +156,15 @@ class OperationBuilder(object):
                 #    continue # XXX
                 #[op] = op.suboperations
                 #assert op.opnum == rop.FAIL
-                #print >>s, '    loop.operations[%d].suboperations = [' % i
+                #print >>s, '    operations[%d].suboperations = [' % i
                 #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
                 #    ', '.join([names[v] for v in op.args]))
-        print >>s, '    cpu.compile_operations(loop)'
+        print >>s, '    executable_token = cpu.compile_loop(inputargs, operations)'
         if hasattr(self.loop, 'inputargs'):
             for i, v in enumerate(self.loop.inputargs):
                 print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
                                                                      v.value)
-        print >>s, '    op = cpu.execute_operations(loop)'
+        print >>s, '    op = cpu.execute_token(executable_token)'
         if self.should_fail_by is None:
             for i, v in enumerate(self.loop.operations[-1].args):
                 print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
@@ -246,7 +246,8 @@ class AbstractOvfOperation(AbstractOperation):
             builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None)]
+        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None,
+                                         descr=BasicFailDescr())]
         builder.loop.operations.append(op)
 
 class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):
@@ -264,7 +265,8 @@ class GuardOperation(AbstractOperation):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
         subset = builder.subset_of_intvars(r)        
-        op.suboperations = [ResOperation(rop.FAIL, subset, None)]
+        op.suboperations = [ResOperation(rop.FAIL, subset, None,
+                                         descr=BasicFailDescr())]
         if not passing:
             builder.should_fail_by = op.suboperations[0]
             builder.guard_op = op
@@ -404,8 +406,9 @@ class RandomLoop(object):
         builder = builder_factory(cpu, loop, startvars[:])
         self.generate_ops(builder, r, loop, startvars)
         self.builder = builder
-        cpu.compile_operations(loop)
         self.loop = loop
+        self.executable_token = cpu.compile_loop(loop.inputargs,
+                                                 loop.operations)
 
     def generate_ops(self, builder, r, loop, startvars):
         block_length = demo_conftest.option.block_length
@@ -426,7 +429,8 @@ class RandomLoop(object):
             if v not in used_later:
                 endvars.append(v)
         r.shuffle(endvars)
-        loop.operations.append(ResOperation(rop.FAIL, endvars, None))
+        loop.operations.append(ResOperation(rop.FAIL, endvars, None,
+                                            descr=BasicFailDescr()))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
             self.guard_op = builder.guard_op
@@ -458,9 +462,9 @@ class RandomLoop(object):
 
         for i, v in enumerate(self.values):
             cpu.set_future_value_int(i, v)
-        op = cpu.execute_operations(self.loop)
-        assert op is self.should_fail_by
-        for i, v in enumerate(op.args):
+        fail = cpu.execute_token(self.executable_token)
+        assert fail is self.should_fail_by.descr
+        for i, v in enumerate(self.should_fail_by.args):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
                 "Got %d, expected %d for value #%d" % (value,
@@ -485,13 +489,16 @@ class RandomLoop(object):
             else:
                 op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
                                   BoxPtr())
-            op.suboperations = [ResOperation(rop.FAIL, [], None)]
+            op.suboperations = [ResOperation(rop.FAIL, [], None,
+                                             descr=BasicFailDescr())]
             return op
 
         if self.dont_generate_more:
             return False
         r = self.r
         guard_op = self.guard_op
+        fail_args = guard_op.suboperations[-1].args
+        fail_descr = guard_op.suboperations[-1].descr
         guard_op.suboperations = []
         op = self.should_fail_by
         if not op.args:
@@ -505,35 +512,43 @@ class RandomLoop(object):
         dont_compile = False
         if r.random() < 0.1:
             subset = bridge_builder.subset_of_intvars(r)
+            subset = [i for i in subset if i in fail_args]
             if len(subset) == 0:
                 return False
             args = [x.clonebox() for x in subset]
-            jump_target = RandomLoop(self.builder.cpu, self.builder.fork,
+            rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
-            self.cpu.compile_operations(jump_target.loop)
+            executable_token = self.cpu.compile_loop(rl.loop.inputargs,
+                                                     rl.loop.operations)
             jump_op = ResOperation(rop.JUMP, subset, None)
-            jump_op.jump_target = jump_target.loop
-            self.should_fail_by = jump_target.should_fail_by
-            self.expected = jump_target.expected
+            jump_op.jump_target = LoopToken()
+            jump_op.jump_target.executable_token = executable_token
+            self.should_fail_by = rl.should_fail_by
+            self.expected = rl.expected
+            assert len(rl.loop.inputargs) == len(args)
             if self.guard_op is None:
                 guard_op.suboperations[-1] = jump_op
             else:
-                self.guard_op.suboperations[0].args.extend(subset)
-                self.builder.cpu.compile_operations(self.loop, guard_op)
+                args = self.guard_op.suboperations[-1].args + fail_args
+                self.guard_op.suboperations[-1].args = args
+                self.builder.cpu.compile_bridge(fail_descr, fail_args,
+                                                guard_op.suboperations)
+                fail_descr_2 = self.guard_op.suboperations[0].descr
+                ops = []
                 if self.guard_op.is_guard_exception():
                     # exception clearing
-                    self.guard_op.suboperations.insert(-1, exc_handling(
-                        self.guard_op))
-                self.guard_op.suboperations[-1] = jump_op
-                self.builder.cpu.compile_operations(self.loop, self.guard_op)
+                    ops = [exc_handling(self.guard_op)]
+                ops.append(jump_op)
+                self.builder.cpu.compile_bridge(fail_descr_2, args, ops)
                 dont_compile = True
-            self.guard_op = jump_target.guard_op
-            self.prebuilt_ptr_consts += jump_target.prebuilt_ptr_consts
+            self.guard_op = rl.guard_op
+            self.prebuilt_ptr_consts += rl.prebuilt_ptr_consts
             self.dont_generate_more = True
         if r.random() < .05:
             return False
         if not dont_compile:
-            self.builder.cpu.compile_operations(self.loop, guard_op)
+            self.builder.cpu.compile_bridge(fail_descr, fail_args,
+                                            guard_op.suboperations) # xxx insane
         return True
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):

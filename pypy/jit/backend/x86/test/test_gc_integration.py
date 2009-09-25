@@ -16,7 +16,7 @@ from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrFieldDescr
 
-from pypy.jit.backend.x86.test.test_regalloc import DummyTree, MockAssembler
+from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import fill_regs, BaseTestRegalloc
 
 class MockGcRootMap(object):
@@ -55,14 +55,13 @@ class TestRegallocDirectGcIntegration(object):
 
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
-        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)), DummyTree())
+        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
         cpu = regalloc.assembler.cpu
         boxes = fill_regs(regalloc, cls=BoxPtr)
         TP = lltype.FuncType([], lltype.Signed)
         calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         regalloc._check_invariants()
-        for box in boxes:
-            regalloc.longevity[box] = (0, 1)
+        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
         box = boxes[0]
         regalloc.position = 0
         regalloc.consider_call(ResOperation(rop.CALL, [box], BoxInt(),
@@ -114,25 +113,6 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         self.interpret(ops, [])
         assert not self.getptr(0, lltype.Ptr(self.S))
 
-    def test_rewrite_constptr_bridge(self):
-        ops = '''
-        [i0]
-        guard_true(i0)
-            fail(1)
-        fail(0)
-        '''
-        loop = self.interpret(ops, [0])
-        assert self.getint(0) == 1
-        bridge_ops = '''
-        [i0]
-        p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
-        fail(p1)
-        '''
-        self.attach_bridge(bridge_ops, loop, loop.operations[0])
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_operations(loop)
-        not self.getptr(0, lltype.Ptr(self.S))
-    
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
