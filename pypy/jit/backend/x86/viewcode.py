@@ -148,6 +148,7 @@ class CodeRange(object):
     def findjumps(self):
         text = self.disassemble()
         lines = text.splitlines()
+        line = ''
         for i, line in enumerate(lines):
             if '\tj' not in line: # poor heuristic to recognize lines that
                 continue          # could be jump instructions
@@ -157,7 +158,7 @@ class CodeRange(object):
             addr = addrs[-1]
             final = '\tjmp' in line
             yield i, addr, final
-        if self.fallthrough:
+        if self.fallthrough and '\tret' not in line:
             yield len(lines), self.addr + len(self.data), True
 
 
