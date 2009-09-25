@@ -876,6 +876,7 @@ def make_state_class(warmrunnerdesc):
                 self.mccounters[argshash] = n
                 return None
             metainterp = MetaInterp(metainterp_sd)
+            # XXX ContinueRunningNormally => "reset" counters
             return metainterp.compile_and_run_once(*args)
         handle_hash_collision._dont_inline_ = True
 
