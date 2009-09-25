@@ -25,8 +25,8 @@ class Logger(object):
             return None
         return self.log_stream
 
-    def log_loop(self, loop):
-        self.log_operations(loop.inputargs, loop.operations, {})
+    def log_loop(self, inputargs, operations):
+        self.log_operations(inputargs, operations, {})
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()

@@ -1573,11 +1573,13 @@ class MetaInterp(object):
             suboperations = guard_op.suboperations
             assert suboperations[-1] is guard_failure
             self.history = history.History(self.cpu)
+            self.history.inputargs = guard_failure.args   # xxx unhappy
             self.staticdata.profiler.start_tracing()
         else:
             self.staticdata.profiler.start_blackhole()
             self.history = None   # this means that is_blackholing() is true
         self.rebuild_state_after_failure(resumedescr, guard_failure.args)
+                                                      # xxx unhappy
         return resumedescr
 
     def initialize_virtualizable(self, original_boxes):

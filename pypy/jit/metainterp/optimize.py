@@ -10,8 +10,7 @@ def optimize_loop(options, old_loop_tokens, loop, cpu):
             return old_loop_tokens[0]
         else:
             return None
-    if options.logger_noopt is not None:
-        options.logger_noopt.log_loop(loop)
+    options.logger_noopt.log_loop(loop.inputargs, loop.operations)
     finder = PerfectSpecializationFinder(cpu)
     finder.find_nodes_loop(loop)
     for old_loop_token in old_loop_tokens:
@@ -28,8 +27,7 @@ from pypy.jit.metainterp.optimizeopt import optimize_bridge_1
 def optimize_bridge(options, old_loop_tokens, bridge, cpu):
     if not options.specialize:         # for tests only
         return old_loop_tokens[0]
-    if options.logger_noopt is not None:
-        options.logger_noopt.log_loop(bridge)
+    options.logger_noopt.log_loop(bridge.inputargs, bridge.operations)
     finder = BridgeSpecializationFinder(cpu)
     finder.find_nodes_bridge(bridge)
     for old_loop_token in old_loop_tokens:

@@ -14,7 +14,7 @@ from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.rlib.debug import debug_print
 
-def show_loop(metainterp, loop=None, error=None):
+def show_loop(metainterp_sd, loop=None, error=None):
     # debugging
     if option.view or option.viewloops:
         if error:
@@ -27,7 +27,7 @@ def show_loop(metainterp, loop=None, error=None):
             extraloops = []
         else:
             extraloops = [loop]
-        metainterp.staticdata.stats.view(errmsg=errmsg, extraloops=extraloops)
+        metainterp_sd.stats.view(errmsg=errmsg, extraloops=extraloops)
 
 def create_empty_loop(metainterp):
     name = metainterp.staticdata.stats.name_for_new_loop()
@@ -61,7 +61,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         if DEBUG > 0:
             debug_print("reusing old loop")
         return old_loop_token
-    executable_token = send_loop_to_backend(metainterp, loop, "loop")
+    executable_token = send_loop_to_backend(metainterp_sd, loop, "loop")
     loop_token = LoopToken()
     loop_token.specnodes = loop.specnodes
     loop_token.executable_token = executable_token
@@ -70,18 +70,19 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     old_loop_tokens.append(loop_token)
     return loop_token
 
-def send_loop_to_backend(metainterp, loop, type):    
-    metainterp.staticdata.profiler.start_backend()
+def send_loop_to_backend(metainterp_sd, loop, type):
+    metainterp_sd.options.logger_ops.log_loop(loop.inputargs, loop.operations)
+    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
-        show_loop(metainterp, loop)
+        show_loop(metainterp_sd, loop)
         loop.check_consistency()
-    executable_token = metainterp.cpu.compile_loop(loop.inputargs,
-                                                   loop.operations)
-    metainterp.staticdata.profiler.end_backend()
-    metainterp.staticdata.stats.add_new_loop(loop)
+    executable_token = metainterp_sd.cpu.compile_loop(loop.inputargs,
+                                                      loop.operations)
+    metainterp_sd.profiler.end_backend()
+    metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         if type != "entry bridge":
-            metainterp.staticdata.stats.compiled()
+            metainterp_sd.stats.compiled()
         else:
             loop._ignore_during_counting = True
         log.info("compiled new " + type)
@@ -91,16 +92,17 @@ def send_loop_to_backend(metainterp, loop, type):
             debug_print("compiled new " + type)
     return executable_token
 
-def send_bridge_to_backend(metainterp, faildescr, inputargs, operations):
-    metainterp.staticdata.profiler.start_backend()
+def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
+    metainterp_sd.options.logger_ops.log_loop(inputargs, operations)
+    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
-        show_loop(metainterp)
+        show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
         pass
-    metainterp.cpu.compile_bridge(faildescr, inputargs, operations)        
-    metainterp.staticdata.profiler.end_backend()
+    metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations)        
+    metainterp_sd.profiler.end_backend()
     if not we_are_translated():
-        metainterp.staticdata.stats.compiled()
+        metainterp_sd.stats.compiled()
         log.info("compiled new bridge")
     else:
         from pypy.jit.metainterp.pyjitpl import DEBUG
@@ -247,7 +249,8 @@ class ResumeGuardDescr(ResumeDescr):
         fail_args = guard_op.suboperations[-1].args
         if not we_are_translated():
             guard_op._debug_suboperations = new_loop.operations
-        send_bridge_to_backend(metainterp, self, fail_args, new_loop.operations)
+        send_bridge_to_backend(metainterp.staticdata, self, fail_args,
+                               new_loop.operations)
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey, redkey):
@@ -263,8 +266,8 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp.history.inputargs = self.redkey
         new_loop.greenkey = self.original_greenkey
         new_loop.inputargs = self.redkey
-        executable_token = send_loop_to_backend(metainterp, new_loop,
-                                                            "entry bridge")
+        executable_token = send_loop_to_backend(metainterp_sd, new_loop,
+                                                "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
         metainterp_sd.state.attach_unoptimized_bridge_from_interp(
             self.original_greenkey,
@@ -281,6 +284,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_loop = create_empty_loop(metainterp)
+    new_loop.inputargs = metainterp.history.inputargs
     new_loop.operations = metainterp.history.operations
     metainterp_sd = metainterp.staticdata
     options = metainterp_sd.options
