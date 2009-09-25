@@ -28,7 +28,7 @@ class FLOATREG(OPERAND):
         raise TypeError("Float registers should not appear in assembler")
 
 class XMMREG(OPERAND):
-    width = 16
+    width = 8
 
     def __repr__(self):
         return '<XMM(%d)>' % self.op

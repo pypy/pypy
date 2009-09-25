@@ -508,6 +508,12 @@ MOVSD.mode2(XMMREG, XMMREG, ['\xF2\x0F\x10', register(1, 8),
 MOVSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x10', register(1, 8), modrm(2)])
 MOVSD.mode2(MODRM64, XMMREG, ['\xF2\x0F\x11', register(2, 8), modrm(1)])
 
+ADDSD = Instruction()
+ADDSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x58', register(1, 8), modrm(2)])
+
+SUBSD = Instruction()
+SUBSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x5C', register(1, 8), modrm(2)])
+
 # ------------------------------ end of SSE2 -----------------------------
 
 UD2 = Instruction()      # reserved as an illegal instruction
