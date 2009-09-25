@@ -45,6 +45,7 @@ type_order = {
     MODRM:   [(MODRM,  None)],
     MODRM8:  [(MODRM8, None)],
     MODRM64: [(MODRM64, None)],
+    XMMREG:  [(XMMREG, None)],
 
     MISSING: [(MISSING, None)],  # missing operands
     }
@@ -498,6 +499,16 @@ FNSTCW = Instruction()
 FNSTCW.mode1(MODRM, ['\xD9', orbyte(7<<3), modrm(1)])
 
 # ------------------------- end of floating point ------------------------
+
+# --------------------------------- SSE2 ---------------------------------
+
+MOVSD = Instruction()
+MOVSD.mode2(XMMREG, XMMREG, ['\xF2\x0F\x10', register(1, 8),
+                             register(2), '\xC0'])
+MOVSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x10', register(1, 8), modrm(2)])
+MOVSD.mode2(MODRM64, XMMREG, ['\xF2\x0F\x11', register(2, 8), modrm(1)])
+
+# ------------------------------ end of SSE2 -----------------------------
 
 UD2 = Instruction()      # reserved as an illegal instruction
 UD2.mode0(['\x0F\x0B'])

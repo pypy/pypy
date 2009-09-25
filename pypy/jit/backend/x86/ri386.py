@@ -27,6 +27,15 @@ class FLOATREG(OPERAND):
     def assembler(self):
         raise TypeError("Float registers should not appear in assembler")
 
+class XMMREG(OPERAND):
+    width = 16
+
+    def __repr__(self):
+        return '<XMM(%d)>' % self.op
+
+    def assembler(self):
+        return '%xmm' + str(self.op)
+
 class ST0(FLOATREG): num=0
 class ST1(FLOATREG): num=1
 class ST2(FLOATREG): num=2
@@ -35,6 +44,15 @@ class ST4(FLOATREG): num=4
 class ST5(FLOATREG): num=5
 class ST6(FLOATREG): num=6
 class ST7(FLOATREG): num=7
+
+class XMM0(XMMREG): op=0
+class XMM1(XMMREG): op=1
+class XMM2(XMMREG): op=2
+class XMM3(XMMREG): op=3
+class XMM4(XMMREG): op=4
+class XMM5(XMMREG): op=5
+class XMM6(XMMREG): op=6
+class XMM7(XMMREG): op=7
 
 class REG8(OPERAND):
     width = 1
@@ -231,8 +249,18 @@ st5 = ST5()
 st6 = ST6()
 st7 = ST7()
 
+xmm0 = XMM0()
+xmm1 = XMM1()
+xmm2 = XMM2()
+xmm3 = XMM3()
+xmm4 = XMM4()
+xmm5 = XMM5()
+xmm6 = XMM6()
+xmm7 = XMM7()
+
 registers = [eax, ecx, edx, ebx, esp, ebp, esi, edi]
 registers8 = [al, cl, dl, bl, ah, ch, dh, bh]
+xmm_registers = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
 
 for r in registers + registers8:
     r.bitmask = 1 << r.op

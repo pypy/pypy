@@ -91,6 +91,9 @@ def modrm_noreg_tests():
 def modrm64_tests():
     return [pick1(i386.memSIB64) for i in range(COUNT2)]
 
+def xmm_tests():
+    return i386.xmm_registers
+
 def modrm8_tests():
     return i386.registers8 + [pick1(i386.memSIB8) for i in range(COUNT2)]
 
@@ -116,6 +119,7 @@ tests = {
     i386.REG: reg_tests,
     i386.MODRM: modrm_tests,
     i386.MODRM64: modrm64_tests,
+    i386.XMMREG: xmm_tests,
     i386.IMM32: imm32_tests,
     i386.REG8: reg8_tests,
     i386.MODRM8: modrm8_tests,
