@@ -6,6 +6,7 @@ from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.specnode import equals_specnodes
+from pypy.jit.metainterp.specnode import more_general_specnodes
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
 def _get_vspecnode(classnum=123):
@@ -53,6 +54,33 @@ def test_equals_specnodes():
     assert equals_specnodes([foonode], [foonode])
     assert not equals_specnodes([foonode], [barnode])
     assert not equals_specnodes([foonode], [prebuiltNotSpecNode])
+
+def test_more_general_specnodes():
+    assert more_general_specnodes([prebuiltNotSpecNode, prebuiltNotSpecNode],
+                                  [prebuiltNotSpecNode, prebuiltNotSpecNode])
+    vspecnode1 = _get_vspecnode(1)
+    vspecnode2 = _get_vspecnode(2)
+    assert more_general_specnodes([vspecnode1], [vspecnode1])
+    assert not more_general_specnodes([vspecnode1], [vspecnode2])
+    assert not more_general_specnodes([vspecnode1], [prebuiltNotSpecNode])
+    assert more_general_specnodes([prebuiltNotSpecNode], [vspecnode2])
+    aspecnode1 = _get_aspecnode(1)
+    aspecnode2 = _get_aspecnode(2)
+    assert more_general_specnodes([aspecnode2], [aspecnode2])
+    assert not more_general_specnodes([aspecnode1], [aspecnode2])
+    assert not more_general_specnodes([aspecnode1], [prebuiltNotSpecNode])
+    assert more_general_specnodes([prebuiltNotSpecNode], [aspecnode2])
+    sspecnode1 = _get_sspecnode()
+    assert more_general_specnodes([sspecnode1], [sspecnode1])
+    assert not more_general_specnodes([sspecnode1], [prebuiltNotSpecNode])
+    assert more_general_specnodes([prebuiltNotSpecNode], [sspecnode1])
+    #
+    foonode = _get_cspecnode('foo')
+    barnode = _get_cspecnode('bar')
+    assert more_general_specnodes([foonode], [foonode])
+    assert not more_general_specnodes([foonode], [barnode])
+    assert not more_general_specnodes([foonode], [prebuiltNotSpecNode])
+    assert more_general_specnodes([prebuiltNotSpecNode], [foonode])
 
 def test_extract_runtime_data_0():
     res = []

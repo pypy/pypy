@@ -210,7 +210,7 @@ class BaseTest(object):
         lst = self.unpack_specnodes(text)
         assert len(specnodes) == len(lst)
         for x, y in zip(specnodes, lst):
-            assert x.equals(y)
+            assert x.equals(y, ge=False)
         return True
 
 # ____________________________________________________________

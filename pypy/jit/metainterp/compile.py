@@ -9,7 +9,7 @@ from pypy.jit.metainterp.history import TreeLoop, log, Box, History, LoopToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.specnode import NotSpecNode
+from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.rlib.debug import debug_print
@@ -67,8 +67,21 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     loop_token.executable_token = executable_token
     if not we_are_translated():
         loop.token = loop_token
-    old_loop_tokens.append(loop_token)
+    insert_loop_token(old_loop_tokens, loop_token)
     return loop_token
+
+def insert_loop_token(old_loop_tokens, loop_token):
+    # Find where in old_loop_tokens we should insert this new loop_token.
+    # The following algo means "as late as possible, but before another
+    # loop token that would be more general and so completely mask off
+    # the new loop_token".
+    for i in range(len(old_loop_tokens)):
+        if more_general_specnodes(old_loop_tokens[i].specnodes,
+                                  loop_token.specnodes):
+            old_loop_tokens.insert(i, loop_token)
+            break
+    else:
+        old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.options.logger_ops.log_loop(loop.inputargs, loop.operations)
@@ -272,6 +285,16 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd.state.attach_unoptimized_bridge_from_interp(
             self.original_greenkey,
             executable_token)
+        # store the new loop in compiled_merge_points too
+        glob = metainterp_sd.globaldata
+        greenargs = glob.unpack_greenkey(self.original_greenkey)
+        old_loop_tokens = glob.compiled_merge_points.setdefault(greenargs, [])
+        new_loop_token = LoopToken()
+        new_loop_token.specnodes = [prebuiltNotSpecNode] * len(self.redkey)
+        new_loop_token.executable_token = executable_token
+        # it always goes at the end of the list, as it is the most
+        # general loop token
+        old_loop_tokens.append(new_loop_token)
 
 
 def compile_new_bridge(metainterp, old_loop_tokens, resumekey):

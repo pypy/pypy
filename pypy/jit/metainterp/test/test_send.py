@@ -398,10 +398,11 @@ class SendTests:
             return x.value
         res = self.meta_interp(f, [len(cases)])
         assert res == 200
-        # for now, we really expect only 1 loop.  This is known to be kind
-        # of wrong.  XXX later...
+        # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
+        # loop back to the start of the entry bridge
         self.check_loop_count(2)        # 1 loop + 1 bridge
         self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+        self.check_aborted_count(0)
 
     def test_three_cases(self):
         class Node:
