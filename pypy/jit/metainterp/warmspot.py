@@ -74,7 +74,8 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=Fa
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
-    warmrunnerdesc.metainterp_sd.profiler.finish()
+    if not kwds.get('translate_support_code', False):
+        warmrunnerdesc.metainterp_sd.profiler.finish()
     print '~~~ return value:', res
     while repeat > 1:
         print '~' * 79

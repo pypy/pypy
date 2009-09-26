@@ -5,14 +5,24 @@
 import time
 from pypy.rlib.debug import debug_print
 
-TRACING = 0
-BACKEND = 1
-RUNNING = 2
-BLACKHOLE = 3
-OPS = 4
-RECORDED_OPS = 5
-BLACKHOLED_OPS = 6
-GUARDS = 7
+counters="""
+TRACING
+BACKEND
+RUNNING
+BLACKHOLE
+OPS
+RECORDED_OPS
+BLACKHOLED_OPS
+GUARDS
+"""
+
+def _setup():
+    names = counters.split()
+    for i, name in enumerate(names):
+        globals()[name] = i
+    global ncounters
+    ncounters = len(names)
+_setup()
 
 class EmptyProfiler(object):
     initialized = True
@@ -59,7 +69,7 @@ class Profiler(object):
         self.starttime = self.timer()
         self.t1 = self.starttime
         self.times = [0, 0, 0, 0]
-        self.counters = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.counters = [0] * ncounters
         self.calls = [[0, 0], [0, 0], [0, 0]]
         self.current = []
 
