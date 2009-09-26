@@ -57,9 +57,11 @@ class EmptyProfiler(object):
     def end_blackhole(self):
         pass
 
-    def count_ops(self, opnum, kind=OPS):
+    def count(self, kind, inc=1):
         pass
 
+    def count_ops(self, opnum, kind=OPS):
+        pass
 
 class Profiler(object):
     initialized = False
@@ -109,6 +111,9 @@ class Profiler(object):
     def start_blackhole(self): self._start(BLACKHOLE)
     def end_blackhole(self):   self._end  (BLACKHOLE)
 
+    def count(self, kind, inc=1):
+        self.counters[kind] += inc        
+    
     def count_ops(self, opnum, kind=OPS):
         from pypy.jit.metainterp.resoperation import rop
         self.counters[kind] += 1
