@@ -13,7 +13,7 @@ class Logger(logger.Logger):
     def log_loop(self, loop, namespace={}):
         self.log_stream = StringIO()
         self.namespace = namespace
-        logger.Logger.log_loop(self, loop)
+        logger.Logger.log_loop(self, loop.inputargs, loop.operations)
         return self.log_stream.getvalue()
 
     def repr_of_descr(self, descr):
