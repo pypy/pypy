@@ -394,6 +394,9 @@ class I386CodeBuilder(object):
     def write(self, data):
         raise NotImplementedError
 
+    def writechr(self, n):
+        self.write(chr(n))
+
     def tell(self):
         raise NotImplementedError
 

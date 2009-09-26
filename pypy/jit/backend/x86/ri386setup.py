@@ -86,7 +86,7 @@ class modrm(operand):
         expr = 'arg%d.byte' % self.op
         if has_orbyte:
             expr = 'orbyte | %s' % expr
-        lines.append('builder.write(chr(%s))' % expr)
+        lines.append('builder.writechr(%s)' % expr)
         lines.append('builder.write(arg%d.extradata)' % self.op)
         return False
 
@@ -94,14 +94,13 @@ class immediate(operand):
     def eval(self, lines, has_orbyte):
         assert not has_orbyte, "malformed bytecode"
         if self.width == 'i':
-            packer = 'packimm32'
+            lines.append('builder.write(packimm32(arg%d.value))' % (self.op,))
         elif self.width == 'b':
-            packer = 'packimm8'
+            lines.append('builder.writechr(arg%d.value & 0xFF)' % (self.op,))
         elif self.width == 'h':
-            packer = 'packimm16'
+            lines.append('builder.write(packimm16(arg%d.value))' % (self.op,))
         else:
             raise AssertionError, "invalid width %r" % (self.width,)
-        lines.append('builder.write(%s(arg%d.value))' % (packer, self.op))
         return False
 
 class relative(operand):
@@ -157,11 +156,14 @@ def generate_function(sig, opcodes):
                 nextbyte = ord(op[0])
                 if nextbyte:
                     lines.append('orbyte |= %d' % nextbyte)
-                lines.append('builder.write(chr(orbyte))')
+                lines.append('builder.writechr(orbyte)')
                 has_orbyte = False
                 op = op[1:]
             if op:
-                lines.append('builder.write(%r)' % (op,))
+                if len(op) > 1:
+                    lines.append('builder.write(%r)' % (op,))
+                else:
+                    lines.append('builder.writechr(%d)' % (ord(op),))
         else:
             has_orbyte = op.eval(lines, has_orbyte)
     assert not has_orbyte, "malformed bytecode"

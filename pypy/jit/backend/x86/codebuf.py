@@ -28,6 +28,13 @@ class InMemoryCodeBuilder(I386CodeBuilder):
     def write(self, data):
         self._pos = self.overwrite(self._pos, data)
 
+    def writechr(self, n):
+        # purely for performance: don't convert chr(n) to a str
+        pos = self._pos
+        assert pos + 1 <= self._size
+        self._data[pos] = chr(n)
+        self._pos = pos + 1
+
     def get_relative_pos(self):
         return self._pos
 
