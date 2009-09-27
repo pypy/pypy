@@ -94,7 +94,6 @@ class ResumeDataVirtualAdder(object):
 
     def __init__(self, storage, liveboxes):
         self.storage = storage
-        self.nums = storage.rd_nums[:]
         self.consts = storage.rd_consts[:]
         assert storage.rd_virtuals is None
         self.original_liveboxes = liveboxes
