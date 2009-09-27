@@ -96,7 +96,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                requires=[("translation.thread", False)],
-               suggests=[("translation.gc", "boehm"),         # for now
+               suggests=[("translation.gc", "hybrid"),     # or "boehm"
+                         ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "llvm"],
@@ -317,7 +318,7 @@ OPT_TABLE = {
     'mem':  'markcompact lowinline     remove_asserts',
     '2':    'hybrid      extraopts',
     '3':    'hybrid      extraopts     remove_asserts',
-    'jit':  'boehm       extraopts     jit',       # XXX boehm for now, fix me
+    'jit':  'hybrid      extraopts     jit',
     }
 
 def set_opt_level(config, level):
