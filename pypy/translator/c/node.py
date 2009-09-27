@@ -114,36 +114,17 @@ class StructDefNode:
         return self.prefix + name
 
     def verbatim_field_name(self, name):
-        if name.startswith('c_'):   # produced in this way by rffi
-            return name[2:]
-        else:
-            # field names have to start with 'c_' or be meant for names that
-            # vanish from the C source, like 'head' if 'inline_head' is set
-            raise ValueError("field %r should not be accessed in this way" % (
-                name,))
+        assert name.startswith('c_')   # produced in this way by rffi
+        return name[2:]
 
     def c_struct_field_type(self, name):
         return self.STRUCT._flds[name]
 
     def access_expr(self, baseexpr, fldname):
-        if self.STRUCT._hints.get('inline_head'):
-            first, FIRST = self.STRUCT._first_struct()
-            if fldname == first:
-                # "invalid" cast according to C99 but that's what CPython
-                # requires and does all the time :-/
-                return '(*(%s) &(%s))' % (cdecl(self.db.gettype(FIRST), '*'),
-                                          baseexpr)
         fldname = self.c_struct_field_name(fldname)
         return '%s.%s' % (baseexpr, fldname)
 
     def ptr_access_expr(self, baseexpr, fldname):
-        if self.STRUCT._hints.get('inline_head'):
-            first, FIRST = self.STRUCT._first_struct()
-            if fldname == first:
-                # "invalid" cast according to C99 but that's what CPython
-                # requires and does all the time :-/
-                return '(*(%s) %s)' % (cdecl(self.db.gettype(FIRST), '*'),
-                                       baseexpr)
         fldname = self.c_struct_field_name(fldname)
         return 'RPyField(%s, %s)' % (baseexpr, fldname)
 
