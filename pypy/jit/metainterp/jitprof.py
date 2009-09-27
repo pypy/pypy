@@ -66,7 +66,13 @@ class EmptyProfiler(object):
 class Profiler(object):
     initialized = False
     timer = time.time
-    
+    starttime = 0
+    t1 = 0
+    times = None
+    counters = None
+    calls = None
+    current = None
+
     def start(self):
         self.starttime = self.timer()
         self.t1 = self.starttime
