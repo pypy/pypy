@@ -12,79 +12,177 @@ from pypy.jit.metainterp.resoperation import rop
 
 debug = False
 
-# xxx we would like more "chaining" instead of copying
-class ResumeDataBuilder(object):
+class Snapshot(object):
+    __slots__ = ('prev', 'boxes')
 
-    def __init__(self, _other=None):
-        if _other is None:
-            self.memo = {}
-            self.liveboxes = []
-            self.consts = []
-            self.nums = []
-            self.frame_infos = []
+    def __init__(self, prev, boxes):
+        self.prev = prev
+        self.boxes = boxes
+
+class FrameInfo(object):
+    __slots__ = ('prev', 'jitcode', 'pc', 'exception_target', 'level')
+
+    def __init__(self, prev, frame):
+        self.prev = prev
+        if prev is None:
+            level = 1
         else:
-            self.memo = _other.memo.copy()
-            self.liveboxes = _other.liveboxes[:]
-            self.consts = _other.consts[:]
-            self.nums = _other.nums[:]
-            self.frame_infos = _other.frame_infos[:]
+            level = prev.level + 1
+        self.level = level
+        self.jitcode = frame.jitcode
+        self.pc = frame.pc
+        self.exception_target = frame.exception_target
 
-    def clone(self):
-        return ResumeDataBuilder(self)
-        
-    def generate_boxes(self, boxes):
+def _ensure_parent_resumedata(framestack, n):    
+    target = framestack[n]
+    if n == 0 or target.parent_resumedata_frame_info_list is not None:
+        return
+    _ensure_parent_resumedata(framestack, n-1)
+    back = framestack[n-1]
+    target.parent_resumedata_frame_info_list = FrameInfo(
+                                         back.parent_resumedata_frame_info_list,
+                                         back)
+    target.parent_resumedata_snapshot = Snapshot(
+                                         back.parent_resumedata_snapshot,
+                                         back.env[:])
+
+def capture_resumedata(framestack, virtualizable_boxes, storage):
+    n = len(framestack)-1
+    top = framestack[n]
+    _ensure_parent_resumedata(framestack, n)
+    frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
+                                top)
+    storage.rd_frame_info_list = frame_info_list
+    snapshot = Snapshot(top.parent_resumedata_snapshot, top.env[:])
+    if virtualizable_boxes is not None:
+        snapshot = Snapshot(snapshot, virtualizable_boxes[:]) # xxx for now
+    storage.rd_snapshot = snapshot
+
+_placeholder = (None, 0, 0)
+
+def flatten_resumedata(storage):
+    frame_info_list = storage.rd_frame_info_list
+    storage.rd_frame_info_list = None
+    j = frame_info_list.level
+    frame_infos = [_placeholder]*j
+    j -= 1
+    while True: # at least one
+        frame_infos[j] = (frame_info_list.jitcode, frame_info_list.pc,
+                          frame_info_list.exception_target)
+        frame_info_list = frame_info_list.prev
+        if frame_info_list is None:
+            break
+        j -= 1
+    storage.rd_frame_infos = frame_infos
+    memo = {}
+    consts = []
+    liveboxes = []
+    nums = []
+    snapshots = []
+    snapshot = storage.rd_snapshot
+    storage.rd_snapshot = None
+    while True:
+        snapshots.append(snapshot)
+        snapshot = snapshot.prev
+        if snapshot is None:
+            break    
+    n = len(snapshots)-1
+    while n >= 0:
+        boxes = snapshots[n].boxes
+        n -= 1
         for box in boxes:
             assert box is not None
             if isinstance(box, Box):
                 try:
-                    num = self.memo[box]
+                    num = memo[box]
                 except KeyError:
-                    num = len(self.liveboxes)
-                    self.liveboxes.append(box)
-                    self.memo[box] = num
+                    num = len(liveboxes)
+                    liveboxes.append(box)
+                    memo[box] = num
             else:
-                num = -2 - len(self.consts)
-                self.consts.append(box)
-            self.nums.append(num)
-        self.nums.append(-1)
+                num = -2 - len(consts)
+                consts.append(box)
+            nums.append(num)
+        nums.append(-1)
+    nums = nums[:]
+    storage.rd_nums = nums
+    storage.rd_consts = consts[:]
+    storage.rd_virtuals = None
+    return liveboxes
+ 
 
-    def generate_frame_info(self, *frame_info):
-        self.frame_infos.append(frame_info)
+## class ResumeDataBuilder(object):
 
-    def _add_level(self, frame):
-        self.generate_frame_info(frame.jitcode, frame.pc,
-                                    frame.exception_target)
-        self.generate_boxes(frame.env)        
+##     def __init__(self, _other=None):
+##         if _other is None:
+##             self.memo = {}
+##             self.liveboxes = []
+##             self.consts = []
+##             self.nums = []
+##             self.frame_infos = []
+##         else:
+##             self.memo = _other.memo.copy()
+##             self.liveboxes = _other.liveboxes[:]
+##             self.consts = _other.consts[:]
+##             self.nums = _other.nums[:]
+##             self.frame_infos = _other.frame_infos[:]
 
-    @staticmethod
-    def _get_fresh_parent_resumedata(framestack, n):
-        target = framestack[n]
-        if target.parent_resumedata is not None:
-            return target.parent_resumedata.clone()
-        if n == 0:
-            parent_resumedata = ResumeDataBuilder()
-        else:
-            parent_resumedata = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n-1)
-            parent_resumedata._add_level(framestack[n-1])
-        target.parent_resumedata = parent_resumedata
-        return parent_resumedata.clone()
+##     def clone(self):
+##         return ResumeDataBuilder(self)
+        
+##     def generate_boxes(self, boxes):
+##         for box in boxes:
+##             assert box is not None
+##             if isinstance(box, Box):
+##                 try:
+##                     num = self.memo[box]
+##                 except KeyError:
+##                     num = len(self.liveboxes)
+##                     self.liveboxes.append(box)
+##                     self.memo[box] = num
+##             else:
+##                 num = -2 - len(self.consts)
+##                 self.consts.append(box)
+##             self.nums.append(num)
+##         self.nums.append(-1)
 
-    @staticmethod
-    def make(framestack):
-        n = len(framestack)-1
-        top = framestack[-1]
-        builder = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n)
-        builder._add_level(top)
-        return builder
+##     def generate_frame_info(self, *frame_info):
+##         self.frame_infos.append(frame_info)
+
+##     def _add_level(self, frame):
+##         self.generate_frame_info(frame.jitcode, frame.pc,
+##                                     frame.exception_target)
+##         self.generate_boxes(frame.env)        
+
+##     @staticmethod
+##     def _get_fresh_parent_resumedata(framestack, n):
+##         target = framestack[n]
+##         if target.parent_resumedata is not None:
+##             return target.parent_resumedata.clone()
+##         if n == 0:
+##             parent_resumedata = ResumeDataBuilder()
+##         else:
+##             parent_resumedata = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n-1)
+##             parent_resumedata._add_level(framestack[n-1])
+##         target.parent_resumedata = parent_resumedata
+##         return parent_resumedata.clone()
+
+##     @staticmethod
+##     def make(framestack):
+##         n = len(framestack)-1
+##         top = framestack[-1]
+##         builder = ResumeDataBuilder._get_fresh_parent_resumedata(framestack, n)
+##         builder._add_level(top)
+##         return builder
          
-    def finish(self, storage):
-        storage.rd_frame_infos = self.frame_infos[:]
-        storage.rd_nums = self.nums[:]
-        storage.rd_consts = self.consts[:]
-        storage.rd_virtuals = None
-        if debug:
-            dump_storage(storage)
-        return self.liveboxes
+##     def finish(self, storage):
+##         storage.rd_frame_infos = self.frame_infos[:]
+##         storage.rd_nums = self.nums[:]
+##         storage.rd_consts = self.consts[:]
+##         storage.rd_virtuals = None
+##         if debug:
+##             dump_storage(storage)
+##         return self.liveboxes
 
 
 VIRTUAL_FLAG = int((sys.maxint+1) // 2)

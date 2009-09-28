@@ -6,7 +6,6 @@ from pypy.jit.metainterp.history import ConstPtr
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 from pypy.jit.metainterp import executor
 
-
 class Storage:
     pass
 
@@ -14,16 +13,14 @@ def make_demo_storage():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
-    builder = ResumeDataBuilder()
-    builder.generate_boxes([b1, c1, b1, b2])
-    builder.generate_boxes([c2, c3])
-    builder.generate_boxes([b1, b2, b3])
-    liveboxes = builder.finish(storage)
-    assert liveboxes == [b1, b2, b3]
+    storage.rd_frame_infos = []
+    storage.rd_virtuals = None
+    storage.rd_consts = [c1, c2, c3]
+    storage.rd_nums = [0, -2, 0, 1, -1,
+                       -3, -4, -1,
+                       0, 1, 2, -1
+                       ]
     return storage
-
-# ____________________________________________________________
-
 
 def test_simple():
     storage = make_demo_storage()
@@ -40,14 +37,12 @@ def test_simple():
 
 def test_frame_info():
     storage = Storage()
+    storage.rd_frame_infos = [(1, 2, 5), (3, 4, 7)]
+    storage.rd_consts = []
+    storage.rd_nums = []
+    storage.rd_virtuals = None
     #
-    builder = ResumeDataBuilder()
-    builder.generate_frame_info(1, 2, 5)
-    builder.generate_frame_info(3, 4, 7)
-    liveboxes = builder.finish(storage)
-    assert liveboxes == []
-    #
-    reader = ResumeDataReader(storage, liveboxes)
+    reader = ResumeDataReader(storage, [])
     assert reader.has_more_frame_infos()
     fi = reader.consume_frame_info()
     assert fi == (1, 2, 5)
@@ -56,9 +51,13 @@ def test_frame_info():
     assert fi == (3, 4, 7)
     assert not reader.has_more_frame_infos()
 
+# ____________________________________________________________
+
+
 
 class FakeFrame(object):
-    parent_resumedata = None
+    parent_resumedata_snapshot = None
+    parent_resumedata_frame_info_list = None
 
     def __init__(self, code, pc, exc_target, *boxes):
         self.jitcode = code
@@ -66,99 +65,136 @@ class FakeFrame(object):
         self.exception_target = exc_target
         self.env = list(boxes)
 
-def test_ResumeDataBuilder_clone():
+def test_Snapshot_create():
+    l = ['b0', 'b1']
+    snap = Snapshot(None, l)
+    assert snap.prev is None
+    assert snap.boxes is l
+
+    l1 = ['b3']
+    snap1 = Snapshot(snap, l1)
+    assert snap1.prev is snap
+    assert snap1.boxes is l1
+
+def test_FrameInfo_create():
+    jitcode = "JITCODE"
+    frame = FakeFrame(jitcode, 1, 2)    
+    fi = FrameInfo(None, frame)
+    assert fi.prev is None
+    assert fi.jitcode is jitcode
+    assert fi.pc == 1
+    assert fi.exception_target == 2
+    assert fi.level == 1
+
+    jitcode1 = "JITCODE1"
+    frame1 = FakeFrame(jitcode, 3, 4)    
+    fi1 = FrameInfo(fi, frame1)
+    assert fi1.prev is fi
+    assert fi1.jitcode is jitcode
+    assert fi1.pc == 3
+    assert fi1.exception_target == 4
+    assert fi1.level == 2
+
+def test_flatten_resumedata():
+    # temporary "expensive" mean to go from the new to the old world
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    rd = ResumeDataBuilder()
-    rd.generate_boxes([b1, c1, b2])
-    rd.generate_frame_info(('code1', 2, -1))
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
 
-    rd1 = rd.clone()
-    assert rd1.liveboxes == rd.liveboxes
-    assert rd1.memo == rd.memo
-    assert rd1.consts == rd.consts
-    assert rd1.nums == rd.nums
-    assert rd1.frame_infos == rd.frame_infos
+    env = [b1, c1, b2, b1, c2]
+    snap = Snapshot(None, env)
+    frame = FakeFrame("JITCODE", 1, 2)    
+    fi = FrameInfo(None, frame)
+    env1 = [c3, b3, b1, c1]
+    snap1 = Snapshot(snap, env1)
+    frame1 = FakeFrame("JITCODE1", 3, 4)    
+    fi1 = FrameInfo(fi, frame1)
 
-    assert rd1 is not rd
-    assert rd1.liveboxes is not rd.liveboxes
-    assert rd1.memo is not rd.memo
-    assert rd1.consts is not rd.consts
-    assert rd1.nums is not rd.nums
-    assert rd1.frame_infos is not rd.frame_infos
+    storage = Storage()
+    storage.rd_snapshot = snap1
+    storage.rd_frame_info_list = fi1
 
+    liveboxes = flatten_resumedata(storage)
+    assert storage.rd_snapshot is None
+    assert storage.rd_frame_info_list is None
 
-def test_ResumeDataBuilder_make():
+    assert storage.rd_frame_infos == [("JITCODE", 1, 2),
+                                      ("JITCODE1", 3, 4)]
+    assert storage.rd_virtuals is None
+    assert liveboxes == [b1, b2, b3]
+    assert storage.rd_consts == [c1, c2, c3, c1]
+    # check with reading
+    reader = ResumeDataReader(storage, liveboxes)
+    l = reader.consume_boxes()
+    assert l == env
+    l = reader.consume_boxes()
+    assert l == env1
+
+def test_capture_resumedata():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2)]
-    rd = ResumeDataBuilder.make(fs)
-    assert rd.liveboxes == [b1, b2]
-    assert rd.consts == [c1]
-    assert rd.nums == [0, -2, 1, -1]
-    assert rd.frame_infos == [('code0', 0, -1)]
 
-    assert fs[0].parent_resumedata is not None
-    prd = fs[0].parent_resumedata
-    assert prd.nums == []
+    storage = Storage()
+    capture_resumedata(fs, None, storage)
 
-    assert rd is not prd
-    
+    assert fs[0].parent_resumedata_snapshot is None
+    assert fs[0].parent_resumedata_frame_info_list is None
+
+    assert storage.rd_frame_info_list.prev is None
+    assert storage.rd_frame_info_list.jitcode == 'code0'
+    assert storage.rd_snapshot.prev is None
+    assert storage.rd_snapshot.boxes == fs[0].env
+    assert storage.rd_snapshot.boxes is not fs[0].env    
+
+    storage = Storage()
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    rd = ResumeDataBuilder.make(fs)
-    assert rd.liveboxes == [b1, b2, b3]
-    assert rd.consts == [c1, c2, c3]
-    assert rd.nums == [0, -2, 1, -1,
-                       2, -3, 0, -1,
-                       -4, 1, -1]
-                       
-    assert rd.frame_infos == [('code0', 0, -1),
-                              ('code1', 3, 7),
-                              ('code2', 9, -1)]
+    capture_resumedata(fs, None, storage)
 
-    assert fs[0].parent_resumedata is not None
-    assert fs[1].parent_resumedata is not None
-    assert fs[2].parent_resumedata is not None
-
-    prd = fs[0].parent_resumedata
-    assert prd.nums == []
-
-    prd = fs[1].parent_resumedata
-    assert prd.nums == [0, -2, 1, -1]
+    frame_info_list = storage.rd_frame_info_list
+    assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
+    assert frame_info_list.jitcode == 'code2'
+    assert frame_info_list.pc == 9
     
-    prd = fs[2].parent_resumedata
-    assert prd.nums == [0, -2, 1, -1,
-                       2, -3, 0, -1]
+    snapshot = storage.rd_snapshot
+    assert snapshot.prev is fs[2].parent_resumedata_snapshot
+    assert snapshot.boxes == fs[2].env
+    assert snapshot.boxes is not fs[2].env
 
-    rds = (rd, fs[0].parent_resumedata, fs[1].parent_resumedata,
-               fs[2].parent_resumedata)
-    for i in range(len(rds)):
-        for j in range(i+1, len(rds)):
-            assert rds[i] is not rds[j]
+    frame_info_list = frame_info_list.prev
+    assert frame_info_list.prev is fs[1].parent_resumedata_frame_info_list
+    assert frame_info_list.jitcode == 'code1'
+    snapshot = snapshot.prev
+    assert snapshot.prev is fs[1].parent_resumedata_snapshot
+    assert snapshot.boxes == fs[1].env
+    assert snapshot.boxes is not fs[1].env
+
+    frame_info_list = frame_info_list.prev
+    assert frame_info_list.prev is None
+    assert frame_info_list.jitcode == 'code0'
+    snapshot = snapshot.prev
+    assert snapshot.prev is None
+    assert snapshot.boxes == fs[0].env
+    assert snapshot.boxes is not fs[0].env
 
     fs[2].env = [b2, b3]
     fs[2].pc = 15
-    rd = ResumeDataBuilder.make(fs)
-    assert rd.liveboxes == [b1, b2, b3]
-    assert rd.consts == [c1, c2]
-    assert rd.nums == [0, -2, 1, -1,
-                       2, -3, 0, -1,
-                       1, 2, -1]
-                       
-    assert rd.frame_infos == [('code0', 0, -1),
-                              ('code1', 3, 7),
-                              ('code2', 15, -1)]
+    vbs = [b1, b2]
+    capture_resumedata(fs, vbs, storage)
+       
+    frame_info_list = storage.rd_frame_info_list
+    assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
+    assert frame_info_list.jitcode == 'code2'
+    assert frame_info_list.pc == 15
 
-    assert fs[2].parent_resumedata is prd
+    snapshot = storage.rd_snapshot
+    assert snapshot.boxes == vbs
+    assert snapshot.boxes is not vbs
 
-    rds = (rd, fs[0].parent_resumedata, fs[1].parent_resumedata,
-               fs[2].parent_resumedata)
-    for i in range(len(rds)):
-        for j in range(i+1, len(rds)):
-            assert rds[i] is not rds[j]    
-
+    snapshot = snapshot.prev
+    assert snapshot.prev is fs[2].parent_resumedata_snapshot
+    assert snapshot.boxes == fs[2].env
 
 # ____________________________________________________________
 

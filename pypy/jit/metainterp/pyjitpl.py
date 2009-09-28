@@ -120,7 +120,9 @@ class arguments(object):
 class MIFrame(object):
     exception_box = None
     exc_value_box = None
-    parent_resumedata = None # for resume.py operation
+    # for resume.py operation
+    parent_resumedata_snapshot = None
+    parent_resumedata_frame_info_list = None
 
     def __init__(self, metainterp, jitcode):
         assert isinstance(jitcode, codewriter.JitCode)
@@ -911,9 +913,6 @@ class MIFrame(object):
             return
         saved_pc = self.pc
         self.pc = pc
-        resumebuilder = resume.ResumeDataBuilder.make(metainterp.framestack)
-        if metainterp.staticdata.virtualizable_info is not None:
-            resumebuilder.generate_boxes(metainterp.virtualizable_boxes)
         if box is not None:
             moreargs = [box] + extraargs
         else:
@@ -921,9 +920,13 @@ class MIFrame(object):
         guard_op = metainterp.history.record(opnum, moreargs, None)       
         original_greenkey = metainterp.resumekey.original_greenkey
         resumedescr = compile.ResumeGuardDescr(original_greenkey, guard_op)
-        liveboxes = resumebuilder.finish(resumedescr)
+        virtualizable_boxes = None
+        if metainterp.staticdata.virtualizable_info is not None:
+            virtualizable_boxes = metainterp.virtualizable_boxes
+        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
+                                  resumedescr)
         self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS) # count
-        op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
+        op = history.ResOperation(rop.FAIL, [], None, descr=resumedescr)
         guard_op.suboperations = [op]
         metainterp.attach_debug_info(guard_op)
         self.pc = saved_pc

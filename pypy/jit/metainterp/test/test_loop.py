@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
@@ -8,10 +8,10 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import history
 
 class LoopTest:
-    specialize = False
+    optimizer = OPTIMIZER_SIMPLE
 
     def meta_interp(self, f, args, policy=None):
-        return ll_meta_interp(f, args, specialize=self.specialize,
+        return ll_meta_interp(f, args, optimizer=self.optimizer,
                               policy=policy,
                               CPUClass=self.CPUClass,
                               type_system=self.type_system)
@@ -54,7 +54,7 @@ class LoopTest:
         res = self.meta_interp(f, [6, 13])
         assert res == f(6, 13)
         self.check_loop_count(1)
-        if self.specialize:
+        if self.optimizer == OPTIMIZER_FULL:
             self.check_loops(getfield_gc = 0, setfield_gc = 1)
 
     def test_loop_with_two_paths(self):

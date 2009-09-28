@@ -3,6 +3,7 @@
 """
 
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp import resume, compile
 
 def optimize_loop(options, old_loops, loop, cpu=None):
     if old_loops:
@@ -13,7 +14,16 @@ def optimize_loop(options, old_loops, loop, cpu=None):
         # we need it since the backend can modify those lists, which make
         # get_guard_op in compile.py invalid
         # in fact, x86 modifies this list for moving GCs
-        loop.operations = loop.operations[:]
+        newoperations = []
+        for op in loop.operations:
+            if op.is_guard():
+                op_fail = op.suboperations[-1]
+                descr = op_fail.descr
+                assert isinstance(descr, compile.ResumeGuardDescr)
+                args = resume.flatten_resumedata(descr)
+                op_fail.args = args
+            newoperations.append(op)
+        loop.operations = newoperations
         return None
 
 def optimize_bridge(options, old_loops, loop, cpu=None):

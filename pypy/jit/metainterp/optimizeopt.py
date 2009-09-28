@@ -497,26 +497,24 @@ class Optimizer(object):
             self.exception_might_have_happened = True
         self.newoperations.append(op)
 
+    def _get_faildescr(self, op_fail):
+        descr = op_fail.descr
+        assert isinstance(descr, compile.ResumeGuardDescr)
+        return descr
+
     def clone_guard(self, op2, op1):
         assert len(op1.suboperations) == 1
         op_fail = op1.suboperations[0]
         assert op_fail.opnum == rop.FAIL
-        #
-        if not we_are_translated() and op_fail.descr is None:  # for tests
-            descr = Storage()
-            builder = resume.ResumeDataBuilder()
-            builder.generate_boxes(op_fail.args)
-            builder.finish(descr)
-        else:
-            descr = op_fail.descr
-            assert isinstance(descr, compile.ResumeGuardDescr)
+        descr = self._get_faildescr(op_fail)
         oldboxes = []
-        for box in op_fail.args:
+        args = resume.flatten_resumedata(descr) # xxx expensive
+        for box in args:
             if box in self.values:
                 box = self.values[box].get_key_box()   # may be a Const, too
             oldboxes.append(box)
         modifier = resume.ResumeDataVirtualAdder(descr, oldboxes)
-        for box in op_fail.args:
+        for box in args:
             if box in self.values:
                 value = self.values[box]
                 value.get_args_for_fail(modifier)
@@ -785,6 +783,3 @@ class Optimizer(object):
         self.newoperations.append(op)
 
 optimize_ops = _findall(Optimizer, 'optimize_')
-
-class Storage:
-    "for tests."

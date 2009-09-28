@@ -6,14 +6,51 @@ from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
                                                             OOtypeMixin,
                                                             BaseTest)
 from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
+from pypy.jit.metainterp import optimizeopt
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp import resume, executor, compile
-from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.test.oparser import pure_parse as parse
-    
 
+class FakeFrame(object):
+    parent_resumedata_snapshot = None
+    parent_resumedata_frame_info_list = None
+
+    def __init__(self, code="", pc=0, exc_target=-1):
+        self.jitcode = code
+        self.pc = pc
+        self.exception_target = exc_target
+    
+def test_clone_guard_simple():
+    from pypy.jit.metainterp.compile import ResumeGuardDescr
+    b0 = BoxInt()
+    b1 = BoxInt()
+    opt = optimizeopt.Optimizer(None, None)
+    op = ResOperation(rop.GUARD_TRUE, [], None)
+    op.suboperations = [
+        ResOperation(rop.FAIL, [], None)
+        ]
+    fdescr = ResumeGuardDescr(None, None)
+    op.suboperations[-1].descr = fdescr
+    # setup rd data
+    fi = [("code0", 1, 2), ("code1", 3, -1)]
+    fdescr.rd_virtuals = None
+    fi0 = resume.FrameInfo(None, FakeFrame("code0", 1, 2))
+    fdescr.rd_frame_info_list = resume.FrameInfo(fi0,
+                                                 FakeFrame("code1", 3, -1))
+    snapshot0 = resume.Snapshot(None, [b0])
+    fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
+    #
+    op1 = op
+    opt.clone_guard(op, op1)
+    assert op1.optimized is op
+    assert op1.suboperations[-1].args == [b0, b1]
+    assert fdescr.rd_nums == [0, -1, 1, -1]
+    assert fdescr.rd_virtuals is None
+    assert fdescr.rd_consts == []
+    assert fdescr.rd_frame_infos == fi
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, remap={}):
@@ -88,6 +125,9 @@ def test_equaloplists_remap():
 
 # ____________________________________________________________
 
+class Storage:
+    "for tests."
+
 class BaseTestOptimizeOpt(BaseTest):
 
     def assert_equal(self, optimized, expected):
@@ -118,7 +158,22 @@ class BaseTestOptimizeOpt(BaseTest):
         assert loop.operations[-1].opnum == rop.JUMP
         loop.operations[-1].jump_target = loop
         #
-        optimize_loop_1(self.cpu, loop)
+        Optimizer = optimizeopt.Optimizer
+        old_get_faildescr = Optimizer._get_faildescr
+        def _get_faildescr(self, op_fail):
+            if op_fail.descr is None:
+                descr = Storage()
+                descr.rd_frame_info_list = resume.FrameInfo(None,
+                                                            FakeFrame())
+                descr.rd_snapshot = resume.Snapshot(None, op_fail.args)
+                descr.rd_virtuals = None
+                return descr
+            return old_get_faildescr(self, op_fail)
+        Optimizer._get_faildescr = _get_faildescr
+        try:
+            optimize_loop_1(self.cpu, loop)
+        finally:
+            Optimizer._get_faildescr = old_get_faildescr.im_func
         #
         expected = self.parse(optops)
         self.assert_equal(loop, expected)
@@ -1312,11 +1367,12 @@ class BaseTestOptimizeOpt(BaseTest):
             def _oparser_uses_descr(self, oparse, args):
                 # typically called twice, before and after optimization
                 if len(self.args_seen) == 0:
-                    builder = resume.ResumeDataBuilder()
-                    builder.generate_boxes(args)
-                    liveboxes = builder.finish(fdescr)
-                    assert liveboxes == args
+                    fdescr.rd_frame_info_list = resume.FrameInfo(None,
+                                                                 FakeFrame())
+                    fdescr.rd_snapshot = resume.Snapshot(None, args)
+                    fdescr.virtuals = None
                 self.args_seen.append((args, oparse))
+                
         #
         fdescr = instantiate(FailDescr)
         self.fdescr = fdescr

@@ -197,7 +197,7 @@ class ResumeGuardDescr(ResumeDescr):
     def __init__(self, original_greenkey, guard_op):
         ResumeDescr.__init__(self, original_greenkey)
         self.guard_op = guard_op
-        # this class also gets attributes stored by ResumeDataBuilder.finish()
+        # this class also gets attributes stored by resume.py code
 
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
