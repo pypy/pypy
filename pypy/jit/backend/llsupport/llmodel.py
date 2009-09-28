@@ -13,13 +13,6 @@ from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
 
-def _check_addr_range(x):
-    if sys.platform == 'linux2':
-        # this makes assumption about address ranges that are valid
-        # only on linux (?)
-        assert x == 0 or x > (1<<20) or x < (-1<<20)        
-
-
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
 
@@ -187,8 +180,6 @@ class AbstractLLCPU(AbstractCPU):
     def _cast_int_to_gcref(x):
         # dangerous!  only use if you are sure no collection could occur
         # between reading the integer and casting it to a pointer
-        if not we_are_translated():
-            _check_addr_range(x)
         return rffi.cast(llmemory.GCREF, x)
 
     @staticmethod
@@ -197,8 +188,6 @@ class AbstractLLCPU(AbstractCPU):
 
     @staticmethod
     def cast_int_to_adr(x):
-        if not we_are_translated():
-            _check_addr_range(x)
         return rffi.cast(llmemory.Address, x)
 
     @staticmethod

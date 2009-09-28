@@ -434,6 +434,9 @@ class GenerationGC(SemiSpaceGC):
         # instead of keeping it as a regular method is to help the JIT call it.
         # Additionally, it makes the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
+        # For x86, there is also an extra requirement: when the JIT calls
+        # remember_young_pointer(), it assumes that it will not touch the SSE
+        # registers, so it does not save and restore them (that's a *hack*!).
         def remember_young_pointer(addr_struct, addr):
             #llop.debug_print(lltype.Void, "\tremember_young_pointer",
             #                 addr_struct, "<-", addr)

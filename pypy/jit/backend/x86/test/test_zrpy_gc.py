@@ -12,8 +12,9 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
-from pypy.jit.backend.x86.regalloc import stack_pos
+from pypy.jit.backend.x86.regalloc import X86StackManager
 
+stack_pos = X86StackManager.stack_pos
 
 class X(object):
     next = None

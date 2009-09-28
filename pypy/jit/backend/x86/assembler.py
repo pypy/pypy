@@ -7,8 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
-                                           lower_byte, stack_pos)
+from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, lower_byte
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
@@ -168,7 +167,7 @@ class Assembler386(object):
         self.mc2.done()
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
-        stack_depth = regalloc.current_stack_depth
+        stack_depth = regalloc.sm.stack_depth
         jump_target = regalloc.jump_target
         if jump_target is not None:
             target_stack_depth = jump_target.executable_token._x86_stack_depth
@@ -235,10 +234,8 @@ class Assembler386(object):
 
     # ------------------------------------------------------------
 
-    def regalloc_load(self, from_loc, to_loc):
+    def regalloc_mov(self, from_loc, to_loc):
         self.mc.MOV(to_loc, from_loc)
-
-    regalloc_store = regalloc_load
 
     def regalloc_push(self, loc):
         self.mc.PUSH(loc)

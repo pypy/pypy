@@ -53,6 +53,9 @@ class MockGcDescr(GcCache):
 
 class TestRegallocDirectGcIntegration(object):
 
+    def setup_class(cls):
+        py.test.skip("Rewrite")
+
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
         regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))

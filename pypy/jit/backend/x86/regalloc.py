@@ -14,43 +14,41 @@ from pypy.jit.backend.x86.jump import remap_stack_layout
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr
+from pypy.jit.backend.llsupport.regalloc import StackManager, RegisterManager,\
+     TempBox
 
-REGS = [eax, ecx, edx, ebx, esi, edi]
 WORD = 4
 
-class NoVariableToSpill(Exception):
-    pass
+class X86RegisterManager(RegisterManager):
 
-class TempBox(Box):
-    def __init__(self):
-        pass
+    all_regs = [eax, ecx, edx, ebx, esi, edi]
+    no_lower_byte_regs = [esi, edi]
+    save_around_call_regs = [eax, edx, ecx]
 
-    def __repr__(self):
-        return "<TempVar at %s>" % (id(self),)
+    def call_result_location(self, v):
+        return eax
 
-class checkdict(dict):
-    def __setitem__(self, key, value):
-        assert isinstance(key, Box)
-        dict.__setitem__(self, key, value)
-
-def newcheckdict():
-    if we_are_translated():
-        return {}
-    return checkdict()
-
-def convert_to_imm(c):
-    if isinstance(c, ConstInt):
-        return imm(c.value)
-    elif isinstance(c, ConstPtr):
-        if we_are_translated() and c.value and rgc.can_move(c.value):
-            print "convert_to_imm: ConstPtr needs special care"
+    def convert_to_imm(self, c):
+        if isinstance(c, ConstInt):
+            return imm(c.value)
+        elif isinstance(c, ConstPtr):
+            if we_are_translated() and c.value and rgc.can_move(c.value):
+                print "convert_to_imm: ConstPtr needs special care"
+                raise AssertionError
+            return imm(rffi.cast(lltype.Signed, c.value))
+        elif isinstance(c, ConstAddr):
+            return imm(ll2ctypes.cast_adr_to_int(c.value))
+        else:
+            print "convert_to_imm: got a %s" % c
             raise AssertionError
-        return imm(rffi.cast(lltype.Signed, c.value))
-    elif isinstance(c, ConstAddr):
-        return imm(ll2ctypes.cast_adr_to_int(c.value))
-    else:
-        print "convert_to_imm: got a %s" % c
-        raise AssertionError
+
+class X86StackManager(StackManager):
+
+    @staticmethod
+    def stack_pos(i):
+        res = mem(ebp, get_ebp_ofs(i))
+        res.position = i
+        return res
 
 class RegAlloc(object):
     exc = False
@@ -60,59 +58,56 @@ class RegAlloc(object):
         # variables that have place in register
         self.assembler = assembler
         self.translate_support_code = translate_support_code
-        self.reg_bindings = newcheckdict()
-        self.stack_bindings = newcheckdict()
-        self.position = -1
-        self.longevity = None
-
         # to be read/used by the assembler too
-        self.current_stack_depth = 0
         self.jump_target = None
 
-    def prepare_loop(self, inputargs, operations):
+    def _prepare(self, inputargs, operations):
+        self.sm = X86StackManager()
         cpu = self.assembler.cpu
         cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
         # compute longevity of variables
-        self._compute_vars_longevity(inputargs, operations)
+        longevity = self._compute_vars_longevity(inputargs, operations)
+        self.rm = X86RegisterManager(longevity,
+                                     stack_manager = self.sm,
+                                     assembler = self.assembler)
+
+    def prepare_loop(self, inputargs, operations):
+        self._prepare(inputargs, operations)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump)
         self.loop_consts = loop_consts
-        self.current_stack_depth = 0
-        self.free_regs = REGS[:]
         return self._process_inputargs(inputargs)
 
     def prepare_bridge(self, prev_stack_depth, inputargs, arglocs, operations):
-        cpu = self.assembler.cpu        
-        cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
-        # compute longevity of variables
-        self._compute_vars_longevity(inputargs, operations)
+        self._prepare(inputargs, operations)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
-        self.current_stack_depth = prev_stack_depth
+        self.sm.stack_depth = prev_stack_depth
 
     def _process_inputargs(self, inputargs):
         # XXX we can sort out here by longevity if we need something
         # more optimal
         locs = [None] * len(inputargs)
-        # Don't use REGS[0] for passing arguments around a loop.
+        # Don't use all_regs[0] for passing arguments around a loop.
         # Must be kept in sync with consider_jump().
-        tmpreg = self.free_regs.pop(0)
-        assert tmpreg == REGS[0]
+        # XXX this should probably go to llsupport/regalloc.py
+        tmpreg = self.rm.free_regs.pop(0)
+        assert tmpreg == X86RegisterManager.all_regs[0]
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             reg = None
-            if arg not in self.loop_consts and self.longevity[arg][1] > -1:
-                reg = self.try_allocate_reg(arg)
+            if arg not in self.loop_consts and self.rm.longevity[arg][1] > -1:
+                reg = self.rm.try_allocate_reg(arg)
             if reg:
                 locs[i] = reg
             else:
-                loc = self.stack_loc(arg)
+                loc = self.sm.loc(arg)
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
-        self.free_regs.insert(0, tmpreg)
+        self.rm.free_regs.insert(0, tmpreg)
         assert tmpreg not in locs
-        self.eventually_free_vars(inputargs)
+        self.rm.possibly_free_vars(inputargs)
         return locs
 
     def _compute_loop_consts(self, inputargs, jump):
@@ -126,6 +121,7 @@ class RegAlloc(object):
         return loop_consts
 
     def _update_bindings(self, locs, args):
+        # XXX this should probably go to llsupport/regalloc.py
         newlocs = []
         for loc in locs:
             if not isinstance(loc, IMM8) and not isinstance(loc, IMM32):
@@ -136,42 +132,16 @@ class RegAlloc(object):
         for i in range(len(locs)):
             v = args[i]
             loc = locs[i]
-            if isinstance(loc, REG) and self.longevity[v][1] > -1:
-                self.reg_bindings[v] = loc
+            if isinstance(loc, REG) and self.rm.longevity[v][1] > -1:
+                self.rm.reg_bindings[v] = loc
                 used[loc] = None
             else:
-                self.stack_bindings[v] = loc
-        self.free_regs = []
-        for reg in REGS:
+                self.sm.stack_bindings[v] = loc
+        self.rm.free_regs = []
+        for reg in X86RegisterManager.all_regs:
             if reg not in used:
-                self.free_regs.append(reg)
-        self._check_invariants()
-
-    def _check_invariants(self):
-        if not we_are_translated():
-            # make sure no duplicates
-            assert len(dict.fromkeys(self.reg_bindings.values())) == len(self.reg_bindings)
-            assert (len(dict.fromkeys([str(i) for i in self.stack_bindings.values()]
-                                      )) == len(self.stack_bindings))
-            rev_regs = dict.fromkeys(self.reg_bindings.values())
-            for reg in self.free_regs:
-                assert reg not in rev_regs
-            assert len(rev_regs) + len(self.free_regs) == len(REGS)
-        else:
-            assert len(self.reg_bindings) + len(self.free_regs) == len(REGS)
-        if self.longevity:
-            for v in self.reg_bindings:
-                assert self.longevity[v][1] > self.position
-
-    def Load(self, v, from_loc, to_loc):
-        if not we_are_translated():
-            self.assembler.dump('%s <- %s(%s)' % (to_loc, v, from_loc))
-        self.assembler.regalloc_load(from_loc, to_loc)
-
-    def Store(self, v, from_loc, to_loc):
-        if not we_are_translated():
-            self.assembler.dump('%s(%s) -> %s' % (v, from_loc, to_loc))
-        self.assembler.regalloc_store(from_loc, to_loc)
+                self.rm.free_regs.append(reg)
+        self.rm._check_invariants()
 
     def Perform(self, op, arglocs, result_loc):
         if not we_are_translated():
@@ -186,15 +156,12 @@ class RegAlloc(object):
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
-        self.position += 1
-        if not we_are_translated():
-            self.assembler.dump('%s <- %s(%s) [GUARDED]' % (result_loc, op,
-                                                            arglocs))
+        self.rm.position += 1
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc,
-                                                   self.current_stack_depth)
-        self.eventually_free_var(op.result)        
-        self.eventually_free_vars(guard_op.suboperations[0].args)
+                                                   self.sm.stack_depth)
+        self.rm.possibly_free_var(op.result)
+        self.rm.possibly_free_vars(guard_op.suboperations[0].args)
 
     def perform_guard(self, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
@@ -206,8 +173,8 @@ class RegAlloc(object):
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
-                                              self.current_stack_depth)
-        self.eventually_free_vars(guard_op.suboperations[0].args)        
+                                              self.sm.stack_depth)
+        self.rm.possibly_free_vars(guard_op.suboperations[0].args)        
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -223,7 +190,7 @@ class RegAlloc(object):
             return False
         if operations[i + 1].args[0] is not op.result:
             return False
-        if (self.longevity[op.result][1] > i + 1 or
+        if (self.rm.longevity[op.result][1] > i + 1 or
             op.result in operations[i + 1].suboperations[0].args):
             return False
         return True
@@ -233,20 +200,20 @@ class RegAlloc(object):
         #self.operations = operations
         while i < len(operations):
             op = operations[i]
-            self.position = i
-            if op.has_no_side_effect() and op.result not in self.longevity:
+            self.rm.position = i
+            if op.has_no_side_effect() and op.result not in self.rm.longevity:
                 i += 1
-                self.eventually_free_vars(op.args)
+                self.rm.possibly_free_vars(op.args)
                 continue
             if self.can_optimize_cmp_op(op, i, operations):
                 oplist[op.opnum](self, op, operations[i + 1])
                 i += 1
             else:
                 oplist[op.opnum](self, op, None)
-            self.eventually_free_var(op.result)
-            self._check_invariants()
+            self.rm.possibly_free_var(op.result)
+            self.rm._check_invariants()
             i += 1
-        assert not self.reg_bindings
+        assert not self.rm.reg_bindings
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -277,222 +244,15 @@ class RegAlloc(object):
                 longevity[arg] = (-1, -1)
         for arg in longevity:
             assert isinstance(arg, Box)
-        self.longevity = longevity
-
-    def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
-        assert not isinstance(v, Const)
-        if selected_reg is not None:
-            res = self.reg_bindings.get(v, None)
-            if res:
-                if res is selected_reg:
-                    return res
-                else:
-                    del self.reg_bindings[v]
-                    self.free_regs.append(res)
-            if selected_reg in self.free_regs:
-                self.free_regs = [reg for reg in self.free_regs
-                                  if reg is not selected_reg]
-                self.reg_bindings[v] = selected_reg
-                return selected_reg
-            return None
-        if need_lower_byte:
-            loc = self.reg_bindings.get(v, None)
-            if loc is not None and loc is not edi and loc is not esi:
-                return loc
-            for i in range(len(self.free_regs)):
-                reg = self.free_regs[i]
-                if reg is not edi and reg is not esi:
-                    if loc is not None:
-                        self.free_regs[i] = loc
-                    else:
-                        del self.free_regs[i]
-                    self.reg_bindings[v] = reg
-                    return reg
-            return None
-        try:
-            return self.reg_bindings[v]
-        except KeyError:
-            if self.free_regs:
-                loc = self.free_regs.pop()
-                self.reg_bindings[v] = loc
-                return loc
-
-    def return_constant(self, v, forbidden_vars, selected_reg=None,
-                        imm_fine=True):
-        assert isinstance(v, Const)
-        if selected_reg or not imm_fine:
-            # this means we cannot have it in IMM, eh
-            if selected_reg in self.free_regs:
-                self.Load(v, convert_to_imm(v), selected_reg)
-                return selected_reg
-            if selected_reg is None and self.free_regs:
-                loc = self.free_regs.pop()
-                self.Load(v, convert_to_imm(v), loc)
-                return loc
-            loc = self._spill_var(v, forbidden_vars, selected_reg)
-            self.free_regs.append(loc)
-            self.Load(v, convert_to_imm(v), loc)
-            return loc
-        return convert_to_imm(v)
-
-    def force_allocate_reg(self, v, forbidden_vars, selected_reg=None,
-                           need_lower_byte=False):
-        if isinstance(v, TempBox):
-            self.longevity[v] = (self.position, self.position)
-        loc = self.try_allocate_reg(v, selected_reg,
-                                    need_lower_byte=need_lower_byte)
-        if loc:
-            return loc
-        loc = self._spill_var(v, forbidden_vars, selected_reg,
-                              need_lower_byte=need_lower_byte)
-        prev_loc = self.reg_bindings.get(v, None)
-        if prev_loc is not None:
-            self.free_regs.append(prev_loc)
-        self.reg_bindings[v] = loc
-        return loc
-
-    def _spill_var(self, v, forbidden_vars, selected_reg,
-                   need_lower_byte=False):
-        v_to_spill = self.pick_variable_to_spill(v, forbidden_vars,
-                               selected_reg, need_lower_byte=need_lower_byte)
-        loc = self.reg_bindings[v_to_spill]
-        del self.reg_bindings[v_to_spill]
-        if v_to_spill not in self.stack_bindings:
-            newloc = self.stack_loc(v_to_spill)
-            self.Store(v_to_spill, loc, newloc)
-        return loc
-
-    def stack_loc(self, v):
-        try:
-            res = self.stack_bindings[v]
-        except KeyError:
-            newloc = stack_pos(self.current_stack_depth)
-            self.stack_bindings[v] = newloc
-            self.current_stack_depth += 1
-            res = newloc
-        assert isinstance(res, MODRM)
-        return res
-
-    def make_sure_var_in_reg(self, v, forbidden_vars, selected_reg=None,
-                             imm_fine=True, need_lower_byte=False):
-        if isinstance(v, Const):
-            return self.return_constant(v, forbidden_vars, selected_reg,
-                                        imm_fine)
-        
-        prev_loc = self.loc(v)
-        loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
-                                      need_lower_byte=need_lower_byte)
-        if prev_loc is not loc:
-            self.Load(v, prev_loc, loc)
-        return loc
-
-    def reallocate_from_to(self, from_v, to_v):
-        reg = self.reg_bindings[from_v]
-        del self.reg_bindings[from_v]
-        self.reg_bindings[to_v] = reg
-
-    def eventually_free_var(self, v):
-        if isinstance(v, Const) or v not in self.reg_bindings:
-            return
-        if v not in self.longevity or self.longevity[v][1] <= self.position:
-            self.free_regs.append(self.reg_bindings[v])
-            del self.reg_bindings[v]
-
-    def eventually_free_vars(self, vlist):
-        for v in vlist:
-            self.eventually_free_var(v)
+        return longevity
 
     def loc(self, v):
-        if isinstance(v, Const):
-            return convert_to_imm(v)
-        try:
-            return self.reg_bindings[v]
-        except KeyError:
-            return self.stack_bindings[v]
-
-    def _compute_next_usage(self, v, pos):
-        for i in range(pos, len(self.operations)):
-            if v in self.operations[i].args:
-                return i
-            if i > self.longevity[v][1]:
-                return -1
-        return -1
-
-    def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
-                               need_lower_byte=False):
-        candidates = []
-        for next in self.reg_bindings:
-            reg = self.reg_bindings[next]
-            if next in forbidden_vars:
-                continue
-            if selected_reg is not None:
-                if reg is selected_reg:
-                    return next
-                else:
-                    continue
-            if need_lower_byte and (reg is esi or reg is edi):
-                continue
-            return next
-        raise NoVariableToSpill
-        # below is the slightly better (even optimal, under certain
-        # assumptions) algorithm, which is slow. Just go with the
-        # first hit
-        #if len(candidates) == 1:
-        #    return candidates[0]
-        #max = 0
-        #chosen = None
-        #for one in candidates:
-        #    next_usage = self._compute_next_usage(one, self.position)
-        #    if next_usage == -1:
-        #        return one
-        #    elif next_usage > max:
-        #        next_usage = max
-        #        chosen = one
-        #return chosen
-
-    def move_variable_away(self, v, prev_loc):
-        reg = None
-        if self.free_regs:
-            loc = self.free_regs.pop()
-            self.reg_bindings[v] = loc
-            self.Load(v, prev_loc, loc)
-        else:
-            loc = self.stack_loc(v)
-            self.Store(v, prev_loc, loc)
-
-    def force_result_in_reg(self, result_v, v, forbidden_vars):
-        """ Make sure that result is in the same register as v
-        and v is copied away if it's further used
-        """
-        if isinstance(v, Const):
-            loc = self.make_sure_var_in_reg(v, forbidden_vars,
-                                            imm_fine=False)
-            assert not isinstance(loc, IMM8)
-            self.reg_bindings[result_v] = loc
-            self.free_regs = [reg for reg in self.free_regs if reg is not loc]
-            return loc
-        if v not in self.reg_bindings:
-            prev_loc = self.stack_bindings[v]
-            loc = self.force_allocate_reg(v, forbidden_vars)
-            self.Load(v, prev_loc, loc)
-        assert v in self.reg_bindings
-        if self.longevity[v][1] > self.position:
-            # we need to find a new place for variable v and
-            # store result in the same place
-            loc = self.reg_bindings[v]
-            del self.reg_bindings[v]
-            if v not in self.stack_bindings:
-                self.move_variable_away(v, loc)
-            self.reg_bindings[result_v] = loc
-        else:
-            self.reallocate_from_to(v, result_v)
-            loc = self.reg_bindings[result_v]
-        return loc
+        return self.rm.loc(v)
 
     def _consider_guard(self, op, ignored):
-        loc = self.make_sure_var_in_reg(op.args[0], [])
+        loc = self.rm.make_sure_var_in_reg(op.args[0])
         self.perform_guard(op, [loc], None)
-        self.eventually_free_var(op.args[0])
+        self.rm.possibly_free_var(op.args[0])
 
     consider_guard_true = _consider_guard
     consider_guard_false = _consider_guard
@@ -501,7 +261,7 @@ class RegAlloc(object):
         locs = [self.loc(arg) for arg in op.args]
         self.assembler.generate_failure(self.assembler.mc, op.descr, op.args,
                                         locs, self.exc)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
 
     consider_finish = consider_fail # for now
 
@@ -509,39 +269,39 @@ class RegAlloc(object):
         self.perform_guard(op, [], None)
 
     def consider_guard_exception(self, op, ignored):
-        loc = self.make_sure_var_in_reg(op.args[0], [])
+        loc = self.rm.make_sure_var_in_reg(op.args[0])
         box = TempBox()
-        loc1 = self.force_allocate_reg(box, op.args)
-        if op.result in self.longevity:
+        loc1 = self.rm.force_allocate_reg(box, op.args)
+        if op.result in self.rm.longevity:
             # this means, is it ever used
-            resloc = self.force_allocate_reg(op.result, op.args + [box])
+            resloc = self.rm.force_allocate_reg(op.result, op.args + [box])
         else:
             resloc = None
         self.perform_guard(op, [loc, loc1], resloc)
-        self.eventually_free_vars(op.args)
-        self.eventually_free_var(box)
+        self.rm.possibly_free_vars(op.args)
+        self.rm.possibly_free_var(box)
 
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
 
     def consider_guard_value(self, op, ignored):
-        x = self.make_sure_var_in_reg(op.args[0], [])
+        x = self.rm.make_sure_var_in_reg(op.args[0])
         y = self.loc(op.args[1])
         self.perform_guard(op, [x, y], None)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
 
     def consider_guard_class(self, op, ignored):
         assert isinstance(op.args[0], Box)
-        x = self.make_sure_var_in_reg(op.args[0], [])
+        x = self.rm.make_sure_var_in_reg(op.args[0])
         y = self.loc(op.args[1])
         self.perform_guard(op, [x, y], None)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
     
     def _consider_binop_part(self, op, ignored):
         x = op.args[0]
         argloc = self.loc(op.args[1])
-        loc = self.force_result_in_reg(op.result, x, op.args)
-        self.eventually_free_var(op.args[1])
+        loc = self.rm.force_result_in_reg(op.result, x, op.args)
+        self.rm.possibly_free_var(op.args[1])
         return loc, argloc
 
     def _consider_binop(self, op, ignored):
@@ -560,7 +320,7 @@ class RegAlloc(object):
     consider_int_add_ovf = _consider_binop
 
     def consider_int_neg(self, op, ignored):
-        res = self.force_result_in_reg(op.result, op.args[0], [])
+        res = self.rm.force_result_in_reg(op.result, op.args[0])
         self.Perform(op, [res], res)
 
     consider_int_invert = consider_int_neg
@@ -568,26 +328,28 @@ class RegAlloc(object):
 
     def consider_int_lshift(self, op, ignored):
         if isinstance(op.args[1], Const):
-            loc2 = convert_to_imm(op.args[1])
+            loc2 = self.rm.convert_to_imm(op.args[1])
         else:
-            loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
+            loc2 = self.rm.make_sure_var_in_reg(op.args[1], selected_reg=ecx)
+        loc1 = self.rm.force_result_in_reg(op.result, op.args[0], op.args)
         self.Perform(op, [loc1, loc2], loc1)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
 
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
 
     def _consider_int_div_or_mod(self, op, resultreg, trashreg):
-        l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
-        l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        l2 = self.force_allocate_reg(op.result, [], resultreg)
+        l0 = self.rm.make_sure_var_in_reg(op.args[0], selected_reg=eax)
+        l1 = self.rm.make_sure_var_in_reg(op.args[1], selected_reg=ecx)
+        l2 = self.rm.force_allocate_reg(op.result, selected_reg=resultreg)
         # the register (eax or edx) not holding what we are looking for
         # will be just trash after that operation
         tmpvar = TempBox()
-        self.force_allocate_reg(tmpvar, [], trashreg)
-        assert (l0, l1, l2) == (eax, ecx, resultreg)
-        self.eventually_free_vars(op.args + [tmpvar])
+        self.rm.force_allocate_reg(tmpvar, selected_reg=trashreg)
+        assert l0 is eax
+        assert l1 is ecx
+        assert l2 is resultreg
+        self.rm.possibly_free_vars(op.args + [tmpvar])
 
     def consider_int_mod(self, op, ignored):
         self._consider_int_div_or_mod(op, edx, eax)
@@ -601,16 +363,15 @@ class RegAlloc(object):
         vx = op.args[0]
         vy = op.args[1]
         arglocs = [self.loc(vx), self.loc(vy)]
-        if (vx in self.reg_bindings or vy in self.reg_bindings or
+        if (vx in self.rm.reg_bindings or vy in self.rm.reg_bindings or
             isinstance(vx, Const) or isinstance(vy, Const)):
             pass
         else:
-            arglocs[0] = self.make_sure_var_in_reg(vx, [])
-        self.eventually_free_var(vx)
-        self.eventually_free_var(vy)
+            arglocs[0] = self.rm.make_sure_var_in_reg(vx)
+        self.rm.possibly_free_vars(op.args)
         if guard_op is None:
-            loc = self.force_allocate_reg(op.result, op.args,
-                                          need_lower_byte=True)
+            loc = self.rm.force_allocate_reg(op.result, op.args,
+                                             need_lower_byte=True)
             self.Perform(op, arglocs, loc)
         else:
             self.perform_with_guard(op, guard_op, arglocs, None)
@@ -628,31 +389,10 @@ class RegAlloc(object):
     consider_oois = _consider_compop
     consider_ooisnot = _consider_compop
 
-    def sync_var(self, v):
-        if v not in self.stack_bindings:
-            reg = self.reg_bindings[v]
-            self.Store(v, reg, self.stack_loc(v))
-        # otherwise it's clean
-
     def _call(self, op, arglocs, force_store=[]):
-        # we need to store all variables which are now
-        # in registers eax, ecx and edx
-        for v, reg in self.reg_bindings.items():
-            if v not in force_store and self.longevity[v][1] <= self.position:
-                # variable dies
-                del self.reg_bindings[v]
-                self.free_regs.append(reg)
-                continue
-            if reg is ebx or reg is esi or reg is edi:
-                # we don't need to
-                continue
-            self.sync_var(v)
-            del self.reg_bindings[v]
-            self.free_regs.append(reg)
-        if op.result is not None:
-            self.reg_bindings[op.result] = eax
-            self.free_regs = [reg for reg in self.free_regs if reg is not eax]
+        self.rm.before_call(force_store)
         self.Perform(op, arglocs, eax)
+        self.rm.after_call(op.result)
 
     def consider_call(self, op, ignored):
         calldescr = op.descr
@@ -667,14 +407,18 @@ class RegAlloc(object):
         assert op.result is None
         arglocs = [self.loc(arg) for arg in op.args]
         # add eax, ecx and edx as extra "arguments" to ensure they are
-        # saved and restored.
-        for v, reg in self.reg_bindings.items():
+        # saved and restored.  Fish in self.rm to know which of these
+        # registers really need to be saved (a bit of a hack).  Moreover,
+        # we don't save and restore any SSE register because the called
+        # function, a GC write barrier, is known not to touch them.
+        # See remember_young_pointer() in rpython/memory/gc/generation.py.
+        for v, reg in self.rm.reg_bindings.items():
             if ((reg is eax or reg is ecx or reg is edx)
-                and self.longevity[v][1] > self.position
+                and self.rm.stays_alive(v)
                 and reg not in arglocs[3:]):
                 arglocs.append(reg)
         self.PerformDiscard(op, arglocs)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
 
     def consider_new(self, op, ignored):
         args = self.assembler.cpu.gc_ll_descr.args_for_new(op.descr)
@@ -721,17 +465,17 @@ class RegAlloc(object):
     def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
         # XXX kill this function at some point
         if isinstance(v, Box):
-            loc = self.make_sure_var_in_reg(v, [v])
-            other_loc = self.force_allocate_reg(TempBox(), [v])
+            loc = self.rm.make_sure_var_in_reg(v, [v])
+            other_loc = self.rm.force_allocate_reg(TempBox(), [v])
             self.assembler.load_effective_addr(loc, ofs_items,scale, other_loc)
         else:
             other_loc = imm(ofs_items + (v.getint() << scale))
         self._call(ResOperation(rop.NEW, [v], res_v),
                    [other_loc], [v])
-        loc = self.make_sure_var_in_reg(v, [res_v])
+        loc = self.rm.make_sure_var_in_reg(v, [res_v])
         assert self.loc(res_v) == eax
         # now we have to reload length to some reasonable place
-        self.eventually_free_var(v)
+        self.rm.possibly_free_var(v)
         self.PerformDiscard(ResOperation(rop.SETFIELD_GC, [], None),
                             [eax, imm(ofs_length), imm(WORD), loc])
 
@@ -773,35 +517,35 @@ class RegAlloc(object):
             need_lower_byte = True
         else:
             need_lower_byte = False
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[1], op.args,
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        value_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args,
                                               need_lower_byte=need_lower_byte)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
     consider_setfield_raw = consider_setfield_gc
 
     def consider_strsetitem(self, op, ignored):
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        value_loc = self.make_sure_var_in_reg(op.args[2], op.args,
-                                              need_lower_byte=True)
-        self.eventually_free_vars([op.args[0], op.args[1], op.args[2]])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        value_loc = self.rm.make_sure_var_in_reg(op.args[2], op.args,
+                                                 need_lower_byte=True)
+        self.rm.possibly_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc])
 
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op, ignored):
         scale, ofs, ptr = self._unpack_arraydescr(op.descr)
-        base_loc  = self.make_sure_var_in_reg(op.args[0], op.args)
+        base_loc  = self.rm.make_sure_var_in_reg(op.args[0], op.args)
         if scale == 0:
             need_lower_byte = True
         else:
             need_lower_byte = False
-        value_loc = self.make_sure_var_in_reg(op.args[2], op.args,
+        value_loc = self.rm.make_sure_var_in_reg(op.args[2], op.args,
                                               need_lower_byte=need_lower_byte)
-        ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        self.eventually_free_vars(op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        self.rm.possibly_free_vars(op.args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
                                  imm(scale), imm(ofs)])
 
@@ -809,19 +553,19 @@ class RegAlloc(object):
 
     def consider_getfield_gc(self, op, ignored):
         ofs_loc, size_loc, _ = self._unpack_fielddescr(op.descr)
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        self.eventually_free_vars(op.args)
-        result_loc = self.force_allocate_reg(op.result, [])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        self.rm.possibly_free_vars(op.args)
+        result_loc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc, size_loc], result_loc)
 
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op, ignored):
         scale, ofs, _ = self._unpack_arraydescr(op.descr)
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        self.eventually_free_vars(op.args)
-        result_loc = self.force_allocate_reg(op.result, [])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        self.rm.possibly_free_vars(op.args)
+        result_loc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc, imm(scale), imm(ofs)], result_loc)
 
     consider_getfield_raw = consider_getfield_gc
@@ -831,14 +575,13 @@ class RegAlloc(object):
     def _consider_nullity(self, op, guard_op):
         # doesn't need a register in arg
         if guard_op is not None:
-            argloc = self.make_sure_var_in_reg(op.args[0], [])
-            self.eventually_free_var(op.args[0])
+            argloc = self.rm.make_sure_var_in_reg(op.args[0])
+            self.rm.possibly_free_var(op.args[0])
             self.perform_with_guard(op, guard_op, [argloc], None)
         else:
             argloc = self.loc(op.args[0])
-            self.eventually_free_var(op.args[0])
-            resloc = self.force_allocate_reg(op.result, [],
-                                             need_lower_byte=True)
+            self.rm.possibly_free_var(op.args[0])
+            resloc = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
             self.Perform(op, [argloc], resloc)
 
     consider_int_is_true = _consider_nullity
@@ -847,15 +590,15 @@ class RegAlloc(object):
 
     def consider_same_as(self, op, ignored):
         argloc = self.loc(op.args[0])
-        self.eventually_free_var(op.args[0])
-        resloc = self.force_allocate_reg(op.result, [])
+        self.rm.possibly_free_var(op.args[0])
+        resloc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [argloc], resloc)
     consider_cast_ptr_to_int = consider_same_as
 
     def consider_strlen(self, op, ignored):
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        self.eventually_free_vars(op.args)
-        result_loc = self.force_allocate_reg(op.result, [])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        self.rm.possibly_free_vars(op.args)
+        result_loc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [base_loc], result_loc)
 
     consider_unicodelen = consider_strlen
@@ -864,16 +607,16 @@ class RegAlloc(object):
         arraydescr = op.descr
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_ofs_length(self.translate_support_code)
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        self.eventually_free_vars(op.args)
-        result_loc = self.force_allocate_reg(op.result, [])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        self.rm.possibly_free_vars(op.args)
+        result_loc = self.rm.force_allocate_reg(op.result, [])
         self.Perform(op, [base_loc, imm(ofs)], result_loc)
 
     def consider_strgetitem(self, op, ignored):
-        base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
-        ofs_loc = self.make_sure_var_in_reg(op.args[1], op.args)
-        self.eventually_free_vars([op.args[0], op.args[1]])
-        result_loc = self.force_allocate_reg(op.result, [])
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        self.rm.possibly_free_vars(op.args)
+        result_loc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc], result_loc)
 
     consider_unicodegetitem = consider_strgetitem
@@ -883,15 +626,16 @@ class RegAlloc(object):
         assert self.jump_target is None
         self.jump_target = op.jump_target
         arglocs = assembler.target_arglocs(self.jump_target)
-        # compute 'tmploc' to be REGS[0] by spilling what is there
+        # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
-        tmploc = self.force_allocate_reg(box, [], selected_reg=REGS[0])
-        src_locations = [self.loc(arg) for arg in op.args]
+        tmpreg = X86RegisterManager.all_regs[0]
+        tmploc = self.rm.force_allocate_reg(box, [], selected_reg=tmpreg)
+        src_locations = [self.rm.loc(arg) for arg in op.args]
         dst_locations = arglocs
         assert tmploc not in dst_locations
         remap_stack_layout(assembler, src_locations, dst_locations, tmploc)
-        self.eventually_free_var(box)
-        self.eventually_free_vars(op.args)
+        self.rm.possibly_free_var(box)
+        self.rm.possibly_free_vars(op.args)
         assembler.closing_jump(self.jump_target)
 
     def consider_debug_merge_point(self, op, ignored):
@@ -899,14 +643,12 @@ class RegAlloc(object):
 
     def get_mark_gc_roots(self, gcrootmap):
         shape = gcrootmap.get_basic_shape()
-        for v, val in self.stack_bindings.items():
-            if (isinstance(v, BoxPtr) and
-                self.longevity[v][1] > self.position):
+        for v, val in self.sm.stack_bindings.items():
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, MODRM)
                 gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
-        for v, reg in self.reg_bindings.items():
-            if (isinstance(v, BoxPtr) and
-                self.longevity[v][1] > self.position):
+        for v, reg in self.rm.reg_bindings.items():
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 if reg is ebx:
                     gcrootmap.add_ebx(shape)
                 elif reg is esi:
@@ -935,11 +677,6 @@ def get_ebp_ofs(position):
     # This depends on the fact that our function prologue contains
     # exactly 4 PUSHes.
     return -WORD * (4 + position)
-
-def stack_pos(i):
-    res = mem(ebp, get_ebp_ofs(i))
-    res.position = i
-    return res
 
 def lower_byte(reg):
     # argh, kill, use lowest8bits instead

@@ -82,8 +82,8 @@ def remap_stack_layout(assembler, src_locations, dst_locations, tmpreg):
 def _move(assembler, src, dst, tmpreg):
     if isinstance(dst, MODRM):
         if isinstance(src, MODRM):
-            assembler.regalloc_load(src, tmpreg)
+            assembler.regalloc_mov(src, tmpreg)
             src = tmpreg
-        assembler.regalloc_store(src, dst)
+        assembler.regalloc_mov(src, dst)
     else:
-        assembler.regalloc_load(src, dst)
+        assembler.regalloc_mov(src, dst)

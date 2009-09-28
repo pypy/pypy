@@ -8,7 +8,7 @@ from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import RegAlloc, REGS, WORD
+from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, X86RegisterManager
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -58,7 +58,7 @@ class MockAssembler(object):
 
 def fill_regs(regalloc, cls=BoxInt):
     allboxes = []
-    for reg in REGS:
+    for reg in X86RegisterManager.all_regs:
         box = cls()
         allboxes.append(box)
         regalloc.reg_bindings[box] = reg
@@ -69,92 +69,6 @@ class RegAllocForTests(RegAlloc):
     position = 0
     def _compute_next_usage(self, v, _):
         return -1
-
-class TestRegallocDirect(object):
-
-    def test_make_sure_var_in_reg(self):
-        regalloc = RegAlloc(MockAssembler())
-        boxes = fill_regs(regalloc)
-        box = boxes[-1]
-        oldloc = regalloc.loc(box)
-        newloc = regalloc.make_sure_var_in_reg(box, [])
-        assert oldloc is newloc
-        regalloc._check_invariants()
-
-    def test_make_sure_var_in_reg_need_lower_byte(self):
-        regalloc = RegAlloc(MockAssembler())
-        box = BoxInt()
-        regalloc.reg_bindings[box] = edi
-        regalloc.free_regs = [eax, ecx, edx, ebx, esi]
-        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
-        assert loc is not edi and loc is not esi
-        assert len(regalloc.assembler.loads) == 1
-        regalloc._check_invariants()
-
-    def test_make_sure_var_in_reg_need_lower_byte_no_free_reg(self):
-        regalloc = RegAllocForTests(MockAssembler())
-        box = BoxInt()
-        regalloc.reg_bindings = {BoxInt(): eax, BoxInt(): ebx, BoxInt(): ecx,
-                                 BoxInt(): edx, box:edi}
-        regalloc.free_regs = [esi]
-        regalloc._check_invariants()
-        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
-        assert loc is not edi and loc is not esi
-        assert len(regalloc.assembler.loads) == 1
-        regalloc._check_invariants()
-
-    def test_make_sure_var_in_reg_mem(self):
-        regalloc = RegAlloc(MockAssembler())
-        regalloc.free_regs = REGS[:]
-        box = BoxInt()
-        regalloc.stack_loc(box)
-        loc = regalloc.make_sure_var_in_reg(box, [], need_lower_byte=True)
-        assert loc is not edi and loc is not esi
-        assert len(regalloc.assembler.loads) == 1        
-        regalloc._check_invariants()
-
-    def test_registers_around_call(self):
-        cpu = CPU(None, None)
-        regalloc = RegAlloc(MockAssembler(cpu))
-        boxes = fill_regs(regalloc)
-        TP = lltype.FuncType([], lltype.Void)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
-        regalloc._check_invariants()
-        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
-        box = boxes[0]
-        regalloc.position = 0
-        regalloc.consider_call(ResOperation(rop.CALL, [box], None, calldescr),
-                               None)
-        assert len(regalloc.assembler.stores) == 3
-        regalloc._check_invariants()
-
-    def test_registers_around_newstr(self):
-        cpu = CPU(None, None)
-        regalloc = RegAllocForTests(MockAssembler(cpu))
-        boxes = fill_regs(regalloc)
-        regalloc._check_invariants()
-        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
-        box = boxes[-1]
-        regalloc.position = 0
-        resbox = BoxInt()
-        regalloc.longevity[resbox] = (1, 1)
-        regalloc.consider_newstr(ResOperation(rop.NEWSTR, [box], resbox,
-                                              None), None)
-        regalloc._check_invariants()
-
-    def test_move_away_does_not_spill(self):
-        regalloc = RegAlloc(MockAssembler())
-        regalloc.position = 0
-        resbox = BoxInt()
-        box = BoxInt()
-        regalloc.reg_bindings = {box: eax}
-        regalloc.free_regs = [ebx, ecx, edx, esi, edi]
-        regalloc._check_invariants()
-        regalloc.longevity = {resbox: (0, 1), box: (0, 1)}
-        regalloc.consider_int_add(ResOperation(rop.INT_ADD, [box, ConstInt(1)],
-                                               resbox), None)
-        regalloc._check_invariants()
-        assert len(regalloc.assembler.stores) == 0
 
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
