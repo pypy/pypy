@@ -76,11 +76,11 @@ extern long pypysig_occurred;
    use macros when compiling as a stand-alone program, but still
    export a function with the correct name for testing */
 #undef pypysig_getaddr_occurred
-char *pypysig_getaddr_occurred(void);
+void *pypysig_getaddr_occurred(void);
 #ifndef PYPY_NOT_MAIN_FILE
-char *pypysig_getaddr_occurred(void) { return &pypysig_occurred; }
+void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_occurred); }
 #endif
-#define pypysig_getaddr_occurred()   ((char *)(&pypysig_occurred))
+#define pypysig_getaddr_occurred()   ((void *)(&pypysig_occurred))
 
 /************************************************************/
 /* Implementation                                           */
