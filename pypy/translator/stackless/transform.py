@@ -826,7 +826,7 @@ class StacklessTransformer(object):
                 continue # go back and look at that malloc
                         
             if (op.opname in ('direct_call', 'indirect_call')
-                or self.analyzer.operation_is_true(op)):
+                or self.analyzer.analyze(op)):
                 if op.opname == 'resume_point':
                     block = self.handle_resume_point(block, i)
                     if block is None:

@@ -22,7 +22,7 @@ from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 import sys, types
 
 
-class CollectAnalyzer(graphanalyze.GraphAnalyzer):
+class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
 
     def analyze_direct_call(self, graph, seen=None):
         try:
@@ -36,7 +36,7 @@ class CollectAnalyzer(graphanalyze.GraphAnalyzer):
         return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
                                                               seen)
     
-    def operation_is_true(self, op):
+    def analyze_simple_operation(self, op):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
             return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
