@@ -242,12 +242,12 @@ class FrameTyper:
         self.frametypes[key] = (FRAME_TYPE, self.saving_function_for_type(FRAME_TYPE))
 
 
-class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
+class StacklessAnalyzer(graphanalyze.BoolGraphAnalyzer):
     def __init__(self, translator, stackless_gc):
         graphanalyze.GraphAnalyzer.__init__(self, translator)
         self.stackless_gc = stackless_gc
 
-    def operation_is_true(self, op):
+    def analyze_simple_operation(self, op):
         if op.opname in ('yield_current_frame_to_caller', 'resume_point',
                 'resume_state_invoke', 'resume_state_create', 'stack_frames_depth',
                 'stack_switch', 'stack_unwind', 'stack_capture',

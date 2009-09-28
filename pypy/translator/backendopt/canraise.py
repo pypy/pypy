@@ -8,8 +8,8 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("canraise") 
 py.log.setconsumer("canraise", ansi_log) 
 
-class RaiseAnalyzer(graphanalyze.GraphAnalyzer):
-    def operation_is_true(self, op):
+class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
+    def analyze_simple_operation(self, op):
         try:
             return bool(LL_OPERATIONS[op.opname].canraise)
         except KeyError:
