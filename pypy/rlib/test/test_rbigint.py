@@ -1,10 +1,11 @@
 from __future__ import division
 import py
-from random import random, randint
-from pypy.rlib.rbigint import rbigint, SHIFT, MASK
-from pypy.rlib import rbigint as lobj
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 import operator, sys
+from random import random, randint, sample
+from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
+from pypy.rlib import rbigint as lobj
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from pypy.rpython.test.test_llinterp import interpret
 
 class TestRLong(object):
     def test_simple(self):
@@ -75,11 +76,11 @@ class Test_rbigint(object):
         BASE = 1 << SHIFT
         assert rbigint.fromlong(0).eq(rbigint([0], 0))
         assert rbigint.fromlong(17).eq(rbigint([17], 1))
-        assert rbigint.fromlong(BASE-1).eq(rbigint([BASE-1], 1))
+        assert rbigint.fromlong(BASE-1).eq(rbigint([intmask(BASE-1)], 1))
         assert rbigint.fromlong(BASE).eq(rbigint([0, 1], 1))
         assert rbigint.fromlong(BASE**2).eq(rbigint([0, 0, 1], 1))
         assert rbigint.fromlong(-17).eq(rbigint([17], -1))
-        assert rbigint.fromlong(-(BASE-1)).eq(rbigint([BASE-1], -1))
+        assert rbigint.fromlong(-(BASE-1)).eq(rbigint([intmask(BASE-1)], -1))
         assert rbigint.fromlong(-BASE).eq(rbigint([0, 1], -1))
         assert rbigint.fromlong(-(BASE**2)).eq(rbigint([0, 0, 1], -1))
 #        assert rbigint.fromlong(-sys.maxint-1).eq(
@@ -89,11 +90,11 @@ class Test_rbigint(object):
         BASE = 1 << SHIFT
         assert rbigint.fromrarith_int(0).eq(rbigint([0], 0))
         assert rbigint.fromrarith_int(17).eq(rbigint([17], 1))
-        assert rbigint.fromrarith_int(BASE-1).eq(rbigint([BASE-1], 1))
+        assert rbigint.fromrarith_int(BASE-1).eq(rbigint([intmask(BASE-1)], 1))
         assert rbigint.fromrarith_int(BASE).eq(rbigint([0, 1], 1))
         assert rbigint.fromrarith_int(BASE**2).eq(rbigint([0, 0, 1], 1))
         assert rbigint.fromrarith_int(-17).eq(rbigint([17], -1))
-        assert rbigint.fromrarith_int(-(BASE-1)).eq(rbigint([BASE-1], -1))
+        assert rbigint.fromrarith_int(-(BASE-1)).eq(rbigint([intmask(BASE-1)], -1))
         assert rbigint.fromrarith_int(-BASE).eq(rbigint([0, 1], -1))
         assert rbigint.fromrarith_int(-(BASE**2)).eq(rbigint([0, 0, 1], -1))
 #        assert rbigint.fromrarith_int(-sys.maxint-1).eq((
@@ -103,9 +104,9 @@ class Test_rbigint(object):
         BASE = 1 << SHIFT
         assert rbigint.fromrarith_int(r_uint(0)).eq(rbigint([0], 0))
         assert rbigint.fromrarith_int(r_uint(17)).eq(rbigint([17], 1))
-        assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(rbigint([BASE-1], 1))
+        assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(rbigint([intmask(BASE-1)], 1))
         assert rbigint.fromrarith_int(r_uint(BASE)).eq(rbigint([0, 1], 1))
-        assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(rbigint([0, 0, 1], 1))
+        assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(rbigint([0], 0))
         assert rbigint.fromrarith_int(r_uint(sys.maxint)).eq(
             rbigint.fromint(sys.maxint))
         assert rbigint.fromrarith_int(r_uint(sys.maxint+1)).eq(
@@ -156,6 +157,9 @@ class Test_rbigint(object):
         x = x ** 100
         f1 = rbigint.fromlong(x)
         assert raises(OverflowError, f1.tofloat)
+        f2 = rbigint([0, 2097152], 1)
+        d = f2.tofloat()
+        assert d == float(2097152 << SHIFT)
 
     def test_fromfloat(self):
         x = 1234567890.1234567890
@@ -274,18 +278,14 @@ class Test_rbigint(object):
         assert r2.tolong() == -(-x + 1)
 
     def test_shift(self):
-        negative = rbigint.fromlong(-23)
-        big = rbigint.fromlong(2L ** 100L)
+        negative = -23
         for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
             f1 = rbigint.fromlong(x)
             py.test.raises(ValueError, f1.lshift, negative)
             py.test.raises(ValueError, f1.rshift, negative)
-            py.test.raises(OverflowError, f1.lshift, big)
-            py.test.raises(OverflowError, f1.rshift, big)
             for y in [0L, 1L, 32L, 2304L, 11233L, 3 ** 9]:
-                f2 = rbigint.fromlong(y)
-                res1 = f1.lshift(f2).tolong()
-                res2 = f1.rshift(f2).tolong()
+                res1 = f1.lshift(int(y)).tolong()
+                res2 = f1.rshift(int(y)).tolong()
                 assert res1 == x << y
                 assert res2 == x >> y
 
@@ -318,12 +318,13 @@ class Test_rbigint(object):
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
-        x = 1238585838347L
-        y = 3
-        f1 = rbigint.fromlong(x)
-        f2 = y
-        remainder = lobj._inplace_divrem1(f1, f1, f2)
-        assert (f1.tolong(), remainder) == divmod(x, y)
+        for x, y in [(1238585838347L, 3), (1234123412311231L, 1231231), (99, 100)]:
+            f1 = rbigint.fromlong(x)
+            f2 = y
+            remainder = lobj._inplace_divrem1(f1, f1, f2)
+            assert (f1.tolong(), remainder) == divmod(x, y)
+        out = rbigint([99, 99], 1)
+        remainder = lobj._inplace_divrem1(out, out, 100)
 
     def test__divrem1(self):
         # signs are not handled in the helpers!
@@ -373,14 +374,14 @@ class TestInternalFunctions(object):
     def test__v_iadd(self):
         f1 = rbigint([lobj.MASK] * 10, 1)
         f2 = rbigint([1], 1)
-        carry = lobj._v_iadd(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
+        carry = lobj._v_iadd(f1, 1, len(f1.digits)-1, f2, 1)
         assert carry == 1
         assert f1.tolong() == lobj.MASK
 
     def test__v_isub(self):
         f1 = rbigint([lobj.MASK] + [0] * 9 + [1], 1)
         f2 = rbigint([1], 1)
-        borrow = lobj._v_isub(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
+        borrow = lobj._v_isub(f1, 1, len(f1.digits)-1, f2, 1)
         assert borrow == 0
         assert f1.tolong() == (1 << lobj.SHIFT) ** 10 - 1
 
@@ -394,14 +395,14 @@ class TestInternalFunctions(object):
         assert hi.digits == dighi
 
     def test__k_mul(self):
-        digs= lobj.KARATSUBA_CUTOFF * 5
+        digs = KARATSUBA_CUTOFF * 5
         f1 = rbigint([lobj.MASK] * digs, 1)
         f2 = lobj._x_add(f1,rbigint([1], 1))
         ret = lobj._k_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
     def test__k_lopsided_mul(self):
-        digs_a = lobj.KARATSUBA_CUTOFF + 3
+        digs_a = KARATSUBA_CUTOFF + 3
         digs_b = 3 * digs_a
         f1 = rbigint([lobj.MASK] * digs_a, 1)
         f2 = rbigint([lobj.MASK] * digs_b, 1)
@@ -437,11 +438,28 @@ class TestInternalFunctions(object):
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
 
+BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_square(self):
+        def test():
+            x = rbigint([1410065408, 4], 1)
+            y = x.mul(x)
+            return y.str()
+        res = interpret(test, [])
+        assert "".join(res.chars) == test()
+
+    def test_add(self):
+        x = rbigint.fromint(-2147483647)
+        y = rbigint.fromint(-1)
+        z = rbigint.fromint(-2147483648)
+        def test():
+            return x.add(y).eq(z)
+        assert test()
+        res = interpret(test, [])
+        assert res
 
     def test_args_from_rarith_int(self):
-        from pypy.rpython.test.test_llinterp import interpret
         from pypy.rpython.tool.rfficache import platform
         classlist = platform.numbertype_to_rclass.values()
         fnlist = []
@@ -462,5 +480,7 @@ class TestTranslatable(object):
                 return n.str()
 
             for i in range(len(values)):
+                res = fn(i)
+                assert res == str(long(values[i]))
                 res = interpret(fn, [i])
                 assert ''.join(res.chars) == str(long(values[i]))

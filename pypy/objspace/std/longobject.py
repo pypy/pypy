@@ -220,10 +220,11 @@ def lshift__Long_Long(space, w_long1, w_long2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     try:
-        return W_LongObject(w_long1.num.lshift(w_long2.num))
+        shift = w_long2.num.toint()
     except OverflowError:   # b too big
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
+    return W_LongObject(w_long1.num.lshift(shift))
 
 def rshift__Long_Long(space, w_long1, w_long2):
     # XXX need to replicate some of the logic, to get the errors right
@@ -231,10 +232,11 @@ def rshift__Long_Long(space, w_long1, w_long2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     try:
-        return W_LongObject(w_long1.num.rshift(w_long2.num))
+        shift = w_long2.num.toint()
     except OverflowError:   # b too big # XXX maybe just return 0L instead?
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
+    return W_LongObject(w_long1.num.rshift(shift))
 
 def and__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.and_(w_long2.num))

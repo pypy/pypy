@@ -226,13 +226,25 @@ def unmarshal_Complex_bin(space, u, tc):
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
-    assert long_bits == 15, """if long_bits is not 15,
-    we need to write much more general code for marshal
-    that breaks things into pieces, or invent a new
-    typecode and have our own magic number for pickling"""
-
+    from pypy.rlib.rbigint import rbigint
     m.start(TYPE_LONG)
     # XXX access internals
+    if long_bits != 15:
+        SHIFT = 15
+        MASK = (1 << SHIFT) - 1
+        BIGMASK = rbigint.fromint(MASK)
+        num = w_long.num
+        sign = num.sign
+        num = num.abs()
+        ints = []
+        while num.tobool():
+            next = num.and_(BIGMASK).toint()
+            ints.append(next)
+            num = num.rshift(SHIFT)
+        m.put_int(len(ints) * sign)
+        for i in ints:
+            m.put_short(i)
+        return
     lng = len(w_long.num.digits)
     if w_long.num.sign < 0:
         m.put_int(-lng)
@@ -242,7 +254,8 @@ def marshal_w__Long(space, w_long, m):
         m.put_short(digit)
 
 def unmarshal_Long(space, u, tc):
-    from pypy.rlib import rbigint
+    # XXX access internals
+    from pypy.rlib.rbigint import rbigint
     lng = u.get_int()
     if lng < 0:
         sign = -1
@@ -251,17 +264,22 @@ def unmarshal_Long(space, u, tc):
         sign = 1
     else:
         sign = 0
-    digits = [0] * lng
-    i = 0
-    while i < lng:
-        digit = u.get_short()
-        if digit < 0:
-            raise_exception(space, 'bad marshal data')
-        digits[i] = digit
-        i += 1
-    # XXX poking at internals
-    w_long = W_LongObject(rbigint.rbigint(digits, sign))
-    w_long.num._normalize()
+    if long_bits != 15:
+        SHIFT = 15
+        result = rbigint([0], 0)
+        for i in range(lng):
+            shift = i * SHIFT
+            result = result.add(rbigint.fromint(u.get_short()).lshift(shift))
+        result.sign = sign
+    else:
+        digits = [0] * lng
+        for i in range(lng):
+            digit = u.get_int()
+            if digit < 0:
+                raise_exception(space, 'bad marshal data')
+            digits[i] = digit
+        result = rbigint(digits, sign)
+    w_long = W_LongObject(result)
     return w_long
 register(TYPE_LONG, unmarshal_Long)
 
