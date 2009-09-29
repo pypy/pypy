@@ -23,7 +23,7 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, False)
     graph = rtyper.annotator.translator.graphs[0]
-    opt = history.Options(specialize=False, listops=listops)
+    opt = history.Options(listops=listops)
     metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
     metainterp_sd.finish_setup(optimizer=optimizer)
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
