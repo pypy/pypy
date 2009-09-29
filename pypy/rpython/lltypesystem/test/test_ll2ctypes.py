@@ -751,7 +751,7 @@ class TestLL2Ctypes(object):
         
         #include <stdlib.h>
         
-        static int x = 3;
+        static long x = 3;
         char **z = NULL;
 
         #endif  /* _SOME_H */
@@ -808,21 +808,21 @@ class TestLL2Ctypes(object):
     def test_qsort_callback(self):
         TP = rffi.CArrayPtr(rffi.INT)
         a = lltype.malloc(TP.TO, 5, flavor='raw')
-        a[0] = 5
-        a[1] = 3
-        a[2] = 2
-        a[3] = 1
-        a[4] = 4
+        a[0] = rffi.r_int(5)
+        a[1] = rffi.r_int(3)
+        a[2] = rffi.r_int(2)
+        a[3] = rffi.r_int(1)
+        a[4] = rffi.r_int(4)
 
         def compare(a, b):
             if a[0] > b[0]:
-                return 1
+                return rffi.r_int(1)
             else:
-                return -1
+                return rffi.r_int(-1)
 
         CALLBACK = rffi.CCallback([rffi.VOIDP, rffi.VOIDP], rffi.INT)
-        qsort = rffi.llexternal('qsort', [rffi.VOIDP, rffi.INT,
-                                          rffi.INT, CALLBACK], lltype.Void)
+        qsort = rffi.llexternal('qsort', [rffi.VOIDP, rffi.SIZE_T,
+                                          rffi.SIZE_T, CALLBACK], lltype.Void)
 
         qsort(rffi.cast(rffi.VOIDP, a), 5, rffi.sizeof(rffi.INT), compare)
         for i in range(5):
@@ -929,7 +929,7 @@ class TestLL2Ctypes(object):
             return x.x
 
         c_source = py.code.Source("""
-        int eating_callback(void *arg, int(*call)(int))
+        long eating_callback(void *arg, long(*call)(void*))
         {
             return call(arg);
         }
@@ -938,8 +938,8 @@ class TestLL2Ctypes(object):
         eci = ExternalCompilationInfo(separate_module_sources=[c_source],
                                       export_symbols=['eating_callback'])
 
-        args = [T, rffi.CCallback([T], rffi.INT)]
-        eating_callback = rffi.llexternal('eating_callback', args, rffi.INT,
+        args = [T, rffi.CCallback([T], rffi.LONG)]
+        eating_callback = rffi.llexternal('eating_callback', args, rffi.LONG,
                                           compilation_info=eci)
 
         res = eating_callback(X(), callback)
