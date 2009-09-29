@@ -3,7 +3,7 @@ from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.jit.metainterp.test import test_basic
 from pypy.jit.metainterp.policy import StopAtXPolicy
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 
 class Jit386Mixin(test_basic.LLJitMixin):
     type_system = 'lltype'
@@ -29,7 +29,7 @@ class TestBasic(Jit386Mixin, test_basic.BaseLLtypeTests):
                 n -= x.arg
                 x.arg = 6   # prevents 'x.arg' from being annotated as constant
             return n
-        res = self.meta_interp(f, [31], specialize=False)
+        res = self.meta_interp(f, [31], optimizer=OPTIMIZER_SIMPLE)
         assert res == -4
 
     def test_r_dict(self):
