@@ -52,3 +52,6 @@ def getcpuclass(backend_name="auto"):
     else:
         raise ProcessorAutodetectError, "unsupported cpu '%s'" % backend_name
     return CPU
+
+if __name__ == '__main__':
+    print autodetect()
