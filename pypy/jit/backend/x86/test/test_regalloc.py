@@ -29,8 +29,7 @@ class MockAssembler(object):
     gcrefs = None
 
     def __init__(self, cpu=None, gc_ll_descr=None):
-        self.loads = []
-        self.stores = []
+        self.movs = []
         self.performs = []
         self.lea = []
         self.cpu = cpu or CPU(None, None)
@@ -41,11 +40,8 @@ class MockAssembler(object):
     def dump(self, *args):
         pass
 
-    def regalloc_load(self, from_loc, to_loc):
-        self.loads.append((from_loc, to_loc))
-
-    def regalloc_store(self, from_loc, to_loc):
-        self.stores.append((from_loc, to_loc))
+    def regalloc_mov(self, from_loc, to_loc):
+        self.movs.append((from_loc, to_loc))
 
     def regalloc_perform(self, op, arglocs, resloc):
         self.performs.append((op, arglocs, resloc))
@@ -61,8 +57,7 @@ def fill_regs(regalloc, cls=BoxInt):
     for reg in X86RegisterManager.all_regs:
         box = cls()
         allboxes.append(box)
-        regalloc.reg_bindings[box] = reg
-    regalloc.free_regs = []
+        regalloc.rm.try_allocate_reg()
     return allboxes
     
 class RegAllocForTests(RegAlloc):

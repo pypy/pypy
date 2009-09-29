@@ -17,7 +17,8 @@ from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrFieldDescr
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
-from pypy.jit.backend.x86.test.test_regalloc import fill_regs, BaseTestRegalloc
+from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
+from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86StackManager
 
 class MockGcRootMap(object):
     def get_basic_shape(self):
@@ -56,17 +57,24 @@ class TestRegallocDirectGcIntegration(object):
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
         regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
+        boxes = [BoxPtr() for i in range(len(X86RegisterManager.all_regs))]
+        longevity = {}
+        for box in boxes:
+            longevity[box] = (0, 1)
+        regalloc.sm = X86StackManager()
+        regalloc.rm = X86RegisterManager(longevity, regalloc.sm,
+                                         assembler=regalloc.assembler)
         cpu = regalloc.assembler.cpu
-        boxes = fill_regs(regalloc, cls=BoxPtr)
+        for box in boxes:
+            regalloc.rm.try_allocate_reg(box)
         TP = lltype.FuncType([], lltype.Signed)
         calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
-        regalloc._check_invariants()
-        regalloc.longevity = dict.fromkeys(boxes, (0, 1))
+        regalloc.rm._check_invariants()
         box = boxes[0]
         regalloc.position = 0
         regalloc.consider_call(ResOperation(rop.CALL, [box], BoxInt(),
                                             calldescr), None)
-        assert len(regalloc.assembler.stores) == 3
+        assert len(regalloc.assembler.movs) == 3
         #
         mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
         assert mark[0] == 'compressed'
