@@ -100,12 +100,12 @@ def eq(x, y):
 
 
 def test_address_order():
-    a = arena_malloc(20, False)
+    a = arena_malloc(24, False)
     assert eq(a, a)
     assert lt(a, a+1)
     assert lt(a+5, a+20)
 
-    b = arena_malloc(20, False)
+    b = arena_malloc(24, False)
     if a > b:
         a, b = b, a
     assert lt(a, b)
@@ -158,7 +158,7 @@ def test_arena_new_view():
     arena_reserve(b, precomputed_size)
 
 def test_partial_arena_reset():
-    a = arena_malloc(50, False)
+    a = arena_malloc(72, False)
     def reserve(i):
         b = a + i * llmemory.raw_malloc_usage(precomputed_size)
         arena_reserve(b, precomputed_size)
@@ -224,9 +224,10 @@ def test_replace_object_with_stub():
     STUB = lltype.GcStruct('STUB', ('t', lltype.Char))
     gcheaderbuilder = GCHeaderBuilder(HDR)
     size_gc_header = gcheaderbuilder.size_gc_header
+    ssize = llmemory.raw_malloc_usage(llmemory.sizeof(S))
 
-    a = arena_malloc(50, True)
-    hdraddr = a + 12
+    a = arena_malloc(13*ssize, True)
+    hdraddr = a + 3*ssize
     arena_reserve(hdraddr, size_gc_header + llmemory.sizeof(S))
     hdr = llmemory.cast_adr_to_ptr(hdraddr, lltype.Ptr(HDR))
     hdr.x = 42
