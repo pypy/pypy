@@ -115,7 +115,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
-            _fields_ = [('length', ctypes.c_int),
+            _fields_ = [('length', ctypes.c_long),
                         ('items',  max_n * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
