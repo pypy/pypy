@@ -349,7 +349,7 @@ class BaseTestRffi:
         h_source = py.code.Source("""
         #ifndef _CALLBACK_H
         #define _CALLBACK_H
-        extern int eating_callback(int arg, int(*call)(int));
+        extern long eating_callback(long arg, long(*call)(long));
         #endif /* _CALLBACK_H */
         """)
         
@@ -357,9 +357,9 @@ class BaseTestRffi:
         h_include.write(h_source)
 
         c_source = py.code.Source("""
-        int eating_callback(int arg, int(*call)(int))
+        long eating_callback(long arg, long(*call)(long))
         {
-            int res = call(arg);
+            long res = call(arg);
             if (res == -1)
               return -1;
             return res;
@@ -371,8 +371,8 @@ class BaseTestRffi:
                                       separate_module_sources=[c_source],
                                       export_symbols=['eating_callback'])
 
-        args = [INT, CCallback([INT], INT)]
-        eating_callback = llexternal('eating_callback', args, INT,
+        args = [LONG, CCallback([LONG], LONG)]
+        eating_callback = llexternal('eating_callback', args, LONG,
                                      compilation_info=eci)
 
         return eating_callback
