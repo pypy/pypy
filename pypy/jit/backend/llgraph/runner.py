@@ -105,7 +105,8 @@ class BaseCPU(model.AbstractCPU):
 
     def compile_bridge(self, faildescr, inputargs, operations):
         c = self.compile_loop(inputargs, operations)
-        llimpl.compile_redirect_fail(faildescr._compiled_fail, c)        
+        old, oldindex = faildescr._compiled_fail
+        llimpl.compile_redirect_fail(old, oldindex, c)
 
     def compile_loop(self, inputargs, operations):
         """In a real assembler backend, this should assemble the given
@@ -125,10 +126,10 @@ class BaseCPU(model.AbstractCPU):
                 var2index[box] = llimpl.compile_start_float_var(c)
             else:
                 raise Exception("box is: %r" % (box,))
-        self._compile_branch(c, operations, var2index)
+        self._compile_operations(c, operations, var2index)
         return c
 
-    def _compile_branch(self, c, operations, var2index):
+    def _compile_operations(self, c, operations, var2index):
         for op in operations:
             llimpl.compile_add(c, op.opnum)
             descr = op.descr
@@ -152,11 +153,13 @@ class BaseCPU(model.AbstractCPU):
                     raise Exception("%s args contain: %r" % (op.getopname(),
                                                              x))
             if op.is_guard():
-                c2 = llimpl.compile_suboperations(c)
-                suboperations = op.suboperations
-                assert len(suboperations) == 1
-                assert suboperations[0].opnum == rop.FAIL
-                self._compile_branch(c2, op.suboperations, var2index.copy())
+                faildescr = op.descr
+                assert isinstance(faildescr, history.AbstractFailDescr)
+                index = llimpl.compile_add_fail(c, len(self.fail_descrs))
+                faildescr._compiled_fail = c, index
+                self.fail_descrs.append(faildescr)
+                for box in op.fail_args:
+                    llimpl.compile_add_fail_arg(c, var2index[box])
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
@@ -177,12 +180,6 @@ class BaseCPU(model.AbstractCPU):
             else:
                 target = target.executable_token
             llimpl.compile_add_jump_target(c, target)
-        elif op.opnum == rop.FAIL:
-            faildescr = op.descr
-            assert isinstance(faildescr, history.AbstractFailDescr)
-            faildescr._compiled_fail = c
-            llimpl.compile_add_fail(c, len(self.fail_descrs))
-            self.fail_descrs.append(faildescr)
         elif op.opnum == rop.FINISH:
             llimpl.compile_add_fail(c, len(self.fail_descrs))
             faildescr = op.descr

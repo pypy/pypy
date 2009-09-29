@@ -642,7 +642,7 @@ def dc_hash(c):
 
 # The TreeLoop class contains a loop or a generalized loop, i.e. a tree
 # of operations.  Each branch ends in a jump which can go either to
-# the top of the same loop, or to another TreeLoop; or it ends in a FAIL.
+# the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
 
 class Base(object):
     """Common base class for TreeLoop and History."""
@@ -665,16 +665,16 @@ class TreeLoop(Base):
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
 
-    def _all_operations(self, omit_fails=False):
+    def _all_operations(self, omit_finish=False):
         "NOT_RPYTHON"
         result = []
-        _list_all_operations(result, self.operations, omit_fails)
+        _list_all_operations(result, self.operations, omit_finish)
         return result
 
     def summary(self, adding_insns={}):    # for debugging
         "NOT_RPYTHON"
         insns = adding_insns.copy()
-        for op in self._all_operations(omit_fails=True):
+        for op in self._all_operations(omit_finish=True):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
@@ -710,13 +710,16 @@ class TreeLoop(Base):
             for box in op.args:
                 if isinstance(box, Box):
                     assert box in seen
-            assert (op.suboperations is not None) == op.is_guard()
             if op.is_guard():
-                if hasattr(op, '_debug_suboperations'):
-                    ops = op._debug_suboperations
-                else:
-                    ops = op.suboperations
-                TreeLoop.check_consistency_of_branch(ops, seen.copy())
+                assert op.descr is not None
+                if hasattr(op.descr, '_debug_suboperations'):
+                    ops = op.descr._debug_suboperations
+                    TreeLoop.check_consistency_of_branch(ops, seen.copy())
+                for box in op.fail_args or []:
+                    assert isinstance(box, Box)
+                    assert box in seen
+            else:
+                assert op.fail_args is None
             box = op.result
             if box is not None:
                 assert isinstance(box, Box)
@@ -747,20 +750,16 @@ class TreeLoop(Base):
     def __repr__(self):
         return '<%s>' % (self.name,)
 
-def _list_all_operations(result, operations, omit_fails=True):
-    if omit_fails and operations[-1].opnum in (rop.FAIL, rop.FINISH):
+def _list_all_operations(result, operations, omit_finish=True):
+    if omit_finish and operations[-1].opnum == rop.FINISH:
         # xxx obscure
         return
     result.extend(operations)
     for op in operations:
-        if op.is_guard():
-            if hasattr(op, '_debug_suboperations'):
-                ops = op._debug_suboperations
-            else:
-                if omit_fails:
-                    continue
-                ops = op.suboperations
-            _list_all_operations(result, ops, omit_fails)
+        if op.is_guard() and op.descr:
+            if hasattr(op.descr, '_debug_suboperations'):
+                ops = op.descr._debug_suboperations
+                _list_all_operations(result, ops, omit_finish)
 
 # ____________________________________________________________
 

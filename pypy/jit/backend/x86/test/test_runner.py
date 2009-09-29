@@ -77,12 +77,12 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.INT_ADD, [x, y], z),
             ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
             ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
-            ResOperation(rop.GUARD_FALSE, [u], None),
+            ResOperation(rop.GUARD_FALSE, [u], None,
+                         descr=BasicFailDescr()),
             ResOperation(rop.JUMP, [z, t], None),
             ]
         operations[-1].jump_target = None
-        operations[-2].suboperations = [ResOperation(rop.FAIL, [t, z], None,
-                                                     descr=BasicFailDescr())]
+        operations[-2].fail_args = [t, z]
         executable_token = cpu.compile_loop([x, y], operations)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 10)
@@ -317,15 +317,16 @@ class TestX86(LLtypeBackendTest):
                     bp = BoxPtr(p)
                     n = BoxPtr(nullptr)
                 for b in (bp, n):
+                    i1 = BoxInt(1)
                     ops = [
+                        ResOperation(rop.SAME_AS, [ConstInt(1)], i1),
                         ResOperation(op, [b], f),
-                        ResOperation(guard, [f], None),
-                        ResOperation(rop.FAIL, [ConstInt(0)], None,
+                        ResOperation(guard, [f], None,
+                                     descr=BasicFailDescr()),
+                        ResOperation(rop.FINISH, [ConstInt(0)], None,
                                      descr=BasicFailDescr()),
                         ]
-                    ops[1].suboperations = [ResOperation(rop.FAIL,
-                                                        [ConstInt(1)], None,
-                                                        descr=BasicFailDescr())]
+                    ops[-2].fail_args = [i1]
                     executable_token = self.cpu.compile_loop([b], ops)
                     if op == rop.INT_IS_TRUE:
                         self.cpu.set_future_value_int(0, b.value)
@@ -362,15 +363,16 @@ class TestX86(LLtypeBackendTest):
             for guard in guards:
                 for op in all:
                     res = BoxInt()
+                    i1 = BoxInt(1)
                     ops = [
+                        ResOperation(rop.SAME_AS, [ConstInt(1)], i1),
                         ResOperation(op, [a, b], res),
-                        ResOperation(guard, [res], None),
-                        ResOperation(rop.FAIL, [ConstInt(0)], None,
+                        ResOperation(guard, [res], None,
+                                     descr=BasicFailDescr()),
+                        ResOperation(rop.FINISH, [ConstInt(0)], None,
                                      descr=BasicFailDescr()),
                         ]
-                    ops[1].suboperations = [ResOperation(rop.FAIL,
-                                                        [ConstInt(1)], None,
-                                                        descr=BasicFailDescr())]
+                    ops[-2].fail_args = [i1]
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
                     executable_token = self.cpu.compile_loop(inputargs, ops)
                     for i, box in enumerate(inputargs):
@@ -399,7 +401,7 @@ class TestX86(LLtypeBackendTest):
                 next_v = BoxInt()
                 ops.append(ResOperation(rop.INT_ADD, [v, ConstInt(1)], next_v))
                 v = next_v
-            ops.append(ResOperation(rop.FAIL, [v], None,
+            ops.append(ResOperation(rop.FINISH, [v], None,
                                     descr=BasicFailDescr()))
             executable_token = self.cpu.compile_loop([base_v], ops)
             assert self.cpu.assembler.mc != old_mc   # overflowed

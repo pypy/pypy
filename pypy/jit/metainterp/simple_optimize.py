@@ -17,11 +17,10 @@ def optimize_loop(options, old_loops, loop, cpu=None):
         newoperations = []
         for op in loop.operations:
             if op.is_guard():
-                op_fail = op.suboperations[-1]
-                descr = op_fail.descr
+                descr = op.descr
                 assert isinstance(descr, compile.ResumeGuardDescr)
                 args = resume.flatten_resumedata(descr)
-                op_fail.args = args
+                descr.store_final_boxes(op, args)
             newoperations.append(op)
         loop.operations = newoperations
         return None

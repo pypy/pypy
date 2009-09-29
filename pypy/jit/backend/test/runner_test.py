@@ -71,13 +71,13 @@ class Runner(object):
         else:
             results = [result]
         operations = [ResOperation(opnum, valueboxes, result),
-                      ResOperation(rop.FAIL, results, None,
+                      ResOperation(rop.FINISH, results, None,
                                    descr=BasicFailDescr())]
-        operations[0].descr = descr
         if operations[0].is_guard():
-            operations[0].suboperations = [ResOperation(rop.FAIL,
-                                                        [ConstInt(-13)], None,
-                                                        descr=BasicFailDescr())]
+            operations[0].fail_args = []
+            if not descr:
+                descr = BasicFailDescr()
+        operations[0].descr = descr
         inputargs = []
         for box in valueboxes:
             if isinstance(box, Box):
@@ -93,7 +93,7 @@ class BaseBackendTest(Runner):
         faildescr = BasicFailDescr()
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.FAIL, [i1], None, descr=faildescr)
+            ResOperation(rop.FINISH, [i1], None, descr=faildescr)
             ]
         inputargs = [i0]
         executable_token = self.cpu.compile_loop(inputargs, operations)
@@ -107,17 +107,15 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        faildescr = BasicFailDescr()        
+        faildescr = BasicFailDescr()
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
             ResOperation(rop.JUMP, [i1], None),
             ]
         inputargs = [i0]
-        operations[2].suboperations = [
-            ResOperation(rop.FAIL, [i1], None, descr=faildescr)
-            ]
+        operations[2].fail_args = [i1]
         operations[-1].jump_target = None
         
         executable_token = self.cpu.compile_loop(inputargs, operations)
@@ -137,23 +135,20 @@ class BaseBackendTest(Runner):
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
             ResOperation(rop.JUMP, [i1], None),
             ]
         inputargs = [i0]
-        operations[2].suboperations = [
-            ResOperation(rop.FAIL, [i1], None, descr=faildescr)
-            ]
+        operations[2].fail_args = [i1]
         operations[-1].jump_target = None
         wr_i1 = weakref.ref(i1)
         wr_guard = weakref.ref(operations[2])
-        wr_fail = weakref.ref(operations[2].suboperations[0])        
         executable_token = self.cpu.compile_loop(inputargs, operations)
         del i0, i1, i2
         del inputargs
         del operations
         gc.collect()
-        assert not wr_i1() and not wr_guard() and not wr_fail()
+        assert not wr_i1() and not wr_guard()
 
     def test_compile_bridge(self):
         i0 = BoxInt()
@@ -164,13 +159,11 @@ class BaseBackendTest(Runner):
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
             ResOperation(rop.JUMP, [i1], None),
             ]
         inputargs = [i0]
-        operations[2].suboperations = [
-            ResOperation(rop.FAIL, [i1], None, descr=faildescr1)
-            ]
+        operations[2].fail_args = [i1]
         operations[-1].jump_target = None       
         executable_token = self.cpu.compile_loop(inputargs, operations)
         loop_token = LoopToken()
@@ -180,12 +173,10 @@ class BaseBackendTest(Runner):
         i3 = BoxInt()
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
-            ResOperation(rop.GUARD_TRUE, [i3], None),
+            ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
             ResOperation(rop.JUMP, [i1b], None),            
         ]
-        bridge[1].suboperations = [
-            ResOperation(rop.FAIL, [i1b], None, descr=faildescr2)
-            ]
+        bridge[1].fail_args = [i1b]
         bridge[-1].jump_target = loop_token
 
         self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
@@ -399,20 +390,21 @@ class BaseBackendTest(Runner):
             if not reversed:
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
-                    ResOperation(rop.GUARD_NO_OVERFLOW, [], None),
-                    ResOperation(rop.FAIL, [v_res], None, descr=BasicFailDescr()),
+                    ResOperation(rop.GUARD_NO_OVERFLOW, [], None,
+                                 descr=BasicFailDescr()),
+                    ResOperation(rop.FINISH, [v_res], None,
+                                 descr=BasicFailDescr()),
                     ]
-                ops[1].suboperations = [ResOperation(rop.FAIL, [], None,
-                                                     descr=BasicFailDescr())]
+                ops[1].fail_args = []
             else:
                 v_exc = self.cpu.ts.BoxRef()
                 ops = [
                     ResOperation(opnum, [v1, v2], v_res),
-                    ResOperation(rop.GUARD_OVERFLOW, [], None),
-                    ResOperation(rop.FAIL, [], None, descr=BasicFailDescr()),
+                    ResOperation(rop.GUARD_OVERFLOW, [], None,
+                                 descr=BasicFailDescr()),
+                    ResOperation(rop.FINISH, [], None, descr=BasicFailDescr()),
                     ]
-                ops[1].suboperations = [ResOperation(rop.FAIL, [v_res], None,
-                                                     descr=BasicFailDescr())]
+                ops[1].fail_args = [v_res]
             #
             executable_token = self.cpu.compile_loop([v1, v2], ops)
             for x, y, z in testcases:
@@ -422,7 +414,7 @@ class BaseBackendTest(Runner):
                 self.cpu.set_future_value_int(1, y)
                 fail = self.cpu.execute_token(executable_token)
                 if (z == boom) ^ reversed:
-                    assert fail is ops[1].suboperations[0].descr
+                    assert fail is ops[1].descr
                 else:
                     assert fail is ops[-1].descr
                 if z != boom:
@@ -491,7 +483,6 @@ class BaseBackendTest(Runner):
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
                                (rop.GUARD_FALSE, [BoxInt(0)]),
                                (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
-                               #(rop.GUARD_VALUE_INVERSE, [BoxInt(42), BoxInt(41)]),
                                ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
@@ -1034,10 +1025,10 @@ class LLtypeBackendTest(BaseBackendTest):
 
         ops = '''
         [i0]
+        i1 = same_as(1)
         call(ConstClass(fptr), i0, descr=calldescr)
-        p0 = guard_exception(ConstClass(xtp))
-            fail(1)
-        fail(0, p0)
+        p0 = guard_exception(ConstClass(xtp)) [i1]
+        finish(0, p0)
         '''
         FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
         fptr = llhelper(FPTR, func)
@@ -1089,10 +1080,10 @@ class LLtypeBackendTest(BaseBackendTest):
         exc_ptr = xptr
         ops = '''
         [i0]
+        i1 = same_as(1)
         call(ConstClass(fptr), i0, descr=calldescr)
-        guard_no_exception()
-            fail(1)
-        fail(0)
+        guard_no_exception() [i1]
+        finish(0)
         '''
         loop = parse(ops, self.cpu, namespace=locals())
         executable_token = self.cpu.compile_loop(loop.inputargs,

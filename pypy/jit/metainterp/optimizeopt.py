@@ -481,7 +481,6 @@ class Optimizer(object):
         self.loop.operations = self.newoperations
 
     def emit_operation(self, op, must_clone=True):
-        op1 = op
         for i in range(len(op.args)):
             arg = op.args[i]
             if arg in self.values:
@@ -492,21 +491,14 @@ class Optimizer(object):
                         must_clone = False
                     op.args[i] = box
         if op.is_guard():
-            self.clone_guard(op, op1)
+            self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self.newoperations.append(op)
 
-    def _get_faildescr(self, op_fail):
-        descr = op_fail.descr
+    def store_final_boxes_in_guard(self, op):
+        descr = op.descr
         assert isinstance(descr, compile.ResumeGuardDescr)
-        return descr
-
-    def clone_guard(self, op2, op1):
-        assert len(op1.suboperations) == 1
-        op_fail = op1.suboperations[0]
-        assert op_fail.opnum == rop.FAIL
-        descr = self._get_faildescr(op_fail)
         oldboxes = []
         args = resume.flatten_resumedata(descr) # xxx expensive
         for box in args:
@@ -519,14 +511,7 @@ class Optimizer(object):
                 value = self.values[box]
                 value.get_args_for_fail(modifier)
         newboxes = modifier.finish()
-        # XXX we mutate op_fail in-place below, as well as op_fail.descr
-        # via the ResumeDataVirtualAdder.  That's bad.  Hopefully
-        # it does not really matter because no-one is going to look again
-        # at its unoptimized version.  We should really clone it (and
-        # the descr too).
-        op_fail.args = newboxes
-        op2.suboperations = op1.suboperations
-        op1.optimized = op2
+        descr.store_final_boxes(op, newboxes)
 
     def clean_fields_of_values(self, descr=None):
         if descr is None:

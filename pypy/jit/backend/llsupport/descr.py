@@ -200,11 +200,11 @@ class BaseCallDescr(AbstractDescr):
             result_list = [result]
         operations = [
             ResOperation(rop.CALL, args, result, self),
-            ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-            ResOperation(rop.FAIL, result_list, None,
+            ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
+                         descr=BasicFailDescr()),
+            ResOperation(rop.FINISH, result_list, None,
                          descr=BasicFailDescr())]
-        operations[1].suboperations = [ResOperation(rop.FAIL, [], None,
-                                              descr=BasicFailDescr())]
+        operations[1].fail_args = []
         executable_token = cpu.compile_loop(args, operations)
         self.executable_token = executable_token
         return executable_token

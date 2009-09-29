@@ -149,10 +149,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
-        assert len(guard_op.suboperations) == 1
-        fail_op = guard_op.suboperations[0]
-        assert fail_op.opnum == rop.FAIL
-        return [self.loc(v) for v in fail_op.args]
+        return [self.loc(v) for v in guard_op.fail_args]
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
@@ -161,7 +158,7 @@ class RegAlloc(object):
                                                    arglocs, result_loc,
                                                    self.sm.stack_depth)
         self.rm.possibly_free_var(op.result)
-        self.rm.possibly_free_vars(guard_op.suboperations[0].args)
+        self.rm.possibly_free_vars(guard_op.fail_args)
 
     def perform_guard(self, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
@@ -174,7 +171,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               self.sm.stack_depth)
-        self.rm.possibly_free_vars(guard_op.suboperations[0].args)        
+        self.rm.possibly_free_vars(guard_op.fail_args)
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -191,7 +188,7 @@ class RegAlloc(object):
         if operations[i + 1].args[0] is not op.result:
             return False
         if (self.rm.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].suboperations[0].args):
+            op.result in operations[i + 1].fail_args):
             return False
         return True
 
@@ -233,12 +230,12 @@ class RegAlloc(object):
                         raise AssertionError
                     longevity[arg] = (start_live[arg], i)
             if op.is_guard():
-                for arg in op.suboperations[0].args:
-                    if isinstance(arg, Box):
-                        if arg not in start_live:
-                            print "Bogus arg in guard %d at %d" % (op.opnum, i)
-                            raise AssertionError
-                        longevity[arg] = (start_live[arg], i)
+                for arg in op.fail_args:
+                    assert isinstance(arg, Box)
+                    if arg not in start_live:
+                        print "Bogus arg in guard %d at %d" % (op.opnum, i)
+                        raise AssertionError
+                    longevity[arg] = (start_live[arg], i)
         for arg in inputargs:
             if arg not in longevity:
                 longevity[arg] = (-1, -1)
@@ -257,13 +254,11 @@ class RegAlloc(object):
     consider_guard_true = _consider_guard
     consider_guard_false = _consider_guard
 
-    def consider_fail(self, op, ignored):
+    def consider_finish(self, op, ignored):
         locs = [self.loc(arg) for arg in op.args]
         self.assembler.generate_failure(self.assembler.mc, op.descr, op.args,
                                         locs, self.exc)
         self.rm.possibly_free_vars(op.args)
-
-    consider_finish = consider_fail # for now
 
     def consider_guard_no_exception(self, op, ignored):
         self.perform_guard(op, [], None)

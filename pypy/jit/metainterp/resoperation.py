@@ -8,8 +8,9 @@ class ResOperation(object):
     jump_target = None
 
     # for 'guard_*'
-    suboperations = None
-    optimized = None
+    suboperations = property(lambda x: crash, lambda x, y: crash)  # XXX temp
+    optimized = property(lambda x: crash, lambda x, y: crash)  # XXX temp
+    fail_args = None
 
     # for x86 backend and guards
     inputargs = None
@@ -105,7 +106,6 @@ class ResOperation(object):
 _oplist = [
     '_FINAL_FIRST',
     'JUMP',
-    'FAIL',
     'FINISH',
     '_FINAL_LAST',
 

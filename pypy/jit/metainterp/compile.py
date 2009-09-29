@@ -193,32 +193,24 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     counter = 0
+    # this class also gets attributes stored by resume.py code
 
-    def __init__(self, original_greenkey, guard_op):
-        ResumeDescr.__init__(self, original_greenkey)
-        self.guard_op = guard_op
-        # this class also gets attributes stored by resume.py code
+    def store_final_boxes(self, guard_op, boxes):
+        guard_op.fail_args = boxes
+        self.guard_opnum = guard_op.opnum
+        self.fail_arg_types = [box.type for box in boxes]
 
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
-        fail_op = self.get_guard_op().suboperations[-1] # xxx unhappy
-        return metainterp.handle_guard_failure(fail_op, self)
-
-    def get_guard_op(self):
-        guard_op = self.guard_op
-        assert guard_op.is_guard()
-        if guard_op.optimized is not None:   # should always be the case,
-            return guard_op.optimized        # except if not optimizing at all
-        else:
-            return guard_op
+        return metainterp.handle_guard_failure(self)
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge.  Attach the new operations
         # to the corrsponding guard_op and compile from there
         inputargs = metainterp.history.inputargs
         if not we_are_translated():
-            self.get_guard_op()._debug_suboperations = new_loop.operations
+            self._debug_suboperations = new_loop.operations
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations)
 

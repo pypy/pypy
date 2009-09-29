@@ -25,9 +25,9 @@ class Logger(logger.Logger):
 class TestLogger(object):
     ts = llhelper
 
-    def reparse(self, inp, namespace=None):
-        """ parse loop once, then log it and parse again,
-        return both
+    def reparse(self, inp, namespace=None, check_equal=True):
+        """ parse loop once, then log it and parse again.
+        Checks that we get the same thing.
         """
         if namespace is None:
             namespace = {}
@@ -35,6 +35,9 @@ class TestLogger(object):
         logger = Logger(self.ts)
         output = logger.log_loop(loop, namespace)
         oloop = pure_parse(output, namespace=namespace)
+        if check_equal:
+            equaloplists(loop.operations, oloop.operations)
+            assert oloop.inputargs == loop.inputargs
         return loop, oloop
     
     def test_simple(self):
@@ -44,9 +47,7 @@ class TestLogger(object):
         i8 = int_add(i6, 3)
         jump(i0, i8, i6, p3, p4, p5)
         '''
-        loop, oloop = self.reparse(inp)
-        equaloplists(oloop.operations, loop.operations)
-        assert oloop.inputargs == loop.inputargs
+        self.reparse(inp)
 
     def test_descr(self):
         inp = '''
@@ -54,27 +55,22 @@ class TestLogger(object):
         setfield_gc(p0, 3, descr=somedescr)
         '''
         somedescr = Descr()
-        loop, oloop = self.reparse(inp, namespace=locals())
-        equaloplists(loop.operations, oloop.operations)
+        self.reparse(inp, namespace=locals())
 
     def test_guard(self):
         inp = '''
         [i0]
-        guard_true(i0)
-          i1 = int_add(i0, 1)
-          guard_true(i1)
-             fail(i1)
-          fail(i1)
-        fail(i0)
+        i1 = int_add(i0, 1)
+        guard_true(i0) [i0, i1]
+        finish(i1)
         '''
-        loop, oloop = self.reparse(inp)
-        equaloplists(loop.operations, oloop.operations)
+        self.reparse(inp)
 
     def test_debug_merge_point(self):
         inp = '''
         []
         debug_merge_point("info")
         '''
-        loop, oloop = self.reparse(inp)
+        loop, oloop = self.reparse(inp, check_equal=False)
+        assert loop.operations[0].args[0]._get_str() == 'info'
         assert oloop.operations[0].args[0]._get_str() == 'info'
-        

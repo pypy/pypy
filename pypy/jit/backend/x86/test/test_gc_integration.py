@@ -107,7 +107,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         ops = '''
         [p0]
         p1 = getfield_gc(p0, descr=fielddescr)
-        fail(p1)
+        finish(p1)
         '''
         self.interpret(ops, [self.struct_ptr])
         assert not self.getptr(0, lltype.Ptr(self.S))
@@ -116,7 +116,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         ops = '''
         []
         p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
-        fail(p1)
+        finish(p1)
         '''
         self.interpret(ops, [])
         assert not self.getptr(0, lltype.Ptr(self.S))
@@ -124,29 +124,22 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        guard_value(i2, 1)
-            fail(i2, i3, i4, i5, i6, i7, i0, i1, i8)
-        guard_class(i4, 138998336)
-            fail(i4, i5, i6, i7, i0, i1, i8)
+        guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
+        guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
         i11 = getfield_gc(i4, descr=descr0)
         i12 = ooisnull(i11)
-        guard_false(i12)
-            fail(i4, i5, i6, i7, i0, i1, i11, i8)
+        guard_false(i12) [i4, i5, i6, i7, i0, i1, i11, i8]
         i13 = getfield_gc(i11, descr=descr0)
         i14 = ooisnull(i13)
-        guard_true(i14)
-            fail(i4, i5, i6, i7, i0, i1, i11, i8)
+        guard_true(i14) [i4, i5, i6, i7, i0, i1, i11, i8]
         i15 = getfield_gc(i4, descr=descr0)
         i17 = int_lt(i15, 0)
-        guard_false(i17)
-            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        guard_false(i17) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
         i18 = getfield_gc(i11, descr=descr0)
         i19 = int_ge(i15, i18)
-        guard_false(i19)
-            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        guard_false(i19) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
         i20 = int_lt(i15, 0)
-        guard_false(i20)
-            fail(i4, i5, i6, i7, i0, i1, i11, i15, i8)
+        guard_false(i20) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
         i21 = getfield_gc(i11, descr=descr0)
         i22 = getfield_gc(i11, descr=descr0)
         i23 = int_mul(i15, i22)
@@ -157,11 +150,9 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         i29 = getfield_raw(144839744, descr=descr0)
         i31 = int_and(i29, -2141192192)
         i32 = int_is_true(i31)
-        guard_false(i32)
-            fail(i4, i6, i7, i0, i1, i24)
+        guard_false(i32) [i4, i6, i7, i0, i1, i24]
         i33 = getfield_gc(i0, descr=descr0)
-        guard_value(i33, ConstPtr(ptr0))
-            fail(i4, i6, i7, i0, i1, i33, i24)
+        guard_value(i33, ConstPtr(ptr0)) [i4, i6, i7, i0, i1, i33, i24]
         jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24)
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0, 0], run=False)

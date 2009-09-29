@@ -100,10 +100,6 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_to_baseclass(self, value):
         return lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), value)
 
-    def clean_box(self, box):
-        if isinstance(box, history.BoxPtr):
-            box.value = lltype.nullptr(llmemory.GCREF.TO)
-
     def getlength(self, array):
         return len(array)
 
@@ -200,10 +196,6 @@ class OOTypeHelper(TypeSystemHelper):
 
     def cast_to_baseclass(self, value):
         return ootype.cast_from_object(ootype.ROOT, value)
-
-    def clean_box(self, box):
-        if isinstance(box, history.BoxObj):
-            box.value = ootype.NULL
 
     def getlength(self, array):
         return array.ll_length()

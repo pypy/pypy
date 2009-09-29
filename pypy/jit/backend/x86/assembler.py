@@ -251,11 +251,10 @@ class Assembler386(object):
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
                                     arglocs, resloc, current_stack_depth):
-        fail_op = guard_op.suboperations[0]
-        faildescr = fail_op.descr
+        faildescr = guard_op.descr
         assert isinstance(faildescr, AbstractFailDescr)
         faildescr._x86_current_stack_depth = current_stack_depth
-        failargs = fail_op.args
+        failargs = guard_op.fail_args
         guard_opnum = guard_op.opnum
         failaddr = self.implement_guard_recovery(guard_opnum,
                                                  faildescr, failargs,

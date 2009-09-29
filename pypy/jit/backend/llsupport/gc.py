@@ -492,8 +492,6 @@ class GcLLDescr_framework(GcLLDescription):
                     op = ResOperation(rop.SETARRAYITEM_RAW, op.args, None,
                                       descr=op.descr)
             # ----------
-            if op.is_guard():
-                self.rewrite_assembler(cpu, op.suboperations)
             newops.append(op)
         del operations[:]
         operations.extend(newops)

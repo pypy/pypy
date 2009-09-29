@@ -344,8 +344,8 @@ class RecursiveTests:
         for loop in get_stats().loops:
             assert len(loop.operations) <= length + 5 # because we only check once per metainterp bytecode
             for op in loop.operations:
-                if op.is_guard():
-                    assert len(op.suboperations) <= length + 5
+                if op.is_guard() and hasattr(op.descr, '_debug_suboperations'):
+                    assert len(op.descr._debug_suboperations) <= length + 5
 
     def test_inline_trace_limit(self):
         myjitdriver = JitDriver(greens=[], reds=['n'])

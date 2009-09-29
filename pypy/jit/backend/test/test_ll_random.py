@@ -449,9 +449,9 @@ class CallOperation(BaseCallOperation):
         args = [c_addr] + subset
         descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         self.put(builder, args, descr)
-        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
-        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None,
-                                         descr=BasicFailDescr())]
+        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
+                          descr=BasicFailDescr())
+        op.fail_args = fail_subset
         builder.loop.operations.append(op)
 
 # 5. Non raising-call and GUARD_EXCEPTION
@@ -471,12 +471,11 @@ class CallOperationException(BaseCallOperation):
         self.put(builder, args, descr)
         _, vtableptr = builder.get_random_structure_type_and_vtable(r)
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
-        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
-        subset = builder.subset_of_intvars(r)
-        op.suboperations = [ResOperation(rop.FAIL, subset, None,
-                                         descr=BasicFailDescr())]
+        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr(),
+                          descr=BasicFailDescr())
+        op.fail_args = builder.subset_of_intvars(r)
         op._exc_box = None
-        builder.should_fail_by = op.suboperations[0]
+        builder.should_fail_by = op
         builder.guard_op = op
         builder.loop.operations.append(op)
 
@@ -495,9 +494,9 @@ class RaisingCallOperation(BaseCallOperation):
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
         assert builder.cpu.get_exception()
         builder.cpu.clear_exception()
-        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
-        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None,
-                                         descr=BasicFailDescr())]
+        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr(),
+                          descr=BasicFailDescr())
+        op.fail_args = fail_subset
         builder.loop.operations.append(op)
 
 # 4. raising call and guard_no_exception
@@ -513,12 +512,11 @@ class RaisingCallOperationGuardNoException(BaseCallOperation):
         self.put(builder, args, descr)
         assert builder.cpu.get_exception()
         builder.cpu.clear_exception()
-        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], BoxPtr())
+        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], BoxPtr(),
+                          descr=BasicFailDescr())
         op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
-        subset = builder.subset_of_intvars(r)
-        op.suboperations = [ResOperation(rop.FAIL, subset, None,
-                                         descr=BasicFailDescr())]
-        builder.should_fail_by = op.suboperations[0]
+        op.fail_args = builder.subset_of_intvars(r)
+        builder.should_fail_by = op
         builder.guard_op = op
         builder.loop.operations.append(op)
 
@@ -540,12 +538,11 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
             if vtableptr != exc:
                 break
         other_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
-        op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr())
+        op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr(),
+                          descr=BasicFailDescr())
         op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
-        subset = builder.subset_of_intvars(r)
-        op.suboperations = [ResOperation(rop.FAIL, subset, None,
-                                         descr=BasicFailDescr())]
-        builder.should_fail_by = op.suboperations[0]
+        op.fail_args = builder.subset_of_intvars(r)
+        builder.should_fail_by = op
         builder.guard_op = op
         builder.loop.operations.append(op)
 

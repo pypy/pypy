@@ -171,7 +171,7 @@ class OperationBuilder(object):
                     i, v.value)
         else:
             #print >>s, '    assert op is loop.operations[%d].suboperations[0]' % self.should_fail_by_num
-            for i, v in enumerate(self.should_fail_by.args):
+            for i, v in enumerate(self.should_fail_by.fail_args):
                 print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
                     i, v.value)
         self.names = names
@@ -246,8 +246,8 @@ class AbstractOvfOperation(AbstractOperation):
             builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-        op.suboperations = [ResOperation(rop.FAIL, fail_subset, None,
-                                         descr=BasicFailDescr())]
+        op.descr = BasicFailDescr()
+        op.fail_args = fail_subset
         builder.loop.operations.append(op)
 
 class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):
@@ -264,11 +264,10 @@ class GuardOperation(AbstractOperation):
     def produce_into(self, builder, r):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
-        subset = builder.subset_of_intvars(r)        
-        op.suboperations = [ResOperation(rop.FAIL, subset, None,
-                                         descr=BasicFailDescr())]
+        op.descr = BasicFailDescr()
+        op.fail_args = builder.subset_of_intvars(r)
         if not passing:
-            builder.should_fail_by = op.suboperations[0]
+            builder.should_fail_by = op
             builder.guard_op = op
 
 class GuardValueOperation(GuardOperation):
@@ -429,7 +428,7 @@ class RandomLoop(object):
             if v not in used_later:
                 endvars.append(v)
         r.shuffle(endvars)
-        loop.operations.append(ResOperation(rop.FAIL, endvars, None,
+        loop.operations.append(ResOperation(rop.FINISH, endvars, None,
                                             descr=BasicFailDescr()))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
@@ -438,12 +437,20 @@ class RandomLoop(object):
             self.should_fail_by = loop.operations[-1]
             self.guard_op = None
         self.prebuilt_ptr_consts.extend(builder.prebuilt_ptr_consts)
-        endvars = self.should_fail_by.args
+        endvars = self.get_fail_args()
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
         if demo_conftest.option.output:
             builder.print_loop()
+
+    def get_fail_args(self):
+        if self.should_fail_by.is_guard():
+            assert self.should_fail_by.fail_args is not None
+            return self.should_fail_by.fail_args
+        else:
+            assert self.should_fail_by.opnum == rop.FINISH
+            return self.should_fail_by.args
 
     def clear_state(self):
         for v, S, fields in self.prebuilt_ptr_consts:
@@ -464,7 +471,7 @@ class RandomLoop(object):
             cpu.set_future_value_int(i, v)
         fail = cpu.execute_token(self.executable_token)
         assert fail is self.should_fail_by.descr
-        for i, v in enumerate(self.should_fail_by.args):
+        for i, v in enumerate(self.get_fail_args()):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
                 "Got %d, expected %d for value #%d" % (value,
@@ -489,26 +496,25 @@ class RandomLoop(object):
             else:
                 op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
                                   BoxPtr())
-            op.suboperations = [ResOperation(rop.FAIL, [], None,
-                                             descr=BasicFailDescr())]
+            op.descr = BasicFailDescr()
+            op.fail_args = []
             return op
 
         if self.dont_generate_more:
             return False
         r = self.r
         guard_op = self.guard_op
-        fail_args = guard_op.suboperations[-1].args
-        fail_descr = guard_op.suboperations[-1].descr
-        guard_op.suboperations = []
+        fail_args = guard_op.fail_args
+        fail_descr = guard_op.descr
         op = self.should_fail_by
-        if not op.args:
+        if not op.fail_args:
             return False
-        subloop = DummyLoop(guard_op.suboperations)
+        subloop = DummyLoop([])
         if guard_op.is_guard_exception():
-            guard_op.suboperations.append(exc_handling(guard_op))
+            subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
-                                           op.args[:])
-        self.generate_ops(bridge_builder, r, subloop, op.args[:])
+                                           op.fail_args[:])
+        self.generate_ops(bridge_builder, r, subloop, op.fail_args[:])
         dont_compile = False
         if r.random() < 0.1:
             subset = bridge_builder.subset_of_intvars(r)
@@ -527,8 +533,10 @@ class RandomLoop(object):
             self.expected = rl.expected
             assert len(rl.loop.inputargs) == len(args)
             if self.guard_op is None:
-                guard_op.suboperations[-1] = jump_op
+                subloop.operations[-1] = jump_op
             else:
+                print "fix me again"
+                return False
                 args = self.guard_op.suboperations[-1].args + fail_args
                 self.guard_op.suboperations[-1].args = args
                 self.builder.cpu.compile_bridge(fail_descr, fail_args,
@@ -548,7 +556,7 @@ class RandomLoop(object):
             return False
         if not dont_compile:
             self.builder.cpu.compile_bridge(fail_descr, fail_args,
-                                            guard_op.suboperations) # xxx insane
+                                            subloop.operations)
         return True
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):

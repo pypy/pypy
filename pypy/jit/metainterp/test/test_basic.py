@@ -224,8 +224,8 @@ class BasicTests:
         if self.basic:
             found = 0
             for op in get_stats().loops[0]._all_operations():
-                if op.getopname() == 'fail':
-                    liveboxes = op.args
+                if op.getopname() == 'guard_true':
+                    liveboxes = op.fail_args
                     assert len(liveboxes) == 3
                     for box in liveboxes:
                         assert isinstance(box, history.BoxInt)
@@ -810,7 +810,7 @@ class BasicTests:
             return r() is None
         #
         assert f(30) == 1
-        res = self.meta_interp(f, [30])
+        res = self.meta_interp(f, [30], no_stats=True)
         assert res == 1
 
     def test_pass_around(self):

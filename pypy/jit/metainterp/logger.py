@@ -70,9 +70,11 @@ class Logger(object):
                 res = ""
             if op.descr is not None:
                 args += ', descr=' + self.repr_of_descr(op.descr)
+            if op.is_guard() and op.fail_args is not None:
+                fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
+                                              for arg in op.fail_args]) + ']'
+            else:
+                fail_args = ''
             self.log_stream.write(pre + res + op.getopname() +
-                                  '(' + args + ')\n')
-            if op.is_guard():
-                self.log_operations(None, op.suboperations, memo,
-                                    indent=indent+2)
+                                  '(' + args + ')' + fail_args + '\n')
         self.log_stream.flush()

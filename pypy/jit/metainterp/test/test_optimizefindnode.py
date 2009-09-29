@@ -16,7 +16,7 @@ from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
-from pypy.jit.metainterp.test.oparser import pure_parse as parse
+from pypy.jit.metainterp.test.oparser import parse
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -159,11 +159,13 @@ class OOtypeMixin(object):
     namespace = locals()
 
 class BaseTest(object):
+    invent_fail_descr = None
 
     def parse(self, s, boxkinds=None):
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
-                     boxkinds=boxkinds)
+                     boxkinds=boxkinds,
+                     invent_fail_descr=self.invent_fail_descr)
 
     def unpack_specnodes(self, text):
         #
@@ -229,8 +231,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [i]
         i0 = int_sub(i, 1)
-        guard_value(i0, 0)
-          fail(i0)
+        guard_value(i0, 0) [i0]
         jump(i0)
         """
         boxes, getnode = self.find_nodes(ops, 'Not')
@@ -327,8 +328,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_new_3(self):
         ops = """
         [sum, p1]
-        guard_class(p1, ConstClass(node_vtable))
-            fail()
+        guard_class(p1, ConstClass(node_vtable)) []
         i1 = getfield_gc(p1, descr=valuedescr)
         i2 = int_sub(i1, 1)
         sum2 = int_add(sum, i1)
@@ -380,11 +380,9 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_new_aliasing_1(self):
         ops = """
         [sum, p1]
-        guard_class(p1, ConstClass(node_vtable))
-            fail()
+        guard_class(p1, ConstClass(node_vtable)) []
         p3 = getfield_gc(p1, descr=nextdescr)
-        guard_class(p3, ConstClass(node_vtable))
-            fail()
+        guard_class(p3, ConstClass(node_vtable)) []
         i1 = getfield_gc(p1, descr=valuedescr)
         i2 = int_sub(i1, 1)
         sum2 = int_add(sum, i1)
@@ -412,8 +410,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_new_mismatch(self):
         ops = """
         [p1]
-        guard_class(p1, ConstClass(node_vtable))
-            fail()
+        guard_class(p1, ConstClass(node_vtable)) []
         p2 = new_with_vtable(ConstClass(node_vtable2))
         jump(p2)
         """
@@ -424,10 +421,8 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_new_aliasing_mismatch(self):
         ops = """
         [p0, p1]
-        guard_class(p0, ConstClass(node_vtable))
-            fail()
-        guard_class(p1, ConstClass(node_vtable2))
-            fail()
+        guard_class(p0, ConstClass(node_vtable)) []
+        guard_class(p1, ConstClass(node_vtable2)) []
         p2 = new_with_vtable(ConstClass(node_vtable2))
         jump(p2, p2)
         """
@@ -465,41 +460,29 @@ class BaseTestOptimizeFindNode(BaseTest):
         p0 = new_with_vtable(ConstClass(node_vtable))
         p1 = new_with_vtable(ConstClass(node_vtable))
         i1 = oononnull(p0)
-        guard_true(i1)
-          fail()
+        guard_true(i1) []
         i2 = ooisnull(p0)
-        guard_false(i2)
-          fail()
+        guard_false(i2) []
         i3 = ooisnot(p0, NULL)
-        guard_true(i3)
-          fail()
+        guard_true(i3) []
         i4 = oois(p0, NULL)
-        guard_false(i4)
-          fail()
+        guard_false(i4) []
         i5 = ooisnot(NULL, p0)
-        guard_true(i5)
-          fail()
+        guard_true(i5) []
         i6 = oois(NULL, p0)
-        guard_false(i6)
-          fail()
+        guard_false(i6) []
         i7 = ooisnot(p0, p1)
-        guard_true(i7)
-          fail()
+        guard_true(i7) []
         i8 = oois(p0, p1)
-        guard_false(i8)
-          fail()
+        guard_false(i8) []
         i9 = ooisnot(p0, p2)
-        guard_true(i9)
-          fail()
+        guard_true(i9) []
         i10 = oois(p0, p2)
-        guard_false(i10)
-          fail()
+        guard_false(i10) []
         i11 = ooisnot(p2, p1)
-        guard_true(i11)
-          fail()
+        guard_true(i11) []
         i12 = oois(p2, p1)
-        guard_false(i12)
-          fail()
+        guard_false(i12) []
         jump(p0, p1, p2)
         """
         self.find_nodes(ops, '''Virtual(node_vtable),
@@ -519,8 +502,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [p0]
         i0 = getfield_gc(p0, descr=valuedescr)
-        guard_value(i0, 5)
-          fail()
+        guard_value(i0, 5) []
         p1 = new_with_vtable(ConstClass(node_vtable))
         # the field 'value' has its default value of 0
         jump(p1)
@@ -532,8 +514,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_nonvirtual_guard_class(self):
         ops = """
         [p1]
-        guard_class(p1, ConstClass(node_vtable))
-            fail(p1)
+        guard_class(p1, ConstClass(node_vtable)) [p1]
         jump(p1)
         """
         self.find_nodes(ops, 'Not')
@@ -574,8 +555,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_p123_guard_class(self):
         ops = """
         [i1, p2, p3]
-        guard_class(p3, ConstClass(node_vtable))
-            fail(i1, p2, p3)
+        guard_class(p3, ConstClass(node_vtable)) [i1, p2, p3]
         i3 = getfield_gc(p3, descr=valuedescr)
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -717,8 +697,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_guard_value_constant(self):
         ops = """
         [p1]
-        guard_value(p1, ConstPtr(myptr))
-            fail()
+        guard_value(p1, ConstPtr(myptr)) []
         jump(ConstPtr(myptr))
         """
         self.find_nodes(ops, 'Constant(myptr)')
@@ -726,8 +705,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_guard_value_constant_mismatch(self):
         ops = """
         [p1]
-        guard_value(p1, ConstPtr(myptr2))
-            fail()
+        guard_value(p1, ConstPtr(myptr2)) []
         jump(ConstPtr(myptr))
         """
         py.test.raises(InvalidLoop, self.find_nodes, ops, None)
@@ -736,8 +714,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [p1]
         escape(p1)
-        guard_value(p1, ConstPtr(myptr))
-            fail()
+        guard_value(p1, ConstPtr(myptr)) []
         jump(ConstPtr(myptr))
         """
         self.find_nodes(ops, 'Constant(myptr)')
@@ -745,8 +722,7 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_guard_value_same_as_constant(self):
         ops = """
         [p1]
-        guard_value(p1, ConstPtr(myptr))
-            fail()
+        guard_value(p1, ConstPtr(myptr)) []
         p2 = same_as(ConstPtr(myptr))
         jump(p2)
         """
@@ -837,25 +813,18 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [p12]
         i16 = ooisnull(p12)
-        guard_false(i16)
-            fail()
-        guard_class(p12, ConstClass(node_vtable))
-            fail()
-        guard_class(p12, ConstClass(node_vtable))
-            fail()
+        guard_false(i16) []
+        guard_class(p12, ConstClass(node_vtable)) []
+        guard_class(p12, ConstClass(node_vtable)) []
         i22 = getfield_gc_pure(p12, descr=valuedescr)
         escape(i22)
         i25 = ooisnull(p12)
-        guard_false(i25)
-            fail()
-        guard_class(p12, ConstClass(node_vtable))
-            fail()
-        guard_class(p12, ConstClass(node_vtable))
-            fail()
+        guard_false(i25) []
+        guard_class(p12, ConstClass(node_vtable)) []
+        guard_class(p12, ConstClass(node_vtable)) []
         i29 = getfield_gc_pure(p12, descr=valuedescr)
         i31 = int_add_ovf(i29, 1)
-        guard_no_overflow()
-            fail()
+        guard_no_overflow() []
         p33 = new_with_vtable(ConstClass(node_vtable))      # NODE
         setfield_gc(p33, i31, descr=valuedescr)
         #
@@ -864,13 +833,10 @@ class BaseTestOptimizeFindNode(BaseTest):
         p38 = new_with_vtable(ConstClass(u_vtable))         # U
         setfield_gc(p38, p35, descr=onedescr)
         i39 = ooisnull(p38)
-        guard_false(i39)
-            fail()
+        guard_false(i39) []
         i40 = oononnull(p38)
-        guard_true(i40)
-            fail()
-        guard_class(p38, ConstClass(u_vtable))
-            fail()
+        guard_true(i40) []
+        guard_class(p38, ConstClass(u_vtable)) []
         p42 = getfield_gc(p38, descr=onedescr)              # Array(NODE)
         i43 = arraylen_gc(p42, descr=arraydescr3)
         i45 = int_sub(i43, 0)
@@ -879,23 +845,19 @@ class BaseTestOptimizeFindNode(BaseTest):
         p47 = new_array(i45, descr=arraydescr3)             # Array(NODE)
         setfield_gc(p46, p47, descr=ddescr)
         i48 = int_lt(0, i43)
-        guard_true(i48)
-            fail()
+        guard_true(i48) []
         p49 = getarrayitem_gc(p42, 0, descr=arraydescr3)    # NODE
         p50 = getfield_gc(p46, descr=ddescr)                # Array(NODE)
         setarrayitem_gc(p50, 0, p49, descr=arraydescr3)
         i52 = int_lt(1, i43)
-        guard_false(i52)
-            fail()
+        guard_false(i52) []
         i53 = getfield_gc(p46, descr=cdescr)
         i55 = int_ne(i53, 1)
-        guard_false(i55)
-            fail()
+        guard_false(i55) []
         p56 = getfield_gc(p46, descr=ddescr)                # Array(NODE)
         p58 = getarrayitem_gc(p56, 0, descr=arraydescr3)    # NODE
         i59 = ooisnull(p38)
-        guard_false(i59)
-            fail()
+        guard_false(i59) []
         jump(p58)
         """
         self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')
@@ -1040,8 +1002,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         ops = """
         [p1]
         p2 = getfield_gc(p1, descr=nextdescr)
-        guard_class(p2, ConstClass(node_vtable))
-            fail()
+        guard_class(p2, ConstClass(node_vtable)) []
         jump(p2)
         """
         self.find_bridge(ops, 'Not', 'Not')
@@ -1085,20 +1046,20 @@ class BaseTestOptimizeFindNode(BaseTest):
                                          nextdescr=Virtual(node_vtable,
                                                            nextdescr=Not)))''')
 
-    def test_bridge_to_fail(self):
+    def test_bridge_to_finish(self):
         ops = """
         [i1]
         i2 = int_add(i1, 5)
-        fail(i2)
+        finish(i2)
         """
         self.find_bridge(ops, 'Not', 'Not')
 
-    def test_bridge_virtual_to_fail(self):
+    def test_bridge_virtual_to_finish(self):
         ops = """
         [i1]
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i1, descr=valuedescr)
-        fail(p1)
+        finish(p1)
         """
         self.find_bridge(ops, 'Not', 'Not')
 

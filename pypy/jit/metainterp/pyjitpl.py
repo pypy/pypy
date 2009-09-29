@@ -917,17 +917,16 @@ class MIFrame(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        guard_op = metainterp.history.record(opnum, moreargs, None)       
         original_greenkey = metainterp.resumekey.original_greenkey
-        resumedescr = compile.ResumeGuardDescr(original_greenkey, guard_op)
+        resumedescr = compile.ResumeGuardDescr(original_greenkey)
+        guard_op = metainterp.history.record(opnum, moreargs, None,
+                                             descr=resumedescr)       
         virtualizable_boxes = None
         if metainterp.staticdata.virtualizable_info is not None:
             virtualizable_boxes = metainterp.virtualizable_boxes
         resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
                                   resumedescr)
         self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS) # count
-        op = history.ResOperation(rop.FAIL, [], None, descr=resumedescr)
-        guard_op.suboperations = [op]
         metainterp.attach_debug_info(guard_op)
         self.pc = saved_pc
         return guard_op
@@ -1337,10 +1336,10 @@ class MetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
-    def handle_guard_failure(self, exec_result, key):
+    def handle_guard_failure(self, key):
         from pypy.jit.metainterp.warmspot import ContinueRunningNormallyBase
-        resumedescr = self.initialize_state_from_guard_failure(exec_result)
         assert isinstance(key, compile.ResumeGuardDescr)
+        resumedescr = self.initialize_state_from_guard_failure(key)
         original_greenkey = key.original_greenkey
         # notice that here we just put the greenkey
         # use -1 to mark that we will have to give up
@@ -1348,10 +1347,9 @@ class MetaInterp(object):
         self.current_merge_points = [(original_greenkey, -1)]
         self.resumekey = key
         self.seen_can_enter_jit = False
-        guard_op = key.get_guard_op()
         started_as_blackhole = self.is_blackholing()
         try:
-            self.prepare_resume_from_failure(guard_op.opnum)
+            self.prepare_resume_from_failure(key.guard_opnum)
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
@@ -1430,33 +1428,7 @@ class MetaInterp(object):
         residual_args = self.get_residual_args(loop_token.specnodes,
                                                gmp.argboxes[num_green_args:])
         history.set_future_values(self.cpu, residual_args)
-        self.clean_up_history()
         return loop_token.executable_token
-
-    def clean_up_history(self):
-        # Clear the BoxPtrs used in self.history, at the end.  The
-        # purpose of this is to clear the boxes that are also used in
-        # the TreeLoop just produced.  After this, there should be no
-        # reference left to temporary values in long-living BoxPtrs.
-        # A note about recursion: setting to NULL like this should be
-        # safe, because ResumeGuardDescr.restore_patched_boxes should
-        # save and restore all the boxes that are also used by callers.
-        if self.history.inputargs is not None:
-            for box in self.history.inputargs:
-                self.cpu.ts.clean_box(box)
-        lists = [self.history.operations]
-        while lists:
-            for op in lists.pop():
-                if op is None:
-                    continue
-                if op.result is not None:
-                    self.cpu.ts.clean_box(op.result)
-                if op.suboperations is not None:
-                    lists.append(op.suboperations)
-                if op.optimized is not None:
-                    lists.append(op.optimized.suboperations)
-                    if op.optimized.result is not None:
-                        self.cpu.ts.clean_box(op.optimized.result)
 
     def prepare_resume_from_failure(self, opnum):
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
@@ -1564,18 +1536,13 @@ class MetaInterp(object):
         self.initialize_virtualizable(original_boxes)
         return original_boxes
 
-    def initialize_state_from_guard_failure(self, guard_failure):
+    def initialize_state_from_guard_failure(self, resumedescr):
         # guard failure: rebuild a complete MIFrame stack
         self.in_recursion = -1 # always one portal around
-        inputargs = self.load_values_from_failure(guard_failure)
-        resumedescr = guard_failure.descr
-        assert isinstance(resumedescr, compile.ResumeGuardDescr)
+        inputargs = self.load_values_from_failure(resumedescr)
         warmrunnerstate = self.staticdata.state
         must_compile = warmrunnerstate.must_compile_from_failure(resumedescr)
         if must_compile:
-            guard_op = resumedescr.get_guard_op()
-            suboperations = guard_op.suboperations
-            assert suboperations[-1] is guard_failure
             self.history = history.History(self.cpu)
             self.history.inputargs = inputargs
             self.staticdata.profiler.start_tracing()
@@ -1585,20 +1552,20 @@ class MetaInterp(object):
         self.rebuild_state_after_failure(resumedescr, inputargs)
         return resumedescr
 
-    def load_values_from_failure(self, guard_failure):
+    def load_values_from_failure(self, resumedescr):
         cpu = self.cpu
+        fail_arg_types = resumedescr.fail_arg_types
         inputargs = []
-        for i in range(len(guard_failure.args)):
-            oldbox = guard_failure.args[i]          # xxx unhappy
-            if isinstance(oldbox, history.BoxInt):
+        for i in range(len(fail_arg_types)):
+            boxtype = fail_arg_types[i]
+            if boxtype == history.INT:
                 box = history.BoxInt(cpu.get_latest_value_int(i))
-            elif isinstance(oldbox, cpu.ts.BoxRef):
+            elif boxtype == history.REF:
                 box = cpu.ts.BoxRef(cpu.get_latest_value_ref(i))
-            elif isinstance(oldbox, history.BoxFloat):
+            elif boxtype == history.FLOAT:
                 box = history.BoxFloat(cpu.get_latest_value_float(i))
             else:
-                assert False, "should not see %r in guard_failure.args" % (
-                    oldbox,)
+                assert False, "bad box type: num=%d" % ord(boxtype)
             inputargs.append(box)
         return inputargs
 

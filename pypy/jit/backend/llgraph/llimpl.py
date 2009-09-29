@@ -168,16 +168,16 @@ class CompiledLoop(object):
     def as_text(self, lines, indent):
         for op in self.operations:
             lines.append('\t'*indent + repr(op))
-            if op.is_guard():
-                op.subloop.as_text(lines, indent+1)
 
 class Operation(object):
+    result = None
+    descr = None
+    jump_target = None
+    fail_args = None
+
     def __init__(self, opnum):
         self.opnum = opnum
         self.args = []
-        self.result = None
-        self.descr = None
-        self.livevars = []   # for guards only
 
     def __repr__(self):
         if self.result is not None:
@@ -352,25 +352,24 @@ def compile_add_jump_target(loop, loop_target):
 
 def compile_add_fail(loop, fail_index):
     loop = _from_opaque(loop)
-    op = loop.operations[-1]
+    index = len(loop.operations)-1
+    op = loop.operations[index]
     op.fail_index = fail_index
+    return index
 
-def compile_suboperations(loop):
+def compile_add_fail_arg(loop, intvar):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    assert op.is_guard()
-    op.subloop = CompiledLoop()
-    return _to_opaque(op.subloop)
+    if op.fail_args is None:
+        op.fail_args = []
+    op.fail_args.append(_variables[intvar])
 
-def compile_redirect_fail(old_loop, new_loop):
+def compile_redirect_fail(old_loop, old_index, new_loop):
     old_loop = _from_opaque(old_loop)
     new_loop = _from_opaque(new_loop)
-    assert len(old_loop.operations) == 1
-    assert old_loop.operations[-1].opnum == rop.FAIL
-    op = Operation(rop.JUMP)
-    op.args = old_loop.operations[-1].args
-    op.jump_target = new_loop
-    old_loop.operations[0] = op
+    guard_op = old_loop.operations[old_index]
+    assert guard_op.is_guard()
+    guard_op.jump_target = new_loop
 
 # ------------------------------
 
@@ -406,9 +405,24 @@ class Frame(object):
                 except GuardFailed:
                     assert op.is_guard()
                     _stats.exec_conditional_jumps += 1
-                    operations = op.subloop.operations
-                    opindex = 0
-                    continue
+                    if op.fail_args:
+                        args = [self.getenv(v) for v in op.fail_args]
+                    else:
+                        args = []
+                    if op.jump_target is not None:
+                        # a patched guard, pointing to further code
+                        assert len(op.jump_target.inputargs) == len(args)
+                        self.env = dict(zip(op.jump_target.inputargs, args))
+                        operations = op.jump_target.operations
+                        opindex = 0
+                        continue
+                    else:
+                        # a non-patched guard
+                        if self.verbose:
+                            log.trace('failed: %s' % (
+                                ', '.join(map(str, args)),))
+                        self.fail_args = args
+                        return op.fail_index
                 #verbose = self.verbose
                 assert (result is None) == (op.result is None)
                 if op.result is not None:
@@ -433,12 +447,6 @@ class Frame(object):
                 operations = op.jump_target.operations
                 opindex = 0
                 _stats.exec_jumps += 1
-            elif op.opnum == rop.FAIL:
-                if self.verbose:
-                    log.trace('failed: %s' % (
-                        ', '.join(map(str, args)),))
-                self.fail_args = args
-                return op.fail_index
             elif op.opnum == rop.FINISH:
                 if self.verbose:
                     log.trace('finished: %s' % (
@@ -1359,8 +1367,8 @@ setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ref_result, annmodel.SomeInteger())
 setannotation(compile_add_float_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
-setannotation(compile_add_fail, annmodel.s_None)
-setannotation(compile_suboperations, s_CompiledLoop)
+setannotation(compile_add_fail, annmodel.SomeInteger())
+setannotation(compile_add_fail_arg, annmodel.s_None)
 setannotation(compile_redirect_fail, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)

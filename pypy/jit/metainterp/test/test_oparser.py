@@ -11,27 +11,26 @@ def test_basic_parse():
     # a comment
     i2 = int_add(i0, i1)
     i3 = int_sub(i2, 3) # another comment
-    fail() # (tricky)
+    finish() # (tricky)
     """
     loop = parse(x)
     assert len(loop.operations) == 3
     assert [op.opnum for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
-                                                    rop.FAIL]
+                                                    rop.FINISH]
     assert len(loop.inputargs) == 2
     assert loop.operations[-1].descr
 
 def test_const_ptr_subops():
     x = """
     [p0]
-    guard_class(p0, ConstClass(vtable))
-        fail()
+    guard_class(p0, ConstClass(vtable)) []
     """
     S = lltype.Struct('S')
     vtable = lltype.nullptr(S)
     loop = parse(x, None, locals())
     assert len(loop.operations) == 1
-    assert len(loop.operations[0].suboperations) == 1
-    assert loop.operations[0].suboperations[-1].descr
+    assert loop.operations[0].descr
+    assert loop.operations[0].fail_args == []
 
 def test_descr():
     class Xyz(AbstractDescr):
@@ -48,8 +47,7 @@ def test_descr():
 def test_after_fail():
     x = """
     [i0]
-    guard_value(i0, 3)
-       fail()
+    guard_value(i0, 3) []
     i1 = int_add(1, 2)
     """
     loop = parse(x, None, {})
@@ -128,20 +126,8 @@ def test_jump_target_other():
     jump()
     '''
     obj = object()
-    loop = parse(x, jump_targets=[obj])
+    loop = parse(x, jump_target=obj)
     assert loop.operations[0].jump_target is obj
-
-def test_jump_target_self():
-    x = '''
-    [i2]
-    guard_true(i2)
-        jump()
-    jump()
-    '''
-    obj = object()
-    loop = parse(x, jump_targets=[obj, None])
-    assert loop.operations[-1].jump_target is None
-    assert loop.operations[0].suboperations[0].jump_target is obj
 
 def test_debug_merge_point():
     x = '''

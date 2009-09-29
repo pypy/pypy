@@ -14,7 +14,7 @@ def test_bug_rshift():
         ResOperation(rop.INT_ADD, [v1, v1], v2),
         ResOperation(rop.INT_INVERT, [v2], v3),
         ResOperation(rop.UINT_RSHIFT, [v1, ConstInt(3)], v4),
-        ResOperation(rop.FAIL, [v4, v3], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [v4, v3], None, descr=BasicFailDescr()),
         ]
     cpu = CPU(None, None)
     executable_token = cpu.compile_loop(inputargs, operations)
@@ -35,7 +35,7 @@ def test_bug_int_is_true_1():
         ResOperation(rop.INT_MUL, [v2, v1], v3),
         ResOperation(rop.INT_IS_TRUE, [v2], tmp5),
         ResOperation(rop.BOOL_NOT, [tmp5], v4),
-        ResOperation(rop.FAIL, [v4, v3, tmp5], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
     executable_token = cpu.compile_loop(inputargs, operations)
@@ -130,7 +130,7 @@ def test_bug_0():
         ResOperation(rop.UINT_GT, [v33, ConstInt(-11)], v38),
         ResOperation(rop.INT_NEG, [v7], v39),
         ResOperation(rop.INT_GT, [v24, v32], v40),
-        ResOperation(rop.FAIL, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
     executable_token = cpu.compile_loop(inputargs, operations)
@@ -243,7 +243,7 @@ def test_bug_1():
         ResOperation(rop.INT_GT, [v4, v11], v38),
         ResOperation(rop.INT_LT, [v27, v22], v39),
         ResOperation(rop.INT_NEG, [v27], v40),
-        ResOperation(rop.FAIL, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
     executable_token = cpu.compile_loop(inputargs, operations)
