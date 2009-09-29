@@ -45,6 +45,8 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
+   * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
+   * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (only when translating with `--opt=0, 1` or `size`)
 
 2. Translation is somewhat time-consuming (30 min to
