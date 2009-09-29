@@ -37,3 +37,11 @@ class AppTestMarshalMore:
         s = marshal.dumps(array.array('c', 'asd'))
         t = marshal.loads(s)
         assert type(t) is str and t == 'asd'
+
+    def test_unmarshal_evil_bool(self):
+        import marshal
+        raises(ValueError, marshal.loads, 'l\x02\x00\x00\x00\x00\x00\x00\x00')
+        z = marshal.loads('I\x00\xe4\x0bT\x02\x00\x00\x00')
+        assert z == 10000000000
+        z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
+        assert z == -10000000000

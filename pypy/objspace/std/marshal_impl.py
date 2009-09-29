@@ -270,7 +270,10 @@ def unmarshal_Long(space, u, tc):
         for i in range(lng):
             shift = i * SHIFT
             result = result.add(rbigint.fromint(u.get_short()).lshift(shift))
-        result.sign = sign
+        if lng and not result.tobool():
+            raise_exception(space, 'bad marshal data')
+        if sign == -1:
+            result = result.neg()
     else:
         digits = [0] * lng
         for i in range(lng):
@@ -278,6 +281,8 @@ def unmarshal_Long(space, u, tc):
             if digit < 0:
                 raise_exception(space, 'bad marshal data')
             digits[i] = digit
+        if digits[-1] == 0:
+            raise_exception(space, 'bad marshal data')
         result = rbigint(digits, sign)
     w_long = W_LongObject(result)
     return w_long
