@@ -203,48 +203,7 @@ class ResumeGuardDescr(ResumeDescr):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
         fail_op = self.get_guard_op().suboperations[-1] # xxx unhappy
-        patch = self.patch_boxes_temporarily(metainterp_sd, fail_op)
-        try:
-            return metainterp.handle_guard_failure(fail_op, self)
-        finally:
-            self.restore_patched_boxes(metainterp_sd, fail_op, patch)
-
-    def patch_boxes_temporarily(self, metainterp_sd, fail_op):
-        # A bit indirect: when we hit a rop.FAIL, the current values are
-        # stored somewhere in the CPU backend.  Below we fetch them and
-        # copy them into the real boxes, i.e. the 'fail_op.args'.  We
-        # are in a try:finally path at the end of which, in
-        # restore_patched_boxes(), we can safely undo exactly the
-        # changes done here.
-        cpu = metainterp_sd.cpu
-        patch = []
-        for i in range(len(fail_op.args)):
-            box = fail_op.args[i]
-            patch.append(box.clonebox())
-            if isinstance(box, BoxInt):
-                srcvalue = cpu.get_latest_value_int(i)
-                box.changevalue_int(srcvalue)
-            elif isinstance(box, cpu.ts.BoxRef):
-                srcvalue = cpu.get_latest_value_ref(i)
-                box.changevalue_ref(srcvalue)
-            elif isinstance(box, Const):
-                pass # we don't need to do anything
-            else:
-                assert False
-        return patch
-
-    def restore_patched_boxes(self, metainterp_sd, fail_op, patch):
-        for i in range(len(patch)-1, -1, -1):
-            srcbox = patch[i]
-            dstbox = fail_op.args[i]
-            if isinstance(dstbox, BoxInt):
-                dstbox.changevalue_int(srcbox.getint())
-            elif isinstance(dstbox, metainterp_sd.cpu.ts.BoxRef):
-                dstbox.changevalue_ref(srcbox.getref_base())
-            elif isinstance(dstbox, Const):
-                pass
-            else:
-                assert False
+        return metainterp.handle_guard_failure(fail_op, self)
 
     def get_guard_op(self):
         guard_op = self.guard_op
@@ -257,12 +216,10 @@ class ResumeGuardDescr(ResumeDescr):
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge.  Attach the new operations
         # to the corrsponding guard_op and compile from there
-        # xxx unhappy
-        guard_op = self.get_guard_op()
-        fail_args = guard_op.suboperations[-1].args
+        inputargs = metainterp.history.inputargs
         if not we_are_translated():
-            guard_op._debug_suboperations = new_loop.operations
-        send_bridge_to_backend(metainterp.staticdata, self, fail_args,
+            self.get_guard_op()._debug_suboperations = new_loop.operations
+        send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations)
 
 class ResumeFromInterpDescr(ResumeDescr):

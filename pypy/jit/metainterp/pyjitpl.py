@@ -1567,6 +1567,7 @@ class MetaInterp(object):
     def initialize_state_from_guard_failure(self, guard_failure):
         # guard failure: rebuild a complete MIFrame stack
         self.in_recursion = -1 # always one portal around
+        inputargs = self.load_values_from_failure(guard_failure)
         resumedescr = guard_failure.descr
         assert isinstance(resumedescr, compile.ResumeGuardDescr)
         warmrunnerstate = self.staticdata.state
@@ -1576,14 +1577,30 @@ class MetaInterp(object):
             suboperations = guard_op.suboperations
             assert suboperations[-1] is guard_failure
             self.history = history.History(self.cpu)
-            self.history.inputargs = guard_failure.args   # xxx unhappy
+            self.history.inputargs = inputargs
             self.staticdata.profiler.start_tracing()
         else:
             self.staticdata.profiler.start_blackhole()
             self.history = None   # this means that is_blackholing() is true
-        self.rebuild_state_after_failure(resumedescr, guard_failure.args)
-                                                      # xxx unhappy
+        self.rebuild_state_after_failure(resumedescr, inputargs)
         return resumedescr
+
+    def load_values_from_failure(self, guard_failure):
+        cpu = self.cpu
+        inputargs = []
+        for i in range(len(guard_failure.args)):
+            oldbox = guard_failure.args[i]          # xxx unhappy
+            if isinstance(oldbox, history.BoxInt):
+                box = history.BoxInt(cpu.get_latest_value_int(i))
+            elif isinstance(oldbox, cpu.ts.BoxRef):
+                box = cpu.ts.BoxRef(cpu.get_latest_value_ref(i))
+            elif isinstance(oldbox, history.BoxFloat):
+                box = history.BoxFloat(cpu.get_latest_value_float(i))
+            else:
+                assert False, "should not see %r in guard_failure.args" % (
+                    oldbox,)
+            inputargs.append(box)
+        return inputargs
 
     def initialize_virtualizable(self, original_boxes):
         vinfo = self.staticdata.virtualizable_info

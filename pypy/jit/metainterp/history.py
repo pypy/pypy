@@ -452,9 +452,6 @@ class Box(AbstractValue):
     def nonconstbox(self):
         return self
 
-    def changevalue_box(self, srcbox):
-        raise NotImplementedError
-
     def __repr__(self):
         result = str(self)
         if self._extended_display:
@@ -513,11 +510,6 @@ class BoxInt(Box):
     def repr_rpython(self):
         return repr_rpython(self, 'bi')
 
-    def changevalue_box(self, srcbox):
-        self.changevalue_int(srcbox.getint())
-
-    changevalue_int = __init__
-
 class BoxFloat(Box):
     type = FLOAT
     _attrs_ = ('value',)
@@ -546,11 +538,6 @@ class BoxFloat(Box):
 
     def repr_rpython(self):
         return repr_rpython(self, 'bf')
-
-    def changevalue_box(self, srcbox):
-        self.changevalue_float(srcbox.getfloat())
-
-    changevalue_float = __init__
 
 class BoxPtr(Box):
     type = REF
@@ -585,11 +572,7 @@ class BoxPtr(Box):
     def repr_rpython(self):
         return repr_rpython(self, 'bp')
 
-    def changevalue_box(self, srcbox):
-        self.changevalue_ref(srcbox.getref_base())
-
     _getrepr_ = repr_pointer
-    changevalue_ref = __init__
 
 NULLBOX = BoxPtr()
 
@@ -627,11 +610,7 @@ class BoxObj(Box):
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
 
-    def changevalue_box(self, srcbox):
-        self.changevalue_ref(srcbox.getref_base())
-
     _getrepr_ = repr_object
-    changevalue_ref = __init__
 
 
 def set_future_values(cpu, boxes):
