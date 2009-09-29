@@ -168,9 +168,6 @@ class AppTestLong:
         assert hash(1234567890123456789L) in (
             -1895067127,            # with 32-bit platforms
             1234567890123456789)    # with 64-bit platforms
-        assert hash(-3**333) in (
-            -368329968,             # with 32-bit platforms
-            4437666303107791123)    # with 64-bit platforms
 
     def math_log(self):
         import math
