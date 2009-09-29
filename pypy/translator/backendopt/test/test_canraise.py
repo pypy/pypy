@@ -44,6 +44,27 @@ class BaseTestCanRaise(object):
         result = ra.can_raise(ggraph.startblock.operations[-1])
         assert result # due to stack check every recursive function can raise
 
+    def test_bug_graphanalyze_recursive(self):
+        # intentionally don't insert stack checks. the test shows a problem
+        # with using the graph analyzer on recursive functions that is indepent
+        # of the fact that recursive functions always happen to raise
+        def g(x):
+            return f(x)
+
+        def f(x):
+            if x:
+                if x % 2:
+                    return x
+                raise ValueError
+            return g(x - 1)
+        t, ra = self.translate(f, [int])
+        ggraph = graphof(t, g)
+        fgraph = graphof(t, f)
+        result = ra.can_raise(ggraph.startblock.operations[-1]) # the call to f
+        assert result
+        result = ra.can_raise(fgraph.startblock.exits[0].target.operations[-1]) # the call to g
+        assert result
+
     def test_can_raise_exception(self):
         def g():
             raise ValueError

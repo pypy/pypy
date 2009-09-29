@@ -6,23 +6,24 @@ class GraphAnalyzer(object):
     def __init__(self, translator):
         self.translator = translator
         self.analyzed_calls = {}
+        self.recursion_hit = False
 
     # method overridden by subclasses
 
     @staticmethod
-    def join_two_results(self, result1, result2):
+    def join_two_results(result1, result2):
         raise NotImplementedError("abstract base class")
 
     @staticmethod
-    def bottom_result(self):
+    def bottom_result():
         raise NotImplementedError("abstract base class")
 
     @staticmethod
-    def top_result(self):
+    def top_result():
         raise NotImplementedError("abstract base class")
 
     @staticmethod
-    def is_top_result(self, result):
+    def is_top_result(result):
         # only an optimization, safe to always return False
         return False
 
@@ -78,11 +79,15 @@ class GraphAnalyzer(object):
         if graph in self.analyzed_calls:
             return self.analyzed_calls[graph]
         if seen is None:
-            seen = {}
-        if graph in seen:
+            seen = set([graph])
+            self.recursion_hit = False
+            started_here = True
+        elif graph in seen:
+            self.recursion_hit = True
             return self.bottom_result()
         else:
-            seen[graph] = True
+            started_here = False
+            seen.add(graph)
         result = self.bottom_result()
         for block in graph.iterblocks():
             if block is graph.startblock:
@@ -100,7 +105,8 @@ class GraphAnalyzer(object):
             if self.is_top_result(result):
                 self.analyzed_calls[graph] = result
                 return result
-        self.analyzed_calls[graph] = result
+        if not self.recursion_hit or started_here:
+            self.analyzed_calls[graph] = result
         return result
 
     def analyze_indirect_call(self, graphs, seen=None):
@@ -124,15 +130,19 @@ class BoolGraphAnalyzer(GraphAnalyzer):
     """generic way to analyze graphs: recursively follow it until the first
     operation is found on which self.analyze_simple_operation returns True"""
 
-    def join_two_results(self, result1, result2):
+    @staticmethod
+    def join_two_results(result1, result2):
         return result1 or result2
 
-    def is_top_result(self, result):
+    @staticmethod
+    def is_top_result(result):
         return result
 
-    def bottom_result(self):
+    @staticmethod
+    def bottom_result():
         return False
 
-    def top_result(self):
+    @staticmethod
+    def top_result():
         return True
 
