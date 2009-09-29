@@ -48,7 +48,7 @@ def get_array_token(T, translate_support_code):
         else:
             before_array_part = 0
         carray = ll2ctypes.get_ctypes_type(T)
-        assert carray.length.size == 4
+        assert carray.length.size == WORD
         ofs_length = before_array_part + carray.length.offset
         basesize = before_array_part + carray.items.offset
         carrayitem = ll2ctypes.get_ctypes_type(T.OF)
