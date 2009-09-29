@@ -509,14 +509,26 @@ class RandomLoop(object):
         op = self.should_fail_by
         if not op.fail_args:
             return False
+        # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
         if guard_op.is_guard_exception():
             subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
                                            op.fail_args[:])
         self.generate_ops(bridge_builder, r, subloop, op.fail_args[:])
-        dont_compile = False
-        if r.random() < 0.1:
+        # note that 'self.guard_op' now points to the guard that will fail in
+        # this new bridge, while 'guard_op' still points to the guard that
+        # has just failed.
+
+        if r.random() < 0.1 and self.guard_op is None:
+            # Occasionally, instead of ending in a FINISH, we end in a jump
+            # to another loop.  We don't do it, however, if the new bridge's
+            # execution will hit 'self.guard_op', but only if it executes
+            # to the FINISH normally.  (There is no point to the extra
+            # complexity, as we might get the same effect by two calls
+            # to build_bridge().)
+
+            # First make up the other loop...
             subset = bridge_builder.subset_of_intvars(r)
             subset = [i for i in subset if i in fail_args]
             if len(subset) == 0:
@@ -526,37 +538,23 @@ class RandomLoop(object):
                                      r, args)
             executable_token = self.cpu.compile_loop(rl.loop.inputargs,
                                                      rl.loop.operations)
+            # done
             jump_op = ResOperation(rop.JUMP, subset, None)
             jump_op.jump_target = LoopToken()
             jump_op.jump_target.executable_token = executable_token
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected
             assert len(rl.loop.inputargs) == len(args)
-            if self.guard_op is None:
-                subloop.operations[-1] = jump_op
-            else:
-                print "fix me again"
-                return False
-                args = self.guard_op.suboperations[-1].args + fail_args
-                self.guard_op.suboperations[-1].args = args
-                self.builder.cpu.compile_bridge(fail_descr, fail_args,
-                                                guard_op.suboperations)
-                fail_descr_2 = self.guard_op.suboperations[0].descr
-                ops = []
-                if self.guard_op.is_guard_exception():
-                    # exception clearing
-                    ops = [exc_handling(self.guard_op)]
-                ops.append(jump_op)
-                self.builder.cpu.compile_bridge(fail_descr_2, args, ops)
-                dont_compile = True
+            # The new bridge's execution will end normally at its FINISH.
+            # Just replace the FINISH with the JUMP to the new loop.
+            subloop.operations[-1] = jump_op
             self.guard_op = rl.guard_op
             self.prebuilt_ptr_consts += rl.prebuilt_ptr_consts
             self.dont_generate_more = True
         if r.random() < .05:
             return False
-        if not dont_compile:
-            self.builder.cpu.compile_bridge(fail_descr, fail_args,
-                                            subloop.operations)
+        self.builder.cpu.compile_bridge(fail_descr, fail_args,
+                                        subloop.operations)
         return True
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
