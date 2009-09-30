@@ -661,9 +661,7 @@ class MIFrame(object):
         cpu = self.metainterp.cpu
         key = cpu.ts.getaddr_for_box(cpu, box)
         jitcode = self.metainterp.staticdata.bytecode_for_address(key)
-        f = self.metainterp.newframe(jitcode)
-        f.setup_call(varargs)
-        return True
+        return self.perform_call(jitcode, varargs)
 
     @arguments("orgpc", "methdescr", "varargs")
     def opimpl_oosend(self, pc, methdescr, varargs):
