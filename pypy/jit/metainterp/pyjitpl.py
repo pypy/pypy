@@ -73,11 +73,6 @@ class arguments(object):
                     args += (bytecode, )
                 elif argspec == "orgpc":
                     args += (orgpc, )
-                elif argspec == "indirectcallset":
-                    indirectcallset = self.load_const_arg()
-                    assert isinstance(indirectcallset,
-                                      codewriter.IndirectCallset)
-                    args += (indirectcallset, )
                 elif argspec == "methdescr":
                     methdescr = self.load_const_arg()
                     assert isinstance(methdescr,
@@ -660,13 +655,12 @@ class MIFrame(object):
     def opimpl_residual_call_pure(self, calldescr, varargs):
         self.execute_varargs(rop.CALL_PURE, varargs, descr=calldescr, exc=False)
 
-
-    @arguments("orgpc", "indirectcallset", "box", "varargs")
-    def opimpl_indirect_call(self, pc, indirectcallset, box, varargs):
+    @arguments("orgpc", "box", "varargs")
+    def opimpl_indirect_call(self, pc, box, varargs):
         box = self.implement_guard_value(pc, box)
         cpu = self.metainterp.cpu
         key = cpu.ts.getaddr_for_box(cpu, box)
-        jitcode = indirectcallset.bytecode_for_address(key)
+        jitcode = self.metainterp.staticdata.bytecode_for_address(key)
         f = self.metainterp.newframe(jitcode)
         f.setup_call(varargs)
         return True
@@ -972,6 +966,9 @@ class MetaInterpStaticData(object):
         self.opcode_names = []
         self.opname_to_index = {}
 
+        self.indirectcall_keys = []
+        self.indirectcall_values = []
+
         self.warmrunnerdesc = warmrunnerdesc
         self._op_goto_if_not = self.find_opcode('goto_if_not')
 
@@ -1023,6 +1020,26 @@ class MetaInterpStaticData(object):
             self.portal_graph)
         self._class_sizes = self._codewriter.class_sizes
 
+    def bytecode_for_address(self, fnaddress):
+        if we_are_translated():
+            d = self.globaldata.indirectcall_dict
+            if d is None:
+                # Build the dictionary at run-time.  This is needed
+                # because the keys are function addresses, so they
+                # can change from run to run.
+                d = {}
+                keys = self.indirectcall_keys
+                values = self.indirectcall_values
+                for i in range(len(keys)):
+                    d[keys[i]] = values[i]
+                self.globaldata.indirectcall_dict = d
+            return d[fnaddress]
+        else:
+            for i in range(len(self.indirectcall_keys)):
+                if fnaddress == self.indirectcall_keys[i]:
+                    return self.indirectcall_values[i]
+            raise KeyError(fnaddress)
+
     # ---------- construction-time interface ----------
 
     def _register_opcode(self, opname):
@@ -1032,6 +1049,10 @@ class MetaInterpStaticData(object):
         self.opname_to_index[opname] = len(self.opcode_implementations)
         self.opcode_names.append(opname)
         self.opcode_implementations.append(getattr(MIFrame, name).im_func)
+
+    def _register_indirect_call_target(self, fnaddress, jitcode):
+        self.indirectcall_keys.append(fnaddress)
+        self.indirectcall_values.append(jitcode)
 
     def find_opcode(self, name):
         try:
@@ -1054,6 +1075,7 @@ class MetaInterpStaticData(object):
 class MetaInterpGlobalData(object):
     def __init__(self, staticdata):
         self.initialized = False
+        self.indirectcall_dict = None
         #
         state = staticdata.state
         if state is not None:

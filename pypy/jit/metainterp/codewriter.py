@@ -42,35 +42,6 @@ class JitCode(history.AbstractValue):
         dump.dump_bytecode(self, file=file)
         print >> file
 
-class IndirectCallset(history.AbstractValue):
-    def __init__(self, codewriter, graphs):
-        self.keys = []
-        self.values = []
-        for graph in graphs:
-            fnptr = codewriter.rtyper.getcallable(graph)
-            fnaddress = codewriter.cpu.ts.cast_fnptr_to_root(fnptr)
-            self.keys.append(fnaddress)
-            self.values.append(codewriter.get_jitcode(graph))
-        self.dict = None
-
-    def bytecode_for_address(self, fnaddress):
-        if we_are_translated():
-            if self.dict is None:
-                # Build the dictionary at run-time.  This is needed
-                # because the keys are function addresses, so they
-                # can change from run to run.
-                self.dict = {}
-                keys = self.keys
-                values = self.values
-                for i in range(len(keys)):
-                    self.dict[keys[i]] = values[i]
-            return self.dict[fnaddress]
-        else:
-            for i in range(len(self.keys)):
-                if fnaddress == self.keys[i]:
-                    return self.values[i]
-            raise KeyError(fnaddress)
-
 class SwitchDict(history.AbstractValue):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
 
@@ -83,7 +54,6 @@ class CodeWriter(object):
     def __init__(self, metainterp_sd, policy):
         self.all_prebuilt_values = dict_equal_consts()
         self.all_graphs = {}
-        self.all_indirectcallsets = {}
         self.all_methdescrs = {}
         self.all_listdescs = {}
         self.unfinished_graphs = []
@@ -173,14 +143,15 @@ class CodeWriter(object):
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), FUNC.RESULT)
         return (cfnptr, calldescr)
 
-    def get_indirectcallset(self, graphs):
-        key = tuple(sorted(graphs))
-        try:
-            result = self.all_indirectcallsets[key]
-        except KeyError:
-            result = self.all_indirectcallsets[key] = \
-                                  IndirectCallset(self, graphs)
-        return result
+    def register_indirect_call_targets(self, op):
+        targets = self.policy.graphs_from(op, self.cpu.supports_floats)
+        assert targets is not None
+        for graph in targets:
+            fnptr = self.rtyper.getcallable(graph)
+            fnaddress = self.cpu.ts.cast_fnptr_to_root(fnptr)
+            jitcode = self.get_jitcode(graph)
+            self.metainterp_sd._register_indirect_call_target(fnaddress,
+                                                              jitcode)
 
     def get_methdescr(self, SELFTYPE, methname, attach_jitcodes):
         # use the type where the method is actually defined as a key. This way
@@ -1097,13 +1068,9 @@ class BytecodeMaker(object):
     handle_residual_indirect_call = handle_residual_call
 
     def handle_regular_indirect_call(self, op):
-        targets = self.codewriter.policy.graphs_from(op,
-                                           self.codewriter.cpu.supports_floats)
-        assert targets is not None
+        self.codewriter.register_indirect_call_targets(op)
         self.minimize_variables()
-        indirectcallset = self.codewriter.get_indirectcallset(targets)
         self.emit('indirect_call')
-        self.emit(self.get_position(indirectcallset))
         self.emit(self.var_position(op.args[0]))
         self.emit_varargs([x for x in op.args[1:-1]
                              if x.concretetype is not lltype.Void])
