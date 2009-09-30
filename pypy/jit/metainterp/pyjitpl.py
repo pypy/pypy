@@ -10,7 +10,7 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.metainterp.logger import Logger
-from pypy.jit.metainterp.jitprof import EmptyProfiler, BLACKHOLED_OPS
+from pypy.jit.metainterp.jitprof import BLACKHOLED_OPS
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
@@ -792,7 +792,7 @@ class MIFrame(object):
     def opimpl_jit_merge_point(self, pc):
         if not self.metainterp.is_blackholing():
             self.generate_merge_point(pc, self.env)
-            if self.metainterp.staticdata.debug > DEBUG_PROFILE:
+            if self.metainterp.staticdata.state.debug > DEBUG_PROFILE:
                 self.debug_merge_point()
             if self.metainterp.seen_can_enter_jit:
                 self.metainterp.seen_can_enter_jit = False
@@ -868,7 +868,7 @@ class MIFrame(object):
         self.pc = pc
         self.exception_target = exception_target
         self.env = env
-        if self.metainterp.staticdata.debug >= DEBUG_DETAILED:
+        if self.metainterp.staticdata.state.debug >= DEBUG_DETAILED:
             values = ' '.join([box.repr_rpython() for box in self.env])
             log = self.metainterp.staticdata.log
             log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
@@ -912,7 +912,8 @@ class MIFrame(object):
             virtualizable_boxes = metainterp.virtualizable_boxes
         resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
                                   resumedescr)
-        self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS) # count
+        self.metainterp.staticdata.state.profiler.count_ops(opnum, GUARDS)
+        # count
         metainterp.attach_debug_info(guard_op)
         self.pc = saved_pc
         return guard_op
@@ -956,7 +957,7 @@ class MetaInterpStaticData(object):
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
                  profile=None, warmrunnerdesc=None,
-                 leave_graph=None, debug=DEBUG_STEPS):
+                 leave_graph=None):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
@@ -971,11 +972,6 @@ class MetaInterpStaticData(object):
         self.opcode_names = []
         self.opname_to_index = {}
 
-        if profile is not None:
-            self.profiler = profile()
-        else:
-            self.profiler = EmptyProfiler()
-
         self.warmrunnerdesc = warmrunnerdesc
         self._op_goto_if_not = self.find_opcode('goto_if_not')
 
@@ -983,7 +979,6 @@ class MetaInterpStaticData(object):
         backendmodule = backendmodule.split('.')[-2]
         self.jit_starting_line = 'JIT starting (%s)' % backendmodule
         self.leave_graph = leave_graph
-        self.debug = debug
 
     def _freeze_(self):
         return True
@@ -1006,12 +1001,9 @@ class MetaInterpStaticData(object):
             self._setup_class_sizes()
             self.cpu.setup_once()
             self.log(self.jit_starting_line)
-            if not self.profiler.initialized:
-                self.profiler.start()
-                self.profiler.initialized = True
             self.globaldata.initialized = True
             self.options.logger_noopt.create_log('.noopt')
-            self.options.logger_ops.create_log('.ops')            
+            self.options.logger_ops.create_log('.ops')
 
     def _setup_class_sizes(self):
         class_sizes = {}
@@ -1051,10 +1043,11 @@ class MetaInterpStaticData(object):
     # ---------------- logging ------------------------
 
     def log(self, msg, event_kind='info'):
-        if not we_are_translated():
-            getattr(history.log, event_kind)(msg)
-        elif self.debug:
-            debug_print(msg)
+        if self.state.debug > DEBUG_PROFILE:
+            if not we_are_translated():
+                getattr(history.log, event_kind)(msg)
+            else:
+                debug_print(msg)
 
 # ____________________________________________________________
 
@@ -1199,7 +1192,7 @@ class MetaInterp(object):
         history.check_descr(descr)
         assert opnum != rop.CALL and opnum != rop.OOSEND
         # execute the operation
-        profiler = self.staticdata.profiler
+        profiler = self.staticdata.state.profiler
         profiler.count_ops(opnum)
         resbox = executor.execute(self.cpu, opnum, descr, *argboxes)
         if self.is_blackholing():
@@ -1221,7 +1214,7 @@ class MetaInterp(object):
         if require_attention and not self.is_blackholing():
             self.before_residual_call()
         # execute the operation
-        profiler = self.staticdata.profiler
+        profiler = self.staticdata.state.profiler
         profiler.count_ops(opnum)
         resbox = executor.execute_varargs(self.cpu, opnum, argboxes, descr)
         if self.is_blackholing():
@@ -1260,7 +1253,7 @@ class MetaInterp(object):
     def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
         assert resbox is None or isinstance(resbox, Box)
         # record the operation
-        profiler = self.staticdata.profiler
+        profiler = self.staticdata.state.profiler
         profiler.count_ops(opnum, RECORDED_OPS)        
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
@@ -1276,8 +1269,8 @@ class MetaInterp(object):
         self.history = None   # start blackholing
         self.staticdata.stats.aborted()
         self.staticdata.log('~~~ ABORTING TRACING', event_kind='event')
-        self.staticdata.profiler.end_tracing()
-        self.staticdata.profiler.start_blackhole()
+        self.staticdata.state.profiler.end_tracing()
+        self.staticdata.state.profiler.start_blackhole()
 
     def switch_to_blackhole_if_trace_too_long(self):
         if not self.is_blackholing():
@@ -1299,9 +1292,9 @@ class MetaInterp(object):
                     self.check_recursion_invariant()
         finally:
             if self.is_blackholing():
-                self.staticdata.profiler.end_blackhole()
+                self.staticdata.state.profiler.end_blackhole()
             else:
-                self.staticdata.profiler.end_tracing()
+                self.staticdata.state.profiler.end_tracing()
             self.staticdata.log('~~~ LEAVE' + self.blackholing_text(),
                                 event_kind='event')
 
@@ -1520,7 +1513,7 @@ class MetaInterp(object):
     def initialize_state_from_start(self, *args):
         self.in_recursion = -1 # always one portal around
         self.staticdata._setup_once()
-        self.staticdata.profiler.start_tracing()
+        self.staticdata.state.profiler.start_tracing()
         self.create_empty_history()
         num_green_args = self.staticdata.num_green_args
         original_boxes = []
@@ -1542,9 +1535,9 @@ class MetaInterp(object):
         if must_compile:
             self.history = history.History(self.cpu)
             self.history.inputargs = inputargs
-            self.staticdata.profiler.start_tracing()
+            self.staticdata.state.profiler.start_tracing()
         else:
-            self.staticdata.profiler.start_blackhole()
+            self.staticdata.state.profiler.start_blackhole()
             self.history = None   # this means that is_blackholing() is true
         self.rebuild_state_after_failure(resumedescr, inputargs)
         return resumedescr

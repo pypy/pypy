@@ -11,6 +11,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
+from pypy.jit.metainterp.jitprof import EmptyProfiler
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False, optimizer=OPTIMIZER_FULL):
@@ -79,6 +80,8 @@ class JitMixin:
             optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
 
             trace_limit = sys.maxint
+            profiler = EmptyProfiler()
+            debug = 2
         
         if policy is None:
             policy = JitPolicy()

@@ -21,7 +21,7 @@ from pypy.jit.metainterp import support, history, pyjitpl, gc
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.jit.metainterp.jitprof import Profiler
+from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
 
 # ____________________________________________________________
@@ -33,17 +33,13 @@ def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    if debug_level >= DEBUG_PROFILE:
-        profile = Profiler
-    else:
-        profile = None
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    profile=profile,
                                     no_stats = True,
                                     **kwds)
-    warmrunnerdesc.state.set_param_inlining(inline)    
+    warmrunnerdesc.state.set_param_inlining(inline)
+    warmrunnerdesc.state.set_param_debug(debug_level)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -60,7 +56,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False, trace_limit=sys.maxint,
+def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False, trace_limit=sys.maxint, debug=DEBUG_STEPS, profile=None,
                     inline=False, **kwds):
     translator = interp.typer.annotator.translator
     translator.config.translation.gc = "boehm"
@@ -69,14 +65,18 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=Fa
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
     warmrunnerdesc.state.set_param_trace_limit(trace_limit)
     warmrunnerdesc.state.set_param_inlining(inline)
-    warmrunnerdesc.state.set_param_debug(DEBUG_STEPS)
+    warmrunnerdesc.state.set_param_debug(debug)
+    if not we_are_translated() and profile is not None:
+        # for tests
+        warmrunnerdesc.state.profiler = profile()
+        warmrunnerdesc.state.profiler.start()
     warmrunnerdesc.state.create_tables_now()             # for tests
     if hash_bits:
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
-        warmrunnerdesc.metainterp_sd.profiler.finish()
+        warmrunnerdesc.metainterp_sd.state.profiler.finish()
     print '~~~ return value:', res
     while repeat > 1:
         print '~' * 79
@@ -229,7 +229,7 @@ class WarmRunnerDesc:
                               really_remove_asserts=True)
 
     def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", profile=None, no_stats=False, debug=2,
+                          view="auto", profile=None, no_stats=False,
                           **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
@@ -249,10 +249,8 @@ class WarmRunnerDesc:
         self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
                                                   self.translator.graphs, cpu,
                                                   self.stats, opt,
-                                                  profile=profile,
                                                   warmrunnerdesc=self,
-                                                  leave_graph=self.leave_graph,
-                                                  debug=debug)
+                                                  leave_graph=self.leave_graph)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
@@ -532,8 +530,8 @@ class WarmRunnerDesc:
 
     def add_profiler_finish(self):
         def finish_profiler():
-            if self.metainterp_sd.profiler.initialized:
-                self.metainterp_sd.profiler.finish()
+            if self.state.profiler.initialized:
+                self.state.profiler.finish()
         
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish_profiler,
@@ -798,7 +796,14 @@ def make_state_class(warmrunnerdesc):
                 raise ValueError("unknown optimizer")
 
         def set_param_debug(self, value):
-            metainterp_sd.debug = value
+            if value >= DEBUG_PROFILE:
+                self.profiler = Profiler()
+            else:
+                self.profiler = EmptyProfiler()
+            if not self.profiler.initialized:
+                self.profiler.start()
+                self.profiler.initialized = True
+            self.debug = value
 
         def create_tables_now(self):
             count = 1 << self.hashbits
@@ -854,9 +859,9 @@ def make_state_class(warmrunnerdesc):
                     executable_token = cell.entry_executable_token
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
-                metainterp_sd.profiler.start_running()
+                metainterp_sd.state.profiler.start_running()
                 fail_descr = metainterp_sd.cpu.execute_token(executable_token)
-                metainterp_sd.profiler.end_running()
+                metainterp_sd.state.profiler.end_running()
                 executable_token = fail_descr.handle_fail(metainterp_sd)
 
         maybe_compile_and_run._dont_inline_ = True

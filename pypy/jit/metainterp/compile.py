@@ -57,7 +57,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     except InvalidLoop:
         return None
     if old_loop_token is not None:
-        if metainterp.staticdata.debug > 0:
+        if metainterp.staticdata.state.debug > 0:
             debug_print("reusing old loop")
         return old_loop_token
     executable_token = send_loop_to_backend(metainterp_sd, loop, "loop")
@@ -84,39 +84,41 @@ def insert_loop_token(old_loop_tokens, loop_token):
 
 def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.options.logger_ops.log_loop(loop.inputargs, loop.operations)
-    metainterp_sd.profiler.start_backend()
+    metainterp_sd.state.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
         loop.check_consistency()
     executable_token = metainterp_sd.cpu.compile_loop(loop.inputargs,
                                                       loop.operations)
-    metainterp_sd.profiler.end_backend()
+    metainterp_sd.state.profiler.end_backend()
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         if type != "entry bridge":
             metainterp_sd.stats.compiled()
         else:
             loop._ignore_during_counting = True
-        log.info("compiled new " + type)
+        if metainterp_sd.state.debug > 0:
+            log.info("compiled new " + type)
     else:
-        if metainterp_sd.debug > 0:
+        if metainterp_sd.state.debug > 0:
             debug_print("compiled new " + type)
     return executable_token
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     metainterp_sd.options.logger_ops.log_loop(inputargs, operations)
-    metainterp_sd.profiler.start_backend()
+    metainterp_sd.state.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
         pass
     metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations)        
-    metainterp_sd.profiler.end_backend()
+    metainterp_sd.state.profiler.end_backend()
     if not we_are_translated():
-        metainterp_sd.stats.compiled()
-        log.info("compiled new bridge")
+        if metainterp_sd.state.debug > 0:
+            metainterp_sd.stats.compiled()
+            log.info("compiled new bridge")
     else:
-        if metainterp_sd.debug > 0:
+        if metainterp_sd.state.debug > 0:
             debug_print("compiled new bridge")            
 
 # ____________________________________________________________
