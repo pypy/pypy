@@ -9,32 +9,11 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 
-NODE = lltype.GcForwardReference()
-NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
-                                    ('next', lltype.Ptr(NODE))))
-
-SUBNODE = lltype.GcStruct('SUBNODE', ('parent', NODE))
-
-
-class LLGraphTests:
+class TestLLTypeLLGraph(LLtypeBackendTest):
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
 
     def setup_method(self, _):
         self.cpu = self.cpu_type(None)
-
-    def eval_llinterp(self, runme, *args, **kwds):
-        expected_class = kwds.pop('expected_class', None)
-        expected_vals = [(name[9:], kwds[name])
-                            for name in kwds.keys()
-                                if name.startswith('expected_')]
-        expected_vals = unrolling_iterable(expected_vals)
-
-        def main():
-            res = runme(*args)
-            if expected_class is not None:
-                assert isinstance(res, expected_class)
-                for key, value in expected_vals:
-                    assert getattr(res, key) == value
-        interpret(main, [])
 
     def test_cast_adr_to_int_and_back(self):
         cpu = self.cpu
@@ -49,139 +28,6 @@ class LLGraphTests:
         assert cpu.cast_adr_to_int(llmemory.NULL) == 0
         assert cpu.cast_int_to_adr(0) == llmemory.NULL
 
-    def test_do_operations(self):
-        cpu = self.cpu
-        #
-        A = lltype.GcArray(lltype.Char)
-        descr_A = cpu.arraydescrof(A)
-        a = lltype.malloc(A, 5)
-        x = cpu.do_arraylen_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, a))],
-            descr_A)
-        assert x.value == 5
-        #
-        a[2] = 'Y'
-        x = cpu.do_getarrayitem_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, a)), BoxInt(2)],
-            descr_A)
-        assert x.value == ord('Y')
-        #
-        B = lltype.GcArray(lltype.Ptr(A))
-        descr_B = cpu.arraydescrof(B)
-        b = lltype.malloc(B, 4)
-        b[3] = a
-        x = cpu.do_getarrayitem_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)), BoxInt(3)],
-            descr_B)
-        assert isinstance(x, BoxPtr)
-        assert x.getref(lltype.Ptr(A)) == a
-        #
-        s = rstr.mallocstr(6)
-        x = cpu.do_strlen(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))])
-        assert x.value == 6
-        #
-        s.chars[3] = 'X'
-        x = cpu.do_strgetitem(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)), BoxInt(3)])
-        assert x.value == ord('X')
-        #
-        S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Ptr(A)))
-        descrfld_x = cpu.fielddescrof(S, 'x')
-        s = lltype.malloc(S)
-        s.x = 'Z'
-        x = cpu.do_getfield_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))],
-            descrfld_x)
-        assert x.value == ord('Z')
-        #
-        cpu.do_setfield_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)),
-             BoxInt(ord('4'))],
-            descrfld_x)
-        assert s.x == '4'
-        #
-        descrfld_y = cpu.fielddescrof(S, 'y')
-        s.y = a
-        x = cpu.do_getfield_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))],
-            descrfld_y)
-        assert isinstance(x, BoxPtr)
-        assert x.getref(lltype.Ptr(A)) == a
-        #
-        s.y = lltype.nullptr(A)
-        cpu.do_setfield_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)), x],
-            descrfld_y)
-        assert s.y == a
-        #
-        RS = lltype.Struct('S', ('x', lltype.Char), ('y', lltype.Ptr(A)))
-        descrfld_rx = cpu.fielddescrof(RS, 'x')
-        rs = lltype.malloc(RS, immortal=True)
-        rs.x = '?'
-        x = cpu.do_getfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
-            descrfld_rx)
-        assert x.value == ord('?')
-        #
-        cpu.do_setfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs))),
-             BoxInt(ord('!'))],
-            descrfld_rx)
-        assert rs.x == '!'
-        #
-        descrfld_ry = cpu.fielddescrof(RS, 'y')
-        rs.y = a
-        x = cpu.do_getfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs)))],
-            descrfld_ry)
-        assert isinstance(x, BoxPtr)
-        assert x.getref(lltype.Ptr(A)) == a
-        #
-        rs.y = lltype.nullptr(A)
-        cpu.do_setfield_raw(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(rs))), x],
-            descrfld_ry)
-        assert rs.y == a
-        #
-        descrsize = cpu.sizeof(S)
-        x = cpu.do_new([], descrsize)
-        assert isinstance(x, BoxPtr)
-        x.getref(lltype.Ptr(S))
-        #
-        descrsize2 = cpu.sizeof(rclass.OBJECT)
-        vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        vtable2_int = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable2))
-        cpu.set_class_sizes({vtable2_int: descrsize2})
-        x = cpu.do_new_with_vtable([ConstInt(vtable2_int)])
-        assert isinstance(x, BoxPtr)
-        assert x.getref(rclass.OBJECTPTR).typeptr == vtable2
-        #
-        arraydescr = cpu.arraydescrof(A)
-        x = cpu.do_new_array([BoxInt(7)], arraydescr)
-        assert isinstance(x, BoxPtr)
-        assert len(x.getref(lltype.Ptr(A))) == 7
-        #
-        cpu.do_setarrayitem_gc(
-            [x, BoxInt(5), BoxInt(ord('*'))], descr_A)
-        assert x.getref(lltype.Ptr(A))[5] == '*'
-        #
-        cpu.do_setarrayitem_gc(
-            [BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, b)),
-             BoxInt(1), x],
-            descr_B)
-        assert b[1] == x.getref(lltype.Ptr(A))
-        #
-        x = cpu.do_newstr([BoxInt(5)])
-        assert isinstance(x, BoxPtr)
-        assert len(x.getref(lltype.Ptr(rstr.STR)).chars) == 5
-        #
-        cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
-        assert x.getref(lltype.Ptr(rstr.STR)).chars[4] == '/'
-
-
-class TestLLTypeLLGraph(LLtypeBackendTest, LLGraphTests):
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
 
 ## these tests never worked
 ## class TestOOTypeLLGraph(LLGraphTest):
