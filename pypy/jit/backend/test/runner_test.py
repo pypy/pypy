@@ -217,20 +217,6 @@ class BaseBackendTest(Runner):
         executable_token = self.cpu.compile_loop([], operations)
         fail = self.cpu.execute_token(executable_token)
         assert fail is faildescr
-        
-    def test_do_call(self):
-        cpu = self.cpu
-        #
-        def func(c):
-            return chr(ord(c) + 1)
-        FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
-        func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
-        x = cpu.do_call(
-            [self.get_funcbox(cpu, func_ptr),
-             BoxInt(ord('A'))],
-            calldescr)
-        assert x.value == ord('B')
 
     def test_execute_operations_in_env(self):
         cpu = self.cpu
@@ -255,32 +241,6 @@ class BaseBackendTest(Runner):
         res = self.cpu.execute_token(executable_token)
         assert self.cpu.get_latest_value_int(0) == 0
         assert self.cpu.get_latest_value_int(1) == 55
-
-    def test_call(self):
-
-        def func_int(a, b):
-            return a + b
-        def func_char(c, c1):
-            return chr(ord(c) + ord(c1))
-
-        functions = [
-            (func_int, lltype.Signed, 655360),
-            (func_int, rffi.SHORT, 1213),
-            (func_char, lltype.Char, 12)
-            ]
-
-        for func, TP, num in functions:
-            cpu = self.cpu
-            #
-            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
-            func_ptr = llhelper(FPTR, func)
-            FUNC = deref(FPTR)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-            funcbox = self.get_funcbox(cpu, func_ptr)
-            res = self.execute_operation(rop.CALL,
-                                         [funcbox, BoxInt(num), BoxInt(num)],
-                                         'int', descr=calldescr)
-            assert res.value == 2 * num
 
     def test_int_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_int_tests
@@ -363,6 +323,46 @@ class BaseBackendTest(Runner):
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
+        
+    def test_do_call(self):
+        cpu = self.cpu
+        #
+        def func(c):
+            return chr(ord(c) + 1)
+        FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
+        func_ptr = llhelper(FPTR, func)
+        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
+        x = cpu.do_call(
+            [self.get_funcbox(cpu, func_ptr),
+             BoxInt(ord('A'))],
+            calldescr)
+        assert x.value == ord('B')
+
+    def test_call(self):
+
+        def func_int(a, b):
+            return a + b
+        def func_char(c, c1):
+            return chr(ord(c) + ord(c1))
+
+        functions = [
+            (func_int, lltype.Signed, 655360),
+            (func_int, rffi.SHORT, 1213),
+            (func_char, lltype.Char, 12)
+            ]
+
+        for func, TP, num in functions:
+            cpu = self.cpu
+            #
+            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+            func_ptr = llhelper(FPTR, func)
+            FUNC = deref(FPTR)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(num), BoxInt(num)],
+                                         'int', descr=calldescr)
+            assert res.value == 2 * num
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -600,12 +600,13 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(4)], 'int')
         assert r.value == 153
 
-    def test_unicode_basic(self):
+    def test_do_unicode_basic(self):
         u_box = self.cpu.do_newunicode(ConstInt(5))
         self.cpu.do_unicodesetitem(u_box, BoxInt(4), BoxInt(123))
         r = self.cpu.do_unicodegetitem(u_box, BoxInt(4))
         assert r.value == 123
-        #
+
+    def test_unicode_basic(self):
         u_box = self.alloc_unicode(u"hello\u1234")
         r = self.execute_operation(rop.UNICODELEN, [u_box], 'int')
         assert r.value == 6
@@ -798,6 +799,114 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), r1.value)
         assert len(a.chars) == 342
 
+    def test_exceptions(self):
+        exc_tp = None
+        exc_ptr = None
+        def func(i):
+            if i:
+                raise LLException(exc_tp, exc_ptr)
+
+        ops = '''
+        [i0]
+        i1 = same_as(1)
+        call(ConstClass(fptr), i0, descr=calldescr)
+        p0 = guard_exception(ConstClass(xtp)) [i1]
+        finish(0, p0)
+        '''
+        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+        fptr = llhelper(FPTR, func)
+        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+
+        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        xtp.subclassrange_min = 1
+        xtp.subclassrange_max = 3
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                            hints={'vtable':  xtp._obj})
+        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
+
+
+        exc_tp = xtp
+        exc_ptr = xptr
+        loop = parse(ops, self.cpu, namespace=locals())
+        executable_token = self.cpu.compile_loop(loop.inputargs,
+                                                 loop.operations)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 0
+        assert self.cpu.get_latest_value_ref(1) == xptr
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+
+        ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        ytp.subclassrange_min = 2
+        ytp.subclassrange_max = 2
+        assert rclass.ll_issubclass(ytp, xtp)
+        Y = lltype.GcStruct('Y', ('parent', rclass.OBJECT),
+                            hints={'vtable':  ytp._obj})
+        yptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(Y))
+
+        # guard_exception uses an exact match
+        exc_tp = ytp
+        exc_ptr = yptr
+        loop = parse(ops, self.cpu, namespace=locals())
+        executable_token = self.cpu.compile_loop(loop.inputargs,
+                                                 loop.operations)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+
+        exc_tp = xtp
+        exc_ptr = xptr
+        ops = '''
+        [i0]
+        i1 = same_as(1)
+        call(ConstClass(fptr), i0, descr=calldescr)
+        guard_no_exception() [i1]
+        finish(0)
+        '''
+        loop = parse(ops, self.cpu, namespace=locals())
+        executable_token = self.cpu.compile_loop(loop.inputargs,
+                                                 loop.operations)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 1
+        self.cpu.clear_exception()
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 0
+        self.cpu.clear_exception()
+
+    def test_cond_call_gc_wb(self):
+        def func_void(a, b):
+            record.append((a, b))
+        record = []
+        #
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        for cond in [False, True]:
+            value = random.randrange(-sys.maxint, sys.maxint)
+            if cond:
+                value |= 4096
+            else:
+                value &= ~4096
+            del record[:]
+            self.execute_operation(rop.COND_CALL_GC_WB,
+                                   [BoxInt(value), ConstInt(4096),
+                                    funcbox, BoxInt(655360), BoxInt(-2121)],
+                                   'void', descr=calldescr)
+            if cond:
+                assert record == [(655360, -2121)]
+            else:
+                assert record == []
+
+    # pure do_ / descr features
+
     def test_do_operations(self):
         cpu = self.cpu
         #
@@ -944,113 +1053,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert (sorted([chr2, chr1, value]) ==
                 [value, chr1, chr2])
         assert len(dict.fromkeys([value, chr1, chr2]).keys()) == 3
-
-    def test_exceptions(self):
-        exc_tp = None
-        exc_ptr = None
-        def func(i):
-            if i:
-                raise LLException(exc_tp, exc_ptr)
-
-        ops = '''
-        [i0]
-        i1 = same_as(1)
-        call(ConstClass(fptr), i0, descr=calldescr)
-        p0 = guard_exception(ConstClass(xtp)) [i1]
-        finish(0, p0)
-        '''
-        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
-        fptr = llhelper(FPTR, func)
-        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
-
-        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        xtp.subclassrange_min = 1
-        xtp.subclassrange_max = 3
-        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
-                            hints={'vtable':  xtp._obj})
-        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
-
-
-        exc_tp = xtp
-        exc_ptr = xptr
-        loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
-        assert self.cpu.get_latest_value_int(0) == 0
-        assert self.cpu.get_latest_value_ref(1) == xptr
-        self.cpu.clear_exception()
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(executable_token)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-
-        ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        ytp.subclassrange_min = 2
-        ytp.subclassrange_max = 2
-        assert rclass.ll_issubclass(ytp, xtp)
-        Y = lltype.GcStruct('Y', ('parent', rclass.OBJECT),
-                            hints={'vtable':  ytp._obj})
-        yptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(Y))
-
-        # guard_exception uses an exact match
-        exc_tp = ytp
-        exc_ptr = yptr
-        loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-
-        exc_tp = xtp
-        exc_ptr = xptr
-        ops = '''
-        [i0]
-        i1 = same_as(1)
-        call(ConstClass(fptr), i0, descr=calldescr)
-        guard_no_exception() [i1]
-        finish(0)
-        '''
-        loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
-        assert self.cpu.get_latest_value_int(0) == 1
-        self.cpu.clear_exception()
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(executable_token)
-        assert self.cpu.get_latest_value_int(0) == 0
-        self.cpu.clear_exception()
-
-    def test_cond_call_gc_wb(self):
-        def func_void(a, b):
-            record.append((a, b))
-        record = []
-        #
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
-        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
-        funcbox = self.get_funcbox(self.cpu, func_ptr)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-        for cond in [False, True]:
-            value = random.randrange(-sys.maxint, sys.maxint)
-            if cond:
-                value |= 4096
-            else:
-                value &= ~4096
-            del record[:]
-            self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxInt(value), ConstInt(4096),
-                                    funcbox, BoxInt(655360), BoxInt(-2121)],
-                                   'void', descr=calldescr)
-            if cond:
-                assert record == [(655360, -2121)]
-            else:
-                assert record == []
-
 
 class OOtypeBackendTest(BaseBackendTest):
 
