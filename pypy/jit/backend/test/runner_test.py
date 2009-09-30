@@ -11,7 +11,6 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.metainterp.executor import execute
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.annlowlevel import llhelper
@@ -232,6 +231,30 @@ class BaseBackendTest(Runner):
              BoxInt(ord('A'))],
             calldescr)
         assert x.value == ord('B')
+
+    def test_execute_operations_in_env(self):
+        cpu = self.cpu
+        x = BoxInt(123)
+        y = BoxInt(456)
+        z = BoxInt(579)
+        t = BoxInt(455)
+        u = BoxInt(0)    # False
+        operations = [
+            ResOperation(rop.INT_ADD, [x, y], z),
+            ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
+            ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
+            ResOperation(rop.GUARD_FALSE, [u], None,
+                         descr=BasicFailDescr()),
+            ResOperation(rop.JUMP, [z, t], None),
+            ]
+        operations[-1].jump_target = None
+        operations[-2].fail_args = [t, z]
+        executable_token = cpu.compile_loop([x, y], operations)
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.set_future_value_int(1, 10)
+        res = self.cpu.execute_token(executable_token)
+        assert self.cpu.get_latest_value_int(0) == 0
+        assert self.cpu.get_latest_value_int(1) == 55
 
     def test_call(self):
 

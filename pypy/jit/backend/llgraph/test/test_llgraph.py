@@ -36,33 +36,6 @@ class LLGraphTests:
                     assert getattr(res, key) == value
         interpret(main, [])
 
-    def test_execute_operations_in_env(self):
-        py.test.skip("Rewrite me")
-        x = BoxInt(123)
-        y = BoxInt(456)
-        z = BoxInt(579)
-        t = BoxInt(455)
-        u = BoxInt(0)
-        operations = [
-            ResOperation(rop.MERGE_POINT, [x, y], None),
-            ResOperation(rop.INT_ADD, [x, y], z),
-            ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
-            ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
-            ResOperation(rop.GUARD_FALSE, [u], None),
-            ResOperation(rop.JUMP, [z, t], None),
-            ]
-        operations[-2].liveboxes = [t, z]
-        operations[-1].jump_target = operations[0]
-        cpu.compile_operations(operations)
-        res = cpu.execute_operations_in_new_frame('foo', operations,
-                                                  [BoxInt(0), BoxInt(10)])
-        assert res.value == 42
-        gf = cpu.metainterp.gf
-        assert cpu.metainterp.recordedvalues == [0, 55]
-        assert gf.guard_op is operations[-2]
-        assert cpu.stats.exec_counters['int_add'] == 10
-        assert cpu.stats.exec_jumps == 9
-
     def test_cast_adr_to_int_and_back(self):
         cpu = self.cpu
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -75,14 +48,6 @@ class LLGraphTests:
         assert llmemory.cast_adr_to_ptr(a2, lltype.Ptr(X)) == x
         assert cpu.cast_adr_to_int(llmemory.NULL) == 0
         assert cpu.cast_int_to_adr(0) == llmemory.NULL
-
-    def test_llinterp_simple(self):
-        py.test.skip("rewrite me")
-        cpu = self.cpu
-        self.eval_llinterp(cpu.execute_operation, "int_sub",
-                           [BoxInt(10), BoxInt(2)], "int",
-                           expected_class = BoxInt,
-                           expected_value = 8)
 
     def test_do_operations(self):
         cpu = self.cpu
