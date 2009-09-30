@@ -104,7 +104,7 @@ translation_optiondescription = OptionDescription(
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_debug", "the amount of debugging dumps made by the JIT",
                  ["off", "profile", "steps", "detailed"],
-                 default="steps",      # XXX for now
+                 default="profile",      # XXX for now
                  cmdline="--jit-debug"),
 
     # misc
