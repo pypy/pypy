@@ -28,31 +28,6 @@ class TestX86(LLtypeBackendTest):
     def setup_class(cls):
         cls.cpu = CPU(rtyper=None, stats=FakeStats())
 
-    def test_int_binary_ops(self):
-        for op, args, res in [
-            (rop.INT_SUB, [BoxInt(42), BoxInt(40)], 2),
-            (rop.INT_SUB, [BoxInt(42), ConstInt(40)], 2),
-            (rop.INT_SUB, [ConstInt(42), BoxInt(40)], 2),
-            (rop.INT_ADD, [ConstInt(-3), ConstInt(-5)], -8),
-            ]:
-            assert self.execute_operation(op, args, 'int').value == res
-
-    def test_int_unary_ops(self):
-        for op, args, res in [
-            (rop.INT_NEG, [BoxInt(42)], -42),
-            ]:
-            assert self.execute_operation(op, args, 'int').value == res
-
-    def test_int_comp_ops(self):
-        for op, args, res in [
-            (rop.INT_LT, [BoxInt(40), BoxInt(39)], 0),
-            (rop.INT_LT, [BoxInt(40), ConstInt(41)], 1),
-            (rop.INT_LT, [ConstInt(41), BoxInt(40)], 0),
-            (rop.INT_LE, [ConstInt(42), BoxInt(42)], 1),
-            (rop.INT_GT, [BoxInt(40), ConstInt(-100)], 1),
-            ]:
-            assert self.execute_operation(op, args, 'int').value == res
-
     def test_execute_ptr_operation(self):
         cpu = self.cpu
         u = lltype.malloc(U)
@@ -89,21 +64,6 @@ class TestX86(LLtypeBackendTest):
         res = self.cpu.execute_token(executable_token)
         assert self.cpu.get_latest_value_int(0) == 0
         assert self.cpu.get_latest_value_int(1) == 55
-
-    def test_misc_int_ops(self):
-        for op, args, res in [
-            (rop.INT_MOD, [BoxInt(7), BoxInt(3)], 1),
-            (rop.INT_MOD, [ConstInt(0), BoxInt(7)], 0),
-            (rop.INT_MOD, [BoxInt(13), ConstInt(5)], 3),
-            (rop.INT_MOD, [ConstInt(33), ConstInt(10)], 3),
-            (rop.INT_FLOORDIV, [BoxInt(13), BoxInt(3)], 4),
-            (rop.INT_FLOORDIV, [BoxInt(42), ConstInt(10)], 4),
-            (rop.INT_FLOORDIV, [ConstInt(42), BoxInt(10)], 4),
-            (rop.INT_RSHIFT, [ConstInt(3), BoxInt(4)], 3>>4),
-            (rop.INT_RSHIFT, [BoxInt(3), ConstInt(10)], 3>>10),
-            #(rop.INT_LSHIFT, [BoxInt(3), BoxInt(1)], 3<<1),
-            ]:
-            assert self.execute_operation(op, args, 'int').value == res
 
     def test_unicode(self):
         ofs = symbolic.get_field_token(rstr.UNICODE, 'chars', False)[0]
@@ -291,15 +251,6 @@ class TestX86(LLtypeBackendTest):
         assert c.value == 2
         c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc3)
         assert c.value == 3
-
-    def test_uint_ops(self):
-        from pypy.rlib.rarithmetic import r_uint, intmask
-
-        arg0 = BoxInt(intmask(r_uint(sys.maxint + 3)))
-        arg1 = BoxInt(intmask(r_uint(4)))
-
-        res = self.execute_operation(rop.UINT_GT, [arg0, arg1], 'int')
-        assert res.value == 1
 
     def test_nullity_with_guard(self):
         allops = [rop.OONONNULL, rop.OOISNULL, rop.INT_IS_TRUE]
