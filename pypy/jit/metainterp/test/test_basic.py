@@ -93,9 +93,7 @@ class JitMixin:
         graph = rtyper.annotator.translator.graphs[0]
         graph_key = (graph, None)
         maingraph = cw.make_one_bytecode(graph_key, False)
-        while cw.unfinished_graphs:
-            graph_key, called_from = cw.unfinished_graphs.pop()
-            cw.make_one_bytecode(graph_key, False, called_from)
+        cw.finish_making_bytecodes()
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata._class_sizes = cw.class_sizes
         metainterp.staticdata.state = FakeWarmRunnerDesc()

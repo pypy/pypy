@@ -72,12 +72,15 @@ class CodeWriter(object):
         self.portal_graph = graph
         graph_key = (graph, None)
         jitcode = self.make_one_bytecode(graph_key, True)
-        while self.unfinished_graphs:
-            graph_key, called_from = self.unfinished_graphs.pop()
-            self.make_one_bytecode(graph_key, False, called_from)
+        self.finish_making_bytecodes()
         log.info("there are %d JitCode instances." % len(self.all_graphs))
         self.annotation_hacks(jitcode)
         return jitcode
+
+    def finish_making_bytecodes(self):
+        while self.unfinished_graphs:
+            graph_key, called_from = self.unfinished_graphs.pop()
+            self.make_one_bytecode(graph_key, False, called_from)
 
     def annotation_hacks(self, jitcode):
         if not self.class_sizes:
@@ -226,10 +229,8 @@ class BytecodeMaker(object):
         graph, oosend_methdescr = graph_key
         self.bytecode = self.codewriter.get_jitcode(graph,
                                              oosend_methdescr=oosend_methdescr)
-        if not codewriter.policy.look_inside_graph(graph,
-                                                   self.cpu.supports_floats):
-            assert not portal, "portal has been hidden!"
-            graph = make_calling_stub(codewriter.rtyper, graph)
+        assert codewriter.policy.look_inside_graph(graph,
+                                                   self.cpu.supports_floats)
         self.graph = graph
 
     def assemble(self):
@@ -1073,11 +1074,15 @@ class BytecodeMaker(object):
 
     def handle_regular_indirect_call(self, op):
         self.codewriter.register_indirect_call_targets(op)
+        args = op.args[1:-1]
+        calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
+                                                                args,
+                                                                op.result)
         self.minimize_variables()
         self.emit('indirect_call')
+        self.emit(self.get_position(calldescr))
         self.emit(self.var_position(op.args[0]))
-        self.emit_varargs([x for x in op.args[1:-1]
-                             if x.concretetype is not lltype.Void])
+        self.emit_varargs(non_void_args)
         self.register_var(op.result)
 
     def handle_regular_oosend(self, op):
@@ -1506,24 +1511,6 @@ def assemble(labelpos, metainterp_sd, assembler):
     return "".join(result)
 
 # ____________________________________________________________
-
-def make_calling_stub(rtyper, graph):
-    from pypy.objspace.flow.model import Block, Link, FunctionGraph
-    from pypy.objspace.flow.model import SpaceOperation
-    from pypy.translator.unsimplify import copyvar
-    #
-    args_v = [copyvar(None, v) for v in graph.getargs()]
-    v_res = copyvar(None, graph.getreturnvar())
-    fnptr = rtyper.getcallable(graph)
-    v_ptr = Constant(fnptr, lltype.typeOf(fnptr))
-    newstartblock = Block(args_v)
-    newstartblock.operations.append(
-        SpaceOperation('direct_call', [v_ptr] + args_v, v_res))
-    newgraph = FunctionGraph('%s_ts_stub' % (graph.name,), newstartblock)
-    newgraph.getreturnvar().concretetype = v_res.concretetype
-    newstartblock.closeblock(Link([v_res], newgraph.returnblock))
-    newgraph.ts_stub_for = graph
-    return newgraph
 
 class VirtualizableArrayField(Exception):
     def __str__(self):

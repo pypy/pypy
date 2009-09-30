@@ -43,10 +43,13 @@ class JitPolicy(object):
                 v_obj = op.args[1].concretetype
                 graphs = v_obj._lookup_graphs(op.args[0].value)
             if graphs is not None:
+                result = []
                 for graph in graphs:
                     if self.look_inside_graph(graph, supports_floats):
-                        return graphs  # common case: look inside at
-                                       # least one of the graphs
+                        result.append(graph)
+                if result:
+                    return result  # common case: look inside these graphs,
+                                   # and ignore the others if there are any
         # residual call case: we don't need to look into any graph
         return None
 

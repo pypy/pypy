@@ -655,13 +655,19 @@ class MIFrame(object):
     def opimpl_residual_call_pure(self, calldescr, varargs):
         self.execute_varargs(rop.CALL_PURE, varargs, descr=calldescr, exc=False)
 
-    @arguments("orgpc", "box", "varargs")
-    def opimpl_indirect_call(self, pc, box, varargs):
+    @arguments("orgpc", "descr", "box", "varargs")
+    def opimpl_indirect_call(self, pc, calldescr, box, varargs):
         box = self.implement_guard_value(pc, box)
         cpu = self.metainterp.cpu
         key = cpu.ts.getaddr_for_box(cpu, box)
         jitcode = self.metainterp.staticdata.bytecode_for_address(key)
-        return self.perform_call(jitcode, varargs)
+        if jitcode is not None:
+            # we should follow calls to this graph
+            return self.perform_call(jitcode, varargs)
+        else:
+            # but we should not follow calls to that graph
+            return self.execute_varargs(rop.CALL, [box] + varargs,
+                                        descr=calldescr, exc=True)
 
     @arguments("orgpc", "methdescr", "varargs")
     def opimpl_oosend(self, pc, methdescr, varargs):
@@ -1031,12 +1037,12 @@ class MetaInterpStaticData(object):
                 for i in range(len(keys)):
                     d[keys[i]] = values[i]
                 self.globaldata.indirectcall_dict = d
-            return d[fnaddress]
+            return d.get(fnaddress, None)
         else:
             for i in range(len(self.indirectcall_keys)):
                 if fnaddress == self.indirectcall_keys[i]:
                     return self.indirectcall_values[i]
-            raise KeyError(fnaddress)
+            return None
 
     # ---------- construction-time interface ----------
 
