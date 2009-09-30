@@ -259,95 +259,19 @@ class BaseBackendTest(Runner):
                                          'int', descr=calldescr)
             assert res.value == 2 * num
 
-    def test_lshift(self):
-        res = execute(self.cpu, rop.INT_LSHIFT, None, BoxInt(10), ConstInt(4))
-        assert res.value == 10 << 4
-        res = self.execute_operation(rop.INT_LSHIFT, [BoxInt(10), BoxInt(4)],
-                                     'int')
-        assert res.value == 10 << 4
-        res = self.execute_operation(rop.INT_LSHIFT, [BoxInt(-10), BoxInt(4)],
-                                     'int')
-        assert res.value == -10 << 4
-
-    def test_uint_rshift(self):
-        res = self.execute_operation(rop.UINT_RSHIFT, [BoxInt(-1), BoxInt(4)],
-                                     'int')
-        assert res.value == intmask(r_uint(-1) >> r_uint(4))
-        res = self.execute_operation(rop.UINT_RSHIFT, [BoxInt(1), BoxInt(4)],
-                                     'int')
-        assert res.value == intmask(r_uint(1) >> r_uint(4))
-
-    def test_binary_operations(self):
-        minint = -sys.maxint-1
-        for opnum, testcases in [
-            (rop.INT_ADD, [(10, -2, 8)]),
-            (rop.INT_SUB, [(10, -2, 12)]),
-            (rop.INT_MUL, [(-6, -3, 18)]),
-            (rop.INT_FLOORDIV, [(110, 3, 36),
-                                (-110, 3, -36),
-                                (110, -3, -36),
-                                (-110, -3, 36),
-                                (-110, -1, 110),
-                                (minint, 1, minint)]),
-            (rop.INT_MOD, [(11, 3, 2),
-                           (-11, 3, -2),
-                           (11, -3, 2),
-                           (-11, -3, -2)]),
-            (rop.INT_AND, [(0xFF00, 0x0FF0, 0x0F00)]),
-            (rop.INT_OR, [(0xFF00, 0x0FF0, 0xFFF0)]),
-            (rop.INT_XOR, [(0xFF00, 0x0FF0, 0xF0F0)]),
-            (rop.INT_LSHIFT, [(-5, 2, -20),
-                              (-5, 0, -5)]),
-            (rop.INT_RSHIFT, [(-17, 2, -5),
-                              (19, 1, 9)]),
-            ]:
-            for x, y, z in testcases:
-                res = self.execute_operation(opnum, [BoxInt(x), BoxInt(y)],
-                                             'int')
-                assert res.value == z
-
-    def test_compare_operations(self):
-        random_numbers = [-sys.maxint-1, -1, 0, 1, sys.maxint]
-        def pick():
-            r = random.randrange(-99999, 100000)
-            if r & 1:
-                return r
+    def test_int_operations(self):
+        from pypy.jit.metainterp.test.test_executor import get_int_tests
+        for opnum, boxargs, retvalue in get_int_tests():
+            if len(boxargs) == 2:
+                args_variants = [(boxargs[0], boxargs[1]),
+                                 (boxargs[0], boxargs[1].constbox()),
+                                 (boxargs[0].constbox(), boxargs[1])]
             else:
-                return random_numbers[r % len(random_numbers)]
-        minint = -sys.maxint-1
-        for opnum, operation in [
-            (rop.INT_LT, lambda x, y: x <  y),
-            (rop.INT_LE, lambda x, y: x <= y),
-            (rop.INT_EQ, lambda x, y: x == y),
-            (rop.INT_NE, lambda x, y: x != y),
-            (rop.INT_GT, lambda x, y: x >  y),
-            (rop.INT_GE, lambda x, y: x >= y),
-            (rop.UINT_LT, lambda x, y: r_uint(x) <  r_uint(y)),
-            (rop.UINT_LE, lambda x, y: r_uint(x) <= r_uint(y)),
-            (rop.UINT_GT, lambda x, y: r_uint(x) >  r_uint(y)),
-            (rop.UINT_GE, lambda x, y: r_uint(x) >= r_uint(y)),
-            ]:
-            for i in range(20):
-                x = pick()
-                y = pick()
-                res = self.execute_operation(opnum, [BoxInt(x), BoxInt(y)],
-                                             'int')
-                z = int(operation(x, y))
-                assert res.value == z
-
-    def test_unary_operations(self):
-        minint = -sys.maxint-1
-        for opnum, testcases in [
-            (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
-            (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
-            (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
-            (rop.BOOL_NOT, [(0, 1), (1, 0)]),
-            ]:
-            for x, y in testcases:
-                res = self.execute_operation(opnum, [BoxInt(x)],
-                                             'int')
-                assert res.value == y
-
+                args_variants = [boxargs]
+            for argboxes in args_variants:
+                res = self.execute_operation(opnum, argboxes, 'int')
+                assert res.value == retvalue
+        
     def test_float_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):

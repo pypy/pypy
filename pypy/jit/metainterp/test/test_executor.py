@@ -1,4 +1,6 @@
 import py
+import sys, random
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.jit.metainterp.executor import make_execute_list, execute
 from pypy.jit.metainterp.executor import execute_varargs, execute_nonspec
 from pypy.jit.metainterp.resoperation import rop
@@ -88,6 +90,93 @@ def test_execute_nonspec():
     box = execute_nonspec(cpu, rop.STRSETITEM, [box1, box2, box3])
     assert box.args == ('strsetitem', box1, box2, box3)
 
+# ints
+
+def _int_binary_operations():
+    minint = -sys.maxint-1
+    for opnum, testcases in [
+        (rop.INT_ADD, [(10, -2, 8)]),
+        (rop.INT_SUB, [(10, -2, 12)]),
+        (rop.INT_MUL, [(-6, -3, 18)]),
+        (rop.INT_FLOORDIV, [(110, 3, 36),
+                            (-110, 3, -36),
+                            (110, -3, -36),
+                            (-110, -3, 36),
+                            (-110, -1, 110),
+                            (minint, 1, minint)]),
+        (rop.INT_MOD, [(11, 3, 2),
+                       (-11, 3, -2),
+                       (11, -3, 2),
+                       (-11, -3, -2)]),
+        (rop.INT_AND, [(0xFF00, 0x0FF0, 0x0F00)]),
+        (rop.INT_OR, [(0xFF00, 0x0FF0, 0xFFF0)]),
+        (rop.INT_XOR, [(0xFF00, 0x0FF0, 0xF0F0)]),
+        (rop.INT_LSHIFT, [(10, 4, 10<<4),
+                          (-5, 2, -20),
+                          (-5, 0, -5)]),
+        (rop.INT_RSHIFT, [(-17, 2, -5),
+                          (19, 1, 9)]),
+        (rop.UINT_RSHIFT, [(-1, 4, intmask(r_uint(-1) >> r_uint(4))),
+                           ( 1, 4, intmask(r_uint(1) >> r_uint(4)))])
+        ]:
+        for x, y, z in testcases:
+            yield opnum, [x, y], z
+
+def _int_comparison_operations():
+    cpu = FakeCPU()            
+    random_numbers = [-sys.maxint-1, -1, 0, 1, sys.maxint]
+    def pick():
+        r = random.randrange(-99999, 100000)
+        if r & 1:
+            return r
+        else:
+            return random_numbers[r % len(random_numbers)]
+    minint = -sys.maxint-1
+    for opnum, operation in [
+        (rop.INT_LT, lambda x, y: x <  y),
+        (rop.INT_LE, lambda x, y: x <= y),
+        (rop.INT_EQ, lambda x, y: x == y),
+        (rop.INT_NE, lambda x, y: x != y),
+        (rop.INT_GT, lambda x, y: x >  y),
+        (rop.INT_GE, lambda x, y: x >= y),
+        (rop.UINT_LT, lambda x, y: r_uint(x) <  r_uint(y)),
+        (rop.UINT_LE, lambda x, y: r_uint(x) <= r_uint(y)),
+        (rop.UINT_GT, lambda x, y: r_uint(x) >  r_uint(y)),
+        (rop.UINT_GE, lambda x, y: r_uint(x) >= r_uint(y)),
+        ]:
+        for i in range(20):
+            x = pick()
+            y = pick()
+            res = execute_nonspec(cpu, opnum, [BoxInt(x), BoxInt(y)])
+            z = int(operation(x, y))
+            yield opnum, [x, y], z
+
+def _int_unary_operations():
+    minint = -sys.maxint-1
+    for opnum, testcases in [
+        (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
+        (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
+        (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
+        (rop.BOOL_NOT, [(0, 1), (1, 0)]),
+        ]:
+        for x, y in testcases:
+            yield opnum, [x], y
+
+def get_int_tests():
+    for opnum, args, retvalue in (
+            list(_int_binary_operations()) +
+            list(_int_comparison_operations()) +
+            list(_int_unary_operations())):
+        yield opnum, [BoxInt(x) for x in args], retvalue
+
+
+def test_int_ops():
+    cpu = FakeCPU()
+    for opnum, boxargs, retvalue in get_int_tests():
+        box = execute_nonspec(cpu, opnum, boxargs)
+        assert box.getint() == retvalue
+
+# floats
 
 def _float_binary_operations():
     for opnum, testcases in [
