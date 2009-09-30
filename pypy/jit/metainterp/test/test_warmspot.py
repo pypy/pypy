@@ -181,6 +181,7 @@ class WarmspotTests(object):
         err = errf.read()
         assert not 'ENTER' in err
         assert not 'LEAVE' in err
+        assert not 'compiled new' in err
         assert "Running asm" in err
         outerr = py.io.StdCaptureFD()
         self.meta_interp(f, [10], debug=DEBUG_STEPS)
