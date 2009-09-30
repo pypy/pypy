@@ -369,10 +369,6 @@ class BaseBackendTest(Runner):
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
         #
-        self.cpu.do_setfield_gc(t_box, BoxInt(1333), fielddescr)
-        r = self.cpu.do_getfield_gc(t_box, fielddescr)
-        assert r.value == 1333
-        #
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
                                      'void', descr=fielddescr)
         assert res is None
@@ -496,12 +492,6 @@ class BaseBackendTest(Runner):
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
         arraydescr = self.cpu.arraydescrof(A)
         assert not arraydescr.is_array_of_pointers()
-        #
-        r = self.cpu.do_arraylen_gc(a_box, arraydescr)
-        assert r.value == 342
-        self.cpu.do_setarrayitem_gc(a_box, BoxInt(311), BoxInt(170), arraydescr)
-        r = self.cpu.do_getarrayitem_gc(a_box, BoxInt(311), arraydescr)
-        assert r.value == 170
         #
         r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
                                    'int', descr=arraydescr)
