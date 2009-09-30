@@ -753,6 +753,7 @@ class TestLL2Ctypes(object):
         #include <stdlib.h>
         
         static long x = 3;
+        static int y = 5;
         char **z = NULL;
 
         #endif  /* _SOME_H */
@@ -763,13 +764,19 @@ class TestLL2Ctypes(object):
         eci = ExternalCompilationInfo(includes=['stdio.h', str(h_file.basename)],
                                       include_dirs=[str(udir)])
         
-        get_x, set_x = rffi.CExternVariable(rffi.LONG, 'x', eci)
+        get_x, set_x = rffi.CExternVariable(rffi.LONG, 'x', eci, c_type='long')
+        get_y, set_y = rffi.CExternVariable(rffi.INT, 'y', eci, c_type='int')
         get_z, set_z = rffi.CExternVariable(rffi.CCHARPP, 'z', eci)
 
         def f():
             one = get_x()
             set_x(13)
             return one + get_x()
+
+        def fy():
+            one = rffi.cast(lltype.Signed, get_y())
+            set_y(rffi.cast(rffi.INT, 13))
+            return one + rffi.cast(lltype.Signed, get_y())
 
         def g():
             l = rffi.liststr2charpp(["a", "b", "c"])
@@ -781,7 +788,10 @@ class TestLL2Ctypes(object):
 
         res = f()
         assert res == 16
-        assert g() == "c"
+        res = fy()
+        assert res == 18
+        res = g()
+        assert res == "c"
 
     def test_c_callback(self):
         c_source = py.code.Source("""

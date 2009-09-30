@@ -24,7 +24,7 @@ errno_eci = ExternalCompilationInfo(
 
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
-                                         _nowrapper=True)
+                                         _nowrapper=True, c_type='int')
 # the default wrapper for set_errno is not suitable for use in critical places
 # like around GIL handling logic, so we provide our own wrappers.
 

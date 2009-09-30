@@ -439,7 +439,8 @@ def COpaquePtr(*args, **kwds):
     return lltype.Ptr(COpaque(*args, **kwds))
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
-                    sandboxsafe=False, _nowrapper=False):
+                    sandboxsafe=False, _nowrapper=False,
+                    c_type=None):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -447,16 +448,17 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     # XXX we cannot really enumerate all C types here, do it on a case-by-case
     #     basis
-    if TYPE == CCHARPP:
-        c_type = 'char **'
-    elif TYPE == CCHARP:
-        c_type = 'char *'
-    elif TYPE == INT:
-        c_type = 'int'
-    else:
-        c_type = PrimitiveType[TYPE]
-        assert c_type.endswith(' @')
-        c_type = c_type[:-2] # cut the trailing ' @'
+    if c_type is None:
+        if TYPE == CCHARPP:
+            c_type = 'char **'
+        elif TYPE == CCHARP:
+            c_type = 'char *'
+        elif TYPE == INT or TYPE == LONG:
+            assert False, "ambiguous type on 32-bit machines: give a c_type"
+        else:
+            c_type = PrimitiveType[TYPE]
+            assert c_type.endswith(' @')
+            c_type = c_type[:-2] # cut the trailing ' @'
 
     getter_name = 'get_' + name
     setter_name = 'set_' + name
