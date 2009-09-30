@@ -11,6 +11,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
 from py.compat import optparse
 from pypy.tool.udir import udir
+from pypy.rlib.jit import DEBUG_OFF, DEBUG_DETAILED, DEBUG_PROFILE, DEBUG_STEPS
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -33,6 +34,13 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[],
 
 _BACKEND_TO_TYPESYSTEM = {
     'c': 'lltype',
+}
+
+JIT_DEBUG = {
+    'off' : DEBUG_OFF,
+    'profile' : DEBUG_PROFILE,
+    'steps' : DEBUG_STEPS,
+    'detailed' : DEBUG_DETAILED,
 }
 
 def backend_to_typesystem(backend):
@@ -361,7 +369,7 @@ class TranslationDriver(SimpleTaskEngine):
         #
         from pypy.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
-                  debug_level=self.config.translation.jit_debug,
+                  debug_level=JIT_DEBUG[self.config.translation.jit_debug],
                   backend_name=self.config.translation.jit_backend, inline=True)
         #
         self.log.info("the JIT compiler was generated")
