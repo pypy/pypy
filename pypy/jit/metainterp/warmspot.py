@@ -22,18 +22,18 @@ from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler
+from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
 
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", debug_level="steps",
+def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
               inline=False,
               **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    pyjitpl.DEBUG = pyjitpl._DEBUG_LEVEL[debug_level]
-    if debug_level != "off":
+    if debug_level >= DEBUG_PROFILE:
         profile = Profiler
     else:
         profile = None
@@ -69,6 +69,7 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=Fa
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
     warmrunnerdesc.state.set_param_trace_limit(trace_limit)
     warmrunnerdesc.state.set_param_inlining(inline)
+    warmrunnerdesc.state.set_param_debug(DEBUG_STEPS)
     warmrunnerdesc.state.create_tables_now()             # for tests
     if hash_bits:
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
@@ -228,7 +229,8 @@ class WarmRunnerDesc:
                               really_remove_asserts=True)
 
     def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", profile=None, no_stats=False, **kwds):
+                          view="auto", profile=None, no_stats=False, debug=2,
+                          **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
         if no_stats:
@@ -249,7 +251,8 @@ class WarmRunnerDesc:
                                                   self.stats, opt,
                                                   profile=profile,
                                                   warmrunnerdesc=self,
-                                                  leave_graph=self.leave_graph)
+                                                  leave_graph=self.leave_graph,
+                                                  debug=debug)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
@@ -793,6 +796,9 @@ def make_state_class(warmrunnerdesc):
                 self.optimize_bridge = optimize.optimize_bridge                
             else:
                 raise ValueError("unknown optimizer")
+
+        def set_param_debug(self, value):
+            metainterp_sd.debug = value
 
         def create_tables_now(self):
             count = 1 << self.hashbits

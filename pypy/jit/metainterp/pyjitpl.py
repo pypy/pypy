@@ -14,28 +14,13 @@ from pypy.jit.metainterp.jitprof import EmptyProfiler, BLACKHOLED_OPS
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
 
 # ____________________________________________________________
 
 def check_args(*args):
     for arg in args:
         assert isinstance(arg, (Box, Const))
-
-# debug level: 0 off, 1 normal, 2 detailed
-DEBUG = 1
-
-# translate.py overrides DEBUG with the --jit-debug=xxx option
-_DEBUG_LEVEL = {"off":      0,
-                "profile":  0,
-                "steps":    1,
-                "detailed": 2}
-
-def log(msg, event_kind='info'):
-    if not we_are_translated():
-        getattr(history.log, event_kind)(msg)
-    elif DEBUG:
-        debug_print(msg)
-
 
 class arguments(object):
     def __init__(self, *argtypes):
@@ -51,20 +36,20 @@ class arguments(object):
             return NotImplemented
         return self.argtypes != other.argtypes
 
-    def __call__(self, func, DEBUG=DEBUG):
+    def __call__(self, func):
         argtypes = unrolling_iterable(self.argtypes)
         def wrapped(self, orgpc):
             args = (self, )
-            if DEBUG >= 2:
-                s = '%s:%d\t%s' % (self.jitcode.name, orgpc, name)
-            else:
-                s = ''
+            #if DEBUG >= DEBUG_DETAILED:
+            #    s = '%s:%d\t%s' % (self.jitcode.name, orgpc, name)
+            #else:
+            s = ''
             for argspec in argtypes:
                 if argspec == "box":
                     box = self.load_arg()
                     args += (box, )
-                    if DEBUG >= 2:
-                        s += '\t' + box.repr_rpython()
+                    #if DEBUG >= DEBUG_DETAILED:
+                    #    s += '\t' + box.repr_rpython()
                 elif argspec == "constbox":
                     args += (self.load_const_arg(), )
                 elif argspec == "int":
@@ -100,12 +85,12 @@ class arguments(object):
                     args += (methdescr, )
                 else:
                     assert 0, "unknown argtype declaration: %r" % (argspec,)
-            if DEBUG >= 2:
-                debug_print(s)
+            #if DEBUG >= DEBUG_DETAILED:
+            #    debug_print(s)
             val = func(*args)
-            if DEBUG >= 2:
-                reprboxes = ' '.join([box.repr_rpython() for box in self.env])
-                debug_print('  \x1b[34menv=[%s]\x1b[0m' % (reprboxes,))
+            #if DEBUG >= DEBUG_DETAILED:
+            #    reprboxes = ' '.join([box.repr_rpython() for box in self.env])
+            #    debug_print('  \x1b[34menv=[%s]\x1b[0m' % (reprboxes,))
             if val is None:
                 val = False
             return val
@@ -807,7 +792,7 @@ class MIFrame(object):
     def opimpl_jit_merge_point(self, pc):
         if not self.metainterp.is_blackholing():
             self.generate_merge_point(pc, self.env)
-            if DEBUG > 0:
+            if self.metainterp.staticdata.debug > DEBUG_PROFILE:
                 self.debug_merge_point()
             if self.metainterp.seen_can_enter_jit:
                 self.metainterp.seen_can_enter_jit = False
@@ -883,8 +868,9 @@ class MIFrame(object):
         self.pc = pc
         self.exception_target = exception_target
         self.env = env
-        if DEBUG >= 2:
+        if self.metainterp.staticdata.debug >= DEBUG_DETAILED:
             values = ' '.join([box.repr_rpython() for box in self.env])
+            log = self.metainterp.staticdata.log
             log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
                                                        self.pc, values,
                                                        self.exception_target))
@@ -970,7 +956,7 @@ class MetaInterpStaticData(object):
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
                  profile=None, warmrunnerdesc=None,
-                 leave_graph=None):
+                 leave_graph=None, debug=DEBUG_STEPS):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
@@ -997,6 +983,7 @@ class MetaInterpStaticData(object):
         backendmodule = backendmodule.split('.')[-2]
         self.jit_starting_line = 'JIT starting (%s)' % backendmodule
         self.leave_graph = leave_graph
+        self.debug = debug
 
     def _freeze_(self):
         return True
@@ -1018,7 +1005,7 @@ class MetaInterpStaticData(object):
         if not self.globaldata.initialized:
             self._setup_class_sizes()
             self.cpu.setup_once()
-            log(self.jit_starting_line)
+            self.log(self.jit_starting_line)
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
@@ -1060,6 +1047,14 @@ class MetaInterpStaticData(object):
         except KeyError:
             self._register_opcode(name)
             return self.opname_to_index[name]
+
+    # ---------------- logging ------------------------
+
+    def log(self, msg, event_kind='info'):
+        if not we_are_translated():
+            getattr(history.log, event_kind)(msg)
+        elif self.debug:
+            debug_print(msg)
 
 # ____________________________________________________________
 
@@ -1280,7 +1275,7 @@ class MetaInterp(object):
     def switch_to_blackhole(self):
         self.history = None   # start blackholing
         self.staticdata.stats.aborted()
-        log('~~~ ABORTING TRACING', event_kind='event')
+        self.staticdata.log('~~~ ABORTING TRACING', event_kind='event')
         self.staticdata.profiler.end_tracing()
         self.staticdata.profiler.start_blackhole()
 
@@ -1294,7 +1289,8 @@ class MetaInterp(object):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
         self.staticdata.stats.entered()
-        log('~~~ ENTER' + self.blackholing_text(), event_kind='event')        
+        self.staticdata.log('~~~ ENTER' + self.blackholing_text(),
+                            event_kind='event')
         try:
             while True:
                 self.framestack[-1].run_one_step()
@@ -1306,7 +1302,8 @@ class MetaInterp(object):
                 self.staticdata.profiler.end_blackhole()
             else:
                 self.staticdata.profiler.end_tracing()
-            log('~~~ LEAVE' + self.blackholing_text(), event_kind='event')
+            self.staticdata.log('~~~ LEAVE' + self.blackholing_text(),
+                                event_kind='event')
 
     def interpret(self):
         if we_are_translated():
@@ -1321,7 +1318,7 @@ class MetaInterp(object):
                 raise
 
     def compile_and_run_once(self, *args):
-        log('Switching from interpreter to compiler')
+        self.staticdata.log('Switching from interpreter to compiler')
         original_boxes = self.initialize_state_from_start(*args)
         self.current_merge_points = [(original_boxes, 0)]
         num_green_args = self.staticdata.num_green_args

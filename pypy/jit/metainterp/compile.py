@@ -39,7 +39,6 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """    
-    from pypy.jit.metainterp.pyjitpl import DEBUG
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
@@ -58,7 +57,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     except InvalidLoop:
         return None
     if old_loop_token is not None:
-        if DEBUG > 0:
+        if metainterp.staticdata.debug > 0:
             debug_print("reusing old loop")
         return old_loop_token
     executable_token = send_loop_to_backend(metainterp_sd, loop, "loop")
@@ -100,8 +99,7 @@ def send_loop_to_backend(metainterp_sd, loop, type):
             loop._ignore_during_counting = True
         log.info("compiled new " + type)
     else:
-        from pypy.jit.metainterp.pyjitpl import DEBUG
-        if DEBUG > 0:
+        if metainterp_sd.debug > 0:
             debug_print("compiled new " + type)
     return executable_token
 
@@ -118,8 +116,7 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
         metainterp_sd.stats.compiled()
         log.info("compiled new bridge")
     else:
-        from pypy.jit.metainterp.pyjitpl import DEBUG
-        if DEBUG > 0:
+        if metainterp_sd.debug > 0:
             debug_print("compiled new bridge")            
 
 # ____________________________________________________________

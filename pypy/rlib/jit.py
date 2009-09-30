@@ -83,12 +83,18 @@ class JitHintError(Exception):
 OPTIMIZER_SIMPLE = 0
 OPTIMIZER_FULL = 1
 
+DEBUG_OFF = 0
+DEBUG_PROFILE = 1
+DEBUG_STEPS = 2
+DEBUG_DETAILED = 3
+
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'hash_bits': 14,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
+              'debug' : DEBUG_STEPS,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
