@@ -33,6 +33,11 @@ def create_empty_loop(metainterp):
     name = metainterp.staticdata.stats.name_for_new_loop()
     return TreeLoop(name)
 
+def make_loop_token(nb_args):
+    loop_token = LoopToken()
+    loop_token.specnodes = [prebuiltNotSpecNode] * nb_args
+    return loop_token
+
 # ____________________________________________________________
 
 def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
@@ -49,7 +54,9 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         loop.operations = history.operations[start:]
     else:
         loop.operations = history.operations
-    loop.operations[-1].jump_target = None
+    loop_token = make_loop_token(len(loop.inputargs))
+    loop.token = loop_token
+    loop.operations[-1].descr = loop_token     # patch the target of the JUMP
     metainterp_sd = metainterp.staticdata
     try:
         old_loop_token = metainterp_sd.state.optimize_loop(
@@ -60,12 +67,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         if metainterp.staticdata.state.debug > 0:
             debug_print("reusing old loop")
         return old_loop_token
-    executable_token = send_loop_to_backend(metainterp_sd, loop, "loop")
-    loop_token = LoopToken()
-    loop_token.specnodes = loop.specnodes
-    loop_token.executable_token = executable_token
-    if not we_are_translated():
-        loop.token = loop_token
+    send_loop_to_backend(metainterp_sd, loop, "loop")
     insert_loop_token(old_loop_tokens, loop_token)
     return loop_token
 
@@ -88,8 +90,7 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
         loop.check_consistency()
-    executable_token = metainterp_sd.cpu.compile_loop(loop.inputargs,
-                                                      loop.operations)
+    metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
     metainterp_sd.state.profiler.end_backend()
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
@@ -102,7 +103,6 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     else:
         if metainterp_sd.state.debug > 0:
             debug_print("compiled new " + type)
-    return executable_token
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     metainterp_sd.options.logger_ops.log_loop(inputargs, operations)
@@ -225,21 +225,19 @@ class ResumeFromInterpDescr(ResumeDescr):
         # with completely unoptimized arguments, as in the interpreter.
         metainterp_sd = metainterp.staticdata
         metainterp.history.inputargs = self.redkey
+        new_loop_token = make_loop_token(len(self.redkey))
         new_loop.greenkey = self.original_greenkey
         new_loop.inputargs = self.redkey
-        executable_token = send_loop_to_backend(metainterp_sd, new_loop,
-                                                "entry bridge")
+        new_loop.token = new_loop_token
+        send_loop_to_backend(metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
         metainterp_sd.state.attach_unoptimized_bridge_from_interp(
             self.original_greenkey,
-            executable_token)
+            new_loop_token)
         # store the new loop in compiled_merge_points too
         glob = metainterp_sd.globaldata
         greenargs = glob.unpack_greenkey(self.original_greenkey)
         old_loop_tokens = glob.compiled_merge_points.setdefault(greenargs, [])
-        new_loop_token = LoopToken()
-        new_loop_token.specnodes = [prebuiltNotSpecNode] * len(self.redkey)
-        new_loop_token.executable_token = executable_token
         # it always goes at the end of the list, as it is the most
         # general loop token
         old_loop_tokens.append(new_loop_token)
@@ -279,11 +277,11 @@ def prepare_last_operation(new_loop, target_loop_token):
     op = new_loop.operations[-1]
     if not isinstance(target_loop_token, TerminatingLoopToken):
         # normal case
-        op.jump_target = target_loop_token
+        op.descr = target_loop_token     # patch the jump target
     else:
         # The target_loop_token is a pseudo loop token,
         # e.g. loop_tokens_done_with_this_frame_void[0]
-        # Replace the operation with the real operation we want, i.e. a FAIL.
+        # Replace the operation with the real operation we want, i.e. a FINISH
         descr = target_loop_token.finishdescr
         new_op = ResOperation(rop.FINISH, op.args, None, descr=descr)
         new_loop.operations[-1] = new_op

@@ -644,19 +644,22 @@ def dc_hash(c):
 # of operations.  Each branch ends in a jump which can go either to
 # the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
 
-class Base(object):
-    """Common base class for TreeLoop and History."""
-
-class LoopToken(object):
-    """loop token"""
+class LoopToken(AbstractDescr):
+    """Used for rop.JUMP, giving the target of the jump.
+    This is different from TreeLoop: the TreeLoop class contains the
+    whole loop, including 'operations', and goes away after the loop
+    was compiled; but the LoopDescr remains alive and points to the
+    generated assembler.
+    """
     terminating = False # see TerminatingLoopToken in compile.py
-    # specnodes
-    # executable_token
+    # specnodes = ...
+    # and more data specified by the backend when the loop is compiled
 
-class TreeLoop(Base):
+class TreeLoop(object):
     inputargs = None
-    specnodes = None
     operations = None
+    token = None
+    specnodes = property(lambda x: crash, lambda x, y: crash)  # XXX temp
 
     def __init__(self, name):
         self.name = name
@@ -727,7 +730,7 @@ class TreeLoop(Base):
                 seen[box] = True
         assert operations[-1].is_final()
         if operations[-1].opnum == rop.JUMP:
-            target = operations[-1].jump_target
+            target = operations[-1].descr
             if target is not None:
                 assert isinstance(target, LoopToken)
 
@@ -764,7 +767,7 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
-class History(Base):
+class History(object):
     def __init__(self, cpu):
         self.cpu = cpu
         self.inputargs = None
@@ -798,6 +801,9 @@ class NoStats(object):
         return 'Loop'
 
     def add_new_loop(self, loop):
+        pass
+
+    def view(self, **kwds):
         pass
 
 class Stats(object):

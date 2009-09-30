@@ -4,7 +4,7 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
-     ConstAddr, ConstObj, ConstPtr, Box, BasicFailDescr
+     ConstAddr, ConstObj, ConstPtr, Box, BasicFailDescr, LoopToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -49,17 +49,17 @@ def default_fail_descr(fail_args=None):
 
 
 class OpParser(object):
-    def __init__(self, descr, cpu, namespace, type_system, boxkinds, jump_target, invent_fail_descr=default_fail_descr):
+    def __init__(self, descr, cpu, namespace, type_system, boxkinds,
+                 invent_fail_descr=default_fail_descr):
         self.descr = descr
         self.vars = {}
         self.cpu = cpu
         self.consts = namespace
         self.type_system = type_system
         self.boxkinds = boxkinds or {}
-        self.jumps = []
-        self.jump_target = jump_target
         self._cache = namespace.setdefault('_CACHE_', {})
         self.invent_fail_descr = invent_fail_descr
+        self.looptoken = LoopToken()
 
     def box_for_var(self, elem):
         try:
@@ -188,6 +188,9 @@ class OpParser(object):
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
                     descr = self.invent_fail_descr()
+            elif opnum == rop.JUMP:
+                if descr is None and self.invent_fail_descr:
+                    descr = self.looptoken
         return opnum, args, descr, fail_args
 
     def parse_result_op(self, line):
@@ -207,8 +210,6 @@ class OpParser(object):
         opnum, args, descr, fail_args = self.parse_op(line)
         res = ResOperation(opnum, args, None, descr)
         res.fail_args = fail_args
-        if opnum == rop.JUMP:
-            self.jumps.append(res)
         return res
 
     def parse_next_op(self, line):
@@ -240,12 +241,7 @@ class OpParser(object):
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = ExtendedTreeLoop("loop")
-        if len(self.jumps) > 1:
-            raise ParseError("Multiple jumps??")
-        if self.jump_target is not None and len(self.jumps) != 1:
-            raise ParseError("A jump is expected if a jump_target is given")
-        for jump in self.jumps:
-            jump.jump_target = self.jump_target
+        loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
         return loop
@@ -276,11 +272,10 @@ class OpParser(object):
         return base_indent, inpargs
 
 def parse(descr, cpu=None, namespace=None, type_system='lltype',
-          boxkinds=None, jump_target=None,
-          invent_fail_descr=default_fail_descr):
+          boxkinds=None, invent_fail_descr=default_fail_descr):
     if namespace is None:
         namespace = {}
-    return OpParser(descr, cpu, namespace, type_system, boxkinds, jump_target,
+    return OpParser(descr, cpu, namespace, type_system, boxkinds,
                     invent_fail_descr).parse()
 
 def pure_parse(*args, **kwds):

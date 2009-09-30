@@ -83,16 +83,14 @@ class BaseTestRegalloc(object):
     namespace = locals().copy()
     type_system = 'lltype'
 
-    def parse(self, s, boxkinds=None, jump_target=None):
+    def parse(self, s, boxkinds=None):
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
-                     jump_target=jump_target,
                      boxkinds=boxkinds)
 
-    def interpret(self, ops, args, jump_target=None, run=True):
-        loop = self.parse(ops, jump_target=jump_target)
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
+    def interpret(self, ops, args, run=True):
+        loop = self.parse(ops)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
         for i, arg in enumerate(args):
             if isinstance(arg, int):
                 self.cpu.set_future_value_int(i, arg)
@@ -101,11 +99,8 @@ class BaseTestRegalloc(object):
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
                 self.cpu.set_future_value_ref(i, llgcref)
         if run:
-            self.cpu.execute_token(executable_token)
-        loop_token = LoopToken()
-        loop_token.executable_token = executable_token
-        loop_token._loop = loop
-        return loop_token
+            self.cpu.execute_token(loop.token)
+        return loop
 
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
@@ -118,16 +113,19 @@ class BaseTestRegalloc(object):
         gcref = self.cpu.get_latest_value_ref(index)
         return lltype.cast_opaque_ptr(T, gcref)
 
-    def attach_bridge(self, ops, loop_token, guard_op_index, **kwds):
-        guard_op = loop_token._loop.operations[guard_op_index]
+    def attach_bridge(self, ops, loop, guard_op_index, looptoken=None, **kwds):
+        if looptoken is not None:
+            self.namespace = self.namespace.copy()
+            self.namespace['looptoken'] = looptoken
+        guard_op = loop.operations[guard_op_index]
         assert guard_op.is_guard()
         bridge = self.parse(ops, **kwds)
         faildescr = guard_op.descr
         self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations)
         return bridge
 
-    def run(self, loop_token):
-        return self.cpu.execute_token(loop_token.executable_token)
+    def run(self, loop):
+        return self.cpu.execute_token(loop.token)
 
 class TestRegallocSimple(BaseTestRegalloc):
     def test_simple_loop(self):
@@ -162,9 +160,9 @@ class TestRegallocSimple(BaseTestRegalloc):
         loop2 = self.interpret(ops2, [0])
         bridge_ops = '''
         [i4]
-        jump(i4, i4, i4, i4)
+        jump(i4, i4, i4, i4, descr=looptoken)
         '''
-        bridge = self.attach_bridge(bridge_ops, loop2, 4, jump_target=loop)
+        bridge = self.attach_bridge(bridge_ops, loop2, 4, looptoken=loop.token)
         self.cpu.set_future_value_int(0, 0)
         self.run(loop2)
         assert self.getint(0) == 31

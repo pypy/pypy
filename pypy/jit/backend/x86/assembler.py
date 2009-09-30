@@ -62,12 +62,6 @@ for name in dir(codebuf.MachineCodeBlock):
     if name.upper() == name:
         setattr(MachineCodeBlockWrapper, name, _new_method(name))
 
-class ExecutableToken386(object):
-    _x86_loop_code = 0
-    _x86_bootstrap_code = 0
-    _x86_stack_depth = 0
-    _x86_arglocs = None
-
 class Assembler386(object):
     mc = None
     mc2 = None
@@ -123,21 +117,24 @@ class Assembler386(object):
             self.mc = MachineCodeBlockWrapper()
             self.mc2 = MachineCodeBlockWrapper()
 
-    def assemble_loop(self, inputargs, operations):
+    def assemble_loop(self, inputargs, operations, looptoken):
+        """adds the following attributes to looptoken:
+               _x86_loop_code       (an integer giving an address)
+               _x86_bootstrap_code  (an integer giving an address)
+               _x86_stack_depth
+               _x86_arglocs
+        """
         self.make_sure_mc_exists()
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        arglocs = regalloc.prepare_loop(inputargs, operations)
-        executable_token = ExecutableToken386()
-        executable_token._x86_arglocs = arglocs
-        executable_token._x86_bootstrap_code = self.mc.tell()
+        arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        looptoken._x86_arglocs = arglocs
+        looptoken._x86_bootstrap_code = self.mc.tell()
         adr_stackadjust = self._assemble_bootstrap_code(inputargs, arglocs)
-        executable_token._x86_loop_code = self.mc.tell()
-        self._executable_token = executable_token
+        looptoken._x86_loop_code = self.mc.tell()
+        looptoken._x86_stack_depth = -1     # temporarily
         stack_depth = self._assemble(regalloc, operations)
-        self._executable_token = None
         self._patch_stackadjust(adr_stackadjust, stack_depth)
-        executable_token._x86_stack_depth = stack_depth
-        return executable_token
+        looptoken._x86_stack_depth = stack_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         self.make_sure_mc_exists()
@@ -168,9 +165,9 @@ class Assembler386(object):
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         stack_depth = regalloc.sm.stack_depth
-        jump_target = regalloc.jump_target
-        if jump_target is not None:
-            target_stack_depth = jump_target.executable_token._x86_stack_depth
+        jump_target_descr = regalloc.jump_target_descr
+        if jump_target_descr is not None:
+            target_stack_depth = jump_target_descr._x86_stack_depth
             stack_depth = max(stack_depth, target_stack_depth)
         return stack_depth
 
@@ -757,19 +754,11 @@ class Assembler386(object):
             mark = self._regalloc.get_mark_gc_roots(gcrootmap)
             gcrootmap.put(rffi.cast(llmemory.Address, self.mc.tell()), mark)
 
-    def _get_executable_token(self, loop_token):
-        if loop_token is not None:
-            return loop_token.executable_token
-        assert self._executable_token is not None
-        return self._executable_token        
-
     def target_arglocs(self, loop_token):
-        executable_token = self._get_executable_token(loop_token)
-        return executable_token._x86_arglocs
+        return loop_token._x86_arglocs
 
     def closing_jump(self, loop_token):
-        executable_token = self._get_executable_token(loop_token)
-        self.mc.JMP(rel32(executable_token._x86_loop_code))
+        self.mc.JMP(rel32(loop_token._x86_loop_code))
         
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

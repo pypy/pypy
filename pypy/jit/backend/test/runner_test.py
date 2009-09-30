@@ -23,7 +23,8 @@ class Runner(object):
                                                                 result_type,
                                                                 valueboxes,
                                                                 descr)
-        executable_token = self.cpu.compile_loop(inputargs, operations)
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
         j = 0
         for box in valueboxes:
             if isinstance(box, BoxInt):
@@ -37,7 +38,7 @@ class Runner(object):
                 j += 1
             else:
                 assert isinstance(box, Const)
-        res = self.cpu.execute_token(executable_token)
+        res = self.cpu.execute_token(looptoken)
         if res is operations[-1].descr:
             self.guard_failed = False
         else:
@@ -95,9 +96,10 @@ class BaseBackendTest(Runner):
             ResOperation(rop.FINISH, [i1], None, descr=faildescr)
             ]
         inputargs = [i0]
-        executable_token = self.cpu.compile_loop(inputargs, operations)
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(executable_token)
+        fail = self.cpu.execute_token(looptoken)
         res = self.cpu.get_latest_value_int(0)
         assert res == 3        
         assert fail is faildescr
@@ -107,19 +109,19 @@ class BaseBackendTest(Runner):
         i1 = BoxInt()
         i2 = BoxInt()
         faildescr = BasicFailDescr()
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
-            ResOperation(rop.JUMP, [i1], None),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
             ]
         inputargs = [i0]
         operations[2].fail_args = [i1]
-        operations[-1].jump_target = None
         
-        executable_token = self.cpu.compile_loop(inputargs, operations)
+        self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(executable_token)
+        fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
         res = self.cpu.get_latest_value_int(0)
         assert res == 10
@@ -130,19 +132,19 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        faildescr = BasicFailDescr()                
+        faildescr = BasicFailDescr()
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
-            ResOperation(rop.JUMP, [i1], None),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
             ]
         inputargs = [i0]
         operations[2].fail_args = [i1]
-        operations[-1].jump_target = None
         wr_i1 = weakref.ref(i1)
         wr_guard = weakref.ref(operations[2])
-        executable_token = self.cpu.compile_loop(inputargs, operations)
+        self.cpu.compile_loop(inputargs, operations, looptoken)
         del i0, i1, i2
         del inputargs
         del operations
@@ -155,33 +157,30 @@ class BaseBackendTest(Runner):
         i2 = BoxInt()
         faildescr1 = BasicFailDescr()
         faildescr2 = BasicFailDescr()
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
-            ResOperation(rop.JUMP, [i1], None),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
             ]
         inputargs = [i0]
         operations[2].fail_args = [i1]
-        operations[-1].jump_target = None       
-        executable_token = self.cpu.compile_loop(inputargs, operations)
-        loop_token = LoopToken()
-        loop_token.executable_token = executable_token
+        self.cpu.compile_loop(inputargs, operations, looptoken)
 
         i1b = BoxInt()
         i3 = BoxInt()
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.JUMP, [i1b], None),            
+            ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
         ]
         bridge[1].fail_args = [i1b]
-        bridge[-1].jump_target = loop_token
 
         self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
 
         self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(executable_token)
+        fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
@@ -192,30 +191,33 @@ class BaseBackendTest(Runner):
             def __setattr__(self, name, value):
                 py.test.fail("finish descrs should not be touched")
         faildescr = UntouchableFailDescr() # to check that is not touched
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.FINISH, [i0], None, descr=faildescr)
             ]
-        executable_token = self.cpu.compile_loop([i0], operations)
+        self.cpu.compile_loop([i0], operations, looptoken)
         self.cpu.set_future_value_int(0, 99)
-        fail = self.cpu.execute_token(executable_token)
+        fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
         res = self.cpu.get_latest_value_int(0)
         assert res == 99
 
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.FINISH, [ConstInt(42)], None, descr=faildescr)
             ]
-        executable_token = self.cpu.compile_loop([], operations)
-        fail = self.cpu.execute_token(executable_token)
+        self.cpu.compile_loop([], operations, looptoken)
+        fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr        
         res = self.cpu.get_latest_value_int(0)
         assert res == 42
 
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.FINISH, [], None, descr=faildescr)
             ]
-        executable_token = self.cpu.compile_loop([], operations)
-        fail = self.cpu.execute_token(executable_token)
+        self.cpu.compile_loop([], operations, looptoken)
+        fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
 
     def test_execute_operations_in_env(self):
@@ -225,20 +227,20 @@ class BaseBackendTest(Runner):
         z = BoxInt(579)
         t = BoxInt(455)
         u = BoxInt(0)    # False
+        looptoken = LoopToken()
         operations = [
             ResOperation(rop.INT_ADD, [x, y], z),
             ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
             ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
             ResOperation(rop.GUARD_FALSE, [u], None,
                          descr=BasicFailDescr()),
-            ResOperation(rop.JUMP, [z, t], None),
+            ResOperation(rop.JUMP, [z, t], None, descr=looptoken),
             ]
-        operations[-1].jump_target = None
         operations[-2].fail_args = [t, z]
-        executable_token = cpu.compile_loop([x, y], operations)
+        cpu.compile_loop([x, y], operations, looptoken)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 10)
-        res = self.cpu.execute_token(executable_token)
+        res = self.cpu.execute_token(looptoken)
         assert self.cpu.get_latest_value_int(0) == 0
         assert self.cpu.get_latest_value_int(1) == 55
 
@@ -305,13 +307,14 @@ class BaseBackendTest(Runner):
                     ]
                 ops[1].fail_args = [v_res]
             #
-            executable_token = self.cpu.compile_loop([v1, v2], ops)
+            looptoken = LoopToken()
+            self.cpu.compile_loop([v1, v2], ops, looptoken)
             for x, y, z in testcases:
                 assert not self.cpu.get_exception()
                 assert not self.cpu.get_exc_value()
                 self.cpu.set_future_value_int(0, x)
                 self.cpu.set_future_value_int(1, y)
-                fail = self.cpu.execute_token(executable_token)
+                fail = self.cpu.execute_token(looptoken)
                 if (z == boom) ^ reversed:
                     assert fail is ops[1].descr
                 else:
@@ -828,15 +831,14 @@ class LLtypeBackendTest(BaseBackendTest):
         exc_tp = xtp
         exc_ptr = xptr
         loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
         self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
+        self.cpu.execute_token(loop.token)
         assert self.cpu.get_latest_value_int(0) == 0
         assert self.cpu.get_latest_value_ref(1) == xptr
         self.cpu.clear_exception()
         self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(executable_token)
+        self.cpu.execute_token(loop.token)
         assert self.cpu.get_latest_value_int(0) == 1
         self.cpu.clear_exception()
 
@@ -852,10 +854,9 @@ class LLtypeBackendTest(BaseBackendTest):
         exc_tp = ytp
         exc_ptr = yptr
         loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
         self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
+        self.cpu.execute_token(loop.token)
         assert self.cpu.get_latest_value_int(0) == 1
         self.cpu.clear_exception()
 
@@ -869,14 +870,13 @@ class LLtypeBackendTest(BaseBackendTest):
         finish(0)
         '''
         loop = parse(ops, self.cpu, namespace=locals())
-        executable_token = self.cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
         self.cpu.set_future_value_int(0, 1)
-        self.cpu.execute_token(executable_token)
+        self.cpu.execute_token(loop.token)
         assert self.cpu.get_latest_value_int(0) == 1
         self.cpu.clear_exception()
         self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(executable_token)
+        self.cpu.execute_token(loop.token)
         assert self.cpu.get_latest_value_int(0) == 0
         self.cpu.clear_exception()
 

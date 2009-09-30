@@ -159,12 +159,13 @@ class OperationBuilder(object):
                 #print >>s, '    operations[%d].suboperations = [' % i
                 #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
                 #    ', '.join([names[v] for v in op.args]))
-        print >>s, '    executable_token = cpu.compile_loop(inputargs, operations)'
+        print >>s, '    looptoken = LoopToken()'
+        print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
         if hasattr(self.loop, 'inputargs'):
             for i, v in enumerate(self.loop.inputargs):
                 print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
                                                                      v.value)
-        print >>s, '    op = cpu.execute_token(executable_token)'
+        print >>s, '    op = cpu.execute_token(looptoken)'
         if self.should_fail_by is None:
             for i, v in enumerate(self.loop.operations[-1].args):
                 print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
@@ -401,13 +402,13 @@ class RandomLoop(object):
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
         loop.operations = []
+        loop.token = LoopToken()
 
         builder = builder_factory(cpu, loop, startvars[:])
         self.generate_ops(builder, r, loop, startvars)
         self.builder = builder
         self.loop = loop
-        self.executable_token = cpu.compile_loop(loop.inputargs,
-                                                 loop.operations)
+        cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
 
     def generate_ops(self, builder, r, loop, startvars):
         block_length = demo_conftest.option.block_length
@@ -469,7 +470,7 @@ class RandomLoop(object):
 
         for i, v in enumerate(self.values):
             cpu.set_future_value_int(i, v)
-        fail = cpu.execute_token(self.executable_token)
+        fail = cpu.execute_token(self.loop.token)
         assert fail is self.should_fail_by.descr
         for i, v in enumerate(self.get_fail_args()):
             value = cpu.get_latest_value_int(i)
@@ -536,17 +537,15 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
-            executable_token = self.cpu.compile_loop(rl.loop.inputargs,
-                                                     rl.loop.operations)
+            self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
+                                  rl.loop.token)
             # done
-            jump_op = ResOperation(rop.JUMP, subset, None)
-            jump_op.jump_target = LoopToken()
-            jump_op.jump_target.executable_token = executable_token
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected
             assert len(rl.loop.inputargs) == len(args)
             # The new bridge's execution will end normally at its FINISH.
             # Just replace the FINISH with the JUMP to the new loop.
+            jump_op = ResOperation(rop.JUMP, subset, None, descr=rl.loop.token)
             subloop.operations[-1] = jump_op
             self.guard_op = rl.guard_op
             self.prebuilt_ptr_consts += rl.prebuilt_ptr_consts

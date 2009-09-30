@@ -409,9 +409,9 @@ class AbstractLLCPU(AbstractCPU):
         if not we_are_translated():
             assert (list(calldescr.arg_classes) ==
                     [arg.type for arg in args[1:]])
-        executable_token = calldescr.get_token_for_call(self)
+        loop_token = calldescr.get_token_for_call(self)
         set_future_values(self, args)
-        self.execute_token(executable_token)
+        self.execute_token(loop_token)
         # Note: if an exception is set, the rest of the code does a bit of
         # nonsense but nothing wrong (the return value should be ignored)
         if calldescr.returns_a_pointer():

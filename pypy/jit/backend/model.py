@@ -8,18 +8,23 @@ class AbstractCPU(object):
         """Called once by the front-end when the program starts."""
         pass
 
-    def compile_loop(self, inputargs, operations):
+    def compile_loop(self, inputargs, operations, looptoken):
         """Assemble the given loop.
-           Return an opaque token to be consumed by execute_token"""
+        Extra attributes should be put in the LoopToken to
+        point to the compiled loop in assembler.
+        """
         raise NotImplementedError
 
     def compile_bridge(self, faildescr, inputargs, operations):
-        """Assemble the bridge"""
+        """Assemble the bridge.
+        The FailDescr is the descr of the original guard that failed.
+        """
         raise NotImplementedError    
 
-    def execute_token(self, executable_token):
-        """Execute the generated code referenced by the executable_token
-        Returns the ResOperation that failed, of type rop.FAIL.
+    def execute_token(self, looptoken):
+        """Execute the generated code referenced by the looptoken.
+        Returns the descr of the last executed operation: either the one
+        attached to the failing guard, or the one attached to the FINISH.
         Use set_future_value_xxx() before, and get_latest_value_xxx() after.
         """
         raise NotImplementedError
@@ -38,17 +43,20 @@ class AbstractCPU(object):
 
     def get_latest_value_int(self, index):
         """Returns the value for the index'th argument to the
-        lastest rop.FAIL.  Returns an int."""
+        last executed operation (from 'fail_args' if it was a guard,
+        or from 'args' if it was a FINISH).  Returns an int."""
         raise NotImplementedError
 
     def get_latest_value_float(self, index):
         """Returns the value for the index'th argument to the
-        lastest rop.FAIL.  Returns a float."""
+        last executed operation (from 'fail_args' if it was a guard,
+        or from 'args' if it was a FINISH).  Returns a float."""
         raise NotImplementedError
 
     def get_latest_value_ref(self, index):
         """Returns the value for the index'th argument to the
-        lastest rop.FAIL.  Returns a ptr or an obj."""
+        last executed operation (from 'fail_args' if it was a guard,
+        or from 'args' if it was a FINISH).  Returns a ptr or an obj."""
         raise NotImplementedError
 
     def get_exception(self):

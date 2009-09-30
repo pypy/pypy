@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import Box, BoxInt
+from pypy.jit.metainterp.history import Box, BoxInt, LoopToken
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.executor import execute_nonspec
@@ -458,7 +458,7 @@ class Optimizer(object):
 
     def setup_virtuals_and_constants(self):
         inputargs = self.loop.inputargs
-        specnodes = self.loop.specnodes
+        specnodes = self.loop.token.specnodes
         assert len(inputargs) == len(specnodes)
         newinputargs = []
         for i in range(len(inputargs)):
@@ -547,18 +547,15 @@ class Optimizer(object):
     def optimize_JUMP(self, op):
         orgop = self.loop.operations[-1]
         exitargs = []
-        target = orgop.jump_target
-        if target is None:
-            specnodes = self.loop.specnodes
-        else:
-            specnodes = target.specnodes
+        target_loop_token = orgop.descr
+        assert isinstance(target_loop_token, LoopToken)
+        specnodes = target_loop_token.specnodes
         assert len(op.args) == len(specnodes)
         for i in range(len(specnodes)):
             value = self.getvalue(op.args[i])
             specnodes[i].teardown_virtual_node(self, value, exitargs)
         op2 = op.clone()
         op2.args = exitargs
-        op2.jump_target = op.jump_target
         self.emit_operation(op2, must_clone=False)
 
     def optimize_guard(self, op, constbox):

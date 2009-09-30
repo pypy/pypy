@@ -1,6 +1,6 @@
 import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr
+     BoxPtr, ConstPtr, BasicFailDescr, LoopToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.runner import CPU
 
@@ -17,9 +17,10 @@ def test_bug_rshift():
         ResOperation(rop.FINISH, [v4, v3], None, descr=BasicFailDescr()),
         ]
     cpu = CPU(None, None)
-    executable_token = cpu.compile_loop(inputargs, operations)
+    looptoken = LoopToken()
+    cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 9)
-    cpu.execute_token(executable_token)
+    cpu.execute_token(looptoken)
     assert cpu.get_latest_value_int(0) == (9 >> 3)
     assert cpu.get_latest_value_int(1) == (~18)
 
@@ -38,9 +39,10 @@ def test_bug_int_is_true_1():
         ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
-    executable_token = cpu.compile_loop(inputargs, operations)
+    looptoken = LoopToken()
+    cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -10)
-    cpu.execute_token(executable_token)
+    cpu.execute_token(looptoken)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == -1000
     assert cpu.get_latest_value_int(2) == 1
@@ -133,7 +135,8 @@ def test_bug_0():
         ResOperation(rop.FINISH, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
-    executable_token = cpu.compile_loop(inputargs, operations)
+    looptoken = LoopToken()
+    cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -13)
     cpu.set_future_value_int(1, 10)
     cpu.set_future_value_int(2, 10)
@@ -144,7 +147,7 @@ def test_bug_0():
     cpu.set_future_value_int(7, 46)
     cpu.set_future_value_int(8, -12)
     cpu.set_future_value_int(9, 26)
-    cpu.execute_token(executable_token)
+    cpu.execute_token(looptoken)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == 0
     assert cpu.get_latest_value_int(2) == 0
@@ -246,7 +249,8 @@ def test_bug_1():
         ResOperation(rop.FINISH, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
-    executable_token = cpu.compile_loop(inputargs, operations)
+    looptoken = LoopToken()
+    cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 17)
     cpu.set_future_value_int(1, -20)
     cpu.set_future_value_int(2, -6)
@@ -257,7 +261,7 @@ def test_bug_1():
     cpu.set_future_value_int(7, 9)
     cpu.set_future_value_int(8, 49)
     cpu.set_future_value_int(9, 8)
-    cpu.execute_token(executable_token)
+    cpu.execute_token(looptoken)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == 8
     assert cpu.get_latest_value_int(2) == 1

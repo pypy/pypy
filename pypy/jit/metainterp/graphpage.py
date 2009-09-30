@@ -168,7 +168,7 @@ class ResOpGen(object):
                              (graphindex, opindex))
                 break
         if op.opnum == rop.JUMP:
-            tgt = op.jump_target
+            tgt = op.descr
             tgt_g = -1
             if tgt is None:
                 tgt_g = graphindex

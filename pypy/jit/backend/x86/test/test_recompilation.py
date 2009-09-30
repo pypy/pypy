@@ -33,7 +33,7 @@ class TestRecompilation(BaseTestRegalloc):
         jump(i1)
         '''
         loop = self.interpret(ops, [0])
-        previous = loop.executable_token._x86_stack_depth
+        previous = loop.token._x86_stack_depth
         assert self.getint(0) == 20
         ops = '''
         [i1]
@@ -47,7 +47,7 @@ class TestRecompilation(BaseTestRegalloc):
         finish(i3, i4, i5, i6, i7, i8, i9)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
-        descr = loop._loop.operations[2].descr
+        descr = loop.operations[2].descr
         new = descr._x86_bridge_stack_depth
         assert new > previous
         self.cpu.set_future_value_int(0, 0)
@@ -73,12 +73,12 @@ class TestRecompilation(BaseTestRegalloc):
         ''', [1])
         ops = '''
         [i3]
-        jump(i3, 1, 2, 3, 4, 5, 6, 7)
+        jump(i3, 1, 2, 3, 4, 5, 6, 7, descr=looptoken)
         '''
-        bridge = self.attach_bridge(ops, other_loop, 0, jump_target=loop)
+        bridge = self.attach_bridge(ops, other_loop, 0, looptoken=loop.token)
         self.cpu.set_future_value_int(0, 1)
         fail = self.run(other_loop)
-        assert fail is loop._loop.operations[2].descr
+        assert fail is loop.operations[2].descr
 
     def test_bridge_jumps_to_self_deeper(self):
         loop = self.interpret('''
@@ -103,11 +103,11 @@ class TestRecompilation(BaseTestRegalloc):
         i7 = int_add(i3, i6)
         i12 = int_add(i7, i8)
         i11 = int_add(i12, i6)
-        jump(i3, i12, i11, i10, i6, i7)
+        jump(i3, i12, i11, i10, i6, i7, descr=looptoken)
         '''
-        bridge = self.attach_bridge(ops, loop, 5, jump_target=loop)
-        guard_op = loop._loop.operations[5]
-        loop_stack_depth = loop.executable_token._x86_stack_depth
+        bridge = self.attach_bridge(ops, loop, 5, looptoken=loop.token)
+        guard_op = loop.operations[5]
+        loop_stack_depth = loop.token._x86_stack_depth
         assert guard_op.descr._x86_bridge_stack_depth > loop_stack_depth
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 0)
@@ -132,9 +132,9 @@ class TestRecompilation(BaseTestRegalloc):
         assert self.getint(1) == 1
         ops = '''
         [i97, i3]
-        jump(i3, 0, 1)
+        jump(i3, 0, 1, descr=looptoken)
         '''
-        bridge = self.attach_bridge(ops, loop, 4, jump_target=loop)
+        bridge = self.attach_bridge(ops, loop, 4, looptoken=loop.token)
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 0)
         self.cpu.set_future_value_int(2, 0)

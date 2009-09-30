@@ -104,17 +104,22 @@ class BaseCPU(model.AbstractCPU):
             llimpl.set_class_size(self.memo_cast, vtable, size)
 
     def compile_bridge(self, faildescr, inputargs, operations):
-        c = self.compile_loop(inputargs, operations)
+        c = llimpl.compile_start()
+        self._compile_loop_or_bridge(c, inputargs, operations)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations):
+    def compile_loop(self, inputargs, operations, loopdescr):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
+        loopdescr._llgraph_compiled_version = c
+        self._compile_loop_or_bridge(c, inputargs, operations)
+
+    def _compile_loop_or_bridge(self, c, inputargs, operations):
         var2index = {}
         for box in inputargs:
             if isinstance(box, history.BoxInt):
@@ -174,12 +179,10 @@ class BaseCPU(model.AbstractCPU):
         op = operations[-1]
         assert op.is_final()
         if op.opnum == rop.JUMP:
-            target = op.jump_target
-            if target is None:
-                target = c
-            else:
-                target = target.executable_token
-            llimpl.compile_add_jump_target(c, target)
+            targettoken = op.descr
+            assert isinstance(targettoken, history.LoopToken)
+            compiled_version = targettoken._llgraph_compiled_version
+            llimpl.compile_add_jump_target(c, compiled_version)
         elif op.opnum == rop.FINISH:
             llimpl.compile_add_fail(c, len(self.fail_descrs))
             faildescr = op.descr
@@ -188,10 +191,11 @@ class BaseCPU(model.AbstractCPU):
         else:
             assert False, "unknown operation"
 
-    def execute_token(self, compiled_version):
+    def execute_token(self, loop_token):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
         """
+        compiled_version = loop_token._llgraph_compiled_version
         frame = llimpl.new_frame(self.memo_cast, self.is_oo)
         # setup the frame
         llimpl.frame_clear(frame, compiled_version)

@@ -64,7 +64,8 @@ def equaloplists(oplist1, oplist2, remap={}):
             assert op1.result == remap[op2.result]
         else:
             remap[op2.result] = op1.result
-        assert op1.descr == op2.descr
+        if op1.opnum != rop.JUMP:      # xxx obscure
+            assert op1.descr == op2.descr
         if op1.fail_args or op2.fail_args:
             assert len(op1.fail_args) == len(op2.fail_args)
             for x, y in zip(op1.fail_args, op2.fail_args):
@@ -146,14 +147,11 @@ class BaseTestOptimizeOpt(BaseTest):
             cpu = self.cpu
             perfect_specialization_finder = PerfectSpecializationFinder(cpu)
             perfect_specialization_finder.find_nodes_loop(loop)
-            self.check_specnodes(loop.specnodes, spectext)
+            self.check_specnodes(loop.token.specnodes, spectext)
         else:
             # for cases where we want to see how optimizeopt behaves with
             # combinations different from the one computed by optimizefindnode
-            loop.specnodes = self.unpack_specnodes(spectext)
-        #
-        assert loop.operations[-1].opnum == rop.JUMP
-        loop.operations[-1].jump_target = loop
+            loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         optimize_loop_1(self.cpu, loop)
         #

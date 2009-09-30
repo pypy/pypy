@@ -224,7 +224,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         loop = self.parse(ops, boxkinds=boxkinds)
         perfect_specialization_finder = PerfectSpecializationFinder(self.cpu)
         perfect_specialization_finder.find_nodes_loop(loop)
-        self.check_specnodes(loop.specnodes, spectext)
+        self.check_specnodes(loop.token.specnodes, spectext)
         return (loop.getboxes(), perfect_specialization_finder.getnode)
 
     def test_find_nodes_simple(self):

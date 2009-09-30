@@ -3,7 +3,8 @@
 """
 
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, ConstAddr, BoxPtr)
+                                         ResOperation, ConstAddr, BoxPtr,
+                                         LoopToken)
 from pypy.jit.backend.x86.ri386 import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -59,7 +60,7 @@ class RegAlloc(object):
         self.assembler = assembler
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
-        self.jump_target = None
+        self.jump_target_descr = None
 
     def _prepare(self, inputargs, operations):
         self.sm = X86StackManager()
@@ -71,10 +72,10 @@ class RegAlloc(object):
                                      stack_manager = self.sm,
                                      assembler = self.assembler)
 
-    def prepare_loop(self, inputargs, operations):
+    def prepare_loop(self, inputargs, operations, looptoken):
         self._prepare(inputargs, operations)
         jump = operations[-1]
-        loop_consts = self._compute_loop_consts(inputargs, jump)
+        loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs)
 
@@ -110,8 +111,8 @@ class RegAlloc(object):
         self.rm.possibly_free_vars(inputargs)
         return locs
 
-    def _compute_loop_consts(self, inputargs, jump):
-        if jump.opnum != rop.JUMP or jump.jump_target is not None:
+    def _compute_loop_consts(self, inputargs, jump, looptoken):
+        if jump.opnum != rop.JUMP or jump.descr is not looptoken:
             loop_consts = {}
         else:
             loop_consts = {}
@@ -618,9 +619,11 @@ class RegAlloc(object):
 
     def consider_jump(self, op, ignored):
         assembler = self.assembler
-        assert self.jump_target is None
-        self.jump_target = op.jump_target
-        arglocs = assembler.target_arglocs(self.jump_target)
+        assert self.jump_target_descr is None
+        descr = op.descr
+        assert isinstance(descr, LoopToken)
+        self.jump_target_descr = descr
+        arglocs = assembler.target_arglocs(self.jump_target_descr)
         # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
         tmpreg = X86RegisterManager.all_regs[0]
@@ -631,7 +634,7 @@ class RegAlloc(object):
         remap_stack_layout(assembler, src_locations, dst_locations, tmploc)
         self.rm.possibly_free_var(box)
         self.rm.possibly_free_vars(op.args)
-        assembler.closing_jump(self.jump_target)
+        assembler.closing_jump(self.jump_target_descr)
 
     def consider_debug_merge_point(self, op, ignored):
         pass

@@ -5,15 +5,12 @@ class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
     # for 'jump': points to the target loop;
-    jump_target = None
+    jump_target = property(lambda x: crash, lambda x, y: crash)  # XXX temp
 
     # for 'guard_*'
     suboperations = property(lambda x: crash, lambda x, y: crash)  # XXX temp
     optimized = property(lambda x: crash, lambda x, y: crash)  # XXX temp
     fail_args = None
-
-    # for x86 backend and guards
-    inputargs = None
 
     # debug
     name = ""

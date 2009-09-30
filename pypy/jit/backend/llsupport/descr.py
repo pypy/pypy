@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
-from pypy.jit.metainterp.history import BasicFailDescr
+from pypy.jit.metainterp.history import BasicFailDescr, LoopToken
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 
 # The point of the class organization in this file is to make instances
@@ -165,7 +165,7 @@ def get_array_descr(gccache, ARRAY):
 
 class BaseCallDescr(AbstractDescr):
     _clsname = ''
-    executable_token = None
+    loop_token = None
     arg_classes = ''     # <-- annotation hack
 
     def __init__(self, arg_classes):
@@ -186,8 +186,8 @@ class BaseCallDescr(AbstractDescr):
         raise NotImplementedError
 
     def get_token_for_call(self, cpu):
-        if self.executable_token is not None:
-            return self.executable_token
+        if self.loop_token is not None:
+            return self.loop_token
         args = [BoxInt()] + self.instantiate_arg_classes()
         if self.get_result_size(cpu.translate_support_code) == 0:
             result = None
@@ -205,9 +205,10 @@ class BaseCallDescr(AbstractDescr):
             ResOperation(rop.FINISH, result_list, None,
                          descr=BasicFailDescr())]
         operations[1].fail_args = []
-        executable_token = cpu.compile_loop(args, operations)
-        self.executable_token = executable_token
-        return executable_token
+        loop_token = LoopToken()
+        cpu.compile_loop(args, operations, loop_token)
+        self.loop_token = loop_token
+        return loop_token
 
     def repr_of_descr(self):
         return '<%s>' % self._clsname

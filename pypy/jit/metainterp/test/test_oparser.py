@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken
 
 def test_basic_parse():
     x = """
@@ -118,16 +118,16 @@ def test_jump_target():
     jump()
     '''
     loop = parse(x)
-    assert loop.operations[0].jump_target is None
+    assert loop.operations[0].descr is loop.token
 
 def test_jump_target_other():
+    looptoken = LoopToken()
     x = '''
     []
-    jump()
+    jump(descr=looptoken)
     '''
-    obj = object()
-    loop = parse(x, jump_target=obj)
-    assert loop.operations[0].jump_target is obj
+    loop = parse(x, namespace=locals())
+    assert loop.operations[0].descr is looptoken
 
 def test_debug_merge_point():
     x = '''

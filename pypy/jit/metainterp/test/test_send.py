@@ -586,7 +586,27 @@ class SendTests:
             self.check_loops(oosend=0)
         else:
             self.check_loops(call=0)
-        
+
+    def test_generalize_loop(self):
+        myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
+        class A:
+            def __init__(self, n):
+                self.n = n
+        def extern(obj):
+            pass
+        def fn(i):
+            obj = A(1)
+            while i > 0:
+                myjitdriver.can_enter_jit(i=i, obj=obj)
+                myjitdriver.jit_merge_point(i=i, obj=obj)
+                obj = A(obj.n + 1)
+                if i < 10:
+                    extern(obj)
+                i -= 1
+            return obj.n
+        res = self.meta_interp(fn, [20], policy=StopAtXPolicy(extern))
+        assert res == 21
+
 
 class TestOOtype(SendTests, OOJitMixin):
     pass

@@ -337,7 +337,7 @@ class PerfectSpecializationFinder(NodeFinder):
             inputnode = self.inputnodes[i]
             exitnode = self.getnode(op.args[i])
             specnodes.append(self.intersect(inputnode, exitnode))
-        loop.specnodes = specnodes
+        loop.token.specnodes = specnodes
 
     def intersect(self, inputnode, exitnode):
         assert inputnode.fromstart

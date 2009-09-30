@@ -3,7 +3,7 @@ from pypy.jit.metainterp.history import Box, Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 
 # Logic to encode the chain of frames and the state of the boxes at a
-# FAIL operation, and to decode it again.  This is a bit advanced,
+# guard operation, and to decode it again.  This is a bit advanced,
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles.
 

@@ -33,8 +33,8 @@ class CPU386(AbstractLLCPU):
     def setup_once(self):
         pass
 
-    def compile_loop(self, inputargs, operations):
-        return self.assembler.assemble_loop(inputargs, operations)
+    def compile_loop(self, inputargs, operations, looptoken):
+        self.assembler.assemble_loop(inputargs, operations, looptoken)
 
     def compile_bridge(self, faildescr, inputargs, operations):
         self.assembler.assemble_bridge(faildescr, inputargs, operations)
