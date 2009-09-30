@@ -299,7 +299,7 @@ class NodeFinder(object):
         for box in op.args:
             self.getnode(box).set_unique_nodes()
 
-    def find_nodes_FAIL(self, op):
+    def find_nodes_FINISH(self, op):
         # only for bridges, and only for the ones that end in a 'return'
         # or 'raise'; all other cases end with a JUMP.
         for box in op.args:

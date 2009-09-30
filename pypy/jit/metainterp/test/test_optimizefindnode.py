@@ -1062,6 +1062,9 @@ class BaseTestOptimizeFindNode(BaseTest):
         finish(p1)
         """
         self.find_bridge(ops, 'Not', 'Not')
+        self.find_bridge(ops, 'Not',
+                         'Virtual(node_vtable, valuedescr=Not)',
+                         mismatch=True)
 
     def test_bridge_array_virtual_1(self):
         ops = """
