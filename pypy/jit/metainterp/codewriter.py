@@ -53,6 +53,7 @@ class CodeWriter(object):
 
     def __init__(self, metainterp_sd, policy):
         self.all_prebuilt_values = dict_equal_consts()
+        self.all_indirect_call_targets = {}
         self.all_graphs = {}
         self.all_methdescrs = {}
         self.all_listdescs = {}
@@ -147,6 +148,9 @@ class CodeWriter(object):
         targets = self.policy.graphs_from(op, self.cpu.supports_floats)
         assert targets is not None
         for graph in targets:
+            if graph in self.all_indirect_call_targets:
+                continue
+            self.all_indirect_call_targets[graph] = True
             fnptr = self.rtyper.getcallable(graph)
             fnaddress = self.cpu.ts.cast_fnptr_to_root(fnptr)
             jitcode = self.get_jitcode(graph)

@@ -89,6 +89,8 @@ def dump_bytecode(jitcode, file=None):
     interpreter = jitcode._metainterp_sd
     labelpos = jitcode._labelpos
     print >> file, 'JITCODE %r' % (jitcode.name,)
+    if interpreter.opcode_implementations is None:
+        return     # for tests
 
     src = SourceIterator(jitcode, source, interpreter, labelpos)
     noblankline = {0: True}

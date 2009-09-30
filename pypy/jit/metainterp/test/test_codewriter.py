@@ -1,5 +1,72 @@
 import py
+from pypy.jit.metainterp import support, typesystem
+from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.metainterp.codewriter import CodeWriter
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+
+
+class SomeLabel(object):
+    def __eq__(self, other):
+        return repr(other).startswith('label')    # :-/
+
+
+class TestCodeWriter:
+    type_system = 'lltype'
+
+    def setup_method(self, _):
+        class FakeMetaInterpSd:
+            def find_opcode(self, name):
+                default = len(self.opname_to_index)
+                return self.opname_to_index.setdefault(name, default)
+            def _register_indirect_call_target(self, fnaddress, jitcode):
+                self.indirectcalls.append((fnaddress, jitcode))
+
+        class FakeCPU:
+            ts = typesystem.llhelper
+            supports_floats = False
+
+        self.metainterp_sd = FakeMetaInterpSd()
+        self.metainterp_sd.opcode_implementations = None
+        self.metainterp_sd.opname_to_index = {}
+        self.metainterp_sd.indirectcalls = []
+        self.metainterp_sd.cpu = FakeCPU()
+
+    def getgraph(self, func, values):
+        rtyper = support.annotate(func, values,
+                                  type_system=self.type_system)
+        self.metainterp_sd.cpu.rtyper = rtyper
+        return rtyper.annotator.translator.graphs[0]
+
+    def test_basic(self):
+        def f(n):
+            return n + 10
+        graph = self.getgraph(f, [5])
+        cw = CodeWriter(self.metainterp_sd, JitPolicy())
+        jitcode = cw.make_one_bytecode((graph, None), False)
+        assert jitcode._source == [
+            SomeLabel(),
+            'int_add', 0, 1, '# => r1',
+            'make_new_vars_1', 2,
+            'return']
+
+    def test_indirect_call_target(self):
+        def g(m):
+            return 123
+        def h(m):
+            return 456
+        def f(n):
+            if n > 3:
+                call = g
+            else:
+                call = h
+            return call(n+1) + call(n+2)
+        graph = self.getgraph(f, [5])
+        cw = CodeWriter(self.metainterp_sd, JitPolicy())
+        jitcode = cw.make_one_bytecode((graph, None), False)
+        assert len(self.metainterp_sd.indirectcalls) == 2
+        names = [jitcode.name for (fnaddress, jitcode)
+                               in self.metainterp_sd.indirectcalls]
+        assert dict.fromkeys(names) == {'g': None, 'h': None}
 
 
 class ImmutableFieldsTests:
