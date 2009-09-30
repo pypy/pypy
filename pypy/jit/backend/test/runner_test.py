@@ -259,14 +259,6 @@ class BaseBackendTest(Runner):
                                          'int', descr=calldescr)
             assert res.value == 2 * num
 
-    def test_executor(self):
-        cpu = self.cpu
-        x = execute(cpu, rop.INT_ADD, None, BoxInt(100), ConstInt(42))
-        assert x.value == 142
-        if self.type_system == 'lltype':
-            s = execute(cpu, rop.NEWSTR, None, BoxInt(8))
-            assert len(s.getref(lltype.Ptr(rstr.STR)).chars) == 8
-
     def test_lshift(self):
         res = execute(self.cpu, rop.INT_LSHIFT, None, BoxInt(10), ConstInt(4))
         assert res.value == 10 << 4
