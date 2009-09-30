@@ -24,7 +24,10 @@ def _setup():
     ncounters = len(names)
 _setup()
 
-class EmptyProfiler(object):
+class BaseProfiler(object):
+    pass
+
+class EmptyProfiler(BaseProfiler):
     initialized = True
     
     def start(self):
@@ -63,7 +66,7 @@ class EmptyProfiler(object):
     def count_ops(self, opnum, kind=OPS):
         pass
 
-class Profiler(object):
+class Profiler(BaseProfiler):
     initialized = False
     timer = time.time
     starttime = 0
