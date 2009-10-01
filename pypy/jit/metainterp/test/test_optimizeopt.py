@@ -47,7 +47,7 @@ def test_store_final_boxes_in_guard():
     assert fdescr.rd_frame_infos == fi
 # ____________________________________________________________
 
-def equaloplists(oplist1, oplist2, remap={}):
+def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
     print '-'*20, 'Comparing lists', '-'*20
     for op1, op2 in zip(oplist1, oplist2):
         txt1 = str(op1)
@@ -68,8 +68,13 @@ def equaloplists(oplist1, oplist2, remap={}):
             assert op1.descr == op2.descr
         if op1.fail_args or op2.fail_args:
             assert len(op1.fail_args) == len(op2.fail_args)
-            for x, y in zip(op1.fail_args, op2.fail_args):
-                assert x == remap.get(y, y)
+            if strict_fail_args:
+                for x, y in zip(op1.fail_args, op2.fail_args):
+                    assert x == remap.get(y, y)
+            else:
+                fail_args1 = set(op1.fail_args)
+                fail_args2 = set([remap.get(y, y) for y in op2.fail_args])
+                assert fail_args1 == fail_args2
     assert len(oplist1) == len(oplist2)
     print '-'*57
     return True
@@ -101,10 +106,16 @@ def test_equaloplists_fail_args():
     """
     namespace = {}
     loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
+    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
                        namespace=namespace)
     py.test.raises(AssertionError,
                    "equaloplists(loop1.operations, loop2.operations)")
+    assert equaloplists(loop1.operations, loop2.operations,
+                        strict_fail_args=False)
+    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
+                       namespace=namespace)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
 
 # ____________________________________________________________
 
@@ -135,8 +146,7 @@ class BaseTestOptimizeOpt(BaseTest):
             assert box1.__class__ == box2.__class__
             remap[box2] = box1
         assert equaloplists(optimized.operations,
-                            expected.operations,
-                            remap)
+                            expected.operations, False, remap)
 
     def optimize_loop(self, ops, spectext, optops, checkspecnodes=True):
         loop = self.parse(ops)
@@ -153,6 +163,7 @@ class BaseTestOptimizeOpt(BaseTest):
             # combinations different from the one computed by optimizefindnode
             loop.token.specnodes = self.unpack_specnodes(spectext)
         #
+        self.loop = loop
         optimize_loop_1(self.cpu, loop)
         #
         expected = self.parse(optops)
@@ -1253,18 +1264,17 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def make_fail_descr(self):
         class FailDescr(compile.ResumeGuardDescr):
-            args_seen = []
+            oparse = None
             def _oparser_uses_descr_of_guard(self, oparse, fail_args):
                 # typically called twice, before and after optimization
-                if len(self.args_seen) == 0:
+                if self.oparse is None:
                     fdescr.rd_frame_info_list = resume.FrameInfo(None,
                                                                  FakeFrame())
                     fdescr.rd_snapshot = resume.Snapshot(None, fail_args)
                     fdescr.virtuals = None
-                self.args_seen.append((fail_args, oparse))
+                self.oparse = oparse
         #
         fdescr = instantiate(FailDescr)
-        self.fdescr = fdescr
         self.namespace['fdescr'] = fdescr
 
     def teardown_method(self, meth):
@@ -1348,11 +1358,13 @@ class BaseTestOptimizeOpt(BaseTest):
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext):
-        fdescr = self.fdescr
-        args, oparse = fdescr.args_seen[-1]
-        reader = resume.ResumeDataReader(fdescr, args, MyMetaInterp(self.cpu))
+        guard_op, = [op for op in self.loop.operations if op.is_guard()]
+        fail_args = guard_op.fail_args
+        fdescr = guard_op.descr
+        reader = resume.ResumeDataReader(fdescr, fail_args,
+                                         MyMetaInterp(self.cpu))
         boxes = reader.consume_boxes()
-        self._verify_fail_args(boxes, oparse, expectedtext)
+        self._verify_fail_args(boxes, fdescr.oparse, expectedtext)
 
     def test_expand_fail_1(self):
         self.make_fail_descr()
