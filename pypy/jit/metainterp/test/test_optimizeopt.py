@@ -23,7 +23,7 @@ class FakeFrame(object):
         self.pc = pc
         self.exception_target = exc_target
     
-def test_clone_guard_simple():
+def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
     b0 = BoxInt()
     b1 = BoxInt()
