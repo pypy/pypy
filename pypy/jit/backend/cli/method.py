@@ -538,7 +538,11 @@ class Method(object):
         self.store_result(op)
 
     def emit_op_runtimenew(self, op):
-        raise NotImplementedError
+        clitype_utils = dotnet.typeof(Utils)
+        methinfo = clitype_utils.GetMethod('RuntimeNew')
+        op.args[0].load(self)
+        self.il.Emit(OpCodes.Call, methinfo)
+        self.store_result(op)
 
     def emit_op_instanceof(self, op):
         descr = op.descr
