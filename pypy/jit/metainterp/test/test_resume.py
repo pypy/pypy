@@ -213,6 +213,13 @@ class MyMetaInterp:
 demo55 = lltype.malloc(LLtypeMixin.NODE)
 demo55o = lltype.cast_opaque_ptr(llmemory.GCREF, demo55)
 
+def _resume_remap(liveboxes, expected, *newvalues):
+    newboxes = []
+    for box in liveboxes:
+        i = expected.index(box)
+        newboxes.append(newvalues[i])
+    assert len(newboxes) == len(expected)
+    return newboxes
 
 def test_virtual_adder_no_op():
     storage = make_demo_storage()
@@ -223,11 +230,10 @@ def test_virtual_adder_no_op():
     assert not modifier.is_virtual(b3s)
     # done
     liveboxes = modifier.finish()
-    assert liveboxes == [b1s, b2s, b3s]
-    #
     b1t, b2t, b3t = [BoxInt(11), BoxPtr(demo55o), BoxInt(33)]
+    newboxes = _resume_remap(liveboxes, [b1s, b2s, b3s], b1t, b2t, b3t)
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
-    reader = ResumeDataReader(storage, [b1t, b2t, b3t], metainterp)
+    reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
     assert lst == [b1t, ConstInt(1), b1t, b2t]
     lst = reader.consume_boxes()
@@ -264,17 +270,17 @@ def test_virtual_adder_make_virtual():
     assert not modifier.is_virtual(b5s)
     # done
     liveboxes = modifier.finish()
-    assert liveboxes == [b1s,
-                         #b2s -- virtual
-                         b3s,
-                         #b4s -- virtual
-                         #b2s -- again, shared
-                         #b3s -- again, shared
-                         b5s]
-    #
     b1t, b3t, b5t = [BoxInt(11), BoxInt(33), BoxPtr(demo55o)]
+    newboxes = _resume_remap(liveboxes, [b1s,
+                                          #b2s -- virtual
+                                          b3s,
+                                          #b4s -- virtual
+                                          #b2s -- again, shared
+                                          #b3s -- again, shared
+                                          b5s], b1t, b3t, b5t)
+    #
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
-    reader = ResumeDataReader(storage, [b1t, b3t, b5t], metainterp)
+    reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
     b2t = lst[-1]
     assert lst == [b1t, ConstInt(1), b1t, b2t]
@@ -325,11 +331,10 @@ def test_virtual_adder_make_constant():
         assert not modifier.is_virtual(b3s)
         # done
         liveboxes = modifier.finish()
-        assert liveboxes == [b2s, b3s]
-        #
         b2t, b3t = [BoxPtr(demo55o), BoxInt(33)]
+        newboxes = _resume_remap(liveboxes, [b2s, b3s], b2t, b3t)
         metainterp = MyMetaInterp(LLtypeMixin.cpu)
-        reader = ResumeDataReader(storage, [b2t, b3t], metainterp)
+        reader = ResumeDataReader(storage, newboxes, metainterp)
         lst = reader.consume_boxes()
         c1t = ConstInt(111)
         assert lst == [c1t, ConstInt(1), c1t, b2t]
@@ -357,14 +362,15 @@ def test_virtual_adder_make_varray():
     assert not modifier.is_virtual(b4s)
     # done
     liveboxes = modifier.finish()
-    assert liveboxes == [b1s,
-                         #b2s -- virtual
-                         b3s,
-                         b4s]
-    #
     b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxInt(44)]
+    newboxes = _resume_remap(liveboxes, [b1s,
+                                          #b2s -- virtual
+                                          b3s,
+                                          b4s],
+                                          b1t, b3t, b4t)
+    #
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
-    reader = ResumeDataReader(storage, [b1t, b3t, b4t], metainterp)
+    reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
     b2t = lst[-1]
     assert lst == [b1t, ConstInt(1), b1t, b2t]
@@ -406,15 +412,16 @@ def test_virtual_adder_make_vstruct():
     assert not modifier.is_virtual(b4s)
     # done
     liveboxes = modifier.finish()
-    assert liveboxes == [b1s,
-                         #b2s -- virtual
-                         b3s,
-                         b4s]
+    b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxPtr()]
+    newboxes = _resume_remap(liveboxes, [b1s,
+                                          #b2s -- virtual
+                                          b3s,
+                                          b4s],
+                                         b1t, b3t, b4t)
     #
     NULL = ConstPtr.value
-    b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxPtr()]
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
-    reader = ResumeDataReader(storage, [b1t, b3t, b4t], metainterp)
+    reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
     b2t = lst[-1]
     assert lst == [b1t, ConstInt(1), b1t, b2t]

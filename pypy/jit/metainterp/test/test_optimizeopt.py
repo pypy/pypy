@@ -40,8 +40,11 @@ def test_store_final_boxes_in_guard():
     fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
     #
     opt.store_final_boxes_in_guard(op)
-    assert op.fail_args == [b0, b1]
-    assert fdescr.rd_nums == [0, -1, 1, -1]
+    if op.fail_args == [b0, b1]:
+        assert fdescr.rd_nums == [0, -1, 1, -1]
+    else:
+        assert op.fail_args == [b1, b0]
+        assert fdescr.rd_nums == [1, -1, 0, -1]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
     assert fdescr.rd_frame_infos == fi
