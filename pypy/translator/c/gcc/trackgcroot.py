@@ -773,6 +773,8 @@ class FunctionGcRootTracker(object):
     visit_jns = conditional_jump
     visit_jo = conditional_jump
     visit_jno = conditional_jump
+    visit_jc = conditional_jump
+    visit_jnc = conditional_jump
 
     def visit_xchgl(self, line):
         # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
