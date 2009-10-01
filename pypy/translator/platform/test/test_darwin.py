@@ -2,8 +2,8 @@
 """ File containing darwin platform tests
 """
 
-import py, os
-if os.name != 'darwin':
+import py, sys
+if sys.platform != 'darwin':
     py.test.skip("Darwin only")
 
 from pypy.tool.udir import udir
