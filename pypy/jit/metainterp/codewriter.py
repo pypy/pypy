@@ -183,8 +183,12 @@ class CodeWriter(object):
             _, meth = T._lookup(methname)
             if not getattr(meth, 'abstract', False):
                 assert meth.graph
-                jitcode = self.get_jitcode(meth.graph,
-                                           oosend_methdescr=methdescr)
+                if self.policy.look_inside_graph(meth.graph,
+                                                 self.cpu.supports_floats):
+                    jitcode = self.get_jitcode(meth.graph,
+                                               oosend_methdescr=methdescr)
+                else:
+                    jitcode = None
                 oocls = ootype.runtimeClass(T)
                 jitcodes[oocls] = jitcode
         methdescr.setup(jitcodes)

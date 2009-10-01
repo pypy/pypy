@@ -677,7 +677,13 @@ class MIFrame(object):
             self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
         oocls = clsbox.getref(ootype.Class)
         jitcode = methdescr.get_jitcode_for_class(oocls)
-        return self.perform_call(jitcode, varargs)
+        if jitcode is not None:
+            # we should follow calls to this graph
+            return self.perform_call(jitcode, varargs)
+        else:
+            # but we should not follow calls to that graph
+            return self.execute_varargs(rop.OOSEND, varargs,
+                                        descr=methdescr, exc=True)
 
     @arguments("box")
     def opimpl_strlen(self, str):

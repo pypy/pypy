@@ -906,7 +906,28 @@ class BasicTests:
         res = self.interp_operations(f, [3, 5])
         assert res == 5
         self.check_history_(setfield_gc=2, getfield_gc_pure=1)
-        
+
+    def test_oosend_look_inside_only_one(self):
+        class A:
+            pass
+        class B(A):
+            def g(self):
+                return 123
+        class C(A):
+            @dont_look_inside
+            def g(self):
+                return 456
+        def f(n):
+            if n > 3:
+                x = B()
+            else:
+                x = C()
+            return x.g() + x.g()
+        res = self.interp_operations(f, [10])
+        assert res == 123 * 2
+        res = self.interp_operations(f, [-10])
+        assert res == 456 * 2
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

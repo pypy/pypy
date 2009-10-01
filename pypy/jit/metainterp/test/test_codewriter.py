@@ -14,9 +14,8 @@ class SomeLabel(object):
 
 
 class TestCodeWriter:
-    type_system = 'lltype'
 
-    def setup_method(self, _):
+    def make_graph(self, func, values, type_system='lltype'):
         class FakeMetaInterpSd:
             virtualizable_info = None
             def find_opcode(self, name):
@@ -25,13 +24,31 @@ class TestCodeWriter:
             def _register_indirect_call_target(self, fnaddress, jitcode):
                 self.indirectcalls.append((fnaddress, jitcode))
 
+        class FakeMethDescr:
+            def __init__(self1, CLASS, methname):
+                self.methdescrs.append(self1)
+                self1.CLASS = CLASS
+                self1.methname = methname
+                self1.jitcodes = None
+            def setup(self1, jitcodes):
+                self1.jitcodes = jitcodes
+        self.methdescrs = []
+
         class FakeCPU:
-            ts = typesystem.llhelper
             supports_floats = False
             def fielddescrof(self, STRUCT, fieldname):
                 return ('fielddescr', STRUCT, fieldname)
             def calldescrof(self, FUNC, NON_VOID_ARGS, RESULT):
                 return ('calldescr', FUNC, NON_VOID_ARGS, RESULT)
+            def typedescrof(self, CLASS):
+                return ('typedescr', CLASS)
+            def methdescrof(self, CLASS, methname):
+                return FakeMethDescr(CLASS, methname)
+
+        if type_system == 'lltype':
+            FakeCPU.ts = typesystem.llhelper
+        else:
+            FakeCPU.ts = typesystem.oohelper
 
         self.metainterp_sd = FakeMetaInterpSd()
         self.metainterp_sd.opcode_implementations = None
@@ -39,9 +56,7 @@ class TestCodeWriter:
         self.metainterp_sd.indirectcalls = []
         self.metainterp_sd.cpu = FakeCPU()
 
-    def make_graph(self, func, values):
-        rtyper = support.annotate(func, values,
-                                  type_system=self.type_system)
+        rtyper = support.annotate(func, values, type_system=type_system)
         self.metainterp_sd.cpu.rtyper = rtyper
         return rtyper.annotator.translator.graphs[0]
 
@@ -99,6 +114,36 @@ class TestCodeWriter:
         names = [jitcode.name for (fnaddress, jitcode)
                                in self.metainterp_sd.indirectcalls]
         assert dict.fromkeys(names) == {'g': None}
+
+    def test_oosend_look_inside_only_one(self):
+        class A:
+            pass
+        class B(A):
+            def g(self):
+                return 123
+        class C(A):
+            @jit.dont_look_inside
+            def g(self):
+                return 456
+        def f(n):
+            if n > 3:
+                x = B()
+            else:
+                x = C()
+            return x.g() + x.g()
+        graph = self.make_graph(f, [5], type_system='ootype')
+        cw = CodeWriter(self.metainterp_sd, JitPolicy())
+        jitcode = cw.make_one_bytecode((graph, None), False)
+        assert len(self.methdescrs) == 1
+        assert self.methdescrs[0].CLASS._name.endswith('.A')
+        assert self.methdescrs[0].methname == 'og'
+        assert len(self.methdescrs[0].jitcodes.keys()) == 2
+        values = self.methdescrs[0].jitcodes.values()
+        values.sort()
+        assert values[0] is None
+        assert values[1].name == 'B.g'
+        for graph, _ in cw.all_graphs.keys():
+            assert graph.name in ['f', 'B.g']
 
     def test_instantiate(self):
         class A1:     id = 651
