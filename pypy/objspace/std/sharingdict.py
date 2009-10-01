@@ -119,7 +119,6 @@ class SharedDictImplementation(DictImplementation):
         self.entries[new_structure.length - 1] = w_value
         assert self.structure.length + 1 == new_structure.length
         self.structure = new_structure
-        assert self.structure.keys[key] >= 0
         return self
             
     def delitem(self, w_key):
