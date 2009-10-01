@@ -5,6 +5,8 @@
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import resume, compile
 
+EMPTY_VALUES = {}
+
 def optimize_loop(options, old_loops, loop, cpu=None):
     if old_loops:
         assert len(old_loops) == 1
@@ -19,8 +21,10 @@ def optimize_loop(options, old_loops, loop, cpu=None):
             if op.is_guard():
                 descr = op.descr
                 assert isinstance(descr, compile.ResumeGuardDescr)
-                args = resume.flatten_resumedata(descr)
-                descr.store_final_boxes(op, args)
+                modifier = resume.ResumeDataVirtualAdder(descr)
+                modifier.walk_snapshots(EMPTY_VALUES)
+                newboxes = modifier.finish(EMPTY_VALUES)
+                descr.store_final_boxes(op, newboxes)
             newoperations.append(op)
         loop.operations = newoperations
         return None

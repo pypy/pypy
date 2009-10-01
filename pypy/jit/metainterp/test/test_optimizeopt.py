@@ -32,7 +32,6 @@ def test_store_final_boxes_in_guard():
     op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
     # setup rd data
     fi = [("code0", 1, 2), ("code1", 3, -1)]
-    fdescr.rd_virtuals = None
     fi0 = resume.FrameInfo(None, FakeFrame("code0", 1, 2))
     fdescr.rd_frame_info_list = resume.FrameInfo(fi0,
                                                  FakeFrame("code1", 3, -1))
@@ -139,7 +138,6 @@ class BaseTestOptimizeOpt(BaseTest):
         descr = Storage()
         descr.rd_frame_info_list = resume.FrameInfo(None, FakeFrame())
         descr.rd_snapshot = resume.Snapshot(None, fail_args)
-        descr.rd_virtuals = None
         return descr
 
     def assert_equal(self, optimized, expected):
@@ -1274,7 +1272,6 @@ class BaseTestOptimizeOpt(BaseTest):
                     fdescr.rd_frame_info_list = resume.FrameInfo(None,
                                                                  FakeFrame())
                     fdescr.rd_snapshot = resume.Snapshot(None, fail_args)
-                    fdescr.virtuals = None
                 self.oparse = oparse
         #
         fdescr = instantiate(FailDescr)

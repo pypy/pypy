@@ -9,21 +9,17 @@ from pypy.jit.metainterp import executor
 class Storage:
     pass
 
-def make_demo_storage():
+def test_simple_read():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
     storage.rd_frame_infos = []
-    storage.rd_virtuals = None
     storage.rd_consts = [c1, c2, c3]
     storage.rd_nums = [0, -2, 0, 1, -1,
                        -3, -4, -1,
                        0, 1, 2, -1
                        ]
-    return storage
-
-def test_simple():
-    storage = make_demo_storage()
+    storage.rd_virtuals = None
     b1s, b2s, b3s = [BoxInt(), BoxPtr(), BoxInt()]
     assert b1s != b3s
     reader = ResumeDataReader(storage, [b1s, b2s, b3s])
@@ -40,7 +36,7 @@ def test_frame_info():
     storage.rd_frame_infos = [(1, 2, 5), (3, 4, 7)]
     storage.rd_consts = []
     storage.rd_nums = []
-    storage.rd_virtuals = None
+    storage.rd_virtuals = None    
     #
     reader = ResumeDataReader(storage, [])
     assert reader.has_more_frame_infos()
@@ -94,40 +90,6 @@ def test_FrameInfo_create():
     assert fi1.pc == 3
     assert fi1.exception_target == 4
     assert fi1.level == 2
-
-def test_flatten_resumedata():
-    # temporary "expensive" mean to go from the new to the old world
-    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
-
-    env = [b1, c1, b2, b1, c2]
-    snap = Snapshot(None, env)
-    frame = FakeFrame("JITCODE", 1, 2)    
-    fi = FrameInfo(None, frame)
-    env1 = [c3, b3, b1, c1]
-    snap1 = Snapshot(snap, env1)
-    frame1 = FakeFrame("JITCODE1", 3, 4)    
-    fi1 = FrameInfo(fi, frame1)
-
-    storage = Storage()
-    storage.rd_snapshot = snap1
-    storage.rd_frame_info_list = fi1
-
-    liveboxes = flatten_resumedata(storage)
-    assert storage.rd_snapshot is None
-    assert storage.rd_frame_info_list is None
-
-    assert storage.rd_frame_infos == [("JITCODE", 1, 2),
-                                      ("JITCODE1", 3, 4)]
-    assert storage.rd_virtuals is None
-    assert liveboxes == [b1, b2, b3]
-    assert storage.rd_consts == [c1, c2, c3, c1]
-    # check with reading
-    reader = ResumeDataReader(storage, liveboxes)
-    l = reader.consume_boxes()
-    assert l == env
-    l = reader.consume_boxes()
-    assert l == env1
 
 def test_capture_resumedata():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
@@ -198,6 +160,57 @@ def test_capture_resumedata():
 
 # ____________________________________________________________
 
+def test_walk_snapshots():
+    b1, b2, b3 = [BoxInt(), BoxInt(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+
+    env = [b1, c1, b2, b1, c2]
+    snap = Snapshot(None, env)
+    env1 = [c3, b3, b1, c1]
+    snap1 = Snapshot(snap, env1)
+
+    storage = Storage()
+    storage.rd_snapshot = snap1
+
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})
+
+    assert modifier.liveboxes == {b1: 0, b2: 0, b3: 0}
+    assert modifier.nnums == len(env)+1+len(env1)+1
+
+    b1_2 = BoxInt()
+    class FakeValue(object):
+
+        def register_value(self, modifier):
+            modifier.register_box(b1_2)
+    val = FakeValue()
+
+    storage = Storage()
+    storage.rd_snapshot = snap1
+
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({b1: val, b2: val})    
+
+    assert modifier.liveboxes == {b1_2: 0, b3: 0}
+    assert modifier.nnums == len(env)+1+len(env1)+1
+
+def test_flatten_frame_info():
+    frame = FakeFrame("JITCODE", 1, 2)    
+    fi = FrameInfo(None, frame)
+    frame1 = FakeFrame("JITCODE1", 3, 4)    
+    fi1 = FrameInfo(fi, frame1)
+
+    storage = Storage()
+    storage.rd_frame_info_list = fi1
+
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier._flatten_frame_info()
+    assert storage.rd_frame_info_list is None
+
+    assert storage.rd_frame_infos == [("JITCODE", 1, 2),
+                                      ("JITCODE1", 3, 4)]
+
+
 class MyMetaInterp:
     def __init__(self, cpu):
         self.cpu = cpu
@@ -221,15 +234,27 @@ def _resume_remap(liveboxes, expected, *newvalues):
     assert len(newboxes) == len(expected)
     return newboxes
 
+def make_storage(b1, b2, b3):
+    storage = Storage()
+    snapshot = Snapshot(None, [b1, ConstInt(1), b1, b2])
+    snapshot = Snapshot(snapshot, [ConstInt(2), ConstInt(3)])
+    snapshot = Snapshot(snapshot, [b1, b2, b3])    
+    storage.rd_snapshot = snapshot
+    # just to placate _flatten_frame_info
+    storage.rd_frame_info_list = FrameInfo(None, FakeFrame("", 0, -1))
+    return storage
+
 def test_virtual_adder_no_op():
-    storage = make_demo_storage()
     b1s, b2s, b3s = [BoxInt(1), BoxPtr(), BoxInt(3)]
-    modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})
     assert not modifier.is_virtual(b1s)
     assert not modifier.is_virtual(b2s)
     assert not modifier.is_virtual(b3s)
     # done
-    liveboxes = modifier.finish()
+    liveboxes = modifier.finish({})
+    assert storage.rd_snapshot is None
     b1t, b2t, b3t = [BoxInt(11), BoxPtr(demo55o), BoxInt(33)]
     newboxes = _resume_remap(liveboxes, [b1s, b2s, b3s], b1t, b2t, b3t)
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
@@ -242,16 +267,46 @@ def test_virtual_adder_no_op():
     assert lst == [b1t, b2t, b3t]
     assert metainterp.trace == []
 
+def test_virtual_adder_no_op_renaming():
+    b1s, b2s, b3s = [BoxInt(1), BoxInt(2), BoxInt(3)]
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    b1_2 = BoxInt()
+    class FakeValue(object):
+
+        def register_value(self, modifier):
+            modifier.register_box(b1_2)
+
+        def get_key_box(self):
+            return b1_2
+
+    val = FakeValue()
+    values = {b1s: val, b2s: val}  
+    modifier.walk_snapshots(values)
+    assert not modifier.is_virtual(b1_2)
+    assert not modifier.is_virtual(b3s)
+    # done
+    liveboxes = modifier.finish(values)
+    assert storage.rd_snapshot is None
+    b1t, b3t = [BoxInt(11), BoxInt(33)]
+    newboxes = _resume_remap(liveboxes, [b1_2, b3s], b1t, b3t)
+    metainterp = MyMetaInterp(LLtypeMixin.cpu)
+    reader = ResumeDataReader(storage, newboxes, metainterp)
+    lst = reader.consume_boxes()
+    assert lst == [b1t, ConstInt(1), b1t, b1t]
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(2), ConstInt(3)]
+    lst = reader.consume_boxes()
+    assert lst == [b1t, b1t, b3t]
+    assert metainterp.trace == []    
 
 def test_virtual_adder_make_virtual():
-    storage = make_demo_storage()
     b1s, b2s, b3s, b4s, b5s = [BoxInt(1), BoxPtr(), BoxInt(3),
-                               BoxPtr(), BoxPtr()]
+                               BoxPtr(), BoxPtr()]  
     c1s = ConstInt(111)
-    modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
-    assert not modifier.is_virtual(b1s)
-    assert not modifier.is_virtual(b2s)
-    assert not modifier.is_virtual(b3s)
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})
     modifier.make_virtual(b2s,
                           ConstAddr(LLtypeMixin.node_vtable_adr,
                                     LLtypeMixin.cpu),
@@ -269,7 +324,7 @@ def test_virtual_adder_make_virtual():
     assert     modifier.is_virtual(b4s)
     assert not modifier.is_virtual(b5s)
     # done
-    liveboxes = modifier.finish()
+    liveboxes = modifier.finish({})
     b1t, b3t, b5t = [BoxInt(11), BoxInt(33), BoxPtr(demo55o)]
     newboxes = _resume_remap(liveboxes, [b1s,
                                           #b2s -- virtual
@@ -315,22 +370,24 @@ def test_virtual_adder_make_virtual():
 
 def test_virtual_adder_make_constant():
     for testnumber in [0, 1]:
-        storage = make_demo_storage()
         b1s, b2s, b3s = [BoxInt(1), BoxPtr(), BoxInt(3)]
         if testnumber == 0:
-            # I. making a constant with make_constant()
-            modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
+            # I. making a constant by directly specifying a constant in
+            #    the list of liveboxes
+            b1s = ConstInt(111)
+        storage = make_storage(b1s, b2s, b3s)
+        modifier = ResumeDataVirtualAdder(storage)
+        modifier.walk_snapshots({})
+
+        if testnumber == 1:
+            # II. making a constant with make_constant()
             modifier.make_constant(b1s, ConstInt(111))
             assert not modifier.is_virtual(b1s)
-        else:
-            # II. making a constant by directly specifying a constant in
-            #     the list of liveboxes
-            b1s = ConstInt(111)
-            modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
+
         assert not modifier.is_virtual(b2s)
         assert not modifier.is_virtual(b3s)
         # done
-        liveboxes = modifier.finish()
+        liveboxes = modifier.finish({})
         b2t, b3t = [BoxPtr(demo55o), BoxInt(33)]
         newboxes = _resume_remap(liveboxes, [b2s, b3s], b2t, b3t)
         metainterp = MyMetaInterp(LLtypeMixin.cpu)
@@ -346,13 +403,11 @@ def test_virtual_adder_make_constant():
 
 
 def test_virtual_adder_make_varray():
-    storage = make_demo_storage()
     b1s, b2s, b3s, b4s = [BoxInt(1), BoxPtr(), BoxInt(3), BoxInt(4)]
     c1s = ConstInt(111)
-    modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
-    assert not modifier.is_virtual(b1s)
-    assert not modifier.is_virtual(b2s)
-    assert not modifier.is_virtual(b3s)
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})    
     modifier.make_varray(b2s,
                          LLtypeMixin.arraydescr,
                          [b4s, c1s])   # new fields
@@ -361,7 +416,7 @@ def test_virtual_adder_make_varray():
     assert not modifier.is_virtual(b3s)
     assert not modifier.is_virtual(b4s)
     # done
-    liveboxes = modifier.finish()
+    liveboxes = modifier.finish({})
     b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxInt(44)]
     newboxes = _resume_remap(liveboxes, [b1s,
                                           #b2s -- virtual
@@ -395,13 +450,11 @@ def test_virtual_adder_make_varray():
 
 
 def test_virtual_adder_make_vstruct():
-    storage = make_demo_storage()
     b1s, b2s, b3s, b4s = [BoxInt(1), BoxPtr(), BoxInt(3), BoxPtr()]
     c1s = ConstInt(111)
-    modifier = ResumeDataVirtualAdder(storage, [b1s, b2s, b3s])
-    assert not modifier.is_virtual(b1s)
-    assert not modifier.is_virtual(b2s)
-    assert not modifier.is_virtual(b3s)
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})
     modifier.make_vstruct(b2s,
                           LLtypeMixin.ssize,
                           [LLtypeMixin.adescr, LLtypeMixin.bdescr],
@@ -411,7 +464,7 @@ def test_virtual_adder_make_vstruct():
     assert not modifier.is_virtual(b3s)
     assert not modifier.is_virtual(b4s)
     # done
-    liveboxes = modifier.finish()
+    liveboxes = modifier.finish({})
     b1t, b3t, b4t = [BoxInt(11), BoxInt(33), BoxPtr()]
     newboxes = _resume_remap(liveboxes, [b1s,
                                           #b2s -- virtual

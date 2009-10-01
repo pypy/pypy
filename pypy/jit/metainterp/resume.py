@@ -58,72 +58,38 @@ def capture_resumedata(framestack, virtualizable_boxes, storage):
         snapshot = Snapshot(snapshot, virtualizable_boxes[:]) # xxx for now
     storage.rd_snapshot = snapshot
 
-_placeholder = (None, 0, 0)
-
-def flatten_resumedata(storage):
-    frame_info_list = storage.rd_frame_info_list
-    storage.rd_frame_info_list = None
-    j = frame_info_list.level
-    frame_infos = [_placeholder]*j
-    j -= 1
-    while True: # at least one
-        frame_infos[j] = (frame_info_list.jitcode, frame_info_list.pc,
-                          frame_info_list.exception_target)
-        frame_info_list = frame_info_list.prev
-        if frame_info_list is None:
-            break
-        j -= 1
-    storage.rd_frame_infos = frame_infos
-    memo = {}
-    consts = []
-    liveboxes = []
-    nums = []
-    snapshots = []
-    snapshot = storage.rd_snapshot
-    storage.rd_snapshot = None
-    while True:
-        snapshots.append(snapshot)
-        snapshot = snapshot.prev
-        if snapshot is None:
-            break    
-    n = len(snapshots)-1
-    while n >= 0:
-        boxes = snapshots[n].boxes
-        n -= 1
-        for box in boxes:
-            assert box is not None
-            if isinstance(box, Box):
-                try:
-                    num = memo[box]
-                except KeyError:
-                    num = len(liveboxes)
-                    liveboxes.append(box)
-                    memo[box] = num
-            else:
-                num = -2 - len(consts)
-                consts.append(box)
-            nums.append(num)
-        nums.append(-1)
-    nums = nums[:]
-    storage.rd_nums = nums
-    storage.rd_consts = consts[:]
-    storage.rd_virtuals = None
-    return liveboxes
  
 VIRTUAL_FLAG = int((sys.maxint+1) // 2)
 assert not (VIRTUAL_FLAG & (VIRTUAL_FLAG-1))    # a power of two
 
+_frame_info_placeholder = (None, 0, 0)
+
 class ResumeDataVirtualAdder(object):
 
-    def __init__(self, storage, liveboxes):
+    def __init__(self, storage):
         self.storage = storage
-        self.consts = storage.rd_consts[:]
-        assert storage.rd_virtuals is None
-        self.original_liveboxes = liveboxes
         self.liveboxes = {}
-        self._register_boxes(liveboxes)
+        self.consts = []
         self.virtuals = []
         self.vfieldboxes = []
+
+    def walk_snapshots(self, values):
+        nnums = 0
+        snapshot = self.storage.rd_snapshot
+        assert snapshot
+        while True: # at least one
+            boxes = snapshot.boxes
+            nnums += len(boxes)+1
+            for box in boxes:
+                if box in values:
+                    value = values[box]
+                    value.register_value(self)
+                else:
+                    self.register_box(box)
+            snapshot = snapshot.prev
+            if snapshot is None:
+                break
+        self.nnums = nnums
 
     def make_constant(self, box, const):
         # this part of the interface is not used so far by optimizeopt.py
@@ -149,26 +115,60 @@ class ResumeDataVirtualAdder(object):
         self.vfieldboxes.append(fieldboxes)
         self._register_boxes(fieldboxes)
 
+    def register_box(self, box):
+        if isinstance(box, Box) and box not in self.liveboxes:
+            self.liveboxes[box] = 0
+            return True
+        return False
+                
     def _register_boxes(self, boxes):
         for box in boxes:
-            if isinstance(box, Box) and box not in self.liveboxes:
-                self.liveboxes[box] = 0
+            self.register_box(box)
 
     def is_virtual(self, virtualbox):
         return self.liveboxes[virtualbox] >= VIRTUAL_FLAG
 
-    def finish(self):
+    def _flatten_frame_info(self):
+        storage = self.storage        
+        frame_info_list = storage.rd_frame_info_list
+        storage.rd_frame_info_list = None
+        j = frame_info_list.level
+        frame_infos = [_frame_info_placeholder]*j
+        j -= 1
+        while True: # at least one
+            frame_infos[j] = (frame_info_list.jitcode, frame_info_list.pc,
+                              frame_info_list.exception_target)
+            frame_info_list = frame_info_list.prev
+            if frame_info_list is None:
+                break
+            j -= 1
+        storage.rd_frame_infos = frame_infos        
+
+    def finish(self, values):
+        self._flatten_frame_info()
         storage = self.storage
         liveboxes = []
         for box in self.liveboxes.iterkeys():
             if self.liveboxes[box] == 0:
                 self.liveboxes[box] = len(liveboxes)
                 liveboxes.append(box)
-        for i in range(len(storage.rd_nums)):
-            num = storage.rd_nums[i]
-            if num >= 0:
-                box = self.original_liveboxes[num]
-                storage.rd_nums[i] = self._getboxindex(box)
+        nums = storage.rd_nums = [0]*self.nnums
+        i = self.nnums-1
+        snapshot = self.storage.rd_snapshot
+        while True: # at least one
+            boxes = snapshot.boxes
+            nums[i] = -1
+            i -= 1
+            for j in range(len(boxes)-1, -1, -1):
+                box = boxes[j]
+                if box in values:
+                    box = values[box].get_key_box()
+                nums[i] = self._getboxindex(box)
+                i -= 1
+            snapshot = snapshot.prev
+            if snapshot is None:
+                break
+        storage.rd_virtuals = None
         if len(self.virtuals) > 0:
             storage.rd_virtuals = self.virtuals[:]
             for i in range(len(storage.rd_virtuals)):
@@ -177,6 +177,7 @@ class ResumeDataVirtualAdder(object):
                 vinfo.fieldnums = [self._getboxindex(box)
                                    for box in fieldboxes]
         storage.rd_consts = self.consts[:]
+        storage.rd_snapshot = None
         if debug:
             dump_storage(storage)
         return liveboxes

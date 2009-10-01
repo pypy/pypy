@@ -56,6 +56,11 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
+    def register_value(self, modifier):
+        box = self.get_key_box()   # may be a Const, too
+        if modifier.register_box(box):
+            self.get_args_for_fail(modifier)
+
     def get_args_for_fail(self, modifier):
         pass
 
@@ -499,18 +504,9 @@ class Optimizer(object):
     def store_final_boxes_in_guard(self, op):
         descr = op.descr
         assert isinstance(descr, compile.ResumeGuardDescr)
-        oldboxes = []
-        args = resume.flatten_resumedata(descr) # xxx expensive
-        for box in args:
-            if box in self.values:
-                box = self.values[box].get_key_box()   # may be a Const, too
-            oldboxes.append(box)
-        modifier = resume.ResumeDataVirtualAdder(descr, oldboxes)
-        for box in args:
-            if box in self.values:
-                value = self.values[box]
-                value.get_args_for_fail(modifier)
-        newboxes = modifier.finish()
+        modifier = resume.ResumeDataVirtualAdder(descr)
+        modifier.walk_snapshots(self.values)
+        newboxes = modifier.finish(self.values)
         descr.store_final_boxes(op, newboxes)
 
     def clean_fields_of_values(self, descr=None):
