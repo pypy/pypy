@@ -148,7 +148,8 @@ class CodeWriter(object):
         return (cfnptr, calldescr)
 
     def register_indirect_call_targets(self, op):
-        targets = self.policy.graphs_from(op, self.cpu.supports_floats)
+        targets = self.policy.graphs_from(op, self.rtyper,
+                                          self.cpu.supports_floats)
         assert targets is not None
         for graph in targets:
             if graph in self.all_indirect_call_targets:
@@ -1000,22 +1001,26 @@ class BytecodeMaker(object):
 
     def serialize_op_direct_call(self, op):
         kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.rtyper,
                                            self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_call' % kind)(op)
 
     def serialize_op_indirect_call(self, op):
         kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.rtyper,
                                            self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
     def serialize_op_oosend(self, op):
         kind = self.codewriter.policy.guess_call_kind(op,
+                                           self.codewriter.rtyper,
                                            self.codewriter.cpu.supports_floats)
         return getattr(self, 'handle_%s_oosend' % kind)(op)
 
     def handle_regular_call(self, op, oosend_methdescr=None):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op,
+                                           self.codewriter.rtyper,
                                            self.codewriter.cpu.supports_floats)
         jitbox = self.codewriter.get_jitcode(targetgraph, self.graph,
                                              oosend_methdescr=oosend_methdescr)

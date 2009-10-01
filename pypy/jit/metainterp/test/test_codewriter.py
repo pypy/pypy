@@ -101,7 +101,6 @@ class TestCodeWriter:
         assert dict.fromkeys(names) == {'g': None}
 
     def test_instantiate(self):
-        py.test.skip("in-progress")
         class A1:     id = 651
         class A2(A1): id = 652
         class B1:     id = 661
@@ -119,7 +118,17 @@ class TestCodeWriter:
         graph2 = self.graphof(ll_instantiate)
         jitcode = cw.make_one_bytecode((graph2, None), False)
         assert 'residual_call' not in jitcode._source
-        xxx
+        names = [jitcode.name for (fnaddress, jitcode)
+                               in self.metainterp_sd.indirectcalls]
+        names = dict.fromkeys(names)
+        assert len(names) >= 4
+        for expected in ['A1', 'A2', 'B1', 'B2']:
+            for name in names:
+                if name.startswith('instantiate_') and name.endswith(expected):
+                    break
+            else:
+                assert 0, "missing instantiate_*_%s in:\n%r" % (expected,
+                                                                names)
 
 
 class ImmutableFieldsTests:

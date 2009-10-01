@@ -644,7 +644,6 @@ class BasicTests:
         res = self.interp_operations(f, [13])
         assert res == 72
 
-    @py.test.mark.xfail
     def test_instantiate_does_not_call(self):
         mydriver = JitDriver(reds = ['n', 'x'], greens = [])
         class Base: pass
@@ -664,7 +663,7 @@ class BasicTests:
                 x += inst.foo
                 n -= 1
             return x
-        res = self.meta_interp(f, [20])
+        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
         assert res == f(20)
         self.check_loops(call=0)
 

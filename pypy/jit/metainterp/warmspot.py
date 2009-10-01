@@ -561,6 +561,7 @@ class WarmRunnerDesc:
 
 def find_all_graphs(portal, policy, translator, supports_floats):
     from pypy.translator.simplify import get_graph
+    rtyper = translator.rtyper
     all_graphs = [portal]
     seen = set([portal])
     todo = [portal]
@@ -569,10 +570,10 @@ def find_all_graphs(portal, policy, translator, supports_floats):
         for _, op in top_graph.iterblockops():
             if op.opname not in ("direct_call", "indirect_call", "oosend"):
                 continue
-            kind = policy.guess_call_kind(op, supports_floats)
+            kind = policy.guess_call_kind(op, rtyper, supports_floats)
             if kind != "regular":
                 continue
-            for graph in policy.graphs_from(op, supports_floats):
+            for graph in policy.graphs_from(op, rtyper, supports_floats):
                 if graph in seen:
                     continue
                 if policy.look_inside_graph(graph, supports_floats):

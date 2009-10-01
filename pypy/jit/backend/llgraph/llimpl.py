@@ -110,6 +110,7 @@ TYPES = {
     'ooisnot'         : (('ref', 'ref'), 'bool'),
     'instanceof'      : (('ref',), 'bool'),
     'subclassof'      : (('ref', 'ref'), 'bool'),
+    'runtimenew'      : (('ref',), 'ref'),
     'setfield_gc'     : (('ref', 'intorptr'), None),
     'getfield_gc'     : (('ref',), 'intorptr'),
     'getfield_gc_pure': (('ref',), 'intorptr'),
@@ -843,6 +844,11 @@ class OOFrame(Frame):
         expected_class = ootype.cast_from_object(ootype.Class, expected_class)
         if ootype.classof(value) is not expected_class:
             raise GuardFailed
+
+    def op_runtimenew(self, _, cls):
+        cls = ootype.cast_from_object(ootype.Class, cls)
+        res = ootype.runtimenew(cls)
+        return ootype.cast_to_object(res)
 
     def op_instanceof(self, typedescr, obj):
         inst = ootype.cast_from_object(ootype.ROOT, obj)

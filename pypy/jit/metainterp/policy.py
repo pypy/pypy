@@ -1,6 +1,6 @@
 from pypy.translator.simplify import get_funcobj
 from pypy.jit.metainterp import support, history
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rclass
 
 class JitPolicy(object):
 
@@ -29,7 +29,7 @@ class JitPolicy(object):
                 not contains_unsupported_variable_type(graph,
                                                        supports_floats))
 
-    def graphs_from(self, op, supports_floats):
+    def graphs_from(self, op, rtyper, supports_floats):
         if op.opname == 'direct_call':
             funcobj = get_funcobj(op.args[0].value)
             graph = funcobj.graph
@@ -50,10 +50,24 @@ class JitPolicy(object):
                 if result:
                     return result  # common case: look inside these graphs,
                                    # and ignore the others if there are any
+            else:
+                # special case: handle the indirect call that goes to
+                # the 'instantiate' methods.  This check is a bit imprecise
+                # but it's not too bad if we mistake a random indirect call
+                # for the one to 'instantiate'.
+                CALLTYPE = op.args[0].concretetype
+                if (op.opname == 'indirect_call' and len(op.args) == 2 and
+                    CALLTYPE == rclass.OBJECT_VTABLE.instantiate):
+                    return list(self._graphs_of_all_instantiate(rtyper))
         # residual call case: we don't need to look into any graph
         return None
 
-    def guess_call_kind(self, op, supports_floats):
+    def _graphs_of_all_instantiate(self, rtyper):
+        for vtable in rtyper.lltype_to_vtable_mapping().itervalues():
+            if vtable.instantiate:
+                yield vtable.instantiate._obj.graph
+
+    def guess_call_kind(self, op, rtyper, supports_floats):
         if op.opname == 'direct_call':
             funcptr = op.args[0].value
             funcobj = get_funcobj(funcptr)
@@ -69,7 +83,7 @@ class JitPolicy(object):
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
                 return 'builtin'
-        if self.graphs_from(op, supports_floats) is None:
+        if self.graphs_from(op, rtyper, supports_floats) is None:
             return 'residual'
         return 'regular'
 

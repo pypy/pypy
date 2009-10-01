@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
@@ -53,6 +53,32 @@ class DelTests:
             return 42
         res = self.meta_interp(f, [20])
         assert res == 42
+
+    def test_instantiate_with_or_without_del(self):
+        import gc
+        mydriver = JitDriver(reds = ['n', 'x'], greens = [])
+        class Base: pass
+        class A(Base): foo = 72
+        class B(Base):
+            foo = 8
+            def __del__(self):
+                pass
+        def f(n):
+            x = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, x=x)
+                mydriver.jit_merge_point(n=n, x=x)
+                if n % 2 == 0:
+                    cls = A
+                else:
+                    cls = B
+                inst = cls()
+                x += inst.foo
+                n -= 1
+            return 1
+        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
+        assert res == 1
+        self.check_loops(call=1)   # for the case B(), but not for the case A()
 
 
 class TestLLtype(DelTests, LLJitMixin):
