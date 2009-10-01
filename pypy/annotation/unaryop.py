@@ -375,10 +375,14 @@ def check_negative_slice(s_start, s_stop):
 
 class __extend__(SomeDict):
 
-    def len(dct):
+    def _is_empty(dct):
         s_key = dct.dictdef.read_key()
         s_value = dct.dictdef.read_value()
-        if isinstance(s_key, SomeImpossibleValue) or isinstance(s_value, SomeImpossibleValue):
+        return (isinstance(s_key, SomeImpossibleValue) or
+                isinstance(s_value, SomeImpossibleValue))
+        
+    def len(dct):
+        if dct._is_empty():
             return immutablevalue(0)
         return SomeObject.len(dct)
 
@@ -443,6 +447,10 @@ class __extend__(SomeDict):
 
     def op_contains(dct, s_element):
         dct.dictdef.generalize_key(s_element)
+        if dct._is_empty():
+            s_bool = SomeBool()
+            s_bool.const = False
+            return s_bool
         return s_Bool
     op_contains.can_only_throw = _can_only_throw
 

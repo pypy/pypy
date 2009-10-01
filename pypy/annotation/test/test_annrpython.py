@@ -3196,6 +3196,33 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == int
 
+    def test_contains_of_empty_dict(self):
+        class A(object):
+            def meth(self):
+                return 1
+
+        def g(x, y):
+            d1 = {}
+            for i in range(y):
+                if x in d1:
+                    return d1[x].meth()
+                d1[i+1] = A()
+            return 0
+                
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int, int])
+        assert s.knowntype is int
+        
+        def f(x):
+            d0 = {}
+            if x in d0:
+                d0[x].meth()
+            return x+1
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.knowntype is int
+
 
 def g(n):
     return [0,1,2,n]
