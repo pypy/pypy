@@ -3,8 +3,8 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import AbstractDescr, AbstractMethDescr
+from pypy.jit.metainterp.history import AbstractFailDescr, LoopToken
 from pypy.jit.metainterp.history import Box, BoxInt, BoxObj, ConstObj, Const
-from pypy.jit.metainterp.history import TreeLoop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
@@ -18,15 +18,24 @@ OpCodes = System.Reflection.Emit.OpCodes
 InputArgs = CLR.pypy.runtime.InputArgs
 cpypyString = dotnet.classof(CLR.pypy.runtime.String)
 
-class __extend__(TreeLoop):
-    __metaclass__ = extendabletype
+LoopToken.cliloop = None
+AbstractFailDescr._loop_token = None
+AbstractFailDescr._guard_op = None
 
-    _cli_funcbox = None
-    _cli_meth = None
-    _cli_count = 0
+class CliLoop(object):
+    
+    def __init__(self, name, inputargs, operations):
+        self.name = name
+        self.inputargs = inputargs
+        self.operations = operations
+        self.guard2ops = {}  # guard_op --> (inputargs, operations)
+        self.funcbox = None
+        self.methcount = 0
 
-    def _get_cli_name(self):
-        return '%s(r%d)' % (self.name, self._cli_count)
+    def get_fresh_cli_name(self):
+        name = '%s(r%d)' % (self.name, self.methcount)
+        self.methcount += 1
+        return name
 
 
 class CliCPU(model.AbstractCPU):
@@ -38,6 +47,7 @@ class CliCPU(model.AbstractCPU):
         self.rtyper = rtyper
         if rtyper:
             assert rtyper.type_system.name == "ootypesystem"
+        self.loopcount = 0
         self.stats = stats
         self.translate_support_code = translate_support_code
         self.inputargs = None
@@ -90,21 +100,42 @@ class CliCPU(model.AbstractCPU):
 
     # ----------------------
 
-    def compile_operations(self, loop, bridge=None):
+    def _attach_token_to_faildescrs(self, token, operations):
+        for op in operations:
+            if op.is_guard():
+                descr = op.descr
+                assert isinstance(descr, AbstractFailDescr)
+                descr._loop_token = token
+                descr._guard_op = op
+
+    def compile_loop(self, inputargs, operations, looptoken):
         from pypy.jit.backend.cli.method import Method, ConstFunction
-        if loop._cli_funcbox is None:
-            loop._cli_funcbox = ConstFunction(loop.name)
-        else:
-            # discard previously compiled loop
-            loop._cli_funcbox.holder.SetFunc(None)
-        loop._cli_meth = Method(self, loop._get_cli_name(), loop)
-        loop._cli_count += 1
+        name = 'Loop%d' % self.loopcount
+        self.loopcount += 1
+        cliloop = CliLoop(name, inputargs, operations)
+        looptoken.cliloop = cliloop
+        cliloop.funcbox = ConstFunction(cliloop.name)
+        self._attach_token_to_faildescrs(cliloop, operations)
+        meth = Method(self, cliloop)
+        cliloop.funcbox.holder.SetFunc(meth.compile())
 
-    def execute_operations(self, loop):
-        func = loop._cli_funcbox.holder.GetFunc()
+    def compile_bridge(self, faildescr, inputargs, operations):
+        from pypy.jit.backend.cli.method import Method
+        op = faildescr._guard_op
+        token = faildescr._loop_token
+        token.guard2ops[op] = (inputargs, operations)
+        self._attach_token_to_faildescrs(token, operations)
+        meth = Method(self, token)
+        token.funcbox.holder.SetFunc(meth.compile())
+        return token
+
+    def execute_token(self, looptoken):
+        cliloop = looptoken.cliloop
+        func = cliloop.funcbox.holder.GetFunc()
         func(self.get_inputargs())
-        return self.failing_ops[self.inputargs.get_failed_op()]
-
+        op = self.failing_ops[self.inputargs.get_failed_op()]
+        return op.descr
+        
     def set_future_value_int(self, index, intvalue):
         self.get_inputargs().set_int(index, intvalue)
 
@@ -180,10 +211,12 @@ class CliCPU(model.AbstractCPU):
 
     def do_getfield_gc(self, instancebox, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
+        assert fielddescr.getfield is not None
         return fielddescr.getfield(instancebox)
 
     def do_setfield_gc(self, instancebox, newvaluebox, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
+        assert fielddescr.setfield is not None
         return fielddescr.setfield(instancebox, newvaluebox)
 
     def do_call(self, args, calldescr):
@@ -205,6 +238,7 @@ class CliCPU(model.AbstractCPU):
 
     def do_oosend(self, args, descr):
         assert isinstance(descr, MethDescr)
+        assert descr.callmeth is not None
         selfbox = args[0]
         argboxes = args[1:]
         return descr.callmeth(selfbox, argboxes)
@@ -428,6 +462,7 @@ class FieldDescr(DescrWithKey):
     setfield = None
     selfclass = ootype.nullruntimeclass
     fieldname = ''
+    _is_pointer_field = False
 
     def __init__(self, TYPE, fieldname):
         DescrWithKey.__init__(self, (TYPE, fieldname))

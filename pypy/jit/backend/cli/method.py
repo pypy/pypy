@@ -7,7 +7,7 @@ from pypy.translator.cli.dotnet import CLR
 from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
-                                         ConstObj, BoxInt)
+                                         ConstObj, BoxInt, LoopToken)
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.metainterp.typesystem import oohelper
 from pypy.jit.backend.cli import runner
@@ -22,7 +22,6 @@ ListOfVoid = CLR.pypy.runtime.ListOfVoid
 Utils = CLR.pypy.runtime.Utils
 
 cVoid = ootype.nullruntimeclass
-
 
 class __extend__(AbstractValue):
     __metaclass__ = extendabletype
@@ -127,11 +126,11 @@ class Method(object):
     tailcall = True
     nocast = True
 
-    def __init__(self, cpu, name, loop):
+    def __init__(self, cpu, cliloop):
         self.setoptions()
         self.cpu = cpu
-        self.name = name
-        self.loop = loop
+        self.name = cliloop.get_fresh_cli_name()
+        self.cliloop = cliloop
         self.boxes = {}       # box --> local var
         self.branches = []
         self.branchlabels = []
@@ -149,18 +148,19 @@ class Method(object):
         else:
             self.av_OverflowError = None
             self.av_ZeroDivisionError = None
-
-        # ----
         self.box2type = {}
+
+    def compile(self):
+        # ----
         if self.nocast:
             self.compute_types()
         self.emit_load_inputargs()
         self.emit_preamble()
-        self.emit_operations(loop.operations)
+        self.emit_operations(self.cliloop.operations)
         self.emit_branches()
         self.emit_end()
         # ----
-        self.finish_code()
+        return self.finish_code()
 
     def _parseopt(self, text):
         text = text.lower()
@@ -194,12 +194,13 @@ class Method(object):
                 descr = op.descr
                 assert isinstance(descr, runner.FieldDescr)
                 box2classes.setdefault(box, []).append(descr.selfclass)
-            if op.suboperations:
-                self._collect_types(op.suboperations, box2classes)
+            if op in self.cliloop.guard2ops:
+                _, suboperations = self.cliloop.guard2ops[op]
+                self._collect_types(suboperations, box2classes)
 
     def compute_types(self):
         box2classes = {} # box --> [ootype.Class]
-        self._collect_types(self.loop.operations, box2classes)
+        self._collect_types(self.cliloop.operations, box2classes)
         for box, classes in box2classes.iteritems():
             cls = classes[0]
             for cls2 in classes[1:]:
@@ -217,8 +218,7 @@ class Method(object):
             consts[i] = av_const.get_cliobj()
         # build the delegate
         func = self.meth_wrapper.create_delegate(delegatetype, consts)
-        func = dotnet.clidowncast(func, LoopDelegate)
-        self.loop._cli_funcbox.holder.SetFunc(func)
+        return dotnet.clidowncast(func, LoopDelegate)
 
     def _get_meth_wrapper(self):
         restype = dotnet.class2type(cVoid)
@@ -239,6 +239,12 @@ class Method(object):
             v = self.il.DeclareLocal(box.getCliType(self))
             self.boxes[box] = v
             return v
+
+    def match_var_fox_boxes(self, failargs, inputargs):
+        assert len(failargs) == len(inputargs)
+        for i in range(len(failargs)):
+            v = self.boxes[failargs[i]]
+            self.boxes[inputargs[i]] = v
 
     def get_index_for_failing_op(self, op):
         try:
@@ -292,7 +298,7 @@ class Method(object):
     def emit_load_inputargs(self):
         self.emit_debug("executing: " + self.name)
         i = 0
-        for box in self.loop.inputargs:
+        for box in self.cliloop.inputargs:
             self.load_inputarg(i, box.type, box.getCliType(self))
             box.store(self)
             i+=1
@@ -324,7 +330,16 @@ class Method(object):
                 op = branches[i]
                 il_label = branchlabels[i]
                 self.il.MarkLabel(il_label)
-                self.emit_operations(op.suboperations)
+                self.emit_guard_subops(op)
+
+    def emit_guard_subops(self, op):
+        assert op.is_guard()
+        if op in self.cliloop.guard2ops:
+            inputargs, suboperations = self.cliloop.guard2ops[op]
+            self.match_var_fox_boxes(op.fail_args, inputargs)
+            self.emit_operations(suboperations)
+        else:
+            self.emit_return_failed_op(op, op.fail_args)
 
     def emit_end(self):
         assert self.branches == []
@@ -396,7 +411,6 @@ class Method(object):
         self.il.Emit(OpCodes.Leave, lbl)
         self.il.BeginCatchBlock(dotnet.typeof(System.OverflowException))
         # emit the guard
-        assert opguard.suboperations
         assert len(opguard.args) == 0
         il_label = self.newbranch(opguard)
         self.il.Emit(OpCodes.Leave, il_label)
@@ -408,25 +422,27 @@ class Method(object):
 
     # --------------------------------
 
-    def emit_op_fail(self, op):
+    def emit_return_failed_op(self, op, args):
         # store the index of the failed op
         index_op = self.get_index_for_failing_op(op)
         self.av_inputargs.load(self)
         self.il.Emit(OpCodes.Ldc_I4, index_op)
         field = dotnet.typeof(InputArgs).GetField('failed_op')
         self.il.Emit(OpCodes.Stfld, field)
-        self.emit_store_opargs(op)
+        self.emit_store_opargs(args)
         self.il.Emit(OpCodes.Ret)
 
-    def emit_store_opargs(self, op):
+    def emit_op_finish(self, op):
+        self.emit_return_failed_op(op, op.args)
+
+    def emit_store_opargs(self, args):
         # store the latest values
         i = 0
-        for box in op.args:
+        for box in args:
             self.store_inputarg(i, box.type, box.getCliType(self), box)
             i+=1
 
     def emit_guard_bool(self, op, opcode):
-        assert op.suboperations
         assert len(op.args) == 1
         il_label = self.newbranch(op)
         op.args[0].load(self)
@@ -439,14 +455,12 @@ class Method(object):
         self.emit_guard_bool(op, OpCodes.Brtrue)
 
     def emit_op_guard_value(self, op):
-        assert op.suboperations
         assert len(op.args) == 2
         il_label = self.newbranch(op)
         self.push_all_args(op)
         self.il.Emit(OpCodes.Bne_Un, il_label)
 
     def emit_op_guard_class(self, op):
-        assert op.suboperations
         assert len(op.args) == 2
         il_label = self.newbranch(op)
         self.push_arg(op, 0)
@@ -456,14 +470,12 @@ class Method(object):
         self.il.Emit(OpCodes.Bne_Un, il_label)
 
     def emit_op_guard_no_exception(self, op):
-        assert op.suboperations
         il_label = self.newbranch(op)
         self.av_inputargs.load(self)
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.il.Emit(OpCodes.Brtrue, il_label)
 
     def emit_op_guard_exception(self, op):
-        assert op.suboperations
         il_label = self.newbranch(op)
         classbox = op.args[0]
         assert isinstance(classbox, ConstObj)
@@ -479,7 +491,6 @@ class Method(object):
         self.store_result(op)
 
     def emit_guard_overflow_impl(self, op, opcode):
-        assert op.suboperations
         assert len(op.args) == 0
         il_label = self.newbranch(op)
         self.av_ovf_flag.load(self)
@@ -492,19 +503,22 @@ class Method(object):
         self.emit_guard_overflow_impl(op, OpCodes.Brfalse)
 
     def emit_op_jump(self, op):
-        target = op.jump_target
-        assert len(op.args) == len(target.inputargs)
-        if target is self.loop:
+        target_token = op.descr
+        assert isinstance(target_token, LoopToken)
+        if target_token.cliloop is self.cliloop:
+            # jump to the beginning of the loop
             i = 0
             for i in range(len(op.args)):
                 op.args[i].load(self)
-                target.inputargs[i].store(self)
+                self.cliloop.inputargs[i].store(self)
             self.il.Emit(OpCodes.Br, self.il_loop_start)
         else:
             # it's a real bridge
-            self.emit_debug('jumping to ' + target.name)
-            self.emit_store_opargs(op)
-            target._cli_funcbox.load(self)
+            cliloop = target_token.cliloop
+            assert len(op.args) == len(cliloop.inputargs)
+            self.emit_debug('jumping to ' + cliloop.name)
+            self.emit_store_opargs(op.args)
+            cliloop.funcbox.load(self)
             self.av_inputargs.load(self)
             methinfo = dotnet.typeof(LoopDelegate).GetMethod('Invoke')
             if self.tailcall:

@@ -13,7 +13,7 @@ class CliJitMixin(object):
     CPUClass = CliCPU
 
     # for the individual tests see
-    # ====> ../../test/runner.py
+    # ====> ../../test/runner_test.py
     
     def setup_class(cls):
         cls.cpu = cls.CPUClass(rtyper=None, stats=FakeStats())
@@ -33,8 +33,14 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     def test_ovf_operations(self, reversed=False):
         self.skip()
 
+    def test_do_unicode_basic(self):
+        py.test.skip('fixme!')
+
     def test_unicode_basic(self):
         py.test.skip('fixme!')
+
+    def test_backends_dont_keep_loops_alive(self):
+        pass # the cli backend DOES keep loops alive
 
 def test_pypycliopt():
     import os

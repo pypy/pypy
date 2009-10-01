@@ -43,6 +43,10 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     test_subclassof = skip
     test_assert_isinstance = skip
     test_dont_look_inside = skip
+    test_setfield_bool = skip
+    test_instantiate_does_not_call = skip
+    test_listcomp = skip
+    test_tuple_immutable = skip
 
 
 def test_fielddescr_ootype():
