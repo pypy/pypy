@@ -37,8 +37,23 @@ class GcLLDescr_boehm(GcLLDescription):
     def __init__(self, gcdescr, translator):
         GcLLDescription.__init__(self, gcdescr, translator)
         # grab a pointer to the Boehm 'malloc' function
-        compilation_info = ExternalCompilationInfo(libraries=['gc'])
-        malloc_fn_ptr = rffi.llexternal("GC_local_malloc",
+        from pypy.rpython.tool import rffi_platform
+        compilation_info = rffi_platform.check_boehm()
+
+        # Versions 6.x of libgc needs to use GC_local_malloc().
+        # Versions 7.x of libgc removed this function; GC_malloc() has
+        # the same behavior if libgc was compiled with
+        # THREAD_LOCAL_ALLOC.
+        class CConfig:
+            _compilation_info_ = compilation_info
+            HAS_LOCAL_MALLOC = rffi_platform.Has("GC_local_malloc")
+        config = rffi_platform.configure(CConfig)
+        if config['HAS_LOCAL_MALLOC']:
+            GC_MALLOC = "GC_local_malloc"
+        else:
+            GC_MALLOC = "GC_malloc"
+
+        malloc_fn_ptr = rffi.llexternal(GC_MALLOC,
                                         [lltype.Signed], # size_t, but good enough
                                         llmemory.GCREF,
                                         compilation_info=compilation_info,
@@ -48,6 +63,7 @@ class GcLLDescr_boehm(GcLLDescription):
 
         # on some platform GC_init is required before any other
         # GC_* functions, call it here for the benefit of tests
+        # XXX move this to tests
         init_fn_ptr = rffi.llexternal("GC_init",
                                       [], lltype.Void,
                                       compilation_info=compilation_info,
