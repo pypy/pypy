@@ -50,7 +50,7 @@ class BasicTest:
         res = rpython_ll_meta_interp(f, [17], loops=2, CPUClass=self.CPUClass,
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
-                                     profile=Profiler)
+                                     ProfilerClass=Profiler)
         assert res == (17+14+11+8+7+6+5+4) * 10
 
 

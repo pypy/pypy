@@ -152,9 +152,55 @@ class WarmspotTests(object):
         assert warmrunnerdescr.state.optimize_loop is optimize.optimize_loop
         assert warmrunnerdescr.state.optimize_bridge is optimize.optimize_bridge
 
-    def test_set_param_debug(self):
-        from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
+    def test_static_debug_level(self):
         from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
+        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
+        
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n -= 1
+            return n
+
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(f, [10], debug_level=DEBUG_OFF,
+                                  ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not "Running asm" in err
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(f, [10], debug_level=DEBUG_PROFILE,
+                                  ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not 'compiled new' in err
+        assert "Running asm" in err
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
+                                  ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert 'ENTER' in err
+        assert 'LEAVE' in err
+        assert "Running asm" in err
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
+                                  ProfilerClass=EmptyProfiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert 'ENTER' in err
+        assert 'LEAVE' in err
+        assert not "Running asm" in err
+
+    def test_set_param_debug(self):
+        from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
+        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
         
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):
@@ -165,18 +211,20 @@ class WarmspotTests(object):
             return n
 
         def main(n, debug):
-            myjitdriver.set_param_debug(debug)
+            myjitdriver.set_param("debug", debug)
             print f(n)
 
         outerr = py.io.StdCaptureFD()
-        self.meta_interp(f, [10], debug=DEBUG_OFF)
+        self.meta_interp(main, [10, DEBUG_OFF], debug_level=DEBUG_STEPS,
+                                                ProfilerClass=Profiler)
         out, errf = outerr.done()
         err = errf.read()
         assert not 'ENTER' in err
         assert not 'LEAVE' in err
-        assert "Running asm" not in err
+        assert not "Running asm" in err
         outerr = py.io.StdCaptureFD()
-        self.meta_interp(f, [10], debug=DEBUG_PROFILE)
+        self.meta_interp(main, [10, DEBUG_PROFILE], debug_level=DEBUG_STEPS,
+                                                    ProfilerClass=Profiler)
         out, errf = outerr.done()
         err = errf.read()
         assert not 'ENTER' in err
@@ -184,7 +232,8 @@ class WarmspotTests(object):
         assert not 'compiled new' in err
         assert "Running asm" in err
         outerr = py.io.StdCaptureFD()
-        self.meta_interp(f, [10], debug=DEBUG_STEPS)
+        self.meta_interp(main, [10, DEBUG_STEPS], debug_level=DEBUG_OFF,
+                                                  ProfilerClass=Profiler)
         out, errf = outerr.done()
         err = errf.read()
         assert 'ENTER' in err

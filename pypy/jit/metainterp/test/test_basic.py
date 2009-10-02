@@ -11,7 +11,6 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.metainterp.jitprof import EmptyProfiler
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False, optimizer=OPTIMIZER_FULL):
@@ -71,7 +70,7 @@ class JitMixin:
             def __init__(self, cpu, *args):
                 DoneWithThisFrame.__init__(self, *args)
         
-        class FakeWarmRunnerDesc:
+        class FakeWarmRunnerState:
             def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
                 pass
 
@@ -80,8 +79,7 @@ class JitMixin:
             optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
 
             trace_limit = sys.maxint
-            profiler = EmptyProfiler()
-            debug = 2
+            debug_level = 2
         
         if policy is None:
             policy = JitPolicy()
@@ -96,7 +94,7 @@ class JitMixin:
         cw.finish_making_bytecodes()
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata._class_sizes = cw.class_sizes
-        metainterp.staticdata.state = FakeWarmRunnerDesc()
+        metainterp.staticdata.state = FakeWarmRunnerState()
         metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
         metainterp.staticdata.DoneWithThisFrameRef = DoneWithThisFrameRef
         metainterp.staticdata.DoneWithThisFrameFloat = DoneWithThisFrame

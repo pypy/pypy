@@ -12,7 +12,6 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.rlib.debug import debug_print
 
 def show_loop(metainterp_sd, loop=None, error=None):
     # debugging
@@ -64,8 +63,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     except InvalidLoop:
         return None
     if old_loop_token is not None:
-        if metainterp.staticdata.state.debug > 1:
-            debug_print("reusing old loop")
+        metainterp.staticdata.log("reusing old loop")
         return old_loop_token
     send_loop_to_backend(metainterp_sd, loop, "loop")
     insert_loop_token(old_loop_tokens, loop_token)
@@ -86,40 +84,32 @@ def insert_loop_token(old_loop_tokens, loop_token):
 
 def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.options.logger_ops.log_loop(loop.inputargs, loop.operations)
-    metainterp_sd.state.profiler.start_backend()
+    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
         loop.check_consistency()
     metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
-    metainterp_sd.state.profiler.end_backend()
+    metainterp_sd.profiler.end_backend()
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         if type != "entry bridge":
             metainterp_sd.stats.compiled()
         else:
             loop._ignore_during_counting = True
-        if metainterp_sd.state.debug > 1:
-            log.info("compiled new " + type)
-    else:
-        if metainterp_sd.state.debug > 1:
-            debug_print("compiled new " + type)
+    metainterp_sd.log("compiled new " + type)
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     metainterp_sd.options.logger_ops.log_loop(inputargs, operations)
-    metainterp_sd.state.profiler.start_backend()
+    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
         pass
     metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations)        
-    metainterp_sd.state.profiler.end_backend()
+    metainterp_sd.profiler.end_backend()
     if not we_are_translated():
-        if metainterp_sd.state.debug > 1:
-            metainterp_sd.stats.compiled()
-            log.info("compiled new bridge")
-    else:
-        if metainterp_sd.state.debug > 1:
-            debug_print("compiled new bridge")            
+        metainterp_sd.stats.compiled()
+    metainterp_sd.log("compiled new bridge")            
 
 # ____________________________________________________________
 

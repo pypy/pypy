@@ -33,10 +33,15 @@ def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
+    if debug_level > DEBUG_OFF:
+        ProfilerClass = Profiler
+    else:
+        ProfilerClass = EmptyProfiler
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
                                     no_stats = True,
+                                    ProfilerClass = ProfilerClass,
                                     **kwds)
     warmrunnerdesc.state.set_param_inlining(inline)
     warmrunnerdesc.state.set_param_debug(debug_level)
@@ -56,8 +61,9 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=False, trace_limit=sys.maxint, debug=DEBUG_STEPS, profile=None,
-                    inline=False, **kwds):
+def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None,
+                    backendopt=False, trace_limit=sys.maxint,
+                    debug_level=DEBUG_STEPS, inline=False, **kwds):
     translator = interp.typer.annotator.translator
     translator.config.translation.gc = "boehm"
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
@@ -65,18 +71,14 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, backendopt=Fa
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
     warmrunnerdesc.state.set_param_trace_limit(trace_limit)
     warmrunnerdesc.state.set_param_inlining(inline)
-    warmrunnerdesc.state.set_param_debug(debug)
-    if not we_are_translated() and profile is not None:
-        # for tests
-        warmrunnerdesc.state.profiler = profile()
-        warmrunnerdesc.state.profiler.start()
+    warmrunnerdesc.state.set_param_debug(debug_level)
     warmrunnerdesc.state.create_tables_now()             # for tests
     if hash_bits:
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
-        warmrunnerdesc.metainterp_sd.state.profiler.finish()
+        warmrunnerdesc.metainterp_sd.profiler.finish()
     print '~~~ return value:', res
     while repeat > 1:
         print '~' * 79
@@ -229,8 +231,8 @@ class WarmRunnerDesc:
                               really_remove_asserts=True)
 
     def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", profile=None, no_stats=False,
-                          **kwds):
+                          view="auto", no_stats=False,
+                          ProfilerClass=EmptyProfiler, **kwds):
         assert CPUClass is not None
         opt = history.Options(**kwds)
         if no_stats:
@@ -249,6 +251,7 @@ class WarmRunnerDesc:
         self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
                                                   self.translator.graphs, cpu,
                                                   self.stats, opt,
+                                                  ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self,
                                                   leave_graph=self.leave_graph)
 
@@ -530,8 +533,8 @@ class WarmRunnerDesc:
 
     def add_profiler_finish(self):
         def finish_profiler():
-            if self.state.profiler.initialized:
-                self.state.profiler.finish()
+            if self.metainterp_sd.profiler.initialized:
+                self.metainterp_sd.profiler.finish()
         
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish_profiler,
@@ -797,14 +800,8 @@ def make_state_class(warmrunnerdesc):
                 raise ValueError("unknown optimizer")
 
         def set_param_debug(self, value):
-            if value >= DEBUG_PROFILE:
-                self.profiler = Profiler()
-            else:
-                self.profiler = EmptyProfiler()
-            if not self.profiler.initialized:
-                self.profiler.start()
-                self.profiler.initialized = True
-            self.debug = value
+            self.debug_level = value
+            metainterp_sd.profiler.set_printing(value >= DEBUG_PROFILE)
 
         def create_tables_now(self):
             count = 1 << self.hashbits
@@ -859,9 +856,9 @@ def make_state_class(warmrunnerdesc):
                     loop_token = cell.entry_loop_token
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
-                metainterp_sd.state.profiler.start_running()
+                metainterp_sd.profiler.start_running()
                 fail_descr = metainterp_sd.cpu.execute_token(loop_token)
-                metainterp_sd.state.profiler.end_running()
+                metainterp_sd.profiler.end_running()
                 loop_token = fail_descr.handle_fail(metainterp_sd)
 
         maybe_compile_and_run._dont_inline_ = True

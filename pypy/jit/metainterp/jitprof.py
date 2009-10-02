@@ -36,6 +36,9 @@ class EmptyProfiler(BaseProfiler):
     def finish(self):
         pass
 
+    def set_printing(self, printing):
+        pass
+
     def start_tracing(self):
         pass
 
@@ -75,6 +78,7 @@ class Profiler(BaseProfiler):
     counters = None
     calls = None
     current = None
+    printing = True
 
     def start(self):
         self.starttime = self.timer()
@@ -86,7 +90,11 @@ class Profiler(BaseProfiler):
 
     def finish(self):
         self.tk = self.timer()
-        self.print_stats()
+        if self.printing:
+            self.print_stats()
+
+    def set_printing(self, printing):
+        self.printing = printing
 
     def _start(self, event):
         t0 = self.t1

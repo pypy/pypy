@@ -25,7 +25,7 @@ class FakeProfiler(Profiler):
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):
         kwds = kwds.copy()
-        kwds['profile'] = FakeProfiler
+        kwds['ProfilerClass'] = FakeProfiler
         return LLJitMixin.meta_interp(self, *args, **kwds)
 
 class TestProfile(ProfilerMixin):
@@ -42,7 +42,7 @@ class TestProfile(ProfilerMixin):
             return res * 2
         res = self.meta_interp(f, [6, 7])
         assert res == 84
-        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.state.profiler
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         expected = [
             TRACING,
             BACKEND,
@@ -74,7 +74,7 @@ class TestProfile(ProfilerMixin):
             return res * 2
         res = self.meta_interp(f, [6, 7])
         assert res == 84
-        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.state.profiler
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         # calls = (executed, recorded, blackholed) x (inpure, pure)
         assert profiler.calls == [[1, 0], [1, 0], [0, 0]]
 
@@ -96,6 +96,6 @@ class TestProfile(ProfilerMixin):
             return res * 2
         res = self.meta_interp(f, [6, 7, 2])
         assert res == 90
-        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.state.profiler
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         # calls = (executed, recorded, blackholed) x (inpure, pure)
         assert profiler.calls == [[0, 1], [0, 0], [0, 1]]

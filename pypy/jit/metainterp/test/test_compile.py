@@ -41,13 +41,15 @@ class FakeOptions:
 
 class FakeState:
     optimize_loop = staticmethod(optimize.optimize_loop)
-    profiler = jitprof.EmptyProfiler()
-    debug = 0
+    debug_level = 0
 
 class FakeMetaInterpStaticData:
     options = FakeOptions()
     state = FakeState()
     stats = Stats()
+    profiler = jitprof.EmptyProfiler()
+    def log(self, msg, event_kind=None):
+        pass
 
 class FakeMetaInterp:
     pass
