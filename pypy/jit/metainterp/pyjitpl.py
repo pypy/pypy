@@ -958,6 +958,8 @@ class MIFrame(object):
 
 class MetaInterpStaticData(object):
     virtualizable_info = None
+    logger_noopt = None
+    logger_ops = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
                  ProfilerClass=EmptyProfiler, warmrunnerdesc=None,
@@ -966,8 +968,8 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = stats
         self.options = options
-        options.logger_noopt = Logger(cpu.ts)
-        options.logger_ops = Logger(cpu.ts)
+        self.logger_noopt = Logger(cpu.ts)
+        self.logger_ops = Logger(cpu.ts)
 
         RESULT = portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
@@ -1014,8 +1016,8 @@ class MetaInterpStaticData(object):
                 self.profiler.start()
                 self.profiler.initialized = True
             self.globaldata.initialized = True
-            self.options.logger_noopt.create_log('.noopt')
-            self.options.logger_ops.create_log('.ops')
+            self.logger_noopt.create_log('.noopt')
+            self.logger_ops.create_log('.ops')
 
     def _setup_class_sizes(self):
         class_sizes = {}

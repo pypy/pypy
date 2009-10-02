@@ -59,7 +59,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     metainterp_sd = metainterp.staticdata
     try:
         old_loop_token = metainterp_sd.state.optimize_loop(
-            metainterp_sd.options, old_loop_tokens, loop, metainterp.cpu)
+            metainterp_sd, old_loop_tokens, loop, metainterp.cpu)
     except InvalidLoop:
         return None
     if old_loop_token is not None:
@@ -83,7 +83,7 @@ def insert_loop_token(old_loop_tokens, loop_token):
         old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(metainterp_sd, loop, type):
-    metainterp_sd.options.logger_ops.log_loop(loop.inputargs, loop.operations)
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations)
     metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
@@ -99,7 +99,7 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.log("compiled new " + type)
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
-    metainterp_sd.options.logger_ops.log_loop(inputargs, operations)
+    metainterp_sd.logger_ops.log_loop(inputargs, operations)
     metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd)
@@ -246,12 +246,11 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     new_loop.inputargs = metainterp.history.inputargs
     new_loop.operations = metainterp.history.operations
     metainterp_sd = metainterp.staticdata
-    options = metainterp_sd.options
     try:
-        target_loop_token = metainterp_sd.state.optimize_bridge(options,
-                                                          old_loop_tokens,
-                                                          new_loop,
-                                                          metainterp.cpu)
+        target_loop_token = metainterp_sd.state.optimize_bridge(metainterp_sd,
+                                                                old_loop_tokens,
+                                                                new_loop,
+                                                                metainterp.cpu)
     except InvalidLoop:
         assert 0, "InvalidLoop in optimize_bridge?"
         return None

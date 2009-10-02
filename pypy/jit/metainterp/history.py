@@ -899,7 +899,6 @@ class CrashInJIT(Exception):
 # ----------------------------------------------------------------
 
 class Options:
-    logger_noopt = None
     def __init__(self, listops=False):
         self.listops = listops
     def _freeze_(self):

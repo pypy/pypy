@@ -35,16 +35,14 @@ class FakeLogger:
     def log_loop(self, inputargs, operations):
         pass
 
-class FakeOptions:
-    logger_noopt = FakeLogger()
-    logger_ops = FakeLogger()
-
 class FakeState:
     optimize_loop = staticmethod(optimize.optimize_loop)
     debug_level = 0
 
 class FakeMetaInterpStaticData:
-    options = FakeOptions()
+    logger_noopt = FakeLogger()
+    logger_ops = FakeLogger()
+
     state = FakeState()
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
