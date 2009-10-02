@@ -54,7 +54,8 @@ class W_TypeObject(W_Object):
                           'needsdel',
                           'weakrefable',
                           'hasdict',
-                          'nslots']
+                          'nslots',
+                          'instancetypedef']
 
     # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
