@@ -3,7 +3,7 @@
 in a nicer fashion
 """
 
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
+from pypy.jit.metainterp.history import TreeLoop, BoxInt, constint,\
      ConstAddr, ConstObj, ConstPtr, Box, BasicFailDescr, LoopToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.typesystem import llhelper
@@ -98,9 +98,9 @@ class OpParser(object):
 
     def getvar(self, arg):
         if not arg:
-            return ConstInt(0)
+            return constint(0)
         try:
-            return ConstInt(int(arg))
+            return constint(int(arg))
         except ValueError:
             if arg.startswith('"') or arg.startswith("'"):
                 # XXX ootype
