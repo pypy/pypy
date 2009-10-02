@@ -220,8 +220,8 @@ class PythonAstCompiler(PyCodeCompiler):
         PyCodeCompiler.__init__(self, space)
         self.parser = PythonParser(space)
         self.additional_rules = {}
-        self.futureFlags = future.futureFlags_2_5
-        self.compiler_flags = self.futureFlags.allowed_flags
+        self.future_flags = future.futureFlags_2_5
+        self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
         from pypy.interpreter.pyparser.pyparse import CompileInfo
@@ -248,14 +248,14 @@ class PythonAstCompiler(PyCodeCompiler):
         return self._compile_to_ast(source, info)
 
     def _compile_to_ast(self, source, info):
-        from pypy.interpreter.pyparser.future import getFutures
+        from pypy.interpreter.pyparser.future import get_futures
         from pypy.interpreter.pyparser.error import (SyntaxError,
                                                      IndentationError,
                                                      TokenIndentationError)
         from pypy.interpreter.astcompiler.astbuilder import ast_from_node
         space = self.space
         try:
-            f_flags, future_info = getFutures(self.futureFlags, source)
+            f_flags, future_info = get_futures(self.future_flags, source)
             info.last_future_import = future_info
             info.flags |= f_flags
             parse_tree = self.parser.parse_source(source, info)
