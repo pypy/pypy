@@ -847,7 +847,7 @@ namespace pypy.runtime
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
-            return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+            return new DictItemsIterator<TKey, TValue>(this);
         }
 
         // XXX: this is CustomDict specific, maybe we should have a separate class for it
@@ -881,7 +881,7 @@ namespace pypy.runtime
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
-            return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+            return new DictItemsIterator<TKey, TValue>(this);
         }
 
         public DictOfVoid<TKey, TValue> ll_copy() // XXX: why it should return a Dict?
@@ -924,10 +924,10 @@ namespace pypy.runtime
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
-            List<KeyValuePair<TKey, TValue>> foo = new List<KeyValuePair<TKey, TValue>>();
+            Dictionary<TKey, TValue> foo = new Dictionary<TKey, TValue>();
             if (length == 1)
-                foo.Add(new KeyValuePair<TKey, TValue>(default(TKey), this.elem));
-            return new DictItemsIterator<TKey, TValue>(foo.GetEnumerator());
+                foo[default(TKey)] = this.elem;
+            return new DictItemsIterator<TKey, TValue>(foo);
         }
     }
 
@@ -950,34 +950,46 @@ namespace pypy.runtime
 
         public DictItemsIterator<int, int> ll_get_items_iterator()
         {
-            List<KeyValuePair<int, int>> foo = new List<KeyValuePair<int, int>>();
+            Dictionary<int, int> foo = new Dictionary<int, int>();
             if (length == 1)
-                foo.Add(new KeyValuePair<int, int>(0, 0));
-            return new DictItemsIterator<int, int>(foo.GetEnumerator());
+                foo[0] = 0;
+            return new DictItemsIterator<int, int>(foo);
         }
     }
 
     public class DictItemsIterator<TKey, TValue>
     {
-        IEnumerator<KeyValuePair<TKey, TValue>> it;
+        Dictionary<TKey, TValue> dict;
+        int size;
+        TKey[] keys;
+        int pos;
 
-        public DictItemsIterator(IEnumerator<KeyValuePair<TKey, TValue>> it)
+        public DictItemsIterator(Dictionary<TKey, TValue> dict)
         {
-            this.it = it;
+            this.dict = dict;
+            this.size = dict.Count;
+            this.keys = new TKey[this.size];
+            dict.Keys.CopyTo(this.keys, 0);
+            this.pos = -1;
         }
 
         public bool ll_go_next() { 
-            try {
-                return it.MoveNext();
-            }
-            catch(InvalidOperationException e) {
+            if (this.size != this.dict.Count)
                 Helpers.raise_RuntimeError();
+            if (this.pos >= this.size-1)
                 return false;
-            }
+            pos++;
+            return true;
         }
 
-        public TKey ll_current_key() { return it.Current.Key; }
-        public TValue ll_current_value() { return it.Current.Value; }
+        public TKey ll_current_key() { 
+            return this.keys[this.pos]; 
+        }
+
+        public TValue ll_current_value() { 
+            TKey key = this.ll_current_key();
+            return this.dict[key];
+        }
     }
 
     public class WeakReference

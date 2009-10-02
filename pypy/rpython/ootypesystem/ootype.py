@@ -1654,8 +1654,9 @@ class _dict(_builtin_type):
         # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
         assert typeOf(value) == self._TYPE._VALUETYPE
+        if key not in self._dict:
+            self._stamp += 1
         self._dict[key] = value
-        self._stamp += 1
 
     def ll_remove(self, key):
         # NOT_RPYTHON
