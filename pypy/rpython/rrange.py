@@ -20,11 +20,13 @@ class AbstractRangeRepr(Repr):
 
     def rtype_len(self, hop):
         v_rng, = hop.inputargs(self)
-        if self.step != 0:
-            cstep = hop.inputconst(Signed, self.step)
+        if self.step == 1:
+            return hop.gendirectcall(ll_rangelen1, v_rng)
+        elif self.step != 0:
+            v_step = hop.inputconst(Signed, self.step)
         else:
-            cstep = self._getstep(v_rng, hop)
-        return hop.gendirectcall(ll_rangelen, v_rng, cstep)
+            v_step = self._getstep(v_rng, hop)
+        return hop.gendirectcall(ll_rangelen, v_rng, v_step)
 
 class __extend__(pairtype(AbstractRangeRepr, IntegerRepr)):
 
@@ -61,6 +63,12 @@ def _ll_rangelen(start, stop, step):
 
 def ll_rangelen(l, step):
     return _ll_rangelen(l.start, l.stop, step)
+
+def ll_rangelen1(l):
+    result = l.stop - l.start
+    if result < 0:
+        result = 0
+    return result
 
 def ll_rangeitem_nonneg(func, l, index, step):
     if func is dum_checkidx and index >= _ll_rangelen(l.start, l.stop, step):

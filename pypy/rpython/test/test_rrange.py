@@ -67,13 +67,38 @@ class BaseTestRrange(BaseRtypingTest):
         res = self.interpret(dummyfn, [10])
         assert res == 45
 
-    def test_range_len(self):
+    def test_range_len_nostep(self):
         def dummyfn(start, stop):
             r = range(start, stop)
             return len(r)
         start, stop = 10, 17
         res = self.interpret(dummyfn, [start, stop])
         assert res == dummyfn(start, stop)
+        start, stop = 17, 10
+        res = self.interpret(dummyfn, [start, stop])
+        assert res == 0
+
+    def test_range_len_step_const(self):
+        def dummyfn(start, stop):
+            r = range(start, stop, -2)
+            return len(r)
+        start, stop = 10, 17
+        res = self.interpret(dummyfn, [start, stop])
+        assert res == 0
+        start, stop = 17, 10
+        res = self.interpret(dummyfn, [start, stop])
+        assert res == dummyfn(start, stop)
+
+    def test_range_len_step_nonconst(self):
+        def dummyfn(start, stop, step):
+            r = range(start, stop, step)
+            return len(r)
+        start, stop, step = 10, 17, -3
+        res = self.interpret(dummyfn, [start, stop, step])
+        assert res == 0
+        start, stop, step = 17, 10, -3
+        res = self.interpret(dummyfn, [start, stop, step])
+        assert res == dummyfn(start, stop, step)
 
     def test_range2list(self):
         def dummyfn(start, stop):
