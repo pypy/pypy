@@ -4,7 +4,7 @@ from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
-from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
+from pypy.jit.metainterp.history import AbstractValue, constint, Const
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
@@ -199,7 +199,7 @@ class NodeFinder(object):
     def find_nodes_ARRAYLEN_GC(self, op):
         arraynode = self.getnode(op.args[0])
         if arraynode.arraydescr is not None:
-            resbox = ConstInt(arraynode.arraysize)
+            resbox = constint(arraynode.arraysize)
             self.set_constant_node(op.result, resbox)
 
     def find_nodes_GUARD_CLASS(self, op):

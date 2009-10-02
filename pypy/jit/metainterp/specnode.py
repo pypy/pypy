@@ -97,7 +97,7 @@ class VirtualArraySpecNode(SpecNode):
         for i in range(len(self.items)):
             itembox = executor.execute(cpu, resoperation.rop.GETARRAYITEM_GC,
                                        self.arraydescr,
-                                       valuebox, history.ConstInt(i))
+                                       valuebox, history.constint(i))
             subspecnode = self.items[i]
             subspecnode.extract_runtime_data(cpu, itembox, resultlist)
 

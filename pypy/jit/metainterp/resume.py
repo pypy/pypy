@@ -1,5 +1,5 @@
 import sys
-from pypy.jit.metainterp.history import Box, Const, ConstInt
+from pypy.jit.metainterp.history import Box, Const, constint
 from pypy.jit.metainterp.resoperation import rop
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -251,14 +251,14 @@ class VArrayInfo(AbstractVirtualInfo):
         length = len(self.fieldnums)
         return metainterp.execute_and_record(rop.NEW_ARRAY,
                                              self.arraydescr,
-                                             ConstInt(length))
+                                             constint(length))
 
     def setfields(self, metainterp, box, fn_decode_box):
         for i in range(len(self.fieldnums)):
             itembox = fn_decode_box(self.fieldnums[i])
             metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                           self.arraydescr,
-                                          box, ConstInt(i), itembox)
+                                          box, constint(i), itembox)
 
     def repr_rpython(self):
         return 'VArrayInfo("%s", %s)' % (self.arraydescr,

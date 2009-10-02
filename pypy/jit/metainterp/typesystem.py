@@ -77,7 +77,7 @@ class LLTypeHelper(TypeSystemHelper):
     def cls_of_box(self, cpu, box):
         obj = box.getref(lltype.Ptr(rclass.OBJECT))
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
-        return history.ConstInt(cpu.cast_adr_to_int(cls))
+        return history.constint(cpu.cast_adr_to_int(cls))
 
     def subclassOf(self, cpu, clsbox1, clsbox2):
         adr = clsbox2.getaddr(cpu)
@@ -87,7 +87,7 @@ class LLTypeHelper(TypeSystemHelper):
         return rclass.ll_issubclass(real_class, bounding_class)
 
     def get_exception_box(self, etype):
-        return history.ConstInt(etype)
+        return history.constint(etype)
 
     def get_exc_value_box(self, evalue):
         return history.BoxPtr(evalue)

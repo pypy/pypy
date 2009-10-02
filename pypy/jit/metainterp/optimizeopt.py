@@ -1,5 +1,6 @@
 from pypy.jit.metainterp.history import Box, BoxInt, LoopToken
-from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
+from pypy.jit.metainterp.history import Const, constint, ConstInt, ConstPtr, ConstObj, REF
+from pypy.jit.metainterp.history import CONST_0, CONST_1
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
@@ -140,8 +141,6 @@ class ConstantValue(OptValue):
     def __init__(self, box):
         self.box = box
 
-CONST_0      = ConstInt(0)
-CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 llhelper.CONST_NULL = ConstPtr(ConstPtr.value)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
@@ -269,7 +268,7 @@ class VArrayValue(AbstractVirtualValue):
                 if subvalue is not None:
                     subbox = subvalue.force_box()
                     op = ResOperation(rop.SETARRAYITEM_GC,
-                                      [box, ConstInt(index), subbox], None,
+                                      [box, constint(index), subbox], None,
                                       descr=self.arraydescr)
                     newoperations.append(op)
         return self.box
@@ -410,7 +409,7 @@ class Optimizer(object):
         self.make_equal_to(box, ConstantValue(constbox))
 
     def make_constant_int(self, box, intvalue):
-        self.make_constant(box, ConstInt(intvalue))
+        self.make_constant(box, constint(intvalue))
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self, known_class, box, source_op)

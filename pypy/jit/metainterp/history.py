@@ -160,7 +160,7 @@ class Const(AbstractValue):
                 intval = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
-            return ConstInt(intval)
+            return constint(intval)
         elif kind == "ref":
             return cpu.ts.new_ConstRef(x)
         elif kind == "float":
@@ -244,9 +244,27 @@ class ConstInt(Const):
 
     def repr_rpython(self):
         return repr_rpython(self, 'ci')
+constint_lower = -5
+constint_upper = 200
+ConstInt.PREBUILT = [ConstInt(i) for i in range(constint_lower, constint_upper)]
 
-CONST_FALSE = ConstInt(0)
-CONST_TRUE  = ConstInt(1)
+def constint(x):
+    from pypy.rlib.rarithmetic import r_uint
+    # use r_uint to perform a single comparison (this whole function
+    # is getting inlined into every caller so keeping the branching
+    # to a minimum is a good idea)
+    if not we_are_translated() and not isinstance(x, int): # e.g. TotalOrderSymbolic
+        return ConstInt(x)
+    index = r_uint(x - constint_lower)
+    if index >= r_uint(constint_upper - constint_lower):
+        const = ConstInt(x) 
+    else:
+        const = ConstInt.PREBUILT[index]
+    return const
+
+
+CONST_0 = CONST_FALSE = constint(0)
+CONST_1 = CONST_TRUE  = constint(1)
 
 class ConstAddr(Const):       # only for constants built before translation
     type = INT
@@ -490,7 +508,7 @@ class BoxInt(Box):
         return BoxInt(self.value)
 
     def constbox(self):
-        return ConstInt(self.value)
+        return constint(self.value)
 
     def getint(self):
         return self.value
