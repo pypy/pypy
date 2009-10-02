@@ -290,7 +290,7 @@ def test_nan():
     res = g2(0)
     assert isnan(res)
 
-def test_x():
+def test_prebuilt_instance_with_dict():
     class A:
         pass
     a = A()
@@ -375,23 +375,13 @@ def test_refcount_pyobj_setfield_increfs():
         pass
     print f(C)
 
-def test_oswrite():
+def test_print():
     def f():
-        import os
-        os.write(1,"o")
-
-    t = TranslationContext()
-    s = t.buildannotator().build_types(f, [])
-    rtyper = t.buildrtyper(type_system="lltype")
-    rtyper.specialize()
-
-def test_x():
-    py.test.skip("Failing test. Seems that print allocs one bit too much")
-    def f():
-        print "xxx"
+        for i in range(10):
+            print "xxx"
 
     fn = compile(f, [])
-    fn()
+    fn(expected_extra_mallocs=1)
 
 def test_name():
     def f():
