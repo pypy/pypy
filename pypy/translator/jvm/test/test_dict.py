@@ -3,8 +3,8 @@ from pypy.translator.jvm.test.runtest import JvmTest
 import pypy.translator.oosupport.test_template.dict as oodict
 
 class TestJvmDict(JvmTest, oodict.BaseTestDict):
-    def test_invalid_iterator(self):
-        py.test.skip("test_invalid_iterator() doesn't work yet")
+    def test_resize_during_iteration(self):
+        py.test.skip("test_resize_during_iteration() doesn't work yet")
 
     def test_recursive(self):
         py.test.skip("JVM doesn't support recursive dicts")
