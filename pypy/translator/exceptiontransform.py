@@ -57,14 +57,12 @@ class BaseExceptionTransformer(object):
         exc_data, null_type, null_value = self.setup_excdata()
 
         rclass = translator.rtyper.type_system.rclass
-        runtime_error_def = translator.annotator.bookkeeper.getuniqueclassdef(RuntimeError)
-        runtime_error_ll_exc = edata.get_standard_ll_exc_instance(translator.rtyper, runtime_error_def)
-        runtime_error_ll_exc_type = rclass.ll_inst_type(runtime_error_ll_exc)
-        bk = translator.annotator.bookkeeper
-        assertion_error_def = bk.getuniqueclassdef(AssertionError)
-        assertion_error_ll_exc = edata.get_standard_ll_exc_instance(
-            translator.rtyper, assertion_error_def)
-        assertion_error_ll_exc_type=rclass.ll_inst_type(assertion_error_ll_exc)
+        (runtime_error_ll_exc_type,
+         runtime_error_ll_exc) = self.get_builtin_exception(RuntimeError)
+        (assertion_error_ll_exc_type,
+         assertion_error_ll_exc) = self.get_builtin_exception(AssertionError)
+        (n_i_error_ll_exc_type,
+         n_i_error_ll_exc) = self.get_builtin_exception(NotImplementedError)
 
         def rpyexc_occured():
             exc_type = exc_data.exc_type
@@ -83,6 +81,7 @@ class BaseExceptionTransformer(object):
         def rpyexc_raise(etype, evalue):
             # assert(!RPyExceptionOccurred());
             ll_assert(etype != assertion_error_ll_exc_type, "AssertionError!")
+            ll_assert(etype != n_i_error_ll_exc_type, "NotImplementedError!")
             exc_data.exc_type = etype
             exc_data.exc_value = evalue
 
@@ -150,6 +149,16 @@ class BaseExceptionTransformer(object):
         graph = self.mixlevelannotator.getgraph(fn, map(l2a, inputtypes), l2a(rettype))
         return self.constant_func(name, inputtypes, rettype, graph, 
                                   exception_policy="exc_helper", **kwds)
+
+    def get_builtin_exception(self, Class):
+        edata = self.translator.rtyper.getexceptiondata()
+        rclass = self.translator.rtyper.type_system.rclass
+        bk = self.translator.annotator.bookkeeper
+        error_def = bk.getuniqueclassdef(Class)
+        error_ll_exc = edata.get_standard_ll_exc_instance(
+            self.translator.rtyper, error_def)
+        error_ll_exc_type = rclass.ll_inst_type(error_ll_exc)
+        return error_ll_exc_type, error_ll_exc
 
     def transform_completely(self):
         for graph in self.translator.graphs:

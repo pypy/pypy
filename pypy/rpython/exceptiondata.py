@@ -18,6 +18,7 @@ standardexceptions = {
     RuntimeError     : True,
     UnicodeDecodeError: True,
     UnicodeEncodeError: True,
+    NotImplementedError: True,
     }
 
 
