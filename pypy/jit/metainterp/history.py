@@ -246,6 +246,7 @@ class ConstInt(Const):
         return repr_rpython(self, 'ci')
 constint_lower = -5
 constint_upper = 200
+assert rop._LAST < constint_upper
 ConstInt.PREBUILT = [ConstInt(i) for i in range(constint_lower, constint_upper)]
 
 def constint(x):
