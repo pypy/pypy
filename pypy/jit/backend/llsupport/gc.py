@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, constint, ConstInt, ConstPtr
+from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstPtr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD
@@ -334,7 +334,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
         self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
-        self.c_jit_wb_if_flag = constint(self.GCClass.JIT_WB_IF_FLAG)
+        self.c_jit_wb_if_flag = ConstInt(self.GCClass.JIT_WB_IF_FLAG)
         self.calldescr_jit_wb = get_call_descr(self, [llmemory.GCREF,
                                                       llmemory.GCREF],
                                                lltype.Void)
@@ -488,7 +488,7 @@ class GcLLDescr_framework(GcLLDescription):
                     addr = self.gcrefs.get_address_of_gcref(v.value)
                     addr = cpu.cast_adr_to_int(addr)
                     newops.append(ResOperation(rop.GETFIELD_RAW,
-                                               [constint(addr)], box,
+                                               [ConstInt(addr)], box,
                                                self.single_gcref_descr))
                     op.args[i] = box
             # ---------- write barrier for SETFIELD_GC ----------
@@ -519,8 +519,6 @@ class GcLLDescr_framework(GcLLDescription):
         llop1 = self.llop1
         funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        # this is not going to be a small integer, so don't use constint
-        # (bit of a micro-optimization)
         c_func = ConstInt(cpu.cast_adr_to_int(funcaddr))
         args = [v_tid, self.c_jit_wb_if_flag, c_func, v_base, v_value]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
