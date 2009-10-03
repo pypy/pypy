@@ -637,7 +637,7 @@ def wrap(cpu, value, in_const_box=False):
     else:
         value = intmask(value)
     if in_const_box:
-        return history.constint(value)
+        return history.ConstInt(value)
     else:
         return history.BoxInt(value)
 wrap._annspecialcase_ = 'specialize:ll'

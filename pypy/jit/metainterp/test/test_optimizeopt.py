@@ -47,7 +47,6 @@ def test_store_final_boxes_in_guard():
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
     assert fdescr.rd_frame_infos == fi
-
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
@@ -132,17 +131,6 @@ class Storage(compile.ResumeGuardDescr):
         return type(self) is type(other)      # xxx obscure
 
 class BaseTestOptimizeOpt(BaseTest):
-
-    def test_getinterned(self):
-        opt = optimizeopt.Optimizer(self.cpu, None)
-        b1 = BoxInt()
-        assert opt.getinterned(b1) is b1
-        opt.make_constant(b1, ConstInt(1))
-        c1 = opt.getinterned(b1)
-        assert isinstance(c1, ConstInt)
-        c1 = self.cpu.ts.ConstRef(self.myptr)
-        c2 = self.cpu.ts.ConstRef(self.myptr)
-        assert opt.getinterned(c1) is opt.getinterned(c2)
 
     def invent_fail_descr(self, fail_args):
         if fail_args is None:
@@ -420,72 +408,6 @@ class BaseTestOptimizeOpt(BaseTest):
         jump()
         """
         self.optimize_loop(ops, '', expected)
-
-    def test_common_expression_elimination(self):
-        ops = """
-        [i0, i1, i2, i3]
-        ir1 = int_add(i0, 1)
-        ir2 = int_add(i0, 1)
-        ir3 = int_add(i1, i2)
-        ir4 = int_add(i1, i2)
-        jump(ir1, ir2, ir3, ir4)
-        """
-        expected = """
-        [i0, i1, i2, i3]
-        ir1 = int_add(i0, 1)
-        ir3 = int_add(i1, i2)
-        jump(ir1, ir1, ir3, ir3)
-        """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
-
-        ops = """
-        [p0, p1]
-        pr1 = getfield_gc_pure(p0, descr=valuedescr)
-        pr2 = getfield_gc_pure(p0, descr=valuedescr)
-        jump(pr1, pr2)
-        """
-        expected = """
-        [p0, p1]
-        pr1 = getfield_gc_pure(p0, descr=valuedescr)
-        jump(pr1, pr1)
-        """
-        self.optimize_loop(ops, 'Not, Not', expected)
-
-        ops = """
-        [p0, p1]
-        i1 = oois(p0, p1)
-        guard_value(i1, 1) []
-        i2 = oois(p0, p1)
-        guard_value(i2, 1) []
-        jump(p0, p1)
-        """
-        expected = """
-        [p0, p1]
-        i1 = oois(p0, p1)
-        guard_value(i1, 1) []
-        jump(p0, p1)
-        """
-        self.optimize_loop(ops, 'Not, Not', expected)
-
-    def test_common_expression_elimination_virtual(self):
-        ops = """
-        [p0, p1]
-        i1 = oois(p0, p1)
-        guard_value(i1, 1) []
-        p2 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p2, p0, descr=valuedescr)
-        p3 = getfield_gc(p2, descr=valuedescr)
-        i2 = oois(p3, p1)
-        guard_value(i2, 1) []
-        jump(p0, p1)
-        """
-        expected = """
-        [p0, p1]
-        i1 = oois(p0, p1)
-        guard_value(i1, 1) []
-        jump(p0, p1)
-        """
-        self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_ooisnull_oononnull_via_virtual(self):
         ops = """

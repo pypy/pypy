@@ -1,6 +1,5 @@
 from pypy.jit.metainterp.history import Box, BoxInt, LoopToken
-from pypy.jit.metainterp.history import Const, constint, ConstInt, ConstPtr, ConstObj, REF
-from pypy.jit.metainterp.history import CONST_0, CONST_1
+from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
@@ -12,7 +11,7 @@ from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.rlib.objectmodel import we_are_translated, r_dict
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 
 def optimize_loop_1(cpu, loop):
@@ -141,6 +140,8 @@ class ConstantValue(OptValue):
     def __init__(self, box):
         self.box = box
 
+CONST_0      = ConstInt(0)
+CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 llhelper.CONST_NULL = ConstPtr(ConstPtr.value)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
@@ -268,7 +269,7 @@ class VArrayValue(AbstractVirtualValue):
                 if subvalue is not None:
                     subbox = subvalue.force_box()
                     op = ResOperation(rop.SETARRAYITEM_GC,
-                                      [box, constint(index), subbox], None,
+                                      [box, ConstInt(index), subbox], None,
                                       descr=self.arraydescr)
                     newoperations.append(op)
         return self.box
@@ -348,23 +349,6 @@ class __extend__(VirtualArraySpecNode):
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
 
 
-def hash_op(op):
-    from pypy.rlib.rarithmetic import intmask
-    mult = 1000003
-    x = 0x345678 ^ op.opnum
-    z = len(op.args)
-    for box in op.args:
-        y = hash(box)
-        x = (x ^ y) * mult
-        z -= 1
-        mult += 82520 + z + z
-    x += 97531
-    return intmask(x)
-
-def eq_op(op1, op2):
-    return op1.opnum == op2.opnum and op1.args == op2.args
-
-
 class Optimizer(object):
 
     def __init__(self, cpu, loop):
@@ -379,7 +363,6 @@ class Optimizer(object):
         self.values_to_clean = {}
                                      
         self.interned_refs = {}
-        self.emitted_pure_ops = r_dict(eq_op, hash_op)
 
     def getinterned(self, box):
         constbox = self.get_constant_box(box)
@@ -396,7 +379,7 @@ class Optimizer(object):
                 self.interned_refs[key] = box
                 return box
         else:
-            return constbox
+            return box
 
     def getvalue(self, box):
         box = self.getinterned(box)
@@ -427,7 +410,7 @@ class Optimizer(object):
         self.make_equal_to(box, ConstantValue(constbox))
 
     def make_constant_int(self, box, intvalue):
-        self.make_constant(box, constint(intvalue))
+        self.make_constant(box, ConstInt(intvalue))
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self, known_class, box, source_op)
@@ -512,14 +495,7 @@ class Optimizer(object):
                         op = op.clone()
                         must_clone = False
                     op.args[i] = box
-        if op.is_always_pure():
-            oldresult = self.emitted_pure_ops.get(op, None)
-            if oldresult:
-                self.make_equal_to(op.result, self.getvalue(oldresult))
-                return
-            else:
-                self.emitted_pure_ops[op] = op.result
-        elif op.is_guard():
+        if op.is_guard():
             self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
@@ -559,7 +535,6 @@ class Optimizer(object):
                 resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
                 self.make_constant(op.result, resbox.constbox())
                 return
-
         elif not op.has_no_side_effect() and not op.is_ovf():
             self.clean_fields_of_values()
         # otherwise, the operation remains

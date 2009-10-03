@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.jit.metainterp.history import BoxInt, constint, check_descr
+from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
 from pypy.jit.metainterp.history import INT, REF, ConstFloat
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
@@ -19,86 +19,86 @@ from pypy.jit.metainterp.resoperation import rop
 # ____________________________________________________________
 
 def do_int_add(cpu, box1, box2):
-    return constint(intmask(box1.getint() + box2.getint()))
+    return ConstInt(intmask(box1.getint() + box2.getint()))
 
 def do_int_sub(cpu, box1, box2):
-    return constint(intmask(box1.getint() - box2.getint()))
+    return ConstInt(intmask(box1.getint() - box2.getint()))
 
 def do_int_mul(cpu, box1, box2):
-    return constint(intmask(box1.getint() * box2.getint()))
+    return ConstInt(intmask(box1.getint() * box2.getint()))
 
 def do_int_floordiv(cpu, box1, box2):
     z = llop.int_floordiv(lltype.Signed, box1.getint(), box2.getint())
-    return constint(z)
+    return ConstInt(z)
 
 def do_int_mod(cpu, box1, box2):
     z = llop.int_mod(lltype.Signed, box1.getint(), box2.getint())
-    return constint(z)
+    return ConstInt(z)
 
 def do_int_and(cpu, box1, box2):
-    return constint(box1.getint() & box2.getint())
+    return ConstInt(box1.getint() & box2.getint())
 
 def do_int_or(cpu, box1, box2):
-    return constint(box1.getint() | box2.getint())
+    return ConstInt(box1.getint() | box2.getint())
 
 def do_int_xor(cpu, box1, box2):
-    return constint(box1.getint() ^ box2.getint())
+    return ConstInt(box1.getint() ^ box2.getint())
 
 def do_int_rshift(cpu, box1, box2):
-    return constint(box1.getint() >> box2.getint())
+    return ConstInt(box1.getint() >> box2.getint())
 
 def do_int_lshift(cpu, box1, box2):
-    return constint(intmask(box1.getint() << box2.getint()))
+    return ConstInt(intmask(box1.getint() << box2.getint()))
 
 def do_uint_rshift(cpu, box1, box2):
     v = r_uint(box1.getint()) >> r_uint(box2.getint())
-    return constint(intmask(v))
+    return ConstInt(intmask(v))
 
 # ----------
 
 def do_int_lt(cpu, box1, box2):
-    return constint(box1.getint() < box2.getint())
+    return ConstInt(box1.getint() < box2.getint())
 
 def do_int_le(cpu, box1, box2):
-    return constint(box1.getint() <= box2.getint())
+    return ConstInt(box1.getint() <= box2.getint())
 
 def do_int_eq(cpu, box1, box2):
-    return constint(box1.getint() == box2.getint())
+    return ConstInt(box1.getint() == box2.getint())
 
 def do_int_ne(cpu, box1, box2):
-    return constint(box1.getint() != box2.getint())
+    return ConstInt(box1.getint() != box2.getint())
 
 def do_int_gt(cpu, box1, box2):
-    return constint(box1.getint() > box2.getint())
+    return ConstInt(box1.getint() > box2.getint())
 
 def do_int_ge(cpu, box1, box2):
-    return constint(box1.getint() >= box2.getint())
+    return ConstInt(box1.getint() >= box2.getint())
 
 def do_uint_lt(cpu, box1, box2):
-    return constint(r_uint(box1.getint()) < r_uint(box2.getint()))
+    return ConstInt(r_uint(box1.getint()) < r_uint(box2.getint()))
 
 def do_uint_le(cpu, box1, box2):
-    return constint(r_uint(box1.getint()) <= r_uint(box2.getint()))
+    return ConstInt(r_uint(box1.getint()) <= r_uint(box2.getint()))
 
 def do_uint_gt(cpu, box1, box2):
-    return constint(r_uint(box1.getint()) > r_uint(box2.getint()))
+    return ConstInt(r_uint(box1.getint()) > r_uint(box2.getint()))
 
 def do_uint_ge(cpu, box1, box2):
-    return constint(r_uint(box1.getint()) >= r_uint(box2.getint()))
+    return ConstInt(r_uint(box1.getint()) >= r_uint(box2.getint()))
 
 # ----------
 
 def do_int_is_true(cpu, box1):
-    return constint(bool(box1.getint()))
+    return ConstInt(bool(box1.getint()))
 
 def do_int_neg(cpu, box1):
-    return constint(intmask(-box1.getint()))
+    return ConstInt(intmask(-box1.getint()))
 
 def do_int_invert(cpu, box1):
-    return constint(~box1.getint())
+    return ConstInt(~box1.getint())
 
 def do_bool_not(cpu, box1):
-    return constint(not box1.getint())
+    return ConstInt(not box1.getint())
 
 def do_same_as(cpu, box1):
     return box1
@@ -111,7 +111,7 @@ def do_oononnull(cpu, box1):
         x = bool(box1.getref_base())
     else:
         assert False
-    return constint(x)
+    return ConstInt(x)
 
 def do_ooisnull(cpu, box1):
     tp = box1.type
@@ -121,7 +121,7 @@ def do_ooisnull(cpu, box1):
         x = bool(box1.getref_base())
     else:
         assert False
-    return constint(not x)
+    return ConstInt(not x)
 
 def do_oois(cpu, box1, box2):
     tp = box1.type
@@ -132,7 +132,7 @@ def do_oois(cpu, box1, box2):
         x = box1.getref_base() == box2.getref_base()
     else:
         assert False
-    return constint(x)
+    return ConstInt(x)
 
 def do_ooisnot(cpu, box1, box2):
     tp = box1.type
@@ -143,14 +143,14 @@ def do_ooisnot(cpu, box1, box2):
         x = box1.getref_base() != box2.getref_base()
     else:
         assert False
-    return constint(x)
+    return ConstInt(x)
 
 def do_ooidentityhash(cpu, box1):
     obj = box1.getref_base()
-    return constint(cpu.ts.ooidentityhash(obj))
+    return ConstInt(cpu.ts.ooidentityhash(obj))
 
 def do_subclassof(cpu, box1, box2):
-    return constint(cpu.ts.subclassOf(cpu, box1, box2))
+    return ConstInt(cpu.ts.subclassOf(cpu, box1, box2))
 
 # ----------
 
@@ -202,7 +202,7 @@ def do_float_abs(cpu, box1):
     return ConstFloat(abs(box1.getfloat()))
 
 def do_float_is_true(cpu, box1):
-    return constint(bool(box1.getfloat()))
+    return ConstInt(bool(box1.getfloat()))
 
 def do_float_add(cpu, box1, box2):
     return ConstFloat(box1.getfloat() + box2.getfloat())
@@ -217,25 +217,25 @@ def do_float_truediv(cpu, box1, box2):
     return ConstFloat(box1.getfloat() / box2.getfloat())
 
 def do_float_lt(cpu, box1, box2):
-    return constint(box1.getfloat() < box2.getfloat())
+    return ConstInt(box1.getfloat() < box2.getfloat())
 
 def do_float_le(cpu, box1, box2):
-    return constint(box1.getfloat() <= box2.getfloat())
+    return ConstInt(box1.getfloat() <= box2.getfloat())
 
 def do_float_eq(cpu, box1, box2):
-    return constint(box1.getfloat() == box2.getfloat())
+    return ConstInt(box1.getfloat() == box2.getfloat())
 
 def do_float_ne(cpu, box1, box2):
-    return constint(box1.getfloat() != box2.getfloat())
+    return ConstInt(box1.getfloat() != box2.getfloat())
 
 def do_float_gt(cpu, box1, box2):
-    return constint(box1.getfloat() > box2.getfloat())
+    return ConstInt(box1.getfloat() > box2.getfloat())
 
 def do_float_ge(cpu, box1, box2):
-    return constint(box1.getfloat() >= box2.getfloat())
+    return ConstInt(box1.getfloat() >= box2.getfloat())
 
 def do_cast_float_to_int(cpu, box1):
-    return constint(int(box1.getfloat()))
+    return ConstInt(int(box1.getfloat()))
 
 def do_cast_int_to_float(cpu, box1):
     return ConstFloat(float(box1.getint()))
