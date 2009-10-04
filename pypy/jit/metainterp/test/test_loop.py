@@ -7,7 +7,7 @@ from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import history
 
-class LoopTest:
+class LoopTest(object):
     optimizer = OPTIMIZER_SIMPLE
 
     def meta_interp(self, f, args, policy=None):
