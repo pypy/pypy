@@ -25,7 +25,7 @@ r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 OFFSET_LABELS   = 2**30
 
 # inside functions
-LABEL           = r'([.]?[\w$@]+)'
+LABEL           = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
 r_label         = re.compile(LABEL+"[:]\s*$")
 r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
 r_globllabel    = re.compile(LABEL+r"=[.][+]%d\s*$"%OFFSET_LABELS)
