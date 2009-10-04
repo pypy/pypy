@@ -11,7 +11,7 @@ class AllDict(dict):
 alldict = AllDict()
 
 def main(argv):
-    lst = py.path.local(argv[0]).read().split("[")
+    lst = ("\n" + py.path.local(argv[0]).read()).split("\n[")
     lst = ['[' + i for i in lst if i]
     for oplist in lst:
         loop = parse(oplist, namespace=alldict)
