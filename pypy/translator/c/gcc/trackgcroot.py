@@ -753,6 +753,8 @@ class FunctionGcRootTracker(object):
 
     def conditional_jump(self, line):
         match = r_jump.match(line)
+        if not match:
+            raise UnrecognizedOperation(line)
         label = match.group(1)
         self.register_jump_to(label)
         return []
