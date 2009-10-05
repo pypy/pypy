@@ -73,6 +73,7 @@ class ProfInstrument(object):
 
 
 class TranslationDriver(SimpleTaskEngine):
+    _backend_extra_options = {}
 
     def __init__(self, setopts=None, default_goal=None,
                  disable=[],
@@ -147,6 +148,9 @@ class TranslationDriver(SimpleTaskEngine):
     def set_extra_goals(self, goals):
         self.extra_goals = goals
 
+    def set_backend_extra_options(self, extra_options):
+        self._backend_extra_options = extra_options
+        
     def get_info(self): # XXX more?
         d = {'backend': self.config.translation.backend}
         return d
@@ -464,7 +468,11 @@ class TranslationDriver(SimpleTaskEngine):
         translator = self.translator
         cbuilder = self.cbuilder
         database = self.database
-        c_source_filename = cbuilder.generate_source(database)
+        if self._backend_extra_options.get('c_debug_defines', False):
+            defines = cbuilder.DEBUG_DEFINES
+        else:
+            defines = {}
+        c_source_filename = cbuilder.generate_source(database, defines)
         self.log.info("written: %s" % (c_source_filename,))
         if self.config.translation.dump_static_data_info:
             from pypy.translator.tool.staticsizereport import dump_static_data_info
@@ -499,7 +507,8 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = cbuilder.executable_name
             self.create_exe()
         else:
-            self.c_entryp = cbuilder.get_entry_point()
+            isolated = self._backend_extra_options.get('c_isolated', False)
+            self.c_entryp = cbuilder.get_entry_point(isolated=isolated)
     #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 

@@ -17,6 +17,9 @@ class IsolateInvoker(object):
     def __repr__(self):
         return "<invoker for %r . %r>" % (self.isolate.module, self.name)
 
+    def close_isolate(self):
+        self.isolate._close()
+
 class Isolate(object):
     """
     Isolate lets load a module in a different process,

@@ -100,6 +100,24 @@ def test_simple_compile_c():
     res = t_f(2,3)
     assert res == 5
 
+def test_simple_compile_c_isolate():
+    from pypy.tool import isolate
+    
+    def f(x,y):
+        return x+y
+
+    t = Translation(f, [int, int])
+    t.set_backend_extra_options(c_isolated=True)
+    t_f = t.compile()
+
+    assert isinstance(t_f, isolate.IsolateInvoker)
+
+    res = t_f(2,3)
+    assert res == 5
+
+    # cleanup
+    t_f.close_isolate()
+
 def test_simple_rtype_with_type_system():
 
     def f(x,y):

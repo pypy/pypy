@@ -104,6 +104,12 @@ class Translation(object):
     def disable(self, to_disable):
         self.driver.disable(to_disable)
 
+    def set_backend_extra_options(self, **extra_options):
+        for name in extra_options:
+            backend, option = name.split('_', 1)
+            self.ensure_backend(backend)
+        self.driver.set_backend_extra_options(extra_options)
+
     # backend independent
 
     def annotate(self, argtypes=None, **kwds):
