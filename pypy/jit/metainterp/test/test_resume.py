@@ -60,6 +60,34 @@ def test_simple_read():
     lst = reader.consume_boxes()
     assert lst == [b1s, b2s, b3s]
 
+def test_simple_read_tagged_ints():
+    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
+    storage = Storage()
+    storage.rd_frame_infos = []
+    storage.rd_consts = []
+    storage.rd_nums = [tag(0, TAGBOX),
+                       tag(1, TAGINT),
+                       tag(0, TAGBOX),
+                       tag(1, TAGBOX),
+                       NEXTFRAME,
+                       tag(2, TAGINT),
+                       tag(3, TAGINT),
+                       NEXTFRAME,
+                       tag(0, TAGBOX),
+                       tag(1, TAGBOX),
+                       tag(2, TAGBOX),
+                       NEXTFRAME
+                       ]
+    storage.rd_virtuals = None
+    b1s, b2s, b3s = [BoxInt(), BoxPtr(), BoxInt()]
+    assert b1s != b3s
+    reader = ResumeDataReader(storage, [b1s, b2s, b3s])
+    lst = reader.consume_boxes()
+    assert lst == [b1s, ConstInt(1), b1s, b2s]
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(2), ConstInt(3)]
+    lst = reader.consume_boxes()
+    assert lst == [b1s, b2s, b3s]
 
 def test_frame_info():
     storage = Storage()
@@ -297,6 +325,25 @@ def test_virtual_adder_no_op():
     lst = reader.consume_boxes()
     assert lst == [b1t, b2t, b3t]
     assert metainterp.trace == []
+
+def test_virtual_adder_int_constants():
+    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
+    storage = make_storage(b1s, b2s, b3s)
+    modifier = ResumeDataVirtualAdder(storage)
+    modifier.walk_snapshots({})
+    liveboxes = modifier.finish({})
+    assert storage.rd_snapshot is None
+    metainterp = MyMetaInterp(LLtypeMixin.cpu)
+    reader = ResumeDataReader(storage, [], metainterp)
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(sys.maxint), ConstInt(1), ConstInt(sys.maxint),
+                   ConstInt(2**16)]
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(2), ConstInt(3)]
+    lst = reader.consume_boxes()
+    assert lst == [b1s, b2s, b3s]
+    assert metainterp.trace == []
+
 
 def test_virtual_adder_no_op_renaming():
     b1s, b2s, b3s = [BoxInt(1), BoxInt(2), BoxInt(3)]

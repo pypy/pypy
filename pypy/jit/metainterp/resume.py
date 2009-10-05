@@ -3,6 +3,7 @@ from pypy.jit.metainterp.history import Box, Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import rarithmetic
+from pypy.rlib.objectmodel import we_are_translated
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -80,8 +81,9 @@ def tagged_eq(x, y):
     return rarithmetic.widen(x) == rarithmetic.widen(y)
 
 TAGCONST    = 0
-TAGBOX      = 1
-TAGVIRTUAL  = 2
+TAGINT      = 1
+TAGBOX      = 2
+TAGVIRTUAL  = 3
 
 NEXTFRAME = tag(-1, TAGVIRTUAL)
 UNASSIGNED = tag(-1, TAGBOX)
@@ -219,6 +221,15 @@ class ResumeDataVirtualAdder(object):
             return self.liveboxes[box]
 
     def _getconst(self, const):
+        if isinstance(const, ConstInt):
+            val = const.getint()
+            try:
+                if not we_are_translated() and not isinstance(val, int):
+                    # unhappiness, probably a symbolic
+                    raise ValueError
+                return tag(val, TAGINT)
+            except ValueError:
+                pass
         result = tag(len(self.consts), TAGCONST)
         self.consts.append(const)
         return result
@@ -332,6 +343,8 @@ class ResumeDataReader(object):
             virtuals = self.virtuals
             assert virtuals is not None
             return virtuals[num]
+        elif tag == TAGINT:
+            return ConstInt(num)
         else:
             assert tag == TAGBOX
             return self.liveboxes[num]
