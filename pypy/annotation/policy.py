@@ -96,3 +96,5 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         bk = getbookkeeper()
         return bk.immutablevalue(None)
 
+class StrictAnnotatorPolicy(AnnotatorPolicy):
+    allow_someobjects = False
