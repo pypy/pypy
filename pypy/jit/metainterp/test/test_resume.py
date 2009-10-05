@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.resume import *
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstAddr
 from pypy.jit.metainterp.history import ConstPtr
@@ -9,15 +9,45 @@ from pypy.jit.metainterp import executor
 class Storage:
     pass
 
+def test_tag():
+    assert tag(3, 1) == rffi.r_short(3<<2|1)
+    assert tag(-3, 2) == rffi.r_short(-3<<2|2)
+    assert tag((1<<13)-1, 3) == rffi.r_short(((1<<15)-1)|3)
+    assert tag(-1<<13, 3) == rffi.r_short((-1<<15)|3)
+    py.test.raises(ValueError, tag, 3, 5)
+    py.test.raises(ValueError, tag, 1<<13, 0)
+    py.test.raises(ValueError, tag, (1<<13)+1, 0)    
+    py.test.raises(ValueError, tag, (-1<<13)-1, 0)
+    py.test.raises(ValueError, tag, (-1<<13)-5, 0)        
+
+def test_untag():
+    assert untag(tag(3, 1)) == (3, 1)
+    assert untag(tag(-3, 2)) == (-3, 2)
+    assert untag(tag((1<<13)-1, 3)) == ((1<<13)-1, 3)
+    assert untag(tag(-1<<13, 3)) == (-1<<13, 3)
+
+def test_tagged_eq():
+    assert tagged_eq(NEXTFRAME, NEXTFRAME)
+    assert not tagged_eq(NEXTFRAME, UNASSIGNED)
+
 def test_simple_read():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
     storage.rd_frame_infos = []
     storage.rd_consts = [c1, c2, c3]
-    storage.rd_nums = [0, -2, 0, 1, -1,
-                       -3, -4, -1,
-                       0, 1, 2, -1
+    storage.rd_nums = [tag(0, TAGBOX),
+                       tag(0, TAGCONST),
+                       tag(0, TAGBOX),
+                       tag(1, TAGBOX),
+                       NEXTFRAME,
+                       tag(1, TAGCONST),
+                       tag(2, TAGCONST),
+                       NEXTFRAME,
+                       tag(0, TAGBOX),
+                       tag(1, TAGBOX),
+                       tag(2, TAGBOX),
+                       NEXTFRAME
                        ]
     storage.rd_virtuals = None
     b1s, b2s, b3s = [BoxInt(), BoxPtr(), BoxInt()]
@@ -175,7 +205,8 @@ def test_walk_snapshots():
     modifier = ResumeDataVirtualAdder(storage)
     modifier.walk_snapshots({})
 
-    assert modifier.liveboxes == {b1: 0, b2: 0, b3: 0}
+    assert modifier.liveboxes == {b1: UNASSIGNED, b2: UNASSIGNED,
+                                  b3: UNASSIGNED}
     assert modifier.nnums == len(env)+1+len(env1)+1
 
     b1_2 = BoxInt()
@@ -191,7 +222,7 @@ def test_walk_snapshots():
     modifier = ResumeDataVirtualAdder(storage)
     modifier.walk_snapshots({b1: val, b2: val})    
 
-    assert modifier.liveboxes == {b1_2: 0, b3: 0}
+    assert modifier.liveboxes == {b1_2: UNASSIGNED, b3: UNASSIGNED}
     assert modifier.nnums == len(env)+1+len(env1)+1
 
 def test_flatten_frame_info():

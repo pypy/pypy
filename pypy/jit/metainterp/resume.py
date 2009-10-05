@@ -1,6 +1,8 @@
 import sys
 from pypy.jit.metainterp.history import Box, Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop
+from pypy.rpython.lltypesystem import rffi
+from pypy.rlib import rarithmetic
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -58,6 +60,32 @@ def capture_resumedata(framestack, virtualizable_boxes, storage):
         snapshot = Snapshot(snapshot, virtualizable_boxes[:]) # xxx for now
     storage.rd_snapshot = snapshot
 
+TAGMASK = 3
+
+def tag(value, tagbits):
+    if tagbits >> 2:
+        raise ValueError
+    sx = value >> 13
+    if sx != 0 and sx != -1:
+        raise ValueError
+    return rffi.r_short(value<<2|tagbits)
+
+def untag(value):
+    value = rarithmetic.widen(value)
+    tagbits = value&TAGMASK
+    return value>>2, tagbits
+
+def tagged_eq(x, y):
+    # please rpython :(
+    return rarithmetic.widen(x) == rarithmetic.widen(y)
+
+TAGCONST    = 0
+TAGBOX      = 1
+TAGVIRTUAL  = 2
+
+NEXTFRAME = tag(-1, TAGVIRTUAL)
+UNASSIGNED = tag(-1, TAGBOX)
+
  
 VIRTUAL_FLAG = int((sys.maxint+1) // 2)
 assert not (VIRTUAL_FLAG & (VIRTUAL_FLAG-1))    # a power of two
@@ -93,8 +121,8 @@ class ResumeDataVirtualAdder(object):
 
     def make_constant(self, box, const):
         # this part of the interface is not used so far by optimizeopt.py
-        if self.liveboxes[box] == 0:
-            self.liveboxes[box] = self._getconstindex(const)
+        if tagged_eq(self.liveboxes[box], UNASSIGNED):
+            self.liveboxes[box] = self._getconst(const)
 
     def make_virtual(self, virtualbox, known_class, fielddescrs, fieldboxes):
         vinfo = VirtualInfo(known_class, fielddescrs)
@@ -109,15 +137,15 @@ class ResumeDataVirtualAdder(object):
         self._make_virtual(virtualbox, vinfo, itemboxes)
 
     def _make_virtual(self, virtualbox, vinfo, fieldboxes):
-        assert self.liveboxes[virtualbox] == 0
-        self.liveboxes[virtualbox] = len(self.virtuals) | VIRTUAL_FLAG
+        assert tagged_eq(self.liveboxes[virtualbox], UNASSIGNED)
+        self.liveboxes[virtualbox] = tag(len(self.virtuals), TAGVIRTUAL)
         self.virtuals.append(vinfo)
         self.vfieldboxes.append(fieldboxes)
         self._register_boxes(fieldboxes)
 
     def register_box(self, box):
         if isinstance(box, Box) and box not in self.liveboxes:
-            self.liveboxes[box] = 0
+            self.liveboxes[box] = UNASSIGNED
             return True
         return False
                 
@@ -126,7 +154,9 @@ class ResumeDataVirtualAdder(object):
             self.register_box(box)
 
     def is_virtual(self, virtualbox):
-        return self.liveboxes[virtualbox] >= VIRTUAL_FLAG
+        tagged =  self.liveboxes[virtualbox]
+        _, tagbits = untag(tagged)
+        return tagbits == TAGVIRTUAL
 
     def _flatten_frame_info(self):
         storage = self.storage        
@@ -149,21 +179,21 @@ class ResumeDataVirtualAdder(object):
         storage = self.storage
         liveboxes = []
         for box in self.liveboxes.iterkeys():
-            if self.liveboxes[box] == 0:
-                self.liveboxes[box] = len(liveboxes)
+            if tagged_eq(self.liveboxes[box], UNASSIGNED):
+                self.liveboxes[box] = tag(len(liveboxes), TAGBOX)
                 liveboxes.append(box)
-        nums = storage.rd_nums = [0]*self.nnums
+        nums = storage.rd_nums = [rffi.r_short(0)]*self.nnums
         i = self.nnums-1
         snapshot = self.storage.rd_snapshot
         while True: # at least one
             boxes = snapshot.boxes
-            nums[i] = -1
+            nums[i] = NEXTFRAME
             i -= 1
             for j in range(len(boxes)-1, -1, -1):
                 box = boxes[j]
                 if box in values:
                     box = values[box].get_key_box()
-                nums[i] = self._getboxindex(box)
+                nums[i] = self._gettagged(box)
                 i -= 1
             snapshot = snapshot.prev
             if snapshot is None:
@@ -174,7 +204,7 @@ class ResumeDataVirtualAdder(object):
             for i in range(len(storage.rd_virtuals)):
                 vinfo = storage.rd_virtuals[i]
                 fieldboxes = self.vfieldboxes[i]
-                vinfo.fieldnums = [self._getboxindex(box)
+                vinfo.fieldnums = [self._gettagged(box)
                                    for box in fieldboxes]
         storage.rd_consts = self.consts[:]
         storage.rd_snapshot = None
@@ -182,14 +212,14 @@ class ResumeDataVirtualAdder(object):
             dump_storage(storage, liveboxes)
         return liveboxes
 
-    def _getboxindex(self, box):
+    def _gettagged(self, box):
         if isinstance(box, Const):
-            return self._getconstindex(box)
+            return self._getconst(box)
         else:
             return self.liveboxes[box]
 
-    def _getconstindex(self, const):
-        result = -2 - len(self.consts)
+    def _getconst(self, const):
+        result = tag(len(self.consts), TAGCONST)
         self.consts.append(const)
         return result
 
@@ -289,19 +319,21 @@ class ResumeDataReader(object):
         while True:
             num = self.nums[self.i_boxes]
             self.i_boxes += 1
-            if num == -1:
+            if tagged_eq(num, NEXTFRAME):
                 break
             boxes.append(self._decode_box(num))
         return boxes
 
     def _decode_box(self, num):
-        if num < 0:
-            return self.consts[-2 - num]
-        elif num & VIRTUAL_FLAG:
+        num, tag = untag(num)
+        if tag == TAGCONST:
+            return self.consts[num]
+        elif tag == TAGVIRTUAL:
             virtuals = self.virtuals
             assert virtuals is not None
-            return virtuals[num - VIRTUAL_FLAG]
+            return virtuals[num]
         else:
+            assert tag == TAGBOX
             return self.liveboxes[num]
 
     def has_more_frame_infos(self):

@@ -10,7 +10,7 @@ from pypy.jit.metainterp import optimizeopt
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp import resume, executor, compile
+from pypy.jit.metainterp import executor, compile, resume
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.test.oparser import pure_parse
 
@@ -25,6 +25,7 @@ class FakeFrame(object):
     
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
+    from pypy.jit.metainterp.resume import tag, NEXTFRAME, TAGBOX
     b0 = BoxInt()
     b1 = BoxInt()
     opt = optimizeopt.Optimizer(None, None)
@@ -40,10 +41,12 @@ def test_store_final_boxes_in_guard():
     #
     opt.store_final_boxes_in_guard(op)
     if op.fail_args == [b0, b1]:
-        assert fdescr.rd_nums == [0, -1, 1, -1]
+        assert fdescr.rd_nums == [tag(0, TAGBOX), NEXTFRAME,
+                                  tag(1, TAGBOX), NEXTFRAME]
     else:
         assert op.fail_args == [b1, b0]
-        assert fdescr.rd_nums == [1, -1, 0, -1]
+        assert fdescr.rd_nums == [tag(1, TAGBOX), NEXTFRAME,
+                                  tag(0, TAGBOX), NEXTFRAME]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
     assert fdescr.rd_frame_infos == fi

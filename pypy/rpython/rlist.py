@@ -5,11 +5,11 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
 from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
-from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
+from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar, Number
 from pypy.rpython import robject
 from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, widen
 from pypy.rpython.annlowlevel import ADTInterface
 
 ADTIFixedList = ADTInterface(None, {
@@ -493,6 +493,8 @@ def ll_alloc_and_set(LIST, count, item):
     T = typeOf(item)
     if T is Char or T is UniChar:
         check = ord(item)
+    elif isinstance(T, Number):
+        check = widen(item)
     else:
         check = item
     if (not malloc_zero_filled) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice

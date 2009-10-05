@@ -1296,6 +1296,16 @@ class BaseTestRlist(BaseRtypingTest):
             return ''.join(l)
         py.test.raises(TyperError, self.interpret, f, [5])
 
+    def test_r_short_list(self):
+        from pypy.rpython.lltypesystem.rffi import r_short
+        from pypy.rlib import rarithmetic
+        def f(i):
+            l = [r_short(0)] * 10
+            l[i+1] = r_short(3)
+            return rarithmetic.widen(l[i])
+        res = self.interpret(f, [3])
+        assert res == 0
+
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
     rlist = ll_rlist
