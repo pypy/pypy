@@ -3,19 +3,16 @@ from pypy.tool.udir import udir
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 
-class SemiSpaceGCTests:
+
+class SemiSpaceGCTestDefines:
     large_tests_ok = False
 
-    def run_ok(self, f):
-        res = self.run(f)
-        assert res == 'ok'
-
-    def test_finalizer_order(self):
+    def definestr_finalizer_order(cls):
         import random
         from pypy.tool.algo import graphlib
 
-        examples = []
-        if self.large_tests_ok:
+        cls.finalizer_order_examples = examples = []
+        if cls.large_tests_ok:
             letters = 'abcdefghijklmnopqrstuvwxyz'
             COUNT = 20
         else:
@@ -69,7 +66,7 @@ class SemiSpaceGCTests:
             for c, d in input:
                 vertices[c].refs.append(vertices[d])
 
-        def f():
+        def f(_):
             i = 0
             while i < len(examples):
                 input, components, strict = examples[i]
@@ -114,22 +111,25 @@ class SemiSpaceGCTests:
         def error(i, summary, msg):
             return '%d\n%s\n%s' % (i, summary, msg)
 
-        res = self.run(f)
+        return f
+
+    def test_finalizer_order(self):
+        res = self.run('finalizer_order')
         if res != "ok":
             i, summary, msg = res.split('\n')
             i = int(i)
             import pprint
             print 'Example:'
-            pprint.pprint(examples[i])
+            pprint.pprint(self.finalizer_order_examples[i])
             print 'Finalization ages:'
             print summary
             print msg
             py.test.fail(msg)
 
 
-    def test_from_objwithfinalizer_to_youngobj(self):
+    def define_from_objwithfinalizer_to_youngobj(cls):
         import gc
-        if self.large_tests_ok:
+        if cls.large_tests_ok:
             MAX = 500000
         else:
             MAX = 150
@@ -154,7 +154,25 @@ class SemiSpaceGCTests:
         def f():
             b, lst = g()
             gc.collect()
-            return str(b.count)
+            return b.count
+        return f
 
-        res = self.run(f)
-        assert res == '1'
+    def test_from_objwithfinalizer_to_youngobj(self):
+        res = self.run('from_objwithfinalizer_to_youngobj')
+        assert res == 1
+
+class SemiSpaceGCTests(SemiSpaceGCTestDefines):
+    # xxx messy
+
+    def run(self, name): # for test_gc.py
+        if name == 'finalizer_order':
+            func = self.definestr_finalizer_order()
+            res = self.interpret(func, [-1])
+            return ''.join(res.chars) 
+        elif name == 'from_objwithfinalizer_to_youngobj':
+            func = self.define_from_objwithfinalizer_to_youngobj()
+            return self.interpret(func, [])
+        else:
+            assert 0, "don't know what to do with that"
+
+    

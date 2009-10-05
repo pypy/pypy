@@ -422,13 +422,3 @@ class TestUsingBoehm(AbstractGCTestClass):
             return True
         run = self.getcompiled(f)
         assert run() == True        
-
-    # reusing some tests from pypy.rpython.memory.test.snippet
-    large_tests_ok = True
-
-    def run_ok(self, f):
-        def wrapper():
-            return int(f() == 'ok')
-        c_fn = self.getcompiled(wrapper, [])
-        res = c_fn()
-        assert res == 1

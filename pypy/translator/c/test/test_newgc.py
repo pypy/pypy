@@ -1,39 +1,116 @@
-import sys
 import py
-import os
+import sys, os, inspect
 
 from pypy.objspace.flow.model import summary
-from pypy.translator.translator import TranslationContext
-from pypy.translator.c import genc
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
+from pypy.rlib import rgc
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.tool.udir import udir
-from pypy.translator.c.test.test_boehm import AbstractGCTestClass
+from pypy.translator.interactive import Translation
+from pypy.annotation import policy as annpolicy
+from pypy import conftest
 
-class TestUsingFramework(AbstractGCTestClass):
+class TestUsingFramework(object):
     gcpolicy = "marksweep"
     should_be_moving = False
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
 
-    # interface for snippet.py
-    large_tests_ok = True
-    def run(self, func):
-        fn = self.getcompiled(func)
-        return fn()
+    _isolated_func = None
 
-    def test_empty_collect(self):
+    @classmethod
+    def _makefunc2(cls, f):
+        t = Translation(f, [int, int], gc=cls.gcpolicy,
+                        policy=annpolicy.StrictAnnotatorPolicy())
+        t.disable(['backendopt'])
+        t.set_backend_extra_options(c_isolated=True, c_debug_defines=True)
+        t.rtype()
+        if conftest.option.view:
+            t.viewcg()
+        isolated_func = t.compile()
+        return isolated_func
+
+    def setup_class(cls):
+        funcs0 = []
+        funcs1 = []
+        funcsstr = []
+        name_to_func = {}
+        for fullname in dir(cls):
+            if not fullname.startswith('define'):
+                continue
+            prefix, name = fullname.split('_', 1)
+            definefunc = getattr(cls, fullname)
+            func = definefunc.im_func(cls)
+            func.func_name = 'f_'+name
+            if prefix == 'definestr':
+                funcsstr.append(func)
+                funcs0.append(None)
+                funcs1.append(None)
+            else:            
+                numargs = len(inspect.getargspec(func)[0])
+                funcsstr.append(None)
+                if numargs == 0:
+                    funcs0.append(func)
+                    funcs1.append(None)
+                else:
+                    assert numargs == 1
+                    funcs0.append(None)
+                    funcs1.append(func)
+            assert name not in name_to_func
+            name_to_func[name] = len(name_to_func)
+        def allfuncs(num, arg):
+            rgc.collect()
+            func0 = funcs0[num]
+            if func0:
+                return str(func0())
+            func1 = funcs1[num]
+            if func1:
+                return str(func1(arg))
+            funcstr = funcsstr[num]
+            if funcstr:
+                return funcstr(arg)
+            assert 0, 'unreachable'
+        cls.funcsstr = funcsstr
+        cls.c_allfuncs = staticmethod(cls._makefunc2(allfuncs))
+        cls.allfuncs = staticmethod(allfuncs)
+        cls.name_to_func = name_to_func
+
+    def teardown_class(cls):
+        if hasattr(cls.c_allfuncs, 'close_isolate'):
+            cls.c_allfuncs.close_isolate()
+
+    def run(self, name, *args):
+        if not args:
+            args = (-1, )
+        num = self.name_to_func[name]
+        res = self.c_allfuncs(num, *args)
+        if self.funcsstr[num]:
+            return res
+        return int(res)
+
+    def run_orig(self, name, *args):
+        if not args:
+            args = (-1, )
+        num = self.name_to_func[name]
+        res = self.allfuncs(num, *args)
+        if self.funcsstr[num]:
+            return res
+        return int(res)        
+
+    def define_empty_collect(cls):
         def f():
             llop.gc__collect(lltype.Void)
             return 41
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_empty_collect(self):
+        res = self.run('empty_collect')
         assert res == 41
 
-    def test_framework_simple(self):
+    def define_framework_simple(cls):
         def g(x): # cannot cause a collect
             return x + 1
         class A(object):
@@ -47,13 +124,13 @@ class TestUsingFramework(AbstractGCTestClass):
             a = make()
             llop.gc__collect(lltype.Void)
             return a.b
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 2
-        insns = summary(self.t.graphs[0])
-        assert ('gc_reload_possibly_moved' in insns) == self.should_be_moving
+        return f
 
-    def test_framework_safe_pushpop(self):
+    def test_framework_simple(self):
+        res = self.run('framework_simple')
+        assert res == 2
+
+    def define_framework_safe_pushpop(cls):
         class A(object):
             pass
         class B(object):
@@ -79,13 +156,13 @@ class TestUsingFramework(AbstractGCTestClass):
             make()
             llop.gc__collect(lltype.Void)
             return global_a.b.a.b.c
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 42
-        insns = summary(self.t.graphs[0])
-        assert 'gc_reload_possibly_moved' not in insns
+        return f
 
-    def test_framework_protect_getfield(self):
+    def test_framework_safe_pushpop(self):
+        res = self.run('framework_safe_pushpop')
+        assert res == 42
+
+    def define_framework_protect_getfield(cls):
         class A(object):
             pass
         class B(object):
@@ -107,11 +184,13 @@ class TestUsingFramework(AbstractGCTestClass):
             a = b.a
             b.a = None
             return g(a) + b.othervalue
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_protect_getfield(self):
+        res = self.run('framework_protect_getfield')
         assert res == 128
 
-    def test_framework_varsized(self):
+    def define_framework_varsized(cls):
         S = lltype.GcStruct("S", ('x', lltype.Signed))
         T = lltype.GcStruct("T", ('y', lltype.Signed),
                                  ('s', lltype.Ptr(S)))
@@ -133,12 +212,13 @@ class TestUsingFramework(AbstractGCTestClass):
                 for j in range(i):
                     r += a[j].y
             return r
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == f()
-            
+        return f
 
-    def test_framework_using_lists(self):
+    def test_framework_varsized(self):
+        res = self.run('framework_varsized')
+        assert res == self.run_orig('framework_varsized')
+            
+    def define_framework_using_lists(cls):
         class A(object):
             pass
         N = 1000
@@ -152,11 +232,14 @@ class TestUsingFramework(AbstractGCTestClass):
             for a in static_list:
                 r += a.x
             return r
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_using_lists(self):
+        N = 1000
+        res = self.run('framework_using_lists')
         assert res == N*(N - 1)/2
     
-    def test_framework_static_roots(self):
+    def define_framework_static_roots(cls):
         class A(object):
             def __init__(self, y):
                 self.y = y
@@ -169,11 +252,13 @@ class TestUsingFramework(AbstractGCTestClass):
             make()
             llop.gc__collect(lltype.Void)
             return a.x.y
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_static_roots(self):
+        res = self.run('framework_static_roots')
         assert res == 42
 
-    def test_framework_nongc_static_root(self):
+    def define_framework_nongc_static_root(cls):
         S = lltype.GcStruct("S", ('x', lltype.Signed))
         T = lltype.Struct("T", ('p', lltype.Ptr(S)))
         t = lltype.malloc(T, immortal=True)
@@ -184,28 +269,34 @@ class TestUsingFramework(AbstractGCTestClass):
                 s = lltype.malloc(S)
                 s.x = i
             return t.p.x
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_nongc_static_root(self):
+        res = self.run('framework_nongc_static_root')
         assert res == 43
 
-    def test_framework_void_array(self):
+    def define_framework_void_array(cls):
         A = lltype.GcArray(lltype.Void)
         a = lltype.malloc(A, 44)
         def f():
             return len(a)
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_void_array(self):
+        res = self.run('framework_void_array')
         assert res == 44
         
         
-    def test_framework_malloc_failure(self):
+    def define_framework_malloc_failure(cls):
         def f():
             a = [1] * (sys.maxint//2)
             return len(a) + a[0]
-        fn = self.getcompiled(f)
-        py.test.raises(MemoryError, fn)
+        return f
 
-    def test_framework_array_of_void(self):
+    def test_framework_malloc_failure(self):
+        py.test.raises(MemoryError, self.run, 'framework_malloc_failure')
+
+    def define_framework_array_of_void(cls):
         def f():
             a = [None] * 43
             b = []
@@ -213,11 +304,13 @@ class TestUsingFramework(AbstractGCTestClass):
                 a.append(None)
                 b.append(len(a))
             return b[-1]
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_array_of_void(self):
+        res = self.run('framework_array_of_void')
         assert res == 43 + 1000000
         
-    def test_framework_opaque(self):
+    def define_framework_opaque(cls):
         A = lltype.GcStruct('A', ('value', lltype.Signed))
         O = lltype.GcOpaqueType('test.framework')
 
@@ -238,11 +331,13 @@ class TestUsingFramework(AbstractGCTestClass):
                 overwrite(lltype.malloc(A), i)
             a = reveal(o)
             return a.value
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_opaque(self):
+        res = self.run('framework_opaque')
         assert res == -70
 
-    def test_framework_finalizer(self):
+    def define_framework_finalizer(cls):
         class B(object):
             pass
         b = B()
@@ -263,11 +358,13 @@ class TestUsingFramework(AbstractGCTestClass):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
-        run = self.getcompiled(f)
-        res = run()
+        return f
+
+    def test_framework_finalizer(self):
+        res = self.run('framework_finalizer')
         assert res == 6
 
-    def test_del_catches(self):
+    def define_del_catches(cls):
         import os
         def g():
             pass
@@ -280,41 +377,39 @@ class TestUsingFramework(AbstractGCTestClass):
         def f1(i):
             if i:
                 raise TypeError
-        def f(i=int):
+        def f(i):
             a = A()
             f1(i)
             a.b = 1
             llop.gc__collect(lltype.Void)
             return a.b
-        def f_0():
+        def h(x):
             try:
-                return f(0)
+                return f(x)
             except TypeError:
                 return 42
-        def f_1():
-            try:
-                return f(1)
-            except TypeError:
-                return 42
-        fn = self.getcompiled(f_0)
-        assert fn() == 1
-        fn = self.getcompiled(f_1)
-        assert fn() == 42
+        return h
 
-    def test_del_raises(self):
+    def test_del_catches(self):
+        res = self.run('del_catches', 0)
+        assert res == 1
+        res = self.run('del_catches', 1)
+        assert res == 42
+
+    def define_del_raises(cls):
         class B(object):
             def __del__(self):
                 raise TypeError
         def func():
             b = B()
             return 0
-        fn = self.getcompiled(func)
-        # does not crash
-        fn()
+        return func
+    
+    def test_del_raises(self):
+        self.run('del_raises') # does not raise
 
-    def test_weakref(self):
+    def define_weakref(cls):
         import weakref
-        from pypy.rlib import rgc
 
         class A:
             pass
@@ -343,14 +438,15 @@ class TestUsingFramework(AbstractGCTestClass):
                 else:
                     count_free += 1
             return count_free
-        c_fn = self.getcompiled(fn)
-        res = c_fn()
+        return fn
+
+    def test_weakref(self):
+        res = self.run('weakref')
         # more than half of them should have been freed, ideally up to 6000
         assert 3500 <= res <= 6000
 
-    def test_prebuilt_weakref(self):
+    def define_prebuilt_weakref(cls):
         import weakref
-        from pypy.rlib import rgc
         class A:
             pass
         a = A()
@@ -367,11 +463,13 @@ class TestUsingFramework(AbstractGCTestClass):
                 else:
                     result += a.hello * (i+1)
             return result
-        c_fn = self.getcompiled(fn)
-        res = c_fn()
-        assert res == fn()
+        return fn
 
-    def test_framework_malloc_raw(self):
+    def test_prebuilt_weakref(self):
+        res = self.run('prebuilt_weakref')
+        assert res == self.run_orig('prebuilt_weakref')
+
+    def define_framework_malloc_raw(cls):
         A = lltype.Struct('A', ('value', lltype.Signed))
 
         def f():
@@ -381,11 +479,13 @@ class TestUsingFramework(AbstractGCTestClass):
             res = p.value
             lltype.free(p, flavor='raw')
             return res
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_malloc_raw(self):
+        res = self.run('framework_malloc_raw')
         assert res == 123
 
-    def test_framework_del_seeing_new_types(self):
+    def define_framework_del_seeing_new_types(cls):
         class B(object):
             pass
         class A(object):
@@ -394,62 +494,13 @@ class TestUsingFramework(AbstractGCTestClass):
         def f():
             A()
             return 42
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_framework_del_seeing_new_types(self):
+        res = self.run('framework_del_seeing_new_types')
         assert res == 42
 
-    def test_memory_error_varsize(self):
-        py.test.skip("Needs lots (>2GB) of memory.")
-        import gc
-        import pypy.rlib.rgc
-        from pypy.rpython.lltypesystem import lltype
-        N = sys.maxint / 4 + 4
-        A = lltype.GcArray(lltype.Signed)
-        def alloc(n):
-            return lltype.malloc(A, n)
-        def f():
-            try:
-                try:
-                    x = alloc(N)
-                except MemoryError:
-                    y = alloc(10)
-                    return len(y)
-                return -1
-            finally:
-                gc.collect()
-                
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 10
-        N = sys.maxint / 4
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 10
-
-        N = sys.maxint / 4 - 1
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 10
-
-        N = sys.maxint / 8 + 1000
-        def f():
-            try:
-                x0 = alloc(N)
-                try:
-                    x1 = alloc(N)
-                    return len(x0) + len(x1)
-                except MemoryError:
-                    y = alloc(10)
-                    return len(y)
-                return -1
-            finally:
-                gc.collect()
-
-        fn = self.getcompiled(f)
-        res = fn()
-        assert res == 10
-
-    def test_framework_late_filling_pointers(self):
+    def define_framework_late_filling_pointers(cls):
         A = lltype.GcStruct('A', ('x', lltype.Signed))
         B = lltype.GcStruct('B', ('a', lltype.Ptr(A)))
 
@@ -458,41 +509,13 @@ class TestUsingFramework(AbstractGCTestClass):
             llop.gc__collect(lltype.Void)
             p.a = lltype.malloc(A)
             return p.a.x
-        fn = self.getcompiled(f)
+        return f
+
+    def test_framework_late_filling_pointers(self):
         # the point is just not to segfault
-        res = fn()
+        self.run('framework_late_filling_pointers')
 
-    def test_dict_segfault(self):
-        " was segfaulting at one point see rev 39665 for fix and details "
-        py.test.skip("Takes about 30 minutes in nightly test run, see rev 39665 for a minimal test that does the same")
-
-        class Element:
-            pass
-
-        elements = [Element() for ii in range(10000)]
-
-        def dostuff():
-            reverse = {}
-            l = elements[:]
-
-            for ii in elements:
-                reverse[ii] = ii
-
-            for jj in range(100):
-                e = l[-1]
-                del reverse[e]
-                l.remove(e)
-
-        def f():
-            for ii in range(100):
-                dostuff()
-            return 0
-
-        fn = self.getcompiled(f)
-        # the point is just not to segfault
-        res = fn()
-
-    def test_zero_raw_malloc(self):
+    def define_zero_raw_malloc(cls):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
         def f():
             for i in range(100):
@@ -504,14 +527,15 @@ class TestUsingFramework(AbstractGCTestClass):
                 lltype.free(p, flavor='raw')
             return 42
 
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_zero_raw_malloc(self):
+        res = self.run('zero_raw_malloc')
         assert res == 42
 
-    def test_object_alignment(self):
+    def define_object_alignment(cls):
         # all objects returned by the GC should be properly aligned.
         from pypy.rpython.lltypesystem import rffi
-        from pypy.rpython.tool import rffi_platform
         mylist = ['a', 'bc', '84139871', 'ajkdh', '876']
         def f():
             result = 0
@@ -523,23 +547,29 @@ class TestUsingFramework(AbstractGCTestClass):
                     result |= addr
             return result
 
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_object_alignment(self):
+        res = self.run('object_alignment')
+        from pypy.rpython.tool import rffi_platform
         expected_alignment = rffi_platform.memory_alignment()
         assert (res & (expected_alignment-1)) == 0
 
-    def test_void_list(self):
+    def define_void_list(cls):
         class E:
             def __init__(self):
                 self.l = []
         def f():
             e = E()
             return len(e.l)
-        c_fn = self.getcompiled(f)
-        assert c_fn() == 0
+        return f
 
-    def test_open_read_write_seek_close(self):
-        filename = str(udir.join('test_open_read_write_close.txt'))
+    def test_void_list(self):
+        assert self.run('void_list') == 0
+
+    filename = str(udir.join('test_open_read_write_close.txt'))
+    def define_open_read_write_seek_close(cls):
+        filename = cls.filename
         def does_stuff():
             fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
             count = os.write(fd, "hello world\n")
@@ -551,17 +581,19 @@ class TestUsingFramework(AbstractGCTestClass):
             data = os.read(fd, 500)
             assert data == "ello world\n"
             os.close(fd)
+            return 0
 
-        f1 = self.getcompiled(does_stuff)
-        f1()
-        assert open(filename, 'r').read() == "hello world\n"
-        os.unlink(filename)
+        return does_stuff
 
-    def test_callback_with_collect(self):
+    def test_open_read_write_seek_close(self):
+        self.run('open_read_write_seek_close')
+        assert open(self.filename, 'r').read() == "hello world\n"
+        os.unlink(self.filename)
+
+    def define_callback_with_collect(cls):
         from pypy.rlib.libffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
-        from pypy.rlib import rgc
         import gc
         slong = cast_type_to_ffitype(rffi.LONG)
 
@@ -604,20 +636,22 @@ class TestUsingFramework(AbstractGCTestClass):
             keepalive_until_here(ptr)
             return int(result)
 
-        c_fn = self.getcompiled(f)
-        assert c_fn() == 1
+        return f
+
+    def test_callback_with_collect(self):
+        assert self.run('callback_with_collect')
     
-    def test_can_move(self):
-        from pypy.rlib import rgc
+    def define_can_move(cls):
         class A:
             pass
         def fn():
             return rgc.can_move(A())
+        return fn
 
-        c_fn = self.getcompiled(fn)
-        assert c_fn() == self.GC_CAN_MOVE
+    def test_can_move(self):
+        assert self.run('can_move') == self.GC_CAN_MOVE
 
-    def test_malloc_nonmovable(self):
+    def define_malloc_nonmovable(cls):
         TP = lltype.GcArray(lltype.Char)
         def func():
             try:
@@ -631,13 +665,15 @@ class TestUsingFramework(AbstractGCTestClass):
             except Exception, e:
                 return 2
 
-        run = self.getcompiled(func)
-        assert run() == self.GC_CANNOT_MALLOC_NONMOVABLE
+        return func
 
-    def test_resizable_buffer(self):
+    def test_malloc_nonmovable(self):
+        res = self.run('malloc_nonmovable')
+        assert res == self.GC_CANNOT_MALLOC_NONMOVABLE
+
+    def define_resizable_buffer(cls):
         from pypy.rpython.lltypesystem.rstr import STR
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib import rgc
 
         def f():
             ptr = rgc.resizable_buffer_of_shape(STR, 2)
@@ -646,16 +682,21 @@ class TestUsingFramework(AbstractGCTestClass):
             ptr.chars[1] = 'b'
             return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
 
-        run = self.getcompiled(f)
-        assert run() == True
+        return f
 
-class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
+    def test_resizable_buffer(self):
+        assert self.run('resizable_buffer')
+
+class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
     GC_CAN_MOVE = True
     GC_CANNOT_MALLOC_NONMOVABLE = True
 
-    def test_many_ids(self):
+    # for snippets
+    large_tests_ok = True
+
+    def define_many_ids(cls):
         from pypy.rlib.objectmodel import compute_unique_id
         class A(object):
             pass
@@ -682,17 +723,18 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
                 j += 1
             lltype.free(idarray, flavor='raw')
             return -2
-        fn = self.getcompiled(f)
-        res = fn()
+        return f
+
+    def test_many_ids(self):
+        res = self.run('many_ids')
         assert res == -2
 
-    def test_gc_set_max_heap_size(self):
+    def define_gc_set_max_heap_size(cls):
         def g(n):
             return 'x' * n
         def fn():
             # the semispace size starts at 8MB for now, so setting a
             # smaller limit has no effect
-            from pypy.rlib import rgc
             # set to more than 32MB -- which should be rounded down to 32MB
             rgc.set_max_heap_size(32*1024*1024 + 20000)
             s1 = s2 = s3 = None
@@ -703,25 +745,29 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
             except MemoryError:
                 pass
             return (s1 is not None) + (s2 is not None) + (s3 is not None)
-        c_fn = self.getcompiled(fn)
-        res = c_fn()
+        return fn
+
+    def test_gc_set_max_heap_size(self):
+        res = self.run('gc_set_max_heap_size')
         assert res == 2
         
-    def test_string_builder(self):
-        def fn():
+    def definestr_string_builder(cls):
+        def fn(_):
             s = StringBuilder()
             s.append("a")
             s.append("abc")
             s.append_slice("abc", 1, 2)
             s.append_multiple_char('d', 4)
             return s.build()
-        c_fn = self.getcompiled(fn)
-        res = c_fn()
+        return fn
+
+    def test_string_builder(self):
+        res = self.run('string_builder')
         assert res == "aabcbdddd"
     
-    def test_string_builder_over_allocation(self):
+    def definestr_string_builder_over_allocation(cls):
         import gc
-        def fn():
+        def fn(_):
             s = StringBuilder(4)
             s.append("abcd")
             s.append("defg")
@@ -732,8 +778,10 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
             res = s.build()
             gc.collect()
             return res
-        c_fn = self.getcompiled(fn)
-        res = c_fn()
+        return fn
+
+    def test_string_builder_over_allocation(self):
+        res = self.run('string_builder_over_allocation')
         assert res[1000] == 'y'
 
 class TestGenerationalGC(TestSemiSpaceGC):

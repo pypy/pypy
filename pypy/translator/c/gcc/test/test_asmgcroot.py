@@ -17,10 +17,13 @@ class AbstractTestAsmGCRoot:
     # instructions:
     should_be_moving = False
 
-    def getcompiled(self, func):
+    @classmethod
+    def _makefunc2(cls, func):
         def main(argv):
+            arg0 = int(argv[1])
+            arg1 = int(argv[2])
             try:
-                res = func()
+                res = func(arg0, arg1)
             except MemoryError:
                 print 'Result: MemoryError'
             else:
@@ -31,12 +34,11 @@ class AbstractTestAsmGCRoot:
             return 0
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
-        config.translation.gc = self.gcpolicy
+        config.translation.gc = cls.gcpolicy
         config.translation.gcrootfinder = "asmgcc"
         if sys.platform == 'win32':
             config.translation.cc = 'mingw32'
         t = TranslationContext(config=config)
-        self.t = t
         a = t.buildannotator()
         a.build_types(main, [s_list_of_strings])
         t.buildrtyper().specialize()
@@ -45,15 +47,15 @@ class AbstractTestAsmGCRoot:
         cbuilder = CStandaloneBuilder(t, main, config=config)
         c_source_filename = cbuilder.generate_source(
             defines = cbuilder.DEBUG_DEFINES)
-        self.patch_makefile(cbuilder.targetdir)
+        cls._patch_makefile(cbuilder.targetdir)
         if conftest.option.view:
             t.view()
         exe_name = cbuilder.compile()
 
-        def run():
+        def run(arg0, arg1):
             lines = []
             print >> sys.stderr, 'RUN: starting', exe_name
-            g = os.popen('"%s"' % (exe_name,), 'r')
+            g = os.popen('"%s" %d %d' % (exe_name, arg0, arg1), 'r')
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)
@@ -71,7 +73,8 @@ class AbstractTestAsmGCRoot:
                 return int(result)
         return run
 
-    def patch_makefile(self, targetdir):
+    @classmethod
+    def _patch_makefile(cls, targetdir):
         # for testing, patch the Makefile to add the -r option to
         # trackgcroot.py.
         makefile = targetdir.join('Makefile')
@@ -89,7 +92,12 @@ class AbstractTestAsmGCRoot:
         f.writelines(lines)
         f.close()
 
-    def test_large_function(self):
+class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
+                                   test_newgc.TestSemiSpaceGC):
+    # for the individual tests see
+    # ====> ../../test/test_newgc.py
+
+    def define_large_function(cls):
         class A(object):
             def __init__(self):
                 self.x = 0
@@ -103,17 +111,13 @@ class AbstractTestAsmGCRoot:
             a = A()
             g(a)
             return a.x
-        c_fn = self.getcompiled(f)
-        assert c_fn() == 1000
+        return f
 
+    def test_large_function(self):        
+        res = self.run('large_function')
+        assert res == 1000
 
-class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
-                                   test_newgc.TestSemiSpaceGC):
-    pass
-    # for the individual tests see
-    # ====> ../../test/test_newgc.py
-
-    def test_callback_simple(self):
+    def define_callback_simple(cls):
         import gc
         from pypy.rpython.lltypesystem import lltype, rffi
         from pypy.rpython.annlowlevel import llhelper
@@ -142,8 +146,12 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
             result = z(mycallback)
             return result * p.x
 
-        c_fn = self.getcompiled(f)
-        assert c_fn() == 4900
+        return f
+
+
+    def test_callback_simple(self):
+        res = self.run('callback_simple')
+        assert res == 4900
 
     if sys.platform == 'win32':
         def test_callback_with_collect(self):

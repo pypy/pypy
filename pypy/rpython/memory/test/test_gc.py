@@ -39,12 +39,6 @@ class GCTest(object):
                                                self.GC_PARAMS)
         return interp.eval_graph(graph, values)
 
-    def run(self, func):      # for snippet.py
-        res = self.interpret(func, [])
-        if lltype.typeOf(res) == lltype.Ptr(STR):
-            res = ''.join(res.chars)
-        return res
-
     def test_llinterp_lists(self):
         #curr = simulator.current_size
         def malloc_a_lot():
