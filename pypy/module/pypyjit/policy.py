@@ -42,7 +42,7 @@ class PyPyJitPolicy(JitPolicy):
                     return True
 
             modname = mod.split('.')[2]
-            if mod in ['pypyjit', 'signal', 'micronumpy', 'math']:
+            if modname in ['pypyjit', 'signal', 'micronumpy', 'math']:
                 return True
             return False
             
