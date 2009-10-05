@@ -1,4 +1,5 @@
-from pypy.jit.metainterp.history import Box, BoxInt, LoopToken
+from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
+     ConstFloat
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.executor import execute_nonspec
@@ -143,6 +144,7 @@ class ConstantValue(OptValue):
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
+CVAL_ZERO_FLOAT = ConstantValue(ConstFloat(0.0))
 llhelper.CONST_NULL = ConstPtr(ConstPtr.value)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CONST_NULL = ConstObj(ConstObj.value)
@@ -438,24 +440,32 @@ class Optimizer(object):
     def new_box(self, fieldofs):
         if fieldofs.is_pointer_field():
             return self.new_ptr_box()
+        elif fieldofs.is_float_field():
+            return BoxFloat()
         else:
             return BoxInt()
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():
             return self.cpu.ts.CVAL_NULLREF
+        elif fieldofs.is_float_field():
+            return CVAL_ZERO_FLOAT
         else:
             return CVAL_ZERO
 
     def new_box_item(self, arraydescr):
         if arraydescr.is_array_of_pointers():
             return self.new_ptr_box()
+        elif arraydescr.is_array_of_floats():
+            return BoxFloat()
         else:
             return BoxInt()
 
     def new_const_item(self, arraydescr):
         if arraydescr.is_array_of_pointers():
             return self.cpu.ts.CVAL_NULLREF
+        elif arraydescr.is_array_of_floats():
+            return CVAL_ZERO_FLOAT
         else:
             return CVAL_ZERO
 

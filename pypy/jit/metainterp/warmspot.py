@@ -434,7 +434,7 @@ class WarmRunnerDesc:
                 return 'DoneWithThisFrameRef(%s)' % (self.result,)
 
         class DoneWithThisFrameFloat(JitException):
-            def __init__(self, cpu, result):
+            def __init__(self, result):
                 assert lltype.typeOf(result) is lltype.Float
                 self.result = result
             def __str__(self):

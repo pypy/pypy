@@ -27,7 +27,7 @@ class FLOATREG(OPERAND):
     def assembler(self):
         raise TypeError("Float registers should not appear in assembler")
 
-class XMMREG(OPERAND):
+class XMMREG(REG):
     width = 8
 
     def __repr__(self):
@@ -308,6 +308,10 @@ def memSIB64(base, index, scaleshift, offset):
 def memregister8(register):
     assert register.width == 1
     return MODRM8(0xC0 | register.op, '')
+
+def memregister64(register):
+    assert register.width == 8
+    return MODRM64(0xC0 | register.op, '')
 
 def mem8(basereg, offset=0):
     return memSIB8(basereg, None, 0, offset)

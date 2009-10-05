@@ -2,7 +2,7 @@ import os
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
-     BoxInt, ConstAddr
+     BoxInt, ConstAddr, ConstFloat, BoxFloat
 from pypy.rlib.streamio import open_file_as_stream
 
 class Logger(object):
@@ -45,10 +45,14 @@ class Logger(object):
             return 'ConstPtr(ptr' + str(mv) + ')'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
+        elif isinstance(arg, ConstFloat):
+            return str(arg.value)
+        elif isinstance(arg, BoxFloat):
+            return 'f' + str(mv)
         elif isinstance(arg, self.ts.ConstAddr):
             return 'ConstClass(cls' + str(mv) + ')'
         else:
-            raise NotImplementedError
+            return '?'
 
     def log_operations(self, inputargs, operations, memo, indent=0):
         if self.log_stream is None:

@@ -7,6 +7,7 @@ class FakeStats(object):
     pass
 
 class MyLLCPU(AbstractLLCPU):
+    supports_floats = True
     def compile_loop(self, inputargs, operations, looptoken):
         py.test.skip("llsupport test: cannot compile operations")
 

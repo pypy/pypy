@@ -33,6 +33,23 @@ class VirtualTests:
         self.check_loops(new=0, new_with_vtable=0,
                                 getfield_gc=0, setfield_gc=0)
 
+    def test_virtualized_float(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = self._new()
+            node.floatval = 0.0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                next = self._new()
+                next.floatval = node.floatval + .5
+                n -= 1
+            return node.floatval
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_loop_count(1)
+        self.check_loops(new=0, float_add=1)
+
     def test_virtualized_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
@@ -339,6 +356,7 @@ class TestOOtype_Instance(VirtualTests, OOJitMixin):
 # Run 2: all the tests use lltype.malloc to make a NODE
 
 NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
+                               ('floatval', lltype.Float),
                                ('extra', lltype.Signed))
 
 class TestLLtype_NotObject(VirtualTests, LLJitMixin):
@@ -352,6 +370,7 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
 
 OONODE = ootype.Instance('NODE', ootype.ROOT, {})
 OONODE._add_fields({'value': ootype.Signed,
+                    'floatval' : ootype.Float,
                     'extra': ootype.Signed})
 
 class TestOOtype_NotObject(VirtualTests, OOJitMixin):
@@ -367,6 +386,7 @@ class TestOOtype_NotObject(VirtualTests, OOJitMixin):
 # (same as Run 2 but it is part of the OBJECT hierarchy)
 
 NODE2 = lltype.GcStruct('NODE2', ('parent', rclass.OBJECT),
+                                 ('floatval', lltype.Float),
                                  ('value', lltype.Signed),
                                  ('extra', lltype.Signed))
 

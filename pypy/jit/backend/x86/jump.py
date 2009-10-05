@@ -80,10 +80,7 @@ def remap_stack_layout(assembler, src_locations, dst_locations, tmpreg):
             assert pending_dests == 0
 
 def _move(assembler, src, dst, tmpreg):
-    if isinstance(dst, MODRM):
-        if isinstance(src, MODRM):
-            assembler.regalloc_mov(src, tmpreg)
-            src = tmpreg
-        assembler.regalloc_mov(src, dst)
-    else:
-        assembler.regalloc_mov(src, dst)
+    if isinstance(dst, MODRM) and isinstance(src, MODRM):
+        assembler.regalloc_mov(src, tmpreg)
+        src = tmpreg
+    assembler.regalloc_mov(src, dst)

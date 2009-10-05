@@ -41,9 +41,9 @@ def test_trivial():
     remap_stack_layout(assembler, [eax, ebx, ecx, edx, esi, edi],
                                   [eax, ebx, ecx, edx, esi, edi], '?')
     assert assembler.ops == []
-    s8 = stack_pos(1)
-    s12 = stack_pos(31)
-    s20 = stack_pos(6)
+    s8 = stack_pos(1, 1)
+    s12 = stack_pos(31, 1)
+    s20 = stack_pos(6, 1)
     remap_stack_layout(assembler, [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
                                   [eax, ebx, ecx, s20, s8, edx, s12, esi, edi],
                                   '?')
@@ -58,10 +58,10 @@ def test_simple_registers():
 
 def test_simple_stacklocs():
     assembler = MockAssembler()
-    s8 = stack_pos(0)
-    s12 = stack_pos(13)
-    s20 = stack_pos(20)
-    s24 = stack_pos(221)
+    s8 = stack_pos(0, 1)
+    s12 = stack_pos(13, 1)
+    s20 = stack_pos(20, 1)
+    s24 = stack_pos(221, 1)
     remap_stack_layout(assembler, [s8, eax, s12], [s20, s24, edi], edx)
     assert assembler.ops == [('mov', s8, edx),
                              ('mov', edx, s20),
@@ -70,10 +70,10 @@ def test_simple_stacklocs():
 
 def test_reordering():
     assembler = MockAssembler()
-    s8 = stack_pos(8)
-    s12 = stack_pos(12)
-    s20 = stack_pos(19)
-    s24 = stack_pos(1)
+    s8 = stack_pos(8, 1)
+    s12 = stack_pos(12, 1)
+    s20 = stack_pos(19, 1)
+    s24 = stack_pos(1, 1)
     remap_stack_layout(assembler, [eax, s8, s20, ebx],
                                   [s8, ebx, eax, edi], '?')
     assert assembler.got([('mov', ebx, edi),
@@ -83,10 +83,10 @@ def test_reordering():
 
 def test_cycle():
     assembler = MockAssembler()
-    s8 = stack_pos(8)
-    s12 = stack_pos(12)
-    s20 = stack_pos(19)
-    s24 = stack_pos(1)
+    s8 = stack_pos(8, 1)
+    s12 = stack_pos(12, 1)
+    s20 = stack_pos(19, 1)
+    s24 = stack_pos(1, 1)
     remap_stack_layout(assembler, [eax, s8, s20, ebx],
                                   [s8, ebx, eax, s20], '?')
     assert assembler.got([('push', s8),
@@ -97,12 +97,12 @@ def test_cycle():
 
 def test_cycle_2():
     assembler = MockAssembler()
-    s8 = stack_pos(8)
-    s12 = stack_pos(12)
-    s20 = stack_pos(19)
-    s24 = stack_pos(1)
-    s2 = stack_pos(2)
-    s3 = stack_pos(3)
+    s8 = stack_pos(8, 1)
+    s12 = stack_pos(12, 1)
+    s20 = stack_pos(19, 1)
+    s24 = stack_pos(1, 1)
+    s2 = stack_pos(2, 1)
+    s3 = stack_pos(3, 1)
     remap_stack_layout(assembler,
                        [eax, s8, edi, s20, eax, s20, s24, esi, s2, s3],
                        [s8, s20, edi, eax, edx, s24, ebx, s12, s3, s2],
@@ -127,14 +127,14 @@ def test_constants():
     remap_stack_layout(assembler, [c3], [eax], '?')
     assert assembler.ops == [('mov', c3, eax)]
     assembler = MockAssembler()
-    s12 = stack_pos(12)
+    s12 = stack_pos(12, 1)
     remap_stack_layout(assembler, [c3], [s12], '?')
     assert assembler.ops == [('mov', c3, s12)]
 
 def test_constants_and_cycle():
     assembler = MockAssembler()
     c3 = imm(3)
-    s12 = stack_pos(13)
+    s12 = stack_pos(13, 1)
     remap_stack_layout(assembler, [ebx, c3,  s12],
                                   [s12, eax, ebx], edi)
     assert assembler.ops == [('mov', c3, eax),

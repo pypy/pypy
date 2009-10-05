@@ -3,7 +3,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
+     BoxFloat
 
 def test_basic_parse():
     x = """
@@ -129,6 +130,14 @@ def test_jump_target_other():
     loop = parse(x, namespace=locals())
     assert loop.operations[0].descr is looptoken
 
+def test_floats():
+    x = '''
+    [f0]
+    f1 = float_add(f0, 3.5)
+    '''
+    loop = parse(x)
+    assert isinstance(loop.operations[0].args[0], BoxFloat)
+    
 def test_debug_merge_point():
     x = '''
     []

@@ -74,3 +74,12 @@ class TestLogger(object):
         loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].args[0]._get_str() == 'info'
         assert oloop.operations[0].args[0]._get_str() == 'info'
+        
+    def test_floats(self):
+        inp = '''
+        [f0]
+        f1 = float_add(3.5, f0)
+        '''
+        loop, oloop = self.reparse(inp)
+        equaloplists(loop.operations, oloop.operations)       
+

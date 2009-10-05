@@ -584,6 +584,22 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
                            expected, checkspecnodes=False)
 
+    def test_virtual_float(self):
+        ops = """
+        [f, p0]
+        f0 = getfield_gc(p0, descr=floatdescr)
+        f1 = float_add(f0, f)
+        setfield_gc(p0, f1, descr=floatdescr)
+        jump(f, p0)
+        """
+        expected = """
+        [f, f2]
+        f1 = float_add(f2, f)
+        jump(f, f1)
+        """
+        self.optimize_loop(ops, 'Not, Virtual(node_vtable, floatdescr=Not)',
+                           expected, checkspecnodes=False)        
+
     def test_virtual_2(self):
         ops = """
         [i, p0]
@@ -883,6 +899,23 @@ class BaseTestOptimizeOpt(BaseTest):
         expected = """
         [i1]
         jump(i1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_varray_float(self):
+        ops = """
+        [f1]
+        p1 = new_array(3, descr=floatarraydescr)
+        i3 = arraylen_gc(p1, descr=floatarraydescr)
+        guard_value(i3, 3) []
+        setarrayitem_gc(p1, 1, f1, descr=floatarraydescr)
+        setarrayitem_gc(p1, 0, 3.5, descr=floatarraydescr)
+        f2 = getarrayitem_gc(p1, 1, descr=floatarraydescr)
+        jump(f2)
+        """
+        expected = """
+        [f1]
+        jump(f1)
         """
         self.optimize_loop(ops, 'Not', expected)
 

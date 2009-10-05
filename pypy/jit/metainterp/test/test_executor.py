@@ -147,7 +147,6 @@ def _int_comparison_operations():
         for i in range(20):
             x = pick()
             y = pick()
-            res = execute_nonspec(cpu, opnum, [BoxInt(x), BoxInt(y)])
             z = int(operation(x, y))
             yield opnum, [x, y], z
 
@@ -168,6 +167,10 @@ def get_int_tests():
             list(_int_comparison_operations()) +
             list(_int_unary_operations())):
         yield opnum, [BoxInt(x) for x in args], retvalue
+        if len(args) > 1:
+            assert len(args) == 2
+            yield opnum, [BoxInt(args[0]), ConstInt(args[1])], retvalue
+            yield opnum, [ConstInt(args[0]), BoxInt(args[1])], retvalue
 
 
 def test_int_ops():
@@ -196,6 +199,7 @@ def _float_comparison_operations():
         yield (rop.FLOAT_NE, [10.125, y], 'int', 10.125 != y)
         yield (rop.FLOAT_GT, [10.125, y], 'int', 10.125 > y)
         yield (rop.FLOAT_GE, [10.125, y], 'int', 10.125 >= y)
+    yield (rop.FLOAT_EQ, [0.0, -0.0], 'int', 0.0 == -0.0)
 
 def _float_unary_operations():
     yield (rop.FLOAT_NEG, [-5.9], 'float', 5.9)
@@ -204,6 +208,7 @@ def _float_unary_operations():
     yield (rop.FLOAT_ABS, [15.9], 'float', 15.9)
     yield (rop.FLOAT_IS_TRUE, [-5.9], 'int', 1)
     yield (rop.FLOAT_IS_TRUE, [0.0], 'int', 0)
+    yield (rop.FLOAT_IS_TRUE, [-0.0], 'int', 0)
     yield (rop.CAST_FLOAT_TO_INT, [-5.9], 'int', -5)
     yield (rop.CAST_FLOAT_TO_INT, [5.9], 'int', 5)
     yield (rop.CAST_INT_TO_FLOAT, [123], 'float', 123.0)
@@ -222,6 +227,10 @@ def get_float_tests(cpu):
             else:
                 boxargs.append(BoxInt(x))
         yield opnum, boxargs, rettype, retvalue
+        if len(args) > 1:
+            assert len(args) == 2
+            yield opnum, [boxargs[0], boxargs[1].constbox()], rettype, retvalue
+            yield opnum, [boxargs[0].constbox(), boxargs[1]], rettype, retvalue
 
 def test_float_ops():
     cpu = FakeCPU()

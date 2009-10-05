@@ -47,8 +47,14 @@ class Descr(history.AbstractDescr):
     def is_pointer_field(self):
         return self.typeinfo == REF
 
+    def is_float_field(self):
+        return self.typeinfo == FLOAT
+
     def is_array_of_pointers(self):
         return self.typeinfo == REF
+
+    def is_array_of_floats(self):
+        return self.typeinfo == FLOAT
 
     def equals(self, other):
         if not isinstance(other, Descr):
@@ -467,9 +473,10 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(calldescr, Descr)
         func = args[0].getint()
         for arg in args[1:]:
-            if (isinstance(arg, history.BoxPtr) or
-                isinstance(arg, history.ConstPtr)):
+            if arg.type == REF:
                 llimpl.do_call_pushptr(arg.getref_base())
+            elif arg.type == FLOAT:
+                llimpl.do_call_pushfloat(arg.getfloat())
             else:
                 llimpl.do_call_pushint(arg.getint())
         if calldescr.typeinfo == REF:
@@ -744,10 +751,15 @@ class TypeDescr(OODescr):
         self.getarraylength = getarraylength
         self.instanceof = instanceof
         self._is_array_of_pointers = (history.getkind(TYPE) == 'ref')
+        self._is_array_of_floats = (history.getkind(TYPE) == 'float')
 
     def is_array_of_pointers(self):
         # for arrays, TYPE is the type of the array item.
         return self._is_array_of_pointers
+
+    def is_array_of_floats(self):
+        # for arrays, TYPE is the type of the array item.
+        return self._is_array_of_floats
 
     def __repr__(self):
         return '<TypeDescr %s>' % self.TYPE._short_name()
@@ -774,12 +786,16 @@ class FieldDescr(OODescr):
         self.getfield = getfield
         self.setfield = setfield
         self._is_pointer_field = (history.getkind(T) == 'ref')
+        self._is_float_field = (history.getkind(T) == 'float')
 
     def sort_key(self):
         return self._keys.getkey((self.TYPE, self.fieldname))
 
     def is_pointer_field(self):
         return self._is_pointer_field
+
+    def is_float_field(self):
+        return self._is_float_field
 
     def equals(self, other):
         return self.TYPE == other.TYPE and \

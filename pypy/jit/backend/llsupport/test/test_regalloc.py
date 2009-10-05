@@ -1,5 +1,5 @@
 
-from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat
 from pypy.jit.backend.llsupport.regalloc import StackManager
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
 
@@ -27,7 +27,7 @@ class RegisterManager(BaseRegMan):
         return v
 
 class TStackManager(StackManager):
-    def stack_pos(self, i):
+    def stack_pos(self, i, size):
         return i
 
 class MockAsm(object):
@@ -146,7 +146,7 @@ class TestRegalloc(object):
         rm.next_instruction()
         # allocate a stack position
         b0, b1, b2, b3, b4 = boxes
-        sp = sm.loc(b0)
+        sp = sm.loc(b0, 1)
         assert sp == 0
         loc = rm.make_sure_var_in_reg(b0)
         assert isinstance(loc, FakeReg)
@@ -207,7 +207,7 @@ class TestRegalloc(object):
         asm = MockAsm()
         rm = RegisterManager(longevity, stack_manager=sm, assembler=asm)
         rm.next_instruction()
-        sm.loc(b0)
+        sm.loc(b0, 1)
         rm.force_result_in_reg(b1, b0)
         rm._check_invariants()
         loc = rm.loc(b1)
@@ -233,10 +233,11 @@ class TestRegalloc(object):
         assert isinstance(loc, ConstInt)
         for box in boxes[:-1]:
             rm.force_allocate_reg(box)
-        assert len(asm.moves) == 4
+        assert len(asm.moves) == 3
         loc = rm.return_constant(ConstInt(1), imm_fine=False)
         assert isinstance(loc, FakeReg)
-        assert len(asm.moves) == 6
+        assert len(asm.moves) == 5
+        assert len(rm.reg_bindings) == 3
 
     def test_force_result_in_reg_const(self):
         boxes, longevity = boxes_and_longevity(2)
@@ -276,3 +277,21 @@ class TestRegalloc(object):
         rm.after_call(boxes[-1])
         assert len(rm.reg_bindings) == 3
         rm._check_invariants()
+
+    def test_different_stack_width(self):
+        class XRegisterManager(RegisterManager):
+            reg_width = 2
+
+        sm = TStackManager()
+        b0 = BoxInt()
+        longevity = {b0: (0, 1)}
+        asm = MockAsm()
+        rm = RegisterManager(longevity, stack_manager=sm, assembler=asm)
+        f0 = BoxFloat()
+        longevity = {f0: (0, 1)}
+        xrm = XRegisterManager(longevity, stack_manager=sm, assembler=asm)
+        xrm.loc(f0)
+        rm.loc(b0)
+        assert sm.stack_depth == 3
+        
+        

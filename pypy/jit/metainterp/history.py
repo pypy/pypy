@@ -463,6 +463,8 @@ class Box(AbstractValue):
             try:
                 if self.type == INT:
                     t = 'i'
+                elif self.type == FLOAT:
+                    t = 'f'
                 else:
                     t = 'p'
             except AttributeError:

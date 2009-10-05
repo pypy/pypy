@@ -49,6 +49,7 @@ class LLtypeMixin(object):
     NODE = lltype.GcForwardReference()
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
+                                        ('floatval', lltype.Float),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -61,10 +62,12 @@ class LLtypeMixin(object):
     nodesize = cpu.sizeof(NODE)
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
+    floatdescr = cpu.fielddescrof(NODE, 'floatval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT
     S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))
@@ -105,6 +108,7 @@ class OOtypeMixin(object):
     cpu = runner.OOtypeCPU(None)
     NODE = ootype.Instance('NODE', ootype.ROOT, {})
     NODE._add_fields({'value': ootype.Signed,
+                      'floatval' : ootype.Float,
                       'next': NODE})
     NODE2 = ootype.Instance('NODE2', NODE, {'other': NODE})
 
@@ -119,12 +123,14 @@ class OOtypeMixin(object):
     myptr2 = ootype.cast_to_object(ootype.new(NODE))
     nodebox2 = BoxObj(ootype.cast_to_object(node))
     valuedescr = cpu.fielddescrof(NODE, 'value')
+    floatdescr = cpu.fielddescrof(NODE, 'floatval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
     nodesize = cpu.typedescrof(NODE)
     nodesize2 = cpu.typedescrof(NODE2)
 
     arraydescr = cpu.arraydescrof(ootype.Array(ootype.Signed))
+    floatarraydescr = cpu.arraydescrof(ootype.Array(ootype.Float))
 
     # a plain Record
     S = ootype.Record({'a': ootype.Signed, 'b': NODE})

@@ -247,28 +247,14 @@ class BaseBackendTest(Runner):
     def test_int_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_int_tests
         for opnum, boxargs, retvalue in get_int_tests():
-            if len(boxargs) == 2:
-                args_variants = [(boxargs[0], boxargs[1]),
-                                 (boxargs[0], boxargs[1].constbox()),
-                                 (boxargs[0].constbox(), boxargs[1])]
-            else:
-                args_variants = [boxargs]
-            for argboxes in args_variants:
-                res = self.execute_operation(opnum, argboxes, 'int')
-                assert res.value == retvalue
+            res = self.execute_operation(opnum, boxargs, 'int')
+            assert res.value == retvalue
         
     def test_float_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
-            if len(boxargs) == 2:
-                args_variants = [(boxargs[0], boxargs[1]),
-                                 (boxargs[0], boxargs[1].constbox()),
-                                 (boxargs[0].constbox(), boxargs[1])]
-            else:
-                args_variants = [boxargs]
-            for argboxes in args_variants:
-                res = self.execute_operation(opnum, argboxes, rettype)
-                assert res.value == retvalue
+            res = self.execute_operation(opnum, boxargs, rettype)
+            assert res.value == retvalue
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1
@@ -340,6 +326,19 @@ class BaseBackendTest(Runner):
              BoxInt(ord('A'))],
             calldescr)
         assert x.value == ord('B')
+        if cpu.supports_floats:
+            def func(f, i):
+                return float(i) + f
+            FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
+                                          lltype.Float))
+            func_ptr = llhelper(FPTR, func)
+            FTP = deref(FPTR)
+            calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT)
+            x = cpu.do_call(
+                [self.get_funcbox(cpu, func_ptr),
+                 BoxFloat(3.5), BoxInt(42)],
+                calldescr)
+            assert x.value == 42 + 3.5
 
     def test_call(self):
 
@@ -366,6 +365,24 @@ class BaseBackendTest(Runner):
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
+
+        if cpu.supports_floats:
+            def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
+                return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
+            F = lltype.Float
+            I = lltype.Signed
+            FUNC = self.FuncType([F] * 7 + [I] * 2 + [F] * 3, F)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            args = ([BoxFloat(.1) for i in range(7)] +
+                    [BoxInt(1), BoxInt(2), BoxFloat(.2), BoxFloat(.3),
+                     BoxFloat(.4)])
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + args,
+                                         'float', descr=calldescr)
+            assert abs(res.value - 4.6) < 0.0001
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -416,12 +433,22 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'ref', descr=fielddescr2)
         assert res.value == null_const.value
+        if self.cpu.supports_floats:
+            floatdescr = self.cpu.fielddescrof(self.S, 'float')
+            self.execute_operation(rop.SETFIELD_GC, [t_box, BoxFloat(3.4)],
+                                   'void', descr=floatdescr)
+            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                         'float', descr=floatdescr)
+            assert res.value == 3.4
+
 
     def test_passing_guards(self):
-        for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
-                               (rop.GUARD_FALSE, [BoxInt(0)]),
-                               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
-                               ]:
+        all = [(rop.GUARD_TRUE, [BoxInt(1)]),
+               (rop.GUARD_FALSE, [BoxInt(0)]),
+               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)])]
+        if self.cpu.supports_floats:
+            all.append((rop.GUARD_VALUE, [BoxFloat(3.5), BoxFloat(3.5)]))
+        for (opname, args) in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
 
@@ -435,10 +462,12 @@ class BaseBackendTest(Runner):
         #                       'void')
 
     def test_failing_guards(self):
-        for opname, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
-                             (rop.GUARD_FALSE, [BoxInt(1)]),
-                             (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
-                             ]:
+        all = [(rop.GUARD_TRUE, [BoxInt(0)]),
+               (rop.GUARD_FALSE, [BoxInt(1)]),
+               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)])]
+        if self.cpu.supports_floats:
+            all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), BoxFloat(1.0)]))
+        for opname, args in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
 
@@ -589,6 +618,23 @@ class BaseBackendTest(Runner):
                                    'int', descr=arraydescr)
         assert r.value == 1
 
+        if self.cpu.supports_floats:
+            a_box, A = self.alloc_array_of(lltype.Float, 31)
+            arraydescr = self.cpu.arraydescrof(A)
+            self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(1),
+                                                         BoxFloat(3.5)],
+                                   'void', descr=arraydescr)
+            self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(2),
+                                                         BoxFloat(4.5)],
+                                   'void', descr=arraydescr)
+            r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(1)],
+                                       'float', descr=arraydescr)
+            assert r.value == 3.5
+            r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(2)],
+                                       'float', descr=arraydescr)
+            assert r.value == 4.5
+
+
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")
         r = self.execute_operation(rop.STRLEN, [s_box], 'int')
@@ -633,6 +679,191 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.SAME_AS, [u_box.constbox()], 'ref')
         assert r.value == u_box.value
 
+        if self.cpu.supports_floats:
+            r = self.execute_operation(rop.SAME_AS, [ConstFloat(5.5)], 'float')
+            assert r.value == 5.5
+
+    def test_jump(self):
+        # this test generates small loops where the JUMP passes many
+        # arguments of various types, shuffling them around.
+        if self.cpu.supports_floats:
+            numkinds = 3
+        else:
+            numkinds = 2
+        seed = random.randrange(0, 10000)
+        print 'Seed is', seed    # or choose it by changing the previous line
+        r = random.Random()
+        r.seed(seed)
+        for nb_args in range(50):
+            print 'Passing %d arguments around...' % nb_args
+            #
+            inputargs = []
+            for k in range(nb_args):
+                kind = r.randrange(0, numkinds)
+                if kind == 0:
+                    inputargs.append(BoxInt())
+                elif kind == 1:
+                    inputargs.append(BoxPtr())
+                else:
+                    inputargs.append(BoxFloat())
+            jumpargs = []
+            remixing = []
+            for srcbox in inputargs:
+                n = r.randrange(0, len(inputargs))
+                otherbox = inputargs[n]
+                if otherbox.type == srcbox.type:
+                    remixing.append((srcbox, otherbox))
+                else:
+                    otherbox = srcbox
+                jumpargs.append(otherbox)
+            #
+            index_counter = r.randrange(0, len(inputargs)+1)
+            i0 = BoxInt()
+            i1 = BoxInt()
+            i2 = BoxInt()
+            inputargs.insert(index_counter, i0)
+            jumpargs.insert(index_counter, i1)
+            #
+            looptoken = LoopToken()
+            faildescr = BasicFailDescr()        
+            operations = [
+                ResOperation(rop.INT_SUB, [i0, ConstInt(1)], i1),
+                ResOperation(rop.INT_GE, [i1, ConstInt(0)], i2),
+                ResOperation(rop.GUARD_TRUE, [i2], None),
+                ResOperation(rop.JUMP, jumpargs, None, descr=looptoken),
+                ]
+            operations[2].fail_args = inputargs[:]
+            operations[2].descr = faildescr
+            #
+            self.cpu.compile_loop(inputargs, operations, looptoken)
+            #
+            values = []
+            S = lltype.GcStruct('S')
+            for box in inputargs:
+                if isinstance(box, BoxInt):
+                    values.append(r.randrange(-10000, 10000))
+                elif isinstance(box, BoxPtr):
+                    p = lltype.malloc(S)
+                    values.append(lltype.cast_opaque_ptr(llmemory.GCREF, p))
+                elif isinstance(box, BoxFloat):
+                    values.append(r.random())
+                else:
+                    assert 0
+            values[index_counter] = 11
+            #
+            for i, (box, val) in enumerate(zip(inputargs, values)):
+                if isinstance(box, BoxInt):
+                    self.cpu.set_future_value_int(i, val)
+                elif isinstance(box, BoxPtr):
+                    self.cpu.set_future_value_ref(i, val)
+                elif isinstance(box, BoxFloat):
+                    self.cpu.set_future_value_float(i, val)
+                else:
+                    assert 0
+            #
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            #
+            dstvalues = values[:]
+            for _ in range(11):
+                expected = dstvalues[:]
+                for tgtbox, srcbox in remixing:
+                    v = dstvalues[inputargs.index(srcbox)]
+                    expected[inputargs.index(tgtbox)] = v
+                dstvalues = expected
+            #
+            assert dstvalues[index_counter] == 11
+            dstvalues[index_counter] = 0
+            for i, (box, val) in enumerate(zip(inputargs, dstvalues)):
+                if isinstance(box, BoxInt):
+                    got = self.cpu.get_latest_value_int(i)
+                elif isinstance(box, BoxPtr):
+                    got = self.cpu.get_latest_value_ref(i)
+                elif isinstance(box, BoxFloat):
+                    got = self.cpu.get_latest_value_float(i)
+                else:
+                    assert 0
+                assert type(got) == type(val)
+                assert got == val
+
+    def test_compile_bridge_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        fboxes = [BoxFloat() for i in range(12)]
+        i2 = BoxInt()
+        faildescr1 = BasicFailDescr()
+        faildescr2 = BasicFailDescr()
+        operations = [
+            ResOperation(rop.FLOAT_LE, [fboxes[0], ConstFloat(9.2)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
+            ResOperation(rop.FINISH, fboxes, None, descr=faildescr2),
+            ]
+        operations[-2].fail_args = fboxes
+        looptoken = LoopToken()
+        self.cpu.compile_loop(fboxes, operations, looptoken)
+
+        fboxes2 = [BoxFloat() for i in range(12)]
+        f3 = BoxFloat()
+        bridge = [
+            ResOperation(rop.FLOAT_SUB, [fboxes2[0], ConstFloat(1.0)], f3),
+            ResOperation(rop.JUMP, [f3] + fboxes2[1:], None, descr=looptoken),
+        ]
+
+        self.cpu.compile_bridge(faildescr1, fboxes2, bridge)
+
+        for i in range(len(fboxes)):
+            self.cpu.set_future_value_float(i, 13.5 + 6.73 * i)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr2
+        res = self.cpu.get_latest_value_float(0)
+        assert res == 8.5
+        for i in range(1, len(fboxes)):
+            assert self.cpu.get_latest_value_float(i) == 13.5 + 6.73 * i
+
+    def test_unused_result_int(self):
+        # test pure operations on integers whose result is not used
+        from pypy.jit.metainterp.test.test_executor import get_int_tests
+        int_tests = list(get_int_tests())
+        int_tests = [(opnum, boxargs, 'int', retvalue)
+                     for opnum, boxargs, retvalue in int_tests]
+        self._test_unused_result(int_tests)
+
+    def test_unused_result_float(self):
+        # same as test_unused_result_int, for float operations
+        from pypy.jit.metainterp.test.test_executor import get_float_tests
+        float_tests = list(get_float_tests(self.cpu))
+        self._test_unused_result(float_tests)
+
+    def _test_unused_result(self, tests):
+        inputargs = []
+        operations = []
+        for opnum, boxargs, rettype, retvalue in tests:
+            inputargs += [box for box in boxargs if isinstance(box, Box)]
+            if rettype == 'int':
+                boxres = BoxInt()
+            elif rettype == 'float':
+                boxres = BoxFloat()
+            else:
+                assert 0
+            operations.append(ResOperation(opnum, boxargs, boxres))
+        faildescr = BasicFailDescr()
+        operations.append(ResOperation(rop.FINISH, [], None,
+                                       descr=faildescr))
+        looptoken = LoopToken()
+        #
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        #
+        for i, box in enumerate(inputargs):
+            if isinstance(box, BoxInt):
+                self.cpu.set_future_value_int(i, box.getint())
+            elif isinstance(box, BoxFloat):
+                self.cpu.set_future_value_float(i, box.getfloat())
+            else:
+                assert 0
+        #
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr
+
 
 class LLtypeBackendTest(BaseBackendTest):
 
@@ -656,7 +887,8 @@ class LLtypeBackendTest(BaseBackendTest):
                                   ('chr1', lltype.Char),
                                   ('chr2', lltype.Char),
                                   ('short', rffi.SHORT),
-                                  ('next', lltype.Ptr(S))))
+                                  ('next', lltype.Ptr(S)),
+                                  ('float', lltype.Float)))
     T = lltype.GcStruct('T', ('parent', S),
                              ('next', lltype.Ptr(S)))
     U = lltype.GcStruct('U', ('parent', T),
@@ -933,7 +1165,20 @@ class LLtypeBackendTest(BaseBackendTest):
             descr_B)
         assert isinstance(x, BoxPtr)
         assert x.getref(lltype.Ptr(A)) == a
-        #
+        if self.cpu.supports_floats:
+            C = lltype.GcArray(lltype.Float)
+            c = lltype.malloc(C, 6)
+            c[3] = 3.5
+            descr_C = cpu.arraydescrof(C)
+            x = cpu.do_getarrayitem_gc(
+                BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, c)), BoxInt(3),
+                descr_C)
+            assert isinstance(x, BoxFloat)
+            assert x.getfloat() == 3.5
+            cpu.do_setarrayitem_gc(
+                BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, c)), BoxInt(4),
+                BoxFloat(4.5), descr_C)
+            assert c[4] == 4.5
         s = rstr.mallocstr(6)
         x = cpu.do_strlen(
             BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)))
@@ -944,7 +1189,8 @@ class LLtypeBackendTest(BaseBackendTest):
             BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)), BoxInt(3))
         assert x.value == ord('X')
         #
-        S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Ptr(A)))
+        S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Ptr(A)),
+                            ('z', lltype.Float))
         descrfld_x = cpu.fielddescrof(S, 'x')
         s = lltype.malloc(S)
         s.x = 'Z'
@@ -988,6 +1234,19 @@ class LLtypeBackendTest(BaseBackendTest):
             descrfld_rx)
         assert rs.x == '!'
         #
+
+        if self.cpu.supports_floats:
+            descrfld_z = cpu.fielddescrof(S, 'z')
+            cpu.do_setfield_gc(
+                BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)),
+                BoxFloat(3.5),
+                descrfld_z)
+            assert s.z == 3.5
+            s.z = 3.2
+            x = cpu.do_getfield_gc(
+                BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s)),
+                descrfld_z)
+            assert x.getfloat() == 3.2
         ### we don't support in the JIT for now GC pointers
         ### stored inside non-GC structs.
         #descrfld_ry = cpu.fielddescrof(RS, 'y')

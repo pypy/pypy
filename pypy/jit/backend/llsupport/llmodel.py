@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values
+from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
+     BoxFloat
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
@@ -205,7 +206,8 @@ class AbstractLLCPU(AbstractCPU):
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
         ptr = fielddescr.is_pointer_field()
-        return ofs, size, ptr
+        float = fielddescr.is_float_field()
+        return ofs, size, ptr, float
     unpack_fielddescr._always_inline_ = True
 
     def arraydescrof(self, A):
@@ -216,7 +218,8 @@ class AbstractLLCPU(AbstractCPU):
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
         ptr = arraydescr.is_array_of_pointers()
-        return ofs, size, ptr
+        float = arraydescr.is_array_of_floats()
+        return ofs, size, ptr, float
     unpack_arraydescr._always_inline_ = True
 
     def calldescrof(self, FUNC, ARGS, RESULT):
@@ -246,40 +249,66 @@ class AbstractLLCPU(AbstractCPU):
     def do_getarrayitem_gc(self, arraybox, indexbox, arraydescr):
         itemindex = indexbox.getint()
         gcref = arraybox.getref_base()
-        ofs, size, ptr = self.unpack_arraydescr(arraydescr)
+        ofs, size, ptr, float = self.unpack_arraydescr(arraydescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        #
+        if ptr:
+            items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+            pval = self._cast_int_to_gcref(items[itemindex])
+            # --- end of GC unsafe code ---
+            return BoxPtr(pval)
+        #
+        if float:
+            items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+            fval = items[itemindex]
+            # --- end of GC unsafe code ---
+            return BoxFloat(fval)
         #
         for TYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                val = (rffi.cast(rffi.CArrayPtr(TYPE), gcref)
-                       [ofs/itemsize + itemindex])
-                val = rffi.cast(lltype.Signed, val)
-                break
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items) 
+                val = items[itemindex]
+                # --- end of GC unsafe code ---
+                return BoxInt(rffi.cast(lltype.Signed, val))
         else:
             raise NotImplementedError("size = %d" % size)
-        if ptr:
-            return BoxPtr(self._cast_int_to_gcref(val))
-        else:
-            return BoxInt(val)
 
     def do_setarrayitem_gc(self, arraybox, indexbox, vbox, arraydescr):
         itemindex = indexbox.getint()
         gcref = arraybox.getref_base()
-        ofs, size, ptr = self.unpack_arraydescr(arraydescr)
+        ofs, size, ptr, float = self.unpack_arraydescr(arraydescr)
         #
         if ptr:
             vboxptr = vbox.getref_base()
             self.gc_ll_descr.do_write_barrier(gcref, vboxptr)
-            a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
-            a[ofs/WORD + itemindex] = self.cast_gcref_to_int(vboxptr)
+            # --- start of GC unsafe code (no GC operation!) ---
+            items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+            items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+            items[itemindex] = self.cast_gcref_to_int(vboxptr)
+            # --- end of GC unsafe code ---
+            return
+        #
+        if float:
+            fval = vbox.getfloat()
+            # --- start of GC unsafe code (no GC operation!) ---
+            items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+            items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+            items[itemindex] = fval
+            # --- end of GC unsafe code ---
+            return
+        #
+        val = vbox.getint()
+        for TYPE, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                # --- start of GC unsafe code (no GC operation!) ---
+                items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[itemindex] = rffi.cast(TYPE, val)
+                # --- end of GC unsafe code ---
+                return
         else:
-            v = vbox.getint()
-            for TYPE, itemsize in unroll_basic_sizes:
-                if size == itemsize:
-                    a = rffi.cast(rffi.CArrayPtr(TYPE), gcref)
-                    a[ofs/itemsize + itemindex] = rffi.cast(TYPE, v)
-                    break
-            else:
-                raise NotImplementedError("size = %d" % size)
+            raise NotImplementedError("size = %d" % size)
 
     def _new_do_len(TP):
         def do_strlen(self, stringbox):
@@ -312,18 +341,29 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_getfield(self, gcref, fielddescr):
-        ofs, size, ptr = self.unpack_fielddescr(fielddescr)
+        ofs, size, ptr, float = self.unpack_fielddescr(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        #
+        if ptr:
+            pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), field)[0]
+            pval = self._cast_int_to_gcref(pval)
+            # --- end of GC unsafe code ---
+            return BoxPtr(pval)
+        #
+        if float:
+            fval = rffi.cast(rffi.CArrayPtr(lltype.Float), field)[0]
+            # --- end of GC unsafe code ---
+            return BoxFloat(fval)
+        #
         for TYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                val = rffi.cast(rffi.CArrayPtr(TYPE), gcref)[ofs/itemsize]
+                val = rffi.cast(rffi.CArrayPtr(TYPE), field)[0]
+                # --- end of GC unsafe code ---
                 val = rffi.cast(lltype.Signed, val)
-                break
+                return BoxInt(val)
         else:
             raise NotImplementedError("size = %d" % size)
-        if ptr:
-            return BoxPtr(self._cast_int_to_gcref(val))
-        else:
-            return BoxInt(val)
 
     def do_getfield_gc(self, structbox, fielddescr):
         gcref = structbox.getref_base()
@@ -334,23 +374,40 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield(self, gcref, vbox, fielddescr):
-        ofs, size, ptr = self.unpack_fielddescr(fielddescr)
+        ofs, size, ptr, float = self.unpack_fielddescr(fielddescr)
+        #
         if ptr:
             assert lltype.typeOf(gcref) is not lltype.Signed, (
                 "can't handle write barriers for setfield_raw")
             ptr = vbox.getref_base()
             self.gc_ll_descr.do_write_barrier(gcref, ptr)
-            a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
-            a[ofs/WORD] = self.cast_gcref_to_int(ptr)
+            # --- start of GC unsafe code (no GC operation!) ---
+            field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+            field = rffi.cast(rffi.CArrayPtr(lltype.Signed), field)
+            field[0] = self.cast_gcref_to_int(ptr)
+            # --- end of GC unsafe code ---
+            return
+        #
+        if float:
+            fval = vbox.getfloat()
+            # --- start of GC unsafe code (no GC operation!) ---
+            field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+            field = rffi.cast(rffi.CArrayPtr(lltype.Float), field)
+            field[0] = fval
+            # --- end of GC unsafe code ---
+            return
+        #
+        val = vbox.getint()
+        for TYPE, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                # --- start of GC unsafe code (no GC operation!) ---
+                field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+                field = rffi.cast(rffi.CArrayPtr(TYPE), field)
+                field[0] = rffi.cast(TYPE, val)
+                # --- end of GC unsafe code ---
+                return
         else:
-            v = vbox.getint()
-            for TYPE, itemsize in unroll_basic_sizes:
-                if size == itemsize:
-                    v = rffi.cast(TYPE, v)
-                    rffi.cast(rffi.CArrayPtr(TYPE), gcref)[ofs/itemsize] = v
-                    break
-            else:
-                raise NotImplementedError("size = %d" % size)
+            raise NotImplementedError("size = %d" % size)
 
     def do_setfield_gc(self, structbox, vbox, fielddescr):
         gcref = structbox.getref_base()
@@ -416,7 +473,9 @@ class AbstractLLCPU(AbstractCPU):
         # nonsense but nothing wrong (the return value should be ignored)
         if calldescr.returns_a_pointer():
             return BoxPtr(self.get_latest_value_ref(0))
-        elif calldescr.get_result_size(self.translate_support_code) != 0:
+        elif calldescr.returns_a_float():
+            return BoxFloat(self.get_latest_value_float(0))
+        elif calldescr.get_result_size(self.translate_support_code) > 0:
             return BoxInt(self.get_latest_value_int(0))
         else:
             return None

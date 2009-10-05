@@ -10,12 +10,6 @@ class PyPyJitPolicy(JitPolicy):
         if (func.__name__.startswith('_mm_') or
             func.__name__.startswith('__mm_')):
             # multimethods
-            name = func.__name__.lstrip('_')
-            if (name.startswith('mm_truediv') or
-                name.startswith('mm_inplace_truediv') or
-                name.startswith('mm_float')):
-                # floats
-                return False
             return True
         if '_mth_mm_' in func.__name__:    # e.g. str_mth_mm_join_xxx
             return True
@@ -27,17 +21,14 @@ class PyPyJitPolicy(JitPolicy):
                 return False
 
         if mod.startswith('pypy.objspace.'):
-            # we don't support floats
-            if 'float' in mod or 'complex' in mod:
-                return False
-            if func.__name__ == 'format_float':
-                return False
             # gc_id operation
             if func.__name__ == 'id__ANY':
                 return False
-        # floats
         if mod == 'pypy.rlib.rbigint':
             #if func.__name__ == '_bigint_true_divide':
+            return False
+        if mod == 'pypy.rpython.lltypesystem.module.ll_math':
+            # XXX temporary, contains force_cast
             return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff
             return False

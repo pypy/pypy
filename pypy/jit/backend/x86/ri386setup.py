@@ -11,6 +11,9 @@ from pypy.tool.sourcetools import compile2
 def reg2modrm(builder, reg):
     return memregister(reg)
 
+def reg2modrm64(builder, reg):
+    return memregister64(reg)
+
 def reg2modrm8(builder, reg):
     return memregister8(reg)
 
@@ -45,7 +48,7 @@ type_order = {
     MODRM:   [(MODRM,  None)],
     MODRM8:  [(MODRM8, None)],
     MODRM64: [(MODRM64, None)],
-    XMMREG:  [(XMMREG, None)],
+    XMMREG:  [(XMMREG, None), (MODRM64, reg2modrm64)],
 
     MISSING: [(MISSING, None)],  # missing operands
     }
@@ -486,10 +489,10 @@ FUCOMP.mode0(['\xDD\xE9'])
 FUCOMPP = Instruction()
 FUCOMPP.mode0(['\xDA\xE9'])
 
-FSTPL = Instruction()
-FSTPL.mode1(MODRM64, ['\xDD', orbyte(3<<3), modrm(1)])
-FSTL = Instruction()
-FSTL.mode1(MODRM64, ['\xDD', orbyte(2<<3), modrm(1)])
+FSTP = Instruction()
+FSTP.mode1(MODRM64, ['\xDD', orbyte(3<<3), modrm(1)])
+FST = Instruction()
+FST.mode1(MODRM64, ['\xDD', orbyte(2<<3), modrm(1)])
 
 FISTP = Instruction()
 FISTP.mode1(MODRM, ['\xDB', orbyte(3<<3), modrm(1)])
@@ -521,6 +524,24 @@ MULSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x59', register(1, 8), modrm(2)])
 
 DIVSD = Instruction()
 DIVSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x5E', register(1, 8), modrm(2)])
+
+UCOMISD = Instruction()
+UCOMISD.mode2(XMMREG, MODRM64, ['\x66\x0F\x2E', register(1, 8), modrm(2)])
+
+XORPD = Instruction()
+XORPD.mode2(XMMREG, XMMREG, ['\x66\x0f\x57', register(1, 8), register(2),
+                            '\xC0'])
+
+ANDPD = Instruction()
+ANDPD.mode2(XMMREG, XMMREG, ['\x66\x0F\x54', register(1, 8), register(2),
+                             '\xC0'])
+
+CVTTSD2SI = Instruction()
+CVTTSD2SI.mode2(REG, XMMREG, ['\xF2\x0F\x2C', register(1, 8), register(2),
+                             '\xC0'])
+
+CVTSI2SD = Instruction()
+CVTSI2SD.mode2(XMMREG, MODRM, ['\xF2\x0F\x2A', register(1, 8), modrm(2)])
 
 # ------------------------------ end of SSE2 -----------------------------
 

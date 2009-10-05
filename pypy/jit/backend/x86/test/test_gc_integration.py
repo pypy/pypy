@@ -18,7 +18,8 @@ from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrF
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86StackManager
+from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86StackManager,\
+     X86XMMRegisterManager
 
 class MockGcRootMap(object):
     def get_basic_shape(self):
@@ -64,6 +65,8 @@ class TestRegallocDirectGcIntegration(object):
         regalloc.sm = X86StackManager()
         regalloc.rm = X86RegisterManager(longevity, regalloc.sm,
                                          assembler=regalloc.assembler)
+        regalloc.xrm = X86XMMRegisterManager(longevity, regalloc.sm,
+                                             assembler=regalloc.assembler)
         cpu = regalloc.assembler.cpu
         for box in boxes:
             regalloc.rm.try_allocate_reg(box)

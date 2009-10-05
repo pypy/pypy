@@ -11,6 +11,7 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 class CPU386(AbstractLLCPU):
     debug = True
+    supports_floats = False # XXX fix bugs and changeme
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
@@ -48,12 +49,19 @@ class CPU386(AbstractLLCPU):
         assert index < MAX_FAIL_BOXES, "overflow!"
         self.assembler.fail_boxes_int[index] = intvalue
 
+    def set_future_value_float(self, index, floatvalue):
+        assert index < MAX_FAIL_BOXES, "overflow!"
+        self.assembler.fail_boxes_float[index] = floatvalue
+
     def set_future_value_ref(self, index, ptrvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
         self.assembler.fail_boxes_ptr[index] = ptrvalue
 
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int[index]
+
+    def get_latest_value_float(self, index):
+        return self.assembler.fail_boxes_float[index]
 
     def get_latest_value_ref(self, index):
         ptrvalue = self.assembler.fail_boxes_ptr[index]

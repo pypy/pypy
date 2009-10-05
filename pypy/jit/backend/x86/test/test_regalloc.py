@@ -8,7 +8,8 @@ from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, X86RegisterManager
+from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, X86RegisterManager,\
+     BASE_CONSTANT_SIZE
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -94,6 +95,8 @@ class BaseTestRegalloc(object):
         for i, arg in enumerate(args):
             if isinstance(arg, int):
                 self.cpu.set_future_value_int(i, arg)
+            elif isinstance(arg, float):
+                self.cpu.set_future_value_float(i, arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
@@ -105,8 +108,15 @@ class BaseTestRegalloc(object):
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
 
+    def getfloat(self, index):
+        return self.cpu.get_latest_value_float(index)
+
     def getints(self, end):
         return [self.cpu.get_latest_value_int(index) for
+                index in range(0, end)]
+
+    def getfloats(self, end):
+        return [self.cpu.get_latest_value_float(index) for
                 index in range(0, end)]
 
     def getptr(self, index, T):
@@ -120,6 +130,8 @@ class BaseTestRegalloc(object):
         guard_op = loop.operations[guard_op_index]
         assert guard_op.is_guard()
         bridge = self.parse(ops, **kwds)
+        assert ([box.type for box in bridge.inputargs] ==
+                [box.type for box in guard_op.fail_args])
         faildescr = guard_op.descr
         self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations)
         return bridge
@@ -464,3 +476,59 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         s = lltype.malloc(self.A, 3)
         self.interpret(ops, [s, ord('a')])
         assert s[1] == 'a'
+
+class TestRegallocFloats(BaseTestRegalloc):
+    def test_float_add(self):
+        ops = '''
+        [f0, f1]
+        f2 = float_add(f0, f1)
+        finish(f2, f0, f1)
+        '''
+        self.interpret(ops, [3.0, 1.5])
+        assert self.getfloats(3) == [4.5, 3.0, 1.5]
+
+    def test_float_adds_stack(self):
+        ops = '''
+        [f0, f1, f2, f3, f4, f5, f6, f7, f8]
+        f9 = float_add(f0, f1)
+        f10 = float_add(f8, 3.5)
+        finish(f9, f10, f2, f3, f4, f5, f6, f7, f8)
+        '''
+        self.interpret(ops, [0.1, .2, .3, .4, .5, .6, .7, .8, .9])
+        assert self.getfloats(9) == [.1+.2, .9+3.5, .3, .4, .5, .6, .7, .8, .9]
+
+    def test_float_overflow_const_list(self):
+        ops = ['[f0]']
+        for i in range(BASE_CONSTANT_SIZE * 2):
+            ops.append('f%d = float_add(f%d, 3.5)' % (i + 1, i))
+        ops.append('finish(f%d)' % (BASE_CONSTANT_SIZE * 2))
+        ops = "\n".join(ops)
+        self.interpret(ops, [0.1])
+        assert abs(self.getfloat(0) - (BASE_CONSTANT_SIZE * 2) * 3.5 - 0.1) < 0.00001
+
+    def test_lt_const(self):
+        ops = '''
+        [f0]
+        i1 = float_lt(3.5, f0)
+        finish(i1)
+        '''
+        self.interpret(ops, [0.1])
+        assert self.getint(0) == 0
+
+    def test_bug_float_is_true_stack(self):
+        ops = '''
+        [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9]
+        i0 = float_is_true(f0)
+        i1 = float_is_true(f1)
+        i2 = float_is_true(f2)
+        i3 = float_is_true(f3)
+        i4 = float_is_true(f4)
+        i5 = float_is_true(f5)
+        i6 = float_is_true(f6)
+        i7 = float_is_true(f7)
+        i8 = float_is_true(f8)
+        i9 = float_is_true(f9)
+        finish(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
+        '''
+        loop = self.interpret(ops, [0.0, .1, .2, .3, .4, .5, .6, .7, .8, .9])
+        assert self.getints(9) == [0, 1, 1, 1, 1, 1, 1, 1, 1]

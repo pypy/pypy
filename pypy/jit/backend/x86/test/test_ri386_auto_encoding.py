@@ -141,8 +141,10 @@ def run_test(instrname, instr, args_lists):
         all = instr.as_all_suffixes
         for m, extra in args:
             if m in (i386.MODRM, i386.MODRM8) or all:
-                if not instrname == 'FNSTCW':
+                if instrname != 'FNSTCW':
                     suffix = suffixes[sizes[m]] + suffix
+            if m is i386.MODRM64 and instrname in ['FST', 'FSTP']:
+                suffix = 'l'
         following = ""
         if instr.indirect:
             suffix = ""

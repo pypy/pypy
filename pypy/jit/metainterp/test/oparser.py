@@ -4,7 +4,8 @@ in a nicer fashion
 """
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
-     ConstAddr, ConstObj, ConstPtr, Box, BasicFailDescr, LoopToken
+     ConstAddr, ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
+     LoopToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -70,6 +71,9 @@ class OpParser(object):
             # integer
             box = BoxInt()
             _box_counter_more_than(elem[1:])
+        elif elem.startswith('f'):
+            box = BoxFloat()
+            _box_counter_more_than(elem[1:])
         elif elem.startswith('p'):
             # pointer
             ts = getattr(self.cpu, 'ts', llhelper)
@@ -96,12 +100,21 @@ class OpParser(object):
             self.vars[elem] = box
         return vars
 
+    def is_float(self, arg):
+        try:
+            float(arg)
+            return True
+        except ValueError:
+            return False
+
     def getvar(self, arg):
         if not arg:
             return ConstInt(0)
         try:
             return ConstInt(int(arg))
         except ValueError:
+            if self.is_float(arg):
+                return ConstFloat(float(arg))
             if arg.startswith('"') or arg.startswith("'"):
                 # XXX ootype
                 info = arg.strip("'\"")
