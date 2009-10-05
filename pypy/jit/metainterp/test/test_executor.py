@@ -94,30 +94,43 @@ def test_execute_nonspec():
 
 def _int_binary_operations():
     minint = -sys.maxint-1
+    # Test cases.  Note that for each operation there should be at least
+    # one case in which the two input arguments are equal.
     for opnum, testcases in [
-        (rop.INT_ADD, [(10, -2, 8)]),
-        (rop.INT_SUB, [(10, -2, 12)]),
-        (rop.INT_MUL, [(-6, -3, 18)]),
+        (rop.INT_ADD, [(10, -2, 8),
+                       (-60, -60, -120)]),
+        (rop.INT_SUB, [(10, -2, 12),
+                       (133, 133, 0)]),
+        (rop.INT_MUL, [(-6, -3, 18),
+                       (15, 15, 225)]),
         (rop.INT_FLOORDIV, [(110, 3, 36),
                             (-110, 3, -36),
                             (110, -3, -36),
                             (-110, -3, 36),
                             (-110, -1, 110),
-                            (minint, 1, minint)]),
+                            (minint, 1, minint),
+                            (-87, -87, 1)]),
         (rop.INT_MOD, [(11, 3, 2),
                        (-11, 3, -2),
                        (11, -3, 2),
-                       (-11, -3, -2)]),
-        (rop.INT_AND, [(0xFF00, 0x0FF0, 0x0F00)]),
-        (rop.INT_OR, [(0xFF00, 0x0FF0, 0xFFF0)]),
-        (rop.INT_XOR, [(0xFF00, 0x0FF0, 0xF0F0)]),
+                       (-11, -3, -2),
+                       (-87, -87, 0)]),
+        (rop.INT_AND, [(0xFF00, 0x0FF0, 0x0F00),
+                       (-111, -111, -111)]),
+        (rop.INT_OR, [(0xFF00, 0x0FF0, 0xFFF0),
+                      (-111, -111, -111)]),
+        (rop.INT_XOR, [(0xFF00, 0x0FF0, 0xF0F0),
+                       (-111, -111, 0)]),
         (rop.INT_LSHIFT, [(10, 4, 10<<4),
                           (-5, 2, -20),
-                          (-5, 0, -5)]),
+                          (-5, 0, -5),
+                          (3, 3, 24)]),
         (rop.INT_RSHIFT, [(-17, 2, -5),
-                          (19, 1, 9)]),
+                          (19, 1, 9),
+                          (3, 3, 0)]),
         (rop.UINT_RSHIFT, [(-1, 4, intmask(r_uint(-1) >> r_uint(4))),
-                           ( 1, 4, intmask(r_uint(1) >> r_uint(4)))])
+                           ( 1, 4, intmask(r_uint(1) >> r_uint(4))),
+                           ( 3, 3, 0)])
         ]:
         for x, y, z in testcases:
             yield opnum, [x, y], z
@@ -146,7 +159,10 @@ def _int_comparison_operations():
         ]:
         for i in range(20):
             x = pick()
-            y = pick()
+            if i == 1:      # there should be at least one case
+                y = x       # where the two arguments are equal
+            else:
+                y = pick()
             z = int(operation(x, y))
             yield opnum, [x, y], z
 
@@ -171,6 +187,9 @@ def get_int_tests():
             assert len(args) == 2
             yield opnum, [BoxInt(args[0]), ConstInt(args[1])], retvalue
             yield opnum, [ConstInt(args[0]), BoxInt(args[1])], retvalue
+            if args[0] == args[1]:
+                commonbox = BoxInt(args[0])
+                yield opnum, [commonbox, commonbox], retvalue
 
 
 def test_int_ops():
@@ -182,16 +201,24 @@ def test_int_ops():
 # floats
 
 def _float_binary_operations():
+    # Test cases.  Note that for each operation there should be at least
+    # one case in which the two input arguments are equal.
     for opnum, testcases in [
-        (rop.FLOAT_ADD, [(10.5, -2.25, 8.25)]),
-        (rop.FLOAT_SUB, [(10.5, -2.25, 12.75)]),
-        (rop.FLOAT_MUL, [(-6.5, -3.5, 22.75)]),
-        (rop.FLOAT_TRUEDIV, [(118.75, 12.5, 9.5)]),
+        (rop.FLOAT_ADD, [(10.5, -2.25, 8.25),
+                         (5.25, 5.25, 10.5)]),
+        (rop.FLOAT_SUB, [(10.5, -2.25, 12.75),
+                         (5.25, 5.25, 0.0)]),
+        (rop.FLOAT_MUL, [(-6.5, -3.5, 22.75),
+                         (1.5, 1.5, 2.25)]),
+        (rop.FLOAT_TRUEDIV, [(118.75, 12.5, 9.5),
+                             (-6.5, -6.5, 1.0)]),
         ]:
         for x, y, z in testcases:
             yield (opnum, [x, y], 'float', z)
 
 def _float_comparison_operations():
+    # Test cases.  Note that for each operation there should be at least
+    # one case in which the two input arguments are equal.
     for y in [-522.25, 10.125, 22.6]:
         yield (rop.FLOAT_LT, [10.125, y], 'int', 10.125 < y)
         yield (rop.FLOAT_LE, [10.125, y], 'int', 10.125 <= y)
@@ -231,6 +258,11 @@ def get_float_tests(cpu):
             assert len(args) == 2
             yield opnum, [boxargs[0], boxargs[1].constbox()], rettype, retvalue
             yield opnum, [boxargs[0].constbox(), boxargs[1]], rettype, retvalue
+            if (isinstance(args[0], float) and
+                isinstance(args[1], float) and
+                args[0] == args[1]):
+                commonbox = BoxFloat(args[0])
+                yield opnum, [commonbox, commonbox], rettype, retvalue
 
 def test_float_ops():
     cpu = FakeCPU()

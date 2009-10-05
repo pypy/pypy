@@ -26,7 +26,7 @@ class Runner(object):
         looptoken = LoopToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         j = 0
-        for box in valueboxes:
+        for box in inputargs:
             if isinstance(box, BoxInt):
                 self.cpu.set_future_value_int(j, box.getint())
                 j += 1
@@ -37,7 +37,7 @@ class Runner(object):
                 self.cpu.set_future_value_float(j, box.getfloat())
                 j += 1
             else:
-                assert isinstance(box, Const)
+                raise NotImplementedError(box)
         res = self.cpu.execute_token(looptoken)
         if res is operations[-1].descr:
             self.guard_failed = False
@@ -80,8 +80,7 @@ class Runner(object):
         operations[0].descr = descr
         inputargs = []
         for box in valueboxes:
-            if isinstance(box, Box):
-                assert box not in inputargs, "repeated box!"
+            if isinstance(box, Box) and box not in inputargs:
                 inputargs.append(box)
         return inputargs, operations
 
@@ -255,19 +254,6 @@ class BaseBackendTest(Runner):
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
             assert res.value == retvalue
-
-        box = BoxFloat()
-        zbox = BoxFloat()
-        operations = [
-            ResOperation(rop.FLOAT_MUL, [box, box], zbox),
-            ResOperation(rop.FINISH, [zbox], None,
-                         descr=BasicFailDescr()),
-            ]
-        looptoken = LoopToken()
-        self.cpu.compile_loop([box], operations, looptoken)
-        self.cpu.set_future_value_float(0, 1.5)
-        res = self.cpu.execute_token(looptoken)
-        assert self.cpu.get_latest_value_float(0) == 2.25
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1
