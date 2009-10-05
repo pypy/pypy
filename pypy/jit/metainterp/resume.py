@@ -179,7 +179,7 @@ class ResumeDataVirtualAdder(object):
         storage.rd_consts = self.consts[:]
         storage.rd_snapshot = None
         if debug:
-            dump_storage(storage)
+            dump_storage(storage, liveboxes)
         return liveboxes
 
     def _getboxindex(self, box):
@@ -314,7 +314,7 @@ class ResumeDataReader(object):
 
 # ____________________________________________________________
 
-def dump_storage(storage):
+def dump_storage(storage, liveboxes):
     "For profiling only."
     import os
     from pypy.rlib import objectmodel
@@ -326,6 +326,9 @@ def dump_storage(storage):
     os.write(fd, '\t[\n')
     for const in storage.rd_consts:
         os.write(fd, '\t"%s",\n' % (const.repr_rpython(),))
+    os.write(fd, '\t], [\n')
+    for box in liveboxes:
+        os.write(fd, '\t"%s",\n' % (box.repr_rpython(),))
     os.write(fd, '\t], [\n')
     if storage.rd_virtuals is not None:
         for virtual in storage.rd_virtuals:
