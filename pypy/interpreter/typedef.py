@@ -508,6 +508,7 @@ GetSetProperty.typedef.acceptable_as_base_class = False
 
 class Member(Wrappable):
     """For slots."""
+    _immutable_ = True
     def __init__(self, index, name, w_cls):
         self.index = index
         self.name = name
