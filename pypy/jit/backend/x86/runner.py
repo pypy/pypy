@@ -11,7 +11,7 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 class CPU386(AbstractLLCPU):
     debug = True
-    supports_floats = False # XXX fix bugs and changeme
+    supports_floats = True
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
