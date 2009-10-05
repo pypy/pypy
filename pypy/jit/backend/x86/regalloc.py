@@ -514,8 +514,8 @@ class RegAlloc(object):
     consider_ooisnot = _consider_compop
 
     def _consider_float_op(self, op, ignored):
-        loc0 = self.xrm.force_result_in_reg(op.result, op.args[0], op.args)
         loc1 = self.xrm.loc(op.args[1])
+        loc0 = self.xrm.force_result_in_reg(op.result, op.args[0], op.args)
         self.Perform(op, [loc0, loc1], loc0)
         self.xrm.possibly_free_vars(op.args)
 
