@@ -834,6 +834,9 @@ class BaseBackendTest(Runner):
         self._test_unused_result(float_tests)
 
     def _test_unused_result(self, tests):
+        while len(tests) > 50:     # only up to 50 tests at once
+            self._test_unused_result(tests[:50])
+            tests = tests[50:]
         inputargs = []
         operations = []
         for opnum, boxargs, rettype, retvalue in tests:
