@@ -41,10 +41,10 @@ class PyPyJitPolicy(JitPolicy):
                 if mod.endswith('operation') or mod.endswith('abstractinst'):
                     return True
 
-            if (not mod.startswith('pypy.module.pypyjit.') and
-                not mod.startswith('pypy.module.signal.') and
-                not mod.startswith('pypy.module.micronumpy.')):
-                return False
+            modname = mod.split('.')[2]
+            if mod in ['pypyjit', 'signal', 'micronumpy', 'math']:
+                return True
+            return False
             
         if mod.startswith('pypy.translator.'):
             return False
