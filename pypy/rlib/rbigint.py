@@ -1,5 +1,6 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.debug import make_sure_not_resized
 
 import math, sys
 
@@ -52,6 +53,7 @@ class rbigint(object):
     def __init__(self, digits=None, sign=0):
         if digits is None or len(digits) == 0:
             digits = [0]
+        make_sure_not_resized(digits)
         self.digits = digits
         self.sign = sign
 
@@ -585,7 +587,7 @@ def digits_from_nonneg_long(l):
         digits.append(mask_digit(l))
         l = l >> SHIFT
         if not l:
-            return digits
+            return digits[:] # to make it non-resizable
 digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
 def digits_for_most_neg_long(l):
@@ -601,7 +603,7 @@ def digits_for_most_neg_long(l):
     l = -intmask(l)
     assert l >= 0
     digits.append(l)
-    return digits
+    return digits[:] # to make it non-resizable
 digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
 def args_from_rarith_int1(x):
