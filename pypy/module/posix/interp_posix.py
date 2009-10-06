@@ -781,7 +781,11 @@ def getsid(space, pid):
 
     Call the system call getsid().
     """
-    return space.wrap(os.getsid(pid))
+    try:
+        sid = os.getsid(pid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(sid)
 getsid.unwrap_spec = [ObjSpace, int]
 
 def setsid(space):
