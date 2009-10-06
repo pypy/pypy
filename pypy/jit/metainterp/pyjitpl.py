@@ -1678,15 +1678,11 @@ class MetaInterp(object):
 
     def rebuild_state_after_failure(self, resumedescr, newboxes):
         vinfo = self.staticdata.virtualizable_info
-        resumereader = resume.ResumeDataReader(resumedescr, newboxes, self)
         self.framestack = []
-        while resumereader.has_more_frame_infos():
-            jitcode, pc, exception_target = resumereader.consume_frame_info()
-            env = resumereader.consume_boxes()
-            f = self.newframe(jitcode)
-            f.setup_resume_at_op(pc, exception_target, env)
-        if vinfo is not None:
-            self.virtualizable_boxes = resumereader.consume_boxes()
+        expect_virtualizable = vinfo is not None
+        virtualizable_boxes = resume.rebuild_from_resumedata(self, newboxes, resumedescr, expect_virtualizable)
+        if expect_virtualizable:
+            self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_rti
             # is and stays NULL.

@@ -10,7 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles.
 
-# XXX I guess that building the data so that it is as compact as possible
+# XXX building the data so that it is as compact as possible
 # on the 'storage' object would be a big win.
 
 debug = False
@@ -329,6 +329,19 @@ class VArrayInfo(AbstractVirtualInfo):
     def repr_rpython(self):
         return 'VArrayInfo("%s", %s)' % (self.arraydescr,
                                          self.fieldnums)
+
+
+def rebuild_from_resumedata(metainterp, newboxes, resumedescr, expects_virtualizables):
+    resumereader = ResumeDataReader(resumedescr, newboxes, metainterp)
+    while resumereader.has_more_frame_infos():
+        jitcode, pc, exception_target = resumereader.consume_frame_info()
+        env = resumereader.consume_boxes()
+        f = metainterp.newframe(jitcode)
+        f.setup_resume_at_op(pc, exception_target, env)
+    if expects_virtualizables:
+        virtualizable_boxes = resumereader.consume_boxes()
+        return virtualizable_boxes
+    return None
 
 
 class ResumeDataReader(object):

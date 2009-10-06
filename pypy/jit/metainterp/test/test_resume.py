@@ -119,6 +119,14 @@ class FakeFrame(object):
         self.exception_target = exc_target
         self.env = list(boxes)
 
+    def setup_resume_at_op(self, pc, exception_target, env):
+        self.__init__(self.jitcode, pc, exception_target, *env)
+    
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+    def __ne__(self, other):
+        return self.__dict__ != other.__dict__
+
 def test_Snapshot_create():
     l = ['b0', 'b1']
     snap = Snapshot(None, l)
@@ -216,6 +224,69 @@ def test_capture_resumedata():
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
     assert snapshot.boxes == fs[2].env
 
+def test_rebuild_from_resumedata():
+    class FakeMetaInterp(object):
+        def __init__(self):
+            self.framestack = []
+        def newframe(self, jitcode):
+            frame = FakeFrame(jitcode, -1, -1)
+            self.framestack.append(frame)
+            return frame
+    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    storage = Storage()
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
+          FakeFrame("code1", 3, 7, b3, c2, b1),
+          FakeFrame("code2", 9, -1, c3, b2)]
+    capture_resumedata(fs, None, storage)
+    memo = ResumeDataLoopMemo(None)
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.walk_snapshots({})
+    liveboxes = modifier.finish({})
+    metainterp = FakeMetaInterp()
+
+    b1t, b2t, b3t = [BoxInt(), BoxPtr(), BoxInt()]
+    newboxes = _resume_remap(liveboxes, [b1, b2, b3], b1t, b2t, b3t)
+
+    result = rebuild_from_resumedata(metainterp, newboxes, storage,
+                                     False)
+    assert result is None
+    fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
+           FakeFrame("code1", 3, 7, b3t, c2, b1t),
+           FakeFrame("code2", 9, -1, c3, b2t)]
+    assert metainterp.framestack == fs2
+
+def test_rebuild_from_resumedata_with_virtualizable():
+    class FakeMetaInterp(object):
+        def __init__(self):
+            self.framestack = []
+        def newframe(self, jitcode):
+            frame = FakeFrame(jitcode, -1, -1)
+            self.framestack.append(frame)
+            return frame
+    b1, b2, b3, b4 = [BoxInt(), BoxPtr(), BoxInt(), BoxPtr()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    storage = Storage()
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
+          FakeFrame("code1", 3, 7, b3, c2, b1),
+          FakeFrame("code2", 9, -1, c3, b2)]
+    capture_resumedata(fs, [b4], storage)
+    memo = ResumeDataLoopMemo(None)
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.walk_snapshots({})
+    liveboxes = modifier.finish({})
+    metainterp = FakeMetaInterp()
+
+    b1t, b2t, b3t, b4t = [BoxInt(), BoxPtr(), BoxInt(), BoxPtr()]
+    newboxes = _resume_remap(liveboxes, [b1, b2, b3, b4], b1t, b2t, b3t, b4t)
+
+    result = rebuild_from_resumedata(metainterp, newboxes, storage,
+                                     True)
+    assert result == [b4t]
+    fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
+           FakeFrame("code1", 3, 7, b3t, c2, b1t),
+           FakeFrame("code2", 9, -1, c3, b2t)]
+    assert metainterp.framestack == fs2
 # ____________________________________________________________
 
 def test_walk_snapshots():
