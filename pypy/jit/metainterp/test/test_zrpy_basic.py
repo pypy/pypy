@@ -31,7 +31,8 @@ class BasicTest:
         assert res == 490
 
     def test_loop_2(self):
-        # this test runs even without the --slow option, to see at least one
+        if not option.run_slow_tests:
+            py.test.skip("use --slow to execute this long-running test")
         jitdriver = JitDriver(greens = [], reds = ['i', 'total'])
         def f(i):
             total = 0
