@@ -218,7 +218,8 @@ class Assembler386(object):
             else:
                 self.mc.MOV(target, addr_add(imm(self.fail_box_int_addr),
                                              imm(i*WORD)))
-            self.mc.MOV(loc, target)
+            if target is not loc:
+                self.mc.MOV(loc, target)
         for i in range(len(floatlocs)):
             loc = floatlocs[i]
             if loc is None:
