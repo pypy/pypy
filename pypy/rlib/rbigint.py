@@ -49,8 +49,8 @@ def widen_digit(x):
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     
-    def __init__(self, digits, sign=0):
-        if len(digits) == 0:
+    def __init__(self, digits=None, sign=0):
+        if digits is None or len(digits) == 0:
             digits = [0]
         self.digits = digits
         self.sign = sign
@@ -73,7 +73,7 @@ class rbigint(object):
             sign = 1
             ival = r_uint(intval)
         else:
-            return rbigint.ZERO
+            return rbigint()
         # Count the number of Python digits.
         # We used to pick 5 ("big enough for anything"), but that's a
         # waste of time and space given that 5*15 = 75 bits are rarely
@@ -95,8 +95,8 @@ class rbigint(object):
 
     def frombool(b):
         if b:
-            return rbigint.ONE
-        return rbigint.ZERO
+            return rbigint([1], 1)
+        return rbigint()
     frombool = staticmethod(frombool)
 
     def fromlong(l):
@@ -113,7 +113,7 @@ class rbigint(object):
             dval = -dval
         frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
         if expo <= 0:
-            return rbigint.ZERO
+            return rbigint()
         ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
         v = rbigint([0] * ndig, 1)
         frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
@@ -350,7 +350,7 @@ class rbigint(object):
         div, mod = _divrem(v, w)
         if mod.sign * w.sign == -1:
             mod = mod.add(w)
-            div = div.sub(rbigint.ONE)
+            div = div.sub(rbigint([1], 1))
         return div, mod
 
     def pow(a, b, c=None):
@@ -382,7 +382,7 @@ class rbigint(object):
             # if modulus == 1:
             #     return 0
             if c._numdigits() == 1 and c.digits[0] == 1:
-                return rbigint.ZERO
+                return rbigint()
 
             # if base < 0:
             #     base = base % modulus
@@ -488,7 +488,7 @@ class rbigint(object):
         wordshift = int_other // SHIFT
         newsize = self._numdigits() - wordshift
         if newsize <= 0:
-            return rbigint.ZERO
+            return rbigint()
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
@@ -558,8 +558,6 @@ class rbigint(object):
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, %s>" % (self.digits, self.sign, self.str())
-rbigint.ZERO = rbigint([0], 0)
-rbigint.ONE = rbigint([1], 1)
 
 #_________________________________________________________________
 
