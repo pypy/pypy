@@ -32,7 +32,7 @@ class CLibraryBuilder(CBuilder):
                                                         standalone=False,
                                                         outputfilename=oname)
 
-    def get_entry_point(self):
+    def get_entry_point(self, isolated=False):
         return self.so_name
 
 class DLLDef(object):
