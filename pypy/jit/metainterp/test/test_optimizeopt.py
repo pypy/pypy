@@ -50,6 +50,19 @@ def test_store_final_boxes_in_guard():
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
     assert fdescr.rd_frame_infos == fi
+
+def test_sharing_field_lists_of_virtual():
+    virt1 = optimizeopt.AbstractVirtualStructValue(None, None)
+    lst1 = virt1._get_field_descr_list()
+    assert lst1 == []
+    lst2 = virt1._get_field_descr_list()
+    assert lst1 is lst2
+    virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
+    lst1 = virt1._get_field_descr_list()
+    assert lst1 == [LLtypeMixin.valuedescr]
+    lst2 = virt1._get_field_descr_list()
+    assert lst1 is lst2
+
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):

@@ -168,11 +168,12 @@ class AbstractVirtualValue(OptValue):
 
 
 class AbstractVirtualStructValue(AbstractVirtualValue):
-    _attrs_ = ('_fields', )
+    _attrs_ = ('_fields', '_cached_sorted_fields')
 
     def __init__(self, optimizer, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
         self._fields = av_newdict2()
+        self._cached_sorted_fields = None
 
     def getfield(self, ofs, default):
         return self._fields.get(ofs, default)
@@ -200,12 +201,22 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             self._fields = None
         return self.box
 
+    def _get_field_descr_list(self):
+        _cached_sorted_fields = self._cached_sorted_fields
+        if (_cached_sorted_fields is not None and
+            len(self._fields) == len(_cached_sorted_fields)):
+            lst = self._cached_sorted_fields
+        else:
+            lst = self._fields.keys()
+            sort_descrs(lst)
+            self._cached_sorted_fields = lst
+        return lst
+
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.is_virtual(self.keybox):
             # modifier.is_virtual() checks for recursion: it is False unless
             # we have already seen the very same keybox
-            lst = self._fields.keys()
-            sort_descrs(lst)
+            lst = self._get_field_descr_list()
             fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
             self._make_virtual(modifier, lst, fieldboxes)
             for ofs in lst:
