@@ -365,6 +365,7 @@ class Optimizer(object):
         self.values_to_clean = {}
                                      
         self.interned_refs = {}
+        self.resumedata_memo = resume.ResumeDataLoopMemo(cpu)
 
     def getinterned(self, box):
         constbox = self.get_constant_box(box)
@@ -514,7 +515,7 @@ class Optimizer(object):
     def store_final_boxes_in_guard(self, op):
         descr = op.descr
         assert isinstance(descr, compile.ResumeGuardDescr)
-        modifier = resume.ResumeDataVirtualAdder(descr)
+        modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         modifier.walk_snapshots(self.values)
         newboxes = modifier.finish(self.values)
         descr.store_final_boxes(op, newboxes)

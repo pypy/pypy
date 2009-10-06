@@ -1,5 +1,5 @@
 import sys
-from pypy.jit.metainterp.history import Box, Const, ConstInt
+from pypy.jit.metainterp.history import Box, Const, ConstInt, INT, REF
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import rarithmetic
@@ -92,14 +92,54 @@ UNASSIGNED = tag(-1, TAGBOX)
 VIRTUAL_FLAG = int((sys.maxint+1) // 2)
 assert not (VIRTUAL_FLAG & (VIRTUAL_FLAG-1))    # a power of two
 
+class ResumeDataLoopMemo(object):
+
+    def __init__(self, cpu):
+        self.cpu = cpu
+        self.consts = []
+        self.large_ints = {}
+        self.refs = {}
+
+    def getconst(self, const):
+        if const.type == INT:
+            val = const.getint()
+            if not we_are_translated() and not isinstance(val, int):
+                # unhappiness, probably a symbolic
+                return self._newconst(const)
+            try:
+                return tag(val, TAGINT)
+            except ValueError:
+                pass
+            tagged = self.large_ints.get(val, UNASSIGNED)
+            if not tagged_eq(tagged, UNASSIGNED):
+                return tagged
+            tagged = self._newconst(const)
+            self.large_ints[val] = tagged
+            return tagged
+        elif const.type == REF:
+            val = const.getref_base()
+            val = self.cpu.ts.cast_ref_to_hashable(self.cpu, val)
+            tagged = self.refs.get(val, UNASSIGNED)
+            if not tagged_eq(tagged, UNASSIGNED):
+                return tagged
+            tagged = self._newconst(const)
+            self.refs[val] = tagged
+            return tagged            
+        return self._newconst(const)
+
+    def _newconst(self, const):
+        result = tag(len(self.consts), TAGCONST)
+        self.consts.append(const)
+        return result        
+    
 _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(object):
 
-    def __init__(self, storage):
+    def __init__(self, storage, memo):
         self.storage = storage
+        self.memo = memo
         self.liveboxes = {}
-        self.consts = []
         self.virtuals = []
         self.vfieldboxes = []
 
@@ -124,7 +164,7 @@ class ResumeDataVirtualAdder(object):
     def make_constant(self, box, const):
         # this part of the interface is not used so far by optimizeopt.py
         if tagged_eq(self.liveboxes[box], UNASSIGNED):
-            self.liveboxes[box] = self._getconst(const)
+            self.liveboxes[box] = self.memo.getconst(const)
 
     def make_virtual(self, virtualbox, known_class, fielddescrs, fieldboxes):
         vinfo = VirtualInfo(known_class, fielddescrs)
@@ -208,7 +248,7 @@ class ResumeDataVirtualAdder(object):
                 fieldboxes = self.vfieldboxes[i]
                 vinfo.fieldnums = [self._gettagged(box)
                                    for box in fieldboxes]
-        storage.rd_consts = self.consts[:]
+        storage.rd_consts = self.memo.consts
         storage.rd_snapshot = None
         if debug:
             dump_storage(storage, liveboxes)
@@ -216,24 +256,9 @@ class ResumeDataVirtualAdder(object):
 
     def _gettagged(self, box):
         if isinstance(box, Const):
-            return self._getconst(box)
+            return self.memo.getconst(box)
         else:
             return self.liveboxes[box]
-
-    def _getconst(self, const):
-        if isinstance(const, ConstInt):
-            val = const.getint()
-            try:
-                if not we_are_translated() and not isinstance(val, int):
-                    # unhappiness, probably a symbolic
-                    raise ValueError
-                return tag(val, TAGINT)
-            except ValueError:
-                pass
-        result = tag(len(self.consts), TAGCONST)
-        self.consts.append(const)
-        return result
-
 
 class AbstractVirtualInfo(object):
     def allocate(self, metainterp):
