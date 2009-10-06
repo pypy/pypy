@@ -202,6 +202,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         return self.box
 
     def _get_field_descr_list(self):
+        # this shares only per instance and not per type, but better than nothing
         _cached_sorted_fields = self._cached_sorted_fields
         if (_cached_sorted_fields is not None and
             len(self._fields) == len(_cached_sorted_fields)):
