@@ -41,9 +41,8 @@ LEVEL_CONSTANT   = '\x03'
 
 
 class OptValue(object):
-    _attrs_ = ('box', 'known_class', 'level', '_fields')
+    _attrs_ = ('box', 'known_class', 'level')
     level = LEVEL_UNKNOWN
-    _fields = None
 
     def __init__(self, box):
         self.box = box
@@ -169,6 +168,7 @@ class AbstractVirtualValue(OptValue):
 
 
 class AbstractVirtualStructValue(AbstractVirtualValue):
+    _attrs_ = ('_fields', )
 
     def __init__(self, optimizer, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
@@ -357,15 +357,9 @@ class Optimizer(object):
         self.cpu = cpu
         self.loop = loop
         self.values = {}
-        # OptValues to clean when we see an operation with side-effects
-        # they are ordered by fielddescrs of the affected fields
-        # note: it is important that this is not a av_newdict2 dict!
-        # we want more precision to not clear unrelated fields, just because
-        # they are at the same offset (but in a different struct type)
-        self.values_to_clean = {}
-                                     
         self.interned_refs = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(cpu)
+        self.heap_op_optimizer = HeapOpOptimizer(self)
 
     def getinterned(self, box):
         constbox = self.get_constant_box(box)
@@ -497,6 +491,7 @@ class Optimizer(object):
         self.loop.operations = self.newoperations
 
     def emit_operation(self, op, must_clone=True):
+        self.heap_op_optimizer.emitting_operation(op)
         for i in range(len(op.args)):
             arg = op.args[i]
             if arg in self.values:
@@ -520,21 +515,6 @@ class Optimizer(object):
         newboxes = modifier.finish(self.values)
         descr.store_final_boxes(op, newboxes)
 
-    def clean_fields_of_values(self, descr=None):
-        if descr is None:
-            for descr, values in self.values_to_clean.iteritems():
-                for value in values:
-                    value._fields.clear()
-            self.values_to_clean = {}
-        else:
-            for value in self.values_to_clean.get(descr, []):
-                del value._fields[descr]
-            self.values_to_clean[descr] = []
-
-    def register_value_to_clean(self, value, descr):
-        self.values_to_clean.setdefault(descr, []).append(value)
-
-
     def optimize_default(self, op):
         if op.is_always_pure():
             for arg in op.args:
@@ -546,8 +526,6 @@ class Optimizer(object):
                 resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
                 self.make_constant(op.result, resbox.constbox())
                 return
-        elif not op.has_no_side_effect() and not op.is_ovf():
-            self.clean_fields_of_values()
         # otherwise, the operation remains
         self.emit_operation(op)
 
@@ -666,18 +644,8 @@ class Optimizer(object):
             assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
         else:
-            # check if the field was read from another getfield_gc just before
-            if value._fields is None:
-                value._fields = av_newdict2()
-            elif op.descr in value._fields:
-                self.make_equal_to(op.result, value._fields[op.descr])
-                return
-            # default case: produce the operation
             value.make_nonnull()
-            self.optimize_default(op)
-            # then remember the result of reading the field
-            value._fields[op.descr] = self.getvalue(op.result)
-            self.register_value_to_clean(value, op.descr)
+            self.heap_op_optimizer.optimize_GETFIELD_GC(op, value)
 
     # note: the following line does not mean that the two operations are
     # completely equivalent, because GETFIELD_GC_PURE is_always_pure().
@@ -689,15 +657,8 @@ class Optimizer(object):
             value.setfield(op.descr, self.getvalue(op.args[1]))
         else:
             value.make_nonnull()
-            self.emit_operation(op)
-            # kill all fields with the same descr, as those could be affected
-            # by this setfield (via aliasing)
-            self.clean_fields_of_values(op.descr)
-            # remember the result of future reads of the field
-            if value._fields is None:
-                value._fields = av_newdict2()
-            value._fields[op.descr] = self.getvalue(op.args[1])
-            self.register_value_to_clean(value, op.descr)
+            fieldvalue = self.getvalue(op.args[1])
+            self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
 
     def optimize_NEW_WITH_VTABLE(self, op):
         self.make_virtual(op.args[0], op.result, op)
@@ -736,7 +697,7 @@ class Optimizer(object):
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.make_nonnull()
-        self.optimize_default(op)
+        self.heap_op_optimizer.optimize_GETARRAYITEM_GC(op, value)
 
     # note: the following line does not mean that the two operations are
     # completely equivalent, because GETARRAYITEM_GC_PURE is_always_pure().
@@ -750,9 +711,8 @@ class Optimizer(object):
                 value.setitem(indexbox.getint(), self.getvalue(op.args[2]))
                 return
         value.make_nonnull()
-        # don't use optimize_default, because otherwise unrelated struct
-        # fields will be cleared
-        self.emit_operation(op)
+        fieldvalue = self.getvalue(op.args[2])
+        self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
 
     def optimize_INSTANCEOF(self, op):
         value = self.getvalue(op.args[0])
@@ -766,9 +726,141 @@ class Optimizer(object):
         self.emit_operation(op)
 
     def optimize_DEBUG_MERGE_POINT(self, op):
-        # special-case this operation to prevent e.g. the handling of
-        # 'values_to_clean' (the op cannot be marked as side-effect-free)
-        # otherwise it would be removed
-        self.newoperations.append(op)
+        self.emit_operation(op)
 
 optimize_ops = _findall(Optimizer, 'optimize_')
+
+
+class CachedArrayItems(object):
+    def __init__(self):
+        self.fixed_index_items = {}
+        self.var_index_item = None
+        self.var_index_indexvalue = None
+
+
+class HeapOpOptimizer(object):
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+        # cached OptValues for each field descr
+        # NOTE: it is important that this is not a av_newdict2 dict!
+        # we want more precision to prevent mixing up of unrelated fields, just
+        # because they are at the same offset (but in a different struct type)
+        self.cached_fields = {}
+
+        # cached OptValues for each field descr
+        self.cached_arrayitems = {}
+
+    def clean_caches(self):
+        self.cached_fields.clear()
+        self.cached_arrayitems.clear()
+
+    def cache_field_value(self, descr, value, fieldvalue, write=False):
+        if write:
+            d = self.cached_fields[descr] = {}
+        else:
+            d = self.cached_fields.setdefault(descr, {})
+        d[value] = fieldvalue
+
+    def read_cached_field(self, descr, value):
+        d = self.cached_fields.get(descr, None)
+        if d is None:
+            return None
+        return d.get(value, None)
+
+    def cache_arrayitem_value(self, descr, value, indexvalue, fieldvalue, write=False):
+        d = self.cached_arrayitems.get(descr, None)
+        if d is None:
+            d = self.cached_arrayitems[descr] = {}
+        cache = d.get(value, None)
+        if cache is None:
+            cache = d[value] = CachedArrayItems()
+        indexbox = self.optimizer.get_constant_box(indexvalue.box)
+        if indexbox is not None:
+            index = indexbox.getint()
+            if write:
+                for value, othercache in d.iteritems():
+                    # fixed index, clean the variable index cache, in case the
+                    # index is the same
+                    othercache.var_index_indexvalue = None
+                    othercache.var_index_item = None
+                    try:
+                        del othercache.fixed_index_items[index]
+                    except KeyError:
+                        pass
+            cache.fixed_index_items[index] = fieldvalue
+        else:
+            if write:
+                for value, othercache in d.iteritems():
+                    # variable index, clear all caches for this descr
+                    othercache.var_index_indexvalue = None
+                    othercache.var_index_item = None
+                    othercache.fixed_index_items.clear()
+            cache.var_index_indexvalue = indexvalue
+            cache.var_index_item = fieldvalue
+
+    def read_cached_arrayitem(self, descr, value, indexvalue):
+        d = self.cached_arrayitems.get(descr, None)
+        if d is None:
+            return None
+        cache = d.get(value, None)
+        if cache is None:
+            return None
+        indexbox = self.optimizer.get_constant_box(indexvalue.box)
+        if indexbox is not None:
+            return cache.fixed_index_items.get(indexbox.getint(), None)
+        elif cache.var_index_indexvalue is indexvalue:
+            return cache.var_index_item
+        return None
+
+    def emitting_operation(self, op):
+        if op.is_always_pure():
+            return
+        if op.has_no_side_effect():
+            return
+        if op.is_ovf():
+            return
+        if op.is_guard():
+            return
+        opnum = op.opnum
+        if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.DEBUG_MERGE_POINT):
+            return
+        self.clean_caches()
+
+    def optimize_GETFIELD_GC(self, op, value):
+        # check if the field was read from another getfield_gc just before
+        # or has been written to recently
+        fieldvalue = self.read_cached_field(op.descr, value)
+        if fieldvalue is not None:
+            self.optimizer.make_equal_to(op.result, fieldvalue)
+            return
+        # default case: produce the operation
+        value.make_nonnull()
+        self.optimizer.optimize_default(op)
+        # then remember the result of reading the field
+        fieldvalue = self.optimizer.getvalue(op.result)
+        self.cache_field_value(op.descr, value, fieldvalue)
+
+    def optimize_SETFIELD_GC(self, op, value, fieldvalue):
+        self.optimizer.emit_operation(op)
+        # remember the result of future reads of the field
+        self.cache_field_value(op.descr, value, fieldvalue, write=True)
+
+    def optimize_GETARRAYITEM_GC(self, op, value):
+        indexvalue = self.optimizer.getvalue(op.args[1])
+        fieldvalue = self.read_cached_arrayitem(op.descr, value, indexvalue)
+        if fieldvalue is not None:
+            self.optimizer.make_equal_to(op.result, fieldvalue)
+            return
+        self.optimizer.optimize_default(op)
+        fieldvalue = self.optimizer.getvalue(op.result)
+        self.cache_arrayitem_value(op.descr, value, indexvalue, fieldvalue)
+
+    def optimize_SETARRAYITEM_GC(self, op, value, fieldvalue):
+        self.optimizer.emit_operation(op)
+        indexvalue = self.optimizer.getvalue(op.args[1])
+        self.cache_arrayitem_value(op.descr, value, indexvalue, fieldvalue,
+                                   write=True)
+
+

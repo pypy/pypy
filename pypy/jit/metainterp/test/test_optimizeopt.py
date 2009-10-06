@@ -1023,21 +1023,28 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def test_duplicate_getfield_1(self):
         ops = """
-        [p1]
+        [p1, p2]
         i1 = getfield_gc(p1, descr=valuedescr)
-        i2 = getfield_gc(p1, descr=valuedescr)
+        i2 = getfield_gc(p2, descr=valuedescr)
+        i3 = getfield_gc(p1, descr=valuedescr)
+        i4 = getfield_gc(p2, descr=valuedescr)
         escape(i1)
         escape(i2)
-        jump(p1)
+        escape(i3)
+        escape(i4)
+        jump(p1, p2)
         """
         expected = """
-        [p1]
+        [p1, p2]
         i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = getfield_gc(p2, descr=valuedescr)
         escape(i1)
+        escape(i2)
         escape(i1)
-        jump(p1)
+        escape(i2)
+        jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_getfield_after_setfield(self):
         ops = """
@@ -1205,6 +1212,138 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(p1, i1)
         """
         self.optimize_loop(ops, 'Not, Not', ops)
+
+    def test_duplicate_getarrayitem_1(self):
+        ops = """
+        [p1]
+        p2 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p1, 1, descr=arraydescr2)
+        p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc(p1, 1, descr=arraydescr2)
+        escape(p2)
+        escape(p3)
+        escape(p4)
+        escape(p5)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        p2 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p1, 1, descr=arraydescr2)
+        escape(p2)
+        escape(p3)
+        escape(p2)
+        escape(p3)
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_1(self):
+        ops = """
+        [p1, p2]
+        setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        escape(p3)
+        jump(p1, p3)
+        """
+        expected = """
+        [p1, p2]
+        setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
+        escape(p2)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_2(self):
+        ops = """
+        [p1, p2, p3, i1]
+        setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc(p1, i1, descr=arraydescr2)
+        escape(p4)
+        escape(p5)
+        jump(p1, p2, p3, i1)
+        """
+        expected = """
+        [p1, p2, p3, i1]
+        setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        escape(p4)
+        escape(p3)
+        jump(p1, p2, p3, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_3(self):
+        ops = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc(p1, i1, descr=arraydescr2)
+        p6 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p7 = getarrayitem_gc(p1, 1, descr=arraydescr2)
+        escape(p5)
+        escape(p6)
+        escape(p7)
+        jump(p1, p2, p3, p4, i1)
+        """
+        expected = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc(p1, i1, descr=arraydescr2)
+        escape(p5)
+        escape(p3)
+        escape(p4)
+        jump(p1, p2, p3, p4, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
+
+    def test_getarrayitem_pure_does_not_invalidate(self):
+        ops = """
+        [p1, p2]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        i4 = getfield_gc_pure(ConstPtr(myptr), descr=valuedescr)
+        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        escape(p3)
+        escape(i4)
+        escape(p5)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        escape(p3)
+        escape(5)
+        escape(p3)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_two_arrays(self):
+        ops = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        escape(p5)
+        escape(p6)
+        jump(p1, p2, p3, p4, i1)
+        """
+        expected = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
+        escape(p3)
+        escape(p4)
+        jump(p1, p2, p3, p4, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
 
     def test_bug_1(self):
         ops = """
