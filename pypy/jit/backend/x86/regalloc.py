@@ -765,6 +765,7 @@ class RegAlloc(object):
         result_loc = self.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc, size_loc], result_loc)
 
+    consider_getfield_raw = consider_getfield_gc
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op, ignored):
@@ -775,7 +776,6 @@ class RegAlloc(object):
         result_loc = self.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc, imm(scale), imm(ofs)], result_loc)
 
-    consider_getfield_raw = consider_getfield_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
 
