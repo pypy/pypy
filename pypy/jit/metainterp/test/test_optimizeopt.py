@@ -32,7 +32,6 @@ def test_store_final_boxes_in_guard():
     fdescr = ResumeGuardDescr(None)
     op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
     # setup rd data
-    fi = [("code0", 1, 2), ("code1", 3, -1)]
     fi0 = resume.FrameInfo(None, FakeFrame("code0", 1, 2))
     fdescr.rd_frame_info_list = resume.FrameInfo(fi0,
                                                  FakeFrame("code1", 3, -1))
@@ -41,15 +40,14 @@ def test_store_final_boxes_in_guard():
     #
     opt.store_final_boxes_in_guard(op)
     if op.fail_args == [b0, b1]:
-        assert fdescr.rd_nums == [tag(0, TAGBOX), NEXTFRAME,
-                                  tag(1, TAGBOX), NEXTFRAME]
-    else:
-        assert op.fail_args == [b1, b0]
         assert fdescr.rd_nums == [tag(1, TAGBOX), NEXTFRAME,
                                   tag(0, TAGBOX), NEXTFRAME]
+    else:
+        assert op.fail_args == [b1, b0]
+        assert fdescr.rd_nums == [tag(0, TAGBOX), NEXTFRAME,
+                                  tag(1, TAGBOX), NEXTFRAME]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
-    assert fdescr.rd_frame_infos == fi
 
 def test_sharing_field_lists_of_virtual():
     virt1 = optimizeopt.AbstractVirtualStructValue(None, None)

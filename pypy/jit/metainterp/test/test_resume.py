@@ -89,23 +89,7 @@ def test_simple_read_tagged_ints():
     lst = reader.consume_boxes()
     assert lst == [b1s, b2s, b3s]
 
-def test_frame_info():
-    storage = Storage()
-    storage.rd_frame_infos = [(1, 2, 5), (3, 4, 7)]
-    storage.rd_consts = []
-    storage.rd_nums = []
-    storage.rd_virtuals = None    
-    #
-    reader = ResumeDataReader(storage, [])
-    assert reader.has_more_frame_infos()
-    fi = reader.consume_frame_info()
-    assert fi == (1, 2, 5)
-    assert reader.has_more_frame_infos()
-    fi = reader.consume_frame_info()
-    assert fi == (3, 4, 7)
-    assert not reader.has_more_frame_infos()
-
-# ____________________________________________________________
+    # ____________________________________________________________
 
 
 
@@ -434,11 +418,11 @@ def test_virtual_adder_no_op():
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
-    assert lst == [b1t, ConstInt(1), b1t, b2t]
+    assert lst == [b1t, b2t, b3t]
     lst = reader.consume_boxes()
     assert lst == [ConstInt(2), ConstInt(3)]
     lst = reader.consume_boxes()
-    assert lst == [b1t, b2t, b3t]
+    assert lst == [b1t, ConstInt(1), b1t, b2t]
     assert metainterp.trace == []
 
 def test_virtual_adder_int_constants():
@@ -452,12 +436,12 @@ def test_virtual_adder_int_constants():
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, [], metainterp)
     lst = reader.consume_boxes()
-    assert lst == [ConstInt(sys.maxint), ConstInt(1), ConstInt(sys.maxint),
-                   ConstInt(2**16)]
+    assert lst == [b1s, b2s, b3s]
     lst = reader.consume_boxes()
     assert lst == [ConstInt(2), ConstInt(3)]
     lst = reader.consume_boxes()
-    assert lst == [b1s, b2s, b3s]
+    assert lst == [ConstInt(sys.maxint), ConstInt(1), ConstInt(sys.maxint),
+                   ConstInt(2**16)]
     assert metainterp.trace == []
 
 
@@ -507,11 +491,11 @@ def test_virtual_adder_no_op_renaming():
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
-    assert lst == [b1t, ConstInt(1), b1t, b1t]
+    assert lst == [b1t, b1t, b3t]
     lst = reader.consume_boxes()
     assert lst == [ConstInt(2), ConstInt(3)]
     lst = reader.consume_boxes()
-    assert lst == [b1t, b1t, b3t]
+    assert lst == [b1t, ConstInt(1), b1t, b1t]
     assert metainterp.trace == []    
 
 def test_virtual_adder_make_virtual():
@@ -551,12 +535,19 @@ def test_virtual_adder_make_virtual():
     #
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, newboxes, metainterp)
+    trace = metainterp.trace[:]
+    del metainterp.trace[:]
     lst = reader.consume_boxes()
-    b2t = lst[-1]
+    b2t = lst[1]
+    assert lst == [b1t, b2t, b3t]
+    lst = reader.consume_boxes()
+    assert lst == [ConstInt(2), ConstInt(3)]
+    lst = reader.consume_boxes()
+    assert metainterp.trace == []
     assert lst == [b1t, ConstInt(1), b1t, b2t]
     b4tx = b2t.value._obj.container._as_ptr().next
     b4tx = lltype.cast_opaque_ptr(llmemory.GCREF, b4tx)
-    assert metainterp.trace == [
+    assert trace == [
         (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr], b2t.value, None),
         (rop.NEW_WITH_VTABLE, [LLtypeMixin.node_vtable_adr2], b4tx, None),
         (rop.SETFIELD_GC, [b2t.value, b4tx],     None, LLtypeMixin.nextdescr),
@@ -565,13 +556,6 @@ def test_virtual_adder_make_virtual():
         (rop.SETFIELD_GC, [b4tx, b3t.value],     None, LLtypeMixin.valuedescr),
         (rop.SETFIELD_GC, [b4tx, b5t.value],     None, LLtypeMixin.otherdescr),
         ]
-    del metainterp.trace[:]
-    lst = reader.consume_boxes()
-    assert lst == [ConstInt(2), ConstInt(3)]
-    assert metainterp.trace == []
-    lst = reader.consume_boxes()
-    assert lst == [b1t, b2t, b3t]
-    assert metainterp.trace == []
     #
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.NODE)
@@ -610,11 +594,11 @@ def test_virtual_adder_make_constant():
         reader = ResumeDataReader(storage, newboxes, metainterp)
         lst = reader.consume_boxes()
         c1t = ConstInt(111)
-        assert lst == [c1t, ConstInt(1), c1t, b2t]
+        assert lst == [c1t, b2t, b3t]
         lst = reader.consume_boxes()
         assert lst == [ConstInt(2), ConstInt(3)]
         lst = reader.consume_boxes()
-        assert lst == [c1t, b2t, b3t]
+        assert lst == [c1t, ConstInt(1), c1t, b2t]
         assert metainterp.trace == []
 
 
@@ -643,20 +627,21 @@ def test_virtual_adder_make_varray():
     #
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, newboxes, metainterp)
+    trace = metainterp.trace[:]
+    del metainterp.trace[:]
     lst = reader.consume_boxes()
-    b2t = lst[-1]
-    assert lst == [b1t, ConstInt(1), b1t, b2t]
-    assert metainterp.trace == [
+    b2t = lst[1]
+    assert lst == [b1t, b2t, b3t]
+    assert trace == [
         (rop.NEW_ARRAY, [2], b2t.value,                LLtypeMixin.arraydescr),
         (rop.SETARRAYITEM_GC, [b2t.value,0,44],  None, LLtypeMixin.arraydescr),
         (rop.SETARRAYITEM_GC, [b2t.value,1,111], None, LLtypeMixin.arraydescr),
         ]
-    del metainterp.trace[:]
     lst = reader.consume_boxes()
     assert lst == [ConstInt(2), ConstInt(3)]
     assert metainterp.trace == []
     lst = reader.consume_boxes()
-    assert lst == [b1t, b2t, b3t]
+    assert lst == [b1t, ConstInt(1), b1t, b2t]
     assert metainterp.trace == []
     #
     ptr = b2t.value._obj.container._as_ptr()
@@ -694,9 +679,11 @@ def test_virtual_adder_make_vstruct():
     metainterp = MyMetaInterp(LLtypeMixin.cpu)
     reader = ResumeDataReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
-    b2t = lst[-1]
-    assert lst == [b1t, ConstInt(1), b1t, b2t]
-    assert metainterp.trace == [
+    trace = metainterp.trace[:]
+    del metainterp.trace[:]
+    b2t = lst[1]
+    assert lst == [b1t, b2t, b3t]
+    assert trace == [
         (rop.NEW, [], b2t.value, LLtypeMixin.ssize),
         (rop.SETFIELD_GC, [b2t.value, 111],  None, LLtypeMixin.adescr),
         (rop.SETFIELD_GC, [b2t.value, NULL], None, LLtypeMixin.bdescr),
@@ -706,7 +693,7 @@ def test_virtual_adder_make_vstruct():
     assert lst == [ConstInt(2), ConstInt(3)]
     assert metainterp.trace == []
     lst = reader.consume_boxes()
-    assert lst == [b1t, b2t, b3t]
+    assert lst == [b1t, ConstInt(1), b1t, b2t]
     assert metainterp.trace == []
     #
     ptr = b2t.value._obj.container._as_ptr()

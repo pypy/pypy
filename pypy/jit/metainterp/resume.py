@@ -217,7 +217,6 @@ class ResumeDataVirtualAdder(object):
         storage.rd_frame_infos = frame_infos        
 
     def finish(self, values):
-        self._flatten_frame_info()
         storage = self.storage
         liveboxes = []
         for box in self.liveboxes.iterkeys():
@@ -225,18 +224,18 @@ class ResumeDataVirtualAdder(object):
                 self.liveboxes[box] = tag(len(liveboxes), TAGBOX)
                 liveboxes.append(box)
         nums = storage.rd_nums = [rffi.r_short(0)]*self.nnums
-        i = self.nnums-1
+        i = 0
         snapshot = self.storage.rd_snapshot
         while True: # at least one
             boxes = snapshot.boxes
-            nums[i] = NEXTFRAME
-            i -= 1
-            for j in range(len(boxes)-1, -1, -1):
+            for j in range(len(boxes)):
                 box = boxes[j]
                 if box in values:
                     box = values[box].get_key_box()
                 nums[i] = self._gettagged(box)
-                i -= 1
+                i += 1
+            nums[i] = NEXTFRAME
+            i += 1
             snapshot = snapshot.prev
             if snapshot is None:
                 break
@@ -292,7 +291,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
         return 'VirtualInfo("%s", %s, %s)' % (
             self.known_class,
             ['"%s"' % (fd,) for fd in self.fielddescrs],
-            self.fieldnums)
+            [untag(i) for i in self.fieldnums])
 
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -306,7 +305,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         return 'VStructInfo("%s", %s, %s)' % (
             self.typedescr,
             ['"%s"' % (fd,) for fd in self.fielddescrs],
-            self.fieldnums)
+            [untag(i) for i in self.fieldnums])
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -327,21 +326,26 @@ class VArrayInfo(AbstractVirtualInfo):
                                           box, ConstInt(i), itembox)
 
     def repr_rpython(self):
-        return 'VArrayInfo("%s", %s)' % (self.arraydescr,
-                                         self.fieldnums)
+        return 'VArrayInfo("%s", %s)' % (
+            self.arraydescr,
+            [untag(i) for i in self.fieldnums])
 
 
-def rebuild_from_resumedata(metainterp, newboxes, resumedescr, expects_virtualizables):
-    resumereader = ResumeDataReader(resumedescr, newboxes, metainterp)
-    while resumereader.has_more_frame_infos():
-        jitcode, pc, exception_target = resumereader.consume_frame_info()
-        env = resumereader.consume_boxes()
-        f = metainterp.newframe(jitcode)
-        f.setup_resume_at_op(pc, exception_target, env)
+def rebuild_from_resumedata(metainterp, newboxes, storage, expects_virtualizables):
+    resumereader = ResumeDataReader(storage, newboxes, metainterp)
+    virtualizable_boxes = None
     if expects_virtualizables:
         virtualizable_boxes = resumereader.consume_boxes()
-        return virtualizable_boxes
-    return None
+    frameinfo = storage.rd_frame_info_list
+    while True:
+        env = resumereader.consume_boxes()
+        f = metainterp.newframe(frameinfo.jitcode)
+        f.setup_resume_at_op(frameinfo.pc, frameinfo.exception_target, env)
+        frameinfo = frameinfo.prev
+        if frameinfo is None:
+            break
+    metainterp.framestack.reverse()
+    return virtualizable_boxes
 
 
 class ResumeDataReader(object):
@@ -350,7 +354,6 @@ class ResumeDataReader(object):
     virtuals = None
 
     def __init__(self, storage, liveboxes, metainterp=None):
-        self.frame_infos = storage.rd_frame_infos
         self.nums = storage.rd_nums
         self.consts = storage.rd_consts
         self.liveboxes = liveboxes
@@ -387,14 +390,6 @@ class ResumeDataReader(object):
             assert tag == TAGBOX
             return self.liveboxes[num]
 
-    def has_more_frame_infos(self):
-        return self.i_frame_infos < len(self.frame_infos)
-
-    def consume_frame_info(self):
-        frame_info = self.frame_infos[self.i_frame_infos]
-        self.i_frame_infos += 1
-        return frame_info
-
 # ____________________________________________________________
 
 def dump_storage(storage, liveboxes):
@@ -403,9 +398,14 @@ def dump_storage(storage, liveboxes):
     from pypy.rlib import objectmodel
     fd = os.open('log.storage', os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0666)
     os.write(fd, 'Log(%d, [\n' % objectmodel.compute_unique_id(storage))
-    for frame_info in storage.rd_frame_infos:
-        os.write(fd, '\t("%s", %d, %d),\n' % frame_info)
-    os.write(fd, '\t],\n\t%s,\n' % (storage.rd_nums,))
+    frameinfo = storage.rd_frame_info_list
+    while True:
+        os.write(fd, '\t("%s", %d, %d),\n' % (
+            frameinfo.jitcode, frameinfo.pc, frameinfo.exception_target))
+        frameinfo = frameinfo.prev
+        if frameinfo is None:
+            break
+    os.write(fd, '\t],\n\t%s,\n' % ([untag(i) for i in storage.rd_nums],))
     os.write(fd, '\t[\n')
     for const in storage.rd_consts:
         os.write(fd, '\t"%s",\n' % (const.repr_rpython(),))
