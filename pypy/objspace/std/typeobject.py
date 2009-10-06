@@ -644,9 +644,9 @@ def issubtype__Type_Type(space, w_type1, w_type2):
         else:
             version_tag1 = w_type1.version_tag
             version_tag2 = w_type2.version_tag
+            version_tag1 = hint(version_tag1, promote=True)
+            version_tag2 = hint(version_tag2, promote=True)
             if version_tag1 is not None and version_tag2 is not None:
-                version_tag1 = hint(version_tag1, promote=True)
-                version_tag2 = hint(version_tag2, promote=True)
                 res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
                 return space.newbool(res)
     res = _issubtype(w_type1, w_type2)
