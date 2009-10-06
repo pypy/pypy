@@ -587,6 +587,7 @@ def validate_custom_mro(space, mro_w):
 # ____________________________________________________________
 
 def call__Type(space, w_type, __args__):
+    w_type = hint(w_type, promote=True)
     # special case for type(x)
     if space.is_w(w_type, space.w_type):
         try:
