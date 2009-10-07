@@ -59,8 +59,10 @@ if __name__ == '__main__':
     if args[0].startswith('-F'):
         fmt = "%" + args[0][2:]
         args.pop(0)
+        inner = True
     else:
         fmt = "%.2f"
+        inner = False
         
     if '-k' in args:
         i = args.index('-k')
@@ -92,9 +94,15 @@ if __name__ == '__main__':
             for k, v in benchdata.iteritems():
                 result.append( (v / benchdata_ref[k], k) )
             result.sort()
-            for r in result:
-                slowdown, testcase = r
+            for slowdown, testcase in result:
                 print '%5.2fx slower on %s' % (slowdown, testcase)
+    if not inner and n == 0:
+        result = []
+        for k, v in benchdata.iteritems():
+            result.append((v, k))
+        result.sort()
+        for v, testcase in result:
+            print 'took %5.5fs for %s' % (v, testcase)
         
     if not executables:
         run(test_cases, fmt)
