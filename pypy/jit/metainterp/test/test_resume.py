@@ -110,6 +110,9 @@ class FakeFrame(object):
         return self.__dict__ == other.__dict__
     def __ne__(self, other):
         return self.__dict__ != other.__dict__
+    def __repr__(self):
+        return "<FF %s %s %s %s>" % (self.jitcode, self.pc,
+                                     self.exception_target, self.env)
 
 def test_Snapshot_create():
     l = ['b0', 'b1']
@@ -209,13 +212,6 @@ def test_capture_resumedata():
     assert snapshot.boxes == fs[2].env
 
 def test_rebuild_from_resumedata():
-    class FakeMetaInterp(object):
-        def __init__(self):
-            self.framestack = []
-        def newframe(self, jitcode):
-            frame = FakeFrame(jitcode, -1, -1)
-            self.framestack.append(frame)
-            return frame
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
     storage = Storage()
@@ -227,7 +223,7 @@ def test_rebuild_from_resumedata():
     modifier = ResumeDataVirtualAdder(storage, memo)
     modifier.walk_snapshots({})
     liveboxes = modifier.finish({})
-    metainterp = FakeMetaInterp()
+    metainterp = MyMetaInterp(None)
 
     b1t, b2t, b3t = [BoxInt(), BoxPtr(), BoxInt()]
     newboxes = _resume_remap(liveboxes, [b1, b2, b3], b1t, b2t, b3t)
@@ -241,13 +237,6 @@ def test_rebuild_from_resumedata():
     assert metainterp.framestack == fs2
 
 def test_rebuild_from_resumedata_with_virtualizable():
-    class FakeMetaInterp(object):
-        def __init__(self):
-            self.framestack = []
-        def newframe(self, jitcode):
-            frame = FakeFrame(jitcode, -1, -1)
-            self.framestack.append(frame)
-            return frame
     b1, b2, b3, b4 = [BoxInt(), BoxPtr(), BoxInt(), BoxPtr()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
     storage = Storage()
@@ -259,7 +248,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
     modifier = ResumeDataVirtualAdder(storage, memo)
     modifier.walk_snapshots({})
     liveboxes = modifier.finish({})
-    metainterp = FakeMetaInterp()
+    metainterp = MyMetaInterp(None)
 
     b1t, b2t, b3t, b4t = [BoxInt(), BoxPtr(), BoxInt(), BoxPtr()]
     newboxes = _resume_remap(liveboxes, [b1, b2, b3, b4], b1t, b2t, b3t, b4t)
@@ -271,6 +260,116 @@ def test_rebuild_from_resumedata_with_virtualizable():
            FakeFrame("code1", 3, 7, b3t, c2, b1t),
            FakeFrame("code2", 9, -1, c3, b2t)]
     assert metainterp.framestack == fs2
+
+def test_rebuild_from_resumedata_two_guards():
+    b1, b2, b3, b4 = [BoxInt(), BoxPtr(), BoxInt(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    storage = Storage()
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
+          FakeFrame("code1", 3, 7, b3, c2, b1),
+          FakeFrame("code2", 9, -1, c3, b2)]
+    capture_resumedata(fs, None, storage)
+    storage2 = Storage()
+    fs = fs[:-1] + [FakeFrame("code2", 10, -1, c3, b2, b4)]
+    capture_resumedata(fs, None, storage2)
+    
+    memo = ResumeDataLoopMemo(None)
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.walk_snapshots({})
+    liveboxes = modifier.finish({})
+
+    modifier = ResumeDataVirtualAdder(storage2, memo)
+    modifier.walk_snapshots({})
+    liveboxes2 = modifier.finish({})
+
+    metainterp = MyMetaInterp(None)
+
+    b1t, b2t, b3t, b4t = [BoxInt(), BoxPtr(), BoxInt(), BoxInt()]
+    newboxes = _resume_remap(liveboxes, [b1, b2, b3], b1t, b2t, b3t)
+
+    result = rebuild_from_resumedata(metainterp, newboxes, storage,
+                                     False)
+    assert result is None
+    fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
+           FakeFrame("code1", 3, 7, b3t, c2, b1t),
+           FakeFrame("code2", 9, -1, c3, b2t)]
+    assert metainterp.framestack == fs2
+
+    newboxes = _resume_remap(liveboxes2, [b1, b2, b3, b4], b1t, b2t, b3t, b4t)
+
+    metainterp.framestack = []
+    result = rebuild_from_resumedata(metainterp, newboxes, storage2,
+                                     False)
+    assert result is None
+    fs2 = fs2[:-1] + [FakeFrame("code2", 10, -1, c3, b2t, b4t)]
+    assert metainterp.framestack == fs2
+
+
+def test_rebuild_from_resumedata_two_guards_w_virtuals():
+    
+    b1, b2, b3, b4, b5 = [BoxInt(), BoxPtr(), BoxInt(), BoxInt(), BoxInt()]
+    c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3),
+                      LLtypeMixin.nodebox.constbox()]
+    class FakeValue(object):
+
+        def register_value(self, modifier):
+            if modifier.register_box(b2):
+                modifier.make_virtual(b2, ConstAddr(LLtypeMixin.node_vtable_adr,
+                                                    LLtypeMixin.cpu),
+                                [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr],
+                                [c4, fieldbox])
+
+        def get_key_box(self):
+            return b2
+
+    values = {b2: FakeValue()}
+            
+    storage = Storage()
+    fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
+          FakeFrame("code1", 3, 7, b3, c2, b1),
+          FakeFrame("code2", 9, -1, c3, b2)]
+    capture_resumedata(fs, None, storage)
+    storage2 = Storage()
+    fs = fs[:-1] + [FakeFrame("code2", 10, -1, c3, b2, b4)]
+    capture_resumedata(fs, None, storage2)
+    
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
+    fieldbox = b5
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.walk_snapshots(values)
+    liveboxes = modifier.finish(values)
+
+    fieldbox = b4
+    modifier = ResumeDataVirtualAdder(storage2, memo)
+    modifier.walk_snapshots(values)
+    liveboxes2 = modifier.finish(values)
+
+    metainterp = MyMetaInterp(LLtypeMixin.cpu)
+
+    b1t, b3t, b4t, b5t = [BoxInt(), BoxInt(), BoxInt(), BoxInt()]
+    newboxes = _resume_remap(liveboxes, [b1, b3, b5], b1t, b3t, b5t)
+
+    result = rebuild_from_resumedata(metainterp, newboxes, storage,
+                                     False)
+
+    b2t = metainterp.resboxes[0]
+    fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
+           FakeFrame("code1", 3, 7, b3t, c2, b1t),
+           FakeFrame("code2", 9, -1, c3, b2t)]
+    assert metainterp.framestack == fs2
+
+    newboxes = _resume_remap(liveboxes2, [b1, b3, b4], b1t, b3t, b4t)
+
+    metainterp = MyMetaInterp(LLtypeMixin.cpu)
+    result = rebuild_from_resumedata(metainterp, newboxes, storage2,
+                                     False)
+    b2t = metainterp.resboxes[0]
+    fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
+           FakeFrame("code1", 3, 7, b3t, c2, b1t),
+           FakeFrame("code2", 10, -1, c3, b2t, b4t)]
+    assert metainterp.framestack == fs2    
+    
+
 # ____________________________________________________________
 
 def test_walk_snapshots():
@@ -358,12 +457,21 @@ class MyMetaInterp:
     def __init__(self, cpu):
         self.cpu = cpu
         self.trace = []
+        self.framestack = []
+        self.resboxes = []
+
+    def newframe(self, jitcode):
+        frame = FakeFrame(jitcode, -1, -1)
+        self.framestack.append(frame)
+        return frame    
+
     def execute_and_record(self, opnum, descr, *argboxes):
         resbox = executor.execute(self.cpu, opnum, descr, *argboxes)
         self.trace.append((opnum,
                            [box.value for box in argboxes],
                            resbox and resbox.value,
                            descr))
+        self.resboxes.append(resbox)
         return resbox
 
 def _resume_remap(liveboxes, expected, *newvalues):
