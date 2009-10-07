@@ -985,7 +985,8 @@ class LLtypeBackendTest(BaseBackendTest):
         # hurt...
         S = lltype.Struct('S', ('x', lltype.Signed))
         s = lltype.malloc(S, flavor='raw')
-        s_box = BoxInt(rffi.cast(lltype.Signed, s))
+        sa = llmemory.cast_ptr_to_adr(s)
+        s_box = BoxInt(self.cpu.cast_adr_to_int(sa))
         for get_op, set_op in ((rop.GETFIELD_RAW, rop.SETFIELD_RAW),
                                (rop.GETFIELD_RAW_PURE, rop.SETFIELD_RAW)):
             fd = self.cpu.fielddescrof(S, 'x')
