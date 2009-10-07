@@ -679,6 +679,8 @@ class Frame(object):
         else:
             raise NotImplementedError
 
+    op_getfield_raw_pure = op_getfield_raw
+
     def op_new(self, size):
         return do_new(size.ofs)
 
