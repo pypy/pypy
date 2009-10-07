@@ -980,6 +980,20 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.x == chr(190)
         assert s.y == chr(150)
 
+    def test_field_raw_pure(self):
+        # This is really testing the same thing as test_field_basic but can't
+        # hurt...
+        S = lltype.Struct('S', ('x', lltype.Signed))
+        s = lltype.malloc(S, flavor='raw')
+        s_box = BoxInt(rffi.cast(lltype.Signed, s))
+        for get_op, set_op in ((rop.GETFIELD_RAW, rop.SETFIELD_RAW),
+                               (rop.GETFIELD_RAW_PURE, rop.SETFIELD_RAW)):
+            fd = self.cpu.fielddescrof(S, 'x')
+            self.execute_operation(set_op, [s_box, BoxInt(32)], 'void',
+                                   descr=fd)
+            res = self.execute_operation(get_op, [s_box], 'int', descr=fd)
+            assert res.getint()  == 32
+
     def test_new_with_vtable(self):
         cpu = self.cpu
         t_box, T_box = self.alloc_instance(self.T)
