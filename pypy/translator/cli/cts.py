@@ -6,6 +6,7 @@ import exceptions
 
 from py.builtin import set
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
@@ -107,6 +108,7 @@ class CliArrayType(CliType):
 T = CliPrimitiveType
 class types:
     void =    T('void')
+    int16 =   T('int16')
     int32 =   T('int32')
     uint32 =  T('unsigned int32')
     int64 =   T('int64')
@@ -134,6 +136,7 @@ PYPY_DICT_OF_VOID_KEY = '[pypylib]pypy.runtime.DictOfVoidKey`2<int32, %s>'
 
 _lltype_to_cts = {
     ootype.Void: types.void,
+    rffi.SHORT: types.int16,
     ootype.Signed: types.int32,    
     ootype.Unsigned: types.uint32,
     ootype.SignedLongLong: types.int64,

@@ -1,5 +1,6 @@
 from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import rffi
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
      PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.oosupport.metavm import _Call as _OOCall
@@ -274,6 +275,7 @@ OOTYPE_TO_MNEMONIC = {
     ootype.Bool: 'i1', 
     ootype.Char: 'i2',
     ootype.UniChar: 'i2',
+    rffi.SHORT: 'i2',
     ootype.Signed: 'i4',
     ootype.SignedLongLong: 'i8',
     ootype.Unsigned: 'u4',

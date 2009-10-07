@@ -462,32 +462,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
             assert x1 == intmask(x0)
             assert x3 == intmask(x2)
 
-class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
-
-    def test_isinstance_obj(self):
-        _1 = lltype.pyobjectptr(1)
-        def f(x):
-            return isinstance(x, int)
-        res = self.interpret(f, [_1], someobjects=True)
-        assert res is True
-        _1_0 = lltype.pyobjectptr(1.0)
-        res = self.interpret(f, [_1_0], someobjects=True)
-        assert res is False
-
-    def test_hasattr(self):
-        class A(object):
-            def __init__(self):
-                self.x = 42
-        def f(i):
-            a = A()
-            if i==0: return int(hasattr(A, '__init__'))
-            if i==1: return int(hasattr(A, 'y'))
-            if i==2: return int(hasattr(42, 'x'))
-        for x, y in zip(range(3), (1, 0, 0)):
-            res = self.interpret(f, [x], someobjects=True)
-            assert res._obj.value == y
-        # hmm, would like to test against PyObj, is this the wrong place/way?
-
     def test_cast_primitive(self):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         def llf(u):
@@ -516,6 +490,36 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
             return lltype.cast_primitive(rffi.SHORT, v)
         res = self.interpret(llf, [123], policy=LowLevelAnnotatorPolicy())
         assert res == 123
+        def llf(v):
+            return lltype.cast_primitive(lltype.Signed, v)
+        res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
+        assert res == 123
+
+class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
+
+    def test_isinstance_obj(self):
+        _1 = lltype.pyobjectptr(1)
+        def f(x):
+            return isinstance(x, int)
+        res = self.interpret(f, [_1], someobjects=True)
+        assert res is True
+        _1_0 = lltype.pyobjectptr(1.0)
+        res = self.interpret(f, [_1_0], someobjects=True)
+        assert res is False
+
+    def test_hasattr(self):
+        class A(object):
+            def __init__(self):
+                self.x = 42
+        def f(i):
+            a = A()
+            if i==0: return int(hasattr(A, '__init__'))
+            if i==1: return int(hasattr(A, 'y'))
+            if i==2: return int(hasattr(42, 'x'))
+        for x, y in zip(range(3), (1, 0, 0)):
+            res = self.interpret(f, [x], someobjects=True)
+            assert res._obj.value == y
+        # hmm, would like to test against PyObj, is this the wrong place/way?
 
     def test_cast(self):
         def llfn(v):

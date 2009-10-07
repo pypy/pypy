@@ -126,6 +126,7 @@ class TestEntryPoint(BaseEntryPoint):
 
     def __convert_method(self, arg_type):
         _conv = {
+            CTS.types.int16: 'ToInt16',
             CTS.types.int32: 'ToInt32',
             CTS.types.uint32: 'ToUInt32',
             CTS.types.int64: 'ToInt64',
@@ -285,7 +286,8 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._cli_func = None
 
-    def _compile(self, fn, args, ann=None, backendopt=True, auto_raise_exc=False, exctrans=False):
+    def _compile(self, fn, args, ann=None, backendopt=True,
+                 auto_raise_exc=False, exctrans=False, policy=None):
         if ann is None:
             ann = [get_annotation(x) for x in args]
         if self._func is fn and self._ann == ann:
@@ -293,7 +295,7 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         else:
             self._cli_func = compile_function(fn, ann, backendopt=backendopt,
                                               auto_raise_exc=auto_raise_exc,
-                                              exctrans=exctrans)
+                                              exctrans=exctrans, annotatorpolicy=policy)
             self._func = fn
             self._ann = ann
             return self._cli_func
@@ -314,7 +316,7 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
             backendopt = getattr(self, 'backendopt', True) # enable it by default
         return backendopt
     
-    def interpret(self, fn, args, annotation=None, backendopt=None, exctrans=False):
+    def interpret(self, fn, args, annotation=None, backendopt=None, exctrans=False, policy=None):
         backendopt = self._get_backendopt(backendopt)
         f = self._compile(fn, args, annotation, backendopt=backendopt, exctrans=exctrans)
         res = f(*args)

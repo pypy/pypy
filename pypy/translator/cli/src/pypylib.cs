@@ -18,6 +18,7 @@ namespace pypy.test
         public static string ToPython(uint x)   { return x.ToString(); }
         public static string ToPython(long x)   { return x.ToString(); }
         public static string ToPython(ulong x)  { return x.ToString(); }
+        public static string ToPython(short x)  { return x.ToString(); }
         // XXX: it does not support strings containing "'".
         public static string ToPython(string x) { 
             if (x == null)

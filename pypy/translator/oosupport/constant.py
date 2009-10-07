@@ -26,6 +26,7 @@ by the genoo.py subclass of the backend
 """
 
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import rffi
 import operator
 
 MAX_CONST_PER_STEP = 50
@@ -33,7 +34,7 @@ MAX_CONST_PER_STEP = 50
 PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                        ootype.Float, ootype.Signed, ootype.Unsigned,
                        ootype.String, ootype.Unicode, ootype.SignedLongLong,
-                       ootype.UnsignedLongLong])
+                       ootype.UnsignedLongLong, rffi.SHORT])
 
 def is_primitive(TYPE):
     return TYPE in PRIMITIVE_TYPES

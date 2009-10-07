@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib.rarithmetic import isnan, isinf
 from pypy.rpython.ootypesystem import ootype
@@ -406,7 +407,7 @@ class CLIBaseGenerator(Generator):
                 ilasm.opcode('ldc.r8', repr(value))
         elif isinstance(value, CDefinedIntSymbolic):
             ilasm.opcode('ldc.i4', DEFINED_INT_SYMBOLICS[value.expr])
-        elif TYPE in (ootype.Signed, ootype.Unsigned):
+        elif TYPE in (ootype.Signed, ootype.Unsigned, rffi.SHORT):
             ilasm.opcode('ldc.i4', str(value))
         elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
             ilasm.opcode('ldc.i8', str(value))

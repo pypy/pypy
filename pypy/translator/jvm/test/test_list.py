@@ -9,6 +9,9 @@ class TestJvmList(JvmTest, BaseTestRlist):
     def test_getitem_exc(self):
         py.test.skip('fixme!')
 
+    def test_r_short_list(self):
+        py.test.skip('fixme!')
+
     def test_zeroed_list(self):
         def fn():
             lst = [0] * 16

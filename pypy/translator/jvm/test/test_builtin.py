@@ -34,6 +34,10 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
                          'http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6539705')
         BaseTestBuiltin.test_os_access(self)
 
+    def test_cast_primitive(self):
+        py.test.skip('fixme!')
+
+
 class TestJvmTime(JvmTest, BaseTestTime):
 
     pass
