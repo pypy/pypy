@@ -190,7 +190,16 @@ def test_count_in_global():
     while c < n:
         x = x + 1
         c += 1
-    
+
+def test_count_increment_in_global():
+    global inc
+    c = 0
+    x = 0
+    inc = 1
+    n = N
+    while c < n:
+        x = x + inc
+        c += inc
 
 def test_count_in_global2():
     global y
