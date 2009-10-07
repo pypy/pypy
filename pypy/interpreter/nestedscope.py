@@ -195,11 +195,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_DEREF(f, varindex, *ignored):
         # nested scopes: access a variable through its cell object
         w_newvalue = f.popvalue()
-        #try:
         cell = f.cells[varindex]
-        #except IndexError:
-        #    import pdb; pdb.set_trace()
-        #    raise
         cell.set(w_newvalue)
 
     def MAKE_CLOSURE(f, numdefaults, *ignored):
