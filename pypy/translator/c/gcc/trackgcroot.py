@@ -1211,9 +1211,14 @@ if __name__ == '__main__':
             assert fn.endswith('.s')
             lblfn = fn[:-2] + '.lbl.s'
             g = open(lblfn, 'w')
-            tracker.process(f, g, filename=fn)
-            f.close()
+            try:
+                tracker.process(f, g, filename=fn)
+            except:
+                g.close()
+                os.unlink(lblfn)
+                raise
             g.close()
+            f.close()
             if output_raw_table:
                 tracker.dump_raw_table(sys.stdout)
                 tracker.clear()
