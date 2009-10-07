@@ -200,22 +200,6 @@ class ResumeDataVirtualAdder(object):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def _flatten_frame_info(self):
-        storage = self.storage        
-        frame_info_list = storage.rd_frame_info_list
-        storage.rd_frame_info_list = None
-        j = frame_info_list.level
-        frame_infos = [_frame_info_placeholder]*j
-        j -= 1
-        while True: # at least one
-            frame_infos[j] = (frame_info_list.jitcode, frame_info_list.pc,
-                              frame_info_list.exception_target)
-            frame_info_list = frame_info_list.prev
-            if frame_info_list is None:
-                break
-            j -= 1
-        storage.rd_frame_infos = frame_infos        
-
     def finish(self, values):
         storage = self.storage
         liveboxes = []

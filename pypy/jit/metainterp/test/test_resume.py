@@ -308,23 +308,6 @@ def test_walk_snapshots():
     assert modifier.liveboxes == {b1_2: UNASSIGNED, b3: UNASSIGNED}
     assert modifier.nnums == len(env)+1+len(env1)+1
 
-def test_flatten_frame_info():
-    frame = FakeFrame("JITCODE", 1, 2)    
-    fi = FrameInfo(None, frame)
-    frame1 = FakeFrame("JITCODE1", 3, 4)    
-    fi1 = FrameInfo(fi, frame1)
-
-    storage = Storage()
-    storage.rd_frame_info_list = fi1
-
-    modifier = ResumeDataVirtualAdder(storage, None)
-    modifier._flatten_frame_info()
-    assert storage.rd_frame_info_list is None
-
-    assert storage.rd_frame_infos == [("JITCODE", 1, 2),
-                                      ("JITCODE1", 3, 4)]
-
-
 def test_ResumeDataLoopMemo_ints():
     memo = ResumeDataLoopMemo(None)
     tagged = memo.getconst(ConstInt(44))
