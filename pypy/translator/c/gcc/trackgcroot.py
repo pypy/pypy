@@ -2,8 +2,9 @@
 
 import re, sys, os, random
 
-r_functionstart_elf = re.compile(r"\t.type\s+(\w+),\s*[@]function\s*$")
-r_functionend_elf   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
+LABEL               = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+r_functionstart_elf = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
+r_functionend_elf   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
 
 # darwin
 r_textstart            = re.compile(r"\t.text\s*$")
@@ -25,9 +26,8 @@ r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 OFFSET_LABELS   = 2**30
 
 # inside functions
-LABEL           = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
 r_label         = re.compile(LABEL+"[:]\s*$")
-r_globl         = re.compile(r"\t[.]globl\t(\w+)\s*$")
+r_globl         = re.compile(r"\t[.]globl\t"+LABEL+"\s*$")
 r_globllabel    = re.compile(LABEL+r"=[.][+]%d\s*$"%OFFSET_LABELS)
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
 r_jump          = re.compile(r"\tj\w+\s+"+LABEL+"\s*$")
