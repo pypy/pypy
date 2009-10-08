@@ -46,6 +46,7 @@ class LLTypeHelper(TypeSystemHelper):
     ConstRef = history.ConstPtr
     ConstAddr = history.ConstAddr
     loops_done_with_this_frame_ref = None # patched by compile.py
+    CONST_NULL = history.ConstPtr(history.ConstPtr.value)
     CVAL_NULLREF = None # patched by optimizeopt.py
 
     def get_VABLERTI(self):
@@ -146,6 +147,7 @@ class OOTypeHelper(TypeSystemHelper):
     ConstRef = history.ConstObj
     ConstAddr = history.ConstObj
     loops_done_with_this_frame_ref = None # patched by compile.py
+    CONST_NULL = history.ConstObj(history.ConstObj.value)
     CVAL_NULLREF = None # patched by optimizeopt.py
 
     def get_VABLERTI(self):

@@ -8,10 +8,7 @@ from pypy.rlib.objectmodel import we_are_translated
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
 # because it needs to support optimize.py which encodes virtuals with
-# arbitrary cycles.
-
-# XXX building the data so that it is as compact as possible
-# on the 'storage' object would be a big win.
+# arbitrary cycles and also to compress the information
 
 debug = False
 
@@ -36,7 +33,7 @@ class FrameInfo(object):
         self.pc = frame.pc
         self.exception_target = frame.exception_target
 
-def _ensure_parent_resumedata(framestack, n):    
+def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
     if n == 0 or target.parent_resumedata_frame_info_list is not None:
         return
@@ -60,6 +57,13 @@ def capture_resumedata(framestack, virtualizable_boxes, storage):
     if virtualizable_boxes is not None:
         snapshot = Snapshot(snapshot, virtualizable_boxes[:]) # xxx for now
     storage.rd_snapshot = snapshot
+
+class Numbering(object):
+    __slots__ = ('prev', 'nums')
+
+    def __init__(self, prev, nums):
+        self.prev = prev
+        self.nums = nums
 
 TAGMASK = 3
 
@@ -85,10 +89,9 @@ TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-NEXTFRAME = tag(-1, TAGVIRTUAL)
 UNASSIGNED = tag(-1, TAGBOX)
+NULLREF = tag(-1, TAGCONST)
 
- 
 VIRTUAL_FLAG = int((sys.maxint+1) // 2)
 assert not (VIRTUAL_FLAG & (VIRTUAL_FLAG-1))    # a power of two
 
@@ -99,20 +102,7 @@ class ResumeDataLoopMemo(object):
         self.consts = []
         self.large_ints = {}
         self.refs = {}
-        self.nullref = UNASSIGNED
-
-    # we cannot store null keys into dictionaries when translating to CLI, so
-    # we special case them
-    def getref(self, key):
-        if not key:
-            return self.nullref
-        return self.refs.get(key, UNASSIGNED)
-
-    def setref(self, val, tagged):
-        if not val:
-            self.nullref = tagged
-        else:
-            self.refs[val] = tagged
+        self.numberings = {}
 
     def getconst(self, const):
         if const.type == INT:
@@ -132,20 +122,62 @@ class ResumeDataLoopMemo(object):
             return tagged
         elif const.type == REF:
             val = const.getref_base()
+            if not val:
+                return NULLREF
             val = self.cpu.ts.cast_ref_to_hashable(self.cpu, val)
-            tagged = self.getref(val)
+            tagged = self.refs.get(val, UNASSIGNED)
             if not tagged_eq(tagged, UNASSIGNED):
                 return tagged
             tagged = self._newconst(const)
-            self.setref(val, tagged)
-            return tagged            
+            self.refs[val] = tagged
+            return tagged
         return self._newconst(const)
 
     def _newconst(self, const):
         result = tag(len(self.consts), TAGCONST)
         self.consts.append(const)
-        return result        
-    
+        return result
+
+    def number(self, values, snapshot):
+        if snapshot is None:
+            return None, {}, 0
+        if snapshot in self.numberings:
+             numb, liveboxes, v = self.numberings[snapshot]
+             return numb, liveboxes.copy(), v
+
+        numb1, liveboxes, v = self.number(values, snapshot.prev)
+        n = len(liveboxes)-v
+        boxes = snapshot.boxes
+        length = len(boxes)
+        nums = [UNASSIGNED] * length
+        for i in range(length):
+            box = boxes[i]
+            value = values.get(box, None)
+            if value is not None:
+                box = value.get_key_box()
+
+            if isinstance(box, Const):
+                tagged = self.getconst(box)
+            elif box in liveboxes:
+                tagged = liveboxes[box]
+            else:
+                if value is not None and value.is_virtual():
+                    tagged = tag(v, TAGVIRTUAL)
+                    v += 1
+                else:
+                    tagged = tag(n, TAGBOX)
+                    n += 1
+                liveboxes[box] = tagged
+            nums[i] = tagged
+        numb = Numbering(numb1, nums)
+        self.numberings[snapshot] = numb, liveboxes, v
+        return numb, liveboxes.copy(), v
+
+    def forget_numberings(self, virtualbox):
+        # XXX ideally clear only the affected numberings
+        self.numberings.clear()
+
+
 _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(object):
@@ -153,32 +185,8 @@ class ResumeDataVirtualAdder(object):
     def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
-        self.liveboxes = {}
-        self.virtuals = []
-        self.vfieldboxes = []
-
-    def walk_snapshots(self, values):
-        nnums = 0
-        snapshot = self.storage.rd_snapshot
-        assert snapshot
-        while True: # at least one
-            boxes = snapshot.boxes
-            nnums += len(boxes)+1
-            for box in boxes:
-                if box in values:
-                    value = values[box]
-                    value.register_value(self)
-                else:
-                    self.register_box(box)
-            snapshot = snapshot.prev
-            if snapshot is None:
-                break
-        self.nnums = nnums
-
-    def make_constant(self, box, const):
-        # this part of the interface is not used so far by optimizeopt.py
-        if tagged_eq(self.liveboxes[box], UNASSIGNED):
-            self.liveboxes[box] = self.memo.getconst(const)
+        #self.virtuals = []
+        #self.vfieldboxes = []
 
     def make_virtual(self, virtualbox, known_class, fielddescrs, fieldboxes):
         vinfo = VirtualInfo(known_class, fielddescrs)
@@ -193,50 +201,80 @@ class ResumeDataVirtualAdder(object):
         self._make_virtual(virtualbox, vinfo, itemboxes)
 
     def _make_virtual(self, virtualbox, vinfo, fieldboxes):
-        assert tagged_eq(self.liveboxes[virtualbox], UNASSIGNED)
-        self.liveboxes[virtualbox] = tag(len(self.virtuals), TAGVIRTUAL)
-        self.virtuals.append(vinfo)
-        self.vfieldboxes.append(fieldboxes)
+        if virtualbox in self.liveboxes_from_env:
+            tagged = self.liveboxes_from_env[virtualbox]
+            i, _ = untag(tagged)
+            assert self.virtuals[i] is None
+            self.virtuals[i] = vinfo
+            self.vfieldboxes[i] = fieldboxes
+        else:
+            tagged = tag(len(self.virtuals), TAGVIRTUAL)
+            self.virtuals.append(vinfo)
+            self.vfieldboxes.append(fieldboxes)
+        self.liveboxes[virtualbox] = tagged
         self._register_boxes(fieldboxes)
 
     def register_box(self, box):
-        if isinstance(box, Box) and box not in self.liveboxes:
+        if (isinstance(box, Box) and box not in self.liveboxes_from_env
+                                 and box not in self.liveboxes):
             self.liveboxes[box] = UNASSIGNED
             return True
         return False
-                
+
     def _register_boxes(self, boxes):
         for box in boxes:
             self.register_box(box)
 
-    def is_virtual(self, virtualbox):
-        tagged =  self.liveboxes[virtualbox]
+    def already_seen_virtual(self, virtualbox):
+        if virtualbox not in self.liveboxes:
+            assert virtualbox in self.liveboxes_from_env
+            assert untag(self.liveboxes_from_env[virtualbox])[1] == TAGVIRTUAL
+            return False
+        tagged = self.liveboxes[virtualbox]
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
     def finish(self, values):
+        # compute the numbering
         storage = self.storage
-        liveboxes = []
-        for box in self.liveboxes.iterkeys():
-            if tagged_eq(self.liveboxes[box], UNASSIGNED):
+        numb, liveboxes_from_env, v = self.memo.number(values, storage.rd_snapshot)
+        self.liveboxes_from_env = liveboxes_from_env
+        self.liveboxes = {}
+        storage.rd_numb = numb
+        storage.rd_snapshot = None
+
+        # collect liveboxes and virtuals
+        n = len(liveboxes_from_env) - v
+        liveboxes = [None]*n
+        self.virtuals = [None]*v
+        self.vfieldboxes = [None]*v
+        for box, tagged in liveboxes_from_env.iteritems():
+            i, tagbits = untag(tagged)
+            if tagbits == TAGBOX:
+                liveboxes[i] = box
+            else:
+                assert tagbits == TAGVIRTUAL
+                value = values[box]
+                value.get_args_for_fail(self)
+
+        self._number_virtuals(liveboxes)
+
+        storage.rd_consts = self.memo.consts
+        if debug:
+            dump_storage(storage, liveboxes)
+        return liveboxes[:]
+
+    def _number_virtuals(self, liveboxes):
+        for box, tagged in self.liveboxes.iteritems():
+            i, tagbits = untag(tagged)
+            if tagbits == TAGBOX:
+                assert tagged_eq(tagged, UNASSIGNED)
                 self.liveboxes[box] = tag(len(liveboxes), TAGBOX)
                 liveboxes.append(box)
-        nums = storage.rd_nums = [rffi.r_short(0)]*self.nnums
-        i = 0
-        snapshot = self.storage.rd_snapshot
-        while True: # at least one
-            boxes = snapshot.boxes
-            for j in range(len(boxes)):
-                box = boxes[j]
-                if box in values:
-                    box = values[box].get_key_box()
-                nums[i] = self._gettagged(box)
-                i += 1
-            nums[i] = NEXTFRAME
-            i += 1
-            snapshot = snapshot.prev
-            if snapshot is None:
-                break
+            else:
+                assert tagbits == TAGVIRTUAL
+
+        storage = self.storage
         storage.rd_virtuals = None
         if len(self.virtuals) > 0:
             storage.rd_virtuals = self.virtuals[:]
@@ -245,16 +283,13 @@ class ResumeDataVirtualAdder(object):
                 fieldboxes = self.vfieldboxes[i]
                 vinfo.fieldnums = [self._gettagged(box)
                                    for box in fieldboxes]
-        storage.rd_consts = self.memo.consts
-        storage.rd_snapshot = None
-        if debug:
-            dump_storage(storage, liveboxes)
-        return liveboxes
 
     def _gettagged(self, box):
         if isinstance(box, Const):
             return self.memo.getconst(box)
         else:
+            if box in self.liveboxes_from_env:
+                return self.liveboxes_from_env[box]
             return self.liveboxes[box]
 
 class AbstractVirtualInfo(object):
@@ -347,14 +382,13 @@ def rebuild_from_resumedata(metainterp, newboxes, storage, expects_virtualizable
 
 
 class ResumeDataReader(object):
-    i_frame_infos = 0
-    i_boxes = 0
     virtuals = None
 
     def __init__(self, storage, liveboxes, metainterp=None):
-        self.nums = storage.rd_nums
+        self.cur_numb = storage.rd_numb
         self.consts = storage.rd_consts
         self.liveboxes = liveboxes
+        self.cpu = metainterp.cpu
         self._prepare_virtuals(metainterp, storage.rd_virtuals)
 
     def _prepare_virtuals(self, metainterp, virtuals):
@@ -365,18 +399,21 @@ class ResumeDataReader(object):
                 vinfo.setfields(metainterp, self.virtuals[i], self._decode_box)
 
     def consume_boxes(self):
-        boxes = []
-        while True:
-            num = self.nums[self.i_boxes]
-            self.i_boxes += 1
-            if tagged_eq(num, NEXTFRAME):
-                break
-            boxes.append(self._decode_box(num))
+        numb = self.cur_numb
+        assert numb is not None
+        nums = numb.nums
+        n = len(nums)
+        boxes = [None] * n
+        for i in range(n):
+            boxes[i] = self._decode_box(nums[i])
+        self.cur_numb = numb.prev
         return boxes
 
-    def _decode_box(self, num):
-        num, tag = untag(num)
+    def _decode_box(self, tagged):
+        num, tag = untag(tagged)
         if tag == TAGCONST:
+            if tagged_eq(tagged, NULLREF):
+                return self.cpu.ts.CONST_NULL
             return self.consts[num]
         elif tag == TAGVIRTUAL:
             virtuals = self.virtuals
@@ -403,8 +440,14 @@ def dump_storage(storage, liveboxes):
         frameinfo = frameinfo.prev
         if frameinfo is None:
             break
-    os.write(fd, '\t],\n\t%s,\n' % ([untag(i) for i in storage.rd_nums],))
-    os.write(fd, '\t[\n')
+    os.write(fd, '\t],\n\t[\n')
+    numb = storage.rd_numb
+    while True:
+        os.write(fd, '\t\t%s,\n' % ([untag(i) for i in numb.nums],))
+        numb = numb.prev
+        if numb is None:
+            break
+    os.write(fd, '\t], [\n')
     for const in storage.rd_consts:
         os.write(fd, '\t"%s",\n' % (const.repr_rpython(),))
     os.write(fd, '\t], [\n')
