@@ -78,6 +78,10 @@ class AppTestUnicodeData:
         if sys.maxunicode == 65535:
             raises(KeyError, unicodedata.lookup, "GOTHIC LETTER FAIHU")
 
+    def test_normalize(self):
+        import unicodedata
+        raises(TypeError, unicodedata.normalize, 'x')
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata
@@ -169,3 +173,5 @@ class TestUnicodeData(object):
         raises(KeyError, unicodedb_4_1_0.lookup, 'BENZENE RING WITH CIRCLE')
         raises(KeyError, unicodedb_3_2_0.name, 9187)
         raises(KeyError, unicodedb_4_1_0.name, 9187)
+
+

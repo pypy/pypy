@@ -147,7 +147,7 @@ class UCD(Wrappable):
 
     def normalize(self, space, form, w_unistr):
         if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
-            raise TypeError, 'argument 2 must be unicode'
+            raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
         if form == 'NFC':
             composed = True
             decomposition = self._canon_decomposition
