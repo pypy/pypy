@@ -751,6 +751,13 @@ def make_state_class(warmrunnerdesc):
     set_future_value._annspecialcase_ = 'specialize:ll_and_arg(2)'
 
     class WarmEnterState:
+        # make sure we always see the saner optimizer from an annotation
+        # point of view, otherwise we get lots of blocked ops
+        from pypy.jit.metainterp import optimize as _optimize
+        optimize_loop = staticmethod(_optimize.optimize_loop)
+        optimize_bridge = staticmethod(_optimize.optimize_bridge)
+        del _optimize
+        
         def __init__(self):
             # initialize the state with the default values of the
             # parameters specified in rlib/jit.py
