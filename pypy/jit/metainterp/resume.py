@@ -99,6 +99,20 @@ class ResumeDataLoopMemo(object):
         self.consts = []
         self.large_ints = {}
         self.refs = {}
+        self.nullref = UNASSIGNED
+
+    # we cannot store null keys into dictionaries when translating to CLI, so
+    # we special case them
+    def getref(self, key):
+        if not key:
+            return self.nullref
+        return self.refs.get(key, UNASSIGNED)
+
+    def setref(self, val, tagged):
+        if not val:
+            self.nullref = tagged
+        else:
+            self.refs[val] = tagged
 
     def getconst(self, const):
         if const.type == INT:
@@ -119,11 +133,11 @@ class ResumeDataLoopMemo(object):
         elif const.type == REF:
             val = const.getref_base()
             val = self.cpu.ts.cast_ref_to_hashable(self.cpu, val)
-            tagged = self.refs.get(val, UNASSIGNED)
+            tagged = self.getref(val)
             if not tagged_eq(tagged, UNASSIGNED):
                 return tagged
             tagged = self._newconst(const)
-            self.refs[val] = tagged
+            self.setref(val, tagged)
             return tagged            
         return self._newconst(const)
 
