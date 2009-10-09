@@ -23,6 +23,7 @@ from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
+from pypy.rlib.nonconst import NonConstant
 
 # ____________________________________________________________
 # Bootstrapping
@@ -751,13 +752,6 @@ def make_state_class(warmrunnerdesc):
     set_future_value._annspecialcase_ = 'specialize:ll_and_arg(2)'
 
     class WarmEnterState:
-        # make sure we always see the saner optimizer from an annotation
-        # point of view, otherwise we get lots of blocked ops
-        from pypy.jit.metainterp import optimize as _optimize
-        optimize_loop = staticmethod(_optimize.optimize_loop)
-        optimize_bridge = staticmethod(_optimize.optimize_bridge)
-        del _optimize
-        
         def __init__(self):
             # initialize the state with the default values of the
             # parameters specified in rlib/jit.py
@@ -802,7 +796,7 @@ def make_state_class(warmrunnerdesc):
             elif optimizer == OPTIMIZER_FULL:
                 from pypy.jit.metainterp import optimize
                 self.optimize_loop = optimize.optimize_loop
-                self.optimize_bridge = optimize.optimize_bridge                
+                self.optimize_bridge = optimize.optimize_bridge
             else:
                 raise ValueError("unknown optimizer")
 
@@ -822,6 +816,11 @@ def make_state_class(warmrunnerdesc):
         # not too bad.
 
         def maybe_compile_and_run(self, *args):
+            if NonConstant(False):
+                # make sure we always see the saner optimizer from an annotation
+                # point of view, otherwise we get lots of blocked ops
+                self.set_param_optimizer(OPTIMIZER_FULL)
+                
             # get the greenargs and look for the cell corresponding to the hash
             greenargs = args[:num_green_args]
             argshash = self.getkeyhash(*greenargs) & self.hashtablemask
