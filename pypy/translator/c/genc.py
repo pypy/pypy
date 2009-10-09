@@ -463,8 +463,8 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('PROFOPT', profopt)
 
         rules = [
-            ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc?? ../module_cache/*.gc??'),
-            ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)'),
+            ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
+            ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
             ('debug', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT" $(TARGET)'),
             ('debug_exc', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
             ('debug_mem', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
@@ -486,8 +486,10 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.config.translation.gcrootfinder == 'asmgcc':
+            sfiles = ['%s.s' % (cfile[:-2],) for cfile in mk.cfiles]
             lblsfiles = ['%s.lbl.s' % (cfile[:-2],) for cfile in mk.cfiles]
             gcmapfiles = ['%s.gcmap' % (cfile[:-2],) for cfile in mk.cfiles]
+            mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
             mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
