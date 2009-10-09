@@ -1,5 +1,6 @@
 
 import unittest
+from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.argument import Arguments
@@ -76,6 +77,25 @@ class AppTestFunction:
         res = func(23,42)
         assert res[0] == 23
         assert res[1] == 42
+
+    def test_simple_call_default(self):
+        def func(arg1, arg2=11, arg3=111):
+            return arg1, arg2, arg3
+        res = func(1)
+        assert res[0] == 1
+        assert res[1] == 11
+        assert res[2] == 111
+        res = func(1, 22)
+        assert res[0] == 1
+        assert res[1] == 22
+        assert res[2] == 111
+        res = func(1, 22, 333)
+        assert res[0] == 1
+        assert res[1] == 22
+        assert res[2] == 333
+
+        raises(TypeError, func)
+        raises(TypeError, func, 1, 2, 3, 4)        
 
     def test_simple_varargs(self):
         def func(arg1, *args):
@@ -564,3 +584,63 @@ def f%s:
         """)
 
         assert space.is_true(w_res)
+
+    def test_flatcall_default_arg(self):
+        space = self.space
+        
+        def f(a, b):
+            return a+b
+        code = PyCode._from_code(self.space, f.func_code)
+        fn = Function(self.space, code, self.space.newdict(),
+                      defs_w=[space.newint(1)])
+
+        assert fn.code.fast_natural_arity == 2|eval.Code.FLATPYCALL
+
+        def bomb(*args):
+            assert False, "shortcutting should have avoided this"
+
+        code.funcrun = bomb
+        code.funcrun_obj = bomb
+
+        w_3 = space.newint(3)
+        w_4 = space.newint(4)
+        # ignore this for now
+        #w_res = space.call_function(fn, w_3)
+        # assert space.eq_w(w_res, w_4)
+
+        w_res = space.appexec([fn, w_3], """(f, x):
+        return f(x)
+        """)
+
+        assert space.eq_w(w_res, w_4)
+
+    def test_flatcall_default_arg_method(self):
+        space = self.space
+        
+        def f(self, a, b):
+            return a+b
+        code = PyCode._from_code(self.space, f.func_code)
+        fn = Function(self.space, code, self.space.newdict(),
+                      defs_w=[space.newint(1)])
+
+        assert fn.code.fast_natural_arity == 3|eval.Code.FLATPYCALL
+
+        def bomb(*args):
+            assert False, "shortcutting should have avoided this"
+
+        code.funcrun = bomb
+        code.funcrun_obj = bomb
+
+        w_3 = space.newint(3)
+
+        w_res = space.appexec([fn, w_3], """(f, x):
+        class A(object):
+           m = f
+        y = A().m(x)
+        b = A().m
+        z = b(x)
+        return y+10*z 
+        """)
+
+        assert space.eq_w(w_res, space.wrap(44))
+

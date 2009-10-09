@@ -170,11 +170,10 @@ class PyCode(eval.Code):
 
     _code_new_w = staticmethod(_code_new_w)
 
-    FLATPYCALL = 0x100
     
     def _compute_flatcall(self):
         # Speed hack!
-        self.fast_natural_arity = -99
+        self.fast_natural_arity = eval.Code.HOPELESS
         if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS):
             return
         if len(self._args_as_cellvars) > 0:
@@ -182,7 +181,7 @@ class PyCode(eval.Code):
         if self.co_argcount > 0xff:
             return
         
-        self.fast_natural_arity = PyCode.FLATPYCALL | self.co_argcount
+        self.fast_natural_arity = eval.Code.FLATPYCALL | self.co_argcount
 
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,

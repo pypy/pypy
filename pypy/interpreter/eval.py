@@ -13,9 +13,14 @@ class Code(Wrappable):
     hidden_applevel = False
 
     # n >= 0 : arity
-    # -n: special cases
-    # -99: hopeless    
-    fast_natural_arity = -99
+    # FLATPYCALL = 0x100
+    # n|FLATPYCALL: pycode flat case
+    # FLATPYCALL<<x (x>=1): special cases
+    # HOPELESS: hopeless
+    FLATPYCALL = 0x100
+    PASSTHROUGHARGS1 = 0x200
+    HOPELESS = 0x400
+    fast_natural_arity = HOPELESS
 
     def __init__(self, co_name):
         self.co_name = co_name

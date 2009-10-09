@@ -559,7 +559,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
 
 class BuiltinCodePassThroughArguments1(BuiltinCode):
     _immutable_ = True
-    fast_natural_arity = -1
+    fast_natural_arity = eval.Code.PASSTHROUGHARGS1
 
     def funcrun_obj(self, func, w_obj, args):
         space = func.space
