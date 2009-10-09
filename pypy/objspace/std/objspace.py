@@ -2,7 +2,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, UnpackValueError
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter import argument
 from pypy.interpreter import pyframe
 from pypy.interpreter import function
 from pypy.interpreter.pyopcode import unrolling_compare_dispatch_table, \
@@ -173,11 +172,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         executioncontext.c_return_trace(f, w_function)
                         return res
                     args = f.make_arguments(nargs)
-                    try:
-                        return f.space.call_args(w_function, args)
-                    finally:
-                        if isinstance(args, argument.ArgumentsFromValuestack):
-                            args.frame = None
+                    return f.space.call_args(w_function, args)
 
             if self.config.objspace.opcodes.CALL_METHOD:
                 # def LOOKUP_METHOD(...):

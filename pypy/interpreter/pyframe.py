@@ -3,7 +3,7 @@
 
 from pypy.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
-from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
@@ -280,10 +280,7 @@ class PyFrame(eval.Frame):
         self.dropvaluesuntil(len(items_w))
 
     def make_arguments(self, nargs):
-        if we_are_jitted():
-            return Arguments(self.space, self.peekvalues(nargs))
-        else:
-            return ArgumentsFromValuestack(self.space, self, nargs)
+        return Arguments(self.space, self.peekvalues(nargs))
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):

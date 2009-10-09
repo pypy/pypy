@@ -1,7 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
@@ -734,11 +734,7 @@ class ObjSpace(object):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
             args = frame.make_arguments(nargs)
-            try:
-                return self.call_args_and_c_profile(frame, w_func, args)
-            finally:
-                if isinstance(args, ArgumentsFromValuestack):
-                    args.frame = None
+            return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
             # XXX start of hack for performance
@@ -759,11 +755,7 @@ class ObjSpace(object):
             # XXX end of hack for performance
 
         args = frame.make_arguments(nargs)
-        try:
-            return self.call_args(w_func, args)
-        finally:
-            if isinstance(args, ArgumentsFromValuestack):
-                args.frame = None
+        return self.call_args(w_func, args)
 
     @dont_look_inside 
     def call_args_and_c_profile(self, frame, w_func, args):

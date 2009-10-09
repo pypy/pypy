@@ -10,7 +10,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
-from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.jit import hint
 
 funccallunrolling = unrolling_iterable(range(4))
@@ -128,18 +128,10 @@ class Function(Wrappable):
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
             args = frame.make_arguments(nargs-1)
-            try:
-                return code.funcrun_obj(self, w_obj, args)
-            finally:
-                if isinstance(args, ArgumentsFromValuestack):
-                    args.frame = None
+            return code.funcrun_obj(self, w_obj, args)
                     
         args = frame.make_arguments(nargs)
-        try:
-            return self.call_args(args)
-        finally:
-            if isinstance(args, ArgumentsFromValuestack):
-                args.frame = None
+        return self.call_args(args)
 
     def _flat_pycall(self, code, nargs, frame, defs_to_load):
         # code is a PyCode
