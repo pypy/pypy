@@ -30,6 +30,9 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     test_field_basic = skip
     test_ooops = skip
 
+    def test_unused_result_float(self):
+        py.test.skip('fixme! max 32 inputargs so far')
+
     def test_ovf_operations(self, reversed=False):
         self.skip()
 

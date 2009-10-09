@@ -39,7 +39,8 @@ class CliLoop(object):
 
 
 class CliCPU(model.AbstractCPU):
-    
+
+    supports_floats = True
     ts = oohelper
 
     def __init__(self, rtyper, stats, translate_support_code=False,
@@ -139,12 +140,18 @@ class CliCPU(model.AbstractCPU):
     def set_future_value_int(self, index, intvalue):
         self.get_inputargs().set_int(index, intvalue)
 
+    def set_future_value_float(self, index, intvalue):
+        self.get_inputargs().set_float(index, intvalue)
+
     def set_future_value_ref(self, index, objvalue):
         obj = dotnet.cast_to_native_object(objvalue)
         self.get_inputargs().set_obj(index, obj)
 
     def get_latest_value_int(self, index):
         return self.get_inputargs().get_int(index)
+
+    def get_latest_value_float(self, index):
+        return self.get_inputargs().get_float(index)
 
     def get_latest_value_ref(self, index):
         obj = self.get_inputargs().get_obj(index)

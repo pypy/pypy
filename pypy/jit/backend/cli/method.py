@@ -6,7 +6,7 @@ from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
+from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt, ConstFloat,
                                          ConstObj, BoxInt, LoopToken)
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.metainterp.typesystem import oohelper
@@ -32,6 +32,8 @@ class __extend__(AbstractValue):
         
         if self.type == history.INT:
             return dotnet.typeof(System.Int32)
+        elif self.type == history.FLOAT:
+            return dotnet.typeof(System.Double)
         elif self.type == history.REF:
             return dotnet.typeof(System.Object)
         else:
@@ -66,6 +68,16 @@ class __extend__(ConstInt):
 
     def load(self, meth):
         meth.il.Emit(OpCodes.Ldc_I4, self.value)
+
+
+class __extend__(ConstFloat):
+    __metaclass__ = extendabletype
+
+    def load(self, meth):
+        # we cannot invoke il.Emit(Ldc_R8, self.value) directly because
+        # pythonnet would select the wrong overload. The C# version works
+        # arond it
+        Utils.Emit_Ldc_R8(meth.il, self.value);
 
 
 class ConstFunction(Const):
@@ -274,6 +286,8 @@ class Method(object):
         t = dotnet.typeof(InputArgs)
         if type == history.INT:
             fieldname = 'ints'
+        elif type == history.FLOAT:
+            fieldname = 'floats'
         elif type == history.REF:
             fieldname = 'objs'
         else:
@@ -739,6 +753,8 @@ def render_op(methname, instrlist):
             lines.append('self.store_result(op)')
         elif isinstance(instr, opcodes.PushArg):
             lines.append('self.push_arg(op, %d)' % instr.n)
+        elif instr == 'ldc.r8 0':
+            lines.append('Utils.Emit_Ldc_R8(self.il, 0.0)')
         else:
             assert isinstance(instr, str), 'unknown instruction %s' % instr
             if instr.startswith('call '):
@@ -751,6 +767,7 @@ def render_op(methname, instrlist):
     src = body.putaround('def %s(self, op):' % methname)
     dic = {'OpCodes': OpCodes,
            'System': System,
+           'Utils': Utils,
            'dotnet': dotnet}
     exec src.compile() in dic
     return dic[methname]

@@ -15,9 +15,6 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     def skip(self):
         py.test.skip("works only after translation")
 
-    def _skip(self):
-        py.test.skip("in-progress")
-
     test_string = skip
     test_chr2str = skip
     test_unicode = skip

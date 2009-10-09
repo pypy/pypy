@@ -114,7 +114,7 @@ namespace pypy.runtime
 
     public class InputArgs {
       public int[] ints = new int[32];
-      public float[] floats = new float[32];
+      public double[] floats = new double[32];
       public object[] objs = new object[32];
       public object exc_value = null;
       public int failed_op = -1;
@@ -127,6 +127,16 @@ namespace pypy.runtime
       public void set_int(int i, int n)
       {
         ints[i] = n;
+      }
+
+      public double get_float(int i)
+      {
+        return floats[i];
+      }
+
+      public void set_float(int i, double n)
+      {
+        floats[i] = n;
       }
 
       public object get_obj(int i)
@@ -163,7 +173,7 @@ namespace pypy.runtime
       public void ensure_floats(int n)
       {
         if (floats.Length < n)
-          floats = new float[n];
+          floats = new double[n];
       }
 
       public void ensure_objs(int n)
@@ -400,6 +410,14 @@ namespace pypy.runtime
         public static DynamicMethod CreateDynamicMethod(string name, Type res, Type[] args)
         {
             return new DynamicMethod(name, res, args, typeof(Utils).Module);
+        }
+
+        // if you call il.Emit(OpCodes.Ldc_R8, mydouble) from pythonnet, it
+        // selects the wrong overload. To work around it, we call it from C# and
+        // live happy
+        public static void Emit_Ldc_R8(ILGenerator il, double val) 
+        {
+            il.Emit(OpCodes.Ldc_R8, val);
         }
 
         public static object RuntimeNew(Type t)
