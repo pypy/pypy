@@ -463,6 +463,7 @@ class FieldDescr(DescrWithKey):
     selfclass = ootype.nullruntimeclass
     fieldname = ''
     _is_pointer_field = False
+    _is_float_field = False
 
     def __init__(self, TYPE, fieldname):
         DescrWithKey.__init__(self, (TYPE, fieldname))
@@ -487,6 +488,9 @@ class FieldDescr(DescrWithKey):
 
     def is_pointer_field(self):
         return self._is_pointer_field
+
+    def is_float_field(self):
+        return self._is_float_field
 
     def equals(self, other):
         assert isinstance(other, FieldDescr)
