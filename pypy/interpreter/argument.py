@@ -382,7 +382,7 @@ class Arguments(AbstractArguments):
         # which were put into place by prepend().  This way, keywords do
         # not conflict with the hidden extra argument bound by methods.
         if kwds_w and input_argcount > blindargs:
-            for name in argnames[blindargs:input_argcount]:
+            for name in argnames[blindargs:input_argcount]: # XXX
                 if name in kwds_w:
                     raise ArgErrMultipleValues(name)
 
