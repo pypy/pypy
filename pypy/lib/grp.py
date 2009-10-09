@@ -71,10 +71,12 @@ def getgrgid(gid):
         raise KeyError(gid)
     return _group_from_gstruct(res)
 
-def getgrnam(gid):
-    res = libc.getgrnam(gid)
+def getgrnam(name):
+    if not isinstance(name, str):
+        raise TypeError("expected string")
+    res = libc.getgrnam(name)
     if not res:
-        raise KeyError(gid)
+        raise KeyError(name)
     return _group_from_gstruct(res)
 
 def getgrall():
