@@ -10,6 +10,7 @@ from pypy.jit.metainterp import optimizeopt
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.test.oparser import pure_parse
@@ -22,13 +23,19 @@ class FakeFrame(object):
         self.jitcode = code
         self.pc = pc
         self.exception_target = exc_target
+
+class FakeMetaInterpStaticData(object):
+
+    def __init__(self, cpu):
+        self.cpu = cpu
+        self.profiler = EmptyProfiler()
     
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
     from pypy.jit.metainterp.resume import tag, TAGBOX
     b0 = BoxInt()
     b1 = BoxInt()
-    opt = optimizeopt.Optimizer(None, None)
+    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(None), None)
     fdescr = ResumeGuardDescr(None)
     op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
     # setup rd data
@@ -179,7 +186,7 @@ class BaseTestOptimizeOpt(BaseTest):
             loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
-        optimize_loop_1(self.cpu, loop)
+        optimize_loop_1(FakeMetaInterpStaticData(self.cpu), loop)
         #
         expected = self.parse(optops)
         self.assert_equal(loop, expected)

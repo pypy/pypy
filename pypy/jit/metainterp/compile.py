@@ -59,7 +59,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     metainterp_sd = metainterp.staticdata
     try:
         old_loop_token = metainterp_sd.state.optimize_loop(
-            metainterp_sd, old_loop_tokens, loop, metainterp.cpu)
+            metainterp_sd, old_loop_tokens, loop)
     except InvalidLoop:
         return None
     if old_loop_token is not None:
@@ -249,8 +249,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     try:
         target_loop_token = metainterp_sd.state.optimize_bridge(metainterp_sd,
                                                                 old_loop_tokens,
-                                                                new_loop,
-                                                                metainterp.cpu)
+                                                                new_loop)
     except InvalidLoop:
         assert 0, "InvalidLoop in optimize_bridge?"
         return None

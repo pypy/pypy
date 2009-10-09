@@ -12,6 +12,7 @@ from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import BLACKHOLED_OPS, EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS
+from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
@@ -803,6 +804,7 @@ class MIFrame(object):
                 try:
                     self.metainterp.reached_can_enter_jit(self.env)
                 except GiveUp:
+                    self.metainterp.staticdata.profiler.count(ABORT_BRIDGE)
                     self.metainterp.switch_to_blackhole()
         if self.metainterp.is_blackholing():
             self.blackhole_reached_merge_point(self.env)
@@ -1315,6 +1317,7 @@ class MetaInterp(object):
         if not self.is_blackholing():
             warmrunnerstate = self.staticdata.state
             if len(self.history.operations) > warmrunnerstate.trace_limit:
+                self.staticdata.profiler.count(ABORT_TOO_LONG)
                 self.switch_to_blackhole()
 
     def _interpret(self):

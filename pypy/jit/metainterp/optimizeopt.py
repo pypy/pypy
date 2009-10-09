@@ -2,6 +2,7 @@ from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
      ConstFloat
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.jitprof import OPT_OPS, OPT_GUARDS, OPT_FORCINGS
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
@@ -15,21 +16,21 @@ from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 
-def optimize_loop_1(cpu, loop):
+def optimize_loop_1(metainterp_sd, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
     and to remove internal overheadish operations.  Note that loop.specnodes
     must be applicable to the loop; you will probably get an AssertionError
     if not.
     """
-    optimizer = Optimizer(cpu, loop)
+    optimizer = Optimizer(metainterp_sd, loop)
     optimizer.setup_virtuals_and_constants()
     optimizer.propagate_forward()
 
-def optimize_bridge_1(cpu, bridge):
+def optimize_bridge_1(metainterp_sd, bridge):
     """The same, but for a bridge.  The only difference is that we don't
     expect 'specnodes' on the bridge.
     """
-    optimizer = Optimizer(cpu, bridge)
+    optimizer = Optimizer(metainterp_sd, bridge)
     optimizer.propagate_forward()
 
 # ____________________________________________________________
@@ -362,15 +363,17 @@ class __extend__(VirtualArraySpecNode):
 
 class Optimizer(object):
 
-    def __init__(self, cpu, loop):
-        self.cpu = cpu
+    def __init__(self, metainterp_sd, loop):
+        self.metainterp_sd = metainterp_sd
+        self.cpu = metainterp_sd.cpu
         self.loop = loop
         self.values = {}
         self.interned_refs = {}
-        self.resumedata_memo = resume.ResumeDataLoopMemo(cpu)
+        self.resumedata_memo = resume.ResumeDataLoopMemo(self.cpu)
         self.heap_op_optimizer = HeapOpOptimizer(self)
 
     def forget_numberings(self, virtualbox):
+        self.metainterp_sd.profiler.count(OPT_FORCINGS)
         self.resumedata_memo.forget_numberings(virtualbox)
 
     def getinterned(self, box):
@@ -513,7 +516,9 @@ class Optimizer(object):
                         op = op.clone()
                         must_clone = False
                     op.args[i] = box
+        self.metainterp_sd.profiler.count(OPT_OPS)
         if op.is_guard():
+            self.metainterp_sd.profiler.count(OPT_GUARDS)
             self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True

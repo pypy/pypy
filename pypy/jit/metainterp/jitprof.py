@@ -2,6 +2,7 @@
 """ A small helper module for profiling JIT
 """
 
+import os
 import time
 from pypy.rlib.debug import debug_print
 
@@ -14,6 +15,11 @@ OPS
 RECORDED_OPS
 BLACKHOLED_OPS
 GUARDS
+OPT_OPS
+OPT_GUARDS
+OPT_FORCINGS
+ABORT_TOO_LONG
+ABORT_BRIDGE
 """
 
 def _setup():
@@ -143,25 +149,36 @@ class Profiler(BaseProfiler):
         cnt = self.counters
         tim = self.times
         calls = self.calls
-        lines = ("Tracing:    \t%d\t%f\n" % (cnt[TRACING],   tim[TRACING]) +
-                 "Backend:    \t%d\t%f\n" % (cnt[BACKEND],   tim[BACKEND]) +
-                 "Running asm:\t%d\t%f\n" % (cnt[RUNNING],   tim[RUNNING]) +
-                 "Blackhole:  \t%d\t%f\n" % (cnt[BLACKHOLE], tim[BLACKHOLE]) +
-                 "TOTAL:      \t\t%f\n" % (self.tk - self.starttime) + 
-                 "ops:           \t%d\n" % cnt[OPS] +
-                 "  calls:       \t%d\n" % calls[0][0] +
-                 "  pure calls:  \t%d\n" % calls[0][1] +                 
-                 "recorded ops:  \t%d\n" % cnt[RECORDED_OPS] +
-                 "  calls:       \t%d\n" % calls[1][0] +
-                 "  pure calls:  \t%d\n" % calls[1][1] +                 
-                 "guards:        \t%d\n" % cnt[GUARDS] +                  
-                 "blackholed ops:\t%d\n" % cnt[BLACKHOLED_OPS] +
-                 "  calls:       \t%d\n" % calls[2][0] +
-                 "  pure calls:  \t%d\n" % calls[2][1]
-                 )
-        import os
-        os.write(2, lines)
+        self._print_line_time("Tracing", cnt[TRACING],   tim[TRACING])
+        self._print_line_time("Backend", cnt[BACKEND],   tim[BACKEND])
+        self._print_line_time("Running asm", cnt[RUNNING],   tim[RUNNING])
+        self._print_line_time("Blackhole", cnt[BLACKHOLE], tim[BLACKHOLE])
+        line = "TOTAL:      \t\t%f\n" % (self.tk - self.starttime, )
+        os.write(2, line)
+        self._print_intline("ops", cnt[OPS])
+        self._print_intline("  calls", calls[0][0])
+        self._print_intline("  pure calls", calls[0][1])
+        self._print_intline("recorded ops", cnt[RECORDED_OPS])
+        self._print_intline("  calls", calls[1][0])
+        self._print_intline("  pure calls", calls[1][1])
+        self._print_intline("guards", cnt[GUARDS])
+        self._print_intline("blackholed ops", calls[2][0])
+        self._print_intline("  pure calls", calls[2][1])
+        self._print_intline("opt ops", cnt[OPT_OPS])
+        self._print_intline("opt guards", cnt[OPT_GUARDS])
+        self._print_intline("forcings", cnt[OPT_FORCINGS])
+        self._print_intline("trace too long", cnt[ABORT_BRIDGE])
 
+    def _print_line_time(self, string, i, tim):
+        final = "%s:%s\t%d\t%f\n" % (string, " " * max(0, 13-len(string)), i, tim)
+        os.write(2, final)
+
+    def _print_intline(self, string, i):
+        final = string + ':' + " " * max(0, 16-len(string))
+        final += '\t' + str(i) + '\n'
+        os.write(2, final)
+        
+        
 
 class BrokenProfilerData(Exception):
     pass
