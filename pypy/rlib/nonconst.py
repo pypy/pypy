@@ -17,6 +17,9 @@ class NonConstant(object):
     def __setattr__(self, attr, value):
         setattr(self.__dict__['constant'], attr, value)
 
+    def __nonzero__(self):
+        return bool(self.__dict__['constant'])
+
 class EntryNonConstant(ExtRegistryEntry):
     _about_ = NonConstant
     

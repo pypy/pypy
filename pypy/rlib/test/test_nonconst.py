@@ -47,3 +47,15 @@ def test_nonconst_instance():
     if option.view:
         a.translator.view()
     assert isinstance(s, SomeInstance)
+
+def test_bool_nonconst():
+    def fn():
+        return bool(NonConstant(False))
+    
+    assert not fn()
+    
+    a = RPythonAnnotator()
+    s = a.build_types(fn, [])
+    assert s.knowntype is bool
+    assert not hasattr(s, 'const')
+
