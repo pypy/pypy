@@ -191,7 +191,10 @@ def demo():
 import time
 
 def entry_point(argv):
-    N = 200
+    if len(argv) > 1:
+        N = int(argv[1])
+    else:
+        N = 200
     T = time.time()
     for i in range(N):
         demo()
@@ -205,5 +208,7 @@ def target(*args):
     return entry_point, None
 
 if __name__ == '__main__':
-    demo()
+    if len(sys.argv) == 1:
+        sys.argv.append('1')
+    entry_point(sys.argv)
     print __doc__
