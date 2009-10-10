@@ -737,7 +737,11 @@ def getpgid(space, pid):
 
     Call the system call getpgid().
     """
-    return space.wrap(os.getpgid(pid))
+    try:
+        pgid = os.getpgid(pid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(pgid)
 getpgid.unwrap_spec = [ObjSpace, int]
 
 def setpgid(space, pid, pgrp):

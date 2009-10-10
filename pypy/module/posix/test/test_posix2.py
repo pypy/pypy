@@ -47,6 +47,8 @@ class AppTestPosix:
             cls.w_geteuid = space.wrap(os.geteuid())
         if hasattr(os, 'getgid'):
             cls.w_getgid = space.wrap(os.getgid())
+        if hasattr(os, 'getpgid'):
+            cls.w_getpgid = space.wrap(os.getpgid(os.getpid()))
         if hasattr(os, 'getsid'):
             cls.w_getsid0 = space.wrap(os.getsid(0))
         if hasattr(os, 'sysconf'):
@@ -363,6 +365,12 @@ class AppTestPosix:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
+
+    if hasattr(os, 'getpgid'):
+        def test_os_getpgid(self):
+            os = self.posix
+            assert os.getpgid(os.getpid()) == self.getpgid
+            raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
