@@ -332,7 +332,7 @@ class GenerationGC(SemiSpaceGC):
             if self.young_objects_with_id.length() > 0:
                 self.update_young_objects_with_id()
             # mark the nursery as free and fill it with zeroes again
-            llarena.arena_reset(self.nursery, self.nursery_size, True)
+            llarena.arena_reset(self.nursery, self.nursery_size, 2)
             if self.config.gcconfig.debugprint:
                 llop.debug_print(lltype.Void,
                                  "survived (fraction of the size):",

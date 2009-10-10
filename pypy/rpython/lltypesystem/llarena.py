@@ -282,8 +282,12 @@ def arena_free(arena_addr):
 
 def arena_reset(arena_addr, size, zero):
     """Free all objects in the arena, which can then be reused.
-    The arena is filled with zeroes if 'zero' is True.  This can also
-    be used on a subrange of the arena."""
+    This can also be used on a subrange of the arena.
+    The value of 'zero' is:
+      * 0: don't fill the area with zeroes
+      * 1: clear, optimized for a very large area of memory
+      * 2: clear, optimized for a small or medium area of memory
+    """
     arena_addr = _getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
 
@@ -385,8 +389,11 @@ register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
 
 def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
-        clear_large_memory_chunk(arena_addr, size)
-register_external(arena_reset, [llmemory.Address, int, bool], None,
+        if zero == 1:
+            clear_large_memory_chunk(arena_addr, size)
+        else:
+            llmemory.raw_memclear(arena_addr, size)
+register_external(arena_reset, [llmemory.Address, int, int], None,
                   'll_arena.arena_reset',
                   llimpl=llimpl_arena_reset,
                   llfakeimpl=arena_reset,
