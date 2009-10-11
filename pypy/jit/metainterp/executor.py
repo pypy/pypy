@@ -235,7 +235,9 @@ def do_float_ge(cpu, box1, box2):
     return ConstInt(box1.getfloat() >= box2.getfloat())
 
 def do_cast_float_to_int(cpu, box1):
-    return ConstInt(int(box1.getfloat()))
+    # note: we need to call int() twice to care for the fact that
+    # int(-2147483648.0) returns a long :-(
+    return ConstInt(int(int(box1.getfloat())))
 
 def do_cast_int_to_float(cpu, box1):
     return ConstFloat(float(box1.getint()))
