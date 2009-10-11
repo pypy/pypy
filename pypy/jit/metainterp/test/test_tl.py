@@ -17,7 +17,7 @@ class ToyLanguageTests:
         res = self.meta_interp(main, [1, 10])
         assert res == 100
 
-    def setup_class(cls):
+    def _get_main(self):
         from pypy.jit.tl.tl import interp_without_call
         from pypy.jit.tl.tlopcode import compile
 
@@ -64,12 +64,13 @@ class ToyLanguageTests:
         def main(n, inputarg):
             code = codes[n]
             return interp_without_call(code, inputarg=inputarg)
-        cls.main = main
+        return main
 
     def test_tl_base(self):
         # 'backendopt=True' is used on lltype to kill unneeded access
         # to the class, which generates spurious 'guard_class'
-        res = self.meta_interp(self.main.im_func, [0, 6], listops=True,
+        main = self._get_main()
+        res = self.meta_interp(main, [0, 6], listops=True,
                                backendopt=True)
         assert res == 5040
         self.check_loops({'int_mul':1, 'jump':1,
@@ -77,9 +78,10 @@ class ToyLanguageTests:
                           'guard_false':1})
 
     def test_tl_2(self):
-        res = self.meta_interp(self.main.im_func, [1, 10], listops=True,
+        main = self._get_main()
+        res = self.meta_interp(main, [1, 10], listops=True,
                                backendopt=True)
-        assert res == self.main.im_func(1, 10)
+        assert res == main(1, 10)
         self.check_loops({'int_sub':1, 'int_le':1,
                          'int_is_true':1, 'guard_false':1, 'jump':1})
 
