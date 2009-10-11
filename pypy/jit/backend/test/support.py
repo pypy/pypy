@@ -92,6 +92,13 @@ class BaseCompiledMixin(object):
 
 class CCompiledMixin(BaseCompiledMixin):
     type_system = 'lltype'
+    slow = False
+
+    def setup_class(cls):
+        if cls.slow:
+            from pypy.jit.conftest import option
+            if not option.run_slow_tests:
+                py.test.skip("use --slow to execute this long-running test")
 
     def _get_TranslationContext(self):
         t = TranslationContext()

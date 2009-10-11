@@ -5,6 +5,7 @@ from pypy.jit.backend.x86.test.test_zrpy_slist import Jit386Mixin
 class TestLoop(Jit386Mixin, LoopTest):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_loop.py
+    slow = True
 
     def test_interp_many_paths(self):
         py.test.skip('not supported: pointer as argument')
