@@ -93,6 +93,9 @@ class CombinedSymbolic(llmemory.Symbolic):
         self.lowpart = lowpart
         self.rest = rest
 
+    def __repr__(self):
+        return '<CombinedSymbolic %r|%s>' % (self.lowpart, self.rest)
+
     def __and__(self, other):
         if (other & 0xFFFF) == 0:
             return self.rest & other
@@ -111,3 +114,17 @@ class CombinedSymbolic(llmemory.Symbolic):
     def __sub__(self, other):
         assert (other & 0xFFFF) == 0
         return CombinedSymbolic(self.lowpart, self.rest - other)
+
+    def __eq__(self, other):
+        if (isinstance(other, CombinedSymbolic) and
+            self.lowpart is other.lowpart):
+            return self.rest == other.rest
+        else:
+            return NotImplemented
+
+    def __ne__(self, other):
+        if (isinstance(other, CombinedSymbolic) and
+            self.lowpart is other.lowpart):
+            return self.rest != other.rest
+        else:
+            return NotImplemented

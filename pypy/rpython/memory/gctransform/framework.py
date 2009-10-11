@@ -919,7 +919,10 @@ class JITTransformerLayoutBuilder(TransformerLayoutBuilder):
     # for the JIT: currently does not support removetypeptr
     def __init__(self, config):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
-        assert not config.translation.gcconfig.removetypeptr
+        try:
+            assert not config.translation.gcconfig.removetypeptr
+        except AttributeError:    # for some tests
+            pass
         GCClass, _ = choose_gc_from_config(config)
         TransformerLayoutBuilder.__init__(self, GCClass, {})
 
