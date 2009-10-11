@@ -1,6 +1,12 @@
+import py
 from pypy.rpython.memory.gctypelayout import TypeLayoutBuilder, GCData
 from pypy.rpython.memory.gctypelayout import offsets_to_gc_pointers
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.test.test_llinterp import get_interpreter
+from pypy.objspace.flow.model import Constant
+
+class FakeGC:
+    object_minimal_size = 0
 
 def getname(T):
     try:
@@ -30,13 +36,57 @@ def test_struct():
     for T, c in [(GC_S, 0), (GC_S2, 2), (GC_A, 0), (GC_A2, 0), (GC_S3, 2)]:
         assert len(offsets_to_gc_pointers(T)) == c
 
-def test_layout_builder():
+def test_layout_builder(lltype2vtable={}):
     # XXX a very minimal test
-    layoutbuilder = TypeLayoutBuilder()
+    layoutbuilder = TypeLayoutBuilder(FakeGC, lltype2vtable)
     for T1, T2 in [(GC_A, GC_S), (GC_A2, GC_S2), (GC_S3, GC_S2)]:
         tid1 = layoutbuilder.get_type_id(T1)
         tid2 = layoutbuilder.get_type_id(T2)
-        gcdata = GCData(layoutbuilder.type_info_list)
+        gcdata = GCData(layoutbuilder.type_info_group)
         lst1 = gcdata.q_varsize_offsets_to_gcpointers_in_var_part(tid1)
         lst2 = gcdata.q_offsets_to_gc_pointers(tid2)
         assert len(lst1) == len(lst2)
+    return layoutbuilder
+
+def test_layout_builder_with_vtable():
+    from pypy.rpython.lltypesystem.lloperation import llop
+    vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    layoutbuilder = test_layout_builder({GC_S: vtable})
+    tid1 = layoutbuilder.get_type_id(GC_S)
+    tid2 = layoutbuilder.get_type_id(GC_S2)
+    tid3 = layoutbuilder.get_type_id(GC_S3)
+    group = layoutbuilder.type_info_group
+    vt = llop.get_next_group_member(rclass.CLASSTYPE, group._as_ptr(), tid1,
+                                    layoutbuilder.size_of_fixed_type_info)
+    assert vt == vtable
+    for tid in [tid2, tid3]:
+        py.test.raises((lltype.InvalidCast, AssertionError),
+                       llop.get_next_group_member,
+                       rclass.CLASSTYPE, group._as_ptr(), tid,
+                       layoutbuilder.size_of_fixed_type_info)
+
+def test_constfold():
+    layoutbuilder = TypeLayoutBuilder(FakeGC, {})
+    tid1 = layoutbuilder.get_type_id(GC_A)
+    tid2 = layoutbuilder.get_type_id(GC_S3)
+    class MockGC:
+        def set_query_functions(self, is_varsize,
+                                has_gcptr_in_varsize,
+                                is_gcarrayofgcptr,
+                                *rest):
+            self.is_varsize = is_varsize
+            self.has_gcptr_in_varsize = has_gcptr_in_varsize
+            self.is_gcarrayofgcptr = is_gcarrayofgcptr
+    gc = MockGC()
+    layoutbuilder.initialize_gc_query_function(gc)
+    #
+    def f():
+        return (1 * gc.is_varsize(tid1) +
+               10 * gc.has_gcptr_in_varsize(tid1) +
+              100 * gc.is_gcarrayofgcptr(tid1) +
+             1000 * gc.is_varsize(tid2) +
+            10000 * gc.has_gcptr_in_varsize(tid2) +
+           100000 * gc.is_gcarrayofgcptr(tid2))
+    interp, graph = get_interpreter(f, [], backendopt=True)
+    assert interp.eval_graph(graph, []) == 11001
+    assert graph.startblock.exits[0].args == [Constant(11001, lltype.Signed)]

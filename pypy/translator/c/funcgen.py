@@ -781,5 +781,22 @@ class FunctionCodeGenerator(object):
     def OP_PROMOTE_VIRTUALIZABLE(self, op):
         return '/* PROMOTE_VIRTUALIZABLE %s */' % op
 
+    def OP_GET_GROUP_MEMBER(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (
+            self.expr(op.result),
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.args[1]))
+
+    def OP_GET_NEXT_GROUP_MEMBER(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        return '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, %s, %s);' % (
+            self.expr(op.result),
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.args[1]),
+            self.expr(op.args[2]))
+
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

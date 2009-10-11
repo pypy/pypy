@@ -118,6 +118,10 @@ def convert_offset_to_int(offset):
         return 0
     elif isinstance(offset, llarena.RoundedUpForAllocation):
         basesize = convert_offset_to_int(offset.basesize)
+        if isinstance(offset.minsize, llmemory.AddressOffset):
+            minsize = convert_offset_to_int(offset.minsize)
+            if minsize > basesize:
+                basesize = minsize
         mask = memory_alignment - 1
         return (basesize + mask) & ~ mask
     else:

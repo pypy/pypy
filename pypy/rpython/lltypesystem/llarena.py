@@ -240,12 +240,15 @@ class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
     following it.  For arenas containing heterogenous objects.
     """
-    def __init__(self, basesize):
+    def __init__(self, basesize, minsize):
         assert isinstance(basesize, llmemory.AddressOffset)
+        assert isinstance(minsize, llmemory.AddressOffset) or minsize == 0
         self.basesize = basesize
+        self.minsize = minsize
 
     def __repr__(self):
-        return '< RoundedUpForAllocation %r >' % (self.basesize,)
+        return '< RoundedUpForAllocation %r %r >' % (self.basesize,
+                                                     self.minsize)
 
     def known_nonneg(self):
         return self.basesize.known_nonneg()
@@ -303,10 +306,14 @@ def arena_reserve(addr, size, check_alignment=True):
                          % (addr.offset,))
     addr.arena.allocate_object(addr.offset, size)
 
-def round_up_for_allocation(size):
+def round_up_for_allocation(size, minsize=0):
     """Round up the size in order to preserve alignment of objects
-    following an object.  For arenas containing heterogenous objects."""
-    return RoundedUpForAllocation(size)
+    following an object.  For arenas containing heterogenous objects.
+    If minsize is specified, it gives a minimum on the resulting size."""
+    return _round_up_for_allocation(size, minsize)
+
+def _round_up_for_allocation(size, minsize):    # internal
+    return RoundedUpForAllocation(size, minsize)
 
 def arena_new_view(ptr):
     """Return a fresh memory view on an arena
@@ -408,10 +415,11 @@ register_external(arena_reserve, [llmemory.Address, int], None,
                   sandboxsafe=True)
 
 llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
-                                                 [lltype.Signed], lltype.Signed,
+                                                [lltype.Signed, lltype.Signed],
+                                                 lltype.Signed,
                                                  sandboxsafe=True,
                                                  _nowrapper=True)
-register_external(round_up_for_allocation, [int], int,
+register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,
                   llfakeimpl=round_up_for_allocation,

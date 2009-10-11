@@ -22,8 +22,6 @@ class CPU386(AbstractLLCPU):
                                gcdescr)
         self._bootstrap_cache = {}
         self._faildescr_list = []
-        if rtyper is not None: # for tests
-            self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)

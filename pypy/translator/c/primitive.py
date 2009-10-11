@@ -3,7 +3,7 @@ from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib.rarithmetic import r_longlong, isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, llgroup
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
@@ -50,12 +50,15 @@ def name_signed(value, db):
         elif type(value) == GCHeaderOffset:
             return '0'
         elif type(value) == RoundedUpForAllocation:
-            return 'ROUND_UP_FOR_ALLOCATION(%s)' % (
-                name_signed(value.basesize, db))
+            return 'ROUND_UP_FOR_ALLOCATION(%s, %s)' % (
+                name_signed(value.basesize, db),
+                name_signed(value.minsize, db))
         elif isinstance(value, CDefinedIntSymbolic):
             return str(value.expr)
         elif isinstance(value, ComputedIntSymbolic):
             value = value.compute_fn()
+        elif isinstance(value, llgroup.CombinedSymbolic):
+            return '(%s|%dL)' % (name_ushort(value.lowpart, db), value.rest)
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:
@@ -136,6 +139,19 @@ def name_gcref(value, db):
     else:
         return 'NULL'
 
+def name_ushort(value, db):
+    if isinstance(value, Symbolic):
+        if isinstance(value, llgroup.GroupMemberOffset):
+            groupnode = db.getcontainernode(value.grpptr._as_obj())
+            structnode = db.getcontainernode(value.member._as_obj())
+            return 'GROUP_MEMBER_OFFSET(%s, %s)' % (
+                groupnode.name,
+                structnode.name,
+                )
+        else:
+            raise Exception("unimplemented symbolic %r" % value)
+    return str(value)
+
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
 PrimitiveName = {
@@ -151,6 +167,7 @@ PrimitiveName = {
     Void:     name_void,
     Address:  name_address,
     GCREF:    name_gcref,
+    rffi.USHORT: name_ushort,
     }
 
 PrimitiveType = {
@@ -166,6 +183,7 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     GCREF:    'void* @',
+    rffi.USHORT: 'unsigned short @',
     }
 
 def define_c_primitive(ll_type, c_name):
@@ -181,7 +199,7 @@ def define_c_primitive(ll_type, c_name):
 for ll_type, c_name in [(rffi.SIGNEDCHAR, 'signed char'),
                         (rffi.UCHAR, 'unsigned char'),
                         (rffi.SHORT, 'short'),
-                        (rffi.USHORT, 'unsigned short'),
+                        #(rffi.USHORT, 'unsigned short'),
                         (rffi.INT, 'int'),
                         (rffi.UINT, 'unsigned int'),
                         (rffi.LONG, 'long'),

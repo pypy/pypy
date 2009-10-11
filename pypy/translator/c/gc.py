@@ -1,4 +1,5 @@
 import sys
+from pypy.objspace.flow.model import Constant
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltypesystem.lltype import \
@@ -11,7 +12,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
     requires_stackless = False
-    
+
     def __init__(self, db, thread_enabled=False):
         self.db = db
         self.thread_enabled = thread_enabled
@@ -48,6 +49,9 @@ class BasicGcPolicy(object):
                               ],
             post_include_bits=['typedef void *GC_hidden_pointer;']
             )
+
+    def need_no_typeptr(self):
+        return False
 
     def gc_startup_code(self):
         return []
@@ -312,8 +316,11 @@ class FrameworkGcPolicy(BasicGcPolicy):
         return framework.convert_weakref_to(ptarget)
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
-        args = [funcgen.expr(v) for v in op.args]
-        return '%s = %s; /* for moving GCs */' % (args[1], args[0])
+        if isinstance(op.args[1], Constant):
+            return '/* %s */' % (op,)
+        else:
+            args = [funcgen.expr(v) for v in op.args]
+            return '%s = %s; /* for moving GCs */' % (args[1], args[0])
 
     def common_gcheader_definition(self, defnode):
         return defnode.db.gctransformer.gc_fields()
@@ -321,6 +328,25 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def common_gcheader_initdata(self, defnode):
         o = top_container(defnode.obj)
         return defnode.db.gctransformer.gc_field_values_for(o)
+
+    def need_no_typeptr(self):
+        config = self.db.translator.config
+        return config.translation.gcconfig.removetypeptr
+
+    def OP_GC_GETTYPEPTR_GROUP(self, funcgen, op):
+        # expands to a number of steps, as per rpython/lltypesystem/opimpl.py,
+        # all implemented by a single call to a C macro.
+        [v_obj, c_grpptr, c_skipoffset, c_vtableinfo] = op.args
+        typename = funcgen.db.gettype(op.result.concretetype)
+        fieldname = c_vtableinfo.value[2]
+        return (
+        '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (unsigned short)%s->_%s, %s);'
+            % (funcgen.expr(op.result),
+               cdecl(typename, ''),
+               funcgen.expr(c_grpptr),
+               funcgen.expr(v_obj),
+               fieldname,
+               funcgen.expr(c_skipoffset)))
 
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer

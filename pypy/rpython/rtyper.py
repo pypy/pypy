@@ -65,6 +65,7 @@ class RPythonTyper(object):
         self.class_pbc_attributes = {}
         self.oo_meth_impls = {}
         self.cache_dummy_values = {}
+        self.lltype2vtable = {}
         self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
@@ -129,12 +130,6 @@ class RPythonTyper(object):
         result = {}
         for (classdef, _), repr in self.instance_reprs.iteritems():
             result[repr.lowleveltype] = classdef
-        return result
-
-    def lltype_to_vtable_mapping(self):
-        result = {}
-        for repr in self.instance_reprs.itervalues():
-            result[repr.lowleveltype.TO] = repr.rclass.getvtable()
         return result
 
     def get_type_for_typeptr(self, typeptr):

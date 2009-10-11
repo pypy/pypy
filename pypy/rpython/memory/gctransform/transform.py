@@ -10,6 +10,7 @@ from pypy.translator.backendopt import inline
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
+from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, annlowlevel
 from pypy.rpython.memory import gc
@@ -144,16 +145,20 @@ class BaseGCTransformer(object):
         if self.inline:
             raise_analyzer = RaiseAnalyzer(self.translator)
             to_enum = self.graph_dependencies.get(graph, self.graphs_to_inline)
+            must_constfold = False
             for inline_graph in to_enum:
                 try:
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef,
                                            raise_analyzer,
                                            cleanup=False)
+                    must_constfold = True
                 except inline.CannotInline, e:
                     print 'CANNOT INLINE:', e
                     print '\t%s into %s' % (inline_graph, graph)
             cleanup_graph(graph)
+            if must_constfold:
+                constant_fold_graph(graph)
 
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they
@@ -307,6 +312,9 @@ class BaseGCTransformer(object):
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies
 
+    def get_final_dependencies(self):
+        pass
+
     def finish_tables(self):
         pass
 
@@ -366,6 +374,8 @@ class BaseGCTransformer(object):
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
     gct_setinteriorfield = gct_setfield
+
+    gct_getfield = default
 
     def gct_zero_gc_pointers_inside(self, hop):
         pass

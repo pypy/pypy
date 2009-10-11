@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.rffi import CConstant
+from pypy.rpython.lltypesystem import llgroup
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
@@ -141,6 +142,8 @@ class LowLevelDatabase(object):
                 #raise Exception("don't know about opaque type %r" % (T,))
                 return 'struct %s @' % (
                     valid_identifier('pypy_opaque_' + T.tag),)
+        elif isinstance(T, llgroup.GroupType):
+            return "/*don't use me*/ void @"
         else:
             raise Exception("don't know about type %r" % (T,))
 
@@ -285,6 +288,8 @@ class LowLevelDatabase(object):
             finish_callbacks.append(('Stackless transformer: finished',
                                      self.stacklesstransformer.finish))
         if self.gctransformer:
+            finish_callbacks.append(('GC transformer: tracking vtables',
+                                    self.gctransformer.get_final_dependencies))
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.finish_tables))
 

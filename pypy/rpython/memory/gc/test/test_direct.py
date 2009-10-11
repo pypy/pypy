@@ -68,7 +68,7 @@ class DirectGCTest(object):
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
-        self.layoutbuilder = TypeLayoutBuilder()
+        self.layoutbuilder = TypeLayoutBuilder(self.GCClass, {})
         self.get_type_id = self.layoutbuilder.get_type_id
         self.layoutbuilder.initialize_gc_query_function(self.gc)
         self.gc.setup()

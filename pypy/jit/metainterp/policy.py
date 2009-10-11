@@ -63,7 +63,7 @@ class JitPolicy(object):
         return None
 
     def _graphs_of_all_instantiate(self, rtyper):
-        for vtable in rtyper.lltype_to_vtable_mapping().itervalues():
+        for vtable in rtyper.lltype2vtable.values():
             if vtable.instantiate:
                 yield vtable.instantiate._obj.graph
 

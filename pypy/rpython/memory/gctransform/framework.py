@@ -1,7 +1,7 @@
 from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, ll_call_destructor, type_contains_pyobjs, var_ispyobj
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython import rmodel
 from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
@@ -20,6 +20,9 @@ from pypy.rpython.memory.gctransform.log import log
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 import sys, types
+
+
+TYPE_ID = rffi.USHORT
 
 
 class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
@@ -127,15 +130,18 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
         else:
-            self.layoutbuilder = TransformerLayoutBuilder()
+            if translator.config.translation.gcconfig.removetypeptr:
+                lltype2vtable = translator.rtyper.lltype2vtable
+            else:
+                lltype2vtable = {}
+            self.layoutbuilder = TransformerLayoutBuilder(GCClass,
+                                                          lltype2vtable)
         self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
-        # set up dummy a table, to be overwritten with the real one in finish()
-        type_info_table = lltype._ptr(
-            lltype.Ptr(gctypelayout.GCData.TYPE_INFO_TABLE),
-            "delayed!type_info_table", solid=True)
-        gcdata = gctypelayout.GCData(type_info_table)
+        # set up GCData with the llgroup from the layoutbuilder, which
+        # will grow as more TYPE_INFO members are added to it
+        gcdata = gctypelayout.GCData(self.layoutbuilder.type_info_group)
 
         # initialize the following two fields with a random non-NULL address,
         # to make the annotator happy.  The fields are patched in finish()
@@ -163,6 +169,8 @@ class FrameworkGCTransformer(GCTransformer):
             gcdata.gc.setup()
 
         bk = self.translator.annotator.bookkeeper
+        r_typeid16 = rffi.platform.numbertype_to_rclass[TYPE_ID]
+        s_typeid16 = annmodel.SomeInteger(knowntype=r_typeid16)
 
         # the point of this little dance is to not annotate
         # self.gcdata.static_root_xyz as constants. XXX is it still needed??
@@ -212,7 +220,7 @@ class FrameworkGCTransformer(GCTransformer):
         malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
         self.malloc_fixedsize_clear_ptr = getfn(
             malloc_fixedsize_clear_meth,
-            [s_gc, annmodel.SomeInteger(nonneg=True),
+            [s_gc, s_typeid16,
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool(), annmodel.SomeBool(),
              annmodel.SomeBool()], s_gcref,
@@ -221,7 +229,7 @@ class FrameworkGCTransformer(GCTransformer):
             malloc_fixedsize_meth = GCClass.malloc_fixedsize.im_func
             self.malloc_fixedsize_ptr = getfn(
                 malloc_fixedsize_meth,
-                [s_gc, annmodel.SomeInteger(nonneg=True),
+                [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeBool(), annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
@@ -235,7 +243,8 @@ class FrameworkGCTransformer(GCTransformer):
 ##             + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
-            [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
+            [s_gc, s_typeid16]
+            + [annmodel.SomeInteger(nonneg=True) for i in range(4)]
             + [annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
@@ -268,7 +277,7 @@ class FrameworkGCTransformer(GCTransformer):
             s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_fast_ptr = getfn(
                 malloc_fast,
-                [s_gc, annmodel.SomeInteger(nonneg=True),
+                [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
                  s_True, s_False,
                  s_False], s_gcref,
@@ -288,7 +297,7 @@ class FrameworkGCTransformer(GCTransformer):
             s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_varsize_clear_fast_ptr = getfn(
                 malloc_varsize_clear_fast,
-                [s_gc, annmodel.SomeInteger(nonneg=True),
+                [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
@@ -304,7 +313,7 @@ class FrameworkGCTransformer(GCTransformer):
                 "malloc_varsize_nonmovable")
             self.malloc_varsize_nonmovable_ptr = getfn(
                 malloc_nonmovable,
-                [s_gc, annmodel.SomeInteger(nonneg=True),
+                [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True)], s_gcref)
         else:
             self.malloc_varsize_nonmovable_ptr = None
@@ -315,7 +324,7 @@ class FrameworkGCTransformer(GCTransformer):
                 "malloc_varsize_resizable")
             self.malloc_varsize_resizable_ptr = getfn(
                 malloc_resizable,
-                [s_gc, annmodel.SomeInteger(nonneg=True),
+                [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True)], s_gcref)
         else:
             self.malloc_varsize_resizable_ptr = None
@@ -399,6 +408,14 @@ class FrameworkGCTransformer(GCTransformer):
             FLDTYPE = getattr(HDR, fldname)
             fields.append(('_' + fldname, FLDTYPE))
 
+        size_gc_header = self.gcdata.gc.gcheaderbuilder.size_gc_header
+        vtableinfo = (HDR, size_gc_header, self.gcdata.gc.typeid_is_in_field)
+        self.c_vtableinfo = rmodel.inputconst(lltype.Void, vtableinfo)
+        tig = self.layoutbuilder.type_info_group._as_ptr()
+        self.c_type_info_group = rmodel.inputconst(lltype.typeOf(tig), tig)
+        sko = llmemory.sizeof(gcdata.TYPE_INFO)
+        self.c_vtinfo_skip_offset = rmodel.inputconst(lltype.typeOf(sko), sko)
+
     def build_root_walker(self):
         return ShadowStackRootWalker(self)
 
@@ -421,20 +438,13 @@ class FrameworkGCTransformer(GCTransformer):
         return [getattr(hdr, fldname) for fldname in HDR._names]
 
     def finish_tables(self):
-        table = self.layoutbuilder.flatten_table()
-        log.info("assigned %s typeids" % (len(table), ))
+        group = self.layoutbuilder.close_table()
+        log.info("assigned %s typeids" % (len(group.members), ))
         log.info("added %s push/pop stack root instructions" % (
                      self.num_pushs, ))
         if self.write_barrier_ptr:
             log.info("inserted %s write barrier calls" % (
                          self.write_barrier_calls, ))
-
-        # replace the type_info_table pointer in gcdata -- at this point,
-        # the database is in principle complete, so it has already seen
-        # the delayed pointer.  We need to force it to consider the new
-        # array now.
-
-        self.gcdata.type_info_table._become(table)
 
         # XXX because we call inputconst already in replace_malloc, we can't
         # modify the instance, we have to modify the 'rtyped instance'
@@ -463,16 +473,24 @@ class FrameworkGCTransformer(GCTransformer):
         self.write_typeid_list()
         return newgcdependencies
 
+    def get_final_dependencies(self):
+        # returns an iterator enumerating the type_info_group's members,
+        # to make sure that they are all followed (only a part of them
+        # might have been followed by a previous enum_dependencies()).
+        return iter(self.layoutbuilder.type_info_group.members)
+
     def write_typeid_list(self):
         """write out the list of type ids together with some info"""
         from pypy.tool.udir import udir
         # XXX not ideal since it is not per compilation, but per run
+        # XXX argh argh, this only gives the member index but not the
+        #     real typeid, which is a complete mess to obtain now...
+        all_ids = self.layoutbuilder.id_of_type.items()
+        all_ids = [(typeinfo.index, TYPE) for (TYPE, typeinfo) in all_ids]
+        all_ids = dict(all_ids)
         f = udir.join("typeids.txt").open("w")
-        all = [(typeid, TYPE)
-               for TYPE, typeid in self.layoutbuilder.id_of_type.iteritems()]
-        all.sort()
-        for typeid, TYPE in all:
-            f.write("%s %s\n" % (typeid, TYPE))
+        for index in range(len(self.layoutbuilder.type_info_group.members)):
+            f.write("member%-4d %s\n" % (index, all_ids.get(index, '?')))
         f.close()
 
     def transform_graph(self, graph):
@@ -502,8 +520,8 @@ class FrameworkGCTransformer(GCTransformer):
         assert PTRTYPE.TO == TYPE
         type_id = self.get_type_id(TYPE)
 
-        c_type_id = rmodel.inputconst(lltype.Signed, type_id)
-        info = self.layoutbuilder.type_info_list[type_id]
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         has_finalizer = bool(self.finalizer_funcptr_for_type(TYPE))
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
@@ -523,9 +541,12 @@ class FrameworkGCTransformer(GCTransformer):
                     c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
         else:
             assert not c_has_finalizer.value
+            info_varsize = self.layoutbuilder.get_info_varsize(type_id)
             v_length = op.args[-1]
-            c_ofstolength = rmodel.inputconst(lltype.Signed, info.ofstolength)
-            c_varitemsize = rmodel.inputconst(lltype.Signed, info.varitemsize)
+            c_ofstolength = rmodel.inputconst(lltype.Signed,
+                                              info_varsize.ofstolength)
+            c_varitemsize = rmodel.inputconst(lltype.Signed,
+                                              info_varsize.varitemsize)
             if flags.get('resizable') and self.malloc_varsize_resizable_ptr:
                 assert c_can_collect.value
                 malloc_ptr = self.malloc_varsize_resizable_ptr
@@ -656,8 +677,8 @@ class FrameworkGCTransformer(GCTransformer):
 
         type_id = self.get_type_id(WEAKREF)
 
-        c_type_id = rmodel.inputconst(lltype.Signed, type_id)
-        info = self.layoutbuilder.type_info_list[type_id]
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         malloc_ptr = self.malloc_fixedsize_ptr
         c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
@@ -763,6 +784,48 @@ class FrameworkGCTransformer(GCTransformer):
                                       v_structaddr])
         hop.rename('bare_' + opname)
 
+    def transform_getfield_typeptr(self, hop):
+        # this would become quite a lot of operations, even if it compiles
+        # to C code that is just as efficient as "obj->typeptr".  To avoid
+        # that, we just generate a single custom operation instead.
+        hop.genop('gc_gettypeptr_group', [hop.spaceop.args[0],
+                                          self.c_type_info_group,
+                                          self.c_vtinfo_skip_offset,
+                                          self.c_vtableinfo],
+                  resultvar = hop.spaceop.result)
+
+    def transform_setfield_typeptr(self, hop):
+        # replace such a setfield with an assertion that the typeptr is right
+        # (xxx not very useful right now, so disabled)
+        if 0:
+            v_new = hop.spaceop.args[2]
+            v_old = hop.genop('gc_gettypeptr_group', [hop.spaceop.args[0],
+                                                      self.c_type_info_group,
+                                                      self.c_vtinfo_skip_offset,
+                                                      self.c_vtableinfo],
+                              resulttype = v_new.concretetype)
+            v_eq = hop.genop("ptr_eq", [v_old, v_new],
+                             resulttype = lltype.Bool)
+            c_errmsg = rmodel.inputconst(lltype.Void,
+                                         "setfield_typeptr: wrong type")
+            hop.genop('debug_assert', [v_eq, c_errmsg])
+
+    def gct_getfield(self, hop):
+        if (hop.spaceop.args[1].value == 'typeptr' and
+            hop.spaceop.args[0].concretetype.TO._hints.get('typeptr') and
+            self.translator.config.translation.gcconfig.removetypeptr):
+            self.transform_getfield_typeptr(hop)
+        else:
+            GCTransformer.gct_getfield(self, hop)
+
+    def gct_setfield(self, hop):
+        if (hop.spaceop.args[1].value == 'typeptr' and
+            hop.spaceop.args[0].concretetype.TO._hints.get('typeptr') and
+            self.translator.config.translation.gcconfig.removetypeptr):
+            self.transform_setfield_typeptr(hop)
+        else:
+            GCTransformer.gct_setfield(self, hop)
+
     def var_needs_set_transform(self, var):
         return var_needsgc(var)
 
@@ -850,6 +913,15 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         else:
             fptr = lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
         return fptr
+
+
+class JITTransformerLayoutBuilder(TransformerLayoutBuilder):
+    # for the JIT: currently does not support removetypeptr
+    def __init__(self, config):
+        from pypy.rpython.memory.gc.base import choose_gc_from_config
+        assert not config.translation.gcconfig.removetypeptr
+        GCClass, _ = choose_gc_from_config(config)
+        TransformerLayoutBuilder.__init__(self, GCClass, {})
 
 
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):

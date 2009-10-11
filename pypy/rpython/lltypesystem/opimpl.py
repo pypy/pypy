@@ -171,9 +171,32 @@ def op_bool_not(b):
     return not b
 
 def op_int_add(x, y):
-    assert isinstance(x, (int, llmemory.AddressOffset))
+    if not isinstance(x, (int, llmemory.AddressOffset)):
+        from pypy.rpython.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic)
     assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x + y)
+
+def op_int_sub(x, y):
+    if not isinstance(x, int):
+        from pypy.rpython.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic)
+    assert isinstance(y, int)
+    return intmask(x - y)
+
+def op_int_and(x, y):
+    if not isinstance(x, int):
+        from pypy.rpython.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic)
+    assert isinstance(y, int)
+    return x & y
+
+def op_int_or(x, y):
+    if not isinstance(x, int):
+        from pypy.rpython.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic)
+    assert isinstance(y, int)
+    return x | y
 
 def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
@@ -387,6 +410,50 @@ def op_gc_stack_bottom():
 
 def op_promote_virtualizable(object, fieldname, flags):
     pass # XXX should do something
+
+def op_get_group_member(TYPE, grpptr, memberoffset):
+    from pypy.rpython.lltypesystem import llgroup
+    assert isinstance(memberoffset, llgroup.GroupMemberOffset)
+    member = memberoffset._get_group_member(grpptr)
+    return lltype.cast_pointer(TYPE, member)
+op_get_group_member.need_result_type = True
+
+def op_get_next_group_member(TYPE, grpptr, memberoffset, skipoffset):
+    from pypy.rpython.lltypesystem import llgroup
+    assert isinstance(memberoffset, llgroup.GroupMemberOffset)
+    member = memberoffset._get_next_group_member(grpptr, skipoffset)
+    return lltype.cast_pointer(TYPE, member)
+op_get_next_group_member.need_result_type = True
+
+def op_is_group_member_nonzero(memberoffset):
+    from pypy.rpython.lltypesystem import llgroup
+    if isinstance(memberoffset, llgroup.GroupMemberOffset):
+        return memberoffset.index != 0
+    else:
+        assert isinstance(memberoffset, int)
+        return memberoffset != 0
+
+def op_extract_ushort(combinedoffset):
+    from pypy.rpython.lltypesystem import llgroup
+    assert isinstance(combinedoffset, llgroup.CombinedSymbolic)
+    return combinedoffset.lowpart
+
+def op_combine_ushort(ushort, rest):
+    from pypy.rpython.lltypesystem import llgroup
+    return llgroup.CombinedSymbolic(ushort, rest)
+
+def op_gc_gettypeptr_group(TYPE, obj, grpptr, skipoffset, vtableinfo):
+    HDR            = vtableinfo[0]
+    size_gc_header = vtableinfo[1]
+    fieldname      = vtableinfo[2]
+    objaddr = llmemory.cast_ptr_to_adr(obj)
+    hdraddr = objaddr - size_gc_header
+    hdr = llmemory.cast_adr_to_ptr(hdraddr, lltype.Ptr(HDR))
+    typeid = getattr(hdr, fieldname)
+    if lltype.typeOf(typeid) == lltype.Signed:
+        typeid = op_extract_ushort(typeid)
+    return op_get_next_group_member(TYPE, grpptr, typeid, skipoffset)
+op_gc_gettypeptr_group.need_result_type = True
 
 # ____________________________________________________________
 

@@ -389,6 +389,7 @@ class InstanceRepr(AbstractInstanceRepr):
                                                   OBJECT, destrptr)
             vtable = self.rclass.getvtable()
             self.rtyper.type_for_typeptr[vtable._obj] = self.lowleveltype.TO
+            self.rtyper.lltype2vtable[self.lowleveltype.TO] = vtable
 
     def common_repr(self): # -> object or nongcobject reprs
         return getinstancerepr(self.rtyper, None, self.gcflavor)

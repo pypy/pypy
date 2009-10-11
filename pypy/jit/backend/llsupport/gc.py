@@ -295,7 +295,7 @@ class GcRootMap_asmgcc:
 class GcLLDescr_framework(GcLLDescription):
 
     def __init__(self, gcdescr, translator, llop1=llop):
-        from pypy.rpython.memory.gc.base import choose_gc_from_config
+        from pypy.rpython.memory.gctypelayout import _check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
         GcLLDescription.__init__(self, gcdescr, translator)
@@ -322,14 +322,15 @@ class GcLLDescr_framework(GcLLDescription):
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
-        self.layoutbuilder = framework.TransformerLayoutBuilder()
+        self.layoutbuilder = framework.JITTransformerLayoutBuilder(
+            gcdescr.config)
         self.layoutbuilder.delay_encoding()
         self.translator._jit2gc = {
             'layoutbuilder': self.layoutbuilder,
             'gcmapstart': lambda: gcrootmap.gcmapstart(),
             'gcmapend': lambda: gcrootmap.gcmapend(),
             }
-        self.GCClass, _ = choose_gc_from_config(gcdescr.config)
+        self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
@@ -342,7 +343,10 @@ class GcLLDescr_framework(GcLLDescription):
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
 
         # make a malloc function, with three arguments
-        def malloc_basic(size, type_id, has_finalizer):
+        def malloc_basic(size, tid):
+            type_id = llop.extract_ushort(rffi.USHORT, tid)
+            has_finalizer = bool(tid & (1<<16))
+            _check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size, True,
                                                   has_finalizer, False)
@@ -351,11 +355,13 @@ class GcLLDescr_framework(GcLLDescription):
             return res
         self.malloc_basic = malloc_basic
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
-            [lltype.Signed, lltype.Signed, lltype.Bool], llmemory.GCREF))
+            [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
         #
-        def malloc_array(itemsize, type_id, num_elem):
+        def malloc_array(itemsize, tid, num_elem):
+            type_id = llop.extract_ushort(rffi.USHORT, tid)
+            _check_typeid(type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
                 type_id, num_elem, self.array_basesize, itemsize,
@@ -391,31 +397,24 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
-        from pypy.rpython.memory.gctypelayout import weakpointer_offset
         type_id = self.layoutbuilder.get_type_id(S)
+        assert not self.layoutbuilder.is_weakref(type_id)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
-        assert weakpointer_offset(S) == -1     # XXX
-        descr.type_id = type_id
-        descr.has_finalizer = has_finalizer
+        flags = int(has_finalizer) << 16
+        descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
 
     def init_array_descr(self, A, descr):
         type_id = self.layoutbuilder.get_type_id(A)
-        descr.type_id = type_id
+        descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def gc_malloc(self, sizedescr):
         assert isinstance(sizedescr, BaseSizeDescr)
-        size = sizedescr.size
-        type_id = sizedescr.type_id
-        has_finalizer = sizedescr.has_finalizer
-        assert type_id > 0
-        return self.malloc_basic(size, type_id, has_finalizer)
+        return self.malloc_basic(sizedescr.size, sizedescr.tid)
 
     def gc_malloc_array(self, arraydescr, num_elem):
         assert isinstance(arraydescr, BaseArrayDescr)
         itemsize = arraydescr.get_item_size(self.translate_support_code)
-        type_id = arraydescr.type_id
-        assert type_id > 0
-        return self.malloc_array(itemsize, type_id, num_elem)
+        return self.malloc_array(itemsize, arraydescr.tid, num_elem)
 
     def gc_malloc_str(self, num_elem):
         return self.malloc_str(num_elem)
@@ -425,16 +424,12 @@ class GcLLDescr_framework(GcLLDescription):
 
     def args_for_new(self, sizedescr):
         assert isinstance(sizedescr, BaseSizeDescr)
-        size = sizedescr.size
-        type_id = sizedescr.type_id
-        has_finalizer = sizedescr.has_finalizer
-        return [size, type_id, has_finalizer]
+        return [sizedescr.size, sizedescr.tid]
 
     def args_for_new_array(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
         itemsize = arraydescr.get_item_size(self.translate_support_code)
-        type_id = arraydescr.type_id
-        return [itemsize, type_id]
+        return [itemsize, arraydescr.tid]
 
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)

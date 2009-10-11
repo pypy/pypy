@@ -34,6 +34,7 @@
 #ifndef AVR
 #include "src/unichar.h"
 #endif
+#include "src/llgroup.h"
 
 #include "src/instrument.h"
 

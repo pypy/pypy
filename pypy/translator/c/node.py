@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import \
      GcStruct, GcArray, RttiStruct, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
      RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
-from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.lltypesystem import llmemory, llgroup
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
@@ -67,6 +67,12 @@ class StructDefNode:
                                                   bare=True)
             self.prefix = somelettersfrom(STRUCT._name) + '_'
         self.dependencies = {}
+        #
+        self.fieldnames = STRUCT._names
+        if STRUCT._hints.get('typeptr', False):
+            if db.gcpolicy.need_no_typeptr():
+                assert self.fieldnames == ('typeptr',)
+                self.fieldnames = ()
 
     def setup(self):
         # this computes self.fields
@@ -80,7 +86,7 @@ class StructDefNode:
         if needs_gcheader(self.STRUCT):
             for fname, T in db.gcpolicy.struct_gcheader_definition(self):
                 self.fields.append((fname, db.gettype(T, who_asks=self)))
-        for name in STRUCT._names:
+        for name in self.fieldnames:
             T = self.c_struct_field_type(name)
             if name == STRUCT._arrayfld:
                 typename = db.gettype(T, varlength=self.varlength,
@@ -147,8 +153,7 @@ class StructDefNode:
             yield line
 
     def visitor_lines(self, prefix, on_field):
-        STRUCT = self.STRUCT
-        for name in STRUCT._names:
+        for name in self.fieldnames:
             FIELD_T = self.c_struct_field_type(name)
             cname = self.c_struct_field_name(name)
             for line in on_field('%s.%s' % (prefix, cname),
@@ -157,8 +162,7 @@ class StructDefNode:
 
     def debug_offsets(self):
         # generate number exprs giving the offset of the elements in the struct
-        STRUCT = self.STRUCT
-        for name in STRUCT._names:
+        for name in self.fieldnames:
             FIELD_T = self.c_struct_field_type(name)
             if FIELD_T is Void:
                 yield '-1'
@@ -464,11 +468,15 @@ class ContainerNode(object):
         return hasattr(self.T, "_hints") and self.T._hints.get('thread_local')
 
     def forward_declaration(self):
+        if llgroup.member_of_group(self.obj):
+            return
         yield '%s;' % (
             forward_cdecl(self.implementationtypename,
                 self.name, self.db.standalone, self.is_thread_local()))
 
     def implementation(self):
+        if llgroup.member_of_group(self.obj):
+            return []
         lines = list(self.initializationexpr())
         lines[0] = '%s = %s' % (
             cdecl(self.implementationtypename, self.name, self.is_thread_local()),
@@ -514,7 +522,7 @@ class StructNode(ContainerNode):
             for i, thing in enumerate(self.db.gcpolicy.struct_gcheader_initdata(self)):
                 data.append(('gcheader%d'%i, thing))
         
-        for name in self.T._names:
+        for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
         
         # Reasonably, you should only initialise one of the fields of a union
@@ -898,6 +906,67 @@ def weakrefnode_factory(db, T, obj):
     #obj._converted_weakref = container     # hack for genllvm :-/
     return db.getcontainernode(container, _dont_write_c_code=False)
 
+class GroupNode(ContainerNode):
+    nodekind = 'group'
+    count_members = None
+
+    def __init__(self, *args):
+        ContainerNode.__init__(self, *args)
+        self.implementationtypename = 'struct group_%s_s @' % self.name
+
+    def basename(self):
+        return self.obj.name
+
+    def enum_dependencies(self):
+        # note: for the group used by the GC, it can grow during this phase,
+        # which means that we might not return all members yet.  This is
+        # fixed by finish_tables() in rpython/memory/gctransform/framework.py
+        for member in self.obj.members:
+            yield member._as_ptr()
+
+    def _fix_members(self):
+        if self.obj.outdated:
+            raise Exception(self.obj.outdated)
+        if self.count_members is None:
+            self.count_members = len(self.obj.members)
+        else:
+            # make sure no new member showed up, because it's too late
+            assert len(self.obj.members) == self.count_members
+
+    def forward_declaration(self):
+        self._fix_members()
+        yield ''
+        ctype = ['%s {' % cdecl(self.implementationtypename, '')]
+        for i, member in enumerate(self.obj.members):
+            structtypename = self.db.gettype(typeOf(member))
+            ctype.append('\t%s;' % cdecl(structtypename, 'member%d' % i))
+        ctype.append('} @')
+        ctype = '\n'.join(ctype)
+        yield '%s;' % (
+            forward_cdecl(ctype, self.name, self.db.standalone,
+                          self.is_thread_local()))
+        yield '#include "src/llgroup.h"'
+        yield 'PYPY_GROUP_CHECK_SIZE(%s);' % self.name
+        for i, member in enumerate(self.obj.members):
+            structnode = self.db.getcontainernode(member)
+            yield '#define %s %s.member%d' % (structnode.name,
+                                              self.name, i)
+        yield ''
+
+    def initializationexpr(self):
+        self._fix_members()
+        lines = ['{']
+        lasti = len(self.obj.members) - 1
+        for i, member in enumerate(self.obj.members):
+            structnode = self.db.getcontainernode(member)
+            lines1 = list(structnode.initializationexpr())
+            lines1[0] += '\t/* member%d: %s */' % (i, structnode.name)
+            if i != lasti:
+                lines1[-1] += ','
+            lines.extend(lines1)
+        lines.append('}')
+        return lines
+
 
 ContainerNodeFactory = {
     Struct:       StructNode,
@@ -909,4 +978,5 @@ ContainerNodeFactory = {
     OpaqueType:   opaquenode_factory,
     PyObjectType: PyObjectNode,
     llmemory._WeakRefType: weakrefnode_factory,
+    llgroup.GroupType: GroupNode,
     }

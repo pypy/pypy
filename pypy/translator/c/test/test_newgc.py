@@ -16,6 +16,7 @@ from pypy import conftest
 class TestUsingFramework(object):
     gcpolicy = "marksweep"
     should_be_moving = False
+    removetypeptr = False
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
 
@@ -25,6 +26,7 @@ class TestUsingFramework(object):
     def _makefunc2(cls, f):
         t = Translation(f, [int, int], gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy())
+        t.config.translation.gcconfig.removetypeptr = cls.removetypeptr
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_isolated=True, c_debug_defines=True)
         t.rtype()
@@ -795,6 +797,9 @@ class TestHybridGC(TestGenerationalGC):
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")
+
+class TestHybridGCRemoveTypePtr(TestHybridGC):
+    removetypeptr = True
 
 class TestMarkCompactGC(TestSemiSpaceGC):
     gcpolicy = "markcompact"

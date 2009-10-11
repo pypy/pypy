@@ -1,5 +1,6 @@
 import random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
@@ -119,8 +120,9 @@ class FakeLLOp:
         assert not contains_weakptr
         p = llmemory.raw_malloc(size)
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-        self.record.append(("fixedsize", type_id, repr(size),
-                            has_finalizer, p))
+        flags = int(has_finalizer) << 16
+        tid = llop.combine_ushort(lltype.Signed, type_id, flags)
+        self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
     def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
@@ -129,7 +131,8 @@ class FakeLLOp:
         p = llmemory.raw_malloc(size + itemsize * length)
         (p + offset_to_length).signed[0] = length
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-        self.record.append(("varsize", type_id, length,
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
+        self.record.append(("varsize", tid, length,
                             repr(size), repr(itemsize),
                             repr(offset_to_length), p))
         return p
@@ -165,42 +168,57 @@ class TestFramework:
         self.gc_ll_descr = gc_ll_descr
         self.fake_cpu = FakeCPU()
 
+    def test_args_for_new(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        sizedescr = get_size_descr(self.gc_ll_descr, S)
+        args = self.gc_ll_descr.args_for_new(sizedescr)
+        for x in args:
+            assert lltype.typeOf(x) == lltype.Signed
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = get_array_descr(self.gc_ll_descr, A)
+        args = self.gc_ll_descr.args_for_new(sizedescr)
+        for x in args:
+            assert lltype.typeOf(x) == lltype.Signed
+
     def test_gc_malloc(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         sizedescr = get_size_descr(self.gc_ll_descr, S)
         p = self.gc_ll_descr.gc_malloc(sizedescr)
-        assert self.llop1.record == [("fixedsize", sizedescr.type_id,
-                                      repr(sizedescr.size), False, p)]
+        assert self.llop1.record == [("fixedsize",
+                                      repr(sizedescr.size),
+                                      sizedescr.tid, p)]
         assert repr(self.gc_ll_descr.args_for_new(sizedescr)) == repr(
-            [sizedescr.size, sizedescr.type_id, False])
+            [sizedescr.size, sizedescr.tid])
 
     def test_gc_malloc_array(self):
         A = lltype.GcArray(lltype.Signed)
         arraydescr = get_array_descr(self.gc_ll_descr, A)
         p = self.gc_ll_descr.gc_malloc_array(arraydescr, 10)
-        assert self.llop1.record == [("varsize", arraydescr.type_id, 10,
+        assert self.llop1.record == [("varsize", arraydescr.tid, 10,
                                       repr(arraydescr.get_base_size(True)),
                                       repr(arraydescr.get_item_size(True)),
                                       repr(arraydescr.get_ofs_length(True)),
                                       p)]
         assert repr(self.gc_ll_descr.args_for_new_array(arraydescr)) == repr(
-            [arraydescr.get_item_size(True), arraydescr.type_id])
+            [arraydescr.get_item_size(True), arraydescr.tid])
 
     def test_gc_malloc_str(self):
         p = self.gc_ll_descr.gc_malloc_str(10)
         type_id = self.gc_ll_descr.layoutbuilder.get_type_id(rstr.STR)
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                                                   True)
-        assert self.llop1.record == [("varsize", type_id, 10,
+        assert self.llop1.record == [("varsize", tid, 10,
                                       repr(basesize), repr(itemsize),
                                       repr(ofs_length), p)]
 
     def test_gc_malloc_unicode(self):
         p = self.gc_ll_descr.gc_malloc_unicode(10)
         type_id = self.gc_ll_descr.layoutbuilder.get_type_id(rstr.UNICODE)
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                                                   True)
-        assert self.llop1.record == [("varsize", type_id, 10,
+        assert self.llop1.record == [("varsize", tid, 10,
                                       repr(basesize), repr(itemsize),
                                       repr(ofs_length), p)]
 

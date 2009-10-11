@@ -753,7 +753,7 @@ def auto_inlining(translator, threshold=None,
                 subcount = inline_function(translator, graph, parentgraph,
                                            lltype_to_classdef, raise_analyzer,
                                            call_count_pred, cleanup=False)
-                to_cleanup[graph] = True
+                to_cleanup[parentgraph] = True
                 res = bool(subcount)
             except CannotInline:
                 try_again[graph] = True

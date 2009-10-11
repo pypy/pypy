@@ -14,8 +14,9 @@ struct rpy_memory_alignment_test2 {
   struct rpy_memory_alignment_test1 s;
 };
 #define MEMORY_ALIGNMENT	offsetof(struct rpy_memory_alignment_test2, s)
-#define ROUND_UP_FOR_ALLOCATION(x)	\
-		(((x) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1))
+#define ROUND_UP_FOR_ALLOCATION(x, minsize)  \
+  ((((x)>=(minsize)?(x):(minsize))           \
+               + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1))
 
 extern char __gcmapstart;
 extern char __gcmapend;

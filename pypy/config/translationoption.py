@@ -69,7 +69,9 @@ translation_optiondescription = OptionDescription(
                  }),
     OptionDescription("gcconfig", "Configure garbage collectors", [
         BoolOption("debugprint", "Turn on debug printing for the GC",
-                   default=False)
+                   default=False),
+        BoolOption("removetypeptr", "Remove the typeptr from every object",
+                   default=False, cmdline="--gcremovetypeptr"),
         ]),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
@@ -95,7 +97,8 @@ translation_optiondescription = OptionDescription(
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
                default=False,
-               requires=[("translation.thread", False)],
+               requires=[("translation.thread", False),
+                         ("translation.gcconfig.removetypeptr", False)],
                suggests=[("translation.gc", "hybrid"),     # or "boehm"
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
@@ -315,7 +318,7 @@ OPT_TABLE = {
     '0':    'boehm       nobackendopt',
     '1':    'boehm       lowinline',
     'size': 'boehm       lowinline     remove_asserts',
-    'mem':  'markcompact lowinline     remove_asserts',
+    'mem':  'markcompact lowinline     remove_asserts    removetypeptr',
     '2':    'hybrid      extraopts',
     '3':    'hybrid      extraopts     remove_asserts',
     'jit':  'hybrid      extraopts     jit',
@@ -355,6 +358,8 @@ def set_opt_level(config, level):
             config.translation.suggest(withsmallfuncsets=5)
         elif word == 'jit':
             config.translation.suggest(jit=True)
+        elif word == 'removetypeptr':
+            config.translation.gcconfig.suggest(removetypeptr=True)
         else:
             raise ValueError(word)
 

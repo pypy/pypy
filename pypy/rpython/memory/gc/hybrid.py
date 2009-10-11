@@ -222,7 +222,6 @@ class HybridGC(GenerationGC):
     def realloc(self, ptr, newlength, fixedsize, itemsize, lengthofs, grow):
         size_gc_header = self.size_gc_header()
         addr = llmemory.cast_ptr_to_adr(ptr)
-        tid = self.get_type_id(addr)
         nonvarsize = size_gc_header + fixedsize
         try:
             varsize = ovfcheck(itemsize * newlength)
@@ -375,7 +374,7 @@ class HybridGC(GenerationGC):
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_UNVISITED:
             # This is a not-visited-yet raw_malloced object.
-            hdr.tid -= GCFLAG_UNVISITED
+            hdr.tid &= ~GCFLAG_UNVISITED
             self.rawmalloced_objects_to_trace.append(obj)
 
     def make_a_copy(self, obj, objsize):

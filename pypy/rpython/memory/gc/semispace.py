@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -13,7 +13,6 @@ from pypy.rpython.memory.gc.base import MovingGCBase
 
 import sys, os, time
 
-TYPEID_MASK = 0xffff
 first_gcflag = 1 << 16
 GCFLAG_FORWARDED = first_gcflag
 # GCFLAG_EXTERNAL is set on objects not living in the semispace:
@@ -22,6 +21,7 @@ GCFLAG_EXTERNAL = first_gcflag << 1
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 2
 
 memoryError = MemoryError()
+
 
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
@@ -32,10 +32,13 @@ class SemiSpaceGC(MovingGCBase):
     total_collection_time = 0.0
     total_collection_count = 0
 
-    HDR = lltype.Struct('header', ('tid', lltype.Signed))
+    HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
+    typeid_is_in_field = 'tid'
     FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                                   ('forw', llmemory.Address))
     FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
+
+    object_minimal_size = llmemory.sizeof(FORWARDSTUB)
 
     # the following values override the default arguments of __init__ when
     # translating to a real backend.
@@ -64,7 +67,7 @@ class SemiSpaceGC(MovingGCBase):
     # This class only defines the malloc_{fixed,var}size_clear() methods
     # because the spaces are filled with zeroes in advance.
 
-    def malloc_fixedsize_clear(self, typeid, size, can_collect,
+    def malloc_fixedsize_clear(self, typeid16, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
@@ -74,7 +77,7 @@ class SemiSpaceGC(MovingGCBase):
                 raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
-        self.init_gc_object(result, typeid)
+        self.init_gc_object(result, typeid16)
         self.free = result + totalsize
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
@@ -82,7 +85,7 @@ class SemiSpaceGC(MovingGCBase):
             self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+    def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length, can_collect):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
@@ -97,7 +100,7 @@ class SemiSpaceGC(MovingGCBase):
                 raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
-        self.init_gc_object(result, typeid)
+        self.init_gc_object(result, typeid16)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.free = result + llarena.round_up_for_allocation(totalsize)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -385,6 +388,9 @@ class SemiSpaceGC(MovingGCBase):
         stub = llmemory.cast_adr_to_ptr(obj, self.FORWARDSTUBPTR)
         stub.forw = newobj
 
+    def combine(self, typeid16, flags):
+        return llop.combine_ushort(lltype.Signed, typeid16, flags)
+
     def get_type_id(self, addr):
         tid = self.header(addr).tid
         ll_assert(tid & (GCFLAG_FORWARDED|GCFLAG_EXTERNAL) != GCFLAG_FORWARDED,
@@ -393,15 +399,16 @@ class SemiSpaceGC(MovingGCBase):
         # Although calling get_type_id() on a forwarded object works by itself,
         # we catch it as an error because it's likely that what is then
         # done with the typeid is bogus.
-        return tid & TYPEID_MASK
+        return llop.extract_ushort(rffi.USHORT, tid)
 
-    def init_gc_object(self, addr, typeid, flags=0):
+    def init_gc_object(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | flags
+        hdr.tid = self.combine(typeid16, flags)
 
-    def init_gc_object_immortal(self, addr, typeid, flags=0):
+    def init_gc_object_immortal(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | flags | GCFLAG_EXTERNAL | GCFLAG_FORWARDED
+        flags |= GCFLAG_EXTERNAL | GCFLAG_FORWARDED
+        hdr.tid = self.combine(typeid16, flags)
         # immortal objects always have GCFLAG_FORWARDED set;
         # see get_forwarding_address().
 

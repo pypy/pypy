@@ -869,7 +869,10 @@ class LLFrame(object):
         assert v_ptr.concretetype.TO._gckind == 'gc'
         newaddr = self.getval(v_newaddr)
         p = llmemory.cast_adr_to_ptr(newaddr, v_ptr.concretetype)
-        self.setvar(v_ptr, p)
+        if isinstance(v_ptr, Constant):
+            assert v_ptr.value == p
+        else:
+            self.setvar(v_ptr, p)
     op_gc_reload_possibly_moved.specialform = True
 
     def op_gc_id(self, v_ptr):
