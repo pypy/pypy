@@ -1,7 +1,6 @@
 
 import ctypes
 from pypy.rpython.tool.mkrffi import *
-from pypy.rpython.tool.test.test_c import TestBasic
 import py
 
 class random_structure(ctypes.Structure):
@@ -54,7 +53,30 @@ def test_proc_cyclic_structure():
     """)
     assert rffi_source.source.strip() == _src.strip()
 
-class TestMkrffi(TestBasic):
+class TestMkrffi(object):
+    def setup_class(cls):
+        import ctypes
+        from pypy.tool.udir import udir
+        from pypy.translator.platform import platform
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        
+        c_source = """
+        void *int_to_void_p(int arg) {}
+
+        struct random_strucutre {
+          int one;
+          int *two;
+        };
+
+        struct random_structure* int_int_to_struct_p(int one, int two) {}
+        """
+
+        c_file = udir.join('rffilib.c')
+        c_file.write(c_source)
+        libname = platform.compile([c_file], ExternalCompilationInfo(),
+                                   standalone=False)
+        cls.lib = ctypes.CDLL(str(libname))
+    
     def test_single_func(self):
         func = self.lib.int_to_void_p
         func.argtypes = [ctypes.c_int]
