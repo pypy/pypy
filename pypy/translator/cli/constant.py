@@ -288,7 +288,7 @@ class CLICustomDictConst(CLIDictMixin, CustomDictConst):
 class CLIStaticMethodConst(CLIBaseConstMixin, StaticMethodConst):
     def create_pointer(self, gen):
         assert not self.is_null()
-        signature = self.cts.graph_to_signature(self.value.graph)
+        signature = self.cts.static_meth_to_signature(self.value)
         gen.ilasm.opcode('ldnull')
         gen.ilasm.opcode('ldftn', signature)
         gen.ilasm.new('instance void class %s::.ctor(object, native int)' % self.delegate_type)

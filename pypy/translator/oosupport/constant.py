@@ -748,7 +748,8 @@ class StaticMethodConst(AbstractConst):
     def record_dependencies(self):
         if self.value is ootype.null(self.value._TYPE):
             return
-        self.db.pending_function(self.value.graph)
+        if hasattr(self.value, 'graph'):
+            self.db.pending_function(self.value.graph)
         self.delegate_type = self.db.record_delegate(self.value._TYPE)
 
     def initialize_data(self, constgen, gen):

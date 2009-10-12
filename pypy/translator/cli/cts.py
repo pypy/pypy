@@ -305,20 +305,33 @@ class CTS(object):
     def ctor_name(self, t):
         return 'instance void %s::.ctor()' % self.lltype_to_cts(t)
 
+    def static_meth_to_signature(self, sm):
+        from pypy.translator.oosupport import metavm
+        graph = getattr(sm, 'graph', None)
+        if graph:
+            return self.graph_to_signature(graph)
+        module, name = metavm.get_primitive_name(sm)
+        func_name = '[pypylib]pypy.builtin.%s::%s' % (module, name)
+        T = ootype.typeOf(sm)
+        return self.format_signatue(func_name, T.ARGS, T.RESULT)
+
     def graph_to_signature(self, graph, is_method = False, func_name = None):
-        ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
         func_name = func_name or graph.name
         func_name = self.escape_name(func_name)
         namespace = getattr(graph.func, '_namespace_', None)
         if namespace:
             func_name = '%s::%s' % (namespace, func_name)
 
-        args = [arg for arg in graph.getargs() if arg.concretetype is not ootype.Void]
+        ARGS = [arg.concretetype for arg in graph.getargs() if arg.concretetype is not ootype.Void]
         if is_method:
-            args = args[1:]
+            ARGS = ARGS[1:]
+        RESULT = graph.getreturnvar().concretetype
+        return self.format_signatue(func_name, ARGS, RESULT)
 
-        arg_types = [self.lltype_to_cts(arg.concretetype).typename() for arg in args]
+    def format_signatue(self, func_name, ARGS, RESULT):
+        arg_types = [self.lltype_to_cts(ARG).typename() for ARG in ARGS]
         arg_list = ', '.join(arg_types)
+        ret_type = self.lltype_to_cts(RESULT)
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
 

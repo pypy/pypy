@@ -437,23 +437,23 @@ class BranchIfFalse(MicroInstruction):
         generator.branch_conditionally(False, self.label)
 
 
-class _Call(MicroInstruction):
+def get_primitive_name(sm):
+    try:
+        sm.graph
+        return None
+    except AttributeError:
+        pass
+    try:
+        return 'rffi', sm._obj.oo_primitive
+    except AttributeError:
+        pass
+    return sm._name.rsplit('.', 1)
 
-    def _get_primitive_name(self, callee):
-        try:
-            callee.graph
-            return None
-        except AttributeError:
-            pass
-        try:
-            return 'rffi', callee._obj.oo_primitive
-        except AttributeError:
-            pass
-        return callee._name.rsplit('.', 1)
+class _Call(MicroInstruction):
         
     def render(self, generator, op):
         callee = op.args[0].value
-        is_primitive = self._get_primitive_name(callee)
+        is_primitive = get_primitive_name(callee)
 
         if is_primitive:
             module, name = is_primitive
