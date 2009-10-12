@@ -451,9 +451,9 @@ class BaseTestRdict(BaseRtypingTest):
     def test_tuple_dict(self):
         def f(i):
             d = {}
-            d[(1, 2)] = 4
-            d[(1, 3)] = 6
-            return d[(1, i)]
+            d[(1, 4.5, (str(i), 2), 2)] = 4
+            d[(1, 4.5, (str(i), 2), 3)] = 6
+            return d[(1, 4.5, (str(i), 2), i)]
 
         res = self.interpret(f, [2])
         assert res == f(2)
