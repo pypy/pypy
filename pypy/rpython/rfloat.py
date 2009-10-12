@@ -152,12 +152,13 @@ def ll_hash_float(f):
     This should be special-cased in W_FloatObject.
     In the low-level case, floats cannot be used with ints in dicts, anyway.
     """
+    from pypy.rlib.rarithmetic import intmask
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)
     v = (v - float(hipart)) * TAKE_NEXT
     x = hipart + int(v) + (expo << 15)
-    return x
+    return intmask(x)
 #
 # _________________________ Conversions _________________________
 

@@ -556,6 +556,14 @@ class BaseTestRdict(BaseRtypingTest):
             return d['a']
         assert self.interpret(func, []) == 42
 
+    def test_dict_of_floats(self):
+        d = {3.0: 42, 3.1: 43, 3.2: 44, 3.3: 45, 3.4: 46}
+        def fn(f):
+            return d[f]
+
+        res = self.interpret(fn, [3.0])
+        assert res == 42
+
 
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
