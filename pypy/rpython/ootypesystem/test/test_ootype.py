@@ -655,10 +655,10 @@ def test_bool_default_sm():
     sm = SM._defl()
     assert not bool(sm)
 
-def test_get_fields_with_different_default():
-    A = Instance("A", ROOT, {"a": (Signed, 3),
-                             "b": (Signed, 0),
-                             "c": (ROOT, ROOT._defl())
-                             })
-    fields = A._get_fields_with_different_default()
-    assert fields == [("a", (Signed, 3))]
+def test_get_fields_with_default():
+    A = Instance("A", ROOT)
+    addFields(A, {"a": (Signed, 3)}, with_default=True)
+    addFields(A, {"b": (Signed, 0)}, with_default=True)
+    addFields(A, {"c": (Signed, 0)}, with_default=False)
+    fields = A._fields_with_default
+    assert fields == [("a", (Signed, 3)), ("b", (Signed, 0))]

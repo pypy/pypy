@@ -94,6 +94,7 @@ class Instance(OOType):
         self._methods = frozendict()
         self._fields = frozendict()
         self._overridden_defaults = frozendict()
+        self._fields_with_default = []
 
         self._add_fields(fields)
         self._add_methods(methods)
@@ -145,7 +146,7 @@ class Instance(OOType):
             stack += item._subclasses
         return res
 
-    def _add_fields(self, fields):
+    def _add_fields(self, fields, with_default=False):
         fields = fields.copy()    # mutated below
         for name, defn in fields.iteritems():
             _, meth = self._lookup(name)
@@ -171,6 +172,8 @@ class Instance(OOType):
                     raise TypeError("Expected type %r for default" % (ootype,))
 
         self._fields.update(fields)
+        if with_default:
+            self._fields_with_default.extend(fields.items())
 
     def _override_default_for_fields(self, fields):
         # sanity check
@@ -257,15 +260,6 @@ class Instance(OOType):
         for SUBTYPE in self._subclasses:
             graphs.update(SUBTYPE._lookup_graphs(meth_name))
         return graphs
-
-    def _get_fields_with_different_default(self):
-        fields = []
-        example = self._example()
-        for field in self._allfields().iteritems():
-            name, (T, value) = field
-            if T._defl() != value:
-                fields.append(field)
-        return fields
 
 
 class SpecializableType(OOType):
@@ -1854,8 +1848,8 @@ def subclassof(class1, class2):
     assert class2 is not nullruntimeclass
     return isSubclass(class1._INSTANCE, class2._INSTANCE)
 
-def addFields(INSTANCE, fields):
-    INSTANCE._add_fields(fields)
+def addFields(INSTANCE, fields, with_default=False):
+    INSTANCE._add_fields(fields, with_default)
 
 def addMethods(INSTANCE, methods):
     INSTANCE._add_methods(methods)

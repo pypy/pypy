@@ -59,3 +59,7 @@ def test_bool_nonconst():
     assert s.knowntype is bool
     assert not hasattr(s, 'const')
 
+    rtyper = a.translator.buildrtyper(type_system="ootype")
+    rtyper.specialize()
+    if option.view:
+        a.translator.view()

@@ -304,14 +304,14 @@ class InstanceRepr(AbstractInstanceRepr):
         self.allmethods = allmethods
         self.allclassattributes = allclassattributes
         self.classattributes = classattributes
-
         # the following is done after the rest of the initialization because
         # convert_const can require 'self' to be fully initialized.
 
         # step 2: provide default values for fields
         for mangled, impl in fielddefaults.items():
             oot = fields[mangled]
-            ootype.addFields(self.lowleveltype, {mangled: (oot, impl)})
+            ootype.addFields(self.lowleveltype, {mangled: (oot, impl)},
+                             with_default=True)
 
     def _setup_repr_final(self):
         if self.classdef is None:

@@ -345,17 +345,23 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
     def test_class_with_default_fields(self):
         class MyClass:
             value = 2
+            value2 = 0
+
+            def __init__(self):
+                self.xxx = 4
 
         myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
         def f(n):
             res = 0
             node = MyClass()
-            node.value = n # so that the annotator doesn't think that value is constant
+            node.value = n  # so that the annotator doesn't think that value is constant
+            node.value2 = n # ditto
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, res=res)
                 myjitdriver.jit_merge_point(n=n, res=res)
                 node = MyClass()
                 res += node.value
+                res += node.value2
                 n -= 1
             return res
         assert f(10) == 20
