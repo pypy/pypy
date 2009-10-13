@@ -747,11 +747,12 @@ class BytecodeMaker(object):
             fields = TYPE._get_fields_with_default()
             var_inst = self.var_position(op.result)
             for name, (T, value) in fields:
-                descr = self.cpu.fielddescrof(TYPE, name)
-                self.emit('setfield_gc')
-                self.emit(var_inst)
-                self.emit(self.get_position(descr))
-                self.emit(self.var_position(Constant(value)))
+                if T != ootype.Void:
+                    descr = self.cpu.fielddescrof(TYPE, name)
+                    self.emit('setfield_gc')
+                    self.emit(var_inst)
+                    self.emit(self.get_position(descr))
+                    self.emit(self.var_position(Constant(value)))
 
     def serialize_op_oonewarray(self, op):
         ARRAY = op.args[0].value
