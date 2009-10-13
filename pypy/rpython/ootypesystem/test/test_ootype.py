@@ -660,5 +660,16 @@ def test_get_fields_with_default():
     addFields(A, {"a": (Signed, 3)}, with_default=True)
     addFields(A, {"b": (Signed, 0)}, with_default=True)
     addFields(A, {"c": (Signed, 0)}, with_default=False)
-    fields = A._fields_with_default
-    assert fields == [("a", (Signed, 3)), ("b", (Signed, 0))]
+    fields = A._get_fields_with_default()
+    assert fields == [("a", (Signed, 3)),
+                      ("b", (Signed, 0))
+                      ]
+
+    B = Instance("B", A)
+    addFields(B, {"d": (Signed, 4)}, with_default=True)
+    fields = B._get_fields_with_default()
+    assert fields == [("a", (Signed, 3)),
+                      ("b", (Signed, 0)),
+                      ("d", (Signed, 4)),
+                      ]
+

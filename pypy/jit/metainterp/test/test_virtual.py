@@ -347,8 +347,8 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
             value = 2
             value2 = 0
 
-            def __init__(self):
-                self.xxx = 4
+        class Subclass(MyClass):
+            pass
 
         myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
         def f(n):
@@ -359,7 +359,7 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, res=res)
                 myjitdriver.jit_merge_point(n=n, res=res)
-                node = MyClass()
+                node = Subclass()
                 res += node.value
                 res += node.value2
                 n -= 1

@@ -261,6 +261,12 @@ class Instance(OOType):
             graphs.update(SUBTYPE._lookup_graphs(meth_name))
         return graphs
 
+    def _get_fields_with_default(self):
+        if self._superclass is None:
+            return self._fields_with_default[:]
+        return self._superclass._get_fields_with_default() + self._fields_with_default
+
+
 
 class SpecializableType(OOType):
     def _specialize_type(self, TYPE, generic_types):

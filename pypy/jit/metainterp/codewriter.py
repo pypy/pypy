@@ -744,7 +744,7 @@ class BytecodeMaker(object):
         # to the lltype version, so the optimizer doesn't need to take special
         # care for them.
         if isinstance(TYPE, ootype.Instance):
-            fields = TYPE._fields_with_default
+            fields = TYPE._get_fields_with_default()
             var_inst = self.var_position(op.result)
             for name, (T, value) in fields:
                 descr = self.cpu.fielddescrof(TYPE, name)
