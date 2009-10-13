@@ -65,6 +65,37 @@ def test_remove_same_as():
     result = interp.eval_graph(f_graph, [])
     assert result == 42
 
+
+def test_remove_same_as_nonconst():
+    from pypy.rlib.nonconst import NonConstant
+    from pypy.rpython.lltypesystem.lloperation import llop
+    from pypy.rpython.lltypesystem import lltype
+
+    def f():
+        if NonConstant(False):
+            x = llop.same_as(lltype.Signed, 666)
+        return 42
+
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize()
+    f_graph = graphof(t, f)
+    #simple_inline_function(t, nothing, f_graph)
+    # here, the graph looks like  v21=same_as(True);  exitswitch: v21
+    remove_same_as(f_graph)
+    t.checkgraphs()
+    # only one path should be left
+    for block in f_graph.iterblocks():
+        assert len(block.exits) <= 1
+
+    for block in t.annotator.annotated:
+        assert None not in block.operations
+
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(f_graph, [])
+    assert result == 42
+
+
 def test_remove_unaryops():
     # We really want to use remove_unaryops for things like ooupcast and
     # oodowncast in dynamically typed languages, but it's easier to test

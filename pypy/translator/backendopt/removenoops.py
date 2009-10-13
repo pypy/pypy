@@ -8,6 +8,7 @@ def remove_unaryops(graph, opnames):
     """Removes unary low-level ops with a name appearing in the opnames list.
     """
     positions = []
+    touched_blocks = set()
     for block in graph.iterblocks():
         for i, op in enumerate(block.operations):
             if op.opname in opnames:
@@ -37,9 +38,10 @@ def remove_unaryops(graph, opnames):
             else:
                 simplify.replace_exitswitch_by_constant(block, op_arg)
         block.operations[index] = None
-       
+        touched_blocks.add(block)
+        
     # remove all operations
-    for block in graph.iterblocks():
+    for block in touched_blocks:
         if block.operations:
             block.operations[:] = filter(None, block.operations)
 
