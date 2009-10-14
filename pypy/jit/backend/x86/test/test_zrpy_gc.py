@@ -11,7 +11,7 @@ from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.x86.regalloc import X86StackManager
@@ -133,6 +133,7 @@ class TestCompileHybrid(object):
             funcs.append((beforefunc, loopfunc, afterfunc))
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
+        print name_to_func
         def allfuncs(num, n):
             x = X()
             x.foo = 2
@@ -227,12 +228,12 @@ class TestCompileHybrid(object):
     def define_compile_hybrid_3_extra(cls):
         # Extra version of the test, with tons of live vars around the residual
         # call that all contain a GC pointer.
+        @dont_look_inside
         def residual(n=26):
             x = X()
             x.next = X()
             x.next.foo = n
             return x
-        residual._look_inside_me_ = False
         #
         def before(n, x):
             residual(5)
@@ -370,3 +371,40 @@ class TestCompileHybrid(object):
 
     def test_compile_hybrid_7(self):
         self.run('compile_hybrid_7')
+
+    def define_compile_hybrid_external_exception_handling(cls):
+        def before(n, x):
+            x = X(0)
+            return n, x, None, None, None, None, None, None, None, None, None, None        
+
+        @dont_look_inside
+        def g(x):
+            if x > 200:
+                return 2
+            raise ValueError
+        @dont_look_inside
+        def h(x):
+            if x > 150:
+                raise ValueError
+            return 2
+
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            try:
+                x.x += g(n)
+            except ValueError:
+                x.x += 1
+            try:
+                x.x += h(n)
+            except ValueError:
+                x.x -= 1
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+
+        def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            check(x.x == 1800 * 2 + 1850 * 2 + 200 - 150)
+
+        return before, f, None
+
+    def test_compile_hybrid_external_exception_handling(self):
+        self.run('compile_hybrid_external_exception_handling')
+            
