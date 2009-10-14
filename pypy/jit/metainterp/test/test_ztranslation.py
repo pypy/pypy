@@ -1,10 +1,8 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
-from pypy.jit.metainterp.test import test_basic
 from pypy.jit.backend.llgraph import runner
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
-from pypy.jit.conftest import option
 from pypy.jit.metainterp.jitprof import Profiler
 
 class TranslationTest:
@@ -48,7 +46,6 @@ class TranslationTest:
         res = ll_meta_interp(f, [40], CPUClass=self.CPUClass,
                              type_system=self.type_system)
         assert res == f(40)
-        from pypy.jit.metainterp import optimize
         res = rpython_ll_meta_interp(f, [40], loops=2, CPUClass=self.CPUClass,
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
@@ -89,7 +86,6 @@ class TranslationTest:
         res = ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                              type_system=self.type_system)
         assert res == main(40)
-        from pypy.jit.metainterp import optimize
         res = rpython_ll_meta_interp(main, [40], loops=2, CPUClass=self.CPUClass,
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
