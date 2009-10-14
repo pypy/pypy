@@ -103,6 +103,7 @@ def set_param(space, args):
         * set_param(name=value, ...)            # as keyword arguments
         * set_param("name=value,name=value")    # as a user-supplied string
     '''
+    # XXXXXXXXX
     args_w, kwds_w = args.unpack()
     if len(args_w) > 1:
         msg = ("set_param() takes at most 1 non-keyword argument, %d given"

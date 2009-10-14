@@ -6,6 +6,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.objspace.flow.model import Block, Link, Variable, SpaceOperation
 from pypy.objspace.flow.model import Constant, checkgraph
 from pypy.annotation import model as annmodel
+from pypy.interpreter.argument import Signature
 
 def flatten_star_args(funcdesc, args_s):
     argnames, vararg, kwarg = funcdesc.signature
@@ -38,8 +39,8 @@ def flatten_star_args(funcdesc, args_s):
             graph.startblock.isstartblock = False
             graph.startblock = newstartblock
             newstartblock.isstartblock = True
-            argnames += tuple(['.star%d' % i for i in range(nb_extra_args)])
-            graph.signature = argnames, None, None
+            argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
+            graph.signature = Signature(argnames)
             # note that we can mostly ignore defaults: if nb_extra_args > 0, 
             # then defaults aren't applied.  if nb_extra_args == 0, then this 
             # just removes the *arg and the defaults keep their meaning.

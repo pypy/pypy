@@ -2,6 +2,7 @@ import collections
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe
+from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 
@@ -219,8 +220,8 @@ class FlowExecutionContext(ExecutionContext):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
-        frame = pyframe.PyFrame(self.space, self.code,
-                                self.w_globals, self.closure)
+        frame = FlowSpaceFrame(self.space, self.code,
+                               self.w_globals, self.closure)
         frame.last_instr = 0
         return frame
 
@@ -392,3 +393,9 @@ class FlowExecutionContext(ExecutionContext):
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
                     stack_items_w[i] = w_new
+
+class FlowSpaceFrame(pyframe.PyFrame):
+    def make_arguments(self, nargs):
+        return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
+    def argument_factory(self, *args):
+        return ArgumentsForTranslation(self.space, *args)

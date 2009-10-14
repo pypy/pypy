@@ -7,6 +7,7 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis, imp, struct, types, new
 
 from pypy.interpreter import eval
+from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
@@ -49,7 +50,7 @@ def cpython_code_signature(code):
         argcount += 1
     else:
         kwargname = None
-    return argnames, varargname, kwargname
+    return Signature(argnames, varargname, kwargname)
 
 class PyCode(eval.Code):
     "CPython-style code objects."

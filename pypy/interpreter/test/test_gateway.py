@@ -19,24 +19,24 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    'args_w'])
-        assert code.signature() == (['x', 'y'], 'hello', None)
+        assert code.signature() == argument.Signature(['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
                                                    gateway.W_Root], self_type=gateway.Wrappable)
-        assert code.signature() == (['self', 'boo'], None, None)
+        assert code.signature() == argument.Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
         code = gateway.BuiltinCode(e, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    gateway.Arguments])
-        assert code.signature() == (['x', 'y'], 'args', 'keywords')
+        assert code.signature() == argument.Signature(['x', 'y'], 'args', 'keywords')
 
         def f(space, index):
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
-        assert code.signature() == (["index"], None, None)
+        assert code.signature() == argument.Signature(["index"], None, None)
 
 
     def test_call(self):
@@ -77,7 +77,7 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.Arguments])
         w = self.space.wrap
-        args = argument.Arguments(self.space, [w(123), w(23)], {},
+        args = argument.Arguments(self.space, [w(123), w(23)], [], [],
                                   w_stararg = w((0, True)),
                                   w_starstararg = w({'boo': 10}))
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
@@ -116,8 +116,7 @@ class TestGateway:
         gg = gateway.app2interp_temp(app_general)
         args = gateway.Arguments(self.space, [w(6), w(7)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 23
-        args = gateway.Arguments(self.space, [w(6)], {'hello': w(7),
-                                                      'world': w(8)})
+        args = gateway.Arguments(self.space, [w(6)], ['hello', 'world'], [w(7), w(8)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 213
 
     def test_interp2app(self):
@@ -593,7 +592,7 @@ class TestPassThroughArguments:
         w_res = space.call_function(w_g, w_self)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self'))))
         assert len(called) == 1
-        assert isinstance(called[0], argument.AbstractArguments)        
+        assert isinstance(called[0], argument.Arguments)        
         called = []
         
         w_res = space.appexec([w_g], """(g):
@@ -601,7 +600,7 @@ class TestPassThroughArguments:
         """)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 11))))
         assert len(called) == 1
-        assert isinstance(called[0], argument.AbstractArguments)                
+        assert isinstance(called[0], argument.Arguments)                
         called = []
 
         w_res = space.appexec([w_g], """(g):
@@ -617,7 +616,7 @@ y = a.m(33)
         """)
         assert space.is_true(w_res)
         assert len(called) == 1
-        assert isinstance(called[0], argument.AbstractArguments)
+        assert isinstance(called[0], argument.Arguments)
 
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
 

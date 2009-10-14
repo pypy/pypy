@@ -129,8 +129,18 @@ class CPythonFakeCode(eval.Code):
         eval.Code.__init__(self, getattr(cpy_callable, '__name__', '?'))
         self.cpy_callable = cpy_callable
         assert callable(cpy_callable), cpy_callable
+
     def signature(self):
-        return [], 'args', 'kwds'
+        return argument.Signature([], 'args', 'kwds')
+
+    def funcrun(self, func, args):
+        frame = func.space.createframe(self, func.w_func_globals,
+                                        func.closure)
+        sig = self.signature()
+        scope_w = args.parse_obj(None, func.name, sig, func.defs_w)
+        frame.setfastscope(scope_w)
+        return frame.run()
+    
 
 class CPythonFakeFrame(eval.Frame):
 

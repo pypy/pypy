@@ -1,96 +1,38 @@
-TESTNAME = 'test_builtin'
+base = object
 
+class Number(base):
+    __slots__ = ('val', )
+    def __init__(self, val=0):
+        self.val = val
 
-def do():
-    __import__('test.' + TESTNAME)
-    print "---ending 1---"
+    def __add__(self, other):
+        if not isinstance(other, int):
+            other = other.val
+        return Number(val=self.val + other)
+            
+    def __cmp__(self, other):
+        val = self.val
+        if not isinstance(other, int):
+            other = other.val
+        return cmp(val, other)
 
-class A(object):
-    def __init__(self, x):
-        self.x = x
-        self.y = x
-        self.count = 0
+    def __nonzero__(self):
+        return bool(self.val)
 
-    def increment(self):
-        self.count += 1
-        count = self.count
-        self.reset(self.count)
-        self.count += count
-    
-    def reset(self, howmuch):
-        for i in range(howmuch):
-            self.count -= 1
+def g(x, inc=2):
+    return x + inc
 
-    def f(self):
-        self.increment()
-        return self.x + self.y + 1
+def f(n, x, inc):
+    while x < n:
+        x = g(x, inc=1)
+    return x
 
-def simple_loop():
-    print "simple loop"
-    import time
-    global a
-    a = A(10)
-    a = A(10)
-    a = A(10)
-    a = A(10)
-    a = A(10)
-    a = A(1)
-    print a
-    print a
-    i = 0L
-    N = 1000L
-    N = 10000000L
-    step = 3
-    start = time.clock()
-    odd = 0
-    while i < N:
-        i = i + 1
-    end = time.clock()
-    print i
-    print end-start, 'seconds'
-
-def g(i):
-    for k in range(i, i +2):
-        pass
-
-def loop():
-    for i in range(10000):
-        g(i)
-
-
-class B(object):
-    def foo(self, n):
-        return n+1
-
-
-def method(n):
-    obj = B()
-    i = 0
-    while i<n:
-        i = obj.foo(i)
-    return i
-
-
-def add(a, b):
-    return a+b
-
-def funccall(n):
-    i = 0
-    while i<n:
-        i = add(i, 1)
-    return i
-
-
-try:
-    #do()
-    #loop()
-    #simple_loop()
-    method(100)
-    #funccall(100)
-    print "---ending 2---"
-except BaseException, e:
-    print "---ending 0---"
-    print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
-    import sys
-    import traceback
-    traceback.print_exception(*sys.exc_info())
+import time
+#t1 = time.time()
+#f(10000000, Number(), 1)
+#t2 = time.time()
+#print t2 - t1
+t1 = time.time()
+f(10000000, 0, 1)
+t2 = time.time()
+print t2 - t1

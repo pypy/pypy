@@ -12,6 +12,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.jit import hint
+from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
@@ -28,6 +29,7 @@ class Function(Wrappable):
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w    = defs_w     # list of w_default's
+        make_sure_not_resized(self.defs_w)
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
@@ -182,7 +184,7 @@ class Function(Wrappable):
         else:
             name = None
         if not space.is_w(w_argdefs, space.w_None):
-            defs_w = space.unpackiterable(w_argdefs)
+            defs_w = space.viewiterable(w_argdefs)
         else:
             defs_w = []
         nfreevars = 0
@@ -270,7 +272,7 @@ class Function(Wrappable):
             w(self.code),
             w_func_globals,
             w_closure,
-            nt(self.defs_w[:]),
+            nt(self.defs_w),
             w_func_dict,
             self.w_module,
         ]
@@ -300,22 +302,22 @@ class Function(Wrappable):
         if space.is_w(w_func_dict, space.w_None):
             w_func_dict = None
         self.w_func_dict = w_func_dict
-        self.defs_w    = space.unpackiterable(w_defs_w)
+        self.defs_w    = space.viewiterable(w_defs_w)
         self.w_module = w_module
 
     def fget_func_defaults(space, self):
         values_w = self.defs_w
         if not values_w:
             return space.w_None
-        return space.newtuple(values_w[:])
+        return space.newtuple(values_w)
 
     def fset_func_defaults(space, self, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
-        if not space.is_true( space.isinstance( w_defaults, space.w_tuple ) ):
+        if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
-        self.defs_w = space.unpackiterable( w_defaults )
+        self.defs_w = space.viewiterable(w_defaults)
 
     def fdel_func_defaults(space, self):
         self.defs_w = []

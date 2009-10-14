@@ -33,38 +33,21 @@ class Code(Wrappable):
         return frame.run()
 
     def signature(self):
-        "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
-        return [], None, None
+        raise NotImplementedError
 
     def getvarnames(self):
         """List of names including the arguments, vararg and kwarg,
         and possibly more locals."""
-        argnames, varargname, kwargname = self.signature()
-        if varargname is not None:
-            argnames = argnames + [varargname]
-        if kwargname is not None:
-            argnames = argnames + [kwargname]
-        return argnames
+        return self.signature().getallvarnames()
 
     def getformalargcount(self):
-        argnames, varargname, kwargname = self.signature()
-        argcount = len(argnames)
-        if varargname is not None:
-            argcount += 1
-        if kwargname is not None:
-            argcount += 1
-        return argcount
+        return self.signature().scope_length()
 
     def getdocstring(self, space):
         return space.w_None
 
     def funcrun(self, func, args):
-        frame = func.space.createframe(self, func.w_func_globals,
-                                        func.closure)
-        sig = self.signature()
-        scope_w = args.parse(func.name, sig, func.defs_w)
-        frame.setfastscope(scope_w)
-        return frame.run()
+        raise NotImplementedError("purely abstract")
 
     def funcrun_obj(self, func, w_obj, args):
         return self.funcrun(func, args.prepend(w_obj))

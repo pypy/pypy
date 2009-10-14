@@ -1,7 +1,7 @@
 import re
 from copy import copy
 from pypy.tool.error import debug
-from pypy.interpreter.argument import AbstractArguments
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.nonconst import NonConstant
 
@@ -85,7 +85,7 @@ def checkmodule(modname, backend, interactive=False, basepath='pypy.module'):
 
     gateways = find_gateways(modname, basepath, module)
     functions = [gw.__spacebind__(space) for gw in gateways]
-    arguments = AbstractArguments.frompacked(space, W_Object(), W_Object())
+    arguments = Arguments.frompacked(space, W_Object(), W_Object())
     dummy_function = copy(functions[0])
 
     def main(argv): # use the standalone mode not to allow SomeObject

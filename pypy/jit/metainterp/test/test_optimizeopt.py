@@ -923,6 +923,20 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
+    def test_varray_alloc_and_set(self):
+        ops = """
+        [i1]
+        p1 = new_array(2, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
     def test_varray_float(self):
         ops = """
         [f1]

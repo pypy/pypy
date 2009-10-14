@@ -614,14 +614,13 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
     return space.newtuple([space.wrap(name) for name in code.getvarnames()])
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
-    argnames, varargname, kwargname = code.signature()
-    return space.wrap(len(argnames))
+    return space.wrap(code.signature().num_argnames())
 
 def fget_co_flags(space, code): # unwrapping through unwrap_spec
-    argnames, varargname, kwargname = code.signature()
+    sig = code.signature()
     flags = 0
-    if varargname is not None: flags |= CO_VARARGS
-    if kwargname  is not None: flags |= CO_VARKEYWORDS
+    if sig.has_vararg(): flags |= CO_VARARGS
+    if sig.has_kwarg(): flags |= CO_VARKEYWORDS
     return space.wrap(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec

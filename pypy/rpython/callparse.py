@@ -1,4 +1,4 @@
-from pypy.interpreter.argument import Arguments, ArgErr
+from pypy.interpreter.argument import ArgumentsForTranslation, ArgErr
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
 from pypy.rpython.error import TyperError
@@ -40,9 +40,9 @@ def callparse(rtyper, graph, hop, opname, r_self=None):
         start = 0
         rinputs[0] = r_self
     if opname == "simple_call":
-        arguments =  Arguments(space, args_h(start))
+        arguments =  ArgumentsForTranslation(space, args_h(start))
     elif opname == "call_args":
-        arguments = Arguments.fromshape(space,
+        arguments = ArgumentsForTranslation.fromshape(space,
                 hop.args_s[start].const, # shape
                 args_h(start+1))
     # parse the arguments according to the function we are calling
@@ -178,6 +178,7 @@ class RPythonCallsSpace:
                 raise ValueError
             return list(items)
         raise CallPatternTooComplex, "'*' argument must be a tuple"
+    viewiterable = unpackiterable
 
     def is_w(self, one, other):
         return one is other

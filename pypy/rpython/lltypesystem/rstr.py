@@ -3,6 +3,7 @@ from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.jit import purefunction
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
@@ -396,6 +397,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return len1 - len2
 
+    @purefunction
     def ll_streq(s1, s2):
         if s1 == s2:       # also if both are NULLs
             return True

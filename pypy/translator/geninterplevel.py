@@ -52,7 +52,7 @@ from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from types import FunctionType, CodeType, ModuleType, MethodType
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.argument import ArgumentsForTranslation, Arguments
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 from pypy.translator.translator import TranslationContext
@@ -71,7 +71,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.26'  # bump this for substantial changes
+GI_VERSION = '1.2.6'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -206,6 +206,9 @@ class GenRpy:
         self._labeltable = {} # unique label names, reused per func
 
         self._space_arities = None
+
+        self._signature_cache = {}
+        self._defaults_cache = {}
         
     def expr(self, v, localscope, wrapped = True):
         if isinstance(v, Variable):
@@ -264,16 +267,21 @@ class GenRpy:
             v = op.args[0]
             exv = self.expr(v, localscope)
             fmt = (
-                "_args = %(Arg)s.fromshape(space, %(shape)s, [%(data_w)s])\n"
+                "_args = %(Arg)s(space, [%(args_w)s], %(keywords)s, [%(keywords_w)s], %(w_stararg)s, %(w_starstararg)s)\n"
                 "%(res)s = space.call_args(%(func)s, _args)")
             assert isinstance(op.args[1], Constant)
             shape = op.args[1].value
             # make a list out of the second shape elt.
             shape = shape[0], list(shape[1]), shape[2], shape[3]
+            arglist = [self.expr(arg, localscope) for arg in op.args[2:]]
+            args = ArgumentsForTranslation.fromshape(None, shape, arglist)
             return fmt % {"res": self.expr(op.result, localscope),
                           "func": exv,
-                          "shape": repr(shape),
-                          "data_w": self.arglist(op.args[2:], localscope),
+                          "args_w": ", ".join(args.arguments_w),
+                          "keywords": args.keywords,
+                          "keywords_w": ", ".join(args.keywords_w),
+                          "w_stararg": args.w_stararg,
+                          "w_starstararg": args.w_starstararg,
                           'Arg': self.nameof(Arguments) }
         if op.opname == "hint":
             return "%s = %s" % (self.expr(op.result, localscope),
@@ -799,9 +807,6 @@ else:
                 if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
                     log.WARNING("skipped staticmethod: %s" % value)
                     continue
-##                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-##                     log.WARNING("skipped function: %s" % value)
-##                     continue
                 if isinstance(value, MethodType) and value.im_self is cls:
                     log.WARNING("skipped classmethod: %s" % value)
                     continue
@@ -1153,6 +1158,29 @@ else:
             return rel.replace('\\', '/')
         return name # no success
 
+    def getsignature(self, argnamelist, varargname, varkwname):
+        key = (argnamelist, varargname, varkwname)
+        try:
+            return self._signature_cache[key]
+        except KeyError:
+            pass
+        signame = self.uniquename('sig')
+        self._signature_cache[key] = signame
+        self.initcode.append("%s = gateway.Signature(%r, %r, %r)" % (
+            signame, list(argnamelist), varargname, varkwname))
+        return signame
+
+    def getdefaults(self, names):
+        key = tuple(names)
+        try:
+            return self._defaults_cache[key]
+        except KeyError:
+            pass
+        defaultsname = self.uniquename('default')
+        self._defaults_cache[key] = defaultsname
+        self.initcode.append("%s = [%s]" % (defaultsname, ', '.join(names)))
+        return defaultsname
+
     def gen_rpyfunction(self, func):
         try:
             graph = self.translator.buildflowgraph(func, True)
@@ -1184,15 +1212,6 @@ else:
         assert cname.startswith('gfunc_')
         f_name = 'f_' + cname[6:]
 
-##        # collect all the local variables
-##        graph = self.translator.getflowgraph(func)
-##        localslst = []
-##        def visit(node):
-##            if isinstance(node, Block):
-##                localslst.extend(node.getvariables())
-##        traverse(visit, graph)
-##        localnames = [self.expr(a, localscope) for a in uniqueitems(localslst)]
-
         # collect all the arguments
         vararg = varkw = None
         varargname = varkwname = None
@@ -1207,6 +1226,7 @@ else:
             vararg = graph.getargs()[p]
             varargname = func.func_code.co_varnames[p]
         positional_args = all_args[:p]
+        argnamelist = func.func_code.co_varnames[:func.func_code.co_argcount]
 
         fast_args = [self.expr(a, localscope) for a in positional_args]
         if vararg is not None:
@@ -1256,17 +1276,12 @@ else:
                 print >> f, docstr
                 print >> f
 
-            print >> f, '    funcname = "%s"' % func.__name__
-            kwlist = list(func.func_code.co_varnames[:func.func_code.co_argcount])
-            signature = '    signature = %r' % kwlist
-            signature = ", ".join([signature, repr(varargname), repr(varkwname)])
-            print >> f, signature
-
-            print >> f, '    defaults_w = [%s]' % ", ".join(name_of_defaults)
-
-            print >> f, '    %s__args__.parse(funcname, signature, defaults_w)' % (
-                tupassstr(fast_args),)
-            print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
+            signame = self.getsignature(argnamelist, varargname, varkwname)
+            defaultsname = self.getdefaults(name_of_defaults)
+            print >> f, '    %s__args__.parse_obj(None, %r, %s, %s)' % (
+                tupassstr(fast_args), func.__name__, signame, defaultsname)
+            print >> f, '    return %s(%s)' % (fast_name,
+                                               ', '.join(["space"]+fast_args))
 
             for line in install_func(f_name, name):
                 print >> f, line
@@ -1276,15 +1291,6 @@ else:
         print >> f, fast_function_header
         if docstr is not None:
             print >> f, docstr
-
-##        fast_locals = [arg for arg in localnames if arg not in fast_set]
-##        # if goto is specialized, the false detection of
-##        # uninitialized variables goes away.
-##        if fast_locals and not self.specialize_goto:
-##            print >> f
-##            for line in self.large_initialize(fast_locals):
-##                print >> f, "    %s" % line
-##            print >> f
 
         # print the body
         for line in body:
@@ -1380,10 +1386,6 @@ else:
                     q = "elif"
                 link = exits[-1]
                 yield "else:"
-                # debug only, creates lots of fluffy C code
-                ##yield "    assert %s == %s" % (self.expr(block.exitswitch,
-                ##                                    localscope),
-                ##                                    link.exitcase)
                 for op in self.gen_link(exits[-1], localscope, blocknum, block):
                     yield "    %s" % op
 

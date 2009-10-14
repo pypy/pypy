@@ -176,7 +176,7 @@ class W_ClassObject(Wrappable):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("__init__() should return None"))
-        elif __args__.num_args() or __args__.num_kwds():
+        elif __args__.arguments_w or __args__.keywords:
             raise OperationError(
                     space.w_TypeError,
                     space.wrap("this constructor takes no arguments"))

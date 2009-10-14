@@ -184,17 +184,6 @@ class PyFrame(eval.Frame):
         self.valuestackdepth = hint(depth, promote=True)
         return w_object
 
-    def popstrdictvalues(self, n):
-        dic_w = {}
-        while True:
-            n -= 1
-            if n < 0:
-                break
-            w_value = self.popvalue()
-            w_key   = self.popvalue()
-            key = self.space.str_w(w_key)
-            dic_w[key] = w_value
-        return dic_w
 
     # we need two popvalues that return different data types:
     # one in case we want list another in case of tuple
@@ -281,6 +270,9 @@ class PyFrame(eval.Frame):
 
     def make_arguments(self, nargs):
         return Arguments(self.space, self.peekvalues(nargs))
+
+    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar):
+        return Arguments(self.space, arguments, keywords, keywords_w, w_star, w_starstar)
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):

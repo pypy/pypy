@@ -144,9 +144,8 @@ class W_Weakref(W_WeakrefBase):
         
 
 def descr__new__weakref(space, w_subtype, w_obj, __args__):
-    args_w, kw_w = __args__.unpack()
-    if args_w:
-        w_callable = args_w[0]
+    if __args__.arguments_w:
+        w_callable = __args__.arguments_w[0]
     else:
         w_callable = space.w_None
     lifeline = w_obj.getweakref()

@@ -9,7 +9,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
 from pypy.interpreter import gateway, function, eval
 from pypy.interpreter import pyframe, pytraceback
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
@@ -896,11 +895,24 @@ class __extend__(pyframe.PyFrame):
     
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
-        keywords = None
         if n_keywords:
-            keywords = f.popstrdictvalues(n_keywords)
+            keywords = [None] * n_keywords
+            keywords_w = [None] * n_keywords
+            dic_w = {}
+            while True:
+                n_keywords -= 1
+                if n_keywords < 0:
+                    break
+                w_value = f.popvalue()
+                w_key   = f.popvalue()
+                key = f.space.str_w(w_key)
+                keywords[n_keywords] = key
+                keywords_w[n_keywords] = w_value
+        else:
+            keywords = None
+            keywords_w = None
         arguments = f.popvalues(n_arguments)
-        args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
+        args = f.argument_factory(arguments, keywords, keywords_w, w_star, w_starstar)
         w_function  = f.popvalue()
         if we_are_jitted():
             w_result = f.space.call_args(w_function, args)
@@ -947,7 +959,7 @@ class __extend__(pyframe.PyFrame):
     def MAKE_FUNCTION(f, numdefaults, *ignored):
         w_codeobj = f.popvalue()
         codeobj = f.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = f.popvalues_mutable(numdefaults)
+        defaultarguments = f.popvalues(numdefaults)
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
         f.pushvalue(f.space.wrap(fn))
 

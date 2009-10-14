@@ -208,3 +208,17 @@ class AppTestAllAny:
         S = [10, 20, 30]
         assert any([x > 42 for x in S]) == False
 
+class AppTestMinMax:
+   def test_min(self):
+      assert min(1, 2) == 1
+      assert min(1, 2, key=lambda x: -x) == 2
+      assert min([1, 2, 3]) == 1
+      raises(TypeError, min, 1, 2, bar=2)
+      raises(TypeError, min, 1, 2, key=lambda x: x, bar=2)
+
+   def test_max(self):
+      assert max(1, 2) == 2
+      assert max(1, 2, key=lambda x: -x) == 1
+      assert max([1, 2, 3]) == 3
+      raises(TypeError, max, 1, 2, bar=2)
+      raises(TypeError, max, 1, 2, key=lambda x: x, bar=2)

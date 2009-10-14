@@ -256,15 +256,14 @@ class VArrayValue(AbstractVirtualValue):
     def __init__(self, optimizer, arraydescr, size, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
         self.arraydescr = arraydescr
-        self._items = [None] * size
+        self.constvalue = optimizer.new_const_item(arraydescr)
+        self._items = [self.constvalue] * size
 
     def getlength(self):
         return len(self._items)
 
-    def getitem(self, index, default):
+    def getitem(self, index):
         res = self._items[index]
-        if res is None:
-            res = default
         return res
 
     def setitem(self, index, itemvalue):
@@ -278,7 +277,7 @@ class VArrayValue(AbstractVirtualValue):
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
-            if subvalue is not None:
+            if subvalue is not self.constvalue:
                 subbox = subvalue.force_box()
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
@@ -293,12 +292,10 @@ class VArrayValue(AbstractVirtualValue):
             itemboxes = []
             const = self.optimizer.new_const_item(self.arraydescr)
             for itemvalue in self._items:
-                if itemvalue is None:
-                    itemvalue = const
                 itemboxes.append(itemvalue.get_key_box())
             modifier.make_varray(self.keybox, self.arraydescr, itemboxes)
             for itemvalue in self._items:
-                if itemvalue is not None:
+                if itemvalue is not self.constvalue:
                     itemvalue.get_args_for_fail(modifier)
 
 class __extend__(SpecNode):
@@ -354,9 +351,8 @@ class __extend__(VirtualArraySpecNode):
             vvalue.setitem(index, vvalueitem)
     def teardown_virtual_node(self, optimizer, value, newexitargs):
         assert value.is_virtual()
-        const = optimizer.new_const_item(self.arraydescr)
         for index in range(len(self.items)):
-            subvalue = value.getitem(index, const)
+            subvalue = value.getitem(index)
             subspecnode = self.items[index]
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
 
@@ -707,9 +703,7 @@ class Optimizer(object):
         if value.is_virtual():
             indexbox = self.get_constant_box(op.args[1])
             if indexbox is not None:
-                # optimizefindnode should ensure that itemvalue is found
-                itemvalue = value.getitem(indexbox.getint(), None)
-                assert itemvalue is not None
+                itemvalue = value.getitem(indexbox.getint())
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.make_nonnull()

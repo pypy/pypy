@@ -103,28 +103,28 @@ def range_withspecialized_implementation(space, start, step, howmany):
 
 
 @specialize.arg(2)
-def min_max(space, arguments, implementation_of):
+def min_max(space, args, implementation_of):
     if implementation_of == "max":
         compare = space.gt
     else:
         compare = space.lt
-    args, kwargs = arguments.unpack()
-    if len(args) > 1:
-        w_sequence = space.newtuple(args)
-    elif len(args):
-        w_sequence = args[0]
+    args_w = args.arguments_w
+    if len(args_w) > 1:
+        w_sequence = space.newtuple(args_w)
+    elif len(args_w):
+        w_sequence = args_w[0]
     else:
         msg = "%s() expects at least one argument" % (implementation_of,)
         raise OperationError(space.w_TypeError, space.wrap(msg))
-    try:
-        w_key = kwargs["key"]
-    except KeyError:
-        w_key = None
-    else:
-        del kwargs["key"]
-    if kwargs:
-        msg = "%s() got unexpected keyword argument" % (implementation_of,)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+    w_key = None
+    kwds = args.keywords
+    if kwds:
+        if kwds[0] == "key" and len(kwds) == 1:
+            w_key = args.keywords_w[0]
+        else:
+            msg = "%s() got unexpected keyword argument" % (implementation_of,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+
     w_iter = space.iter(w_sequence)
     w_max_item = None
     w_max_val = None

@@ -52,9 +52,10 @@ class __extend__(annmodel.SomeBuiltin):
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
-    from pypy.interpreter.argument import Arguments
-    arguments = Arguments.fromshape(None, hop.args_s[1].const, # shape
-                                    range(hop.nb_args-2))
+    from pypy.interpreter.argument import ArgumentsForTranslation
+    arguments = ArgumentsForTranslation.fromshape(
+            None, hop.args_s[1].const, # shape
+            range(hop.nb_args-2))
     if arguments.w_starstararg is not None:
         raise TyperError("**kwds call not implemented")
     if arguments.w_stararg is not None:
@@ -75,12 +76,13 @@ def call_args_expand(hop, takes_kwds = True):
             hop.args_s.append(s_tuple.items[i])
             hop.args_r.append(r_tuple.items_r[i])
 
-    kwds = arguments.kwds_w or {}
-    if not takes_kwds and kwds:
+    keywords = arguments.keywords
+    if not takes_kwds and keywords:
         raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
-    for key, index in kwds.items():
+    for i, key in enumerate(keywords):
+        index = arguments.keywords_w[i]
         kwds_i['i_'+key] = index
 
     return hop, kwds_i

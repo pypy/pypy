@@ -5,6 +5,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
+from pypy.interpreter.argument import Signature
 from pypy.rlib.listsort import TimSort
 
 
@@ -893,12 +894,15 @@ def _adjust_index(space, index, length, indexerrormsg):
     return index
 
 
+init_signature = Signature(['sequence'], None, None)
+init_defaults = [None]
+
 def init__ListMulti(space, w_list, __args__):
-    EMPTY_LIST = space.fromcache(State).empty_list
-    w_iterable, = __args__.parse('list',
-                               (['sequence'], None, None),   # signature
-                               [EMPTY_LIST])                 # default argument
-    if w_iterable is not EMPTY_LIST:
+    w_iterable, = __args__.parse_obj(
+            None, 'list',
+            init_signature,
+            init_defaults)
+    if w_iterable is not None:
         list_w = space.unpackiterable(w_iterable)
         if list_w:
             w_list.implementation = make_implementation(space, list_w)

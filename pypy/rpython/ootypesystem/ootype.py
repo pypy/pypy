@@ -428,7 +428,7 @@ class AbstractString(BuiltinADTType):
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
             "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
-            "ll_split_chr": Meth([self.CHAR], Array(self.SELFTYPE_T)),
+            "ll_split_chr": Meth([self.CHAR], Array(self.SELFTYPE_T)), # XXX this is not pure!
             "ll_contains": Meth([self.CHAR], Bool),
             "ll_replace_chr_chr": Meth([self.CHAR, self.CHAR], self.SELFTYPE_T),
             })

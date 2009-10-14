@@ -102,11 +102,8 @@ def get_module_validator(modname):
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump", "taint", "reflective"],
+                 ["std", "flow", "thunk", "dump", "taint"],
                  "std",
-                 requires={"reflective":
-                               [("objspace.disable_call_speedhacks", True)]
-                          },
                  cmdline='--objspace -o'),
 
     ChoiceOption("parser", "which parser to use for app-level code",

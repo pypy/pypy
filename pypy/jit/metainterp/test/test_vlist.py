@@ -79,7 +79,6 @@ class ListTests:
         self.check_loops(setarrayitem_gc=0, call=0)
 
     def test_vlist_with_default_read(self):
-        py.test.skip("for now, more support in codewriter needed")
         jitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):
             l = [1] * 20
@@ -88,7 +87,7 @@ class ListTests:
                 jitdriver.jit_merge_point(n=n)
                 l = [0] * 20
                 l[3] = 5
-                x = l[-17]
+                x = l[-17] + l[5] # that should be zero
                 if n < 3:
                     return x
                 n -= 1
@@ -96,6 +95,28 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
+        self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
+
+    @py.test.mark.xfail
+    def test_vlist_alloc_and_set(self):
+        # this fails, because [non-null] * n is not supported yet
+        jitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            l = [1] * 20
+            while n > 0:
+                jitdriver.can_enter_jit(n=n)
+                jitdriver.jit_merge_point(n=n)
+                l = [1] * 20
+                l[3] = 5
+                x = l[-17] + l[5] - 1
+                if n < 3:
+                    return x
+                n -= 1
+            return l[0]
+
+        res = self.meta_interp(f, [10], listops=True)
+        assert res == f(10)
+        self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
         
     def test_append_pop(self):
         py.test.skip("unsupported")

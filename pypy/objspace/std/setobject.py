@@ -3,6 +3,7 @@ from pypy.objspace.std.objspace import registerimplementation, register_all
 from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter import gateway
+from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
@@ -599,16 +600,20 @@ cmp__Set_frozensettypedef = cmp__Set_settypedef
 cmp__Frozenset_settypedef = cmp__Set_settypedef
 cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
 
+init_signature = Signature(['some_iterable'], None, None)
+init_defaults = [None]
 def init__Set(space, w_set, __args__):
-    w_iterable, = __args__.parse('set',
-                            (['some_iterable'], None, None),
-                            [space.newtuple([])])
+    w_iterable, = __args__.parse_obj(
+            None, 'set',
+            init_signature,
+            init_defaults)
     _initialize_set(space, w_set, w_iterable)
 
 def init__Frozenset(space, w_set, __args__):
-    w_iterable, = __args__.parse('set',
-                            (['some_iterable'], None, None),
-                            [space.newtuple([])])
+    w_iterable, = __args__.parse_obj(
+            None, 'set',
+            init_signature,
+            init_defaults)
     if w_set.hash == -1:
         _initialize_set(space, w_set, w_iterable)
         hash__Frozenset(space, w_set)

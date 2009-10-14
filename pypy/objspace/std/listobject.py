@@ -6,6 +6,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import TimSort
+from pypy.interpreter.argument import Signature
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -27,12 +28,13 @@ class W_ListObject(W_Object):
 registerimplementation(W_ListObject)
 
 
-EMPTY_LIST = W_ListObject([])
+init_signature = Signature(['sequence'], None, None)
+init_defaults = [None]
 
 def init__List(space, w_list, __args__):
-    w_iterable, = __args__.parse('list',
-                               (['sequence'], None, None),   # signature
-                               [EMPTY_LIST])                 # default argument
+    # this is on the silly side
+    w_iterable, = __args__.parse_obj(
+            None, 'list', init_signature, init_defaults)
     #
     # this is the old version of the loop at the end of this function:
     #
@@ -43,7 +45,7 @@ def init__List(space, w_list, __args__):
     #
     items_w = w_list.wrappeditems
     del items_w[:]
-    if w_iterable is not EMPTY_LIST:
+    if w_iterable is not None:
         w_iterator = space.iter(w_iterable)
         while True:
             try:

@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
+from pypy.interpreter.argument import Signature
 
 from pypy.rlib.objectmodel import r_dict
 
@@ -56,13 +57,17 @@ class W_DictObject(W_Object):
 
 registerimplementation(W_DictObject)
 
+init_signature = Signature(['seq_or_map'], None, 'kwargs')
+init_defaults = [None]
 
 def init__Dict(space, w_dict, __args__):
-    w_src, w_kwds = __args__.parse('dict',
-                          (['seq_or_map'], None, 'kwargs'), # signature
-                          [W_DictObject(space)])            # default argument
-    # w_dict.content.clear() - disabled only for CPython compatibility
-    if space.findattr(w_src, space.wrap("keys")) is None:
+    w_src, w_kwds = __args__.parse_obj(
+            None, 'dict',
+            init_signature, # signature
+            init_defaults)                           # default argument
+    if w_src is None:
+        pass
+    elif space.findattr(w_src, space.wrap("keys")) is None:
         list_of_w_pairs = space.unpackiterable(w_src)
         for w_pair in list_of_w_pairs:
             pair = space.unpackiterable(w_pair)

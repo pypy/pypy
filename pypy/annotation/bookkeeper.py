@@ -16,7 +16,7 @@ from pypy.annotation.listdef import ListDef, ListItem
 from pypy.annotation.dictdef import DictDef
 from pypy.annotation import description
 from pypy.annotation.signature import annotationoftype
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.rlib.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -695,10 +695,11 @@ class Bookkeeper:
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
         if op == "simple_call":
-            return Arguments(space, list(args_s))
+            return ArgumentsForTranslation(space, list(args_s))
         elif op == "call_args":
-            return Arguments.fromshape(space, args_s[0].const, # shape
-                                       list(args_s[1:]))
+            return ArgumentsForTranslation.fromshape(
+                    space, args_s[0].const, # shape
+                    list(args_s[1:]))
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         self.annotator.ondegenerated(what, s_value, where=where,
@@ -761,6 +762,7 @@ class RPythonCallsSpace:
             getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
             return [Ellipsis]
         raise CallPatternTooComplex, "'*' argument must be SomeTuple"
+    viewiterable = unpackiterable
 
     def is_w(self, one, other):
         return one is other
