@@ -94,8 +94,6 @@ class BaseCPU(model.AbstractCPU):
         self.fail_descrs = []
         llimpl._stats = self.stats
         llimpl._llinterp = LLInterpreter(self.rtyper)
-        if translate_support_code:
-            self.mixlevelann = annmixlevel
         self._future_values = []
 
     def _freeze_(self):
