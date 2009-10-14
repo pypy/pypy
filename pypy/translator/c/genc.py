@@ -465,13 +465,13 @@ class CStandaloneBuilder(CBuilder):
         rules = [
             ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
             ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
-            ('debug', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT" $(TARGET)'),
-            ('debug_exc', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
-            ('debug_mem', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
+            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" $(TARGET)'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
             ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
+            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
@@ -492,6 +492,7 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
+            mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
             mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
             mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
             if sys.platform == 'win32':
@@ -503,6 +504,8 @@ class CStandaloneBuilder(CBuilder):
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
 
+        else:
+            mk.definition('DEBUGFLAGS', '-O1 -g')
         mk.write()
         #self.translator.platform,
         #                           ,
