@@ -1799,3 +1799,16 @@ class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
         """
         self.optimize_loop(ops, 'Not', expected)
  
+    def test_instanceof_guard_class(self):
+        ops = """
+        [i0, p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        i1 = instanceof(p0, descr=nodesize)
+        jump(i1, p0)
+        """
+        expected = """
+        [i0, p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(1, p0)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)

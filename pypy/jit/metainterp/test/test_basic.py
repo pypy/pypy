@@ -746,6 +746,7 @@ class BasicTests:
             return isinstance(obj, B)
         res = self.interp_operations(fn, [0])
         assert res
+        self.check_history_(guard_class=1)
         res = self.interp_operations(fn, [1])
         assert not res
 

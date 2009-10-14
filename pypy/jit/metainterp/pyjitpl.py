@@ -318,8 +318,12 @@ class MIFrame(object):
         self.execute(rop.RUNTIMENEW, classbox)
 
     @arguments("box", "descr")
-    def opimpl_instanceof(self, box, typedescr):
-        self.execute_with_descr(rop.INSTANCEOF, typedescr, box)
+    def opimpl_instanceof(self, objbox, typedescr):
+        frame = self.metainterp.framestack[-1]
+        clsbox = self.cls_of_box(objbox)
+        if isinstance(objbox, Box):
+            self.generate_guard(frame.pc, rop.GUARD_CLASS, objbox, [clsbox])
+        self.execute_with_descr(rop.INSTANCEOF, typedescr, objbox)
 
     @arguments("box", "box")
     def opimpl_subclassof(self, box1, box2):
