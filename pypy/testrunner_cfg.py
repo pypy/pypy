@@ -6,7 +6,8 @@ def collect_one_testdir(testdirs, reldir, tests):
         reldir.startswith('rlib/test') or
         reldir.startswith('rpython/memory/') or
         reldir.startswith('jit/backend/x86/') or
-        reldir.startswith('jit/backend/minimal/')):
+        reldir.startswith('jit/backend/minimal/') or
+        reldir.startswith('jit/backend/cli')):
         testdirs.extend(tests)
     else:
         testdirs.append(reldir)
