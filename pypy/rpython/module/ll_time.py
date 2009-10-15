@@ -101,14 +101,17 @@ class RegisterTime(BaseLazyRegistering):
             if self.HAVE_GETTIMEOFDAY:
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')
 
+                errcode = -1
                 if self.GETTIMEOFDAY_NO_TZ:
-                    if rffi.cast(rffi.LONG, c_gettimeofday(t)) == 0:
-                        result = float(t.c_tv_sec) + \
-                                 float(t.c_tv_usec) * 0.000001
+                    errcode = g_gettimeofday(t)
                 else:
-                    if rffi.cast(rffi.LONG, c_gettimeofday(t, void)) == 0:
-                        result = float(t.c_tv_sec) + \
-                                 float(t.c_tv_usec) * 0.000001
+                    errcode = c_gettimeofday(t, void)
+
+                if rffi.cast(rffi.LONG, errcode) == 0:
+                    result = float(rffi.cast(lltype.Signed, t.c_tv_sec)) \
+                        + float(rffi.cast(lltype.Signed, t.c_tv_usec)) \
+                        * 0.000001
+                                 
                 lltype.free(t, flavor='raw')
             if result != -1:
                 return result
@@ -181,8 +184,9 @@ class RegisterTime(BaseLazyRegistering):
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')
                 try:
                     frac = math.fmod(secs, 1.0)
-                    t.c_tv_sec = int(secs)
-                    t.c_tv_usec = int(frac*1000000.0)
+                    rffi.setintfield(t, 'c_tv_sec', int(secs))
+                    rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+
                     if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
                         errno = rposix.get_errno()
                         if errno != EINTR:

@@ -328,11 +328,11 @@ class RegisterOs(BaseLazyRegistering):
                 import math
                 l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
                 fracpart, intpart = math.modf(actime)
-                l_times[0].c_tv_sec = int(intpart)
-                l_times[0].c_tv_usec = int(fracpart * 1E6)
+                rffi.setintfield(l_times[0], 'c_tv_sec', int(intpart))
+                rffi.setintfield(l_times[0], 'c_tv_usec', int(fracpart * 1E6))
                 fracpart, intpart = math.modf(modtime)
-                l_times[1].c_tv_sec = int(intpart)
-                l_times[1].c_tv_usec = int(fracpart * 1E6)
+                rffi.setintfield(l_times[1], 'c_tv_sec', int(intpart))
+                rffi.setintfield(l_times[1], 'c_tv_usec', int(fracpart * 1E6))
                 error = os_utimes(path, l_times)
                 lltype.free(l_times, flavor='raw')
                 return error

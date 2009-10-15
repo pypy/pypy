@@ -102,10 +102,10 @@ def select(inl, outl, excl, timeout=-1.0):
     else:
         ll_excl = lltype.nullptr(_c.fd_set.TO)
     if timeout != -1.0:
-        ll_timeval = lltype.malloc(_c.timeval, flavor='raw')
-        frac = math.fmod(timeout, 1.0)
-        ll_timeval.c_tv_sec = int(timeout)
-        ll_timeval.c_tv_usec = int((timeout - int(timeout)) * 1000000.0)
+        ll_timeval = rffi.make(_c.timeval)
+        rffi.setintfield(ll_timeval, 'c_tv_sec', int(timeout))
+        rffi.setintfield(ll_timeval, 'c_tv_usec', int((timeout-int(timeout))
+                                                  * 1000000))
     else:
         ll_timeval = lltype.nullptr(_c.timeval)
     try:
