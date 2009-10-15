@@ -122,10 +122,12 @@ class GenerationGC(SemiSpaceGC):
         # a new nursery (e.g. if it invokes finalizers).
         self.semispace_collect()
 
-    def get_young_fixedsize(self, nursery_size):
+    @staticmethod
+    def get_young_fixedsize(nursery_size):
         return nursery_size // 2 - 1
 
-    def get_young_var_basesize(self, nursery_size):
+    @staticmethod
+    def get_young_var_basesize(nursery_size):
         return nursery_size // 4 - 1
 
     def is_in_nursery(self, addr):

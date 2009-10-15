@@ -523,7 +523,10 @@ class Assembler386(object):
         arglocs = arglocs[:-1]
         self.call(self.malloc_func_addr, arglocs, eax)
         # xxx ignore NULL returns for now
-        self.mc.MOV(mem(eax, self.cpu.vtable_offset), loc_vtable)
+        self.set_vtable(eax, loc_vtable)
+
+    def set_vtable(self, loc, loc_vtable):
+        self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
 
     # XXX genop_new is abused for all varsized mallocs with Boehm, for now
     # (instead of genop_new_array, genop_newstr, genop_newunicode)
@@ -902,8 +905,30 @@ class Assembler386(object):
 
     def closing_jump(self, loop_token):
         self.mc.JMP(rel32(loop_token._x86_loop_code))
-        
 
+    def malloc_cond_fixedsize(self, nursery_free_adr, nursery_top_adr,
+                              size, tid, slowpath_addr):
+        # don't use self.mc
+        mc = self.mc._mc
+        mc.MOV(eax, heap(nursery_free_adr))
+        mc.LEA(edx, addr_add(eax, imm(size)))
+        mc.CMP(edx, heap(nursery_top_adr))
+        mc.write('\x76\x00') # JNA after the block
+        jmp_adr = mc.get_relative_pos()
+        mc.PUSH(imm(size))
+        mc.CALL(rel32(slowpath_addr))
+        self.mark_gc_roots()
+        # note that slowpath_addr returns a "long long", or more precisely
+        # two results, which end up in eax and edx.
+        # eax should contain the result of allocation, edx new value
+        # of nursery_free_adr
+        mc.ADD(esp, imm(4))
+        offset = mc.get_relative_pos() - jmp_adr
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_adr-1, chr(offset))
+        mc.MOV(addr_add(eax, imm(0)), imm(tid))
+        mc.MOV(heap(nursery_free_adr), edx)
+        
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST

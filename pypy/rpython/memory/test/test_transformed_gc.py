@@ -1043,6 +1043,27 @@ class TestGenerationGC(GenericMovingGCTests):
         #  * the GcArray pointer from gc.wr_to_objects_with_id
         #  * the GcArray pointer from gc.object_id_dict.
 
+    def test_adr_of_nursery(self):
+        class A(object):
+            pass
+        
+        def f():
+            # we need at least 1 obj to allocate a nursery
+            a = A()
+            nf_a = llop.gc_adr_of_nursery_free(llmemory.Address)
+            nt_a = llop.gc_adr_of_nursery_top(llmemory.Address)
+            nf0 = nf_a.address[0]
+            nt0 = nt_a.address[0]
+            a0 = A()
+            a1 = A()
+            nf1 = nf_a.address[0]
+            nt1 = nt_a.address[0]
+            assert nf1 > nf0
+            assert nt1 > nf1
+            assert nt1 == nt0
+        run = self.runner(f, nbargs=0)
+        res = run([])        
+
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection
     # is needed when most allocated objects die quickly

@@ -599,6 +599,28 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.assume_young_pointers_ptr,
                                   self.c_const_gc, v_addr])
 
+    def gct_gc_adr_of_nursery_free(self, hop):
+        if getattr(self.gcdata.gc, 'nursery_free', None) is None:
+            raise NotImplementedError("gc_adr_of_nursery_free only for generational gcs")
+        op = hop.spaceop
+        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
+                                'inst_nursery_free')
+        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
+                             resulttype=llmemory.Address)
+        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+
+    def gct_gc_adr_of_nursery_top(self, hop):
+        if getattr(self.gcdata.gc, 'nursery_top', None) is None:
+            raise NotImplementedError("gc_adr_of_nursery_top only for generational gcs")
+        op = hop.spaceop
+        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
+                                'inst_nursery_top')
+        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
+                             resulttype=llmemory.Address)
+        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+
     def _can_realloc(self):
         return self.gcdata.gc.can_realloc
 

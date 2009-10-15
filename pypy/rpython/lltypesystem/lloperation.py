@@ -446,6 +446,14 @@ LL_OPERATIONS = {
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_assume_young_pointers': LLOp(),
+
+    # ------- JIT & GC interaction, only for some GCs ----------
+    
+    'gc_adr_of_nursery_free' : LLOp(),
+    # ^^^ returns an address of nursery free pointer, for later modifications
+    'gc_adr_of_nursery_top' : LLOp(),
+    # ^^^ returns an address of pointer, since it can change at runtime
+    
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),

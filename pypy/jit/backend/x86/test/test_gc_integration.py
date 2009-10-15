@@ -7,6 +7,7 @@ from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
+from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.regalloc import RegAlloc, WORD
 from pypy.jit.metainterp.test.oparser import parse
@@ -20,6 +21,7 @@ from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86StackManager,\
      X86XMMRegisterManager
+from pypy.rpython.annlowlevel import llhelper
 
 class MockGcRootMap(object):
     def get_basic_shape(self):
@@ -159,3 +161,128 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24)
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0, 0], run=False)
+
+class GCDescrFastpathMalloc(GcLLDescription):
+    gcrootmap = None
+    
+    def __init__(self):
+        GcCache.__init__(self, False)
+        # create a nursery
+        NTP = rffi.CArray(lltype.Signed)
+        self.nursery = lltype.malloc(NTP, 16, flavor='raw')
+        self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
+                                   flavor='raw')
+        self.addrs[0] = rffi.cast(lltype.Signed, self.nursery)
+        self.addrs[1] = self.addrs[0] + 64
+        # 64 bytes
+        def malloc_slowpath(size):
+            from pypy.rlib.rarithmetic import r_ulonglong
+            assert size == 8
+            nadr = rffi.cast(lltype.Signed, self.nursery)
+            self.addrs[0] = 99999    # should be overridden by the caller
+            return ((r_ulonglong(nadr + size) << 32) |     # this part in edx
+                     r_ulonglong(nadr))                    # this part in eax
+        self.malloc_slowpath = malloc_slowpath
+        self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed],
+                                               lltype.UnsignedLongLong)
+        self._counter = 123
+
+    def can_inline_malloc(self, descr):
+        return True
+
+    def get_funcptr_for_new(self):
+        return 42
+#        return llhelper(lltype.Ptr(self.NEW_TP), self.new)
+
+    def init_size_descr(self, S, descr):
+        descr.tid = self._counter
+        self._counter += 1
+
+    def get_nursery_free_addr(self):
+        return rffi.cast(lltype.Signed, self.addrs)
+
+    def get_nursery_top_addr(self):
+        return rffi.cast(lltype.Signed, self.addrs) + 4
+
+    def get_malloc_fixedsize_slowpath_addr(self):
+        fptr = llhelper(lltype.Ptr(self.MALLOC_SLOWPATH), self.malloc_slowpath)
+        return rffi.cast(lltype.Signed, fptr)
+
+    get_funcptr_for_newarray = None
+    get_funcptr_for_newstr = None
+    get_funcptr_for_newunicode = None
+
+class TestMallocFastpath(BaseTestRegalloc):
+
+    def setup_method(self, method):
+        cpu = CPU(None, None)
+        cpu.vtable_offset = 4
+        cpu.gc_ll_descr = GCDescrFastpathMalloc()
+
+        NODE = lltype.Struct('node', ('tid', lltype.Signed),
+                                     ('value', lltype.Signed))
+        nodedescr = cpu.sizeof(NODE)     # xxx hack: NODE is not a GcStruct
+        valuedescr = cpu.fielddescrof(NODE, 'value')
+
+        self.cpu = cpu
+        self.nodedescr = nodedescr
+        vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        vtable_int = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable))
+        NODE2 = lltype.Struct('node2', ('tid', lltype.Signed),
+                                  ('vtable', lltype.Ptr(rclass.OBJECT_VTABLE)))
+        descrsize = cpu.sizeof(NODE2)
+        cpu.set_class_sizes({vtable_int: descrsize})
+        self.descrsize = descrsize
+        self.vtable_int = vtable_int
+
+        self.namespace = locals().copy()
+        
+    def test_malloc_fastpath(self):
+        ops = '''
+        [i0]
+        p0 = new(descr=nodedescr)
+        setfield_gc(p0, i0, descr=valuedescr)
+        finish(p0)
+        '''
+        self.interpret(ops, [42])
+        # check the nursery
+        gc_ll_descr = self.cpu.gc_ll_descr
+        assert gc_ll_descr.nursery[0] == self.nodedescr.tid
+        assert gc_ll_descr.nursery[1] == 42
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        assert gc_ll_descr.addrs[0] == nurs_adr + 8
+
+    def test_malloc_slowpath(self):
+        ops = '''
+        []
+        p0 = new(descr=nodedescr)
+        p1 = new(descr=nodedescr)
+        p2 = new(descr=nodedescr)
+        p3 = new(descr=nodedescr)
+        p4 = new(descr=nodedescr)
+        p5 = new(descr=nodedescr)
+        p6 = new(descr=nodedescr)
+        p7 = new(descr=nodedescr)
+        p8 = new(descr=nodedescr)
+        finish(p0, p1, p2, p3, p4, p5, p6, p7, p8)
+        '''
+        self.interpret(ops, [])
+        # this should call slow path once
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nadr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        assert gc_ll_descr.addrs[0] == nadr + 8
+
+    def test_new_with_vtable(self):
+        ops = '''
+        [i0, i1]
+        p0 = new_with_vtable(ConstClass(vtable))
+        guard_class(p0, ConstClass(vtable)) [i0]
+        finish(i1)
+        '''
+        self.interpret(ops, [0, 1])
+        assert self.getint(0) == 1
+        gc_ll_descr = self.cpu.gc_ll_descr
+        assert gc_ll_descr.nursery[0] == self.descrsize.tid
+        assert gc_ll_descr.nursery[1] == self.vtable_int
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        assert gc_ll_descr.addrs[0] == nurs_adr + 8
