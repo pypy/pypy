@@ -10,6 +10,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import getgcflavor
 from pypy.rlib.objectmodel import instantiate, ComputedIntSymbolic
+from pypy.interpreter.argument import Signature
 
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
@@ -119,8 +120,8 @@ def normalize_calltable_row_signature(annotator, shape, row):
                     newdefaults = newdefaults[i:]
                     break
             graph.defaults = tuple(newdefaults)
-            graph.signature = (tuple([argnames[j] for j in argorder]), 
-                                   None, None)
+            graph.signature = Signature([argnames[j] for j in argorder], 
+                                        None, None)
             # finished
             checkgraph(graph)
             annotator.annotated[newblock] = annotator.annotated[oldblock]
