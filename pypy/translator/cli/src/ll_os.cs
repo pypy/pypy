@@ -308,6 +308,14 @@ namespace pypy.builtin
                 raise_OSError(Errno.EINVAL, e.Message);
                 return null;
             }
+            catch(System.NotSupportedException e) {
+                raise_OSError(Errno.EINVAL, e.Message);
+                return null;
+            }
+            catch(System.IO.IOException e) {
+                raise_OSError(Errno.EINVAL, e.Message);
+                return null;
+            }
 
             if (f.Exists) {
                 Record_Stat_Result res = new Record_Stat_Result();
