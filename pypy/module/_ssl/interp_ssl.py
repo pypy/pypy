@@ -204,11 +204,13 @@ class SSLObject(Wrappable):
     def __init__(self, space):
         self.space = space
         self.w_socket = None
-        self.ctx = lltype.malloc(SSL_CTX_P.TO, 1, flavor='raw')
-        self.ssl = lltype.malloc(SSL_P.TO, 1, flavor='raw')
+        self.ctx = lltype.nullptr(SSL_CTX_P.TO)
+        self.ssl = lltype.nullptr(SSL_P.TO)
         self.server_cert = lltype.nullptr(X509_P.TO)
         self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
+        self._server[0] = '\0'
         self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
+        self._issuer[0] = '\0'
     
     def server(self):
         return self.space.wrap(rffi.charp2str(self._server))
@@ -225,6 +227,8 @@ class SSLObject(Wrappable):
             libssl_SSL_free(self.ssl)
         if self.ctx:
             libssl_SSL_CTX_free(self.ctx)
+        lltype.free(self._server, flavor='raw')
+        lltype.free(self._issuer, flavor='raw')
     
     def write(self, data):
         """write(s) -> len
