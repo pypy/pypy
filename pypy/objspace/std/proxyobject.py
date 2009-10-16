@@ -109,7 +109,7 @@ class W_TransparentList(W_TransparentObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
 class W_TransparentDict(W_TransparentObject):
-    from pypy.objspace.std.dictobject import W_DictObject as original
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject as original
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
 registerimplementation(W_TransparentList)

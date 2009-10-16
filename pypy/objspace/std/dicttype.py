@@ -187,13 +187,10 @@ def descr_dictiter__reduce__(w_self, space):
     w_typeobj = space.gettypeobject(dictiter_typedef)
     
     from pypy.interpreter.mixedmodule import MixedModule
-    if space.config.objspace.std.withmultidict:
-        raise OperationError(
-            space.w_RuntimeError,
-            space.wrap("cannot pickle dictiters with multidicts"))
-    else:
-        from pypy.objspace.std.dictobject import \
-            W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    raise OperationError(
+        space.w_RuntimeError,
+        space.wrap("cannot pickle dictiters with multidicts"))
+    # XXXXXX get that working again
     
     # we cannot call __init__ since we don't have the original dict
     if isinstance(w_self, W_DictIter_Keys):

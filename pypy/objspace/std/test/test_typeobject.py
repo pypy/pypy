@@ -915,10 +915,6 @@ class AppTestTypeObject:
                 return 0
         raises(TypeError, X)
 
-class AppTestWithMultidictTypes:
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
-
     def test_dictproxy_is_updated(self):
         class A(object):
             x = 1

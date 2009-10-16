@@ -74,8 +74,7 @@ get a list in decending order."""
         # save duplication by redirecting every error to applevel
         return range_fallback(space, w_x, w_y, w_step)
 
-    if (space.config.objspace.std.withmultilist or
-        space.config.objspace.std.withrangelist):
+    if space.config.objspace.std.withrangelist:
         return range_withspecialized_implementation(space, start,
                                                     step, howmany)
     res_w = [None] * howmany
@@ -92,14 +91,9 @@ range_fallback = applevel(getsource(app_range), getfile(app_range)
                           ).interphook('range')
 
 def range_withspecialized_implementation(space, start, step, howmany):
-    if space.config.objspace.std.withrangelist:
-        from pypy.objspace.std.rangeobject import W_RangeListObject
-        return W_RangeListObject(start, step, howmany)
-    if space.config.objspace.std.withmultilist:
-        from pypy.objspace.std.listmultiobject import W_ListMultiObject
-        from pypy.objspace.std.listmultiobject import RangeImplementation
-        impl = RangeImplementation(space, start, step, howmany)
-        return W_ListMultiObject(space, impl)
+    assert space.config.objspace.std.withrangelist
+    from pypy.objspace.std.rangeobject import W_RangeListObject
+    return W_RangeListObject(start, step, howmany)
 
 
 @specialize.arg(2)

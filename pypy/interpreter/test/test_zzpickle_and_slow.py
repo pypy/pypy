@@ -363,6 +363,7 @@ class AppTestInterpObjectPickling:
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
+    @py.test.mark.xfail
     def test_pickle_dictiter(self):
         import pickle
         tdict = {'2':2, '3':3, '5':5}

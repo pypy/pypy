@@ -11,8 +11,6 @@ a callback and a state variable.
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.rarithmetic import LONG_BIT
-from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.floatobject import repr__Float as repr_float
 from pypy.objspace.std.longobject import SHIFT as long_bits
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter.special import Ellipsis
@@ -26,7 +24,6 @@ from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
-from pypy.objspace.std.dictobject    import W_DictObject
 from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.ropeobject    import W_RopeObject
@@ -35,7 +32,7 @@ from pypy.objspace.std.longobject    import W_LongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-import longobject, dictobject
+import longobject
 
 from pypy.module.marshal.interp_marshal import register
 
@@ -145,14 +142,14 @@ def marshal_w__Int(space, w_int, m):
             m.atom_int(TYPE_INT, w_int.intval)
 
 def unmarshal_Int(space, u, tc):
-    return wrapint(space, u.get_int())
+    return space.newint(u.get_int())
 register(TYPE_INT, unmarshal_Int)
 
 def unmarshal_Int64(space, u, tc):
     if LONG_BIT >= 64:
         lo = u.get_int() & (2**32-1)
         hi = u.get_int()
-        return wrapint(space, (hi << 32) | lo)
+        return space.newint((hi << 32) | lo)
     else:
         # fall back to a long
         # XXX at some point, we need to extend longobject
@@ -186,7 +183,7 @@ def marshal_w__Float(space, w_float, m):
         m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
-        m.put_pascal(space.str_w(repr_float(space, w_float)))
+        m.put_pascal(space.str_w(space.repr(w_float)))
 
 def unmarshal_Float(space, u, tc):
     return space.call_function(space.builtin.get('float'),
@@ -194,7 +191,7 @@ def unmarshal_Float(space, u, tc):
 register(TYPE_FLOAT, unmarshal_Float)
 
 def unmarshal_Float_bin(space, u, tc):
-    return W_FloatObject(unpack_float(u.get(8)))
+    return space.newfloat(unpack_float(u.get(8)))
 register(TYPE_BINARY_FLOAT, unmarshal_Float_bin)
 
 def marshal_w__Complex(space, w_complex, m):
@@ -222,7 +219,7 @@ register(TYPE_COMPLEX, unmarshal_Complex)
 def unmarshal_Complex_bin(space, u, tc):
     real = unpack_float(u.get(8))
     imag = unpack_float(u.get(8))
-    return W_ComplexObject(real, imag)
+    return space.newcomplex(real, imag)
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
@@ -356,13 +353,6 @@ def finish_List(space, items_w, typecode):
     return space.newlist(items_w)
 register(TYPE_LIST, unmarshal_List)
 
-def marshal_w__Dict(space, w_dict, m):
-    m.start(TYPE_DICT)
-    for w_key, w_value in w_dict.content.iteritems():
-        m.put_w_obj(w_key)
-        m.put_w_obj(w_value)
-    m.atom(TYPE_NULL)
-
 def marshal_w__DictMulti(space, w_dict, m):
     m.start(TYPE_DICT)
     for w_tuple in w_dict.implementation.items():
@@ -371,7 +361,7 @@ def marshal_w__DictMulti(space, w_dict, m):
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
 
-def unmarshal_Dict(space, u, tc):
+def unmarshal_DictMulti(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
@@ -383,7 +373,7 @@ def unmarshal_Dict(space, u, tc):
         w_value = u.get_w_obj(False)
         space.setitem(w_dic, w_key, w_value)
     return w_dic
-register(TYPE_DICT, unmarshal_Dict)
+register(TYPE_DICT, unmarshal_DictMulti)
 
 def unmarshal_NULL(self, u, tc):
     return None

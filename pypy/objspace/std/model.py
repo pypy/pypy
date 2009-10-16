@@ -12,9 +12,6 @@ option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
-    "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
-                        "dictmultiobject.W_DictMultiIterObject"],
-    "withmultilist"  : ["listmultiobject.W_ListMultiObject"],
     "withrope"       : ["ropeobject.W_RopeObject",
                         "ropeobject.W_RopeIterObject"],
     "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
@@ -65,9 +62,7 @@ class StdTypeModel:
         from pypy.objspace.std import smallintobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
-        from pypy.objspace.std import dictobject
         from pypy.objspace.std import dictmultiobject
-        from pypy.objspace.std import listmultiobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import ropeobject
         from pypy.objspace.std import ropeunicodeobject
@@ -95,8 +90,8 @@ class StdTypeModel:
             floatobject.W_FloatObject: [],
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
-            dictobject.W_DictObject: [],
-            dictobject.W_DictIterObject: [],
+            dictmultiobject.W_DictMultiObject: [],
+            dictmultiobject.W_DictMultiIterObject: [],
             stringobject.W_StringObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
@@ -117,8 +112,8 @@ class StdTypeModel:
         self.typeorder[setobject.W_SetIterObject] = []
 
         self.imported_but_not_registered = {
-            dictobject.W_DictObject: True,
-            dictobject.W_DictIterObject: True,
+            dictmultiobject.W_DictMultiObject: True, # XXXXXX
+            dictmultiobject.W_DictMultiIterObject: True,
             listobject.W_ListObject: True,
             stringobject.W_StringObject: True,
             tupleobject.W_TupleObject: True,
@@ -132,12 +127,6 @@ class StdTypeModel:
                     else:
                         self.imported_but_not_registered[implcls] = True
 
-        if config.objspace.std.withmultidict:
-            del self.typeorder[dictobject.W_DictObject]
-            del self.typeorder[dictobject.W_DictIterObject]
-
-        if config.objspace.std.withmultilist:
-            del self.typeorder[listobject.W_ListObject]
         if config.objspace.std.withrope:
             del self.typeorder[stringobject.W_StringObject]
 

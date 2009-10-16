@@ -40,14 +40,9 @@ register_all(vars(), globals())
 # ____________________________________________________________
 
 def descr__new__(space, w_listtype, __args__):
-    if space.config.objspace.std.withmultilist:
-        from pypy.objspace.std.listmultiobject import W_ListMultiObject
-        w_obj = space.allocate_instance(W_ListMultiObject, w_listtype)
-        W_ListMultiObject.__init__(w_obj, space)
-    else:
-        from pypy.objspace.std.listobject import W_ListObject
-        w_obj = space.allocate_instance(W_ListObject, w_listtype)
-        W_ListObject.__init__(w_obj, [])
+    from pypy.objspace.std.listobject import W_ListObject
+    w_obj = space.allocate_instance(W_ListObject, w_listtype)
+    W_ListObject.__init__(w_obj, [])
     return w_obj
 
 # ____________________________________________________________

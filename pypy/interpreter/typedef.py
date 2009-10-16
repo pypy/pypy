@@ -292,9 +292,8 @@ def check_new_dictionary(space, w_dict):
     if not space.is_true(space.isinstance(w_dict, space.w_dict)):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
-    if space.config.objspace.std.withmultidict:
-        from pypy.objspace.std import dictmultiobject
-        assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
+    from pypy.objspace.std import dictmultiobject
+    assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
     return w_dict
 check_new_dictionary._dont_inline_ = True
 

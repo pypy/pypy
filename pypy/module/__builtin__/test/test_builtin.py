@@ -1,5 +1,5 @@
 import autopath
-
+import sys
 
 class AppTestBuiltinApp:
     def setup_class(cls):

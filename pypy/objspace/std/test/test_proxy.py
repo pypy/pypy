@@ -117,8 +117,3 @@ class AppTestDictProxy(AppProxyBasic):
         d = self.proxy(dict, c.perform)
         d['z'] = 4
         assert sorted(list(d.iterkeys())) == ['a', 'b', 'c', 'z']
-
-class AppTestDictStrProxy(AppTestDictProxy):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmultidict": True,
-                                       "objspace.std.withtproxy": True})

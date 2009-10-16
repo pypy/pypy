@@ -241,18 +241,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.FrameClass = StdObjSpaceFrame
 
         # XXX store the dict class on the space to access it in various places
-        if self.config.objspace.std.withmultidict:
-            from pypy.objspace.std import dictmultiobject
-            self.DictObjectCls = dictmultiobject.W_DictMultiObject
-            self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)
-            if self.config.objspace.std.withbucketdict:
-                from pypy.objspace.std import dictbucket
-                self.DefaultDictImpl = dictbucket.BucketDictImplementation
-            else:
-                self.DefaultDictImpl = dictmultiobject.RDictImplementation
+        from pypy.objspace.std import dictmultiobject
+        self.DictObjectCls = dictmultiobject.W_DictMultiObject
+        self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)
+        if self.config.objspace.std.withbucketdict:
+            from pypy.objspace.std import dictbucket
+            self.DefaultDictImpl = dictbucket.BucketDictImplementation
         else:
-            from pypy.objspace.std import dictobject
-            self.DictObjectCls = dictobject.W_DictObject
+            self.DefaultDictImpl = dictmultiobject.RDictImplementation
         assert self.DictObjectCls in self.model.typeorder
 
         from pypy.objspace.std import tupleobject
@@ -577,18 +573,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return wraptuple(self, list_w)
 
     def newlist(self, list_w):
-        if self.config.objspace.std.withmultilist:
-            from pypy.objspace.std.listmultiobject import convert_list_w
-            return convert_list_w(self, list_w)
-        else:
-            from pypy.objspace.std.listobject import W_ListObject
-            return W_ListObject(list_w)
+        from pypy.objspace.std.listobject import W_ListObject
+        return W_ListObject(list_w)
 
     def newdict(self, module=False):
-        if self.config.objspace.std.withmultidict and module:
-            from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        if module:
             return W_DictMultiObject(self, module=True)
-        return self.DictObjectCls(self)
+        return W_DictMultiObject(self)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
