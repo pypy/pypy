@@ -83,6 +83,7 @@ class __extend__(pyframe.PyFrame):
 
     cells = None
 
+    @jit.unroll_safe
     def initialize_frame_scopes(self, closure, code):
         super_initialize_frame_scopes(self, closure, code)
         ncellvars = len(code.co_cellvars)
