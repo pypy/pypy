@@ -71,6 +71,24 @@ class AppTestAppSetTest:
         assert set('abc') > frozenset('ab')
         assert not (set('abc') < frozenset('abc'))
         assert not (set('abc') > frozenset('abc'))
+        assert not set() == 42
+        assert set() != 42
+        assert (set('abc') == frozenset('abc'))
+        assert (set('abc') == set('abc'))
+        assert (frozenset('abc') == frozenset('abc'))
+        assert (frozenset('abc') == set('abc'))
+        assert not (set('abc') != frozenset('abc'))
+        assert not (set('abc') != set('abc'))
+        assert not (frozenset('abc') != frozenset('abc'))
+        assert not (frozenset('abc') != set('abc'))
+        assert not (set('abc') == frozenset('abcd'))
+        assert not (set('abc') == set('abcd'))
+        assert not (frozenset('abc') == frozenset('abcd'))
+        assert not (frozenset('abc') == set('abcd'))
+        assert (set('abc') != frozenset('abcd'))
+        assert (set('abc') != set('abcd'))
+        assert (frozenset('abc') != frozenset('abcd'))
+        assert (frozenset('abc') != set('abcd'))
 
     def test_recursive_repr(self):
         class A(object):

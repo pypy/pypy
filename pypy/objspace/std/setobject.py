@@ -87,13 +87,6 @@ def next__SetIterObject(space, w_setiter):
         w_setiter.content = None
     raise OperationError(space.w_StopIteration, space.w_None)
 
-# XXX __length_hint__()
-##def len__SetIterObject(space, w_setiter):
-##    content = w_setiter.content
-##    if content is None or w_setiter.len == -1:
-##        return space.wrap(0)
-##    return space.wrap(w_setiter.len - w_setiter.pos)
-
 # some helper functions
 
 def make_setdata_from_w_iterable(space, w_iterable=None):
@@ -294,20 +287,11 @@ def inplace_sub__Set_Set(space, w_left, w_other):
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
 
 def eq__Set_Set(space, w_left, w_other):
-    # optimization only (the general case is eq__Set_settypedef)
-    return space.wrap(_is_eq(w_left.setdata, w_other.setdata))
+    return space.newbool(_is_eq(w_left.setdata, w_other.setdata))
 
 eq__Set_Frozenset = eq__Set_Set
-eq__Frozenset_Frozenset = eq__Set_Set
 eq__Frozenset_Set = eq__Set_Set
-
-def eq__Set_settypedef(space, w_left, w_other):
-    rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_is_eq(w_left.setdata, rd))
-
-eq__Set_frozensettypedef = eq__Set_settypedef
-eq__Frozenset_settypedef = eq__Set_settypedef
-eq__Frozenset_frozensettypedef = eq__Set_settypedef
+eq__Frozenset_Frozenset = eq__Set_Set
 
 def eq__Set_ANY(space, w_left, w_other):
     # workaround to have "set() == 42" return False instead of falling
@@ -315,6 +299,13 @@ def eq__Set_ANY(space, w_left, w_other):
     return space.w_False
 
 eq__Frozenset_ANY = eq__Set_ANY
+
+def ne__Set_Set(space, w_left, w_other):
+    return space.newbool(not _is_eq(w_left.setdata, w_other.setdata))
+
+ne__Set_Frozenset = ne__Set_Set
+ne__Frozenset_Set = ne__Set_Set
+ne__Frozenset_Frozenset = ne__Set_Set
 
 def ne__Set_ANY(space, w_left, w_other):
     # more workarounds
