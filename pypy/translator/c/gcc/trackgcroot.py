@@ -35,8 +35,9 @@ OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
 r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+OPERAND+")\s*$")
 r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+([*]"+OPERAND+")\s*$")
 r_jmp_switch    = re.compile(r"\tjmp\t[*]"+LABEL+"[(]")
-r_jmptable_item = re.compile(r"\t.long\t"+LABEL+"\s*$")
-r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text")
+r_jmp_source    = re.compile(r"\d*[(](%[\w]+)[,)]")
+r_jmptable_item = re.compile(r"\t.long\t"+LABEL+"(-\"[A-Za-z0-9$]+\")?\s*$")
+r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text|\t\.align|"+LABEL)
 r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+("+OPERAND+"),\s*("+OPERAND+")\s*$")
 LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|\d*[(]%esp[)]"
 LOCALVARFP      = LOCALVAR + r"|-?\d*[(]%ebp[)]"
@@ -219,7 +220,22 @@ class GcRootTracker(object):
         if functionlines:
             yield in_function, functionlines
 
-    _find_functions_mingw32 = _find_functions_darwin
+    def _find_functions_mingw32(self, iterlines):
+        functionlines = []
+        in_text = False
+        in_function = False
+        for n, line in enumerate(iterlines):
+            if r_textstart.match(line):
+                in_text = True
+            elif r_sectionstart.match(line):
+                in_text = False
+            elif in_text and r_functionstart_darwin.match(line):
+                yield in_function, functionlines
+                functionlines = []
+                in_function = True
+            functionlines.append(line)
+        if functionlines:
+            yield in_function, functionlines
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
         if self.format in ('darwin', 'mingw32'):
@@ -271,7 +287,7 @@ class FunctionGcRootTracker(object):
             funcname = '_'+match.group(1)
         else:
             assert False, "unknown format: %s" % format
- 
+
         self.funcname = funcname
         self.lines = lines
         self.uses_frame_pointer = False
@@ -286,7 +302,6 @@ class FunctionGcRootTracker(object):
         try:
             if not self.list_call_insns():
                 return []
-            self.findprevinsns()
             self.findframesize()
             self.fixlocalvars()
             self.trackgcroots()
@@ -348,6 +363,18 @@ class FunctionGcRootTracker(object):
                 assert label not in self.labels, "duplicate label"
                 self.labels[label] = Label(label, lineno)
 
+    def append_instruction(self, insn):
+        # Add the instruction to the list, and link it to the previous one.
+        previnsn = self.insns[-1]
+        self.insns.append(insn)
+
+        try:
+            lst = insn.previous_insns
+        except AttributeError:
+            lst = insn.previous_insns = []
+        if not isinstance(previnsn, InsnStop):
+            lst.append(previnsn)
+
     def parse_instructions(self):
         self.insns = [InsnFunctionStart()]
         ignore_insns = False
@@ -375,10 +402,13 @@ class FunctionGcRootTracker(object):
                 match = r_label.match(line)
                 if match:
                     insn = self.labels[match.group(1)]
+
             if isinstance(insn, list):
-                self.insns.extend(insn)
+                for i in insn:
+                    self.append_instruction(i)
             else:
-                self.insns.append(insn)
+                self.append_instruction(insn)
+
             del self.currentlineno
 
     def find_missing_visit_method(self, opname):
@@ -391,20 +421,6 @@ class FunctionGcRootTracker(object):
         visit_nop = FunctionGcRootTracker.__dict__['visit_nop']
         setattr(FunctionGcRootTracker, 'visit_' + opname, visit_nop)
         return self.visit_nop
-
-    def findprevinsns(self):
-        # builds the previous_insns of each Insn.  For Labels, all jumps
-        # to them are already registered; all that is left to do is to
-        # make each Insn point to the Insn just before it.
-        for i in range(len(self.insns)-1):
-            previnsn = self.insns[i]
-            nextinsn = self.insns[i+1]
-            try:
-                lst = nextinsn.previous_insns
-            except AttributeError:
-                lst = nextinsn.previous_insns = []
-            if not isinstance(previnsn, InsnStop):
-                lst.append(previnsn)
 
     def list_call_insns(self):
         return [insn for insn in self.insns if isinstance(insn, InsnCall)]
@@ -446,27 +462,37 @@ class FunctionGcRootTracker(object):
                         insn1.framesize = size_at_insn1
 
     def fixlocalvars(self):
+        def fixvar(localvar):
+            if localvar is None:
+                return None
+            elif isinstance(localvar, (list, tuple)):
+                return [fixvar(var) for var in localvar]
+
+            match = r_localvar_esp.match(localvar)
+            if match:
+                if localvar == '0(%esp)': # for pushl and popl, by
+                    hint = None           # default ebp addressing is
+                else:                     # a bit nicer
+                    hint = 'esp'
+                ofs_from_esp = int(match.group(1) or '0')
+                localvar = ofs_from_esp - insn.framesize
+                assert localvar != 0    # that's the return address
+                return LocalVar(localvar, hint=hint)
+            elif self.uses_frame_pointer:
+                match = r_localvar_ebp.match(localvar)
+                if match:
+                    ofs_from_ebp = int(match.group(1) or '0')
+                    localvar = ofs_from_ebp - 4
+                    assert localvar != 0    # that's the return address
+                    return LocalVar(localvar, hint='ebp')
+            return localvar
+
         for insn in self.insns:
-            if hasattr(insn, 'framesize'):
-                for name in insn._locals_:
-                    localvar = getattr(insn, name)
-                    match = r_localvar_esp.match(localvar)
-                    if match:
-                        if localvar == '0(%esp)': # for pushl and popl, by
-                            hint = None           # default ebp addressing is
-                        else:                     # a bit nicer
-                            hint = 'esp'
-                        ofs_from_esp = int(match.group(1) or '0')
-                        localvar = ofs_from_esp - insn.framesize
-                        assert localvar != 0    # that's the return address
-                        setattr(insn, name, LocalVar(localvar, hint=hint))
-                    elif self.uses_frame_pointer:
-                        match = r_localvar_ebp.match(localvar)
-                        if match:
-                            ofs_from_ebp = int(match.group(1) or '0')
-                            localvar = ofs_from_ebp - 4
-                            assert localvar != 0    # that's the return address
-                            setattr(insn, name, LocalVar(localvar, hint='ebp'))
+            if not hasattr(insn, 'framesize'):
+                continue
+            for name in insn._locals_:
+                localvar = getattr(insn, name)
+                setattr(insn, name, fixvar(localvar))
 
     def trackgcroots(self):
 
@@ -557,7 +583,8 @@ class FunctionGcRootTracker(object):
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap',
-        'mins', 'minp',  'maxs', 'maxp', # sse2
+        'movd', 'sqrtsd',
+        'mins', 'minp', 'maxs', 'maxp', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
@@ -577,6 +604,7 @@ class FunctionGcRootTracker(object):
 
     def visit_addl(self, line, sign=+1):
         match = r_binaryinsn.match(line)
+        source = match.group(1)
         target = match.group(2)
         if target == '%esp':
             count = match.group(1)
@@ -585,7 +613,7 @@ class FunctionGcRootTracker(object):
                 return InsnCannotFollowEsp()
             return InsnStackAdjust(sign * int(count[1:]))
         elif self.r_localvar.match(target):
-            return InsnSetLocal(target)
+            return InsnSetLocal(target, [source, target])
         else:
             return []
 
@@ -604,9 +632,10 @@ class FunctionGcRootTracker(object):
         match = r_binaryinsn.match(line)
         if not match:
             raise UnrecognizedOperation(line)
+        source = match.group(1)
         target = match.group(2)
         if self.r_localvar.match(target):
-            return InsnSetLocal(target)
+            return InsnSetLocal(target, [source])
         elif target == '%esp':
             raise UnrecognizedOperation(line)
         else:
@@ -650,14 +679,19 @@ class FunctionGcRootTracker(object):
             # only for  leal -12(%ebp), %esp  in function epilogues
             source = match.group(1)
             match = r_localvar_ebp.match(source)
-            if not match:
-                framesize = None    # strange instruction
-            else:
+            if match:
                 if not self.uses_frame_pointer:
                     raise UnrecognizedOperation('epilogue without prologue')
                 ofs_from_ebp = int(match.group(1) or '0')
                 assert ofs_from_ebp <= 0
                 framesize = 4 - ofs_from_ebp
+            else:
+                match = r_localvar_esp.match(source)
+                # leal 12(%esp), %esp
+                if match:
+                    return InsnStackAdjust(int(match.group(1)))
+
+                framesize = None    # strange instruction
             return InsnEpilogue(framesize)
         else:
             return self.binary_insn(line)
@@ -669,7 +703,7 @@ class FunctionGcRootTracker(object):
             if self.r_localvar.match(source):
                 return [InsnCopyLocal(source, target)]
             else:
-                return [InsnSetLocal(target)]
+                return [InsnSetLocal(target, [source])]
         else:
             return []
 
@@ -717,13 +751,46 @@ class FunctionGcRootTracker(object):
         return InsnRet()
 
     def visit_jmp(self, line):
+        tablelabels = []
         match = r_jmp_switch.match(line)
         if match:
             # this is a jmp *Label(%index), used for table-based switches.
             # Assume that the table is just a list of lines looking like
             # .long LABEL or .long 0, ending in a .text or .section .text.hot.
-            tablelabel = match.group(1)
-            tablelin = self.labels[tablelabel].lineno + 1
+            tablelabels.append(match.group(1))
+        elif r_unaryinsn_star.match(line):
+            # maybe a jmp similar to the above, but stored in a
+            # registry:
+            #     movl L9341(%eax), %eax
+            #     jmp *%eax
+            operand = r_unaryinsn_star.match(line).group(1)[1:]
+            def walker(insn, locs):
+                sources = []
+                for loc in locs:
+                    for s in insn.all_sources_of(loc):
+                        # if the source looks like 8(%eax,%edx,4)
+                        # %eax is the real source, %edx is an offset.
+                        match = r_jmp_source.match(s)
+                        if match and not r_localvar_esp.match(s):
+                            sources.append(match.group(1))
+                        else:
+                            sources.append(s)
+                for source in sources:
+                    label_match = re.compile(LABEL).match(source)
+                    if label_match:
+                        tablelabels.append(label_match.group(0))
+                        return
+                yield tuple(sources)
+            insn = InsnStop()
+            insn.previous_insns = [self.insns[-1]]
+            self.walk_instructions_backwards(walker, insn, (operand,))
+
+            # Remove probable tail-calls
+            tablelabels = [label for label in tablelabels
+                           if label in self.labels]
+        assert len(tablelabels) <= 1
+        if tablelabels:
+            tablelin = self.labels[tablelabels[0]].lineno + 1
             while not r_jmptable_end.match(self.lines[tablelin]):
                 match = r_jmptable_item.match(self.lines[tablelin])
                 if not match:
@@ -867,6 +934,7 @@ class LocalVar(object):
 class Insn(object):
     _args_ = []
     _locals_ = []
+
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__,
                            ', '.join([str(getattr(self, name))
@@ -876,6 +944,9 @@ class Insn(object):
 
     def source_of(self, localvar, tag):
         return localvar
+
+    def all_sources_of(self, localvar):
+        return [localvar]
 
 class Label(Insn):
     _args_ = ['label', 'lineno']
@@ -891,6 +962,7 @@ class InsnFunctionStart(Insn):
         self.arguments = {}
         for reg in CALLEE_SAVE_REGISTERS:
             self.arguments[reg] = somenewvalue
+
     def source_of(self, localvar, tag):
         if localvar not in self.arguments:
             if localvar in ('%eax', '%edx', '%ecx'):
@@ -908,26 +980,44 @@ class InsnFunctionStart(Insn):
             self.arguments[localvar] = somenewvalue
         return self.arguments[localvar]
 
+    def all_sources_of(self, localvar):
+        return []
+
 class InsnSetLocal(Insn):
-    _args_ = ['target']
-    _locals_ = ['target']
-    def __init__(self, target):
+    _args_ = ['target', 'sources']
+    _locals_ = ['target', 'sources']
+
+    def __init__(self, target, sources=()):
         self.target = target
+        self.sources = sources
+
     def source_of(self, localvar, tag):
         if localvar == self.target:
             return somenewvalue
         return localvar
 
+    def all_sources_of(self, localvar):
+        if localvar == self.target:
+            return self.sources
+        return [localvar]
+
 class InsnCopyLocal(Insn):
     _args_ = ['source', 'target']
     _locals_ = ['source', 'target']
+
     def __init__(self, source, target):
         self.source = source
         self.target = target
+
     def source_of(self, localvar, tag):
         if localvar == self.target:
             return self.source
         return localvar
+
+    def all_sources_of(self, localvar):
+        if localvar == self.target:
+            return [self.source]
+        return [localvar]
 
 class InsnStackAdjust(Insn):
     _args_ = ['delta']
@@ -986,6 +1076,9 @@ class InsnCall(Insn):
             "conflicting entries for InsnCall.gcroots[%s]:\n%r and %r" % (
             localvar, tag1, tag))
         return localvar
+
+    def all_sources_of(self, localvar):
+        return [localvar]
 
 class InsnGCROOT(Insn):
     _args_ = ['loc']

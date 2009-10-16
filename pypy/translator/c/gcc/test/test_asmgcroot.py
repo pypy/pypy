@@ -156,3 +156,6 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
     if sys.platform == 'win32':
         def test_callback_with_collect(self):
             py.test.skip("No libffi yet with mingw32")
+
+        def define_callback_with_collect(cls):
+            return lambda: 0
