@@ -21,7 +21,6 @@ class CPU386(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, translate_support_code,
                                gcdescr)
         self._bootstrap_cache = {}
-        self._faildescr_list = []
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
@@ -37,11 +36,6 @@ class CPU386(AbstractLLCPU):
 
     def compile_bridge(self, faildescr, inputargs, operations):
         self.assembler.assemble_bridge(faildescr, inputargs, operations)
-
-    def make_fail_index(self, faildescr):
-        index = len(self._faildescr_list)
-        self._faildescr_list.append(faildescr)
-        return index
 
     def set_future_value_int(self, index, intvalue):
         assert index < MAX_FAIL_BOXES, "overflow!"
@@ -71,9 +65,8 @@ class CPU386(AbstractLLCPU):
     def execute_token(self, executable_token):
         addr = executable_token._x86_bootstrap_code
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        faildescr_index = self._execute_call(func)
-        faildescr = self._faildescr_list[faildescr_index]
-        return faildescr       
+        fail_index = self._execute_call(func)
+        return fail_index
 
     def _execute_call(self, func):
         # help flow objspace

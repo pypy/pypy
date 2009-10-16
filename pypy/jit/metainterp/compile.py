@@ -113,42 +113,58 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
 
 # ____________________________________________________________
 
-class DoneWithThisFrameDescrVoid(AbstractFailDescr):
+class _DoneWithThisFrameDescr(AbstractFailDescr):
+
+    def __init__(self, lst):
+        "NOT_RPYTHON"        
+        self.index = len(lst)
+        lst.append(self)
+
+    def get_index(self):
+        return self.index
+
+class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
         assert metainterp_sd.result_type == 'void'
         raise metainterp_sd.DoneWithThisFrameVoid()
 
-class DoneWithThisFrameDescrInt(AbstractFailDescr):
+class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
         assert metainterp_sd.result_type == 'int'
         result = metainterp_sd.cpu.get_latest_value_int(0)
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
-class DoneWithThisFrameDescrRef(AbstractFailDescr):
+class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
         assert metainterp_sd.result_type == 'ref'
         cpu = metainterp_sd.cpu
         result = cpu.get_latest_value_ref(0)
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
-class DoneWithThisFrameDescrFloat(AbstractFailDescr):
+class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
         assert metainterp_sd.result_type == 'float'
         result = metainterp_sd.cpu.get_latest_value_float(0)
         raise metainterp_sd.DoneWithThisFrameFloat(result)
 
-class ExitFrameWithExceptionDescrRef(AbstractFailDescr):
+class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
         cpu = metainterp_sd.cpu
         value = cpu.get_latest_value_ref(0)
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
-done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
-done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
-done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
-done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat()
-exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
+done_with_this_frame_descrs = []
+done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid(
+                                           done_with_this_frame_descrs)
+done_with_this_frame_descr_int = DoneWithThisFrameDescrInt(
+                                           done_with_this_frame_descrs)
+done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef(
+                                           done_with_this_frame_descrs)
+done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat(
+                                           done_with_this_frame_descrs)
+exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef(
+                                           done_with_this_frame_descrs)
 
 prebuiltNotSpecNode = NotSpecNode()
 
@@ -183,6 +199,17 @@ class ResumeDescr(AbstractFailDescr):
 class ResumeGuardDescr(ResumeDescr):
     counter = 0
     # this class also gets attributes stored by resume.py code
+
+    def __init__(self, metainterp_sd, original_greenkey):
+        ResumeDescr.__init__(self, original_greenkey)
+        self.metainterp_sd = metainterp_sd
+        self.index = -1
+
+    def get_index(self):
+        if self.index == -1:
+            globaldata = self.metainterp_sd.globaldata
+            self.index = globaldata.get_fail_descr_number(self)
+        return self.index
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.fail_args = boxes

@@ -901,6 +901,7 @@ class MIFrame(object):
         if isinstance(box, Const):    # no need for a guard
             return
         metainterp = self.metainterp
+        metainterp_sd = metainterp.staticdata
         if metainterp.is_blackholing():
             return
         saved_pc = self.pc
@@ -910,7 +911,7 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         original_greenkey = metainterp.resumekey.original_greenkey
-        resumedescr = compile.ResumeGuardDescr(original_greenkey)
+        resumedescr = compile.ResumeGuardDescr(metainterp_sd, original_greenkey)
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)       
         virtualizable_boxes = None
@@ -1012,7 +1013,8 @@ class MetaInterpStaticData(object):
         else:
             self.num_green_args = 0
             self.state = None
-        self.globaldata = MetaInterpGlobalData(self)
+        self.globaldata = MetaInterpGlobalData(
+                               self, compile.done_with_this_frame_descrs)
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
@@ -1087,9 +1089,10 @@ class MetaInterpStaticData(object):
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
-    def __init__(self, staticdata):
+    def __init__(self, staticdata, prebuilt_fail_descr_list):
         self.initialized = False
         self.indirectcall_dict = None
+        self.fail_descr_list = prebuilt_fail_descr_list[:]
         #
         state = staticdata.state
         if state is not None:
@@ -1101,6 +1104,16 @@ class MetaInterpGlobalData(object):
             self.unpack_greenkey = tuple
         if staticdata.virtualizable_info:
             self.blackhole_virtualizable = staticdata.virtualizable_info.null_vable
+
+    def get_fail_descr_number(self, descr):
+        assert isinstance(descr, history.AbstractFailDescr)
+        lst = self.fail_descr_list
+        n = len(lst)
+        lst.append(descr)
+        return n
+
+    def get_fail_descr_from_number(self, n):
+        return self.fail_descr_list[n]
 
 # ____________________________________________________________
 

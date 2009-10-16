@@ -125,13 +125,20 @@ class AbstractDescr(AbstractValue):
 
 class AbstractFailDescr(AbstractDescr):
 
+    def get_index(self):
+        raise NotImplementedError
     def handle_fail(self, metainterp_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
 
 class BasicFailDescr(AbstractFailDescr):
-    pass
+
+    def __init__(self, index=-1):
+        self.index = index
+
+    def get_index(self):
+        return self.index
 
 class AbstractMethDescr(AbstractDescr):
     # the base class of the result of cpu.methdescrof()

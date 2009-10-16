@@ -91,7 +91,6 @@ class BaseCPU(model.AbstractCPU):
         self.stats.exec_jumps = 0
         self.stats.exec_conditional_jumps = 0
         self.memo_cast = llimpl.new_memo_cast()
-        self.fail_descrs = []
         llimpl._stats = self.stats
         llimpl._llinterp = LLInterpreter(self.rtyper)
         self._future_values = []
@@ -164,9 +163,9 @@ class BaseCPU(model.AbstractCPU):
             if op.is_guard():
                 faildescr = op.descr
                 assert isinstance(faildescr, history.AbstractFailDescr)
-                index = llimpl.compile_add_fail(c, len(self.fail_descrs))
+                fail_index = faildescr.get_index()
+                index = llimpl.compile_add_fail(c, fail_index)
                 faildescr._compiled_fail = c, index
-                self.fail_descrs.append(faildescr)
                 for box in op.fail_args:
                     llimpl.compile_add_fail_arg(c, var2index[box])
             x = op.result
@@ -188,10 +187,10 @@ class BaseCPU(model.AbstractCPU):
             compiled_version = targettoken._llgraph_compiled_version
             llimpl.compile_add_jump_target(c, compiled_version)
         elif op.opnum == rop.FINISH:
-            llimpl.compile_add_fail(c, len(self.fail_descrs))
             faildescr = op.descr
             assert isinstance(faildescr, history.AbstractFailDescr)
-            self.fail_descrs.append(faildescr)            
+            index = faildescr.get_index()
+            llimpl.compile_add_fail(c, index)
         else:
             assert False, "unknown operation"
 
@@ -207,7 +206,7 @@ class BaseCPU(model.AbstractCPU):
         fail_index = llimpl.frame_execute(frame)
         # we hit a FAIL operation.
         self.latest_frame = frame
-        return self.fail_descrs[fail_index]
+        return fail_index
 
     def set_future_value_int(self, index, intvalue):
         llimpl.set_future_value_int(index, intvalue)

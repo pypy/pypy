@@ -4,7 +4,7 @@
 
 import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, LoopToken
+     BoxPtr, ConstPtr, LoopToken, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.x86.runner import CPU
@@ -80,6 +80,10 @@ class BaseTestRegalloc(object):
     zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
                                             lltype.Ptr(rclass.OBJECT_VTABLE))
     raising_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+
+    fdescr1 = BasicFailDescr(1)
+    fdescr2 = BasicFailDescr(2)
+    fdescr3 = BasicFailDescr(3)
 
     namespace = locals().copy()
     type_system = 'lltype'

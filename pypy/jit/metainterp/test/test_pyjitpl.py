@@ -2,6 +2,7 @@
 # some unit tests for the bytecode decoding
 
 from pypy.jit.metainterp import pyjitpl, codewriter, resoperation
+from pypy.jit.metainterp.history import AbstractFailDescr
 
 def make_frame(code):
     bytecode = codewriter.JitCode("hello")
@@ -32,3 +33,32 @@ def test_simple_opimpl_exist():
             continue
         if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
             assert hasattr(pyjitpl.MIFrame, 'opimpl_' + opname.lower()), opname
+
+def test_faildescr_numbering():
+    class FakeStaticData:
+        state = None
+        virtualizable_info = None
+
+    fail_descr0 = AbstractFailDescr()
+    lst = [fail_descr0]
+    gd = pyjitpl.MetaInterpGlobalData(FakeStaticData, lst)
+    assert gd.fail_descr_list is not lst
+
+    fail_descr = gd.get_fail_descr_from_number(0)
+    assert fail_descr is fail_descr0
+
+    fail_descr1 = AbstractFailDescr()
+    fail_descr2 = AbstractFailDescr()    
+
+    n1 = gd.get_fail_descr_number(fail_descr1)
+    n2 = gd.get_fail_descr_number(fail_descr2)
+    assert n1 != n2
+
+    fail_descr = gd.get_fail_descr_from_number(n1)
+    assert fail_descr is fail_descr1
+    fail_descr = gd.get_fail_descr_from_number(n2)
+    assert fail_descr is fail_descr2
+
+    # doesn't provide interning on its own
+    n1_1 = gd.get_fail_descr_number(fail_descr1)
+    assert n1_1 != n1

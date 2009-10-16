@@ -262,6 +262,9 @@ class Method(object):
         try:
             return self.cpu.failing_ops.index(op)
         except ValueError:
+            descr = op.descr
+            assert isinstance(descr, history.AbstractFailDescr)            
+            descr.get_index()
             self.cpu.failing_ops.append(op)
             return len(self.cpu.failing_ops)-1
 

@@ -789,7 +789,7 @@ class Assembler386(object):
         mc = mc._mc
         mc.LEA(esp, addr_add(imm(0), ebp, (-RET_BP + 2) * WORD))
         assert isinstance(faildescr, AbstractFailDescr)
-        fail_index = self.cpu.make_fail_index(faildescr)
+        fail_index = faildescr.get_index()
         mc.MOV(eax, imm(fail_index))
         mc.POP(edi)
         mc.POP(esi)

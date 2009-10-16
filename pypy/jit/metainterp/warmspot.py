@@ -813,6 +813,7 @@ def make_state_class(warmrunnerdesc):
         # not too bad.
 
         def maybe_compile_and_run(self, *args):
+            globaldata = metainterp_sd.globaldata
             if NonConstant(False):
                 # make sure we always see the saner optimizer from an annotation
                 # point of view, otherwise we get lots of blocked ops
@@ -825,7 +826,7 @@ def make_state_class(warmrunnerdesc):
             if vinfo:
                 virtualizable = args[vinfo.index_of_virtualizable]
                 virtualizable = vinfo.cast_to_vtype(virtualizable)
-                assert virtualizable != metainterp_sd.globaldata.blackhole_virtualizable, "reentering same frame via blackhole"
+                assert virtualizable != globaldata.blackhole_virtualizable, "reentering same frame via blackhole"
             if counter >= 0:
                 # update the profiling counter
                 n = counter + self.increment_threshold
@@ -860,8 +861,9 @@ def make_state_class(warmrunnerdesc):
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
-                fail_descr = metainterp_sd.cpu.execute_token(loop_token)
+                fail_index = metainterp_sd.cpu.execute_token(loop_token)
                 metainterp_sd.profiler.end_running()
+                fail_descr = globaldata.get_fail_descr_from_number(fail_index)
                 loop_token = fail_descr.handle_fail(metainterp_sd)
 
         maybe_compile_and_run._dont_inline_ = True

@@ -1,6 +1,7 @@
 from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.specnode import NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
+from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp import optimize, jitprof, typesystem
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
@@ -93,3 +94,22 @@ def test_compile_new_loop():
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
+
+def test_resumeguarddescr_get_index():
+    from pypy.jit.metainterp.pyjitpl import MetaInterpGlobalData
+
+    class FakeStaticData:
+        state = None
+        virtualizable_info = None
+    gd = MetaInterpGlobalData(FakeStaticData, [])
+    FakeStaticData.globaldata = gd
+
+    rgd = ResumeGuardDescr(FakeStaticData, ())
+
+    fail_index = rgd.get_index()
+    fail_index1 = rgd.get_index()
+
+    assert fail_index == fail_index1
+
+    assert gd.get_fail_descr_from_number(fail_index) is rgd
+
