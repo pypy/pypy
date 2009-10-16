@@ -34,14 +34,18 @@ class FakeCPU:
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger:
-    def log_loop(self, inputargs, operations):
+    def log_loop(self, inputargs, operations, number=0, type=None):
         pass
 
 class FakeState:
     optimize_loop = staticmethod(optimize.optimize_loop)
     debug_level = 0
 
+class FakeGlobalData():
+    loopnumbering = 0
+
 class FakeMetaInterpStaticData:
+    
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
 
@@ -58,6 +62,8 @@ def test_compile_new_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
     staticdata.cpu = cpu
+    staticdata.globaldata = FakeGlobalData()
+    staticdata.globaldata.loopnumbering = 1
     #
     loop = parse('''
     [p1]
@@ -78,6 +84,8 @@ def test_compile_new_loop():
     loop_tokens = []
     loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
     assert loop_tokens == [loop_token]
+    assert loop_token.number == 1
+    assert staticdata.globaldata.loopnumbering == 2
     #
     assert len(cpu.seen) == 1
     assert cpu.seen[0][2] == loop_token
@@ -94,6 +102,7 @@ def test_compile_new_loop():
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
+    assert staticdata.globaldata.loopnumbering == 2    
 
 def test_resumeguarddescr_get_index():
     from pypy.jit.metainterp.pyjitpl import MetaInterpGlobalData

@@ -680,6 +680,12 @@ class LoopToken(AbstractDescr):
     # specnodes = ...
     # and more data specified by the backend when the loop is compiled
 
+    def __init__(self, number=0):
+        self.number = number
+
+    def repr_of_descr(self):
+        return '<Loop%d>' % self.number
+
 class TreeLoop(object):
     inputargs = None
     operations = None

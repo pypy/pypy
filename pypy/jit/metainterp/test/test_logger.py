@@ -4,7 +4,7 @@ from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
-from pypy.jit.metainterp.history import AbstractDescr
+from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
 
 class Descr(AbstractDescr):
     pass
@@ -20,7 +20,7 @@ class Logger(logger.Logger):
         for k, v in self.namespace.items():
             if v == descr:
                 return k
-        return "???"
+        return descr.repr_of_descr()
 
 class TestLogger(object):
     ts = llhelper
@@ -81,5 +81,51 @@ class TestLogger(object):
         f1 = float_add(3.5, f0)
         '''
         loop, oloop = self.reparse(inp)
-        equaloplists(loop.operations, oloop.operations)       
+        equaloplists(loop.operations, oloop.operations)
 
+    def test_jump(self):
+        namespace = {'target': LoopToken(3)}
+        inp = '''
+        [i0]
+        jump(i0, descr=target)
+        '''
+        loop = pure_parse(inp, namespace=namespace)
+        logger = Logger(self.ts)
+        output = logger.log_loop(loop)
+        assert output.splitlines()[-1] == "jump(i0, descr=<Loop3>)"
+        pure_parse(output)
+        
+    def test_guard(self):
+        namespace = {'fdescr': BasicFailDescr(4)}
+        inp = '''
+        [i0]
+        guard_true(i0, descr=fdescr) [i0]
+        '''
+        loop = pure_parse(inp, namespace=namespace)
+        logger = Logger(self.ts, guard_number=True)
+        output = logger.log_loop(loop)
+        assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard4>) [i0]"
+        pure_parse(output)
+        
+        def boom():
+            raise Exception
+        namespace['fdescr'].get_index = boom
+        logger = Logger(self.ts, guard_number=False)
+        output = logger.log_loop(loop)
+        assert output.splitlines()[-1].startswith("guard_true(i0, descr=<")
+
+    def test_intro_loop(self):
+        bare_logger = logger.Logger(self.ts)
+        bare_logger.log_stream = StringIO()
+        bare_logger.log_loop([], [], 1, "foo")
+        output = bare_logger.log_stream.getvalue()
+        assert output.splitlines()[0] == "# Loop1 (foo), 0 ops"
+        pure_parse(output)
+
+    def test_intro_bridge(self):
+        bare_logger = logger.Logger(self.ts)
+        bare_logger.log_stream = StringIO()
+        bare_logger.log_bridge([], [], 3)
+        output = bare_logger.log_stream.getvalue()
+        assert output.splitlines()[0] == "# bridge out of Guard3, 0 ops"        
+        pure_parse(output)

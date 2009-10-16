@@ -970,7 +970,7 @@ class MetaInterpStaticData(object):
         self.stats = stats
         self.options = options
         self.logger_noopt = Logger(cpu.ts)
-        self.logger_ops = Logger(cpu.ts)
+        self.logger_ops = Logger(cpu.ts, guard_number=True)
 
         RESULT = portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
@@ -1093,6 +1093,7 @@ class MetaInterpGlobalData(object):
         self.initialized = False
         self.indirectcall_dict = None
         self.fail_descr_list = prebuilt_fail_descr_list[:]
+        self.loopnumbering = 0
         #
         state = staticdata.state
         if state is not None:

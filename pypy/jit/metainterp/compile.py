@@ -53,10 +53,10 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         loop.operations = history.operations[start:]
     else:
         loop.operations = history.operations
+    metainterp_sd = metainterp.staticdata
     loop_token = make_loop_token(len(loop.inputargs))
     loop.token = loop_token
     loop.operations[-1].descr = loop_token     # patch the target of the JUMP
-    metainterp_sd = metainterp.staticdata
     try:
         old_loop_token = metainterp_sd.state.optimize_loop(
             metainterp_sd, old_loop_tokens, loop)
@@ -83,7 +83,12 @@ def insert_loop_token(old_loop_tokens, loop_token):
         old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(metainterp_sd, loop, type):
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations)
+    globaldata = metainterp_sd.globaldata
+    loop_token = loop.token
+    loop_token.number = n = globaldata.loopnumbering
+    globaldata.loopnumbering += 1
+
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type)
     metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
@@ -99,7 +104,8 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.log("compiled new " + type)
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
-    metainterp_sd.logger_ops.log_loop(inputargs, operations)
+    n = faildescr.get_index()
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n)
     metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd)
