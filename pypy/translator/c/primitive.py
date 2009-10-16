@@ -143,10 +143,9 @@ def name_ushort(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, llgroup.GroupMemberOffset):
             groupnode = db.getcontainernode(value.grpptr._as_obj())
-            structnode = db.getcontainernode(value.member._as_obj())
-            return 'GROUP_MEMBER_OFFSET(%s, %s)' % (
-                groupnode.name,
-                structnode.name,
+            return 'GROUP_MEMBER_OFFSET(%s, member%s)' % (
+                cdecl(groupnode.implementationtypename, ''),
+                value.index,
                 )
         else:
             raise Exception("unimplemented symbolic %r" % value)

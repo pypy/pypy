@@ -1,9 +1,8 @@
 #ifndef _PYPY_LL_GROUP_H_
 #define _PYPY_LL_GROUP_H_
 
-
-#define GROUP_MEMBER_OFFSET(group, membername)  \
-  ((unsigned short)((((char*)&membername) - ((char*)&group)) / sizeof(long)))
+#define GROUP_MEMBER_OFFSET(grouptype, membername)  \
+    ((unsigned short)(&(((grouptype*)NULL))->membername) / sizeof(long))
 
 #define _OP_GET_GROUP_MEMBER(groupptr, compactoffset)  \
   (((char*)groupptr) + ((long)compactoffset)*sizeof(long))
