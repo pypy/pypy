@@ -731,15 +731,17 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         grpptr = grp._as_ptr()
         def f(n):
             p = llop.get_group_member(Ptr(S1), grpptr, goffsets[n])
-            q = llop.get_group_member(Ptr(S1), grpptr, goffsets[0])
             p.x = 5
-            q.x = 666
+            for i in range(len(goffsets)):
+                if i != n:
+                    q = llop.get_group_member(Ptr(S1), grpptr, goffsets[i])
+                    q.x = 666
             return p.x
         if toobig:
             py.test.raises(CompilationError, self.getcompiled, f, [int])
         else:
             fn = self.getcompiled(f, [int])
-            res = fn(-1)
+            res = fn(len(goffsets)-1)
             assert res == 5
 
     def test_round_up_for_allocation(self):
