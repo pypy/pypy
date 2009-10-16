@@ -11,7 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
-from pypy.rlib.jit import hint
+from pypy.rlib import jit
 from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
@@ -48,7 +48,7 @@ class Function(Wrappable):
         return self.getcode().funcrun_obj(self, w_obj, args)
 
     def getcode(self):
-        return hint(self.code, promote=True)
+        return jit.hint(self.code, promote=True)
     
     def funccall(self, *args_w): # speed hack
         from pypy.interpreter import gateway
@@ -135,6 +135,7 @@ class Function(Wrappable):
         args = frame.make_arguments(nargs)
         return self.call_args(args)
 
+    @jit.unroll_safe
     def _flat_pycall(self, code, nargs, frame):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
@@ -145,6 +146,7 @@ class Function(Wrappable):
             
         return new_frame.run()                        
 
+    @jit.unroll_safe
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,

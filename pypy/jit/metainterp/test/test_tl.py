@@ -136,14 +136,14 @@ class ToyLanguageTests:
                    Stack.pop]
         for meth in methods:
             meth_func = meth.im_func
-            assert not hasattr(meth_func, '_look_inside_me_')
-            meth_func._look_inside_me_ = False
+            assert not hasattr(meth_func, '_jit_look_inside_')
+            meth_func._jit_look_inside_ = False
         try:
             self.test_tl_call(listops=False)
         finally:
             for meth in methods:
                 meth_func = meth.im_func
-                del meth_func._look_inside_me_
+                del meth_func._jit_look_inside_
 
 class TestOOtype(ToyLanguageTests, OOJitMixin):
     pass

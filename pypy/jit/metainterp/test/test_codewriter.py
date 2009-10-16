@@ -7,6 +7,89 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.translator.translator import graphof
 from pypy.rpython.lltypesystem.rbuiltin import ll_instantiate
 
+def test_find_all_graphs():
+    def f(x):
+        if x < 0:
+            return f(-x)
+        return x + 1
+    @jit.purefunction
+    def g(x):
+        return x + 2
+    @jit.dont_look_inside
+    def h(x):
+        return x + 3
+    def i(x):
+        return f(x) * g(x) * h(x)
+
+    rtyper = support.annotate(i, [7])
+    cw = CodeWriter(rtyper)
+    jitpolicy = JitPolicy()
+    res = cw.find_all_graphs(rtyper.annotator.translator.graphs[0], None,
+                             jitpolicy, True)
+    translator = rtyper.annotator.translator
+
+    funcs = set([graph.func for graph in res])
+    assert funcs == set([i, f])
+
+def test_find_all_graphs_without_floats():
+    def g(x):
+        return int(x * 12.5)
+    def f(x):
+        return g(x) + 1
+    rtyper = support.annotate(f, [7])
+    cw = CodeWriter(rtyper)
+    jitpolicy = JitPolicy()
+    translator = rtyper.annotator.translator
+    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+                             supports_floats=True)
+    funcs = set([graph.func for graph in res])
+    assert funcs == set([f, g])
+
+    cw = CodeWriter(rtyper)        
+    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+                             supports_floats=False)
+    funcs = [graph.func for graph in res]
+    assert funcs == [f]
+
+def test_find_all_graphs_loops():
+    def g(x):
+        i = 0
+        while i < x:
+            i += 1
+        return i
+    @jit.unroll_safe
+    def h(x):
+        i = 0
+        while i < x:
+            i += 1
+        return i
+
+    def f(x):
+        i = 0
+        while i < x*x:
+            i += g(x) + h(x)
+        return i
+
+    rtyper = support.annotate(f, [7])
+    cw = CodeWriter(rtyper)
+    jitpolicy = JitPolicy()
+    translator = rtyper.annotator.translator
+    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+                             supports_floats=True)
+    funcs = set([graph.func for graph in res])
+    assert funcs == set([f, h])
+    
+
+def test_find_all_graphs_str_join():
+    def i(x, y):
+        return "hello".join([str(x), str(y), "bye"])
+
+    rtyper = support.annotate(i, [7, 100])
+    cw = CodeWriter(rtyper)
+    jitpolicy = JitPolicy()
+    translator = rtyper.annotator.translator
+    # does not explode
+    cw.find_all_graphs(translator.graphs[0], None, jitpolicy, True)
 
 class SomeLabel(object):
     def __eq__(self, other):
@@ -15,7 +98,7 @@ class SomeLabel(object):
 
 class TestCodeWriter:
 
-    def make_graph(self, func, values, type_system='lltype'):
+    def make_graphs(self, func, values, type_system='lltype'):
         class FakeMetaInterpSd:
             virtualizable_info = None
             def find_opcode(self, name):
@@ -56,9 +139,9 @@ class TestCodeWriter:
         self.metainterp_sd.indirectcalls = []
         self.metainterp_sd.cpu = FakeCPU()
 
-        rtyper = support.annotate(func, values, type_system=type_system)
-        self.metainterp_sd.cpu.rtyper = rtyper
-        return rtyper.annotator.translator.graphs[0]
+        self.rtyper = support.annotate(func, values, type_system=type_system)
+        self.metainterp_sd.cpu.rtyper = self.rtyper
+        return self.rtyper.annotator.translator.graphs
 
     def graphof(self, func):
         rtyper = self.metainterp_sd.cpu.rtyper
@@ -67,14 +150,85 @@ class TestCodeWriter:
     def test_basic(self):
         def f(n):
             return n + 10
-        graph = self.make_graph(f, [5])
-        cw = CodeWriter(self.metainterp_sd, JitPolicy())
-        jitcode = cw.make_one_bytecode((graph, None), False)
+        graphs = self.make_graphs(f, [5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert jitcode._source == [
             SomeLabel(),
             'int_add', 0, 1, '# => r1',
             'make_new_vars_1', 2,
             'return']
+
+    def test_guess_call_kind_and_calls_from_graphs(self):
+        from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
+
+        portal_runner_ptr = object()
+        g = object()
+        g1 = object()
+        cw = CodeWriter(None)
+        cw.candidate_graphs = [g, g1]
+        cw.portal_runner_ptr = portal_runner_ptr
+
+        op = SpaceOperation('direct_call', [Constant(portal_runner_ptr)],
+                            Variable())
+        assert cw.guess_call_kind(op) == 'recursive'
+
+        op = SpaceOperation('direct_call', [Constant(object())],
+                            Variable())
+        assert cw.guess_call_kind(op) == 'residual'        
+
+        class funcptr:
+            class graph:
+                class func:
+                    oopspec = "spec"
+        op = SpaceOperation('direct_call', [Constant(funcptr)],
+                            Variable())
+        assert cw.guess_call_kind(op) == 'builtin'
+        
+        class funcptr:
+            graph = g
+        op = SpaceOperation('direct_call', [Constant(funcptr)],
+                            Variable())
+        res = cw.graphs_from(op)
+        assert res == [g]        
+        assert cw.guess_call_kind(op) == 'regular'
+
+        class funcptr:
+            graph = object()
+        op = SpaceOperation('direct_call', [Constant(funcptr)],
+                            Variable())
+        res = cw.graphs_from(op)
+        assert res is None        
+        assert cw.guess_call_kind(op) == 'residual'
+
+        h = object()
+        op = SpaceOperation('indirect_call', [Variable(),
+                                              Constant([g, g1, h])],
+                            Variable())
+        res = cw.graphs_from(op)
+        assert res == [g, g1]
+        assert cw.guess_call_kind(op) == 'regular'
+
+        op = SpaceOperation('indirect_call', [Variable(),
+                                              Constant([h])],
+                            Variable())
+        res = cw.graphs_from(op)
+        assert res is None
+        assert cw.guess_call_kind(op) == 'residual'        
+        
+    def test_direct_call(self):
+        def g(m):
+            return 123
+        def f(n):
+            return g(n+1)
+        graphs = self.make_graphs(f, [5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        assert len(cw.all_graphs) == 2        
 
     def test_indirect_call_target(self):
         def g(m):
@@ -87,9 +241,11 @@ class TestCodeWriter:
             else:
                 call = h
             return call(n+1) + call(n+2)
-        graph = self.make_graph(f, [5])
-        cw = CodeWriter(self.metainterp_sd, JitPolicy())
-        jitcode = cw.make_one_bytecode((graph, None), False)
+        graphs = self.make_graphs(f, [5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)        
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert len(self.metainterp_sd.indirectcalls) == 2
         names = [jitcode.name for (fnaddress, jitcode)
                                in self.metainterp_sd.indirectcalls]
@@ -107,9 +263,13 @@ class TestCodeWriter:
             else:
                 call = h
             return call(n+1) + call(n+2)
-        graph = self.make_graph(f, [5])
-        cw = CodeWriter(self.metainterp_sd, JitPolicy())
-        jitcode = cw.make_one_bytecode((graph, None), False)
+        graphs = self.make_graphs(f, [5])
+        graphs = [g for g in graphs if getattr(g.func, '_jit_look_inside_',
+                                               True)]
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)        
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert len(self.metainterp_sd.indirectcalls) == 1
         names = [jitcode.name for (fnaddress, jitcode)
                                in self.metainterp_sd.indirectcalls]
@@ -131,9 +291,13 @@ class TestCodeWriter:
             else:
                 x = C()
             return x.g() + x.g()
-        graph = self.make_graph(f, [5], type_system='ootype')
-        cw = CodeWriter(self.metainterp_sd, JitPolicy())
-        jitcode = cw.make_one_bytecode((graph, None), False)
+        graphs = self.make_graphs(f, [5], type_system='ootype')
+        graphs = [g for g in graphs if getattr(g.func, '_jit_look_inside_',
+                                               True)]
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)        
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert len(self.methdescrs) == 1
         assert self.methdescrs[0].CLASS._name.endswith('.A')
         assert self.methdescrs[0].methname == 'og'
@@ -157,9 +321,11 @@ class TestCodeWriter:
                 x, y = A2, B2
             n += 1
             return x().id + y().id + n
-        graph = self.make_graph(f, [5])
-        cw = CodeWriter(self.metainterp_sd, JitPolicy())
-        cw.make_one_bytecode((graph, None), False)
+        graphs = self.make_graphs(f, [5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)        
+        cw.make_one_bytecode((graphs[0], None), False)
         graph2 = self.graphof(ll_instantiate)
         jitcode = cw.make_one_bytecode((graph2, None), False)
         assert 'residual_call' not in jitcode._source

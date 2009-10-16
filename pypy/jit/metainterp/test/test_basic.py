@@ -12,8 +12,8 @@ from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
-def get_metainterp(func, values, CPUClass, type_system, policy,
-                   listops=False, optimizer=OPTIMIZER_FULL):
+def _get_bare_metainterp(func, values, CPUClass, type_system,
+                         listops=False):
     from pypy.annotation.policy import AnnotatorPolicy
     from pypy.annotation.model import lltype_to_annotation
     from pypy.rpython.test.test_llinterp import gengraph
@@ -22,10 +22,10 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, False)
-    graph = rtyper.annotator.translator.graphs[0]
+    graphs = rtyper.annotator.translator.graphs
     opt = history.Options(listops=listops)
-    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
-    metainterp_sd.finish_setup(optimizer=optimizer)
+    metainterp_sd = pyjitpl.MetaInterpStaticData(graphs[0], cpu, stats, opt)
+    metainterp_sd.finish_setup(optimizer="bogus")
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
     return metainterp, rtyper
 
@@ -60,7 +60,7 @@ class JitMixin:
             kwds["backendopt"] = False
         return ll_meta_interp(*args, **kwds)
 
-    def interp_operations(self, f, args, policy=None, **kwds):
+    def interp_operations(self, f, args, **kwds):
         from pypy.jit.metainterp import simple_optimize
 
         class DoneWithThisFrame(Exception):
@@ -81,16 +81,17 @@ class JitMixin:
             trace_limit = sys.maxint
             debug_level = 2
         
-        if policy is None:
-            policy = JitPolicy()
-        metainterp, rtyper = get_metainterp(f, args, self.CPUClass,
-                                            self.type_system, policy=policy,
-                                            optimizer="bogus",
-                                            **kwds)
-        cw = codewriter.CodeWriter(metainterp.staticdata, policy)
-        graph = rtyper.annotator.translator.graphs[0]
-        graph_key = (graph, None)
-        maingraph = cw.make_one_bytecode(graph_key, False)
+        metainterp, rtyper = _get_bare_metainterp(f, args, self.CPUClass,
+                                                  self.type_system,
+                                                  **kwds)
+        portal_graph = rtyper.annotator.translator.graphs[0]
+        cw = codewriter.CodeWriter(rtyper)
+        
+        graphs = cw.find_all_graphs(portal_graph, None, JitPolicy(),
+                                    self.CPUClass.supports_floats)
+        cw._start(metainterp.staticdata, None)
+        portal_graph.func._jit_unroll_safe_ = True
+        maingraph = cw.make_one_bytecode((portal_graph, None), False)
         cw.finish_making_bytecodes()
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata._class_sizes = cw.class_sizes
@@ -296,11 +297,12 @@ class BasicTests:
         assert res == ord(u"?")
 
     def test_residual_call(self):
+        @dont_look_inside
         def externfn(x, y):
             return x * y
         def f(n):
             return externfn(n, n+1)
-        res = self.interp_operations(f, [6], policy=StopAtXPolicy(externfn))
+        res = self.interp_operations(f, [6])
         assert res == 42
         self.check_history_(int_add=1, int_mul=0, call=1, guard_no_exception=0)
 
@@ -947,14 +949,6 @@ class BasicTests:
         assert res == 456 * 2
 
     def test_residual_external_call(self):
-        class CustomPolicy(JitPolicy):
-            def look_inside_function(self, func):
-                mod = func.__module__ or '?'
-                if mod == 'pypy.rpython.lltypesystem.module.ll_math':
-                    # XXX temporary, contains force_cast
-                    return False
-                return super(CustomPolicy, self).look_inside_function(func)
-
         import math
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
@@ -963,13 +957,15 @@ class BasicTests:
             while y > 0:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                # this is an external call that the default policy ignores
                 rpart, ipart = math.modf(x)
                 res += ipart
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 7], policy=CustomPolicy())
+        res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_loop_count(1)
+        self.check_loops(call=1)
 
 
 class TestOOtype(BasicTests, OOJitMixin):

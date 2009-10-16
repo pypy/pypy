@@ -17,6 +17,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
+from pypy.jit.metainterp import codewriter
 from pypy.jit.metainterp import support, history, pyjitpl, gc
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
@@ -153,8 +154,12 @@ class WarmRunnerDesc:
         self.set_translator(translator)
         self.find_portal()
         self.make_leave_jit_graph()
-        graphs = find_all_graphs(self.portal_graph, policy, self.translator,
-                                 CPUClass.supports_floats)
+        self.codewriter = codewriter.CodeWriter(self.rtyper)
+        graphs = self.codewriter.find_all_graphs(self.portal_graph,
+                                                 self.leave_graph,
+                                                 policy,
+                                                 CPUClass.supports_floats)
+        policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
@@ -166,7 +171,12 @@ class WarmRunnerDesc:
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
-        self.metainterp_sd.generate_bytecode(policy)
+                
+        self.codewriter.generate_bytecode(self.metainterp_sd,
+                                          self.portal_graph,
+                                          self.leave_graph,
+                                          self.portal_runner_ptr
+                                          )
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
@@ -185,6 +195,7 @@ class WarmRunnerDesc:
 
     def set_translator(self, translator):
         self.translator = translator
+        self.rtyper = translator.rtyper
         self.gcdescr = gc.get_description(translator.config)
 
     def find_portal(self):
@@ -208,8 +219,10 @@ class WarmRunnerDesc:
         assert len(dict.fromkeys(graph.getargs())) == len(graph.getargs())
         self.translator.graphs.append(graph)
         self.portal_graph = graph
-        if hasattr(graph, "func"):
-            graph.func._dont_inline_ = True
+        # it's a bit unbelievable to have a portal without func
+        assert hasattr(graph, "func")
+        graph.func._dont_inline_ = True
+        graph.func._jit_unroll_safe_ = True
         self.jitdriver = block.operations[pos].args[1].value
 
     def check_access_directly_sanity(self, graphs):
@@ -249,13 +262,12 @@ class WarmRunnerDesc:
         cpu = CPUClass(self.translator.rtyper, self.stats,
                        translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
-        self.metainterp_sd = MetaInterpStaticData(self.portal_graph,
-                                                  self.translator.graphs, cpu,
+        self.metainterp_sd = MetaInterpStaticData(self.portal_graph, # xxx
+                                                  cpu,
                                                   self.stats, opt,
                                                   ProfilerClass=ProfilerClass,
-                                                  warmrunnerdesc=self,
-                                                  leave_graph=self.leave_graph)
-
+                                                  warmrunnerdesc=self)
+        
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
         state = WarmEnterState()
@@ -508,9 +520,8 @@ class WarmRunnerDesc:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
         
-        portal_runner_ptr = self.helper_func(self.PTR_PORTAL_FUNCTYPE,
-                                             ll_portal_runner)
-        policy.portal_runner_ptr = portal_runner_ptr
+        self.portal_runner_ptr = self.helper_func(self.PTR_PORTAL_FUNCTYPE,
+                                                  ll_portal_runner)
 
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr
@@ -520,7 +531,7 @@ class WarmRunnerDesc:
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
         greens_v, reds_v = decode_hp_hint_args(op)
-        vlist = [Constant(portal_runner_ptr, self.PTR_PORTAL_FUNCTYPE)]
+        vlist = [Constant(self.portal_runner_ptr, self.PTR_PORTAL_FUNCTYPE)]
         vlist += greens_v
         vlist += reds_v
         v_result = Variable()
@@ -561,30 +572,6 @@ class WarmRunnerDesc:
                 closures[funcname] = make_closure('set_param_' + funcname)
             op.opname = 'direct_call'
             op.args[:3] = [closures[funcname]]
-
-
-def find_all_graphs(portal, policy, translator, supports_floats):
-    from pypy.translator.simplify import get_graph
-    rtyper = translator.rtyper
-    all_graphs = [portal]
-    seen = set([portal])
-    todo = [portal]
-    while todo:
-        top_graph = todo.pop()
-        for _, op in top_graph.iterblockops():
-            if op.opname not in ("direct_call", "indirect_call", "oosend"):
-                continue
-            kind = policy.guess_call_kind(op, rtyper, supports_floats)
-            if kind != "regular":
-                continue
-            for graph in policy.graphs_from(op, rtyper, supports_floats):
-                if graph in seen:
-                    continue
-                if policy.look_inside_graph(graph, supports_floats):
-                    todo.append(graph)
-                    all_graphs.append(graph)
-                    seen.add(graph)
-    return all_graphs
 
 
 def decode_hp_hint_args(op):

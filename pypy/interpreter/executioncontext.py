@@ -34,12 +34,12 @@ class ExecutionContext(object):
             frame = frame.f_back()
         return frame
 
+    @staticmethod
     def getnextframe_nohidden(frame):
         frame = frame.f_back()
         while frame and frame.hide():
             frame = frame.f_back()
         return frame
-    getnextframe_nohidden = staticmethod(getnextframe_nohidden)
 
     def enter(self, frame):
         if self.framestackdepth > self.space.sys.recursionlimit:
@@ -60,6 +60,7 @@ class ExecutionContext(object):
     # the methods below are used for chaining frames in JIT-friendly way
     # part of that stuff is obscure
 
+    @jit.unroll_safe
     def gettopframe(self):
         frame = self.some_frame
         if frame is not None:
@@ -157,6 +158,7 @@ class ExecutionContext(object):
         ec.some_frame = frame
 
     @staticmethod
+    @jit.unroll_safe
     def _extract_back_from_frame(frame):
         back_some = frame.f_back_some
         if frame.f_back_forced:

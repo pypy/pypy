@@ -1,7 +1,7 @@
 from pypy.objspace.std.dictmultiobject import DictImplementation, StrDictImplementation
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
-from pypy.rlib.jit import purefunction, hint, we_are_jitted
+from pypy.rlib.jit import purefunction, hint, we_are_jitted, unroll_safe
 from pypy.rlib.rweakref import RWeakValueDictionary
 
 NUM_DIGITS = 4
@@ -103,6 +103,7 @@ class SharedDictImplementation(DictImplementation):
         else:
             return self._as_rdict().setitem(w_key, w_value)
 
+    @unroll_safe
     def setitem_str(self, w_key, w_value, shadows_type=True):
         key = self.space.str_w(w_key)
         i = self.structure.lookup_position(key)

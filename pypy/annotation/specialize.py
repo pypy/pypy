@@ -59,7 +59,7 @@ def default_specialize(funcdesc, args_s):
     # first flatten the *args
     args_s, key, builder = flatten_star_args(funcdesc, args_s)
     # two versions: a regular one and one for instances with 'access_directly'
-    jit_look_inside = getattr(funcdesc.pyobj, '_look_inside_me_', True)
+    jit_look_inside = getattr(funcdesc.pyobj, '_jit_look_inside_', True)
     # change args_s in place, "official" interface
     access_directly = False
     for i, s_obj in enumerate(args_s):

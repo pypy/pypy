@@ -30,7 +30,7 @@ def run_child_ootype(glob, loc):
 
 def apply_jit(interp, graph, CPUClass):
     print 'warmspot.jittify_and_run() started...'
-    policy = PyPyJitPolicy(interp.typer.annotator.translator)
+    policy = PyPyJitPolicy()
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=CPUClass,

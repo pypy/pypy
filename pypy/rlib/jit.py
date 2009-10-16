@@ -11,7 +11,11 @@ def hint(x, **kwds):
     return x
 
 def dont_look_inside(func):
-    func._look_inside_me_ = False
+    func._jit_look_inside_ = False
+    return func
+
+def unroll_safe(func):
+    func._jit_unroll_safe_ = True
     return func
 
 class Entry(ExtRegistryEntry):

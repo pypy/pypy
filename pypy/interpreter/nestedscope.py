@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.rlib import jit
 from pypy.tool.uid import uid
 
 class Cell(Wrappable):
@@ -149,6 +150,7 @@ class __extend__(pyframe.PyFrame):
             else:
                 cell.set(w_value)
 
+    @jit.unroll_safe
     def init_cells(self):
         if self.cells is None:
             return

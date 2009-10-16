@@ -213,7 +213,7 @@ class PyPyTarget(object):
 
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy
-        return PyPyJitPolicy(driver.translator)
+        return PyPyJitPolicy()
     
     def get_entry_point(self, config):
         space = make_objspace(config)

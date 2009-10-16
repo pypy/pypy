@@ -27,7 +27,6 @@ expose_builtin(impl_between, "between", unwrap_spec=["int", "int", "obj"],
 
 def impl_is(engine, var, num):
     var.unify(num, engine.heap)
-impl_is._look_inside_me_ = True
 expose_builtin(impl_is, "is", unwrap_spec=["raw", "arithmetic"])
 
 for ext, prolog, python in [("eq", "=:=", "=="),

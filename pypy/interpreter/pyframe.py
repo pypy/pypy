@@ -188,6 +188,7 @@ class PyFrame(eval.Frame):
     # we need two popvalues that return different data types:
     # one in case we want list another in case of tuple
     def _new_popvalues():
+        @jit.unroll_safe
         def popvalues(self, n):
             values_w = [None] * n
             while True:
@@ -201,6 +202,7 @@ class PyFrame(eval.Frame):
     popvalues_mutable = _new_popvalues()
     del _new_popvalues
 
+    @jit.unroll_safe
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
@@ -212,6 +214,7 @@ class PyFrame(eval.Frame):
             values_w[n] = self.valuestack_w[base+n]
         return values_w
 
+    @jit.unroll_safe
     def dropvalues(self, n):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
@@ -223,6 +226,7 @@ class PyFrame(eval.Frame):
             self.valuestack_w[finaldepth+n] = None
         self.valuestackdepth = finaldepth
 
+    @jit.unroll_safe
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
         make_sure_not_resized(values_w)
         while True:
@@ -231,6 +235,7 @@ class PyFrame(eval.Frame):
                 break
             self.pushvalue(values_w[n])
 
+    @jit.unroll_safe
     def dupvalues(self, n):
         delta = n-1
         while True:
@@ -252,6 +257,7 @@ class PyFrame(eval.Frame):
         assert index >= 0, "settop past the bottom of the stack"
         self.valuestack_w[index] = w_object
 
+    @jit.unroll_safe
     def dropvaluesuntil(self, finaldepth):
         depth = self.valuestackdepth - 1
         finaldepth = hint(finaldepth, promote=True)

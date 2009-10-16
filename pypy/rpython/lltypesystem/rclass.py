@@ -596,7 +596,6 @@ class InstanceRepr(AbstractInstanceRepr):
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
         res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
         return res
-    ll_str._look_inside_me_ = False
 
     def rtype_isinstance(self, hop):
         class_repr = get_type_repr(hop.rtyper)

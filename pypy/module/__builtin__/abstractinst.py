@@ -7,7 +7,7 @@ issubclass() follow and trust these attributes is they are present, in
 addition to checking for instances and subtypes in the normal way.
 """
 
-from pypy.rlib.jit import dont_look_inside
+from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
@@ -79,7 +79,7 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
             return oldstyleinst.w_class.is_subclass_of(oldstyleclass)
     return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
-@dont_look_inside
+@jit.dont_look_inside
 def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
     # -- case (anything, tuple)
     if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
@@ -102,7 +102,7 @@ def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
         return _issubclass_recurse(space, w_abstractclass, w_klass_or_tuple)
 
 
-@dont_look_inside
+@jit.dont_look_inside
 def _issubclass_recurse(space, w_derived, w_top):
     """Internal helper for abstract cases.  Here, w_top cannot be a tuple."""
     if space.is_w(w_derived, w_top):
@@ -115,6 +115,7 @@ def _issubclass_recurse(space, w_derived, w_top):
     return False
 
 
+@jit.unroll_safe
 def abstract_issubclass_w(space, w_derived, w_klass_or_tuple):
     """Implementation for the full 'issubclass(derived, klass_or_tuple)'."""
 
@@ -138,6 +139,7 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple):
     # from here on, we are sure that w_derived is a class-like object
 
     # -- case (class-like-object, tuple-of-classes)
+    # XXX it might be risky that the JIT sees this
     if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
         for w_klass in space.viewiterable(w_klass_or_tuple):
             if abstract_issubclass_w(space, w_derived, w_klass):

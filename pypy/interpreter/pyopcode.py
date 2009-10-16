@@ -12,7 +12,7 @@ from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.jit import hint, we_are_jitted
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
@@ -130,7 +130,7 @@ class __extend__(pyframe.PyFrame):
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
-            if not we_are_jitted():
+            if not jit.we_are_jitted():
                 # xxx this is a hack.  It allows bytecode_trace() to
                 # call a signal handler which raises, and catch the
                 # raised exception immediately.  See test_alarm_raise in
@@ -153,7 +153,7 @@ class __extend__(pyframe.PyFrame):
                     operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
-            if not we_are_jitted():
+            if not jit.we_are_jitted():
                 ec.exception_trace(self, operr)
 
         block = self.unrollstack(SApplicationException.kind)
@@ -171,11 +171,12 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
         while True:
             self.last_instr = intmask(next_instr)
-            if not we_are_jitted():
+            if not jit.we_are_jitted():
                 ec.bytecode_trace(self)
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
@@ -268,12 +269,13 @@ class __extend__(pyframe.PyFrame):
                 if res is not None:
                     next_instr = res
 
-            if we_are_jitted():
+            if jit.we_are_jitted():
                 return next_instr
 
+    @jit.unroll_safe
     def unrollstack(self, unroller_kind):
         n = self.blockcount
-        n = hint(n, promote=True)
+        n = jit.hint(n, promote=True)
         while n > 0:
             block = self.pop_block()
             n -= 1
@@ -889,6 +891,7 @@ class __extend__(pyframe.PyFrame):
                                   f.space.w_None,
                                   f.space.w_None)
                       
+    @jit.unroll_safe
     def call_function(f, oparg, w_star=None, w_starstar=None):
         from pypy.rlib import rstack # for resume points
         from pypy.interpreter.function import is_builtin_code
@@ -914,7 +917,7 @@ class __extend__(pyframe.PyFrame):
         arguments = f.popvalues(n_arguments)
         args = f.argument_factory(arguments, keywords, keywords_w, w_star, w_starstar)
         w_function  = f.popvalue()
-        if we_are_jitted():
+        if jit.we_are_jitted():
             w_result = f.space.call_args(w_function, args)
         else:
             if f.is_being_profiled and is_builtin_code(w_function):

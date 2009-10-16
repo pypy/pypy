@@ -967,10 +967,8 @@ class MetaInterpStaticData(object):
     logger_noopt = None
     logger_ops = None
 
-    def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None,
-                 leave_graph=None):
-        self.portal_graph = portal_graph
+    def __init__(self, portal_graph, cpu, stats, options,
+                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None):
         self.cpu = cpu
         self.stats = stats
         self.options = options
@@ -995,10 +993,18 @@ class MetaInterpStaticData(object):
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
         self.jit_starting_line = 'JIT starting (%s)' % backendmodule
-        self.leave_graph = leave_graph
+
+        self.portal_code = None
+        self.leave_code = None
+        self._class_sizes = None        
 
     def _freeze_(self):
         return True
+
+    def info_from_codewriter(self, portal_code, leave_code, class_sizes):
+        self.portal_code = portal_code
+        self.leave_code = leave_code
+        self._class_sizes = class_sizes
 
     def finish_setup(self, optimizer=None):
         warmrunnerdesc = self.warmrunnerdesc
@@ -1032,17 +1038,6 @@ class MetaInterpStaticData(object):
             class_sizes[vtable] = sizedescr
         self.cpu.set_class_sizes(class_sizes)
 
-    def generate_bytecode(self, policy):
-        self._codewriter = codewriter.CodeWriter(self, policy)
-        self.leave_code = None
-        if self.leave_graph:
-            self.leave_code = self._codewriter.make_one_bytecode(
-                                                    (self.leave_graph, None),
-                                                    False)
-        self.portal_code = self._codewriter.make_portal_bytecode(
-            self.portal_graph)
-        self._class_sizes = self._codewriter.class_sizes
-
     def bytecode_for_address(self, fnaddress):
         if we_are_translated():
             d = self.globaldata.indirectcall_dict
@@ -1065,14 +1060,6 @@ class MetaInterpStaticData(object):
 
     # ---------- construction-time interface ----------
 
-    def _register_opcode(self, opname):
-        assert len(self.opcode_implementations) < 256, \
-               "too many implementations of opcodes!"
-        name = "opimpl_" + opname
-        self.opname_to_index[opname] = len(self.opcode_implementations)
-        self.opcode_names.append(opname)
-        self.opcode_implementations.append(getattr(MIFrame, name).im_func)
-
     def _register_indirect_call_target(self, fnaddress, jitcode):
         self.indirectcall_keys.append(fnaddress)
         self.indirectcall_values.append(jitcode)
@@ -1083,6 +1070,14 @@ class MetaInterpStaticData(object):
         except KeyError:
             self._register_opcode(name)
             return self.opname_to_index[name]
+
+    def _register_opcode(self, opname):
+        assert len(self.opcode_implementations) < 256, \
+               "too many implementations of opcodes!"
+        name = "opimpl_" + opname
+        self.opname_to_index[opname] = len(self.opcode_implementations)
+        self.opcode_names.append(opname)
+        self.opcode_implementations.append(getattr(MIFrame, name).im_func)
 
     # ---------------- logging ------------------------
 
