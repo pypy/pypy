@@ -84,6 +84,9 @@ built_in_methods = {
     (ootype.StringBuilder.__class__, "ll_build"):
     jvm.Method.v(jStringBuilder, "toString", (), jString),
 
+    (ootype.String.__class__, "ll_hash"):
+    jvm.Method.v(jString, "hashCode", (), jInt),
+
     (ootype.String.__class__, "ll_streq"):
     jvm.Method.v(jString, "equals", (jObject,), jBool),
 

@@ -214,18 +214,19 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_hlstr = unsupported
 
 class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
-    EMPTY_STRING_HASH = -1
 
     def test_hash_via_type(self):
+        from pypy.rlib.objectmodel import compute_hash
+
         def f(n):
             s = malloc(UNICODE, n)
             s.hash = 0
             for i in range(n):
                 s.chars[i] = unichr(ord('A') + i)
-            return s.gethash() - hash(u'ABCDE')
+            return s.gethash() - compute_hash(u'ABCDE')
 
         res = self.interpret(f, [5])
         assert res == 0
 
 class TestOOtype(BaseTestRUnicode, OORtypeMixin):
-    EMPTY_STRING_HASH = 0
+    pass

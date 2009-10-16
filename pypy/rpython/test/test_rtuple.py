@@ -172,8 +172,9 @@ class BaseTestRtuple(BaseRtypingTest):
         assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
 
     def test_tuple_hash(self):
+        from pypy.rlib.objectmodel import compute_hash
         def f(i, j):
-            return hash((i, j))
+            return compute_hash((i, j))
 
         res1 = self.interpret(f, [12, 27])
         res2 = self.interpret(f, [27, 12])
@@ -333,9 +334,10 @@ class BaseTestRtuple(BaseRtypingTest):
             yield test_le, a,b,c,d, resu
             yield test_ge, a,b,c,d, resu
 
-    def test_tuple_hash(self):
+    def test_tuple_hash_2(self):
+        from pypy.rlib.objectmodel import compute_hash
         def f(n):
-            return hash((n, 6)) == hash((3, n*2))
+            return compute_hash((n, 6)) == compute_hash((3, n*2))
         res = self.interpret(f, [3])
         assert res is True
 

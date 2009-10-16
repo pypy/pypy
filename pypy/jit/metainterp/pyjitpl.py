@@ -329,10 +329,6 @@ class MIFrame(object):
     def opimpl_subclassof(self, box1, box2):
         self.execute(rop.SUBCLASSOF, box1, box2)
 
-    @arguments("box")
-    def opimpl_ooidentityhash(self, box):
-        self.execute(rop.OOIDENTITYHASH, box)
-
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsize, countbox):
         self.execute_with_descr(rop.NEW_ARRAY, itemsize, countbox)
@@ -1034,7 +1030,7 @@ class MetaInterpStaticData(object):
     def _setup_class_sizes(self):
         class_sizes = {}
         for vtable, sizedescr in self._class_sizes:
-            vtable = self.cpu.ts.cast_baseclass_to_hashable(self.cpu, vtable)
+            vtable = self.cpu.ts.cast_vtable_to_hashable(self.cpu, vtable)
             class_sizes[vtable] = sizedescr
         self.cpu.set_class_sizes(class_sizes)
 

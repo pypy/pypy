@@ -26,6 +26,7 @@ class TestUsingFramework(object):
     def _makefunc2(cls, f):
         t = Translation(f, [int, int], gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy())
+        t.config.translation.gcconfig.debugprint = True
         t.config.translation.gcconfig.removetypeptr = cls.removetypeptr
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_isolated=True, c_debug_defines=True)
@@ -88,6 +89,8 @@ class TestUsingFramework(object):
         if not args:
             args = (-1, )
         num = self.name_to_func[name]
+        print
+        print 'Running %r (test number %d)' % (name, num)
         res = self.c_allfuncs(num, *args)
         if self.funcsstr[num]:
             return res
@@ -689,6 +692,130 @@ class TestUsingFramework(object):
     def test_resizable_buffer(self):
         assert self.run('resizable_buffer')
 
+    def define_hash_preservation(cls):
+        from pypy.rlib.objectmodel import compute_hash
+        from pypy.rlib.objectmodel import compute_identity_hash
+        from pypy.rlib.objectmodel import current_object_addr_as_int
+        class C:
+            pass
+        class D(C):
+            pass
+        c = C()
+        d = D()
+        h_d = compute_hash(d)     # force to be cached on 'd', but not on 'c'
+        h_t = compute_hash(("Hi", None, (7.5, 2, d)))
+        S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                 ('a', lltype.Array(lltype.Signed)))
+        s = lltype.malloc(S, 15, zero=True)
+        h_s = compute_identity_hash(s)   # varsized: hash not saved/restored
+        #
+        def f():
+            if compute_hash(c) != compute_identity_hash(c): return 12
+            if compute_hash(d) != h_d: return 13
+            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t: return 14
+            c2 = C()
+            h_c2 = compute_hash(c2)
+            if compute_hash(c2) != h_c2: return 15
+            if compute_identity_hash(s) == h_s: return 16   # unlikely
+            i = 0
+            while i < 6:
+                rgc.collect()
+                if compute_hash(c2) != h_c2: return i
+                i += 1
+            return 42
+        return f
+
+    def test_hash_preservation(self):
+        res = self.run('hash_preservation')
+        assert res == 42
+
+    def define_hash_overflow(self):
+        from pypy.rlib.objectmodel import compute_identity_hash
+        class X(object):
+            pass
+
+        def g(n):
+            "Make a chain of n objects."
+            x1 = None
+            i = 0
+            while i < n:
+                x2 = X()
+                x2.prev = x1
+                x1 = x2
+                i += 1
+            return x1
+
+        def build(xr, n):
+            "Build the identity hashes of all n objects of the chain."
+            i = 0
+            while i < n:
+                xr.hash = compute_identity_hash(xr)
+                # ^^^ likely to trigger a collection
+                xr = xr.prev
+                i += 1
+            assert xr is None
+
+        def check(xr, n, step):
+            "Check that the identity hashes are still correct."
+            i = 0
+            while i < n:
+                if xr.hash != compute_identity_hash(xr):
+                    os.write(2, "wrong hash! i=%d, n=%d, step=%d\n" % (i, n,
+                                                                       step))
+                    raise ValueError
+                xr = xr.prev
+                i += 1
+            assert xr is None
+
+        def h(n):
+            x3 = g(3)
+            x4 = g(3)
+            x1 = g(n)
+            build(x1, n)       # can collect!
+            check(x1, n, 1)
+            build(x3, 3)
+            x2 = g(n//2)       # allocate more and try again
+            build(x2, n//2)
+            check(x1, n, 11)
+            check(x2, n//2, 12)
+            build(x4, 3)
+            check(x3, 3, 13)   # check these old objects too
+            check(x4, 3, 14)   # check these old objects too
+            rgc.collect()
+            check(x1, n, 21)
+            check(x2, n//2, 22)
+            check(x3, 3, 23)
+            check(x4, 3, 24)
+
+        def f():
+            # numbers optimized for a 8MB space
+            for n in [100000, 225000, 250000, 300000, 380000,
+                      460000, 570000, 800000]:
+                os.write(2, 'case %d\n' % n)
+                rgc.collect()
+                h(n)
+            return -42
+
+        return f
+
+    def test_hash_overflow(self):
+        res = self.run('hash_overflow')
+        assert res == -42
+
+    def define_hash_varsized(self):
+        S = lltype.GcStruct('S', ('abc', lltype.Signed),
+                                 ('def', lltype.Array(lltype.Signed)))
+        s = lltype.malloc(S, 3, zero=True)
+        h_s = lltype.identityhash(s)
+        def f():
+            return lltype.identityhash(s) - h_s    # != 0 (so far),
+                                # because S is a varsized structure.
+        return f
+
+    def test_hash_varsized(self):
+        res = self.run('hash_varsized')
+        assert res != 0
+
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
@@ -804,6 +931,9 @@ class TestHybridGCRemoveTypePtr(TestHybridGC):
 class TestMarkCompactGC(TestSemiSpaceGC):
     gcpolicy = "markcompact"
     should_be_moving = True
+
+    def setup_class(cls):
+        py.test.skip("Disabled for now")
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")

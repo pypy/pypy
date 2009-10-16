@@ -152,7 +152,7 @@ def mangle(name, config):
     if config.translation.ootype.mangle:
         return 'o' + name
     else:
-        not_allowed = ('_hash_cache_', 'meta', 'class_')
+        not_allowed = ('meta', 'class_')
         assert name not in not_allowed, "%s is a reserved name" % name
         return name
 
@@ -252,13 +252,6 @@ class InstanceRepr(AbstractInstanceRepr):
                     mangled = mangle(meth_name, self.rtyper.getconfig())
                     allmethods[mangled] = meth_name, s_meth
                 # else: it's the __init__ of a builtin exception
-
-        #
-        # hash() support
-        if self.rtyper.needs_hash_support(self.classdef):
-            from pypy.rpython import rint
-            allfields['_hash_cache_'] = rint.signed_repr
-            fields['_hash_cache_'] = ootype.Signed
 
         ootype.addFields(self.lowleveltype, fields)
 
@@ -413,9 +406,6 @@ class InstanceRepr(AbstractInstanceRepr):
                         graph=graph)
         ootype.addMethods(self.lowleveltype, {mangled: m})
 
-    def get_ll_hash_function(self):
-        return ll_inst_hash
-
     def rtype_getattr(self, hop):
         if hop.s_result.is_constant():
             return hop.inputconst(hop.r_result, hop.s_result.const)
@@ -526,8 +516,6 @@ class InstanceRepr(AbstractInstanceRepr):
                 llattrvalue = None
             elif mangled == 'meta':
                 llattrvalue = classrepr.get_meta_instance()
-            elif mangled == '_hash_cache_': # hash() support
-                continue   # already done by initialize_prebuilt_hash()
             else:
                 name = unmangle(mangled, self.rtyper.getconfig())
                 try:
@@ -544,8 +532,7 @@ class InstanceRepr(AbstractInstanceRepr):
             setattr(result, mangled, llattrvalue)
 
     def initialize_prebuilt_hash(self, value, result):
-        if '_hash_cache_' in self.lowleveltype._allfields():
-            result._hash_cache_ = hash(value)
+        pass
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
@@ -580,15 +567,6 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def rtype_ne(rpair, hop):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=ootype.Bool)
-
-
-def ll_inst_hash(ins):
-    if not ins:
-        return 0
-    cached = ins._hash_cache_
-    if cached == 0:
-        cached = ins._hash_cache_ = ootype.ooidentityhash(ins)
-    return cached
 
 def ll_inst_type(obj):
     if obj:

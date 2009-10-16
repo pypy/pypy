@@ -494,6 +494,10 @@ def rtype_cast_int_to_ptr(hop):
     return hop.genop('cast_int_to_ptr', [v_input],
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_identity_hash(hop):
+    vlist = hop.inputargs(hop.args_r[0])
+    return hop.genop('gc_identityhash', vlist, resulttype=lltype.Signed)
+
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
@@ -512,6 +516,7 @@ BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
 BUILTIN_TYPER[lltype.cast_int_to_ptr] = rtype_cast_int_to_ptr
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
+BUILTIN_TYPER[lltype.identityhash] = rtype_identity_hash
 BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info

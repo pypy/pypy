@@ -50,4 +50,3 @@ float_typedef = StdTypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = newmethod(descr__new__),
     )
-float_typedef.custom_hash = True

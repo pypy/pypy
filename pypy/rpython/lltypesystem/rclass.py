@@ -20,6 +20,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import objectmodel
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -331,12 +332,6 @@ class InstanceRepr(AbstractInstanceRepr):
                     mangled_name = 'inst_' + name
                     fields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
-            #
-            # hash() support
-            if self.rtyper.needs_hash_support(self.classdef):
-                from pypy.rpython import rint
-                fields['_hash_cache_'] = 'hash_cache', rint.signed_repr
-                llfields.append(('hash_cache', Signed))
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)
@@ -348,10 +343,6 @@ class InstanceRepr(AbstractInstanceRepr):
             if hints is None:
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
-            if ('_hash_cache_' in fields or
-                '_hash_cache_' in self.rbase.allinstancefields):
-                adtmeths = adtmeths.copy()
-                adtmeths['gethash'] = self.get_ll_hash_function()
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    hints=hints,
@@ -406,21 +397,6 @@ class InstanceRepr(AbstractInstanceRepr):
     def create_instance(self):
         return malloc(self.object_type, flavor=self.gcflavor)
 
-    def get_ll_hash_function(self):
-        if self.classdef is None:
-            raise TyperError, 'missing hash support flag in classdef'
-        if self.rtyper.needs_hash_support(self.classdef):
-            try:
-                return self._ll_hash_function
-            except AttributeError:
-                INSPTR = self.lowleveltype
-                def _ll_hash_function(ins):
-                    return ll_inst_hash(cast_pointer(INSPTR, ins))
-                self._ll_hash_function = _ll_hash_function
-                return _ll_hash_function
-        else:
-            return self.rbase.get_ll_hash_function()
-
     def initialize_prebuilt_data(self, value, classdef, result):
         if self.classdef is not None:
             # recursively build the parent part of the instance
@@ -429,8 +405,6 @@ class InstanceRepr(AbstractInstanceRepr):
             for name, (mangled_name, r) in self.fields.items():
                 if r.lowleveltype is Void:
                     llattrvalue = None
-                elif name == '_hash_cache_': # hash() support
-                    continue   # already done by initialize_prebuilt_hash()
                 else:
                     try:
                         attrvalue = getattr(value, name)
@@ -451,12 +425,9 @@ class InstanceRepr(AbstractInstanceRepr):
             result.typeptr = rclass.getvtable()
 
     def initialize_prebuilt_hash(self, value, result):
-        if self.classdef is not None:
-            self.rbase.initialize_prebuilt_hash(value, result.super)
-            if '_hash_cache_' in self.fields:
-                mangled_name, r = self.fields['_hash_cache_']
-                llattrvalue = hash(value)
-                setattr(result, mangled_name, llattrvalue)
+        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
+        if llattrvalue is not None:
+            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -523,10 +494,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 mangled_name, r = self.allinstancefields[fldname]
                 if r.lowleveltype is Void:
                     continue
-                if fldname == '_hash_cache_':
-                    value = Constant(0, Signed)
-                else:
-                    value = self.classdef.classdesc.read_attribute(fldname, None)
+                value = self.classdef.classdesc.read_attribute(fldname, None)
                 if value is not None:
                     cvalue = inputconst(r.lowleveltype,
                                         r.convert_desc_or_const(value))
@@ -695,18 +663,6 @@ def ll_isinstance_exact(obj, cls):
 
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti
-
-def ll_inst_hash(ins):
-    if not ins:
-        return 0    # for None
-    cached = ins.hash_cache
-    if cached == 0:
-        # XXX this should ideally be done in a GC-dependent way: we only
-        # need a hash_cache for moving GCs, and we only need the '~' to
-        # avoid Boehm keeping the object alive if the value is passed
-        # around
-       cached = ins.hash_cache = ~cast_ptr_to_int(ins)
-    return cached
 
 def ll_inst_type(obj):
     if obj:

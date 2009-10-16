@@ -2,15 +2,16 @@ from pypy.annotation.model import SomeObject, s_ImpossibleValue
 from pypy.annotation.model import SomeInteger, s_Bool, unionof
 from pypy.annotation.model import SomeInstance
 from pypy.annotation.listdef import ListItem
+from pypy.rlib.objectmodel import compute_hash
 
 
 class DictKey(ListItem):
-    custom_eq_hash = False
+    s_rdict_eqfn = s_ImpossibleValue
+    s_rdict_hashfn = s_ImpossibleValue
 
     def __init__(self, bookkeeper, s_value, is_r_dict=False):
         ListItem.__init__(self, bookkeeper, s_value)
-        self.is_r_dict = is_r_dict
-        self.enable_hashing()
+        self.custom_eq_hash = is_r_dict
 
     def patch(self):
         for dictdef in self.itemof:
@@ -26,25 +27,16 @@ class DictKey(ListItem):
                                               other.s_rdict_hashfn,
                                               other=other)
 
-    def enable_hashing(self):
-        # r_dicts don't need the RPython hash of their keys
-        if isinstance(self.s_value, SomeInstance) and not self.is_r_dict:
-            self.bookkeeper.needs_hash_support[self.s_value.classdef] = True
-
     def generalize(self, s_other_value):
         updated = ListItem.generalize(self, s_other_value)
-        if updated:
-            self.enable_hashing()
         if updated and self.custom_eq_hash:
             self.emulate_rdict_calls()
         return updated
 
     def update_rdict_annotations(self, s_eqfn, s_hashfn, other=None):
-        if not self.custom_eq_hash:
-            self.custom_eq_hash = True
-        else:
-            s_eqfn = unionof(s_eqfn, self.s_rdict_eqfn)
-            s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
+        assert self.custom_eq_hash
+        s_eqfn = unionof(s_eqfn, self.s_rdict_eqfn)
+        s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
         self.s_rdict_eqfn = s_eqfn
         self.s_rdict_hashfn = s_hashfn
         self.emulate_rdict_calls(other=other)
@@ -138,6 +130,14 @@ class DictDef:
 
     def generalize_value(self, s_value):
         self.dictvalue.generalize(s_value)
+
+    def seen_prebuilt_key(self, x):
+        # In case we are an r_dict, we don't ask for the hash ourselves.
+        # Note that if the custom hashing function ends up asking for
+        # the hash of x, then it must use compute_hash() itself, so it
+        # works out.
+        if not self.dictkey.custom_eq_hash:
+            compute_hash(x)
 
     def __repr__(self):
         return '<{%r: %r}>' % (self.dictkey.s_value, self.dictvalue.s_value)

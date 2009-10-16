@@ -101,7 +101,7 @@ class ResumeDataLoopMemo(object):
         self.cpu = cpu
         self.consts = []
         self.large_ints = {}
-        self.refs = {}
+        self.refs = cpu.ts.new_ref_dict_2()
         self.numberings = {}
 
     def getconst(self, const):
@@ -124,7 +124,6 @@ class ResumeDataLoopMemo(object):
             val = const.getref_base()
             if not val:
                 return NULLREF
-            val = self.cpu.ts.cast_ref_to_hashable(self.cpu, val)
             tagged = self.refs.get(val, UNASSIGNED)
             if not tagged_eq(tagged, UNASSIGNED):
                 return tagged

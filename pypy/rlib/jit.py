@@ -210,9 +210,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             raise JitHintError("%s expects the following keyword "
                                "arguments: %s" % (self.instance,
                                                   expected))
-        for name in driver.greens:
-            s_green_key = kwds_s['s_' + name]
-            s_green_key.hash()      # force the hash cache to appear
 
         if self.instance.__name__ == 'jit_merge_point':
             self.annotate_hooks(**kwds_s)

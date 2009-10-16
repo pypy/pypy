@@ -584,6 +584,10 @@ namespace pypy.runtime
 
     public class String
     {
+        public static int ll_hash(string s)
+        {
+            return s.GetHashCode();
+        }
         public static char ll_stritem_nonneg(string s, int index)
         {
             return s[index];

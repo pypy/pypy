@@ -493,6 +493,10 @@ def cast_int_to_ptr(PtrT, s_int):
     assert PtrT.is_constant()
     return SomePtr(ll_ptrtype=PtrT.const)
 
+def identityhash(s_obj):
+    assert isinstance(s_obj, (SomePtr, SomeOOObject, SomeOOInstance))
+    return SomeInteger()
+
 def getRuntimeTypeInfo(T):
     assert T.is_constant()
     return immutablevalue(lltype.getRuntimeTypeInfo(T.const))
@@ -517,6 +521,7 @@ BUILTIN_ANALYZERS[lltype.direct_arrayitems] = direct_arrayitems
 BUILTIN_ANALYZERS[lltype.direct_ptradd] = direct_ptradd
 BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
 BUILTIN_ANALYZERS[lltype.cast_int_to_ptr] = cast_int_to_ptr
+BUILTIN_ANALYZERS[lltype.identityhash] = identityhash
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 BUILTIN_ANALYZERS[lltype.Ptr] = constPtr
@@ -562,10 +567,6 @@ def runtimenew(c):
     else:
         return SomeOOInstance(c.ootype)
 
-def ooidentityhash(i):
-    assert isinstance(i, (SomeOOInstance, SomeOOObject))
-    return SomeInteger()
-
 def ooupcast(I, i):
     assert isinstance(I.const, ootype.Instance)
     if ootype.isSubclass(i.ootype, I.const):
@@ -606,7 +607,6 @@ BUILTIN_ANALYZERS[ootype.null] = null
 BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
 BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
-BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
 BUILTIN_ANALYZERS[ootype.ooupcast] = ooupcast
 BUILTIN_ANALYZERS[ootype.oodowncast] = oodowncast
 BUILTIN_ANALYZERS[ootype.cast_to_object] = cast_to_object

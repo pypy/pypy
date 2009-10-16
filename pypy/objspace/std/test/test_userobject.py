@@ -1,3 +1,4 @@
+from pypy.interpreter import gateway
 
 
 class AppTestUserObject:
@@ -6,6 +7,16 @@ class AppTestUserObject:
     def setup_class(cls):
         from pypy import conftest
         cls.space = conftest.gettestobjspace(**cls.OPTIONS)
+        #
+        import random
+        def fn_rand():
+            return cls.space.wrap(random.randrange(0, 5))
+        fn_rand.unwrap_spec = []
+        if conftest.option.runappdirect:
+            cls.w_rand = fn_rand
+        else:
+            cls.w_rand = cls.space.wrap(gateway.interp2app(fn_rand))
+        cls.w_runappdirect = cls.space.wrap(bool(conftest.option.runappdirect))
 
     def test_emptyclass(self):
         class empty(object): pass
@@ -230,6 +241,38 @@ class AppTestUserObject:
             pass
 
         raises(AttributeError, "del Foo.x")
+
+    def test_hash(self):
+        if not hasattr(self, 'runappdirect'):
+            skip("disabled")
+        if self.runappdirect:
+            total = 500000
+        else:
+            total = 50
+        #
+        class A(object):
+            hash = None
+        tail = any = A()
+        tail.next = tail
+        i = 0
+        while i < total:
+            a = A()
+            a.next = tail.next
+            tail.next = a
+            for j in range(self.rand()):
+                any = any.next
+            if any.hash is None:
+                any.hash = hash(any)
+            else:
+                assert any.hash == hash(any)
+            i += 1
+        i = 0
+        while i < total:
+            if any.hash is not None:
+                assert any.hash == hash(any)
+            any = any.next
+            i += 1
+
 
 class AppTestWithMultiMethodVersion2(AppTestUserObject):
     OPTIONS = {}    # for test_builtinshortcut.py

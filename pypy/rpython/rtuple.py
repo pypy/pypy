@@ -100,14 +100,14 @@ def gen_hash_function(items_r):
         autounrolling_funclist = unrolling_iterable(enumerate(hash_funcs))
 
         def ll_hash(t):
-            retval = 0x345678
-            mult = 1000003
+            """Must be kept in sync with rlib.objectmodel._hash_tuple()."""
+            x = 0x345678
             for i, hash_func in autounrolling_funclist:
                 attrname = 'item%d' % i
                 item = getattr(t, attrname)
-                retval = intmask((retval ^ hash_func(item)) * intmask(mult))
-                mult = mult + 82520 + 2*len(items_r)
-            return retval
+                y = hash_func(item)
+                x = intmask((1000003 * x) ^ y)
+            return x
 
         _gen_hash_function_cache[key] = ll_hash
         return ll_hash

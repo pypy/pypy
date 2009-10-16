@@ -9,7 +9,7 @@ from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
-from pypy.translator.c.primitive import PrimitiveType
+from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib.rarithmetic import isinf, isnan
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -149,8 +149,6 @@ class StructDefNode:
         if is_empty:
             yield '\t' + 'char _dummy; /* this struct is empty */'
         yield '};'
-        for line in self.db.gcpolicy.struct_after_definition(self):
-            yield line
 
     def visitor_lines(self, prefix, on_field):
         for name in self.fieldnames:
@@ -546,6 +544,49 @@ class StructNode(ContainerNode):
         yield '}'
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
+
+class GcStructNodeWithHash(StructNode):
+    # for the outermost level of nested structures, if it has a _hash_cache_.
+    nodekind = 'struct'
+    if USESLOTS:
+        __slots__ = ()
+
+    def get_hash_typename(self):
+        return 'struct _hashT_%s @' % self.name
+
+    def forward_declaration(self):
+        hash_typename = self.get_hash_typename()
+        hash_offset = self.db.gctransformer.get_hash_offset(self.T)
+        yield '%s {' % cdecl(hash_typename, '')
+        yield '\tunion {'
+        yield '\t\t%s;' % cdecl(self.implementationtypename, 'head')
+        yield '\t\tchar pad[%s];' % name_signed(hash_offset, self.db)
+        yield '\t} u;'
+        yield '\tlong hash;'
+        yield '};'
+        yield '%s;' % (
+            forward_cdecl(hash_typename, '_hash_' + self.name,
+                          self.db.standalone, self.is_thread_local()),)
+        yield '#define %s _hash_%s.u.head' % (self.name, self.name)
+
+    def implementation(self):
+        hash_typename = self.get_hash_typename()
+        hash = self.db.gcpolicy.get_prebuilt_hash(self.obj)
+        assert hash is not None
+        lines = list(self.initializationexpr())
+        lines.insert(0, '%s = { {' % (
+            cdecl(hash_typename, '_hash_' + self.name,
+                  self.is_thread_local()),))
+        lines.append('}, %s /* hash */ };' % name_signed(hash, self.db))
+        return lines
+
+def gcstructnode_factory(db, T, obj):
+    if db.gcpolicy.get_prebuilt_hash(obj) is not None:
+        cls = GcStructNodeWithHash
+    else:
+        cls = StructNode
+    return cls(db, T, obj)
+
 
 class ArrayNode(ContainerNode):
     nodekind = 'array'
@@ -970,7 +1011,7 @@ class GroupNode(ContainerNode):
 
 ContainerNodeFactory = {
     Struct:       StructNode,
-    GcStruct:     StructNode,
+    GcStruct:     gcstructnode_factory,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,

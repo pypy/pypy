@@ -563,6 +563,7 @@ class TestTypedTestCase(CompilationTestCase):
         assert f(255) == 255
 
     def test_hash_preservation(self):
+        from pypy.rlib.objectmodel import compute_hash
         from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
@@ -570,18 +571,24 @@ class TestTypedTestCase(CompilationTestCase):
             pass
         c = C()
         d = D()
+        compute_hash(d)     # force to be cached on 'd', but not on 'c'
+        #
         def fn():
             d2 = D()
-            return hash(d2), current_object_addr_as_int(d2), hash(c), hash(d)
+            return (compute_hash(d2),
+                    current_object_addr_as_int(d2),
+                    compute_hash(c),
+                    compute_hash(d),
+                    compute_hash(("Hi", None, (7.5, 2, d))))
         
         f = self.getcompiled(fn)
-
         res = f()
 
-        # xxx this is too precise, checking the exact implementation
-        assert res[0] == ~res[1]
-        assert res[2] == hash(c)
-        assert res[3] == hash(d)
+        # xxx the next line is too precise, checking the exact implementation
+        assert res[0] == res[1]
+        assert res[2] != compute_hash(c)     # likely
+        assert res[3] == compute_hash(d)
+        assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
 
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):

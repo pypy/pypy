@@ -9,8 +9,7 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, \
     DescrMismatch
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.objectmodel import instantiate
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import instantiate, compute_identity_hash
 from pypy.rlib.jit import hint
 
 class TypeDef:
@@ -20,12 +19,9 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
-        self.custom_hash = '__hash__' in rawdict
         if __base is not None:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
-            self.custom_hash |= __base.custom_hash
-            # NB. custom_hash is sometimes overridden manually by callers
         self.rawdict = {}
         self.acceptable_as_base_class = True
         # xxx used by faking
@@ -50,39 +46,8 @@ class TypeDef:
 # ____________________________________________________________
 #  Hash support
 
-def get_default_hash_function(cls):
-    # go to the first parent class of 'cls' that has a typedef
-    while 'typedef' not in cls.__dict__:
-        cls = cls.__bases__[0]
-        if cls is object:
-            # not found: 'cls' must have been an abstract class,
-            # no hash function is needed
-            return None
-    if cls.typedef.custom_hash:
-        return None   # the typedef says that instances have their own
-                      # hash, so we don't need a default RPython-level
-                      # hash function.
-    try:
-        hashfunction = _hashfunction_cache[cls]
-    except KeyError:
-        def hashfunction(w_obj):
-            "Return the identity hash of 'w_obj'."
-            assert isinstance(w_obj, cls)
-            return hash(w_obj)   # forces a hash_cache only on 'cls' instances
-        hashfunction = func_with_new_name(hashfunction,
-                                       'hashfunction_for_%s' % (cls.__name__,))
-        _hashfunction_cache[cls] = hashfunction
-    return hashfunction
-get_default_hash_function._annspecialcase_ = 'specialize:memo'
-_hashfunction_cache = {}
-
 def default_identity_hash(space, w_obj):
-    fn = get_default_hash_function(w_obj.__class__)
-    if fn is None:
-        typename = space.type(w_obj).getname(space, '?')
-        msg = "%s objects have no default hash" % (typename,)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    return space.wrap(intmask(fn(w_obj)))
+    return space.wrap(compute_identity_hash(w_obj))
 
 def descr__hash__unhashable(space, w_obj):
     typename = space.type(w_obj).getname(space, '?')

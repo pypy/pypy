@@ -1,5 +1,4 @@
 import py
-from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.test.test_resume import MyMetaInterp
 from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
@@ -35,7 +34,8 @@ def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.resume import tag, TAGBOX
     b0 = BoxInt()
     b1 = BoxInt()
-    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(None), None)
+    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
+                                None)
     fdescr = ResumeGuardDescr(None)
     op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
     # setup rd data

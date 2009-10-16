@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
+from pypy.rpython.memory.gc.semispace import GCFLAG_HASHTAKEN
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -220,7 +221,8 @@ class GenerationGC(SemiSpaceGC):
     # flags exposed for the HybridGC subclass
     GCFLAGS_FOR_NEW_YOUNG_OBJECTS = 0   # NO_YOUNG_PTRS never set on young objs
     GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS = (GCFLAG_EXTERNAL | GCFLAG_FORWARDED |
-                                        GCFLAG_NO_YOUNG_PTRS)
+                                        GCFLAG_NO_YOUNG_PTRS |
+                                        GCFLAG_HASHTAKEN)
 
     # ____________________________________________________________
     # Support code for full collections
@@ -243,11 +245,11 @@ class GenerationGC(SemiSpaceGC):
             llop.debug_print(lltype.Void, "percent survived", float(self.free - self.tospace) / self.space_size)
 
     def make_a_copy(self, obj, objsize):
-        newobj = SemiSpaceGC.make_a_copy(self, obj, objsize)
+        tid = self.header(obj).tid
         # During a full collect, all copied objects might implicitly come
         # from the nursery.  In case they do, we must add this flag:
-        self.header(newobj).tid |= GCFLAG_NO_YOUNG_PTRS
-        return newobj
+        tid |= GCFLAG_NO_YOUNG_PTRS
+        return self._make_a_copy_with_tid(obj, objsize, tid)
         # history: this was missing and caused an object to become old but without the
         # flag set.  Such an object is bogus in the sense that the write_barrier doesn't
         # work on it.  So it can eventually contain a ptr to a young object but we didn't
@@ -386,7 +388,7 @@ class GenerationGC(SemiSpaceGC):
         while scan < self.free:
             curr = scan + self.size_gc_header()
             self.trace_and_drag_out_of_nursery(curr)
-            scan += self.size_gc_header() + self.get_size(curr)
+            scan += self.size_gc_header() + self.get_size_incl_hash(curr)
         return scan
 
     def trace_and_drag_out_of_nursery(self, obj):

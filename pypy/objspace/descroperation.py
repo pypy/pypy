@@ -320,10 +320,10 @@ class DescrOperation:
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
-            if space.lookup(w_obj, '__eq__') is not None or \
-               space.lookup(w_obj, '__cmp__') is not None: 
-                raise OperationError(space.w_TypeError, 
-                                     space.wrap("unhashable type"))
+            # xxx there used to be logic about "do we have __eq__ or __cmp__"
+            # here, but it does not really make sense, as 'object' has a
+            # default __hash__.  This path should only be taken under very
+            # obscure circumstances.
             return default_identity_hash(space, w_obj)
         # XXX CPython has a special case for types with "__hash__ = None"
         # to produce a nicer error message, namely "unhashable type: 'X'".

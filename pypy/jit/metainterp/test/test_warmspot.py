@@ -1,5 +1,5 @@
 import py
-from pypy.jit.metainterp.warmspot import ll_meta_interp, cast_whatever_to_int
+from pypy.jit.metainterp.warmspot import ll_meta_interp, hash_whatever
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, OPTIMIZER_SIMPLE
 from pypy.rlib.jit import unroll_safe
@@ -8,11 +8,11 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
-def test_translate_cast_whatever_to_int():
+def test_translate_hash_whatever():
     from pypy.rpython.test.test_llinterp import interpret
     from pypy.rpython.lltypesystem import lltype
     def fn(x):
-        return cast_whatever_to_int(lltype.typeOf(x), x)
+        return hash_whatever(lltype.typeOf(x), x)
     for type_system in ('lltype', 'ootype'):
         res = interpret(fn, [42], type_system=type_system)
         assert res == 42

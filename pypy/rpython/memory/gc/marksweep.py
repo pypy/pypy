@@ -19,6 +19,9 @@ X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
                                        ('pool',        X_POOL_PTR))
 X_CLONE_PTR = lltype.Ptr(X_CLONE)
 
+FL_WITHHASH = 0x01
+FL_CURPOOL  = 0x02
+
 memoryError = MemoryError()
 class MarkSweepGC(GCBase):
     HDR = lltype.ForwardReference()
@@ -27,9 +30,10 @@ class MarkSweepGC(GCBase):
     # systems allocator and can't walk the heap
     HDR.become(lltype.Struct('header', ('typeid16', rffi.USHORT),
                                        ('mark', lltype.Bool),
-                                       ('curpool_flag', lltype.Bool),
+                                       ('flags', lltype.Char),
                                        ('next', HDRPTR)))
     typeid_is_in_field = 'typeid16'
+    withhash_flag_is_in_field = 'flags', FL_WITHHASH
 
     POOL = lltype.GcStruct('gc_pool')
     POOLPTR = lltype.Ptr(POOL)
@@ -102,7 +106,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid16 = typeid16
         hdr.mark = False
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
         if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
@@ -139,7 +143,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid16 = typeid16
         hdr.mark = False
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
         if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
@@ -178,7 +182,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid16 = typeid16
         hdr.mark = False
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
         hdr.next = self.malloced_objects
         self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
@@ -213,7 +217,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid16 = typeid16
         hdr.mark = False
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
         hdr.next = self.malloced_objects
         self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
@@ -516,7 +520,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid16 = typeid
         hdr.mark = False
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
 
     def init_gc_object_immortal(self, addr, typeid, flags=0):
         # prebuilt gc structures always have the mark bit set
@@ -524,7 +528,7 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid16 = typeid
         hdr.mark = True
-        hdr.curpool_flag = False
+        hdr.flags = '\x00'
 
     # experimental support for thread cloning
     def x_swap_pool(self, newpool):
@@ -596,7 +600,8 @@ class MarkSweepGC(GCBase):
         hdr = hdr.next   # skip the POOL object itself
         while hdr:
             next = hdr.next
-            hdr.curpool_flag = True   # mark all objects from malloced_list
+            # mark all objects from malloced_list
+            hdr.flags = chr(ord(hdr.flags) | FL_CURPOOL)
             hdr.next = lltype.nullptr(self.HDR)  # abused to point to the copy
             oldobjects.append(llmemory.cast_ptr_to_adr(hdr))
             hdr = next
@@ -613,7 +618,7 @@ class MarkSweepGC(GCBase):
                 continue   # pointer is NULL
             oldhdr = llmemory.cast_adr_to_ptr(oldobj_addr - size_gc_header,
                                               self.HDRPTR)
-            if not oldhdr.curpool_flag:
+            if not (ord(oldhdr.flags) & FL_CURPOOL):
                 continue   # ignore objects that were not in the malloced_list
             newhdr = oldhdr.next      # abused to point to the copy
             if not newhdr:
@@ -645,13 +650,13 @@ class MarkSweepGC(GCBase):
 
                 saved_id   = newhdr.typeid16  # XXX hack needed for genc
                 saved_flg1 = newhdr.mark
-                saved_flg2 = newhdr.curpool_flag
+                saved_flg2 = newhdr.flags
                 saved_next = newhdr.next      # where size_gc_header == 0
                 raw_memcopy(oldobj_addr, newobj_addr, size)
-                newhdr.typeid16     = saved_id
-                newhdr.mark         = saved_flg1
-                newhdr.curpool_flag = saved_flg2
-                newhdr.next         = saved_next
+                newhdr.typeid16 = saved_id
+                newhdr.mark     = saved_flg1
+                newhdr.flags    = saved_flg2
+                newhdr.next     = saved_next
 
                 offsets = self.offsets_to_gc_pointers(typeid)
                 i = 0
@@ -685,7 +690,7 @@ class MarkSweepGC(GCBase):
         next = lltype.nullptr(self.HDR)
         while oldobjects.non_empty():
             hdr = llmemory.cast_adr_to_ptr(oldobjects.pop(), self.HDRPTR)
-            hdr.curpool_flag = False   # reset the flag
+            hdr.flags = chr(ord(hdr.flags) &~ FL_CURPOOL)  # reset the flag
             hdr.next = next
             next = hdr
         oldobjects.delete()
@@ -699,6 +704,15 @@ class MarkSweepGC(GCBase):
         # build the new pool object collecting the new objects, and
         # reinstall the pool that was current at the beginning of x_clone()
         clonedata.pool = self.x_swap_pool(curpool)
+
+    def identityhash(self, obj):
+        obj = llmemory.cast_ptr_to_adr(obj)
+        hdr = self.header(obj)
+        if ord(hdr.flags) & FL_WITHHASH:
+            obj += self.get_size(obj)
+            return obj.signed[0]
+        else:
+            return llmemory.cast_adr_to_int(obj)
 
 
 class PrintingMarkSweepGC(MarkSweepGC):

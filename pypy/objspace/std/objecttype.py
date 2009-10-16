@@ -182,5 +182,3 @@ object_typedef = StdTypeDef("object",
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
-
-object_typedef.custom_hash = False    # object.__hash__ is not a custom hash

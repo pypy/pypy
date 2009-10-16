@@ -2,10 +2,10 @@ from weakref import WeakValueDictionary
 from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
+from pypy.rlib.objectmodel import _hash_string
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.jit import purefunction
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rlib.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
@@ -287,6 +287,8 @@ class LLHelpers(AbstractLLHelpers):
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
+            if x == 0:
+                x = 29872897
             s.hash = x
         return x
     ll_strhash._pure_function_ = True # it's pure but it does not look like it

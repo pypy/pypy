@@ -145,4 +145,3 @@ non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = newmethod(descr__new__),
     )
-int_typedef.custom_hash = True

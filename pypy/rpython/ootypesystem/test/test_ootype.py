@@ -622,27 +622,27 @@ def test_cast_object_class():
     cls2 = cast_from_object(Class, obj)
     assert cls is cls2
     
-def test_object_ooidentityhash():
+def test_object_identityhash():
     A = Instance("Foo", ROOT)
     a = new(A)
     obj1 = cast_to_object(a)
     obj2 = cast_to_object(a)
-    assert ooidentityhash(obj1) == ooidentityhash(obj2)
+    assert identityhash(obj1) == identityhash(obj2)
 
-def test_object_ooidentityhash_sm():
+def test_object_identityhash_sm():
     M = StaticMethod([Signed], Signed)
     def m_(x):
        return x
     m = static_meth(M, "m", _callable=m_)
     obj1 = cast_to_object(m)
     obj2 = cast_to_object(m)
-    assert ooidentityhash(obj1) == ooidentityhash(obj2)
+    assert identityhash(obj1) == identityhash(obj2)
 
-def test_ooidentityhash_array():
+def test_identityhash_array():
     A = Array(Signed)
     a = oonewarray(A, 10)
     b = oonewarray(A, 10)
-    assert ooidentityhash(a) != ooidentityhash(b)
+    assert identityhash(a) != identityhash(b)     # likely
 
 def test_bool_class():
     A = Instance("Foo", ROOT)

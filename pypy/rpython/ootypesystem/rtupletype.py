@@ -12,4 +12,4 @@ def TUPLE_TYPE(field_lltypes):
         fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
         hints = {'immutable': True,
                  'noidentity': True}
-        return ootype.Record(dict(fields), _hints=hints)
+        return ootype.Record(fields, _hints=hints)

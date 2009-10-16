@@ -637,18 +637,28 @@ def equal_whatever(TYPE, x, y):
     return x == y
 equal_whatever._annspecialcase_ = 'specialize:arg(0)'
 
-def cast_whatever_to_int(TYPE, x):
+def hash_whatever(TYPE, x):
+    # Hash of lltype or ootype object.
+    # Only supports strings, unicodes and regular instances,
+    # as well as primitives that can meaningfully be cast to Signed.
     if isinstance(TYPE, lltype.Ptr):
-        # only supports strings, unicodes and regular instances *with a hash
-        # cache*.  The 'jit_merge_point' hint forces a hash cache to appear.
-        return x.gethash()
+        if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
+            return rstr.LLHelpers.ll_strhash(x)    # assumed not null
+        else:
+            if x:
+                return lltype.identityhash(x)
+            else:
+                return 0
     elif TYPE is ootype.String or TYPE is ootype.Unicode:
-        return ootype.oohash(x)
+        return x.ll_hash()
     elif isinstance(TYPE, ootype.OOType):
-        return ootype.ooidentityhash(x)
+        if x:
+            return ootype.identityhash(x)
+        else:
+            return 0
     else:
         return lltype.cast_primitive(lltype.Signed, x)
-cast_whatever_to_int._annspecialcase_ = 'specialize:arg(0)'
+hash_whatever._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 
@@ -914,7 +924,7 @@ def make_state_class(warmrunnerdesc):
                     result = result * mult
                     mult = mult + 82520 + 2*len(greenargs)
                 item = greenargs[i]
-                result = result ^ cast_whatever_to_int(TYPE, item)
+                result = result ^ hash_whatever(TYPE, item)
                 i = i + 1
             return result         # returns a r_uint
         getkeyhash._always_inline_ = True

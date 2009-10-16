@@ -739,3 +739,39 @@ def test_subarray_keeps_array_alive():
     del ptr
     import gc; gc.collect(); gc.collect()
     ptr2[0] = 5    # crashes if the array was deallocated
+
+def test_identityhash():
+    S = GcStruct('S', ('x', Signed))
+    S2 = GcStruct('S2', ('super', S))
+    S3 = GcStruct('S3', ('super', S2))
+
+    py.test.raises(AssertionError, identityhash, nullptr(S2))
+
+    s3 = malloc(S3)
+    hash3 = identityhash(s3.super)
+    assert hash3 == identityhash(s3)
+    assert hash3 == identityhash(s3.super)
+    assert hash3 == identityhash(s3.super.super)
+    py.test.raises(ValueError, init_identity_hash, s3, hash3^1)
+    py.test.raises(ValueError, init_identity_hash, s3.super, hash3^4)
+    py.test.raises(ValueError, init_identity_hash, s3.super.super, hash3^9)
+
+    s3 = malloc(S3)
+    init_identity_hash(s3.super, -123)
+    assert -123 == identityhash(s3)
+    assert -123 == identityhash(s3.super)
+    assert -123 == identityhash(s3.super.super)
+    py.test.raises(ValueError, init_identity_hash, s3, 4313)
+    py.test.raises(ValueError, init_identity_hash, s3.super, 0)
+    py.test.raises(ValueError, init_identity_hash, s3.super.super, -124)
+
+    from pypy.rpython.lltypesystem import llmemory
+    p3 = cast_opaque_ptr(llmemory.GCREF, s3)
+    assert -123 == identityhash(p3)
+
+    A = GcArray(Signed)
+    a = malloc(A, 3)
+    hash1 = identityhash(a)
+    assert hash1 == identityhash(a)
+    p = cast_opaque_ptr(llmemory.GCREF, a)
+    assert hash1 == identityhash(p)

@@ -7,6 +7,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
+from pypy.rlib.objectmodel import compute_hash
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -211,13 +212,7 @@ def hash__Unicode(space, w_uni):
         x ^= ord(s[0])
         h = intmask(x)
         return space.wrap(h)
-    if we_are_translated():
-        x = hash(s)            # to use the hash cache in rpython strings
-    else:
-        from pypy.rlib.rarithmetic import _hash_string
-        x = _hash_string(s)    # to make sure we get the same hash as rpython
-        # (otherwise translation will freeze W_DictObjects where we can't find
-        #  the keys any more!)
+    x = compute_hash(s)
     return space.wrap(x)
 
 def len__Unicode(space, w_uni):

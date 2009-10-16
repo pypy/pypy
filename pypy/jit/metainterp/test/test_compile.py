@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.specnode import NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
-from pypy.jit.metainterp import optimize, jitprof
+from pypy.jit.metainterp import optimize, jitprof, typesystem
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
@@ -26,6 +26,7 @@ def test_insert_loop_token():
 
 
 class FakeCPU:
+    ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
     def compile_loop(self, inputargs, operations, token):

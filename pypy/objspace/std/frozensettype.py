@@ -55,5 +55,4 @@ Build an immutable unordered collection.""",
     __new__ = newmethod(descr__frozenset__new__),
     )
 
-frozenset_typedef.custom_hash = True
 frozenset_typedef.registermethods(globals())

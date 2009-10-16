@@ -463,23 +463,6 @@ def formatd_overflow(alt, prec, kind, x):
 
     return formatd(fmt, x)
 
-# a common string hash function
-
-def _hash_string(s):
-    length = len(s)
-    if length == 0:
-        x = -1
-    else:
-        x = ord(s[0]) << 7
-        i = 0
-        while i < length:
-            x = (1000003*x) ^ ord(s[i])
-            i += 1
-        x ^= length
-        if x == 0:
-            x = -1
-    return intmask(x)
-
 # the 'float' C type
 
 class r_singlefloat(object):

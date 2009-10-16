@@ -1,6 +1,6 @@
 import py
 import sys
-from pypy.rlib.rarithmetic import intmask, _hash_string, ovfcheck
+from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.rarithmetic import r_uint, LONG_BIT
 from pypy.rlib.objectmodel import we_are_translated
 import math

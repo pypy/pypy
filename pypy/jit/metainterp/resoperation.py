@@ -187,7 +187,6 @@ _oplist = [
     'UNICODEGETITEM/2',
     #
     # ootype operations
-    'OOIDENTITYHASH/1',
     'INSTANCEOF/1d',
     'SUBCLASSOF/2',
     #

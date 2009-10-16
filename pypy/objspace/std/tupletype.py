@@ -27,4 +27,3 @@ tuple(sequence) -> tuple initialized from sequence's items
 If the argument is a tuple, the return value is the same object.''',
     __new__ = newmethod(descr__new__),
     )
-tuple_typedef.custom_hash = True

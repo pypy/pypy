@@ -244,7 +244,7 @@ def test_rebuild_from_resumedata():
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
     capture_resumedata(fs, None, storage)
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish({})
     metainterp = MyMetaInterp()
@@ -268,7 +268,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
     capture_resumedata(fs, [b4], storage)
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish({})
     metainterp = MyMetaInterp()
@@ -296,7 +296,7 @@ def test_rebuild_from_resumedata_two_guards():
     fs = fs[:-1] + [FakeFrame("code2", 10, -1, c3, b2, b4)]
     capture_resumedata(fs, None, storage2)
     
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish({})
 
@@ -421,7 +421,7 @@ def test_resumedata_top_recursive_virtuals():
 
 
 def test_ResumeDataLoopMemo_ints():
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
     tagged = memo.getconst(ConstInt(44))
     assert untag(tagged) == (44, TAGINT)
     tagged = memo.getconst(ConstInt(-3))
@@ -461,7 +461,7 @@ def test_ResumeDataLoopMemo_refs():
     assert tagged == NULLREF
 
 def test_ResumeDataLoopMemo_other():
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
     const = ConstFloat(-1.0)
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
@@ -479,7 +479,7 @@ def test_ResumeDataLoopMemo_number():
     env2 = [c3, b3, b1, c3]
     snap2 = Snapshot(snap, env2)
 
-    memo = ResumeDataLoopMemo(None)
+    memo = ResumeDataLoopMemo(LLtypeMixin.cpu)
 
     numb, liveboxes, v = memo.number({}, snap1)
     assert v == 0

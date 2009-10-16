@@ -5,6 +5,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
 from pypy.lang.prolog.interpreter import error
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import compute_hash, compute_identity_hash
 
 DEBUG = False
 
@@ -244,7 +245,7 @@ class Atom(Callable):
             raise UnificationFailed
 
     def get_unify_hash(self, heap):
-        return intmask(hash(self.name) << TAGBITS | self.TAG)
+        return intmask(compute_hash(self.name) << TAGBITS | self.TAG)
 
     def unify_hash_of_children(self, heap):
         return []
@@ -370,7 +371,7 @@ class BlackBox(NonVar):
             raise UnificationFailed
 
     def get_unify_hash(self, heap):
-        return intmask(hash(self) << TAGBITS | self.TAG)
+        return intmask(compute_identity_hash(self) << TAGBITS | self.TAG)
 
 
 
@@ -450,7 +451,7 @@ class Term(Callable):
             return self
 
     def get_unify_hash(self, heap):
-        return intmask(hash(self.signature) << TAGBITS | self.TAG)
+        return intmask(compute_hash(self.signature) << TAGBITS | self.TAG)
 
     def unify_hash_of_children(self, heap):
         unify_hash = []

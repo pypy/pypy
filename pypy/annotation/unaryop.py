@@ -20,11 +20,12 @@ from pypy.rpython import extregistry
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr', 'hash',
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long', 'id',
+                        'ord', 'int', 'float', 'long',
+                        'hash', 'id',    # <== not supported any more
                         'getslice', 'setslice', 'delslice',
                         'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
 
@@ -98,7 +99,8 @@ class __extend__(SomeObject):
         return obj.is_true()
 
     def hash(obj):
-        raise TypeError, "hash() is not generally supported"
+        raise TypeError, ("cannot use hash() in RPython; "
+                          "see objectmodel.compute_xxx()")
 
     def str(obj):
         getbookkeeper().count('str', obj)
@@ -121,10 +123,8 @@ class __extend__(SomeObject):
         return SomeString()
 
     def id(obj):
-        raise Exception("cannot use id() in RPython; pick one of:\n"
-                        "\t\t objectmodel.compute_unique_id()\n"
-                        "\t\t hash()\n"
-                        "\t\t objectmodel.current_object_addr_as_int()")
+        raise Exception("cannot use id() in RPython; "
+                        "see objectmodel.compute_xxx()")
 
     def int(obj):
         return SomeInteger()
@@ -203,9 +203,6 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
 
-    def hash(flt):
-        return SomeInteger()
-
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -271,11 +268,6 @@ class __extend__(SomeTuple):
 
     def getanyitem(tup):
         return unionof(*tup.items)
-
-    def hash(tup):
-        for s_item in tup.items:
-            s_item.hash()    # record that we need the hash of each item
-        return SomeInteger()
 
     def getslice(tup, s_start, s_stop):
         assert s_start.is_immutable_constant(),"tuple slicing: needs constants"
@@ -501,9 +493,6 @@ class __extend__(SomeString,
     def ord(str):
         return SomeInteger(nonneg=True)
 
-    def hash(str):
-        return SomeInteger()
-
     def method_split(str, patt): # XXX
         getbookkeeper().count("str_split", str, patt)
         return getbookkeeper().newlist(str.basestringclass())
@@ -632,10 +621,6 @@ class __extend__(SomeInstance):
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
 
-    def hash(ins):
-        getbookkeeper().needs_hash_support[ins.classdef] = True
-        return SomeInteger()
-
     def is_true_behavior(ins, s):
         if not ins.can_be_None:
             s.const = True
@@ -693,13 +678,6 @@ class __extend__(SomePBC):
             return immutablevalue(0)
         else:
             return SomeObject()    # len() on a pbc? no chance
-
-    def hash(pbc):
-        if pbc.isNone():
-            # only supports hash(None) as part of hash(<SomeInstance>)
-            return SomeInteger()
-        else:
-            return SomeObject.hash(pbc)
 
 class __extend__(SomeGenericCallable):
     def call(self, args):

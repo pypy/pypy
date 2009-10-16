@@ -46,14 +46,8 @@ class AbstractDictRepr(rmodel.Repr):
         else:
             return self._externalvsinternal(self.rtyper, item_repr)
 
-    def pickkeyrepr(self, key_repr):
-        external, internal = self.pickrepr(key_repr)
-        if external != internal:
-            internal = external
-            while not self.rtyper.needs_hash_support(internal.classdef):
-                internal = internal.rbase
-        return external, internal
-        
+    pickkeyrepr = pickrepr
+
     def compact_repr(self):
         return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
 

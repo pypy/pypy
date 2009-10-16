@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Flo
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
+from pypy.rpython.lltypesystem.lltype import identityhash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import objectmodel
 from pypy.tool.uid import uid
@@ -331,9 +332,14 @@ class Record(BuiltinType):
     # can treat them polymorphically, if they choose to do so.
 
     def __init__(self, fields, _hints={}):
+        if isinstance(fields, dict):
+            fields = fields.items()    # random order in that case
         self._fields = frozendict()
-        for name, ITEMTYPE in fields.items():
+        fields_in_order = []
+        for name, ITEMTYPE in fields:
             self._fields[name] = ITEMTYPE, ITEMTYPE._defl()
+            fields_in_order.append(name)
+        self._fields_in_order = tuple(fields_in_order)
         self._null = _null_record(self)
         self._hints = frozendict(_hints)
 
@@ -361,8 +367,8 @@ class Record(BuiltinType):
             return self, None
 
     def __str__(self):
-        item_str = ["%s: %s" % (str(name), str(ITEMTYPE))
-                    for name, (ITEMTYPE, _) in self._fields.items()]
+        item_str = ["%s: %s" % (str(name), str(self._fields[name][0]))
+                    for name in self._fields_in_order]
         return '%s(%s)' % (self.__class__.__name__, ", ".join(item_str))
 
 class BuiltinADTType(BuiltinType):
@@ -411,6 +417,7 @@ class AbstractString(BuiltinADTType):
 
         generic_types = { self.SELFTYPE_T: self }
         self._GENERIC_METHODS = frozendict({
+            "ll_hash": Meth([], Signed),
             "ll_stritem_nonneg": Meth([Signed], self.CHAR),
             "ll_strlen": Meth([], Signed),
             "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T),
@@ -881,13 +888,10 @@ class _object(object):
         return hash(self.obj)
 
     def _identityhash(self):
-        if self:
-            try:
-                return self.obj._identityhash()
-            except AttributeError:
-                return intmask(id(self.obj))
-        else:
-            return 0 # for all null objects
+        try:
+            return self.obj._identityhash()
+        except AttributeError:
+            return hash(self.obj)
 
     def _cast_to_object(self):
         return self
@@ -986,10 +990,7 @@ class _instance(object):
         return self
 
     def _identityhash(self):
-        if self:
-            return intmask(id(self))
-        else:
-            return 0   # for all null instances
+        return hash(self)
 
     def _cast_to_object(self):
         return make_object(ooupcast(ROOT, self))
@@ -1386,6 +1387,12 @@ class _string(_builtin_type):
         else:
             assert False, 'Unknown type %s' % self._TYPE
 
+    def ll_hash(self):
+        # NOT_RPYTHON
+        # hopefully, ll_hash() should not be called on NULL
+        assert self._str is not None
+        return objectmodel._hash_string(self._str)
+
     def ll_stritem_nonneg(self, i):
         # NOT_RPYTHON
         s = self._str
@@ -1622,10 +1629,7 @@ class _array(_builtin_type):
         self._array[index] = item
 
     def _identityhash(self):
-        if self:
-            return intmask(id(self))
-        else:
-            return 0   # for all null arrays
+        return hash(self)
 
 class _null_array(_null_mixin(_array), _array):
 
@@ -1772,13 +1776,16 @@ class _record(object):
             self.__dict__[name] = value
 
     def _identityhash(self):
-        if self:
-            return intmask(id(self))
-        else:
-            return 0 # for all null tuples
+        return hash(self)
+
+    def _items_in_order(self):
+        return [self._items[name] for name in self._TYPE._fields_in_order]
+
+    def _ll_hash(self):
+        return objectmodel._ll_hash_tuple(self._items_in_order())
 
     def __hash__(self):
-        key = tuple(self._items.keys()), tuple(self._items.values())
+        key = tuple(self._items_in_order())
         return hash(key)
 
     def __eq__(self, other):
@@ -1897,16 +1904,6 @@ def cast_to_object(whatever):
 def cast_from_object(EXPECTED_TYPE, obj):
     assert typeOf(obj) is Object
     return obj._cast_to(EXPECTED_TYPE)
-
-def ooidentityhash(inst):
-    T = typeOf(inst)
-    assert T is Object or isinstance(T, (Instance, Record, Array))
-    return inst._identityhash()
-
-def oohash(inst):
-    assert typeOf(inst) is String or typeOf(inst) is Unicode
-    # for now only strings and unicode are supported
-    return hash(inst._str)
 
 def oostring(obj, base):
     """

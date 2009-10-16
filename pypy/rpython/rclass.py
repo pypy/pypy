@@ -236,14 +236,17 @@ class AbstractInstanceRepr(Repr):
             self.setup()
             result = self.create_instance()
             self._reusable_prebuilt_instance = result
-            self.initialize_prebuilt_instance(Ellipsis, self.classdef, result)
+            self.initialize_prebuilt_data(Ellipsis, self.classdef, result)
             return result
 
     def initialize_prebuilt_instance(self, value, classdef, result):
-        # must fill in the _hash_cache_ field before the other ones
+        # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
         self.initialize_prebuilt_hash(value, result)
         self.initialize_prebuilt_data(value, classdef, result)
+
+    def get_ll_hash_function(self):
+        return ll_inst_hash
 
     def rtype_type(self, hop):
         raise NotImplementedError
@@ -271,6 +274,13 @@ class AbstractInstanceRepr(Repr):
 def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
     rinstance = getinstancerepr(rtyper, classdef)
     return rinstance.new_instance(llops, classcallhop)
+
+def ll_inst_hash(ins):
+    if not ins:
+        return 0    # for None
+    else:
+        from pypy.rpython.lltypesystem import lltype
+        return lltype.identityhash(ins)     # also works for ootype
 
 
 _missing = object()

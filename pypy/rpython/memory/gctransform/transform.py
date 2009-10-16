@@ -380,6 +380,10 @@ class BaseGCTransformer(object):
     def gct_zero_gc_pointers_inside(self, hop):
         pass
 
+    def gct_gc_identityhash(self, hop):
+        # must be implemented in the various GCs
+        raise NotImplementedError
+
     def gct_gc_id(self, hop):
         # this assumes a non-moving GC.  Moving GCs need to override this
         hop.rename('cast_ptr_to_int')

@@ -888,6 +888,7 @@ class Property(object):
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
 OBJTOSTRING =           Method.v(jObject, 'toString', (), jString)
 OBJEQUALS =             Method.v(jObject, 'equals', (jObject,), jBool)
+SYSTEMIDENTITYHASH =    Method.s(jSystem, 'identityHashCode', (jObject,), jInt)
 SYSTEMGC =              Method.s(jSystem, 'gc', (), jVoid)
 INTTOSTRINGI =          Method.s(jIntegerClass, 'toString', (jInt,), jString)
 LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)

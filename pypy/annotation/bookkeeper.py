@@ -169,7 +169,6 @@ class Bookkeeper:
         self.pending_specializations = []   # list of callbacks
         self.external_class_cache = {}      # cache of ExternalType classes
 
-        self.needs_hash_support = {}
         self.needs_generic_instantiate = {}
 
         self.stats = Stats(self)
@@ -219,12 +218,6 @@ class Bookkeeper:
                 self.consider_call_site_for_pbc(pbc, 'simple_call', 
                                                 args_s, s_ImpossibleValue)
             self.emulated_pbc_calls = {}
-
-            for clsdef in self.needs_hash_support.keys():
-                for clsdef2 in self.needs_hash_support:
-                    if clsdef.issubclass(clsdef2) and clsdef is not clsdef2:
-                        del self.needs_hash_support[clsdef]
-                        break
         finally:
             self.leave()
 
@@ -399,6 +392,7 @@ class Bookkeeper:
                         for ek, ev in items:
                             result.dictdef.generalize_key(self.immutablevalue(ek))
                             result.dictdef.generalize_value(self.immutablevalue(ev))
+                            result.dictdef.seen_prebuilt_key(ek)
                         seen_elements = len(items)
                         # if the dictionary grew during the iteration,
                         # start over again
@@ -417,6 +411,7 @@ class Bookkeeper:
                 for ek, ev in x.iteritems():
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
+                    dictdef.seen_prebuilt_key(ek)
                 result = SomeDict(dictdef)
         elif tp is weakref.ReferenceType:
             x1 = x()

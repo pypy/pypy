@@ -693,14 +693,17 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(f, [const('a'), 0])
         assert self.ll_to_string(res) == ""
 
+    EMPTY_STRING_HASH = -1     # unless overridden
+
     def test_hash(self):
+        from pypy.rlib.objectmodel import compute_hash
         const = self.const
         def fn(i):
             if i == 0:
                 s = const('')
             else:
                 s = const("xxx")
-            return hash(s)
+            return compute_hash(s)
         res = self.interpret(fn, [0])
         assert res == self.EMPTY_STRING_HASH
         res = self.interpret(fn, [1])
@@ -883,8 +886,6 @@ class BaseTestRstr(AbstractTestRstr):
 
 class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
-    EMPTY_STRING_HASH = -1
-
     def test_ll_find_rfind(self):
         llstr = self.string_to_ll
         
@@ -899,18 +900,18 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
             assert res == s1.rfind(s2)
 
     def test_hash_via_type(self):
+        from pypy.rlib.objectmodel import compute_hash
+
         def f(n):
             s = malloc(STR, n)
             s.hash = 0
             for i in range(n):
                 s.chars[i] = chr(i)
-            return s.gethash() - hash('\x00\x01\x02\x03\x04')
+            return s.gethash() - compute_hash('\x00\x01\x02\x03\x04')
 
         res = self.interpret(f, [5])
         assert res == 0
 
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
-
-    EMPTY_STRING_HASH = 0
-        
+    pass

@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
-     SmallDictImplementation, SmallStrDictImplementation, MeasuringDictImplementation
+     MeasuringDictImplementation
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
 from pypy.conftest import gettestobjspace
@@ -89,16 +89,6 @@ class AppTestModuleDict(object):
     def test_key_not_there(self):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
-
-
-
-class TestW_DictSmall(test_dictobject.TestW_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsmalldicts": True})
-
-class AppTest_DictSmall(test_dictobject.AppTest_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsmalldicts": True})
 
 
 class C: pass
@@ -250,22 +240,10 @@ class TestRDictImplementation:
 class TestStrDictImplementation(TestRDictImplementation):
     ImplementionClass = StrDictImplementation
 
-class TestSmallDictImplementation(TestRDictImplementation):
-    ImplementionClass = SmallDictImplementation
-
-    def get_impl(self):
-        return self.ImplementionClass(self.space, self.string, self.string2)
-
 class TestMeasuringDictImplementation(TestRDictImplementation):
     ImplementionClass = MeasuringDictImplementation
     DevolvedClass = MeasuringDictImplementation
     EmptyClass = MeasuringDictImplementation
-
-class TestSmallStrDictImplementation(TestRDictImplementation):
-    ImplementionClass = SmallStrDictImplementation
-
-    def get_impl(self):
-        return self.ImplementionClass(self.space, self.string, self.string2)
 
 class TestModuleDictImplementation(TestRDictImplementation):
     ImplementionClass = ModuleDictImplementation

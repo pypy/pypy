@@ -113,10 +113,10 @@ class LLHelpers(AbstractLLHelpers):
         return ootype.oounicode(ch, -1)
 
     def ll_strhash(s):
-        return ootype.oohash(s)
+        return s.ll_hash()
 
     def ll_strfasthash(s):
-        return ootype.oohash(s)
+        return s.ll_hash()
 
     def ll_char_mul(ch, times):
         if times < 0:

@@ -439,10 +439,18 @@ LL_OPERATIONS = {
     'gc_push_alive_pyobj':  LLOp(),
     'gc_pop_alive_pyobj':   LLOp(),
     'gc_reload_possibly_moved': LLOp(),
+    # see rlib/objectmodel for gc_identityhash and gc_id
+    'gc_identityhash':      LLOp(canraise=(MemoryError,), sideeffects=False,
+                                 canunwindgc=True),
     'gc_id':                LLOp(canraise=(MemoryError,), sideeffects=False),
+                                 # ^^^ but canunwindgc=False, as it is
+                                 # allocating non-GC structures only
+    'gc_obtain_free_space': LLOp(),
     'gc_set_max_heap_size': LLOp(),
     'gc_can_move'         : LLOp(sideeffects=False),
     'gc_thread_prepare'   : LLOp(canraise=(MemoryError,)),
+                                 # ^^^ but canunwindgc=False, as it is
+                                 # allocating non-GC structures only
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_assume_young_pointers': LLOp(),
@@ -538,11 +546,9 @@ LL_OPERATIONS = {
     'instanceof':           LLOp(oo=True, canfold=True),
     'classof':              LLOp(oo=True, canfold=True),
     'subclassof':           LLOp(oo=True, canfold=True),
-    'ooidentityhash':       LLOp(oo=True, sideeffects=False),  # not an id()!
     'oostring':             LLOp(oo=True, sideeffects=False),
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
-    'oohash':               LLOp(oo=True, sideeffects=False),
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
 
     # _____ read frame var support ___

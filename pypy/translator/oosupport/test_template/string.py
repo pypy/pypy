@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.test.test_rstr import BaseTestRstr
+from pypy.rlib.objectmodel import compute_hash
 
 class BaseTestString(BaseTestRstr):
 
@@ -22,11 +23,11 @@ class BaseTestString(BaseTestRstr):
         pass # it doesn't make sense here
 
     def test_hash_value(self):
-        # make that hash are computed by value and not by reference
+        # make sure that hash are computed by value and not by reference
         def fn(x, y):
             s1 = ''.join([x, 'e', 'l', 'l', 'o'])
             s2 = ''.join([y, 'e', 'l', 'l', 'o'])
-            return (hash(s1) == hash(s2)) and (s1 is not s2)
+            return (compute_hash(s1) == compute_hash(s2)) and (s1 is not s2)
         assert self.interpret(fn, ['h', 'h']) == True
 
     def test_int_formatting(self):

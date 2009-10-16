@@ -42,12 +42,12 @@ def test_null():
     n2 = null(T)
     assert n == n2
 
-def test_ooidentityhash():
+def test_identityhash():
     T = Record({"a": Signed, "b": Signed})
     t = new(T)
     t.a = 1
     t.b = 2
     t2 = new(T)
-    t.a = 1
-    t.b = 2
-    assert ooidentityhash(t) != ooidentityhash(t2)
+    t2.a = 1
+    t2.b = 2
+    assert identityhash(t) != identityhash(t2)       # xxx???

@@ -364,7 +364,7 @@ class Optimizer(object):
         self.cpu = metainterp_sd.cpu
         self.loop = loop
         self.values = {}
-        self.interned_refs = {}
+        self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.cpu)
         self.heap_op_optimizer = HeapOpOptimizer(self)
 
@@ -380,12 +380,7 @@ class Optimizer(object):
             value = constbox.getref_base()
             if not value:
                 return box
-            key = self.cpu.ts.cast_ref_to_hashable(self.cpu, value)
-            try:
-                return self.interned_refs[key]
-            except KeyError:
-                self.interned_refs[key] = box
-                return box
+            return self.interned_refs.setdefault(value, box)
         else:
             return box
 

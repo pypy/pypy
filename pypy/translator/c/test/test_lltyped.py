@@ -249,6 +249,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         assert res1 == res2
 
     def test_null_padding(self):
+        py.test.skip("we no longer pad our RPython strings with a final NUL")
         from pypy.rpython.lltypesystem import llmemory
         from pypy.rpython.lltypesystem import rstr
         chars_offset = llmemory.FieldOffset(rstr.STR, 'chars') + \

@@ -3,6 +3,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
+from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.uid import uid
 from pypy.conftest import option
@@ -310,7 +311,7 @@ class ConstFloat(Const):
         return self.value
 
     def _get_hash_(self):
-        return hash(self.value)
+        return compute_hash(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_float(j, self.getfloat())
@@ -350,7 +351,10 @@ class ConstPtr(Const):
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
-        return lltype.cast_ptr_to_int(self.value)
+        if self.value:
+            return lltype.identityhash(self.value)
+        else:
+            return 0
 
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
@@ -398,7 +402,7 @@ class ConstObj(Const):
 
     def _get_hash_(self):
         if self.value:
-            return ootype.ooidentityhash(self.value)
+            return ootype.identityhash(self.value)
         else:
             return 0
 
@@ -530,7 +534,7 @@ class BoxFloat(Box):
         return self.value
 
     def _get_hash_(self):
-        return hash(self.value)
+        return compute_hash(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_float(j, self.value)
@@ -566,7 +570,10 @@ class BoxPtr(Box):
         return llmemory.cast_ptr_to_adr(self.value)
 
     def _get_hash_(self):
-        return lltype.cast_ptr_to_int(self.value)
+        if self.value:
+            return lltype.identityhash(self.value)
+        else:
+            return 0
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)
@@ -602,7 +609,7 @@ class BoxObj(Box):
 
     def _get_hash_(self):
         if self.value:
-            return ootype.ooidentityhash(self.value)
+            return ootype.identityhash(self.value)
         else:
             return 0
 
@@ -631,11 +638,20 @@ def dc_eq(c1, c2):
     return c1 == c2
 
 def dc_hash(c):
+    "NOT_RPYTHON"
+    # This is called during translation only.  Avoid using identityhash(),
+    # to avoid forcing a hash, at least on lltype objects.
     if not isinstance(c, Const):
         return hash(c)
     if isinstance(c.value, Symbolic):
         return id(c.value)
     try:
+        if isinstance(c, ConstPtr):
+            p = lltype.normalizeptr(c.value)
+            if p is not None:
+                return hash(p._obj)
+            else:
+                return 0
         return c._get_hash_()
     except lltype.DelayedPointer:
         return -2      # xxx risk of changing hash...

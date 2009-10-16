@@ -4,6 +4,7 @@ from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_singlefloat,\
      isnan, isinf
+from pypy.rlib.objectmodel import compute_hash
 
 class TestSnippet(object):
 
@@ -145,9 +146,9 @@ class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
     def test_hash(self):
         def fn(f):
-            return hash(f)
+            return compute_hash(f)
         res = self.interpret(fn, [1.5])
-        assert res == hash(1.5)
+        assert res == compute_hash(1.5)
 
 
 class TestOOtype(BaseTestRfloat, OORtypeMixin):

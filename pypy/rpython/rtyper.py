@@ -651,9 +651,6 @@ class RPythonTyper(object):
 
     # __________ utilities __________
 
-    def needs_hash_support(self, clsdef):
-        return clsdef in self.annotator.bookkeeper.needs_hash_support
-
     def needs_wrapper(self, cls):
         return cls in self.classes_with_wrapper
 

@@ -4,7 +4,7 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp import history
+from pypy.rlib.objectmodel import r_dict
 
 def deref(T):
     if isinstance(T, lltype.Ptr):
@@ -114,11 +114,15 @@ class LLTypeHelper(TypeSystemHelper):
         ll = llstr(str)
         return history.ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ll))
 
-    def cast_ref_to_hashable(self, cpu, ptr):
-        adr = llmemory.cast_ptr_to_adr(ptr)
-        return cpu.cast_adr_to_int(adr)
+    # A dict whose keys are refs (like the .value of BoxPtr).
+    # It is an r_dict on lltype.  Two copies, to avoid conflicts with
+    # the value type.  Note that NULL is not allowed as a key.
+    def new_ref_dict(self):
+        return r_dict(rd_eq, rd_hash)
+    def new_ref_dict_2(self):
+        return r_dict(rd_eq, rd_hash)
 
-    def cast_baseclass_to_hashable(self, cpu, ptr):
+    def cast_vtable_to_hashable(self, cpu, ptr):
         adr = llmemory.cast_ptr_to_adr(ptr)
         return cpu.cast_adr_to_int(adr)
 
@@ -133,8 +137,14 @@ class LLTypeHelper(TypeSystemHelper):
     def getaddr_for_box(self, cpu, box):
         return box.getaddr(cpu)
 
-    def ooidentityhash(self, x):
-        raise NotImplementedError
+def rd_eq(ref1, ref2):
+    return ref1 == ref2
+
+def rd_hash(ref):
+    assert ref
+    return lltype.identityhash(ref)
+
+# ____________________________________________________________
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -212,10 +222,15 @@ class OOTypeHelper(TypeSystemHelper):
         oo = oostr(str)
         return history.ConstObj(ootype.cast_to_object(oo))
 
-    def cast_ref_to_hashable(self, cpu, obj):
-        return ootype.cast_to_object(obj)
+    # A dict whose keys are refs (like the .value of BoxObj).
+    # It is a normal dict on ootype.  Two copies, to avoid conflicts
+    # with the value type.
+    def new_ref_dict(self):
+        return {}
+    def new_ref_dict_2(self):
+        return {}
 
-    def cast_baseclass_to_hashable(self, cpu, obj):
+    def cast_vtable_to_hashable(self, cpu, obj):
         return ootype.cast_to_object(obj)
 
     def cast_from_ref(self, TYPE, value):
@@ -228,8 +243,6 @@ class OOTypeHelper(TypeSystemHelper):
 
     def getaddr_for_box(self, cpu, box):
         return box.getref_base()
-
-    ooidentityhash = staticmethod(ootype.ooidentityhash)
     
 llhelper = LLTypeHelper()
 oohelper = OOTypeHelper()

@@ -824,6 +824,9 @@ class LLFrame(object):
     def op_gc_assume_young_pointers(self, addr):
         raise NotImplementedError
 
+    def op_gc_obtain_free_space(self, size):
+        raise NotImplementedError
+
     def op_gc_can_move(self, ptr):
         addr = llmemory.cast_ptr_to_adr(ptr)
         return self.heap.can_move(addr)
@@ -881,8 +884,16 @@ class LLFrame(object):
             self.setvar(v_ptr, p)
     op_gc_reload_possibly_moved.specialform = True
 
-    def op_gc_id(self, v_ptr):
-        return self.heap.gc_id(v_ptr)
+    def op_gc_identityhash(self, obj):
+        return lltype.identityhash(obj)
+
+    def op_gc_id(self, ptr):
+        PTR = lltype.typeOf(ptr)
+        if isinstance(PTR, lltype.Ptr):
+            return self.heap.gc_id(ptr)
+        elif isinstance(PTR, ootype.OOType):
+            return ootype.identityhash(ptr)     # XXX imprecise
+        raise NotImplementedError("gc_id on %r" % (PTR,))
 
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
@@ -1186,9 +1197,6 @@ class LLFrame(object):
             raise RuntimeError("calling abstract method %r" % (m,))
         return self.perform_call(m, (lltype.typeOf(inst),)+lltype.typeOf(m).ARGS, [inst]+args)
 
-    def op_ooidentityhash(self, inst):
-        return ootype.ooidentityhash(inst)
-
     def op_oostring(self, obj, base):
         return ootype.oostring(obj, base)
 
@@ -1210,13 +1218,10 @@ class LLFrame(object):
         except ValueError:
             self.make_llexception()
 
-    def op_oohash(self, s):
-        return ootype.oohash(s)
-
 class Tracer(object):
     Counter = 0
     file = None
-    TRACE = False
+    TRACE = int(os.getenv('PYPY_TRACE') or '0')
 
     HEADER = """<html><head>
         <script language=javascript type='text/javascript'>

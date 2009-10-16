@@ -77,4 +77,3 @@ string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
     __new__ = newmethod(descr__new__),
     )
-long_typedef.custom_hash = True

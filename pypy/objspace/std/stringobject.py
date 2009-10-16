@@ -2,8 +2,8 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.rlib.rarithmetic import ovfcheck, _hash_string
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.objectmodel import we_are_translated, compute_hash
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
@@ -755,12 +755,7 @@ def str_w__String(space, w_str):
 
 def hash__String(space, w_str):
     s = w_str._value
-    if we_are_translated():
-        x = hash(s)            # to use the hash cache in rpython strings
-    else:
-        x = _hash_string(s)    # to make sure we get the same hash as rpython
-        # (otherwise translation will freeze W_DictObjects where we can't find
-        #  the keys any more!)
+    x = compute_hash(s)
     return wrapint(space, x)
 
 def lt__String_String(space, w_str1, w_str2):

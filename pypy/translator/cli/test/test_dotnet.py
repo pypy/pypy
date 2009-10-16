@@ -681,13 +681,13 @@ class TestDotnetRtyping(CliTest):
         A = ootype.Instance("A", ootype.ROOT, {})
         def fn():
             a = ootype.new(A)
-            ahash = ootype.ooidentityhash(a)
+            ahash = ootype.identityhash(a)
             obj = ootype.cast_to_object(a)
             native = cast_to_native_object(obj)
             name = native.GetType().get_Name()
             obj2 = cast_from_native_object(native)
             a2 = ootype.cast_from_object(A, obj2)
-            a2hash = ootype.ooidentityhash(a2)
+            a2hash = ootype.identityhash(a2)
             return name, ahash == a2hash
         res = self.ll_to_tuple(self.interpret(fn, []))
         assert res == ('A', True)

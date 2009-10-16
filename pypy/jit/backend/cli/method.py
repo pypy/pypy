@@ -576,9 +576,6 @@ class Method(object):
         self.il.Emit(OpCodes.Call, methinfo)
         self.store_result(op)
 
-    def emit_op_ooidentityhash(self, op):
-        raise NotImplementedError
-
     def emit_op_call_impl(self, op):
         descr = op.descr
         assert isinstance(descr, runner.StaticMethDescr)

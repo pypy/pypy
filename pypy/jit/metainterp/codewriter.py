@@ -1505,7 +1505,7 @@ class BytecodeMaker(object):
 
     serialize_op_oostring  = handle_builtin_call
     serialize_op_oounicode = handle_builtin_call
-    serialize_op_oohash    = handle_builtin_call
+    serialize_op_gc_identityhash = handle_builtin_call
 
     # ----------
 

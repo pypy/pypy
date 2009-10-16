@@ -337,6 +337,15 @@ class FrameworkGCTransformer(GCTransformer):
                 [annmodel.SomeBool()],
                 s_gcref)
 
+        self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
+                                      [s_gc, s_gcref],
+                                      annmodel.SomeInteger(),
+                                      minimal_transform=False)
+        if getattr(GCClass, 'obtain_free_space', False):
+            self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
+                                             [s_gc, annmodel.SomeInteger()],
+                                             annmodel.SomeAddress())
+
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
@@ -432,10 +441,28 @@ class FrameworkGCTransformer(GCTransformer):
     def gc_fields(self):
         return self._gc_fields
 
-    def gc_field_values_for(self, obj):
+    def gc_field_values_for(self, obj, needs_hash=False):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
         HDR = self._gc_HDR
-        return [getattr(hdr, fldname) for fldname in HDR._names]
+        withhash, flag = self.gcdata.gc.withhash_flag_is_in_field
+        result = []
+        for fldname in HDR._names:
+            x = getattr(hdr, fldname)
+            if fldname == withhash:
+                TYPE = lltype.typeOf(x)
+                x = lltype.cast_primitive(lltype.Signed, x)
+                if needs_hash:
+                    x |= flag       # set the flag in the header
+                else:
+                    x &= ~flag      # clear the flag in the header
+                x = lltype.cast_primitive(TYPE, x)
+            result.append(x)
+        return result
+
+    def get_hash_offset(self, T):
+        type_id = self.get_type_id(T)
+        assert not self.gcdata.q_is_varsize(type_id)
+        return self.gcdata.q_fixed_size(type_id)
 
     def finish_tables(self):
         group = self.layoutbuilder.close_table()
@@ -735,6 +762,16 @@ class FrameworkGCTransformer(GCTransformer):
                            resulttype=llmemory.Address)
         hop.cast_result(v_addr)
 
+    def gct_gc_identityhash(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        v_adr = hop.genop("cast_ptr_to_adr", [v_ptr],
+                          resulttype=llmemory.Address)
+        hop.genop("direct_call",
+                  [self.identityhash_ptr, self.c_const_gc, v_adr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
     def gct_gc_id(self, hop):
         if self.id_ptr is not None:
             livevars = self.push_roots(hop)
@@ -746,6 +783,14 @@ class FrameworkGCTransformer(GCTransformer):
             self.pop_roots(hop, livevars)
         else:
             hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
+
+    def gct_gc_obtain_free_space(self, hop):
+        livevars = self.push_roots(hop)
+        [v_number] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.obtainfreespace_ptr, self.c_const_gc, v_number],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
 
     def gct_gc_set_max_heap_size(self, hop):
         [v_size] = hop.spaceop.args

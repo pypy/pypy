@@ -34,7 +34,8 @@ ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 class RefcountingGCTransformer(GCTransformer):
     malloc_zero_filled = True
 
-    HDR = lltype.Struct("header", ("refcount", lltype.Signed))
+    HDR = lltype.Struct("header", ("refcount", lltype.Signed),
+                                  ("hash", lltype.Signed))
 
     def __init__(self, translator):
         super(RefcountingGCTransformer, self).__init__(translator, inline=True)
@@ -91,6 +92,13 @@ class RefcountingGCTransformer(GCTransformer):
         mh.ll_malloc_varsize_no_length = ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
+        def ll_identityhash(addr):
+            obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
+            h = obj.hash
+            if h == 0:
+                obj.hash = h = llmemory.cast_adr_to_int(addr)
+            return h
+
         if self.translator:
             self.increfptr = self.inittime_helper(
                 ll_incref, [llmemory.Address], lltype.Void)
@@ -107,6 +115,9 @@ class RefcountingGCTransformer(GCTransformer):
                 ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address)
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address)
+            self.identityhash_ptr = self.inittime_helper(
+                ll_identityhash, [llmemory.Address], lltype.Signed,
+                inline=False)
             self.mixlevelannotator.finish()
             self.mixlevelannotator.backend_optimize()
         # cache graphs:
@@ -183,6 +194,7 @@ class RefcountingGCTransformer(GCTransformer):
             if not self.gcheaderbuilder.get_header(p):
                 hdr = self.gcheaderbuilder.new_header(p)
                 hdr.refcount = sys.maxint // 2
+                hdr.hash = lltype.identityhash_nocache(p)
 
     def static_deallocation_funcptr_for_type(self, TYPE):
         if TYPE in self.static_deallocator_funcptrs:
@@ -286,4 +298,9 @@ def ll_deallocator(addr):
         self.queryptr2dynamic_deallocator_funcptr[queryptr._obj] = fptr
         return fptr
 
-
+    def gct_gc_identityhash(self, hop):
+        v_obj = hop.spaceop.args[0]
+        v_adr = hop.genop("cast_ptr_to_adr", [v_obj],
+                          resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.identityhash_ptr, v_adr],
+                  resultvar=hop.spaceop.result)

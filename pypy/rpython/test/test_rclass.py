@@ -425,27 +425,32 @@ class BaseTestRclass(BaseRtypingTest):
 
     def test_hash_preservation(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
+        from pypy.rlib.objectmodel import compute_identity_hash
         class C:
             pass
         class D(C):
             pass
         c = C()
         d = D()
+        h_c = compute_identity_hash(c)
+        h_d = compute_identity_hash(d)
+        #
         def f():
             d2 = D()
-            return hash(d2), current_object_addr_as_int(d2), hash(c), hash(d)
+            return (compute_identity_hash(d2),
+                    current_object_addr_as_int(d2),
+                    compute_identity_hash(c),
+                    compute_identity_hash(d))
 
         res = self.interpret(f, [])
         # xxx this is too precise, checking the exact implementation
-        if isinstance(self, OORtypeMixin):
-            assert res.item0 == res.item1
-        else:
-            assert res.item0 == ~res.item1
+        assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
-        # otherwise prebuilt dictionaries are broken.  It's not that
-        # relevant on top of the ootypesystem though.
-        assert res.item2 == hash(c)
-        assert res.item3 == hash(d)
+        # otherwise prebuilt dictionaries are broken.  It's wrong on
+        # top of the ootypesystem though.
+        if type(self) is TestLLtype:
+            assert res.item2 == h_c
+            assert res.item3 == h_d
 
     def test_circular_hash_initialization(self):
         class B:
@@ -681,6 +686,7 @@ class BaseTestRclass(BaseRtypingTest):
         assert self.interpret(fn, []) == 3 + 8 + 9
 
     def test_hash_of_none(self):
+        from pypy.rlib.objectmodel import compute_hash
         class A:
             pass
         def fn(x):
@@ -688,14 +694,15 @@ class BaseTestRclass(BaseRtypingTest):
                 obj = A()
             else:
                 obj = None
-            return hash(obj)
+            return compute_hash(obj)
         res = self.interpret(fn, [0])
         assert res == 0
 
     def test_hash_of_only_none(self):
+        from pypy.rlib.objectmodel import compute_hash
         def fn():
             obj = None
-            return hash(obj)
+            return compute_hash(obj)
         res = self.interpret(fn, [])
         assert res == 0
 
@@ -754,7 +761,7 @@ class BaseTestRclass(BaseRtypingTest):
                f_summary == {"oosetfield": 2} # for ootype
 
 
-class TestLltype(BaseTestRclass, LLRtypeMixin):
+class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
     def test__del__(self):
         class A(object):
@@ -843,15 +850,16 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         from pypy.annotation import model as annmodel
         from pypy.rpython import extregistry
         from pypy.rpython.annlowlevel import cast_object_to_ptr
-        class X(object): pass
-        class Y(X): pass
-        class Z(Y): pass
+        from pypy.rlib.objectmodel import compute_identity_hash
+
+        class Z(object):
+            pass
 
         def my_gethash(z):
             not_implemented
 
         def ll_my_gethash(ptr):
-            return ptr.gethash()
+            return identityhash(ptr)    # from lltype
 
         class MyGetHashEntry(extregistry.ExtRegistryEntry):
             _about_ = my_gethash
@@ -862,13 +870,9 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
                 return hop.gendirectcall(ll_my_gethash, v_instance)
 
         def f(n):
-            if n > 10:
-                z = Y()
-                got = -1    # path never used
-            else:
-                z = Z()
-                got = my_gethash(z)
-            expected = hash(z)     # put the _hash_cache_ in the class Y
+            z = Z()
+            got = my_gethash(z)
+            expected = compute_identity_hash(z)
             return got - expected
 
         res = self.interpret(f, [5])

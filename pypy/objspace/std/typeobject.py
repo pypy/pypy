@@ -6,7 +6,7 @@ from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import current_object_addr_as_int
+from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction, we_are_jitted, dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -231,7 +231,8 @@ class W_TypeObject(W_Object):
         # assumption is that the version_tag object won't keep moving all
         # the time - so using the fast current_object_addr_as_int() instead
         # of a slower solution like hash() is still a good trade-off.
-        method_hash = r_uint(intmask(version_tag_as_int * hash(name))) >> SHIFT
+        hash_name = compute_hash(name)
+        method_hash = r_uint(intmask(version_tag_as_int * hash_name)) >> SHIFT
         cached_version_tag = space.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = space.method_cache_names[method_hash]

@@ -19,6 +19,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
+from pypy.rlib.objectmodel import compute_hash
 
 
 class Buffer(Wrappable):
@@ -117,7 +118,7 @@ class Buffer(Wrappable):
     descr_ge = _make_descr__cmp('ge')
 
     def descr_hash(self, space):
-        return space.wrap(hash(self.as_str()))
+        return space.wrap(compute_hash(self.as_str()))
     descr_hash.unwrap_spec = ['self', ObjSpace]
 
     def descr_mul(self, space, w_times):

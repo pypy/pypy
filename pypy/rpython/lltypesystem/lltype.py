@@ -1119,6 +1119,19 @@ class _abstract_ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
+    def _identityhash(self, cache=True):
+        p = normalizeptr(self)
+        try:
+            return p._obj._hash_cache_
+        except AttributeError:
+            result = hash(p._obj)
+            if cache:
+                try:
+                    p._obj._hash_cache_ = result
+                except AttributeError:
+                    pass
+            return result
+
 class _ptr(_abstract_ptr):
     __slots__ = ('_TYPE', 
                  '_weak', '_solid',
@@ -1390,7 +1403,7 @@ def _get_empty_instance_of_struct_variety(flds):
 class _struct(_parentable):
     _kind = "structure"
 
-    __slots__ = ()
+    __slots__ = ('_hash_cache_',)
 
     def __new__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
         my_variety = _struct_variety(TYPE._names)
@@ -1839,6 +1852,33 @@ def runtime_type_info(p):
                                  "        returned: %s,\n"
                                  "should have been: %s" % (p, result2, result))
     return result
+
+def identityhash(p):
+    """Returns the lltype-level hash of the given GcStruct.
+    Also works with most ootype objects.  Not for NULL.
+    See rlib.objectmodel.compute_identity_hash() for more
+    information about the RPython-level meaning of this.
+    """
+    assert p
+    return p._identityhash()
+
+def identityhash_nocache(p):
+    """Version of identityhash() to use from backends that don't care about
+    caching."""
+    assert p
+    return p._identityhash(cache=False)
+
+def init_identity_hash(p, value):
+    """For a prebuilt object p, initialize its hash value to 'value'."""
+    assert isinstance(typeOf(p), Ptr)
+    p = normalizeptr(p)
+    if not p:
+        raise ValueError("cannot change hash(NULL)!")
+    if hasattr(p._obj, '_hash_cache_'):
+        raise ValueError("the hash of %r was already computed" % (p,))
+    if typeOf(p).TO._is_varsize():
+        raise ValueError("init_identity_hash(): not for varsized types")
+    p._obj._hash_cache_ = intmask(value)
 
 def isCompatibleType(TYPE1, TYPE2):
     return TYPE1._is_compatible(TYPE2)

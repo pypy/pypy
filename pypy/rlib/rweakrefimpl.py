@@ -91,6 +91,8 @@ WEAKDICTENTRYARRAY = lltype.GcArray(WEAKDICTENTRY,
                                     adtmeths=entrymeths,
                                     hints={'weakarray': 'value'})
 
+ll_strhash = rstr.LLHelpers.ll_strhash
+
 @jit.dont_look_inside
 def ll_new_weakdict():
     d = lltype.malloc(WEAKDICT)
@@ -101,7 +103,8 @@ def ll_new_weakdict():
 
 @jit.dont_look_inside
 def ll_get(d, llkey):
-    i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
+    hash = ll_strhash(llkey)
+    i = rdict.ll_dict_lookup(d, llkey, hash)
     #llop.debug_print(lltype.Void, i, 'get')
     valueref = d.entries[i].value
     if valueref:
@@ -118,8 +121,9 @@ def ll_set(d, llkey, llvalue):
 
 @jit.dont_look_inside
 def ll_set_nonnull(d, llkey, llvalue):
+    hash = ll_strhash(llkey)
     valueref = weakref_create(llvalue)    # GC effects here, before the rest
-    i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
+    i = rdict.ll_dict_lookup(d, llkey, hash)
     everused = d.entries.everused(i)
     d.entries[i].key = llkey
     d.entries[i].value = valueref
@@ -132,7 +136,8 @@ def ll_set_nonnull(d, llkey, llvalue):
 
 @jit.dont_look_inside
 def ll_set_null(d, llkey):
-    i = rdict.ll_dict_lookup(d, llkey, llkey.gethash())
+    hash = ll_strhash(llkey)
+    i = rdict.ll_dict_lookup(d, llkey, hash)
     if d.entries.everused(i):
         # If the entry was ever used, clean up its key and value.
         # We don't store a NULL value, but a dead weakref, because

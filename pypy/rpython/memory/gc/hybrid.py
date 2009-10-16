@@ -2,6 +2,7 @@ import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.generation import GenerationGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
+from pypy.rpython.memory.gc.semispace import GCFLAG_HASHTAKEN, GCFLAG_HASHFIELD
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_YOUNG_PTRS
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_HEAP_PTRS
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
@@ -222,6 +223,8 @@ class HybridGC(GenerationGC):
     def realloc(self, ptr, newlength, fixedsize, itemsize, lengthofs, grow):
         size_gc_header = self.size_gc_header()
         addr = llmemory.cast_ptr_to_adr(ptr)
+        ll_assert(self.header(addr).tid & GCFLAG_EXTERNAL,
+                  "realloc() on a non-external object")
         nonvarsize = size_gc_header + fixedsize
         try:
             varsize = ovfcheck(itemsize * newlength)
@@ -401,15 +404,18 @@ class HybridGC(GenerationGC):
             tid &= ~GCFLAG_AGE_MASK
         # skip GenerationGC.make_a_copy() as we already did the right
         # thing about GCFLAG_NO_YOUNG_PTRS
-        newobj = SemiSpaceGC.make_a_copy(self, obj, objsize)
-        self.header(newobj).tid = tid
-        return newobj
+        return self._make_a_copy_with_tid(obj, objsize, tid)
 
     def make_a_nonmoving_copy(self, obj, objsize):
         # NB. the object can have a finalizer or be a weakref, but
         # it's not an issue.
         totalsize = self.size_gc_header() + objsize
-        newaddr = self.allocate_external_object(totalsize)
+        tid = self.header(obj).tid
+        if tid & (GCFLAG_HASHTAKEN|GCFLAG_HASHFIELD):
+            totalsize_incl_hash = totalsize + llmemory.sizeof(lltype.Signed)
+        else:
+            totalsize_incl_hash = totalsize
+        newaddr = self.allocate_external_object(totalsize_incl_hash)
         if not newaddr:
             return llmemory.NULL   # can't raise MemoryError during a collect()
         if self.config.gcconfig.debugprint:
@@ -417,13 +423,22 @@ class HybridGC(GenerationGC):
             self._nonmoving_copy_size += raw_malloc_usage(totalsize)
 
         llmemory.raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
-        newobj = newaddr + self.size_gc_header()
-        hdr = self.header(newobj)
-        hdr.tid |= self.GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS
+        # check if we need to write a hash value at the end of the new obj
+        if tid & (GCFLAG_HASHTAKEN|GCFLAG_HASHFIELD):
+            if tid & GCFLAG_HASHFIELD:
+                hash = (obj + objsize).signed[0]
+            else:
+                hash = llmemory.cast_adr_to_int(obj)
+                tid |= GCFLAG_HASHFIELD
+            (newaddr + totalsize).signed[0] = hash
+        #
         # GCFLAG_UNVISITED is not set
         # GCFLAG_NO_HEAP_PTRS is not set either, conservatively.  It may be
         # set by the next collection's collect_last_generation_roots().
         # This old object is immediately put at generation 3.
+        newobj = newaddr + self.size_gc_header()
+        hdr = self.header(newobj)
+        hdr.tid = tid | self.GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS
         ll_assert(self.is_last_generation(newobj),
                   "make_a_nonmoving_copy: object too young")
         self.gen3_rawmalloced_objects.append(newobj)
@@ -503,13 +518,13 @@ class HybridGC(GenerationGC):
             if tid & GCFLAG_UNVISITED:
                 if self.config.gcconfig.debugprint:
                     dead_count+=1
-                    dead_size+=raw_malloc_usage(self.get_size(obj))
+                    dead_size+=raw_malloc_usage(self.get_size_incl_hash(obj))
                 addr = obj - self.gcheaderbuilder.size_gc_header
                 llmemory.raw_free(addr)
             else:
                 if self.config.gcconfig.debugprint:
                     alive_count+=1
-                    alive_size+=raw_malloc_usage(self.get_size(obj))
+                    alive_size+=raw_malloc_usage(self.get_size_incl_hash(obj))
                 if generation == 3:
                     surviving_objects.append(obj)
                 elif generation == 2:
@@ -591,6 +606,8 @@ class HybridGC(GenerationGC):
         tid = self.header(obj).tid
         ll_assert(bool(tid & GCFLAG_EXTERNAL),
                   "gen2: missing GCFLAG_EXTERNAL")
+        ll_assert(bool(tid & GCFLAG_HASHTAKEN),
+                  "gen2: missing GCFLAG_HASHTAKEN")
         ll_assert(bool(tid & GCFLAG_UNVISITED),
                   "gen2: missing GCFLAG_UNVISITED")
         ll_assert((tid & GCFLAG_AGE_MASK) < GCFLAG_AGE_MAX,
@@ -599,6 +616,8 @@ class HybridGC(GenerationGC):
         tid = self.header(obj).tid
         ll_assert(bool(tid & GCFLAG_EXTERNAL),
                   "gen3: missing GCFLAG_EXTERNAL")
+        ll_assert(bool(tid & GCFLAG_HASHTAKEN),
+                  "gen3: missing GCFLAG_HASHTAKEN")
         ll_assert(not (tid & GCFLAG_UNVISITED),
                   "gen3: unexpected GCFLAG_UNVISITED")
         ll_assert((tid & GCFLAG_AGE_MASK) == GCFLAG_AGE_MAX,

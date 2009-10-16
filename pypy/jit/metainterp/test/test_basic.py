@@ -971,19 +971,19 @@ class BasicTests:
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
-        def f():
-            s = ootype.oostring(5, -1)
-            return ootype.oohash(s)
-        res = self.interp_operations(f, [])
-        # xxx can we rely on oohash() returning the same value in and out of
-        # translation?
-        assert res == ootype.oohash(ootype.oostring(5, -1))
+        def f(n):
+            s = ootype.oostring(n, -1)
+            return s.ll_hash()
+        res = self.interp_operations(f, [5])
+        assert res == ootype.oostring(5, -1).ll_hash()
 
-    def test_ooidentityhash(self):
+    def test_identityhash(self):
+        A = ootype.Instance("A", ootype.ROOT)
         def f():
-            s1 = ootype.oostring(5, -1)
-            s2 = ootype.oostring(6, -1)
-            return ootype.ooidentityhash(s1) == ootype.ooidentityhash(s2)
+            obj1 = ootype.new(A)
+            obj2 = ootype.new(A)
+            return ootype.identityhash(obj1) == ootype.identityhash(obj2)
+        assert not f()
         res = self.interp_operations(f, [])
         assert not res
 
@@ -1056,6 +1056,16 @@ class TestOOtype(BasicTests, OOJitMixin):
 
 
 class BaseLLtypeTests(BasicTests):
+
+    def test_identityhash(self):
+        A = lltype.GcStruct("A")
+        def f():
+            obj1 = lltype.malloc(A)
+            obj2 = lltype.malloc(A)
+            return lltype.identityhash(obj1) == lltype.identityhash(obj2)
+        assert not f()
+        res = self.interp_operations(f, [])
+        assert not res
 
     def test_oops_on_nongc(self):
         from pypy.rpython.lltypesystem import lltype

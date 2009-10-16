@@ -141,6 +141,51 @@ def test_symbolic_raises():
     py.test.raises(TypeError, "s1 < s2")
     py.test.raises(TypeError, "hash(s1)")
 
+def test_compute_hash():
+    from pypy.rlib.objectmodel import _hash_string, _hash_float, _hash_tuple
+    assert compute_hash("Hello") == _hash_string("Hello")
+    assert compute_hash(7) == 7
+    assert compute_hash(-3.5) == _hash_float(-3.5)
+    assert compute_hash(None) == 0
+    assert compute_hash(("world", None, 7)) == _hash_tuple(("world", None, 7))
+    #
+    class Foo(object):
+        def __hash__(self):
+            return 42
+    foo = Foo()
+    h = compute_hash(foo)
+    assert h == object.__hash__(foo)
+    assert h == getattr(foo, '__precomputed_identity_hash')
+    assert compute_hash(None) == 0
+
+def test_compute_hash_float():
+    from pypy.rlib.rarithmetic import INFINITY, NAN
+    assert compute_hash(INFINITY) == 314159
+    assert compute_hash(-INFINITY) == -271828
+    assert compute_hash(NAN) == 0
+
+def test_compute_identity_hash():
+    class Foo(object):
+        def __hash__(self):
+            return 42
+    foo = Foo()
+    h = compute_identity_hash(foo)
+    assert h == object.__hash__(foo)
+    assert h == getattr(foo, '__precomputed_identity_hash')
+
+def test_compute_unique_id():
+    class Foo(object):
+        pass
+    foo = Foo()
+    assert compute_unique_id(foo) == id(foo)
+
+def test_current_object_addr_as_int():
+    from pypy.rlib.rarithmetic import intmask
+    class Foo(object):
+        pass
+    foo = Foo()
+    assert current_object_addr_as_int(foo) == intmask(id(foo))
+
 class BaseTestObjectModel(BaseRtypingTest):
 
     def test_we_are_translated(self):
@@ -270,6 +315,31 @@ class BaseTestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_compute_hash(self):
+        class Foo(object):
+            pass
+        def f(i):
+            assert compute_hash(i) == compute_hash(42)
+            assert compute_hash(i+1.0) == compute_hash(43.0)
+            assert compute_hash("Hello" + str(i)) == compute_hash("Hello42")
+            if i == 42:
+                p = None
+            else:
+                p = Foo()
+            assert compute_hash(p) == compute_hash(None)
+            assert (compute_hash(("world", None, i, 7.5)) ==
+                    compute_hash(("world", None, 42, 7.5)))
+            q = Foo()
+            assert compute_hash(q) == compute_identity_hash(q)
+            from pypy.rlib.rarithmetic import INFINITY, NAN
+            assert compute_hash(INFINITY) == 314159
+            assert compute_hash(-INFINITY) == -271828
+            assert compute_hash(NAN) == 0
+            return i*2
+        res = self.interpret(f, [42])
+        assert res == 84
+
+
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
     def test_rtype_keepalive(self):
@@ -282,6 +352,36 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
         res = self.interpret(f, [])
         assert res == 1
+
+    def test_compute_hash_across_translation(self):
+        class Foo(object):
+            pass
+        q = Foo()
+
+        def f(i):
+            assert compute_hash(None) == 0
+            assert compute_hash(i) == h_42
+            assert compute_hash(i+1.0) == h_43_dot_0
+            assert compute_hash((i+3)/6.0) == h_7_dot_5
+            assert compute_hash("Hello" + str(i)) == h_Hello42
+            if i == 42:
+                p = None
+            else:
+                p = Foo()
+            assert compute_hash(p) == h_None
+            assert compute_hash(("world", None, i, 7.5)) == h_tuple
+            assert compute_hash(q) == h_q
+            return i*2
+        h_42       = compute_hash(42)
+        h_43_dot_0 = compute_hash(43.0)
+        h_7_dot_5  = compute_hash(7.5)
+        h_Hello42  = compute_hash("Hello42")
+        h_None     = compute_hash(None)
+        h_tuple    = compute_hash(("world", None, 42, 7.5))
+        h_q        = compute_hash(q)
+        
+        res = self.interpret(f, [42])
+        assert res == 84
 
 
 class TestOOtype(BaseTestObjectModel, OORtypeMixin):

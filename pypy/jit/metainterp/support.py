@@ -134,6 +134,10 @@ _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
+def _ll_1_gc_identityhash(x):
+    return lltype.identityhash(x)
+
+
 class LLtypeHelpers:
 
     # ---------- dict ----------
@@ -268,12 +272,6 @@ class OOtypeHelpers:
     def _ll_1_oounicode_string_foldable(s):
         return ootype.oounicode(s, -1)
 
-    def _ll_1_oohash_string_foldable(s):
-        return ootype.oohash(s)
-
-    def _ll_1_oohash_unicode_foldable(u):
-        return ootype.oohash(u)
-
 # -------------------------------------------------------
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args):
@@ -334,14 +332,8 @@ def get_oostring_oopspec(op):
         T = ootype.ROOT
     return '%s_%s_foldable' % (op.opname, T._name.lower()), args
 
-def get_oohash_oopspec(op):
-    T = op.args[0].concretetype
-    if T is ootype.String:
-        return 'oohash_string_foldable', op.args
-    elif T is ootype.Unicode:
-        return 'oohash_unicode_foldable', op.args
-    else:
-        raise Exception("oohash() of type %r" % (T,))
+def get_identityhash_oopspec(op):
+    return 'gc_identityhash', op.args
 
 
 RENAMED_ADT_NAME = {
@@ -371,8 +363,8 @@ def decode_builtin_call(op):
         return get_call_oopspec_opargs(fnobj, opargs)
     elif op.opname in ('oostring', 'oounicode'):
         return get_oostring_oopspec(op)
-    elif op.opname == 'oohash':
-        return get_oohash_oopspec(op)
+    elif op.opname == 'gc_identityhash':
+        return get_identityhash_oopspec(op)
     else:
         raise ValueError(op.opname)
 

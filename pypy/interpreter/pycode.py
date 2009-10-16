@@ -14,6 +14,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.debug import make_sure_not_resized, make_sure_not_modified
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import compute_hash
 
 # helper
 
@@ -301,15 +302,15 @@ class PyCode(eval.Code):
 
     def descr_code__hash__(self):
         space = self.space
-        result =  hash(self.co_name)
+        result =  compute_hash(self.co_name)
         result ^= self.co_argcount
         result ^= self.co_nlocals
         result ^= self.co_flags
         result ^= self.co_firstlineno
-        result ^= hash(self.co_code)
-        for name in self.co_varnames:  result ^= hash(name)
-        for name in self.co_freevars:  result ^= hash(name)
-        for name in self.co_cellvars:  result ^= hash(name)
+        result ^= compute_hash(self.co_code)
+        for name in self.co_varnames:  result ^= compute_hash(name)
+        for name in self.co_freevars:  result ^= compute_hash(name)
+        for name in self.co_cellvars:  result ^= compute_hash(name)
         w_result = space.wrap(intmask(result))
         for w_name in self.co_names_w:
             w_result = space.xor(w_result, space.hash(w_name))

@@ -10,6 +10,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 
 from pypy.rlib.rarithmetic import base_int
+from pypy.rlib.objectmodel import _hash_float
 
 import math
 
@@ -109,7 +110,7 @@ class __extend__(FloatRepr):
     get_ll_le_function = get_ll_eq_function
 
     def get_ll_hash_function(self):
-        return ll_hash_float
+        return _hash_float
 
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Float)
@@ -142,23 +143,6 @@ class __extend__(FloatRepr):
         pass
     ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_float_str')"
 
-
-TAKE_NEXT = float(2**31)
-
-def ll_hash_float(f):
-    """
-    this implementation is identical to the CPython implementation,
-    despite the fact that the integer case is not treated, specially.
-    This should be special-cased in W_FloatObject.
-    In the low-level case, floats cannot be used with ints in dicts, anyway.
-    """
-    from pypy.rlib.rarithmetic import intmask
-    v, expo = math.frexp(f)
-    v *= TAKE_NEXT
-    hipart = int(v)
-    v = (v - float(hipart)) * TAKE_NEXT
-    x = hipart + int(v) + (expo << 15)
-    return intmask(x)
 #
 # _________________________ Conversions _________________________
 

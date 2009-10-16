@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.objectmodel import compute_identity_hash
 
 
 def raise_type_err(space, argument, expected, w_obj):
@@ -569,7 +570,7 @@ class W_InstanceObject(Wrappable):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("unhashable instance"))
             else:
-                return space.wrap(hash(self))
+                return space.wrap(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
         if (not space.is_true(space.isinstance(w_ret, space.w_int)) and
             not space.is_true(space.isinstance(w_ret, space.w_long))):

@@ -301,7 +301,6 @@ Return a nice string representation of the object.
 If the argument is a string, the return value is the same object.'''
     )
 
-str_typedef.custom_hash = True
 str_typedef.registermethods(globals())
 
 # ____________________________________________________________

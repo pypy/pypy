@@ -10,6 +10,7 @@ from pypy.rpython import rmodel
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
+    HDR = lltype.Struct("header", ("hash", lltype.Signed))
 
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
@@ -34,6 +35,15 @@ class BoehmGCTransformer(GCTransformer):
 
         ll_realloc = mh.ll_realloc
 
+        HDRPTR = lltype.Ptr(self.HDR)
+
+        def ll_identityhash(addr):
+            obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
+            h = obj.hash
+            if h == 0:
+                obj.hash = h = ~llmemory.cast_adr_to_int(addr)
+            return h
+
         if self.translator:
             self.malloc_fixedsize_ptr = self.inittime_helper(
                 ll_malloc_fixedsize, [lltype.Signed], llmemory.Address)
@@ -51,6 +61,9 @@ class BoehmGCTransformer(GCTransformer):
             self.realloc_ptr = self.inittime_helper(
                 ll_realloc, [llmemory.Address] + [lltype.Signed] * 4,
                 llmemory.Address)
+            self.identityhash_ptr = self.inittime_helper(
+                ll_identityhash, [llmemory.Address], lltype.Signed,
+                inline=False)
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
 
@@ -153,6 +166,13 @@ class BoehmGCTransformer(GCTransformer):
                            [self.weakref_deref_ptr, v_wref],
                            resulttype=llmemory.Address)
         hop.cast_result(v_addr)
+
+    def gct_gc_identityhash(self, hop):
+        v_obj = hop.spaceop.args[0]
+        v_adr = hop.genop("cast_ptr_to_adr", [v_obj],
+                          resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.identityhash_ptr, v_adr],
+                  resultvar=hop.spaceop.result)
 
     def gct_gc_id(self, hop):
         # this is the logic from the HIDE_POINTER macro in <gc/gc.h>
