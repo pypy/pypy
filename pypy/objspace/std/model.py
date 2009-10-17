@@ -98,6 +98,7 @@ class StdTypeModel:
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
+            setobject.W_BaseSetObject: [],
             setobject.W_SetObject: [],
             setobject.W_FrozensetObject: [],
             setobject.W_SetIterObject: [],
@@ -176,6 +177,12 @@ class StdTypeModel:
             (complexobject.W_ComplexObject, 
                     complexobject.delegate_Float2Complex),
             ]
+        self.typeorder[setobject.W_SetObject] += [
+            (setobject.W_BaseSetObject, None)
+            ]
+        self.typeorder[setobject.W_FrozensetObject] += [
+            (setobject.W_BaseSetObject, None)
+            ]
         if not config.objspace.std.withrope:
             self.typeorder[stringobject.W_StringObject] += [
              (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
@@ -241,7 +248,7 @@ class StdTypeModel:
             from pypy.objspace.std import stdtypedef
             result = self.typeorder.copy()
             for cls in self.typeorder:
-                if (hasattr(cls, 'typedef') and
+                if (hasattr(cls, 'typedef') and cls.typedef is not None and
                     cls.typedef.acceptable_as_base_class):
                     subclslist = enum_interplevel_subclasses(cls)
                     for subcls in subclslist:

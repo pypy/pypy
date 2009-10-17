@@ -125,6 +125,13 @@ class AppTestAppSetTest:
         s1 = myfrozen()
         raises(TypeError, s1.copy)
 
+    def test_update(self):
+        s1 = set('abc')
+        s1.update(set('abcd'))
+        assert s1 == set('abcd')
+        s1 = set('abc')
+        s1.update(frozenset('fro'))
+        assert s1 == set('abcfro')
 
     def test_recursive_repr(self):
         class A(object):
