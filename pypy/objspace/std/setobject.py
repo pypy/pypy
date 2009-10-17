@@ -316,6 +316,22 @@ def eq__Set_ANY(space, w_left, w_other):
 
 eq__Frozenset_ANY = eq__Set_ANY
 
+def ne__Set_Set(space, w_left, w_other):
+    return space.wrap(not _is_eq(w_left.setdata, w_other.setdata))
+
+ne__Set_Frozenset = ne__Set_Set
+ne__Frozenset_Frozenset = ne__Set_Set
+ne__Frozenset_Set = ne__Set_Set
+
+def ne__Set_settypedef(space, w_left, w_other):
+    rd = make_setdata_from_w_iterable(space, w_other)
+    return space.wrap(_is_eq(w_left.setdata, rd))
+
+ne__Set_frozensettypedef = ne__Set_settypedef
+ne__Frozenset_settypedef = ne__Set_settypedef
+ne__Frozenset_frozensettypedef = ne__Set_settypedef
+
+
 def ne__Set_ANY(space, w_left, w_other):
     # more workarounds
     return space.w_True

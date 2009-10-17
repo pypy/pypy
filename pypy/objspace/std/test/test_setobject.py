@@ -90,6 +90,18 @@ class AppTestAppSetTest:
         assert (frozenset('abc') != frozenset('abcd'))
         assert (frozenset('abc') != set('abcd'))
 
+    def test_libpython_equality(self):
+        for thetype in [frozenset, set]:
+            word = "aaaaaaaaawfpasrtarspawparst"
+            otherword = "ZZZZZZZXCVZXCVSRTD"
+            s = thetype(word)
+            assert s == set(word)
+            assert s, frozenset(word)
+            assert not s == word
+            assert s != set(otherword)
+            assert s != frozenset(otherword)
+            assert s != word
+
     def test_copy(self):
         s1 = set('abc')
         s2 = s1.copy()
