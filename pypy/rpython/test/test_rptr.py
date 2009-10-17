@@ -112,6 +112,20 @@ def test_odd_ints():
 
     interpret(fn, [11521])
 
+def test_odd_ints_opaque():
+    T = GcStruct('T')
+    Q = GcOpaqueType('Q')
+    PT = Ptr(T)
+    PQ = Ptr(Q)
+    def fn(n):
+        t = cast_int_to_ptr(PT, n)
+        assert typeOf(t) == PT
+        assert cast_ptr_to_int(t) == n
+        o = cast_opaque_ptr(PQ, t)
+        assert cast_ptr_to_int(o) == n
+
+    fn(13)
+    interpret(fn, [11521])
 
 def test_Ptr():
     S = GcStruct('s')

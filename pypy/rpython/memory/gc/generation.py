@@ -132,6 +132,8 @@ class GenerationGC(SemiSpaceGC):
         return nursery_size // 4 - 1
 
     def is_in_nursery(self, addr):
+        ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
+                  "odd-valued (i.e. tagged) pointer unexpected here")
         return self.nursery <= addr < self.nursery_top
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
@@ -305,10 +307,9 @@ class GenerationGC(SemiSpaceGC):
 
     def _trace_external_obj(self, pointer, obj):
         addr = pointer.address[0]
-        if addr != NULL:
-            newaddr = self.copy(addr)
-            pointer.address[0] = newaddr
-            self.write_into_last_generation_obj(obj, newaddr)
+        newaddr = self.copy(addr)
+        pointer.address[0] = newaddr
+        self.write_into_last_generation_obj(obj, newaddr)
 
     # ____________________________________________________________
     # Implementation of nursery-only collections
@@ -446,10 +447,17 @@ class GenerationGC(SemiSpaceGC):
             #                 addr_struct, "<-", addr)
             ll_assert(not self.is_in_nursery(addr_struct),
                          "nursery object with GCFLAG_NO_YOUNG_PTRS")
+            # if we have tagged pointers around, we first need to check whether
+            # we have valid pointer here, otherwise we can do it after the
+            # is_in_nursery check
+            if (self.config.taggedpointers and
+                not self.is_valid_gc_object(addr)):
+                return
             if self.is_in_nursery(addr):
                 self.old_objects_pointing_to_young.append(addr_struct)
                 self.header(addr_struct).tid &= ~GCFLAG_NO_YOUNG_PTRS
-            elif addr == NULL:
+            elif (not self.config.taggedpointers and
+                  not self.is_valid_gc_object(addr)):
                 return
             self.write_into_last_generation_obj(addr_struct, addr)
         remember_young_pointer._dont_inline_ = True

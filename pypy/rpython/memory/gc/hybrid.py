@@ -567,6 +567,11 @@ class HybridGC(GenerationGC):
 
     def id(self, ptr):
         obj = llmemory.cast_ptr_to_adr(ptr)
+
+        # is it a tagged pointer?
+        if not self.is_valid_gc_object(obj):
+            return llmemory.cast_adr_to_int(obj)
+
         if self._is_external(obj):
             # a prebuilt or rawmalloced object
             if self.is_last_generation(obj):
@@ -581,7 +586,7 @@ class HybridGC(GenerationGC):
                 result = obj
         else:
             result = self._compute_id(obj)     # common case
-        return llmemory.cast_adr_to_int(result)
+        return llmemory.cast_adr_to_int(result) * 2 # see comment in base.py
         # XXX a possible optimization would be to use three dicts, one
         # for each generation, instead of mixing gen2 and gen3 objects.
 

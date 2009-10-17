@@ -254,7 +254,7 @@ class AsmStackRootWalker(BaseRootWalker):
             if location == 0:
                 break
             addr = self.getlocation(callee, location)
-            if addr.address[0] != llmemory.NULL:
+            if gc.points_to_valid_gc_object(addr):
                 collect_stack_root(gc, addr)
         #
         # track where the caller_frame saved the registers from its own

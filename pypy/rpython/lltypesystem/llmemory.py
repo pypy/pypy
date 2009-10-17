@@ -464,8 +464,10 @@ class fakeaddress(object):
             return lltype.nullptr(EXPECTED_TYPE.TO)
 
     def _cast_to_int(self):
+        # This is a bit annoying. We want this method to still work when the
+        # pointed-to object is dead
         if self:
-            return self.ptr._cast_to_int()
+            return self.ptr._cast_to_int(False)
         else:
             return 0
 

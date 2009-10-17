@@ -504,8 +504,7 @@ class MarkSweepGC(GCBase):
 
     def _add_reachable(pointer, objects):
         obj = pointer.address[0]
-        if obj:
-            objects.append(obj)
+        objects.append(obj)
     _add_reachable = staticmethod(_add_reachable)
 
     def statistics(self, index):

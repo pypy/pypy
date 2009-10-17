@@ -38,7 +38,7 @@ prebuilt_b = B(939393)
 
 def entry_point(argv):
     n = 100 + len(argv)
-    assert C(n).getvalue() == n
+    assert C(n).get_untagged_value() == n
 
     x = makeint(42)
     assert isinstance(x, C)
@@ -67,7 +67,7 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 
 def test_tagged_boehm():
-    t = Translation(entry_point, standalone=True, gc='boehm')
+    t = Translation(entry_point, standalone=True, gc='boehm', taggedpointers=True)
     try:
         exename = str(t.compile_c())
     finally:

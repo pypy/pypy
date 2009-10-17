@@ -124,13 +124,13 @@ def test_unboxed_value():
         __slots__ = 'smallint'
 
     assert C(17).smallint == 17
-    assert C(17).getvalue() == 17
+    assert C(17).get_untagged_value() == 17
 
     class A(UnboxedValue):
         __slots__ = ['value']
 
     assert A(12098).value == 12098
-    assert A(12098).getvalue() == 12098
+    assert A(12098).get_untagged_value() == 12098
 
 def test_symbolic():
     py.test.skip("xxx no test here")

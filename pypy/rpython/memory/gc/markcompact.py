@@ -370,11 +370,10 @@ class MarkCompactGC(MovingGCBase):
 
     def _mark_obj(self, pointer, ignored):
         obj = pointer.address[0]
-        if obj != NULL:
-            if self.marked(obj):
-                return
-            self.mark(obj)
-            self.to_see.append(obj)
+        if self.marked(obj):
+            return
+        self.mark(obj)
+        self.to_see.append(obj)
 
     def _mark_root_recursively(self, root):
         self.mark(root.address[0])
@@ -437,14 +436,17 @@ class MarkCompactGC(MovingGCBase):
             length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
             item = obj + llmemory.gcarrayofptr_itemsoffset
             while length > 0:
-                callback(item, arg)
+                if self.points_to_valid_gc_object(item):
+                    callback(item, arg)
                 item += llmemory.gcarrayofptr_singleitemoffset
                 length -= 1
             return
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
-            callback(obj + offsets[i], arg)
+            item = obj + offsets[i]
+            if self.points_to_valid_gc_object(item):
+                callback(item, arg)
             i += 1
         if self.has_gcptr_in_varsize(typeid):
             item = obj + self.varsize_offset_to_variable_part(typeid)
@@ -454,7 +456,9 @@ class MarkCompactGC(MovingGCBase):
             while length > 0:
                 j = 0
                 while j < len(offsets):
-                    callback(item + offsets[j], arg)
+                    itemobj = item + offsets[j]
+                    if self.points_to_valid_gc_object(itemobj):
+                        callback(itemobj, arg)
                     j += 1
                 item += itemlength
                 length -= 1

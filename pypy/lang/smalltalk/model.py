@@ -19,7 +19,7 @@ from pypy.rlib import rrandom, objectmodel
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants, error
 from pypy.tool.pairtype import extendabletype
-from pypy.rlib.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate, UnboxedValue
 from pypy.rlib.bitmanipulation import splitter
 
 class W_Object(object):
@@ -96,13 +96,14 @@ class W_Object(object):
            False means swapping failed"""
         return False
 
-class W_SmallInteger(W_Object):
+
+# the UnboxedValue mixin means the object can potentially be stored in unboxed
+# form
+
+class W_SmallInteger(W_Object, UnboxedValue):
     """Boxed integer value"""
     # TODO can we tell pypy that its never larger then 31-bit?
     __slots__ = ('value',)     # the only allowed slot here
-
-    def __init__(self, value):
-        self.value = value
 
     def getclass(self, space):
         """Return SmallInteger from special objects array."""

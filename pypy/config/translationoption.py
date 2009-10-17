@@ -169,6 +169,10 @@ translation_optiondescription = OptionDescription(
     IntOption("withsmallfuncsets",
               "Represent groups of less funtions than this as indices into an array",
                default=0),
+    BoolOption("taggedpointers",
+               "When true, enable the use of tagged pointers. "
+               "If false, use normal boxing",
+               default=False),
 
     # options for ootype
     OptionDescription("ootype", "Object Oriented Typesystem options", [

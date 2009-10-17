@@ -159,3 +159,8 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
 
         def define_callback_with_collect(cls):
             return lambda: 0
+
+
+class TestAsmGCRootWithHybridTagged(AbstractTestAsmGCRoot,
+                                    test_newgc.TestHybridTaggedPointers):
+    pass

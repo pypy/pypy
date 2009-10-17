@@ -816,6 +816,7 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         if not ptr:
             return nullptr(PTRTYPE.TO)
         return opaqueptr(PTRTYPE.TO, 'hidden', container = ptr._obj,
+                                               ORIGTYPE = CURTYPE,
                                                solid     = ptr._solid)
     elif (isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
@@ -899,7 +900,7 @@ def top_container(container):
         top_parent = parent
     return top_parent
 
-def normalizeptr(p):
+def normalizeptr(p, check=True):
     # If p is a pointer, returns the same pointer casted to the largest
     # containing structure (for the cast where p points to the header part).
     # Also un-hides pointers to opaque.  Null pointers become None.
@@ -907,12 +908,17 @@ def normalizeptr(p):
     T = typeOf(p)
     if not isinstance(T, Ptr):
         return p      # primitive
-    if not p:
+    obj = p._getobj(check)
+    if not obj:
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
-    container = p._obj._normalizedcontainer()
-    if container is not p._obj:
+    container = obj._normalizedcontainer()
+    if type(container) is int:
+        # this must be an opaque ptr originating from an integer
+        assert isinstance(obj, _opaque)
+        return cast_int_to_ptr(obj.ORIGTYPE, container)
+    if container is not obj:
         p = _ptr(Ptr(typeOf(container)), container, p._solid)
     return p
 
@@ -1190,13 +1196,15 @@ class _ptr(_abstract_ptr):
             raise RuntimeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
         return _ptr(PTRTYPE, struc, solid=self._solid)
 
-    def _cast_to_int(self):
-        if not self:
+    def _cast_to_int(self, check=True):
+        obj = self._getobj(check)
+        if not obj:
             return 0       # NULL pointer
-        obj = self._obj
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
-        obj = normalizeptr(self)._obj
+        obj = normalizeptr(self, check)._getobj(check)
+        if isinstance(obj, int):
+            return obj     # special case for cast_int_to_ptr() results put into opaques
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
@@ -1739,6 +1747,9 @@ class _opaque(_parentable):
         # if we are an opaque containing a normal Struct/GcStruct,
         # unwrap it
         if hasattr(self, 'container'):
+            # an integer, cast to a ptr, cast to an opaque    
+            if type(self.container) is int:
+                return self.container
             return self.container._normalizedcontainer()
         else:
             return _parentable._normalizedcontainer(self)

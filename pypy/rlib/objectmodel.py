@@ -359,7 +359,8 @@ def is_in_callback():
 
 class UnboxedValue(object):
     """A mixin class to use for classes that have exactly one field which
-    is an integer.  They are represented as a tagged pointer."""
+    is an integer.  They are represented as a tagged pointer, if the
+    translation.taggedpointers config option is used."""
     _mixin_ = True
 
     def __new__(cls, value):
@@ -379,9 +380,9 @@ class UnboxedValue(object):
             raise OverflowError("UnboxedValue: argument out of range")
 
     def __repr__(self):
-        return '<unboxed %d>' % (self.getvalue(),)
+        return '<unboxed %d>' % (self.get_untagged_value(),)
 
-    def getvalue(self):   # helper, equivalent to reading the custom field
+    def get_untagged_value(self):   # helper, equivalent to reading the custom field
         if isinstance(self.__class__.__slots__, str):
             return getattr(self, self.__class__.__slots__)
         else:

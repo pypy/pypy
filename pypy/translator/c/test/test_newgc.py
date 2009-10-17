@@ -17,6 +17,7 @@ class TestUsingFramework(object):
     gcpolicy = "marksweep"
     should_be_moving = False
     removetypeptr = False
+    taggedpointers = False
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
 
@@ -25,9 +26,10 @@ class TestUsingFramework(object):
     @classmethod
     def _makefunc2(cls, f):
         t = Translation(f, [int, int], gc=cls.gcpolicy,
-                        policy=annpolicy.StrictAnnotatorPolicy())
-        t.config.translation.gcconfig.debugprint = True
-        t.config.translation.gcconfig.removetypeptr = cls.removetypeptr
+                        policy=annpolicy.StrictAnnotatorPolicy(),
+                        taggedpointers=cls.taggedpointers,
+                        removetypeptr=cls.removetypeptr,
+                        debugprint=True)
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_isolated=True, c_debug_defines=True)
         t.rtype()
@@ -660,7 +662,6 @@ class TestUsingFramework(object):
         TP = lltype.GcArray(lltype.Char)
         def func():
             try:
-                from pypy.rlib import rgc
                 a = rgc.malloc_nonmovable(TP, 3)
                 rgc.collect()
                 if a:
@@ -925,8 +926,11 @@ class TestHybridGC(TestGenerationalGC):
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")
 
+
+
 class TestHybridGCRemoveTypePtr(TestHybridGC):
     removetypeptr = True
+
 
 class TestMarkCompactGC(TestSemiSpaceGC):
     gcpolicy = "markcompact"
@@ -940,3 +944,52 @@ class TestMarkCompactGC(TestSemiSpaceGC):
 
     def test_finalizer_order(self):
         py.test.skip("not implemented")
+
+# ____________________________________________________________________
+
+class TestHybridTaggedPointers(TestHybridGC):
+    taggedpointers = True
+
+
+    def define_tagged(cls):
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.x = UnboxedObject(47)
+        def fn(n):
+            rgc.collect() # check that a prebuilt tagged pointer doesn't explode
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            u.x = x # invoke write barrier
+            rgc.collect()
+            return x.meth(100)
+        def func():
+            return fn(1000) + fn(-1000)
+        return func
+
+    def test_tagged(self):
+        expected = self.run_orig("tagged")
+        res = self.run("tagged")
+        assert res == expected
+
+from pypy.rlib.objectmodel import UnboxedValue
+
+class TaggedBase(object):
+    __slots__ = ()
+    def meth(self, x):
+        raise NotImplementedError
+
+class BoxedObject(TaggedBase):
+    attrvalue = 66
+    def __init__(self, normalint):
+        self.normalint = normalint
+    def meth(self, x):
+        return self.normalint + x + 2
+
+class UnboxedObject(TaggedBase, UnboxedValue):
+    __slots__ = 'smallint'
+    def meth(self, x):
+        return self.smallint + x + 3

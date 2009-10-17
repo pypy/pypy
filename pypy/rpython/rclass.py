@@ -56,11 +56,14 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
         virtualizable2 = classdef.classdesc.read_attribute('_virtualizable2_',
                                                            Constant(False)).value
+    config = rtyper.annotator.translator.config
+    usetagging = len(unboxed) != 0 and config.translation.taggedpointers
+
     if virtualizable2:
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
         return rtyper.type_system.rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
-    elif len(unboxed) > 0 and rtyper.type_system.name == 'lltypesystem':
+    elif usetagging and rtyper.type_system.name == 'lltypesystem':
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
         if len(unboxed) != 1:

@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from pypy.rlib import rgc
 
 
 def stdout_ignore_ll_functions(msg):
@@ -436,7 +437,6 @@ class GCTest(object):
     def test_can_move(self):
         TP = lltype.GcArray(lltype.Float)
         def func():
-            from pypy.rlib import rgc
             return rgc.can_move(lltype.malloc(TP, 1))
         assert self.interpret(func, []) == self.GC_CAN_MOVE
 
@@ -444,7 +444,6 @@ class GCTest(object):
     def test_malloc_nonmovable(self):
         TP = lltype.GcArray(lltype.Char)
         def func():
-            from pypy.rlib import rgc
             a = rgc.malloc_nonmovable(TP, 3)
             if a:
                 assert not rgc.can_move(a)
@@ -458,7 +457,6 @@ class GCTest(object):
         TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
         def func():
             try:
-                from pypy.rlib import rgc
                 a = rgc.malloc_nonmovable(TP)
                 rgc.collect()
                 if a:
@@ -473,7 +471,6 @@ class GCTest(object):
     def test_resizable_buffer(self):
         from pypy.rpython.lltypesystem.rstr import STR
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib import rgc
 
         def f():
             ptr = rgc.resizable_buffer_of_shape(STR, 1)
@@ -483,6 +480,97 @@ class GCTest(object):
             return len(hlstr(rgc.finish_building_buffer(ptr, 2)))
 
         assert self.interpret(f, []) == 2
+
+    def test_tagged_simple(self):
+        from pypy.rlib.objectmodel import UnboxedValue
+
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.x = UnboxedObject(47)
+        def fn(n):
+            rgc.collect() # check that a prebuilt tagged pointer doesn't explode
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            u.x = x # invoke write barrier
+            rgc.collect()
+            return x.meth(100)
+        res = self.interpret(fn, [1000], taggedpointers=True)
+        assert res == 1102
+        res = self.interpret(fn, [-1000], taggedpointers=True)
+        assert res == -897
+
+    def test_tagged_prebuilt(self):
+
+        class F:
+            pass
+
+        f = F()
+        f.l = [UnboxedObject(10)]
+        def fn(n):
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            f.l.append(x)
+            rgc.collect()
+            return f.l[-1].meth(100)
+        res = self.interpret(fn, [1000], taggedpointers=True)
+        assert res == 1102
+        res = self.interpret(fn, [-1000], taggedpointers=True)
+        assert res == -897
+
+    def test_tagged_id(self):
+        from pypy.rlib.objectmodel import UnboxedValue, compute_unique_id
+
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.x = UnboxedObject(0)
+        def fn(n):
+            id_prebuilt1 = compute_unique_id(u.x)
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            id_x1 = compute_unique_id(x)
+            rgc.collect() # check that a prebuilt tagged pointer doesn't explode
+            id_prebuilt2 = compute_unique_id(u.x)
+            id_x2 = compute_unique_id(x)
+            print u.x, id_prebuilt1, id_prebuilt2
+            print x, id_x1, id_x2
+            return ((id_x1 == id_x2) * 1 +
+                    (id_prebuilt1 == id_prebuilt2) * 10 +
+                    (id_x1 != id_prebuilt1) * 100)
+        res = self.interpret(fn, [1000], taggedpointers=True)
+        assert res == 111
+        res = self.interpret(fn, [-1000], taggedpointers=True)
+        assert res == 111
+
+
+from pypy.rlib.objectmodel import UnboxedValue
+
+class TaggedBase(object):
+    __slots__ = ()
+    def meth(self, x):
+        raise NotImplementedError
+
+class BoxedObject(TaggedBase):
+    attrvalue = 66
+    def __init__(self, normalint):
+        self.normalint = normalint
+    def meth(self, x):
+        return self.normalint + x + 2
+
+class UnboxedObject(TaggedBase, UnboxedValue):
+    __slots__ = 'smallint'
+    def meth(self, x):
+        return self.smallint + x + 3
+
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass

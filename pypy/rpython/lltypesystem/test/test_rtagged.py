@@ -33,20 +33,20 @@ class D(B):
 def test_instantiate():
     def fn1(n):
         return C(n)
-    res = interpret(fn1, [42])
+    res = interpret(fn1, [42], taggedpointers=True)
     value = lltype.cast_ptr_to_int(res)
     assert value == 42 * 2 + 1    # for now
 
 def test_attribute():
     def fn1(n):
         return C(n).smallint
-    res = interpret(fn1, [42])
+    res = interpret(fn1, [42], taggedpointers=True)
     assert res == 42
 
-def test_getvalue():
+def test_get_untagged_value():
     def fn1(n):
-        return C(n).getvalue()
-    res = interpret(fn1, [42])
+        return C(n).get_untagged_value()
+    res = interpret(fn1, [42], taggedpointers=True)
     assert res == 42
 
 def test_overflowerror():
@@ -65,11 +65,11 @@ def test_overflowerror():
         else:
             return 'A', 0
 
-    res = interpret(fn2, [-117])
+    res = interpret(fn2, [-117], taggedpointers=True)
     assert res.item0 == 'C'
     assert res.item1 == -117
 
-    res = interpret(fn2, [sys.maxint])
+    res = interpret(fn2, [sys.maxint], taggedpointers=True)
     assert res.item0 == 'B'
     assert res.item1 == sys.maxint
 
@@ -95,13 +95,13 @@ def test_prebuilt():
         else:
             return 'A', 0
 
-    res = interpret(fn, [12])
+    res = interpret(fn, [12], taggedpointers=True)
     assert res.item0 == 'C'
     assert res.item1 == 12
-    res = interpret(fn, [-1])
+    res = interpret(fn, [-1], taggedpointers=True)
     assert res.item0 == 'C'
     assert res.item1 == 111
-    res = interpret(fn, [0])
+    res = interpret(fn, [0], taggedpointers=True)
     assert res.item0 == 'B'
     assert res.item1 == 939393
 
@@ -118,9 +118,9 @@ def test_C_or_None():
             x = C(n)
         return g(x)
 
-    res = interpret(fn, [-1])
+    res = interpret(fn, [-1], taggedpointers=True)
     assert res == sys.maxint
-    res = interpret(fn, [56])
+    res = interpret(fn, [56], taggedpointers=True)
     assert res == 56
 
 def test_type():
@@ -131,10 +131,31 @@ def test_type():
             x = C(n)
         return type(x) is B, type(x) is C
 
-    res = interpret(fn, [-212])
+    res = interpret(fn, [-212], taggedpointers=True)
     assert res.item0 and not res.item1
-    res = interpret(fn, [9874])
+    res = interpret(fn, [9874], taggedpointers=True)
     assert res.item1 and not res.item0
+
+def test_type_of_None():
+    # use extra function to prevent flow graph cleverness
+    def g(n):
+        if n < 0:
+            x = B(n)
+        elif n == 0:
+            x = None
+        else:
+            x = C(n)
+        return x
+    def fn(n):
+        x= g(n)
+        return type(x) is B, type(x) is C
+
+    res = interpret(fn, [-212], taggedpointers=True)
+    assert res.item0 and not res.item1
+    res = interpret(fn, [9874], taggedpointers=True)
+    assert res.item1 and not res.item0
+    res = interpret(fn, [0], taggedpointers=True)
+    assert not res.item1 and not res.item0
 
 def test_str():
     def fn(n):
@@ -143,9 +164,9 @@ def test_str():
         else:
             x = C(n)
         return str(x)
-    res = interpret(fn, [-832])
+    res = interpret(fn, [-832], taggedpointers=True)
     assert ''.join(res.chars) == '<unboxed -832>'
-    res = interpret(fn, [1])
+    res = interpret(fn, [1], taggedpointers=True)
     assert ''.join(res.chars).startswith('<B object')
 
 def test_format():
@@ -155,9 +176,9 @@ def test_format():
         else:
             x = C(n)
         return '%r' % (x,)
-    res = interpret(fn, [-832])
+    res = interpret(fn, [-832], taggedpointers=True)
     assert ''.join(res.chars) == '<unboxed -832>'
-    res = interpret(fn, [1])
+    res = interpret(fn, [1], taggedpointers=True)
     assert ''.join(res.chars).startswith('<B object')
 
 def test_method():
@@ -167,9 +188,9 @@ def test_method():
         else:
             x = C(n)
         return x.meth(100)
-    res = interpret(fn, [1000])
+    res = interpret(fn, [1000], taggedpointers=True)
     assert res == 1102
-    res = interpret(fn, [-1000])
+    res = interpret(fn, [-1000], taggedpointers=True)
     assert res == -897
 
 def test_optimize_method():
@@ -179,7 +200,7 @@ def test_optimize_method():
         else:
             x = C(n)
         return x.meth(100)
-    interp, graph = get_interpreter(fn, [-1000])
+    interp, graph = get_interpreter(fn, [-1000], taggedpointers=True)
 
     t = interp.typer.annotator.translator
     t.config.translation.backendopt.constfold = True
@@ -206,7 +227,7 @@ def test_untagged_subclasses():
             x = D(5)
         return g(x)
 
-    interp, graph = get_interpreter(fn, [-1000])
+    interp, graph = get_interpreter(fn, [-1000], taggedpointers=True)
 
     t = interp.typer.annotator.translator
     ggraph = graphof(t, g)
@@ -216,3 +237,17 @@ def test_untagged_subclasses():
     assert res == 68
     res = interp.eval_graph(graph, [3])
     assert res == 66
+
+
+def test_disable_tagging():
+    def fn(n):
+        if n < 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return type(x) is B, type(x) is C
+
+    res = interpret(fn, [-212], taggedpointers=False)
+    assert res.item0 and not res.item1
+    res = interpret(fn, [9874], taggedpointers=False)
+    assert res.item1 and not res.item0
