@@ -331,7 +331,46 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.extfunc import register_external
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
-if os.name == 'posix':
+if sys.platform == 'linux2':
+    # This only works with linux's madvise(), which is really not a memory
+    # usage hint but a real command.  It guarantees that after MADV_DONTNEED
+    # the pages are cleared again.
+    from pypy.rpython.tool import rffi_platform
+    MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
+                                                     '#include <sys/mman.h>')
+    linux_madvise = rffi.llexternal('madvise',
+                                    [llmemory.Address, rffi.SIZE_T, rffi.INT],
+                                    rffi.INT)
+    linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT)
+
+    class LinuxPageSize:
+        def __init__(self):
+            self.pagesize = 0
+        _freeze_ = __init__
+    linuxpagesize = LinuxPageSize()
+
+    def clear_large_memory_chunk(baseaddr, size):
+        pagesize = linuxpagesize.pagesize
+        if pagesize == 0:
+            pagesize = rffi.cast(lltype.Signed, linux_getpagesize())
+            linuxpagesize.pagesize = pagesize
+        if size > 2 * pagesize:
+            lowbits = rffi.cast(lltype.Signed, baseaddr) & (pagesize - 1)
+            if lowbits:     # clear the initial misaligned part, if any
+                partpage = pagesize - lowbits
+                llmemory.raw_memclear(baseaddr, partpage)
+                baseaddr += partpage
+                size -= partpage
+            madv_length = size & -pagesize
+            madv_flags = rffi.cast(rffi.INT, MADV_DONTNEED)
+            err = linux_madvise(baseaddr, madv_length, madv_flags)
+            if rffi.cast(lltype.Signed, err) == 0:
+                baseaddr += madv_length     # madvise() worked
+                size -= madv_length
+        if size > 0:    # clear the final misaligned part, if any
+            llmemory.raw_memclear(baseaddr, size)
+
+elif os.name == 'posix':
     READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises
     raw_os_open = rffi.llexternal('open',
                                   [rffi.CCHARP, rffi.INT, rffi.MODE_T],
@@ -348,7 +387,7 @@ if os.name == 'posix':
     _dev_zero = rffi.str2charp('/dev/zero')   # prebuilt
 
     def clear_large_memory_chunk(baseaddr, size):
-        # on Linux at least, reading from /dev/zero is the fastest way
+        # on some Unixy platforms, reading from /dev/zero is the fastest way
         # to clear arenas, because the kernel knows that it doesn't
         # need to even allocate the pages before they are used.
 
@@ -373,6 +412,10 @@ if os.name == 'posix':
 
 else:
     # XXX any better implementation on Windows?
+    # Should use VirtualAlloc() to reserve the range of pages,
+    # and commit some pages gradually with support from the GC.
+    # Or it might be enough to decommit the pages and recommit
+    # them immediately.
     clear_large_memory_chunk = llmemory.raw_memclear
 
 
