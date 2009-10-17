@@ -4,8 +4,6 @@ from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
-from pypy.objspace.std.settype import set_typedef as settypedef
-from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
 class W_BaseSetObject(W_Object):
 
@@ -582,14 +580,14 @@ def iter__Set(space, w_left):
 
 iter__Frozenset = iter__Set
 
-def cmp__Set_settypedef(space, w_left, w_other):
+def cmp__Set_Set(space, w_left, w_other):
     # hack hack until we get the expected result
     raise OperationError(space.w_TypeError,
             space.wrap('cannot compare sets using cmp()'))
 
-cmp__Set_frozensettypedef = cmp__Set_settypedef
-cmp__Frozenset_settypedef = cmp__Set_settypedef
-cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
+cmp__Set_Frozenset = cmp__Set_Set
+cmp__Frozenset_Set = cmp__Set_Set
+cmp__Frozenset_Frozenset = cmp__Set_Set
 
 init_signature = Signature(['some_iterable'], None, None)
 init_defaults = [None]
