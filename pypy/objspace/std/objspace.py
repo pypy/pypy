@@ -441,6 +441,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def gettypeobject(self, typedef):
         # stdtypedef.TypeCache maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
+        assert typedef is not None
         return self.fromcache(stdtypedef.TypeCache).getorbuild(typedef)
 
     def wrap(self, x):
