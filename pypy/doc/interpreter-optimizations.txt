@@ -103,7 +103,7 @@ not have to allocate all the time when doing simple arithmetic. Every time a new
 integer object is created it is checked whether the integer is small enough to
 be retrieved from the cache.
 
-You can enable this feature with the :config:`objspace.std.withsmallint` option.
+This option is enabled by default.
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++
@@ -115,6 +115,7 @@ are represented as tagged pointers by setting their lowest bits to distinguish
 them from normal pointers. This completely avoids the boxing step, saving
 time and memory.
 
+You can enable this feature with the :config:`objspace.std.withsmallint` option.
 
 Dictionary Optimizations
 ------------------------
@@ -132,10 +133,8 @@ If you just enable multi-dicts, special representations for empty dictionaries,
 for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
-You can enable this feature with the :config:`objspace.std.withmultidict`
+This is now the default implementation of dictionaries in the Python interpreter.
 option.
-
-.. XXX chunked dicts, small dicts
 
 Sharing Dicts
 +++++++++++++
@@ -201,36 +200,6 @@ of use of ``range``, and makes ``xrange`` essentially useless.
 
 You can enable this feature with the :config:`objspace.std.withrangelist`
 option.
-
-Multi-Lists
-+++++++++++
-
-As with dictionaries it became clear that it is generally useful to allow lists
-to change their internal representation over their lifetime. Therefore
-multi-lists were implemented, mostly equivalently to multi-dicts. The special
-representations you get by default are for empty lists, for lists containing
-only strings and ranges again (the reason why range lists and multilists both
-implement the same optimization is that range lists came earlier and that
-multi-lists are not tested that much so far).
-
-You can enable this feature with the :config:`objspace.std.withmultilist`
-option.
-
-
-Fast List Slicing
-+++++++++++++++++
-
-A rather experimental special list representation used with multilists is the
-slice list (the original idea is from `Neal Norwitz on pypy-dev`_). The
-observation is that slices are often created for iterating over them, so it
-seems wasteful to create a full copy of that portion of the list. Instead the
-list slice is only created lazily, that is when either the original list or
-the sliced list is mutated.
-
-You can enable this feature with the :config:`objspace.std.withfastslice`
-option.
-
-.. _`Neal Norwitz on pypy-dev`: http://codespeak.net/pipermail/pypy-dev/2005q4/002538.html
 
 
 User Class Optimizations
