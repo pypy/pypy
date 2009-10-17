@@ -204,8 +204,8 @@ def marshal_w__Complex(space, w_complex, m):
         w_real = space.wrap(w_complex.realval)
         w_imag = space.wrap(w_complex.imagval)
         m.start(TYPE_COMPLEX)
-        m.put_pascal(space.str_w(repr_float(space, w_real)))
-        m.put_pascal(space.str_w(repr_float(space, w_imag)))
+        m.put_pascal(space.str_w(space.repr(w_real)))
+        m.put_pascal(space.str_w(space.repr(w_imag)))
 
 def unmarshal_Complex(space, u, tc):
     w_real = space.call_function(space.builtin.get('float'),
