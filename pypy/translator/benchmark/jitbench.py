@@ -6,13 +6,8 @@ import sys
 import py
 
 BASE = "http://pybench.appspot.com/upload"
-MAX_LINES = 10
 
 def upload_results(stderr, url=BASE):
-    if stderr.count("\n") > MAX_LINES:
-        # trim it a bit
-        l = stderr.splitlines()
-        stderr = "\n".join(l[len(l) - MAX_LINES:])
     data = urllib.urlencode({'content' : stderr})
     req = urllib2.Request(url, data)
     response = urllib2.urlopen(req)
