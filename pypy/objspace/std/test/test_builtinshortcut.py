@@ -1,5 +1,5 @@
 from pypy.objspace.std.test import test_userobject
-from pypy.objspace.std.test import test_set
+from pypy.objspace.std.test import test_setobject
 from pypy.objspace.std.test import test_stringobject
 
 WITH_BUILTINSHORTCUT = {'objspace.std.builtinshortcut': True}
@@ -80,7 +80,7 @@ class AppTestBug:
         assert u != s
    
 
-class AppTestSet(test_set.AppTestAppSetTest):
+class AppTestSet(test_setobject.AppTestAppSetTest):
     # this tests tons of funny comparison combinations that can easily go wrong
     def setup_class(cls):
         from pypy import conftest
