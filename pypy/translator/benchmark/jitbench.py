@@ -5,7 +5,7 @@ import subprocess
 import sys
 import py
 
-BASE = "http://pybench.appspot.com/upload"
+BASE = "http://pypybench.appspot.com/upload"
 
 def upload_results(stderr, url=BASE):
     data = urllib.urlencode({'content' : stderr})
