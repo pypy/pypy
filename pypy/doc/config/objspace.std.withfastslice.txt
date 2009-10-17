@@ -1,7 +1,0 @@
-A variant of :config:`objspace.std.withmultilist` that makes list slicing copy
-the list lazily (that is only when the original list or the slice are mutated).
-This is not perfectly well tested.
-
-See the description in `Standard Interpreter Optimizations`_ for more details.
-
-.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html#fast-list-slicing

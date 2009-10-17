@@ -1,8 +1,0 @@
-This enables "multidicts". They are a different implementation of the Python
-``dict`` type, indistinguishable for the normal user (when using multidicts,
-the normal implementation is not used at all).  The flexibility of multidicts
-is used by a couple of other, even more advanced object implementations.
-
-See the description in `Standard Interpreter Optimizations`_ for more details.
-
-.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html#multi-dicts
