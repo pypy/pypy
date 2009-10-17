@@ -97,6 +97,10 @@ class StdTypeModel:
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
+            complexobject.W_ComplexObject: [],
+            setobject.W_SetObject: [],
+            setobject.W_FrozensetObject: [],
+            setobject.W_SetIterObject: [],
             iterobject.W_SeqIterObject: [],
             iterobject.W_FastListIterObject: [],
             iterobject.W_FastTupleIterObject: [],
@@ -106,10 +110,6 @@ class StdTypeModel:
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
-        self.typeorder[complexobject.W_ComplexObject] = []
-        self.typeorder[setobject.W_SetObject] = []
-        self.typeorder[setobject.W_FrozensetObject] = []
-        self.typeorder[setobject.W_SetIterObject] = []
 
         self.imported_but_not_registered = {
             dictmultiobject.W_DictMultiObject: True, # XXXXXX
