@@ -55,7 +55,11 @@ class AbstractTestAsmGCRoot:
         def run(arg0, arg1):
             lines = []
             print >> sys.stderr, 'RUN: starting', exe_name
-            g = os.popen('"%s" %d %d' % (exe_name, arg0, arg1), 'r')
+            if sys.platform == 'win32':
+                redirect = ' 2> NUL'
+            else:
+                redirect = ''
+            g = os.popen('"%s" %d %d%s' % (exe_name, arg0, arg1, redirect), 'r')
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)
@@ -91,6 +95,13 @@ class AbstractTestAsmGCRoot:
         f = makefile.open('w')
         f.writelines(lines)
         f.close()
+
+    if sys.platform == 'win32':
+        def test_callback_with_collect(self):
+            py.test.skip("No libffi yet with mingw32")
+
+        def define_callback_with_collect(cls):
+            return lambda: 0
 
 class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
                                    test_newgc.TestSemiSpaceGC):
@@ -152,13 +163,6 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
     def test_callback_simple(self):
         res = self.run('callback_simple')
         assert res == 4900
-
-    if sys.platform == 'win32':
-        def test_callback_with_collect(self):
-            py.test.skip("No libffi yet with mingw32")
-
-        def define_callback_with_collect(cls):
-            return lambda: 0
 
 
 class TestAsmGCRootWithHybridTagged(AbstractTestAsmGCRoot,
