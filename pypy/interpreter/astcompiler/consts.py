@@ -1,15 +1,6 @@
-# operation flags
-OP_ASSIGN = 0 # 'OP_ASSIGN'
-OP_DELETE = 1 # 'OP_DELETE'
-OP_APPLY  = 2 # 'OP_APPLY'
-OP_NONE   = 3
-
-SC_LOCAL = 1
-SC_GLOBAL = 2
-SC_FREE = 3
-SC_CELL = 4
-SC_UNKNOWN = 5
-SC_DEFAULT = 6
+"""
+Various flags used during the compilation process.
+"""
 
 CO_OPTIMIZED = 0x0001
 CO_NEWLOCALS = 0x0002
