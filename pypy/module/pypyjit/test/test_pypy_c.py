@@ -9,6 +9,9 @@ class BytecodeTrace(list):
         return [op.getopname() for op in self
                     if op.getopname().startswith(prefix)]
 
+    def __repr__(self):
+        return "%s%s" % (self.bytecode, list.__repr__(self))
+
 ZERO_OP_BYTECODES = [
     'POP_TOP',
     'ROT_TWO',
@@ -177,7 +180,65 @@ class PyPyCJITTests(object):
             assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
             assert len(bytecode.get_opnames("guard")) <= 10
-       
+
+    def test_method_call(self):
+        self.run_source('''
+            class A(object):
+                def __init__(self, a):
+                    self.a = a
+                def f(self, i):
+                    return self.a + i
+            def main(n):
+                i = 0
+                a = A(1)
+                while i < n:
+                    x = a.f(i)
+                    i = a.f(x)
+                return i
+        ''',
+                   ([20], 20),
+                    ([31], 32))
+        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        assert len(ops) == 2
+        assert not ops[0].get_opnames("call")
+        assert not ops[0].get_opnames("new")
+        assert len(ops[0].get_opnames("guard")) <= 8
+        assert not ops[1] # second LOOKUP_METHOD folded away
+
+        ops = self.get_by_bytecode("CALL_METHOD")
+        assert len(ops) == 2
+        for bytecode in ops:
+            assert not ops[0].get_opnames("call")
+            assert not ops[0].get_opnames("new")
+            assert len(ops[0].get_opnames("guard")) <= 9
+        assert len(ops[1]) < len(ops[0])
+
+        ops = self.get_by_bytecode("LOAD_ATTR")
+        assert len(ops) == 2
+        assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+                                        "ooisnull", "guard_false"]
+        assert not ops[1] # second LOAD_ATTR folded away
+
+    def test_default_and_kw(self):
+        self.run_source('''
+            def f(i, j=1):
+                return i + j
+            def main(n):
+                i = 0
+                while i < n:
+                    i = f(f(i), j=1)
+                return i
+        ''',
+                   ([20], 20),
+                    ([31], 32))
+        ops = self.get_by_bytecode("CALL_FUNCTION")
+        assert len(ops) == 2
+        for bytecode in ops:
+            assert not bytecode.get_opnames("call")
+            assert not bytecode.get_opnames("new")
+        assert len(ops[0].get_opnames("guard")) <= 14
+        assert len(ops[1].get_opnames("guard")) <= 3
+
 
 
 class AppTestJIT(PyPyCJITTests):
