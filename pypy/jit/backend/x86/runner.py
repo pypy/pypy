@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history
-from pypy.jit.backend.x86.assembler import Assembler386
+from pypy.jit.backend.x86.assembler import Assembler386, MAX_FAIL_BOXES
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 
@@ -38,25 +38,28 @@ class CPU386(AbstractLLCPU):
         self.assembler.assemble_bridge(faildescr, inputargs, operations)
 
     def set_future_value_int(self, index, intvalue):
-        self.assembler.fail_boxes_int.setitem(index, intvalue)
+        assert index < MAX_FAIL_BOXES, "overflow!"
+        self.assembler.fail_boxes_int[index] = intvalue
 
     def set_future_value_float(self, index, floatvalue):
-        self.assembler.fail_boxes_float.setitem(index, floatvalue)
+        assert index < MAX_FAIL_BOXES, "overflow!"
+        self.assembler.fail_boxes_float[index] = floatvalue
 
     def set_future_value_ref(self, index, ptrvalue):
-        self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
+        assert index < MAX_FAIL_BOXES, "overflow!"
+        self.assembler.fail_boxes_ptr[index] = ptrvalue
 
     def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes_int.getitem(index)
+        return self.assembler.fail_boxes_int[index]
 
     def get_latest_value_float(self, index):
-        return self.assembler.fail_boxes_float.getitem(index)
+        return self.assembler.fail_boxes_float[index]
 
     def get_latest_value_ref(self, index):
-        ptrvalue = self.assembler.fail_boxes_ptr.getitem(index)
+        ptrvalue = self.assembler.fail_boxes_ptr[index]
         # clear after reading
-        self.assembler.fail_boxes_ptr.setitem(index, lltype.nullptr(
-            llmemory.GCREF.TO))
+        self.assembler.fail_boxes_ptr[index] = lltype.nullptr(
+            llmemory.GCREF.TO)
         return ptrvalue
 
     def execute_token(self, executable_token):

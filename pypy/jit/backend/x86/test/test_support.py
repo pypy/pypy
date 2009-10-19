@@ -22,6 +22,5 @@ def test_nonmovable_growable_array():
     ar.setitem(3 * CHUNK_SIZE + 42, 38)
     adr = ar.get_addr_for_num(3 * CHUNK_SIZE + 42)
     assert rffi.cast(rffi.CArrayPtr(lltype.Signed), adr)[0] == 38
-    ar.setitem(8*CHUNK_SIZE, 13)
-    assert ar.getitem(8*CHUNK_SIZE) == 13
+
     

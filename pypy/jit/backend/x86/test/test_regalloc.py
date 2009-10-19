@@ -198,8 +198,8 @@ class TestRegallocSimple(BaseTestRegalloc):
         ptr = lltype.malloc(S)
         self.interpret(ops, [0, ptr])
         assert self.getptr(0, lltype.Ptr(S)) == ptr
-        assert not self.cpu.assembler.fail_boxes_ptr.getitem(0)
-        assert not self.cpu.assembler.fail_boxes_ptr.getitem(1)
+        assert not self.cpu.assembler.fail_boxes_ptr[0]
+        assert not self.cpu.assembler.fail_boxes_ptr[1]
 
     def test_exception_bridge_no_exception(self):
         ops = '''
