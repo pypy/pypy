@@ -235,6 +235,7 @@ class PyPyCJITTests(object):
                 i = 0
                 while i < n:
                     a = A()
+                    assert isinstance(a, A)
                     a.x = 2
                     i = i + a.x
                 return i
@@ -242,10 +243,13 @@ class PyPyCJITTests(object):
                    ([20], 20),
                    ([31], 32))
 
-        bytecode, = self.get_by_bytecode("CALL_FUNCTION")
-        assert not bytecode.get_opnames("call")
-        assert not bytecode.get_opnames("new")
-        assert len(bytecode.get_opnames("guard")) <= 9
+        callA, callisinstance = self.get_by_bytecode("CALL_FUNCTION")
+        assert not callA.get_opnames("call")
+        assert not callA.get_opnames("new")
+        assert len(callA.get_opnames("guard")) <= 9
+        assert not callisinstance.get_opnames("call")
+        assert not callisinstance.get_opnames("new")
+        assert len(callisinstance.get_opnames("guard")) <= 2
 
         bytecode, = self.get_by_bytecode("STORE_ATTR")
         # XXX where does that come from?
