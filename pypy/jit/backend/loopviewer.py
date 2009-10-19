@@ -9,17 +9,11 @@ from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
 from pypy.jit.metainterp.history import ConstInt
 from pypy.rpython.lltypesystem import llmemory, lltype
 
-class AllDict(dict):
-    def __getitem__(self, item):
-        return lltype.nullptr(llmemory.GCREF.TO)
-
-alldict = AllDict()
-
 def main(loopnum, loopfile):
     data = py.path.local(loopfile).read()
     loops = split_logs_into_loops(data)
     inp = loops[loopnum]
-    loop = parse(inp, namespace=alldict)
+    loop = parse(inp, no_namespace=True)
     loop.show()
 
 if __name__ == '__main__':

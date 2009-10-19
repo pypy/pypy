@@ -161,8 +161,7 @@ def test_descr_with_obj_print():
     loop = parse(x)
     # assert did not explode
 
-def test_split_logs_into_loops():
-    text = '''\
+examplelog = '''\
 # Loop0 (loop), 12 ops
 [i0, i1]
 debug_merge_point('(no jitdriver.get_printable_location!)')
@@ -220,12 +219,19 @@ guard_true(i8, descr=<Guard15>) [i4, i6]
 debug_merge_point('(no jitdriver.get_printable_location!)')
 jump(i6, i4, descr=<Loop0>)
 '''
-    parts = split_logs_into_loops(text)
+
+def test_split_logs_into_loops():
+    parts = split_logs_into_loops(examplelog)
     assert len(parts) == 5
-    assert "\n".join(parts) == text.strip()
+    assert "\n".join(parts) == examplelog.strip()
     for part, typ in zip(parts,
             ["Loop0", "Loop1",
              "bridge out of Guard5",
              "bridge out of Guard9",
              "bridge out of Guard12"]):
         assert part.startswith("# %s" % typ)
+
+def test_parse_no_namespace():
+    parts = split_logs_into_loops(examplelog)
+    for part in parts:
+        loop = parse(part, no_namespace=True)

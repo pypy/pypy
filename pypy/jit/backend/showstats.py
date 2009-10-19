@@ -5,16 +5,10 @@ from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-class AllDict(dict):
-    def __getitem__(self, item):
-        return lltype.nullptr(llmemory.GCREF.TO)
-
-alldict = AllDict()
-
 def main(argv):
     parts = split_logs_into_loops(py.path.local(argv[0]).read())
     for oplist in parts:
-        loop = parse(oplist, namespace=alldict)
+        loop = parse(oplist, no_namespace=True)
         num_ops = 0
         num_dmp = 0
         num_guards = 0

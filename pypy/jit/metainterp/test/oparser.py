@@ -50,17 +50,44 @@ def default_fail_descr(fail_args=None):
 
 
 class OpParser(object):
-    def __init__(self, descr, cpu, namespace, type_system, boxkinds,
+    def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr):
-        self.descr = descr
+        self.input = input
         self.vars = {}
         self.cpu = cpu
-        self.consts = namespace
+        self._consts = namespace
         self.type_system = type_system
         self.boxkinds = boxkinds or {}
-        self._cache = namespace.setdefault('_CACHE_', {})
+        if namespace is not None:
+            self._cache = namespace.setdefault('_CACHE_', {})
+        else:
+            self._cache = {}
         self.invent_fail_descr = invent_fail_descr
         self.looptoken = LoopToken()
+
+    def get_const(self, name, typ):
+        if self._consts is None:
+            return name
+        obj = self._consts[name]
+        if self.type_system == 'lltype':
+            if typ == 'ptr':
+                return ConstPtr(obj)
+            else:
+                assert typ == 'class'
+                return ConstAddr(llmemory.cast_ptr_to_adr(obj),
+                                 self.cpu)
+        else:
+            if typ == 'ptr':
+                return ConstObj(obj)
+            else:
+                assert typ == 'class'
+                return ConstObj(ootype.cast_to_object(obj))
+
+    def get_descr(self, poss_descr):
+        if poss_descr.startswith('<'):
+            return None
+        else:
+            return self._consts[poss_descr]
 
     def box_for_var(self, elem):
         try:
@@ -122,11 +149,7 @@ class OpParser(object):
                                                        llstr(info)))
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
-                if self.type_system == 'lltype':
-                    return ConstAddr(llmemory.cast_ptr_to_adr(self.consts[name]),
-                                     self.cpu)
-                else:
-                    return ConstObj(ootype.cast_to_object(self.consts[name]))
+                return self.get_const(name, 'class')
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
@@ -136,10 +159,7 @@ class OpParser(object):
                     return ConstObj(ConstObj.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
-                if self.type_system == 'lltype':
-                    return ConstPtr(self.consts[name])
-                else:
-                    return ConstObj(self.consts[name])
+                return self.get_const(name, 'ptr')
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -168,10 +188,7 @@ class OpParser(object):
 
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
-                if poss_descr.startswith('descr=<'):
-                    descr = None
-                else:
-                    descr = self.consts[poss_descr[len('descr='):]]
+                descr = self.get_descr(poss_descr[len('descr='):])
                 allargs = allargs[:-1]        
             for arg in allargs:
                 arg = arg.strip()
@@ -232,7 +249,7 @@ class OpParser(object):
             return self.parse_op_no_result(line)
 
     def parse(self):
-        lines = self.descr.splitlines()
+        lines = self.input.splitlines()
         ops = []
         newlines = []
         for line in lines:
@@ -284,11 +301,12 @@ class OpParser(object):
         inpargs = self.parse_header_line(line[1:-1])
         return base_indent, inpargs
 
-def parse(descr, cpu=None, namespace=None, type_system='lltype',
-          boxkinds=None, invent_fail_descr=default_fail_descr):
-    if namespace is None:
+def parse(input, cpu=None, namespace=None, type_system='lltype',
+          boxkinds=None, invent_fail_descr=default_fail_descr,
+          no_namespace=False):
+    if namespace is None and not no_namespace:
         namespace = {}
-    return OpParser(descr, cpu, namespace, type_system, boxkinds,
+    return OpParser(input, cpu, namespace, type_system, boxkinds,
                     invent_fail_descr).parse()
 
 def pure_parse(*args, **kwds):
