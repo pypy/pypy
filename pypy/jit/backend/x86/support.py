@@ -23,7 +23,7 @@ def new_nonmovable_growable_array(TP):
                 lltype.direct_arrayitems(chunk), ofs))
 
         def _no_of(self, i):
-            while i > len(self.chunks) * CHUNK_SIZE:
+            while i >= len(self.chunks) * CHUNK_SIZE:
                 self._grow()
             return i / CHUNK_SIZE, i % CHUNK_SIZE
 
