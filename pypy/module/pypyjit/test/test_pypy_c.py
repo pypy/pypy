@@ -5,8 +5,9 @@ from py.test import skip
 import sys, os
 
 class BytecodeTrace(list):
-    pass
-
+    def get_opnames(self, prefix=""):
+        return [op.getopname() for op in self
+                    if op.getopname().startswith(prefix)]
 
 ZERO_OP_BYTECODES = [
     'POP_TOP',
@@ -37,12 +38,11 @@ class PyPyCJITTests(object):
             pypyjit.set_param(threshold=3)
 
             def check(args, expected):
-                for i in range(3):
-                    print >> sys.stderr, 'trying:', args
-                    result = main(*args)
-                    print >> sys.stderr, 'got:', repr(result)
-                    assert result == expected
-                    assert type(result) is type(expected)
+                print >> sys.stderr, 'trying:', args
+                result = main(*args)
+                print >> sys.stderr, 'got:', repr(result)
+                assert result == expected
+                assert type(result) is type(expected)
         """)
         for testcase in testcases * 2:
             print >> f, "check(%r, %r)" % testcase
@@ -88,10 +88,14 @@ class PyPyCJITTests(object):
                 continue
             assert not bytecodetrace
 
+    def get_by_bytecode(self, name):
+        return [ops for ops in self.sliced_loops if ops.bytecode == name]
+
     def test_f(self):
         self.run_source("""
             def main(n):
-                return (n+5)+6
+                for i in range(3):
+                    return (n+5)+6
         """,
                    ([100], 111),
                     ([-5], 6),
@@ -148,6 +152,33 @@ class PyPyCJITTests(object):
                 return richards.main(iterations = 1)
         ''' % (sys.path,),
                    ([], 42))
+
+    def test_simple_call(self):
+        self.run_source('''
+            def f(i):
+                return i + 1
+            def main(n):
+                i = 0
+                while i < n:
+                    i = f(f(i))
+                return i
+        ''',
+                   ([20], 20),
+                    ([31], 32))
+        ops = self.get_by_bytecode("LOAD_GLOBAL")
+        assert len(ops) == 2
+        assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+                                        "getfield_gc", "ooisnull",
+                                        "guard_false"]
+        assert not ops[1] # second LOAD_GLOBAL folded away
+        ops = self.get_by_bytecode("CALL_FUNCTION")
+        assert len(ops) == 2
+        for bytecode in ops:
+            assert not bytecode.get_opnames("call")
+            assert not bytecode.get_opnames("new")
+            assert len(bytecode.get_opnames("guard")) <= 10
+       
+
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
