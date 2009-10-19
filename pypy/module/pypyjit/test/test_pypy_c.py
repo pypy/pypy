@@ -1,14 +1,34 @@
 from pypy.conftest import gettestobjspace, option
 from pypy.tool.udir import udir
 import py
+from py.test import skip
 import sys, os
 
+class BytecodeTrace(list):
+    pass
+
+
+ZERO_OP_BYTECODES = [
+    'POP_TOP',
+    'ROT_TWO',
+    'ROT_THREE',
+    'DUP_TOP',
+    'ROT_FOUR',
+    'NOP',
+    'DUP_TOPX',
+    'LOAD_CONST',
+    'JUMP_FORWARD',
+    #'JUMP_ABSOLUTE' in theory, but contains signals stuff
+    #'LOAD_FAST' should be here, but currently needs a guard for nonzeroness
+    'STORE_FAST',
+    ]
+
 class PyPyCJITTests(object):
-    def run_source(self, source, testcases):
+    def run_source(self, source, *testcases):
         source = py.code.Source(source)
         filepath = self.tmpdir.join('case%d.py' % self.counter)
         logfilepath = filepath.new(ext='.log')
-        self.counter += 1
+        self.__class__.counter += 1
         f = filepath.open('w')
         print >> f, source
         # some support code...
@@ -40,18 +60,44 @@ class PyPyCJITTests(object):
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
         assert logfilepath.check()
+        opslogfile = logfilepath.new(ext='.log.ops')
+        self.parse_loops(opslogfile)
 
+    def parse_loops(self, opslogfile):
+        from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
+        assert opslogfile.check()
+        logs = opslogfile.read()
+        parts = split_logs_into_loops(logs)
+        # skip entry bridges, they can contain random things
+        self.loops = [parse(part, no_namespace=True) for part in parts
+                          if "entry bridge" not in part]
+        self.sliced_loops = [] # contains all bytecodes of all loops
+        for loop in self.loops:
+            for op in loop.operations:
+                if op.getopname() == "debug_merge_point":
+                    sliced_loop = BytecodeTrace()
+                    sliced_loop.bytecode = op.args[0]._get_str().rsplit(" ", 1)[1]
+                    self.sliced_loops.append(sliced_loop)
+                else:
+                    sliced_loop.append(op)
+        self.check_0_op_bytecodes()
+
+    def check_0_op_bytecodes(self):
+        for bytecodetrace in self.sliced_loops:
+            if bytecodetrace.bytecode not in ZERO_OP_BYTECODES:
+                continue
+            assert not bytecodetrace
 
     def test_f(self):
         self.run_source("""
             def main(n):
                 return (n+5)+6
         """,
-                   [([100], 111),
+                   ([100], 111),
                     ([-5], 6),
                     ([sys.maxint], sys.maxint+11),
                     ([-sys.maxint-5], long(-sys.maxint+6)),
-                    ])
+                    )
 
     def test_f1(self):
         self.run_source('''
@@ -67,7 +113,7 @@ class PyPyCJITTests(object):
                     i = i + 1
                 return x
         ''',
-                   [([2117], 1083876708)])
+                   ([2117], 1083876708))
 
     def test_factorial(self):
         self.run_source('''
@@ -78,10 +124,11 @@ class PyPyCJITTests(object):
                     n -= 1
                 return r
         ''',
-                   [([5], 120),
-                    ([20], 2432902008176640000L)])
+                   ([5], 120),
+                    ([20], 2432902008176640000L))
 
     def test_factorialrec(self):
+        skip("does not make sense yet")        
         self.run_source('''
             def main(n):
                 if n > 1:
@@ -89,8 +136,8 @@ class PyPyCJITTests(object):
                 else:
                     return 1
         ''',
-                   [([5], 120),
-                    ([20], 2432902008176640000L)])
+                   ([5], 120),
+                    ([20], 2432902008176640000L))
 
     def test_richards(self):
         self.run_source('''
@@ -100,24 +147,13 @@ class PyPyCJITTests(object):
             def main():
                 return richards.main(iterations = 1)
         ''' % (sys.path,),
-                   [([], 42)])
-
-    def test_inplace_op(self):
-        self.run_source('''
-            def main(x, y):
-                r = 5
-                r += x
-                r += -y
-                return r
-        ''', [([17, 3], 19),
-              ([sys.maxint-3, 5], long(sys.maxint - 3)),
-              ([17, -sys.maxint - 1], sys.maxint + 23)
-              ])
+                   ([], 42))
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
             py.test.skip("meant only for pypy-c")
+        # the next line skips stuff if the pypy-c is not a jit build
         cls.space = gettestobjspace(usemodules=['pypyjit'])
         cls.tmpdir = udir.join('pypy-jit')
         cls.tmpdir.ensure(dir=1)
