@@ -480,7 +480,7 @@ class GenericGCTests(GCTest):
         TP = lltype.GcArray(lltype.Char)
         def func():
             #try:
-            a = rgc.malloc_nonmovable(TP, 3)
+            a = rgc.malloc_nonmovable(TP, 3, zero=True)
             rgc.collect()
             if a:
                 assert not rgc.can_move(a)

@@ -184,7 +184,7 @@ class CanMoveEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_can_move', hop.args_v, resulttype=hop.r_result)
 
-def malloc_nonmovable(TP, n=None):
+def malloc_nonmovable(TP, n=None, zero=False):
     """ Allocate a non-moving buffer or return nullptr.
     When running directly, will pretend that gc is always
     moving (might be configurable in a future)
@@ -195,21 +195,26 @@ def malloc_nonmovable(TP, n=None):
 class MallocNonMovingEntry(ExtRegistryEntry):
     _about_ = malloc_nonmovable
 
-    def compute_result_annotation(self, s_TP, s_n=None):
+    def compute_result_annotation(self, s_TP, s_n=None, s_zero=None):
         # basically return the same as malloc
         from pypy.annotation.builtin import malloc
-        return malloc(s_TP, s_n)
+        return malloc(s_TP, s_n, s_zero=s_zero)
 
-    def specialize_call(self, hop):
+    def specialize_call(self, hop, i_zero=None):
         from pypy.rpython.lltypesystem import lltype
         # XXX assume flavor and zero to be None by now
         assert hop.args_s[0].is_constant()
         vlist = [hop.inputarg(lltype.Void, arg=0)]
         opname = 'malloc_nonmovable'
         flags = {'flavor': 'gc'}
+        if i_zero is not None:
+            flags['zero'] = hop.args_s[i_zero].const
+            nb_args = hop.nb_args - 1
+        else:
+            nb_args = hop.nb_args
         vlist.append(hop.inputconst(lltype.Void, flags))
 
-        if hop.nb_args == 2:
+        if nb_args == 2:
             vlist.append(hop.inputarg(lltype.Signed, arg=1))
             opname += '_varsize'
 
