@@ -81,10 +81,15 @@ class Assembler386(object):
         self.fail_boxes_float = NonmovableGrowableArrayFloat()
 
     def leave_jitted_hook(self):
-        fail_boxes_ptr = self.fail_boxes_ptr
-        for chunk in fail_boxes_ptr.chunks:
+        # XXX BIG FAT WARNING XXX
+        # At this point, we should not call anyone here, because
+        # RPython-level exception might be set. Here be dragons
+        i = 0
+        while i < self.fail_boxes_ptr.lgt:
+            chunk = self.fail_boxes_ptr.chunks[i]
             llop.gc_assume_young_pointers(lltype.Void,
                                       llmemory.cast_ptr_to_adr(chunk))
+            i += 1
 
     def make_sure_mc_exists(self):
         if self.mc is None:

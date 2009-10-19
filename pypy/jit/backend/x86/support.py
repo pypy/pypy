@@ -1,5 +1,7 @@
 
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rlib import rgc
+from pypy.rlib.objectmodel import we_are_translated
 
 CHUNK_SIZE = 1000
 
@@ -9,11 +11,17 @@ def new_nonmovable_growable_array(TP):
     class NonmovableGrowableArray(object):
         def __init__(self):
             self.chunks = []
-            self._grow()
+            self.lgt = 0
 
         def _grow(self):
-            self.chunks.append(lltype.malloc(ATP, CHUNK_SIZE,
-                                             zero=True))
+            # XXX workaround for a fact that rgc.malloc_nonmovable always
+            #     returns nullptr when run on top of python
+            if we_are_translated():
+                new_item = rgc.malloc_nonmovable(ATP, CHUNK_SIZE, zero=True)
+            else:
+                new_item = lltype.malloc(ATP, CHUNK_SIZE, zero=True)
+            self.chunks.append(new_item)
+            self.lgt += 1
 
         def get_addr_for_num(self, i):
             chunk_no, ofs = self._no_of(i)
