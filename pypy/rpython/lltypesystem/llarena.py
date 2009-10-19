@@ -340,8 +340,10 @@ if sys.platform == 'linux2':
                                                      '#include <sys/mman.h>')
     linux_madvise = rffi.llexternal('madvise',
                                     [llmemory.Address, rffi.SIZE_T, rffi.INT],
-                                    rffi.INT)
-    linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT)
+                                    rffi.INT,
+                                    sandboxsafe=True, _nowrapper=True)
+    linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
+                                        sandboxsafe=True, _nowrapper=True)
 
     class LinuxPageSize:
         def __init__(self):
@@ -361,12 +363,13 @@ if sys.platform == 'linux2':
                 llmemory.raw_memclear(baseaddr, partpage)
                 baseaddr += partpage
                 size -= partpage
-            madv_length = size & -pagesize
+            length = size & -pagesize
+            madv_length = rffi.cast(rffi.SIZE_T, length)
             madv_flags = rffi.cast(rffi.INT, MADV_DONTNEED)
             err = linux_madvise(baseaddr, madv_length, madv_flags)
             if rffi.cast(lltype.Signed, err) == 0:
-                baseaddr += madv_length     # madvise() worked
-                size -= madv_length
+                baseaddr += length     # madvise() worked
+                size -= length
         if size > 0:    # clear the final misaligned part, if any
             llmemory.raw_memclear(baseaddr, size)
 
