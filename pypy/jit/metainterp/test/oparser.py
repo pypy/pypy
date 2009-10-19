@@ -295,6 +295,24 @@ def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None
     return parse(*args, **kwds)
 
+
+def split_logs_into_loops(text):
+    lines = text.splitlines()
+    parts = []
+    last_with_hash = False
+    lines_of_part = []
+    for i, line in enumerate(lines):
+        if (line.startswith("[") and last_with_hash
+                and len(lines_of_part) > 1):
+            parts.append("\n".join(lines_of_part[:-1]))
+            lines_of_part = [lines_of_part[-1], line]
+        else:
+            lines_of_part.append(line)
+            last_with_hash = line.startswith("#")
+    parts.append("\n".join(lines_of_part))
+    return parts
+
+
 def _box_counter_more_than(s):
     if s.isdigit():
         Box._counter = max(Box._counter, int(s)+1)

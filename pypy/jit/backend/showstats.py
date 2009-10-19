@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+import autopath
 import sys, py
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
@@ -11,9 +12,8 @@ class AllDict(dict):
 alldict = AllDict()
 
 def main(argv):
-    lst = ("\n" + py.path.local(argv[0]).read()).split("\n[")
-    lst = ['[' + i for i in lst if i]
-    for oplist in lst:
+    parts = split_logs_into_loops(py.path.local(argv[0]).read())
+    for oplist in parts:
         loop = parse(oplist, namespace=alldict)
         num_ops = 0
         num_dmp = 0

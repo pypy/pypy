@@ -2,9 +2,10 @@
 """ Usage: loopviewer.py [loopnum] loopfile
 """
 
+import autopath
 import py
 import sys
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
 from pypy.jit.metainterp.history import ConstInt
 from pypy.rpython.lltypesystem import llmemory, lltype
 
@@ -16,8 +17,8 @@ alldict = AllDict()
 
 def main(loopnum, loopfile):
     data = py.path.local(loopfile).read()
-    loops = [i for i in data.split("[") if i]
-    inp = "[" + loops[loopnum]
+    loops = split_logs_into_loops(data)
+    inp = loops[loopnum]
     loop = parse(inp, namespace=alldict)
     loop.show()
 
