@@ -94,18 +94,6 @@ class PyPyCJITTests(object):
     def get_by_bytecode(self, name):
         return [ops for ops in self.sliced_loops if ops.bytecode == name]
 
-    def test_f(self):
-        self.run_source("""
-            def main(n):
-                for i in range(3):
-                    return (n+5)+6
-        """,
-                   ([100], 111),
-                    ([-5], 6),
-                    ([sys.maxint], sys.maxint+11),
-                    ([-sys.maxint-5], long(-sys.maxint+6)),
-                    )
-
     def test_f1(self):
         self.run_source('''
             def main(n):
@@ -208,9 +196,9 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("CALL_METHOD")
         assert len(ops) == 2
         for bytecode in ops:
-            assert not ops[0].get_opnames("call")
-            assert not ops[0].get_opnames("new")
-            assert len(ops[0].get_opnames("guard")) <= 9
+            assert not bytecode.get_opnames("call")
+            assert not bytecode.get_opnames("new")
+            assert len(bytecode.get_opnames("guard")) <= 9
         assert len(ops[1]) < len(ops[0])
 
         ops = self.get_by_bytecode("LOAD_ATTR")
@@ -230,7 +218,7 @@ class PyPyCJITTests(object):
                 return i
         ''',
                    ([20], 20),
-                    ([31], 32))
+                   ([31], 32))
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
         for bytecode in ops:
@@ -239,7 +227,48 @@ class PyPyCJITTests(object):
         assert len(ops[0].get_opnames("guard")) <= 14
         assert len(ops[1].get_opnames("guard")) <= 3
 
+    def test_virtual_instance(self):
+        self.run_source('''
+            class A(object):
+                pass
+            def main(n):
+                i = 0
+                while i < n:
+                    a = A()
+                    a.x = 2
+                    i = i + a.x
+                return i
+        ''',
+                   ([20], 20),
+                   ([31], 32))
 
+        bytecode, = self.get_by_bytecode("CALL_FUNCTION")
+        assert not bytecode.get_opnames("call")
+        assert not bytecode.get_opnames("new")
+        assert len(bytecode.get_opnames("guard")) <= 9
+
+        bytecode, = self.get_by_bytecode("STORE_ATTR")
+        # XXX where does that come from?
+        assert bytecode.get_opnames() == ["getfield_gc", "guard_value"]
+
+    def test_mixed_type_loop(self):
+        self.run_source('''
+            class A(object):
+                pass
+            def main(n):
+                i = 0.0
+                j = 2
+                while i < n:
+                    i = j + i
+                return i, type(i) is float
+        ''',
+                   ([20], (20, True)),
+                   ([31], (32, True)))
+
+        bytecode, = self.get_by_bytecode("BINARY_ADD")
+        assert not bytecode.get_opnames("call")
+        assert not bytecode.get_opnames("new")
+        assert len(bytecode.get_opnames("guard")) <= 3
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
