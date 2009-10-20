@@ -634,6 +634,8 @@ def equal_whatever(TYPE, x, y):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_streq(x, y)
+    if TYPE is ootype.String or TYPE is ootype.Unicode:
+        return x.ll_streq(y)
     return x == y
 equal_whatever._annspecialcase_ = 'specialize:arg(0)'
 
