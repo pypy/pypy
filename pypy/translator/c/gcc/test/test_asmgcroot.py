@@ -18,19 +18,16 @@ class AbstractTestAsmGCRoot:
     should_be_moving = False
 
     @classmethod
-    def _makefunc2(cls, func):
+    def _makefunc_str_int(cls, func):
         def main(argv):
-            arg0 = int(argv[1])
+            arg0 = argv[1]
             arg1 = int(argv[2])
             try:
                 res = func(arg0, arg1)
             except MemoryError:
                 print 'Result: MemoryError'
             else:
-                if isinstance(res, int):
-                    print 'Result:', res
-                else:
-                    print 'Result: "%s"' % (res,)
+                print 'Result: "%s"' % (res,)
             return 0
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
@@ -59,7 +56,7 @@ class AbstractTestAsmGCRoot:
                 redirect = ' 2> NUL'
             else:
                 redirect = ''
-            g = os.popen('"%s" %d %d%s' % (exe_name, arg0, arg1, redirect), 'r')
+            g = os.popen('"%s" %s %d%s' % (exe_name, arg0, arg1, redirect), 'r')
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)

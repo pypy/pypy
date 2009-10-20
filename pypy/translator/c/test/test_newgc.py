@@ -24,19 +24,39 @@ class TestUsingFramework(object):
     _isolated_func = None
 
     @classmethod
-    def _makefunc2(cls, f):
-        t = Translation(f, [int, int], gc=cls.gcpolicy,
+    def _makefunc_str_int(cls, f):
+        def main(argv):
+            arg0 = argv[1]
+            arg1 = int(argv[2])
+            try:
+                res = f(arg0, arg1)
+            except MemoryError:
+                print "MEMORY-ERROR"
+            else:
+                print res
+            return 0
+        
+        t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
                         removetypeptr=cls.removetypeptr,
                         debugprint=True)
         t.disable(['backendopt'])
-        t.set_backend_extra_options(c_isolated=True, c_debug_defines=True)
+        t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()
         if conftest.option.view:
             t.viewcg()
-        isolated_func = t.compile()
-        return isolated_func
+        exename = t.compile()
+
+        def run(s, i):
+            data = py.process.cmdexec("%s %s %d" % (exename, s, i))
+            data = data.strip()
+            if data == 'MEMORY-ERROR':
+                raise MemoryError
+            return data
+
+        return run
+
 
     def setup_class(cls):
         funcs0 = []
@@ -66,8 +86,8 @@ class TestUsingFramework(object):
                     funcs1.append(func)
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
-        def allfuncs(num, arg):
-            rgc.collect()
+        def allfuncs(name, arg):
+            num = name_to_func[name]
             func0 = funcs0[num]
             if func0:
                 return str(func0())
@@ -79,7 +99,7 @@ class TestUsingFramework(object):
                 return funcstr(arg)
             assert 0, 'unreachable'
         cls.funcsstr = funcsstr
-        cls.c_allfuncs = staticmethod(cls._makefunc2(allfuncs))
+        cls.c_allfuncs = staticmethod(cls._makefunc_str_int(allfuncs))
         cls.allfuncs = staticmethod(allfuncs)
         cls.name_to_func = name_to_func
 
@@ -90,10 +110,9 @@ class TestUsingFramework(object):
     def run(self, name, *args):
         if not args:
             args = (-1, )
+        print 'Running %r)' % name
+        res = self.c_allfuncs(name, *args)
         num = self.name_to_func[name]
-        print
-        print 'Running %r (test number %d)' % (name, num)
-        res = self.c_allfuncs(num, *args)
         if self.funcsstr[num]:
             return res
         return int(res)
@@ -101,8 +120,8 @@ class TestUsingFramework(object):
     def run_orig(self, name, *args):
         if not args:
             args = (-1, )
-        num = self.name_to_func[name]
-        res = self.allfuncs(num, *args)
+        res = self.allfuncs(name, *args)
+        num = self.name_to_func[name]        
         if self.funcsstr[num]:
             return res
         return int(res)        
