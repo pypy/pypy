@@ -33,7 +33,7 @@ def check(flag):
 
 def get_g(main):
     main._dont_inline_ = True
-    def g(num, n):
+    def g(name, n):
         x = X()
         x.foo = 2
         main(n, x)
@@ -46,12 +46,16 @@ def get_g(main):
 def get_entry(g):
 
     def entrypoint(args):
-        num = 0
-        if len(args) == 2:
-            num = int(args[1])
+        name = ''
+        n = 2000
+        argc = len(args)
+        if argc > 1:
+            name = args[1]
+        if argc > 2:
+            n = int(args[2])
         r_list = []
         for i in range(20):
-            r = g(num, 2000)
+            r = g(name, n)
             r_list.append(r)
             rgc.collect()
         rgc.collect(); rgc.collect()
@@ -134,13 +138,14 @@ class TestCompileHybrid(object):
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
         print name_to_func
-        def allfuncs(num, n):
+        def allfuncs(name, n):
             x = X()
             x.foo = 2
-            main_allfuncs(num, n, x)
+            main_allfuncs(name, n, x)
             x.foo = 5
             return weakref.ref(x)
-        def main_allfuncs(num, n, x):
+        def main_allfuncs(name, n, x):
+            num = name_to_func[name]            
             n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s = funcs[num][0](n, x)
             while n > 0:
                 myjitdriver.can_enter_jit(num=num, n=n, x=x, x0=x0, x1=x1,
@@ -158,14 +163,12 @@ class TestCompileHybrid(object):
         cls.name_to_func = name_to_func
         cls.cbuilder = compile(get_entry(allfuncs), "hybrid", gcrootfinder="asmgcc", jit=True)
 
-    def run(self, name):
-        num = self.name_to_func[name]
-        res = self.cbuilder.cmdexec(str(num))
+    def run(self, name, n=2000):
+        res = self.cbuilder.cmdexec("%s %d" %(name, n))
         assert int(res) == 20
 
     def run_orig(self, name, n, x):
-        num = self.name_to_func[name]
-        self.main_allfuncs(num, n, x)
+        self.main_allfuncs(name, n, x)
 
     def define_compile_hybrid_1(cls):
         # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
