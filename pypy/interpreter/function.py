@@ -309,7 +309,7 @@ class Function(Wrappable):
 
     def fget_func_defaults(space, self):
         values_w = self.defs_w
-        if not values_w:
+        if not values_w or None in values_w:
             return space.w_None
         return space.newtuple(values_w)
 

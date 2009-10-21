@@ -644,3 +644,15 @@ def f%s:
 
         assert space.eq_w(w_res, space.wrap(44))
 
+
+class TestFunction:
+
+    def test_func_defaults(self):
+        from pypy.interpreter import gateway
+        def g(w_a=gateway.NoneNotWrapped):
+            pass
+        app_g = gateway.interp2app_temp(g)
+        space = self.space
+        w_g = space.wrap(app_g)
+        w_defs = space.getattr(w_g, space.wrap("func_defaults"))
+        assert space.is_w(w_defs, space.w_None)
