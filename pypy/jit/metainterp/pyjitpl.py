@@ -1,7 +1,7 @@
 import py, os
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.objectmodel import we_are_translated, r_dict
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_print
 
@@ -1099,14 +1099,24 @@ class MetaInterpGlobalData(object):
         #
         state = staticdata.state
         if state is not None:
-            self.unpack_greenkey = state.unwrap_greenkey
-            self.compiled_merge_points = r_dict(state.comparekey,state.hashkey)
-                # { (greenargs): [MergePoints] }
+            self.jit_cell_at_key = state.jit_cell_at_key
         else:
-            self.compiled_merge_points = {}    # for tests only; not RPython
-            self.unpack_greenkey = tuple
+            # for tests only; not RPython
+            class JitCell:
+                compiled_merge_points = None
+            _jitcell_dict = {}
+            def jit_cell_at_key(greenkey):
+                greenkey = tuple(greenkey)
+                return _jitcell_dict.setdefault(greenkey, JitCell())
+            self.jit_cell_at_key = jit_cell_at_key
         if staticdata.virtualizable_info:
             self.blackhole_virtualizable = staticdata.virtualizable_info.null_vable
+
+    def get_compiled_merge_points(self, greenkey):
+        cell = self.jit_cell_at_key(greenkey)
+        if cell.compiled_merge_points is None:
+            cell.compiled_merge_points = []
+        return cell.compiled_merge_points
 
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
@@ -1496,8 +1506,7 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         glob = self.staticdata.globaldata
-        greenargs = glob.unpack_greenkey(greenkey)
-        old_loop_tokens = glob.compiled_merge_points.setdefault(greenargs, [])
+        old_loop_tokens = glob.get_compiled_merge_points(greenkey)
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop_token = compile.compile_new_loop(self, old_loop_tokens,
                                               greenkey, start)
@@ -1508,10 +1517,8 @@ class MetaInterp(object):
         num_green_args = self.staticdata.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         glob = self.staticdata.globaldata
-        greenargs = glob.unpack_greenkey(greenkey)
-        try:
-            old_loop_tokens = glob.compiled_merge_points[greenargs]
-        except KeyError:
+        old_loop_tokens = glob.get_compiled_merge_points(greenkey)
+        if len(old_loop_tokens) == 0:
             return
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         target_loop_token = compile.compile_new_bridge(self, old_loop_tokens,
@@ -1565,7 +1572,7 @@ class MetaInterp(object):
 
     def _initialize_from_start(self, original_boxes, num_green_args, *args):
         if args:
-            from pypy.jit.metainterp.warmspot import wrap
+            from pypy.jit.metainterp.warmstate import wrap
             box = wrap(self.cpu, args[0], num_green_args > 0)
             original_boxes.append(box)
             self._initialize_from_start(original_boxes, num_green_args-1,

@@ -1,38 +1,12 @@
 import py
-from pypy.jit.metainterp.warmspot import ll_meta_interp, hash_whatever
-from pypy.jit.metainterp.warmspot import get_stats, equal_whatever
+from pypy.jit.metainterp.warmspot import ll_meta_interp
+from pypy.jit.metainterp.warmspot import get_stats
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, OPTIMIZER_SIMPLE
 from pypy.rlib.jit import unroll_safe
 from pypy.jit.backend.llgraph import runner
-from pypy.rpython.test.test_llinterp import interpret
 
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
-
-def test_hash_equal_whatever_lltype():
-    from pypy.rpython.lltypesystem import lltype, rstr
-    s1 = rstr.mallocstr(2)
-    s2 = rstr.mallocstr(2)
-    s1.chars[0] = 'x'; s1.chars[1] = 'y'
-    s2.chars[0] = 'x'; s2.chars[1] = 'y'
-    def fn(x):
-        assert hash_whatever(lltype.typeOf(x), x) == 42
-        assert (hash_whatever(lltype.typeOf(s1), s1) ==
-                hash_whatever(lltype.typeOf(s2), s2))
-        assert equal_whatever(lltype.typeOf(s1), s1, s2)
-    fn(42)
-    interpret(fn, [42], type_system='lltype')
-
-def test_hash_equal_whatever_ootype():
-    from pypy.rpython.ootypesystem import ootype
-    def fn(c):
-        s1 = ootype.oostring("xy", -1)
-        s2 = ootype.oostring("x" + chr(c), -1)
-        assert (hash_whatever(ootype.typeOf(s1), s1) ==
-                hash_whatever(ootype.typeOf(s2), s2))
-        assert equal_whatever(ootype.typeOf(s1), s1, s2)
-    fn(ord('y'))
-    interpret(fn, [ord('y')], type_system='ootype')
 
 class Exit(Exception):
     def __init__(self, result):
@@ -89,20 +63,6 @@ class WarmspotTests(object):
 
         res = self.meta_interp(f, [60])
         assert res == f(30)
-
-    def test_hash_collision(self):
-        mydriver = JitDriver(reds = ['n'], greens = ['m'])
-        def f(n):
-            m = 0
-            while n > 0:
-                mydriver.can_enter_jit(n=n, m=m)
-                mydriver.jit_merge_point(n=n, m=m)
-                n -= 1
-                if not (n % 11):
-                    m = (m+n) & 3
-            return m
-        res = self.meta_interp(f, [110], hash_bits=1)
-        assert res == f(110)
 
     def test_location(self):
         def get_printable_location(n):

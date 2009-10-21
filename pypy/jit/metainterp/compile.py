@@ -262,8 +262,8 @@ class ResumeFromInterpDescr(ResumeDescr):
             new_loop_token)
         # store the new loop in compiled_merge_points too
         glob = metainterp_sd.globaldata
-        greenargs = glob.unpack_greenkey(self.original_greenkey)
-        old_loop_tokens = glob.compiled_merge_points.setdefault(greenargs, [])
+        old_loop_tokens = glob.get_compiled_merge_points(
+            self.original_greenkey)
         # it always goes at the end of the list, as it is the most
         # general loop token
         old_loop_tokens.append(new_loop_token)

@@ -9,8 +9,8 @@ class AppTestPyPyJIT:
         # this just checks that the module is setting up things correctly, and
         # the resulting code makes sense on top of CPython.
         import pypyjit
-        pypyjit.set_param(threshold=5, hash_bits=9)
-        pypyjit.set_param("trace_eagerness=3,hash_bits=7")
+        pypyjit.set_param(threshold=5, inlining=1)
+        pypyjit.set_param("trace_eagerness=3,inlining=0")
 
         def f(x, y):
             return x*y+1

@@ -94,7 +94,6 @@ DEBUG_DETAILED = 3
 
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
-              'hash_bits': 14,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
@@ -114,6 +113,7 @@ class JitDriver:
     virtualizables = []
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
+                 get_jitcell_at=None, set_jitcell_at=None,
                  can_inline=None, get_printable_location=None,
                  leave=None):
         if greens is not None:
@@ -128,6 +128,8 @@ class JitDriver:
             assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
         self._make_extregistryentries()
+        self.get_jitcell_at = get_jitcell_at
+        self.set_jitcell_at = set_jitcell_at
         self.get_printable_location = get_printable_location
         self.can_inline = can_inline
         self.leave = leave
@@ -194,6 +196,10 @@ class JitDriver:
 #
 # Annotation and rtyping of some of the JitDriver methods
 
+class BaseJitCell(object):
+    __slots__ = ()
+
+
 class ExtEnterLeaveMarker(ExtRegistryEntry):
     # Replace a call to myjitdriver.jit_merge_point(**livevars)
     # with an operation jit_marker('jit_merge_point', myjitdriver, livevars...)
@@ -218,17 +224,21 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def annotate_hooks(self, **kwds_s):
         driver = self.instance.im_self
+        s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
+        self.annotate_hook(driver.get_jitcell_at, driver.greens, **kwds_s)
+        self.annotate_hook(driver.set_jitcell_at, driver.greens, [s_jitcell],
+                           **kwds_s)
         self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
         self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
         self.annotate_hook(driver.leave, driver.greens + driver.reds, **kwds_s)
 
-    def annotate_hook(self, func, variables, **kwds_s):
+    def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
             return
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
-        args_s = []
+        args_s = args_s[:]
         for name in variables:
             s_arg = kwds_s['s_' + name]
             args_s.append(s_arg)

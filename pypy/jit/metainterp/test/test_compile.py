@@ -41,7 +41,7 @@ class FakeState:
     optimize_loop = staticmethod(optimize.optimize_loop)
     debug_level = 0
 
-class FakeGlobalData():
+class FakeGlobalData:
     loopnumbering = 0
 
 class FakeMetaInterpStaticData:

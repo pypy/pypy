@@ -74,16 +74,15 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
     # When translated, this just returns the fnptr.
-    llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
     funcobj = get_funcobj(fnptr)
     if hasattr(funcobj, 'graph'):
+        llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
         def on_top_of_llinterp(*args):
             return llinterp.eval_graph(funcobj.graph, list(args))
     else:
-        assert isinstance(fnptr, ootype._meth)
-        assert hasattr(fnptr, '_callable')
+        assert hasattr(funcobj, '_callable')
         def on_top_of_llinterp(*args):
-            return fnptr._callable(*args)
+            return funcobj._callable(*args)
     return on_top_of_llinterp
 
 class Entry(ExtRegistryEntry):

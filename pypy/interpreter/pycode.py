@@ -84,6 +84,9 @@ class PyCode(eval.Code):
         self.hidden_applevel = hidden_applevel
         self.magic = magic
         self._signature = cpython_code_signature(self)
+        self._initialize()
+
+    def _initialize(self):
         # Precompute what arguments need to be copied into cellvars
         self._args_as_cellvars = []
         
@@ -116,7 +119,7 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if space.config.objspace.std.withcelldict:
+        if self.space.config.objspace.std.withcelldict:
             from pypy.objspace.std.celldict import init_code
             init_code(self)
 

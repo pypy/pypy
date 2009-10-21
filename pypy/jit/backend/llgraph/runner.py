@@ -9,7 +9,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import REF, INT, FLOAT
-from pypy.jit.metainterp.warmspot import unwrap
+from pypy.jit.metainterp.warmstate import unwrap
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic

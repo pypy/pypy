@@ -50,8 +50,15 @@ def get_printable_location(next_instr, bytecode):
 def leave(next_instr, pycode, frame, ec):
     from pypy.interpreter.executioncontext import ExecutionContext
     # can't use a method here, since this function is seen later than the main
-    # annotation
+    # annotation       XXX no longer true, could be fixed
     ExecutionContext._jit_rechain_frame(ec, frame)
+
+def get_jitcell_at(next_instr, bytecode):
+    return bytecode.jit_cells.get(next_instr, None)
+
+def set_jitcell_at(newcell, next_instr, bytecode):
+    bytecode.jit_cells[next_instr] = newcell
+
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -68,7 +75,9 @@ class PyPyJitDriver(JitDriver):
 
 pypyjitdriver = PyPyJitDriver(can_inline = can_inline,
                               get_printable_location = get_printable_location,
-                              leave = leave)
+                              leave = leave,
+                              get_jitcell_at = get_jitcell_at,
+                              set_jitcell_at = set_jitcell_at)
 
 class __extend__(PyFrame):
 
@@ -93,6 +102,20 @@ class __extend__(PyFrame):
         pypyjitdriver.can_enter_jit(frame=f, ec=ec, next_instr=jumpto,
                                     pycode=f.getcode())
         return jumpto
+
+
+PyCode__initialize = PyCode._initialize
+
+class __extend__(PyCode):
+    __metaclass__ = extendabletype
+
+    def _initialize(self):
+        PyCode__initialize(self)
+        self.jit_cells = {}
+
+    def _freeze_(self):
+        self.jit_cells = {}
+        return False
 
 # ____________________________________________________________
 #

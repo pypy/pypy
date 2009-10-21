@@ -319,7 +319,7 @@ class TypeDescr(DescrWithKey):
     def __init__(self, TYPE):
         DescrWithKey.__init__(self, TYPE)
         from pypy.jit.backend.llgraph.runner import boxresult
-        from pypy.jit.metainterp.warmspot import unwrap
+        from pypy.jit.metainterp.warmstate import unwrap
         ARRAY = ootype.Array(TYPE)
         def create():
             if isinstance(TYPE, ootype.OOType):
@@ -482,7 +482,7 @@ class FieldDescr(DescrWithKey):
     def __init__(self, TYPE, fieldname):
         DescrWithKey.__init__(self, (TYPE, fieldname))
         from pypy.jit.backend.llgraph.runner import boxresult
-        from pypy.jit.metainterp.warmspot import unwrap
+        from pypy.jit.metainterp.warmstate import unwrap
         _, T = TYPE._lookup_field(fieldname)
         def getfield(objbox):
             obj = objbox.getref(TYPE)

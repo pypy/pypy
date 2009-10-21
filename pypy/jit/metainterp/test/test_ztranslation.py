@@ -4,6 +4,8 @@ from pypy.jit.backend.llgraph import runner
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 
 class TranslationTest:
 
@@ -18,6 +20,7 @@ class TranslationTest:
         # - set_param interface
         # - profiler
         # - full optimizer
+        # - jitdriver hooks
 
         class Frame(object):
             _virtualizable2_ = ['i']
@@ -25,8 +28,24 @@ class TranslationTest:
             def __init__(self, i):
                 self.i = i
 
+        class JitCellCache:
+            entry = None
+        jitcellcache = JitCellCache()
+        def set_jitcell_at(entry):
+            jitcellcache.entry = entry
+        def get_jitcell_at():
+            return jitcellcache.entry
+        def get_printable_location():
+            return '(hello world)'
+        def can_inline():
+            return False
+
         jitdriver = JitDriver(greens = [], reds = ['frame', 'total'],
-                              virtualizables = ['frame'])
+                              virtualizables = ['frame'],
+                              get_jitcell_at=get_jitcell_at,
+                              set_jitcell_at=set_jitcell_at,
+                              get_printable_location=get_printable_location,
+                              can_inline=can_inline)
         def f(i):
             for param in unroll_parameters:
                 defl = PARAMETERS[param]

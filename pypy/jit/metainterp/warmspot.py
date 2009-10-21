@@ -10,7 +10,6 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -24,7 +23,6 @@ from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
-from pypy.rlib.nonconst import NonConstant
 
 # ____________________________________________________________
 # Bootstrapping
@@ -63,7 +61,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None,
+def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     debug_level=DEBUG_STEPS, inline=False, **kwds):
     translator = interp.typer.annotator.translator
@@ -74,9 +72,6 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None,
     warmrunnerdesc.state.set_param_trace_limit(trace_limit)
     warmrunnerdesc.state.set_param_inlining(inline)
     warmrunnerdesc.state.set_param_debug(debug_level)
-    warmrunnerdesc.state.create_tables_now()             # for tests
-    if hash_bits:
-        warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -167,7 +162,7 @@ class WarmRunnerDesc:
         self.build_meta_interp(CPUClass, **kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point(policy)
-        self.make_driverhook_graph()
+        self.make_driverhook_graphs()
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
@@ -269,8 +264,9 @@ class WarmRunnerDesc:
                                                   warmrunnerdesc=self)
         
     def make_enter_function(self):
-        WarmEnterState = make_state_class(self)
-        state = WarmEnterState()
+        from pypy.jit.metainterp.warmstate import WarmEnterState
+        state = WarmEnterState(self)
+        maybe_compile_and_run = state.make_entry_point()
         self.state = state
 
         def crash_in_jit(e):
@@ -288,7 +284,7 @@ class WarmRunnerDesc:
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    state.maybe_compile_and_run(*args)
+                    maybe_compile_and_run(*args)
                 except JitException:
                     raise     # go through
                 except Exception, e:
@@ -296,7 +292,7 @@ class WarmRunnerDesc:
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                state.maybe_compile_and_run(*args)
+                maybe_compile_and_run(*args)
             maybe_enter_jit._always_inline_ = True
 
         self.maybe_enter_jit_fn = maybe_enter_jit
@@ -312,24 +308,38 @@ class WarmRunnerDesc:
                                                   args_s, s_result)
             annhelper.finish()
         
-    def make_driverhook_graph(self):
+    def make_driverhook_graphs(self):
+        from pypy.rlib.jit import BaseJitCell
+        bk = self.rtyper.annotator.bookkeeper
+        classdef = bk.getuniqueclassdef(BaseJitCell)
+        s_BaseJitCell_or_None = annmodel.SomeInstance(classdef,
+                                                      can_be_None=True)
+        s_BaseJitCell_not_None = annmodel.SomeInstance(classdef)
+        s_Str = annmodel.SomeString()
+        #
+        annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
+        self.set_jitcell_at_ptr = self._make_hook_graph(
+            annhelper, self.jitdriver.set_jitcell_at, annmodel.s_None,
+            s_BaseJitCell_not_None)
+        self.get_jitcell_at_ptr = self._make_hook_graph(
+            annhelper, self.jitdriver.get_jitcell_at, s_BaseJitCell_or_None)
         self.can_inline_ptr = self._make_hook_graph(
-            self.jitdriver.can_inline, bool)
+            annhelper, self.jitdriver.can_inline, annmodel.s_Bool)
         self.get_printable_location_ptr = self._make_hook_graph(
-            self.jitdriver.get_printable_location, str)
+            annhelper, self.jitdriver.get_printable_location, s_Str)
+        annhelper.finish()
 
-    def _make_hook_graph(self, func, rettype):
-        from pypy.annotation.signature import annotationoftype
+    def _make_hook_graph(self, annhelper, func, s_result, s_first_arg=None):
         if func is None:
             return None
-        annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-        s_result = annotationoftype(rettype)
-        RETTYPE = annhelper.rtyper.getrepr(s_result).lowleveltype
-        FUNC, PTR = self.cpu.ts.get_FuncType(self.green_args_spec, RETTYPE)
+        #
+        extra_args_s = []
+        if s_first_arg is not None:
+            extra_args_s.append(s_first_arg)
+        #
         args_s = self.portal_args_s[:len(self.green_args_spec)]
-        graph = annhelper.getgraph(func, args_s, s_result)
-        funcptr = annhelper.graph2delayed(graph, FUNC)
-        annhelper.finish()
+        graph = annhelper.getgraph(func, extra_args_s + args_s, s_result)
+        funcptr = annhelper.graph2delayed(graph)
         return funcptr
 
     def make_args_specification(self):
@@ -346,6 +356,7 @@ class WarmRunnerDesc:
                 self.green_args_spec.append(TYPE)
             else:
                 self.red_args_types.append(history.getkind(TYPE))
+        self.num_green_args = len(self.green_args_spec)
         RESTYPE = graph.getreturnvar().concretetype
         (self.JIT_ENTER_FUNCTYPE,
          self.PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
@@ -465,6 +476,7 @@ class WarmRunnerDesc:
                 # accepts boxes as argument, but unpacks them immediately
                 # before we raise the exception -- the boxes' values will
                 # be modified in a 'finally' by restore_patched_boxes().
+                from pypy.jit.metainterp.warmstate import unwrap
                 for i, name, ARG in portalfunc_ARGS:
                     v = unwrap(ARG, argboxes[i])
                     setattr(self, name, v)
@@ -585,392 +597,3 @@ def decode_hp_hint_args(op):
     assert len(reds_v) == numreds
     return ([v for v in greens_v if v.concretetype is not lltype.Void],
             [v for v in reds_v if v.concretetype is not lltype.Void])
-
-def unwrap(TYPE, box):
-    if TYPE is lltype.Void:
-        return None
-    if isinstance(TYPE, lltype.Ptr):
-        return box.getref(TYPE)
-    if isinstance(TYPE, ootype.OOType):
-        return box.getref(TYPE)
-    if TYPE == lltype.Float:
-        return box.getfloat()
-    else:
-        return lltype.cast_primitive(TYPE, box.getint())
-unwrap._annspecialcase_ = 'specialize:arg(0)'
-
-def wrap(cpu, value, in_const_box=False):
-    if isinstance(lltype.typeOf(value), lltype.Ptr):
-        if lltype.typeOf(value).TO._gckind == 'gc':
-            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            if in_const_box:
-                return history.ConstPtr(value)
-            else:
-                return history.BoxPtr(value)
-        else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = cpu.cast_adr_to_int(adr)
-            # fall through to the end of the function
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        value = ootype.cast_to_object(value)
-        if in_const_box:
-            return history.ConstObj(value)
-        else:
-            return history.BoxObj(value)
-    elif isinstance(value, float):
-        if in_const_box:
-            return history.ConstFloat(value)
-        else:
-            return history.BoxFloat(value)
-    else:
-        value = intmask(value)
-    if in_const_box:
-        return history.ConstInt(value)
-    else:
-        return history.BoxInt(value)
-wrap._annspecialcase_ = 'specialize:ll'
-
-def equal_whatever(TYPE, x, y):
-    if isinstance(TYPE, lltype.Ptr):
-        if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
-            return rstr.LLHelpers.ll_streq(x, y)
-    if TYPE is ootype.String or TYPE is ootype.Unicode:
-        return x.ll_streq(y)
-    return x == y
-equal_whatever._annspecialcase_ = 'specialize:arg(0)'
-
-def hash_whatever(TYPE, x):
-    # Hash of lltype or ootype object.
-    # Only supports strings, unicodes and regular instances,
-    # as well as primitives that can meaningfully be cast to Signed.
-    if isinstance(TYPE, lltype.Ptr):
-        if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
-            return rstr.LLHelpers.ll_strhash(x)    # assumed not null
-        else:
-            if x:
-                return lltype.identityhash(x)
-            else:
-                return 0
-    elif TYPE is ootype.String or TYPE is ootype.Unicode:
-        return x.ll_hash()
-    elif isinstance(TYPE, ootype.OOType):
-        if x:
-            return ootype.identityhash(x)
-        else:
-            return 0
-    else:
-        return lltype.cast_primitive(lltype.Signed, x)
-hash_whatever._annspecialcase_ = 'specialize:arg(0)'
-
-# ____________________________________________________________
-
-def make_state_class(warmrunnerdesc):
-    jitdriver = warmrunnerdesc.jitdriver
-    num_green_args = len(jitdriver.greens)
-    warmrunnerdesc.num_green_args = num_green_args
-    green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
-    green_args_names = unrolling_iterable(jitdriver.greens)
-    green_args_spec_names = unrolling_iterable(zip(
-        warmrunnerdesc.green_args_spec, jitdriver.greens))
-    red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
-    #
-    metainterp_sd = warmrunnerdesc.metainterp_sd
-    vinfo = metainterp_sd.virtualizable_info
-    if vinfo is None:
-        vable_static_fields = []
-        vable_array_fields = []
-    else:
-        vable_static_fields = unrolling_iterable(
-            zip(vinfo.static_extra_types, vinfo.static_fields))
-        vable_array_fields = unrolling_iterable(
-            zip(vinfo.arrayitem_extra_types, vinfo.array_fields))
-    #
-    if num_green_args:
-        MAX_HASH_TABLE_BITS = 28
-    else:
-        MAX_HASH_TABLE_BITS = 1
-    THRESHOLD_LIMIT = sys.maxint // 2
-    #
-    getlength = warmrunnerdesc.cpu.ts.getlength
-    getarrayitem = warmrunnerdesc.cpu.ts.getarrayitem
-    setarrayitem = warmrunnerdesc.cpu.ts.setarrayitem
-    #
-    rtyper = warmrunnerdesc.translator.rtyper
-    can_inline_ptr = warmrunnerdesc.can_inline_ptr
-    get_printable_location_ptr = warmrunnerdesc.get_printable_location_ptr
-    #
-    class MachineCodeEntryPoint(object):
-        next = None    # linked list
-        def __init__(self, entry_loop_token, *greenargs):
-            self.entry_loop_token = entry_loop_token
-            i = 0
-            for name in green_args_names:
-                setattr(self, 'green_' + name, greenargs[i])
-                i = i + 1
-        def equalkey(self, *greenargs):
-            i = 0
-            for TYPE, name in green_args_spec_names:
-                myvalue = getattr(self, 'green_' + name)
-                if not equal_whatever(TYPE, myvalue, greenargs[i]):
-                    return False
-                i = i + 1
-            return True
-        def set_future_values(self, *redargs):
-            i = 0
-            for typecode in red_args_types:
-                set_future_value(i, redargs[i], typecode)
-                i = i + 1
-            if vinfo is not None:
-                virtualizable = redargs[vinfo.index_of_virtualizable -
-                                        num_green_args]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-                for typecode, fieldname in vable_static_fields:
-                    x = getattr(virtualizable, fieldname)
-                    set_future_value(i, x, typecode)
-                    i = i + 1
-                for typecode, fieldname in vable_array_fields:
-                    lst = getattr(virtualizable, fieldname)
-                    for j in range(getlength(lst)):
-                        x = getarrayitem(lst, j)
-                        set_future_value(i, x, typecode)
-                        i = i + 1
-
-    def set_future_value(j, value, typecode):
-        cpu = metainterp_sd.cpu
-        if typecode == 'ref':
-            refvalue = cpu.ts.cast_to_ref(value)
-            cpu.set_future_value_ref(j, refvalue)
-        elif typecode == 'int':
-            intvalue = lltype.cast_primitive(lltype.Signed, value)
-            cpu.set_future_value_int(j, intvalue)
-        elif typecode == 'float':
-            assert isinstance(value, float)
-            cpu.set_future_value_float(j, value)
-        else:
-            assert False
-    set_future_value._annspecialcase_ = 'specialize:ll_and_arg(2)'
-
-    class WarmEnterState:
-        def __init__(self):
-            # initialize the state with the default values of the
-            # parameters specified in rlib/jit.py
-            for name, default_value in PARAMETERS.items():
-                meth = getattr(self, 'set_param_' + name)
-                meth(default_value)
-
-        def set_param_threshold(self, threshold):
-            if threshold < 2:
-                threshold = 2
-            self.increment_threshold = (THRESHOLD_LIMIT // threshold) + 1
-            # the number is at least 1, and at most about half THRESHOLD_LIMIT
-
-        def set_param_trace_eagerness(self, value):
-            self.trace_eagerness = value
-
-        def set_param_trace_limit(self, value):
-            self.trace_limit = value
-
-        def set_param_inlining(self, value):
-            self.inlining = value
-
-        def set_param_hash_bits(self, value):
-            if value < 1:
-                value = 1
-            elif value > MAX_HASH_TABLE_BITS:
-                value = MAX_HASH_TABLE_BITS
-            # the tables are initialized with the correct size only in
-            # create_tables_now()
-            self.hashbits = value
-            self.hashtablemask = 0
-            self.mccounters = [0]
-            self.mcentrypoints = [None]
-            # invariant: (self.mccounters[j] < 0) if and only if
-            #            (self.mcentrypoints[j] is not None)
-
-        def set_param_optimizer(self, optimizer):
-            if optimizer == OPTIMIZER_SIMPLE:
-                from pypy.jit.metainterp import simple_optimize
-                self.optimize_loop = simple_optimize.optimize_loop
-                self.optimize_bridge = simple_optimize.optimize_bridge
-            elif optimizer == OPTIMIZER_FULL:
-                from pypy.jit.metainterp import optimize
-                self.optimize_loop = optimize.optimize_loop
-                self.optimize_bridge = optimize.optimize_bridge
-            else:
-                raise ValueError("unknown optimizer")
-
-        def set_param_debug(self, value):
-            self.debug_level = value
-            metainterp_sd.profiler.set_printing(value >= DEBUG_PROFILE)
-
-        def create_tables_now(self):
-            count = 1 << self.hashbits
-            self.hashtablemask = count - 1
-            self.mccounters = [0] * count
-            self.mcentrypoints = [None] * count
-
-        # Only use the hash of the arguments as the profiling key.
-        # Indeed, this is all a heuristic, so if things are designed
-        # correctly, the occasional mistake due to hash collision is
-        # not too bad.
-
-        def maybe_compile_and_run(self, *args):
-            globaldata = metainterp_sd.globaldata
-            if NonConstant(False):
-                # make sure we always see the saner optimizer from an annotation
-                # point of view, otherwise we get lots of blocked ops
-                self.set_param_optimizer(OPTIMIZER_FULL)
-                
-            # get the greenargs and look for the cell corresponding to the hash
-            greenargs = args[:num_green_args]
-            argshash = self.getkeyhash(*greenargs) & self.hashtablemask
-            counter = self.mccounters[argshash]
-            if vinfo:
-                virtualizable = args[vinfo.index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-                assert virtualizable != globaldata.blackhole_virtualizable, "reentering same frame via blackhole"
-            if counter >= 0:
-                # update the profiling counter
-                n = counter + self.increment_threshold
-                if n <= THRESHOLD_LIMIT:       # bound not reached
-                    self.mccounters[argshash] = n
-                    return
-                if self.hashtablemask == 0: # must really create the tables now
-                    self.create_tables_now()
-                    return
-                metainterp = MetaInterp(metainterp_sd)
-                try:
-                    loop_token = metainterp.compile_and_run_once(*args)
-                except warmrunnerdesc.ContinueRunningNormally:
-                    # the trace got too long, reset the counter
-                    self.mccounters[argshash] = 0
-                    raise
-
-            else:
-                # machine code was already compiled for these greenargs
-                # (or we have a hash collision)
-                cell = self.mcentrypoints[argshash]
-                if not cell.equalkey(*greenargs):
-                    # hash collision
-                    loop_token = self.handle_hash_collision(cell, argshash,
-                                                            *args)
-                    if loop_token is None:
-                        return
-                else:
-                    # get the assembler and fill in the boxes
-                    cell.set_future_values(*args[num_green_args:])
-                    loop_token = cell.entry_loop_token
-            # ---------- execute assembler ----------
-            while True:     # until interrupted by an exception
-                metainterp_sd.profiler.start_running()
-                fail_index = metainterp_sd.cpu.execute_token(loop_token)
-                metainterp_sd.profiler.end_running()
-                fail_descr = globaldata.get_fail_descr_from_number(fail_index)
-                loop_token = fail_descr.handle_fail(metainterp_sd)
-
-        maybe_compile_and_run._dont_inline_ = True
-
-        def handle_hash_collision(self, firstcell, argshash, *args):
-            greenargs = args[:num_green_args]
-            # search the linked list for the correct cell
-            cell = firstcell
-            while cell.next is not None:
-                nextcell = cell.next
-                if nextcell.equalkey(*greenargs):
-                    # found, move to the front of the linked list
-                    cell.next = nextcell.next
-                    nextcell.next = firstcell
-                    self.mcentrypoints[argshash] = nextcell
-                    nextcell.set_future_values(*args[num_green_args:])
-                    return nextcell.entry_loop_token
-                cell = nextcell
-            # not found at all, do profiling
-            counter = self.mccounters[argshash]
-            assert counter < 0          # by invariant
-            n = counter + self.increment_threshold
-            if n < 0:      # bound not reached
-                self.mccounters[argshash] = n
-                return None
-            metainterp = MetaInterp(metainterp_sd)
-            # XXX ContinueRunningNormally => "reset" counters
-            return metainterp.compile_and_run_once(*args)
-        handle_hash_collision._dont_inline_ = True
-
-        def unwrap_greenkey(self, greenkey):
-            greenargs = ()
-            i = 0
-            for TYPE in green_args_spec:
-                value = unwrap(TYPE, greenkey[i])
-                greenargs += (value,)
-                i = i + 1
-            return greenargs
-        unwrap_greenkey._always_inline_ = True
-
-        def comparekey(greenargs1, greenargs2):
-            i = 0
-            for TYPE in green_args_spec:
-                if not equal_whatever(TYPE, greenargs1[i], greenargs2[i]):
-                    return False
-                i = i + 1
-            return True
-        comparekey = staticmethod(comparekey)
-
-        def hashkey(greenargs):
-            return intmask(WarmEnterState.getkeyhash(*greenargs))
-        hashkey = staticmethod(hashkey)
-
-        def getkeyhash(*greenargs):
-            result = r_uint(0x345678)
-            i = 0
-            mult = r_uint(1000003)
-            for TYPE in green_args_spec:
-                if i > 0:
-                    result = result * mult
-                    mult = mult + 82520 + 2*len(greenargs)
-                item = greenargs[i]
-                result = result ^ hash_whatever(TYPE, item)
-                i = i + 1
-            return result         # returns a r_uint
-        getkeyhash._always_inline_ = True
-        getkeyhash = staticmethod(getkeyhash)
-
-        def must_compile_from_failure(self, key):
-            key.counter += 1
-            return key.counter >= self.trace_eagerness
-
-        def reset_counter_from_failure(self, key):
-            key.counter = 0
-
-        def attach_unoptimized_bridge_from_interp(self, greenkey,
-                                                  entry_loop_token):
-            greenargs = self.unwrap_greenkey(greenkey)
-            newcell = MachineCodeEntryPoint(entry_loop_token, *greenargs)
-            argshash = self.getkeyhash(*greenargs) & self.hashtablemask
-            oldcell = self.mcentrypoints[argshash]
-            newcell.next = oldcell     # link
-            self.mcentrypoints[argshash] = newcell
-            self.mccounters[argshash] = -THRESHOLD_LIMIT-1
-
-        if can_inline_ptr is None:
-            def can_inline_callable(self, greenkey):
-                return True
-        else:
-            def can_inline_callable(self, greenkey):
-                args = self.unwrap_greenkey(greenkey)
-                fn = support.maybe_on_top_of_llinterp(rtyper, can_inline_ptr)
-                return fn(*args)
-
-        if get_printable_location_ptr is None:
-            def get_location_str(self, greenkey):
-                return '(no jitdriver.get_printable_location!)'
-        else:
-            def get_location_str(self, greenkey):
-                args = self.unwrap_greenkey(greenkey)
-                fn = support.maybe_on_top_of_llinterp(rtyper,
-                                                  get_printable_location_ptr)
-                res = fn(*args)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
-
-    return WarmEnterState

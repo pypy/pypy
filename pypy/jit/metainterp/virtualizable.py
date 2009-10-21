@@ -6,7 +6,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.warmspot import wrap, unwrap
+from pypy.jit.metainterp.warmstate import wrap, unwrap
 
 
 class VirtualizableInfo:
