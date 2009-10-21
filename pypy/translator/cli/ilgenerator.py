@@ -400,7 +400,10 @@ class CLIBaseGenerator(Generator):
             ilasm.opcode('ldc.i4', ord(value))
         elif TYPE is ootype.Float:
             if isinf(value):
-                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
+                if value < 0.0:
+                    ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 ff)')
+                else:    
+                    ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
             elif isnan(value):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
             else:
