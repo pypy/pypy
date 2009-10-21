@@ -1,7 +1,8 @@
 import py
 from pypy.rpython.memory.gctypelayout import TypeLayoutBuilder, GCData
 from pypy.rpython.memory.gctypelayout import offsets_to_gc_pointers
-from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.memory.gctypelayout import gc_pointers_inside
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.objspace.flow.model import Constant
 
@@ -90,3 +91,31 @@ def test_constfold():
     interp, graph = get_interpreter(f, [], backendopt=True)
     assert interp.eval_graph(graph, []) == 11001
     assert graph.startblock.exits[0].args == [Constant(11001, lltype.Signed)]
+
+def test_gc_pointers_inside():
+    from pypy.rpython import rclass
+    PT = lltype.Ptr(lltype.GcStruct('T'))
+    S1 = lltype.GcStruct('S', ('x', PT), ('y', PT))
+    S2 = lltype.GcStruct('S', ('x', PT), ('y', PT),
+                         hints={'immutable': True})
+    accessor = rclass.FieldListAccessor()
+    S3 = lltype.GcStruct('S', ('x', PT), ('y', PT),
+                         hints={'immutable_fields': accessor})
+    accessor.initialize(S3, ['x'])
+    #
+    s1 = lltype.malloc(S1)
+    adr = llmemory.cast_ptr_to_adr(s1)
+    lst = list(gc_pointers_inside(s1._obj, adr, mutable_only=True))
+    expected = [adr + llmemory.offsetof(S1, 'x'),
+                adr + llmemory.offsetof(S1, 'y')]
+    assert lst == expected or lst == expected[::-1]
+    #
+    s2 = lltype.malloc(S2)
+    adr = llmemory.cast_ptr_to_adr(s2)
+    lst = list(gc_pointers_inside(s2._obj, adr, mutable_only=True))
+    assert lst == []
+    #
+    s3 = lltype.malloc(S3)
+    adr = llmemory.cast_ptr_to_adr(s3)
+    lst = list(gc_pointers_inside(s3._obj, adr, mutable_only=True))
+    assert lst == [adr + llmemory.offsetof(S3, 'y')]

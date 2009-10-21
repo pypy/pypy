@@ -1046,7 +1046,7 @@ def try_fold_operation(opname, args_v, RESTYPE):
         op = getattr(llop, opname)
     except AttributeError:
         return
-    if not op.is_pure(*[v.concretetype for v in args_v]):
+    if not op.is_pure(args_v):
         return
     try:
         result = op(RESTYPE, *args)

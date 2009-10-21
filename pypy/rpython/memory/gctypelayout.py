@@ -350,11 +350,16 @@ def offsets_to_gc_pointers(TYPE):
 def gc_pointers_inside(v, adr, mutable_only=False):
     t = lltype.typeOf(v)
     if isinstance(t, lltype.Struct):
-        if mutable_only and t._hints.get('immutable'):
-            return
+        skip = ()
+        if mutable_only:
+            if t._hints.get('immutable'):
+                return
+            if 'immutable_fields' in t._hints:
+                skip = t._hints['immutable_fields'].fields
         for n, t2 in t._flds.iteritems():
             if isinstance(t2, lltype.Ptr) and t2.TO._gckind == 'gc':
-                yield adr + llmemory.offsetof(t, n)
+                if n not in skip:
+                    yield adr + llmemory.offsetof(t, n)
             elif isinstance(t2, (lltype.Array, lltype.Struct)):
                 for a in gc_pointers_inside(getattr(v, n),
                                             adr + llmemory.offsetof(t, n),

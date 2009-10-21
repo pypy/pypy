@@ -4,6 +4,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython import rclass
 from pypy.rlib import objectmodel
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy import conftest
@@ -26,8 +27,10 @@ def check_graph(graph, args, expected_result, t):
     assert res == expected_result
 
 
-def test_simple():
-    S1 = lltype.GcStruct('S1', ('x', lltype.Signed), hints={'immutable': True})
+def test_simple(S1=None):
+    if S1 is None:
+        S1 = lltype.GcStruct('S1', ('x', lltype.Signed),
+                             hints={'immutable': True})
     s1 = lltype.malloc(S1)
     s1.x = 123
     def g(y):
@@ -40,6 +43,14 @@ def test_simple():
     constant_fold_graph(graph)
     assert summary(graph) == {'direct_call': 1}
     check_graph(graph, [], 124, t)
+
+
+def test_immutable_fields():
+    accessor = rclass.FieldListAccessor()
+    S2 = lltype.GcStruct('S2', ('x', lltype.Signed),
+                         hints={'immutable_fields': accessor})
+    accessor.initialize(S2, ['x'])
+    test_simple(S2)
 
 
 def test_along_link():
