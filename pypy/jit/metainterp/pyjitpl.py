@@ -1,4 +1,4 @@
-import py
+import py, os
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict
@@ -1029,6 +1029,7 @@ class MetaInterpStaticData(object):
             self.globaldata.initialized = True
             self.logger_noopt.create_log('.noopt')
             self.logger_ops.create_log('.ops')
+            self.globaldata.storedebug = os.environ.get('PYPYJITRESUMELOG')
 
     def _setup_class_sizes(self):
         class_sizes = {}

@@ -22,7 +22,8 @@ def optimize_loop(metainterp_sd, old_loops, loop):
             if op.is_guard():
                 descr = op.descr
                 assert isinstance(descr, compile.ResumeGuardDescr)
-                modifier = resume.ResumeDataVirtualAdder(descr, memo)
+                modifier = resume.ResumeDataVirtualAdder(descr, memo,
+                                            metainterp_sd.globaldata.storedebug)
                 newboxes = modifier.finish(EMPTY_VALUES)
                 descr.store_final_boxes(op, newboxes)
             newoperations.append(op)
