@@ -1629,7 +1629,10 @@ class _array(_builtin_type):
         self._array[index] = item
 
     def _identityhash(self):
-        return hash(self)
+        if self:
+            return intmask(id(self))
+        else:
+            return 0 # for all null arrays
 
 class _null_array(_null_mixin(_array), _array):
 
@@ -1776,7 +1779,10 @@ class _record(object):
             self.__dict__[name] = value
 
     def _identityhash(self):
-        return hash(self)
+        if self:
+            return intmask(id(self))
+        else:
+            return 0 # for all null records
 
     def _items_in_order(self):
         return [self._items[name] for name in self._TYPE._fields_in_order]
