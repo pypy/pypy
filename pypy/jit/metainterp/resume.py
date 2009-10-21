@@ -429,6 +429,7 @@ def dump_storage(logname, storage, liveboxes):
     "For profiling only."
     import os
     from pypy.rlib import objectmodel
+    assert logname is not None    # annotator hack
     fd = os.open(logname, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0666)
     os.write(fd, 'Log(%d, [\n' % objectmodel.compute_unique_id(storage))
     frameinfo = storage.rd_frame_info_list
