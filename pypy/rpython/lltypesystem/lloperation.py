@@ -89,7 +89,7 @@ class LLOp(object):
                 self is llop.debug_assert or   # debug_assert is pure enough
                                                # reading from immutable
                 (self in (llop.getfield, llop.getarrayitem) and
-                 ARGTYPES[0].TO._hints.get('immutable')))
+                 ARGTYPES[0].TO._hints.get('immutable'))) # XXX: what about ootype immutable arrays?
 
     def __repr__(self):
         return '<LLOp %s>' % (getattr(self, 'opname', '?'),)
