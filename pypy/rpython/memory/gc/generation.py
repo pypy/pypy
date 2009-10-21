@@ -55,12 +55,8 @@ class GenerationGC(SemiSpaceGC):
         self.initial_nursery_size = nursery_size
         self.auto_nursery_size = auto_nursery_size
         self.min_nursery_size = min_nursery_size
-        self.old_objects_pointing_to_young = self.AddressStack()
-        # ^^^ a list of addresses inside the old objects space; it
-        # may contain static prebuilt objects as well.  More precisely,
-        # it lists exactly the old and static objects whose
-        # GCFLAG_NO_YOUNG_PTRS bit is not set.
-        self.young_objects_with_weakrefs = self.AddressStack()
+
+        # define nursery fields
         self.reset_nursery()
         self._setup_wb()
 
@@ -74,6 +70,13 @@ class GenerationGC(SemiSpaceGC):
         self.lb_young_var_basesize = sz
 
     def setup(self):
+        self.old_objects_pointing_to_young = self.AddressStack()
+        # ^^^ a list of addresses inside the old objects space; it
+        # may contain static prebuilt objects as well.  More precisely,
+        # it lists exactly the old and static objects whose
+        # GCFLAG_NO_YOUNG_PTRS bit is not set.
+        self.young_objects_with_weakrefs = self.AddressStack()
+
         self.last_generation_root_objects = self.AddressStack()
         self.young_objects_with_id = self.AddressDict()
         SemiSpaceGC.setup(self)
@@ -86,6 +89,12 @@ class GenerationGC(SemiSpaceGC):
                     self.config.gcconfig.debugprint)
             if newsize > 0:
                 self.set_nursery_size(newsize)
+
+        self.reset_nursery()
+
+    def _teardown(self):
+        self.collect() # should restore last gen objects flags
+        SemiSpaceGC._teardown(self)
 
     def reset_nursery(self):
         self.nursery      = NULL

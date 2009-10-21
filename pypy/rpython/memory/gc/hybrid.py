@@ -114,13 +114,14 @@ class HybridGC(GenerationGC):
         self.nonlarge_gcptrs_max = large_object_gcptrs - 1
         assert self.nonlarge_gcptrs_max <= self.lb_young_var_basesize
         assert self.nonlarge_max <= self.nonlarge_gcptrs_max
-        self.large_objects_collect_trigger = self.space_size
+
+    def setup(self):
+        self.large_objects_collect_trigger = self.param_space_size
         if self.config.gcconfig.debugprint:
             self._initial_trigger = self.large_objects_collect_trigger
         self.rawmalloced_objects_to_trace = self.AddressStack()
         self.count_semispaceonly_collects = 0
 
-    def setup(self):
         self.gen2_rawmalloced_objects = self.AddressStack()
         self.gen3_rawmalloced_objects = self.AddressStack()
         self.gen2_resizable_objects = self.AddressStack()

@@ -31,8 +31,6 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     malloc_zero_filled = True
     first_unused_gcflag = first_gcflag << 5
-    total_collection_time = 0.0
-    total_collection_count = 0
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
@@ -51,12 +49,18 @@ class SemiSpaceGC(MovingGCBase):
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
                  max_space_size=sys.maxint//2+1):
+        self.param_space_size = space_size
+        self.param_max_space_size = max_space_size
         MovingGCBase.__init__(self, config, chunk_size)
-        self.space_size = space_size
-        self.max_space_size = max_space_size
-        self.red_zone = 0
 
     def setup(self):
+        self.total_collection_time = 0.0
+        self.total_collection_count = 0
+
+        self.space_size = self.param_space_size
+        self.max_space_size = self.param_max_space_size
+        self.red_zone = 0
+
         if self.config.gcconfig.debugprint:
             self.program_start_time = time.time()
         self.tospace = llarena.arena_malloc(self.space_size, True)
@@ -68,6 +72,11 @@ class SemiSpaceGC(MovingGCBase):
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
+
+    def _teardown(self):
+        llop.debug_print(lltype.Void, "Teardown")
+        llarena.arena_free(self.fromspace)
+        llarena.arena_free(self.tospace)
 
     # This class only defines the malloc_{fixed,var}size_clear() methods
     # because the spaces are filled with zeroes in advance.

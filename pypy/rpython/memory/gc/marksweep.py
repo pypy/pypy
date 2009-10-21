@@ -48,10 +48,14 @@ class MarkSweepGC(GCBase):
     TRANSLATION_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
+        self.param_start_heap_size = start_heap_size
         GCBase.__init__(self, config, chunk_size)
+
+    def setup(self):
+        GCBase.setup(self)
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
-        self.bytes_malloced_threshold = start_heap_size
+        self.bytes_malloced_threshold = self.param_start_heap_size
         self.total_collection_time = 0.0
         self.malloced_objects = lltype.nullptr(self.HDR)
         self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)

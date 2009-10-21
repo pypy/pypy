@@ -20,8 +20,16 @@ class GCBase(object):
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
         self.AddressDict = AddressDict
-        self.finalizer_lock_count = 0
         self.config = config
+
+    def setup(self):
+        # all runtime mutable values' setup should happen here
+        # and in its overriden versions! for the benefit of test_transformed_gc
+        self.finalizer_lock_count = 0
+        self.run_finalizers = self.AddressDeque()
+
+    def _teardown(self):
+        pass
 
     def can_malloc_nonmovable(self):
         return not self.moving_gc
@@ -58,9 +66,6 @@ class GCBase(object):
 
     def write_barrier(self, newvalue, addr_struct):
         pass
-
-    def setup(self):
-        self.run_finalizers = self.AddressDeque()
 
     def statistics(self, index):
         return -1

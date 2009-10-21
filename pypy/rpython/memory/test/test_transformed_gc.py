@@ -1,9 +1,10 @@
 import py
 import sys
-import struct
+import struct, inspect
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.annotation import policy as annpolicy
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.lltypesystem.lloperation import llop, void
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
@@ -26,7 +27,9 @@ def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
     if stacklessgc:
         t.config.translation.gcrootfinder = "stackless"
     t.config.set(**extraconfigopts)
-    t.buildannotator().build_types(func, inputtypes)
+    ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
+    ann.build_types(func, inputtypes)
+                                   
     if specialize:
         t.buildrtyper().specialize()
     if backendopt:
@@ -36,64 +39,124 @@ def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
         t.viewcg()
     return t
 
+ARGS = lltype.FixedSizeArray(lltype.Signed, 3)
+
 class GCTest(object):
     gcpolicy = None
     stacklessgc = False
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
+    taggedpointers = False
+    
+    def setup_class(cls):
+        funcs0 = []
+        funcs2 = []
+        cleanups = []
+        name_to_func = {}
+        mixlevelstuff = []
+        for fullname in dir(cls):
+            if not fullname.startswith('define'):
+                continue
+            definefunc = getattr(cls, fullname)
+            _, name = fullname.split('_', 1)
+            func_fixup = definefunc.im_func(cls)
+            cleanup = None
+            if isinstance(func_fixup, tuple):
+                func, cleanup, fixup = func_fixup
+                mixlevelstuff.append(fixup)
+            else:
+                func = func_fixup
+            func.func_name = "f_%s" % name
+            if cleanup:
+                cleanup.func_name = "clean_%s" % name
 
-    def runner(self, f, nbargs=0, statistics=False, transformer=False,
-               mixlevelstuff=None, **extraconfigopts):
-        if nbargs == 2:
-            def entrypoint(args):
-                x = args[0]
-                y = args[1]
-                r = f(x, y)
-                return r
-        elif nbargs == 0:
-            def entrypoint(args):
-                return f()
-        else:
-            raise NotImplementedError("pure laziness")
+            nargs = len(inspect.getargspec(func)[0])
+            name_to_func[name] = len(funcs0)
+            if nargs == 2:
+                funcs2.append(func)
+                funcs0.append(None)
+            elif nargs == 0:
+                funcs0.append(func)
+                funcs2.append(None)
+            else:
+                raise NotImplementedError(
+                         "defined test functions should have 0/2 arguments")
+            # used to let test cleanup static root pointing to runtime
+            # allocated stuff
+            cleanups.append(cleanup)
 
-        from pypy.rpython.llinterp import LLInterpreter
+        def entrypoint(args):
+            num = args[0]
+            func = funcs0[num]
+            if func:
+                res = func()
+            else:
+                func = funcs2[num]
+                res = func(args[1], args[2])
+            cleanup = cleanups[num]
+            if cleanup:
+                cleanup()
+            return res
+
         from pypy.translator.c.genc import CStandaloneBuilder
 
-        ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
-        t = rtype(entrypoint, [s_args], gcname=self.gcname,
-                                        stacklessgc=self.stacklessgc,
-                                        **extraconfigopts)
-        if mixlevelstuff:
-            mixlevelstuff(t)
+        t = rtype(entrypoint, [s_args], gcname=cls.gcname,
+                  stacklessgc=cls.stacklessgc,
+                  taggedpointers=cls.taggedpointers)
+
+        for fixup in mixlevelstuff:
+            if fixup:
+                fixup(t)
+
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
-                                    gcpolicy=self.gcpolicy)
+                                    gcpolicy=cls.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
         if conftest.option.view:
             t.viewcg()
 
-        llinterp = LLInterpreter(t.rtyper)
+        cls.name_to_func = name_to_func
+        cls.entrygraph = entrygraph
+        cls.rtyper = t.rtyper
+        cls.db = db
+
+    def runner(self, name, statistics=False, transformer=False):
+        db = self.db
+        name_to_func = self.name_to_func
+        entrygraph = self.entrygraph
+        from pypy.rpython.llinterp import LLInterpreter
+
+        llinterp = LLInterpreter(self.rtyper)
+
+        gct = db.gctransformer
+
+        if self.__class__.__dict__.get('_used', False):
+            teardowngraph = gct.frameworkgc__teardown_ptr.value._obj.graph
+            llinterp.eval_graph(teardowngraph, [])
+        self.__class__._used = True
 
         # FIIIIISH
-        setupgraph = db.gctransformer.frameworkgc_setup_ptr.value._obj.graph
+        setupgraph = gct.frameworkgc_setup_ptr.value._obj.graph
+        # setup => resets the gc
         llinterp.eval_graph(setupgraph, [])
         def run(args):
             ll_args = lltype.malloc(ARGS, immortal=True)
-            for i in range(nbargs):
-                ll_args[i] = args[i]
+            ll_args[0] = name_to_func[name]
+            for i in range(len(args)):
+                ll_args[1+i] = args[i]
             res = llinterp.eval_graph(entrygraph, [ll_args])
             return res
 
         if statistics:
-            statisticsgraph = db.gctransformer.statistics_ptr.value._obj.graph
-            ll_gc = db.gctransformer.c_const_gc.value
+            statisticsgraph = gct.statistics_ptr.value._obj.graph
+            ll_gc = gct.c_const_gc.value
             def statistics(index):
                 return llinterp.eval_graph(statisticsgraph, [ll_gc, index])
             return run, statistics
         elif transformer:
-            return run, db.gctransformer
+            return run, gct
         else:
             return run
         
@@ -109,7 +172,7 @@ class GenericGCTests(GCTest):
         else:
             return -1     # xxx
 
-    def test_instances(self):
+    def define_instances(cls):
         class A(object):
             pass
         class B(A):
@@ -129,12 +192,15 @@ class GenericGCTests(GCTest):
                     b.last = first
                     j += 1
             return 0
-        run, statistics = self.runner(malloc_a_lot, statistics=True)
+        return malloc_a_lot
+    
+    def test_instances(self):
+        run, statistics = self.runner("instances", statistics=True)
         run([])
         heap_size = self.heap_usage(statistics)
 
 
-    def test_llinterp_lists(self):
+    def define_llinterp_lists(cls):
         def malloc_a_lot():
             i = 0
             while i < 10:
@@ -145,12 +211,15 @@ class GenericGCTests(GCTest):
                     j += 1
                     a.append(j)
             return 0
-        run, statistics = self.runner(malloc_a_lot, statistics=True)
+        return malloc_a_lot
+
+    def test_llinterp_lists(self):
+        run, statistics = self.runner("llinterp_lists", statistics=True)
         run([])
         heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
-    def test_llinterp_tuples(self):
+    def define_llinterp_tuples(cls):
         def malloc_a_lot():
             i = 0
             while i < 10:
@@ -162,41 +231,51 @@ class GenericGCTests(GCTest):
                     j += 1
                     b.append((1, j, i))
             return 0
-        run, statistics = self.runner(malloc_a_lot, statistics=True)
+        return malloc_a_lot
+
+    def test_llinterp_tuples(self):
+        run, statistics = self.runner("llinterp_tuples", statistics=True)
         run([])
         heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
-    def test_global_list(self):
+    def skipdefine_global_list(cls):
+        gl = []
         class Box:
             def __init__(self):
-                self.lst = []
+                self.lst = gl
         box = Box()
         def append_to_list(i, j):
             box.lst.append([i] * 50)
             llop.gc__collect(lltype.Void)
             return box.lst[j][0]
-        run = self.runner(append_to_list, nbargs=2)
+        return append_to_list, None, None
+
+    def test_global_list(self):
+        py.test.skip("doesn't fit in the model, tested elsewhere too")
+        run = self.runner("global_list")
         res = run([0, 0])
         assert res == 0
         for i in range(1, 5):
             res = run([i, i - 1])
             assert res == i - 1 # crashes if constants are not considered roots
             
-    def test_string_concatenation(self):
-
+    def define_string_concatenation(cls):
         def concat(j, dummy):
             lst = []
             for i in range(j):
                 lst.append(str(i))
             return len("".join(lst))
-        run, statistics = self.runner(concat, nbargs=2, statistics=True)
+        return concat
+
+    def test_string_concatenation(self):
+        run, statistics = self.runner("string_concatenation", statistics=True)
         res = run([100, 0])
-        assert res == concat(100, 0)
+        assert res == len(''.join([str(x) for x in range(100)]))
         heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
-    def test_nongc_static_root(self):
+    def define_nongc_static_root(cls):
         T1 = lltype.GcStruct("C", ('x', lltype.Signed))
         T2 = lltype.Struct("C", ('p', lltype.Ptr(T1)))
         static = lltype.malloc(T2, immortal=True)
@@ -206,11 +285,16 @@ class GenericGCTests(GCTest):
             static.p = t1
             llop.gc__collect(lltype.Void)
             return static.p.x
-        run = self.runner(f, nbargs=0)
+        def cleanup():
+            static.p = lltype.nullptr(T1)
+        return f, cleanup, None
+
+    def test_nongc_static_root(self):
+        run = self.runner("nongc_static_root")
         res = run([])
         assert res == 42
 
-    def test_finalizer(self):
+    def define_finalizer(cls):
         class B(object):
             pass
         b = B()
@@ -231,11 +315,14 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
-        run = self.runner(f, nbargs=2)
+        return f
+
+    def test_finalizer(self):
+        run = self.runner("finalizer")
         res = run([5, 42]) #XXX pure lazyness here too
         assert res == 6
 
-    def test_finalizer_calls_malloc(self):
+    def define_finalizer_calls_malloc(cls):
         class B(object):
             pass
         b = B()
@@ -260,11 +347,14 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
-        run = self.runner(f, nbargs=2)
+        return f
+
+    def test_finalizer_calls_malloc(self):
+        run = self.runner("finalizer_calls_malloc")
         res = run([5, 42]) #XXX pure lazyness here too
         assert res == 12
 
-    def test_finalizer_resurrects(self):
+    def define_finalizer_resurrects(cls):
         class B(object):
             pass
         b = B()
@@ -291,11 +381,14 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted * 10 + aid + 100 * (b.a is None)
-        run = self.runner(f, nbargs=2)
+        return f
+
+    def test_finalizer_resurrects(self):
+        run = self.runner("finalizer_resurrects")
         res = run([5, 42]) #XXX pure lazyness here too
         assert 160 <= res <= 165
 
-    def test_weakref(self):
+    def define_weakref(cls):
         import weakref, gc
         class A(object):
             pass
@@ -313,11 +406,14 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             result = result and (ref() is None)
             return result
-        run = self.runner(f)
+        return f
+
+    def test_weakref(self):
+        run = self.runner("weakref")
         res = run([])
         assert res
 
-    def test_weakref_to_object_with_finalizer(self):
+    def define_weakref_to_object_with_finalizer(cls):
         import weakref, gc
         class A(object):
             count = 0
@@ -334,11 +430,14 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             result = a.count == 1 and (ref() is None)
             return result
-        run = self.runner(f)
+        return f
+
+    def test_weakref_to_object_with_finalizer(self):
+        run = self.runner("weakref_to_object_with_finalizer")
         res = run([])
         assert res
 
-    def test_collect_during_collect(self):
+    def define_collect_during_collect(cls):
         class B(object):
             pass
         b = B()
@@ -370,14 +469,18 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             b.bla = persistent_a1.id + persistent_a2.id + persistent_a3.id + persistent_a4.id
-            print b.num_deleted_c
+            # NB print would create a static root!
+            llop.debug_print(lltype.Void, b.num_deleted_c)
             return b.num_deleted
-        run = self.runner(f, nbargs=2)
+        return f
+
+    def test_collect_during_collect(self):
+        run = self.runner("collect_during_collect")
         # runs collect recursively 4 times
         res = run([4, 42]) #XXX pure lazyness here too
         assert res == 12
 
-    def test_collect_0(self):
+    def define_collect_0(cls):
         def concat(j, dummy):
             lst = []
             for i in range(j):
@@ -386,11 +489,14 @@ class GenericGCTests(GCTest):
             if we_are_translated():
                 llop.gc__collect(lltype.Void, 0)
             return result
-        run = self.runner(concat, nbargs=2)
-        res = run([100, 0])
-        assert res == concat(100, 0)
+        return concat
 
-    def test_interior_ptrs(self):
+    def test_collect_0(self):
+        run = self.runner("collect_0")
+        res = run([100, 0])
+        assert res == len(''.join([str(x) for x in range(100)]))
+
+    def define_interior_ptrs(cls):
         from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, GcArray
         from pypy.rpython.lltypesystem.lltype import Array, Signed, malloc
 
@@ -444,11 +550,14 @@ class GenericGCTests(GCTest):
                     f6())
 
         assert func() == 111111
-        run = self.runner(func)
+        return func
+
+    def test_interior_ptrs(self):
+        run = self.runner("interior_ptrs")
         res = run([])
         assert res == 111111
 
-    def test_id(self):
+    def define_id(cls):
         class A(object):
             pass
         a1 = A()
@@ -464,19 +573,25 @@ class GenericGCTests(GCTest):
             if id2 != compute_unique_id(a2): error += 2
             if id3 != compute_unique_id(a3): error += 4
             return error
-        run = self.runner(func)
+        return func
+
+    def test_id(self):
+        run = self.runner("id")
         res = run([])
         assert res == 0
 
-    def test_can_move(self):
+    def define_can_move(cls):
         TP = lltype.GcArray(lltype.Float)
         def func():
             return rgc.can_move(lltype.malloc(TP, 1))
-        run = self.runner(func)
+        return func
+
+    def test_can_move(self):
+        run = self.runner("can_move")
         res = run([])
         assert res == self.GC_CAN_MOVE
 
-    def test_malloc_nonmovable(self):
+    def define_malloc_nonmovable(cls):
         TP = lltype.GcArray(lltype.Char)
         def func():
             #try:
@@ -489,10 +604,13 @@ class GenericGCTests(GCTest):
             #except Exception, e:
             #    return 2
 
-        run = self.runner(func)
+        return func
+    
+    def test_malloc_nonmovable(self):
+        run = self.runner("malloc_nonmovable")
         assert int(self.GC_CANNOT_MALLOC_NONMOVABLE) == run([])
 
-    def test_malloc_nonmovable_fixsize(self):
+    def define_malloc_nonmovable_fixsize(cls):
         S = lltype.GcStruct('S', ('x', lltype.Float))
         TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
         def func():
@@ -506,10 +624,13 @@ class GenericGCTests(GCTest):
             except Exception, e:
                 return 2
 
-        run = self.runner(func)
+        return func
+    
+    def test_malloc_nonmovable_fixsize(self):
+        run = self.runner("malloc_nonmovable_fixsize")
         assert run([]) == int(self.GC_CANNOT_MALLOC_NONMOVABLE)
 
-    def test_resizable_buffer(self):
+    def define_resizable_buffer(cls):
         from pypy.rpython.lltypesystem.rstr import STR
         from pypy.rpython.annlowlevel import hlstr
 
@@ -520,10 +641,13 @@ class GenericGCTests(GCTest):
             ptr.chars[1] = 'b'
             return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
 
-        run = self.runner(f)
+        return f
+
+    def test_resizable_buffer(self):
+        run = self.runner("resizable_buffer")
         assert run([]) == 1
 
-    def test_string_builder_over_allocation(self):
+    def define_string_builder_over_allocation(cls):
         import gc
         def fn():
             s = StringBuilder(4)
@@ -535,79 +659,19 @@ class GenericGCTests(GCTest):
             s.append_multiple_char('y', 1000)
             res = s.build()[1000]
             gc.collect()
-            return res
-        fn = self.runner(fn)
+            return ord(res)
+        return fn
+
+    def test_string_builder_over_allocation(self):
+        fn = self.runner("string_builder_over_allocation")
         res = fn([])
-        assert res == 'y'
-
-    def test_tagged_simple(self):
-        class Unrelated(object):
-            pass
-
-        u = Unrelated()
-        u.x = UnboxedObject(47)
-        def fn(n):
-            rgc.collect() # check that a prebuilt tagged pointer doesn't explode
-            if n > 0:
-                x = BoxedObject(n)
-            else:
-                x = UnboxedObject(n)
-            u.x = x # invoke write barrier
-            rgc.collect()
-            return x.meth(100)
-        def func():
-            return fn(1000) + fn(-1000)
-        func = self.runner(func, taggedpointers=True)
-        res = func([])
-        assert res == fn(1000) + fn(-1000)
-
-    def test_tagged_prebuilt(self):
-
-        class F:
-            pass
-
-        f = F()
-        f.l = [UnboxedObject(10)]
-        def fn(n):
-            if n > 0:
-                x = BoxedObject(n)
-            else:
-                x = UnboxedObject(n)
-            f.l.append(x)
-            rgc.collect()
-            return f.l[-1].meth(100)
-        def func():
-            return fn(1000) ^ fn(-1000)
-        func = self.runner(func, taggedpointers=True)
-        res = func([])
-        assert res == fn(1000) ^ fn(-1000)
-
-from pypy.rlib.objectmodel import UnboxedValue
-
-class TaggedBase(object):
-    __slots__ = ()
-    def meth(self, x):
-        raise NotImplementedError
-
-class BoxedObject(TaggedBase):
-    attrvalue = 66
-    def __init__(self, normalint):
-        self.normalint = normalint
-    def meth(self, x):
-        return self.normalint + x + 2
-
-class UnboxedObject(TaggedBase, UnboxedValue):
-    __slots__ = 'smallint'
-    def meth(self, x):
-        return self.smallint + x + 3
-
+        assert res == ord('y')
 
 class GenericMovingGCTests(GenericGCTests):
     GC_CAN_MOVE = True
     GC_CANNOT_MALLOC_NONMOVABLE = True
 
-    def test_many_ids(self):
-        py.test.skip("fails for bad reasons in lltype.py :-(")
+    def define_many_ids(cls):
         class A(object):
             pass
         def f():
@@ -631,10 +695,30 @@ class GenericMovingGCTests(GenericGCTests):
                     i += 1
                 j += 1
             lltype.free(idarray, flavor='raw')
-        run = self.runner(f)
+            return 0
+        return f
+    
+    def test_many_ids(self):
+        py.test.skip("fails for bad reasons in lltype.py :-(")
+        run = self.runner("many_ids")
         run([])
 
-    def test_do_malloc_operations(self):
+    @classmethod
+    def ensure_layoutbuilder(cls, translator):
+        jit2gc = getattr(translator, '_jit2gc', None)
+        if jit2gc:
+            return jit2gc['layoutbuilder']
+        GCClass = cls.gcpolicy.transformerclass.GCClass
+        lltype2vtable = translator.rtyper.lltype2vtable
+        layoutbuilder = framework.TransformerLayoutBuilder(GCClass,
+                                                               lltype2vtable)
+        layoutbuilder.delay_encoding()
+        translator._jit2gc = {
+            'layoutbuilder': layoutbuilder,
+        }
+        return layoutbuilder
+
+    def define_do_malloc_operations(cls):
         P = lltype.GcStruct('P', ('x', lltype.Signed))
         def g():
             r = lltype.malloc(P)
@@ -648,18 +732,13 @@ class GenericMovingGCTests(GenericGCTests):
             while i < 40:
                 g()
                 i += 1
+            return 0
         def fix_graph_of_g(translator):
             from pypy.translator.translator import graphof
             from pypy.objspace.flow.model import Constant
             from pypy.rpython.lltypesystem import rffi
-            GCClass = self.gcpolicy.transformerclass.GCClass
-            lltype2vtable = translator.rtyper.lltype2vtable
-            layoutbuilder = framework.TransformerLayoutBuilder(GCClass,
-                                                               lltype2vtable)
-            layoutbuilder.delay_encoding()
-            translator._jit2gc = {
-                'layoutbuilder': layoutbuilder,
-                }
+            layoutbuilder = cls.ensure_layoutbuilder(translator)
+
             type_id = layoutbuilder.get_type_id(P)
             #
             # now fix the do_malloc_fixedsize_clear in the graph of g
@@ -674,10 +753,13 @@ class GenericMovingGCTests(GenericGCTests):
                     break
             else:
                 assert 0, "oups, not found"
-        run = self.runner(f, mixlevelstuff=fix_graph_of_g)
+        return f, None, fix_graph_of_g
+            
+    def test_do_malloc_operations(self):
+        run = self.runner("do_malloc_operations")
         run([])
 
-    def test_do_malloc_operations_in_call(self):
+    def define_do_malloc_operations_in_call(cls):
         P = lltype.GcStruct('P', ('x', lltype.Signed))
         def g():
             llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
@@ -688,18 +770,12 @@ class GenericMovingGCTests(GenericGCTests):
             while i < 40:
                 g()
                 i += q.x
+            return 0
         def fix_graph_of_g(translator):
             from pypy.translator.translator import graphof
             from pypy.objspace.flow.model import Constant
             from pypy.rpython.lltypesystem import rffi
-            GCClass = self.gcpolicy.transformerclass.GCClass
-            lltype2vtable = translator.rtyper.lltype2vtable
-            layoutbuilder = framework.TransformerLayoutBuilder(GCClass,
-                                                               lltype2vtable)
-            layoutbuilder.delay_encoding()
-            translator._jit2gc = {
-                'layoutbuilder': layoutbuilder,
-                }
+            layoutbuilder = cls.ensure_layoutbuilder(translator)            
             type_id = layoutbuilder.get_type_id(P)
             #
             # now fix the do_malloc_fixedsize_clear in the graph of g
@@ -714,8 +790,13 @@ class GenericMovingGCTests(GenericGCTests):
                     break
             else:
                 assert 0, "oups, not found"
-        run = self.runner(f, mixlevelstuff=fix_graph_of_g)
+        return f, None, fix_graph_of_g
+        
+    def test_do_malloc_operations_in_call(self):
+        run = self.runner("do_malloc_operations_in_call")
         run([])
+
+# ________________________________________________________________
 
 class TestMarkSweepGC(GenericGCTests):
     gcname = "marksweep"
@@ -725,7 +806,7 @@ class TestMarkSweepGC(GenericGCTests):
             root_stack_depth = 200
 
 
-    def test_cloning(self):
+    def define_cloning(cls):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
                                  ('unused', lltype.Ptr(B)))
@@ -755,11 +836,14 @@ class TestMarkSweepGC(GenericGCTests):
             a2copy.b.x = 444
             return a1.b.x * 1000000 + a2.b.x * 1000 + a3.b.x
 
-        run = self.runner(func)
+        return func
+
+    def test_cloning(self):
+        run = self.runner("cloning")
         res = run([])
         assert res == 111222333
 
-    def test_cloning_varsize(self):
+    def define_cloning_varsize(cls):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
                                  ('more', lltype.Array(lltype.Ptr(B))))
@@ -790,11 +874,14 @@ class TestMarkSweepGC(GenericGCTests):
             a2copy.more[1].x = 441
             return a2.b.x * 1000000 + a2.more[0].x * 1000 + a2.more[1].x
 
-        run = self.runner(func)
+        return func
+
+    def test_cloning_varsize(self):
+        run = self.runner("cloning_varsize")
         res = run([])
         assert res == 22220221
 
-    def test_cloning_highlevel(self):
+    def define_cloning_highlevel(cls):
         class A:
             pass
         class B(A):
@@ -821,13 +908,16 @@ class TestMarkSweepGC(GenericGCTests):
                 assert n > 5
             return 1
 
-        run = self.runner(func, nbargs=2)
+        return func
+
+    def test_cloning_highlevel(self):
+        run = self.runner("cloning_highlevel")
         res = run([3, 0])
         assert res == 1
         res = run([7, 0])
         assert res == 1
 
-    def test_cloning_highlevel_varsize(self):
+    def define_cloning_highlevel_varsize(cls):
         class A:
             pass
         def func(n, dummy):
@@ -849,11 +939,14 @@ class TestMarkSweepGC(GenericGCTests):
                 n = n*10 + a.value
             return n
 
-        run = self.runner(func, nbargs=2)
+        return func
+
+    def test_cloning_highlevel_varsize(self):
+        run = self.runner("cloning_highlevel_varsize")
         res = run([3, 0])
         assert res == 456012789
 
-    def test_tree_cloning(self):
+    def define_tree_cloning(cls):
         import os
         # this makes a tree of calls.  Each leaf stores its path (a linked
         # list) in 'result'.  Paths are mutated in-place but the leaves don't
@@ -933,7 +1026,10 @@ class TestMarkSweepGC(GenericGCTests):
                 check(result[i], i, 0, depth)
             os.write(2, 'ok\n')
             return 1
-        run = self.runner(func, nbargs=2)
+        return func
+
+    def test_tree_cloning(self):
+        run = self.runner("tree_cloning")
         res = run([3, 0])
         assert res == 1
 
@@ -959,6 +1055,9 @@ class TestSemiSpaceGC(GenericMovingGCTests):
 class TestMarkCompactGC(GenericMovingGCTests):
     gcname = 'markcompact'
 
+    def setup_class(cls):
+        py.test.skip("Disabled for now, sorry")
+
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
@@ -976,7 +1075,7 @@ class TestGenerationGC(GenericMovingGCTests):
                          'nursery_size': 128}
             root_stack_depth = 200
 
-    def test_weakref_across_minor_collection(self):
+    def define_weakref_across_minor_collection(cls):
         import weakref
         class A:
             pass
@@ -994,11 +1093,14 @@ class TestGenerationGC(GenericMovingGCTests):
             llop.gc__collect(lltype.Void)
             assert ref() is a
             return a.foo + len(all)
-        run = self.runner(f)
+        return f
+
+    def test_weakref_across_minor_collection(self):
+        run = self.runner("weakref_across_minor_collection")
         res = run([])
         assert res == 20 + 20
 
-    def test_nongc_static_root_minor_collect(self):
+    def define_nongc_static_root_minor_collect(cls):
         T1 = lltype.GcStruct("C", ('x', lltype.Signed))
         T2 = lltype.Struct("C", ('p', lltype.Ptr(T1)))
         static = lltype.malloc(T2, immortal=True)
@@ -1015,12 +1117,17 @@ class TestGenerationGC(GenericMovingGCTests):
             i = static.p.x
             llop.gc__collect(lltype.Void)
             return static.p.x + i
-        run = self.runner(f, nbargs=0)
+        def cleanup():
+            static.p = lltype.nullptr(T1)        
+        return f, cleanup, None
+
+    def test_nongc_static_root_minor_collect(self):
+        run = self.runner("nongc_static_root_minor_collect")
         res = run([])
         assert res == 84
 
 
-    def test_static_root_minor_collect(self):
+    def define_static_root_minor_collect(cls):
         class A:
             pass
         class B:
@@ -1040,12 +1147,17 @@ class TestGenerationGC(GenericMovingGCTests):
             i = static.p.x
             llop.gc__collect(lltype.Void)
             return static.p.x + i
-        run = self.runner(f, nbargs=0)
+        def cleanup():
+            static.p = None
+        return f, cleanup, None
+
+    def test_static_root_minor_collect(self):
+        run = self.runner("static_root_minor_collect")
         res = run([])
         assert res == 84
 
 
-    def test_many_weakrefs(self):
+    def define_many_weakrefs(cls):
         # test for the case where allocating the weakref itself triggers
         # a collection
         import weakref
@@ -1058,10 +1170,15 @@ class TestGenerationGC(GenericMovingGCTests):
                 ref = weakref.ref(a)
                 assert ref() is a
                 i += 1
-        run = self.runner(f, nbargs=0)
+            return 0
+
+        return f
+        
+    def test_many_weakrefs(self):
+        run = self.runner("many_weakrefs")
         run([])
 
-    def test_immutable_to_old_promotion(self):
+    def define_immutable_to_old_promotion(cls):
         T_CHILD = lltype.Ptr(lltype.GcStruct('Child', ('field', lltype.Signed)))
         T_PARENT = lltype.Ptr(lltype.GcStruct('Parent', ('sub', T_CHILD)))
         child = lltype.malloc(T_CHILD.TO)
@@ -1083,7 +1200,10 @@ class TestGenerationGC(GenericMovingGCTests):
             #all[x] = lltype.nullptr(T_PARENT.TO)
             return res.sub.field
 
-        run, transformer = self.runner(f, nbargs=2, transformer=True)
+        return f
+
+    def test_immutable_to_old_promotion(self):
+        run, transformer = self.runner("immutable_to_old_promotion", transformer=True)
         run([1, 4])
         if not transformer.GCClass.prebuilt_gc_objects_are_static_roots:
             assert len(transformer.layoutbuilder.addresses_of_static_ptrs) == 0
@@ -1100,7 +1220,7 @@ class TestGenerationGC(GenericMovingGCTests):
         #  * the GcArray pointer from gc.wr_to_objects_with_id
         #  * the GcArray pointer from gc.object_id_dict.
 
-    def test_adr_of_nursery(self):
+    def define_adr_of_nursery(cls):
         class A(object):
             pass
         
@@ -1118,7 +1238,12 @@ class TestGenerationGC(GenericMovingGCTests):
             assert nf1 > nf0
             assert nt1 > nf1
             assert nt1 == nt0
-        run = self.runner(f, nbargs=0)
+            return 0
+        
+        return f
+    
+    def test_adr_of_nursery(self):
+        run = self.runner("adr_of_nursery")
         res = run([])        
 
 class TestGenerationalNoFullCollectGC(GCTest):
@@ -1139,11 +1264,15 @@ class TestGenerationalNoFullCollectGC(GCTest):
                 def semispace_collect(self, size_changing=False):
                     ll_assert(not self.__ready,
                               "no full collect should occur in this test")
+            def _teardown(self):
+                self.__ready = False # collecting here is expected
+                GenerationGC._teardown(self)
+                
             GC_PARAMS = {'space_size': 2048,
                          'nursery_size': 512}
             root_stack_depth = 200
 
-    def test_working_nursery(self):
+    def define_working_nursery(cls):
         def f():
             total = 0
             i = 0
@@ -1156,7 +1285,10 @@ class TestGenerationalNoFullCollectGC(GCTest):
                 total += len(lst)
                 i += 1
             return total
-        run = self.runner(f, nbargs=0)
+        return f
+
+    def test_working_nursery(self):
+        run = self.runner("working_nursery")
         res = run([])
         assert res == 40 * 5
 
@@ -1172,7 +1304,7 @@ class TestHybridGC(TestGenerationGC):
                          'large_object': 32}
             root_stack_depth = 200
 
-    def test_ref_from_rawmalloced_to_regular(self):
+    def define_ref_from_rawmalloced_to_regular(cls):
         import gc
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('p', lltype.Ptr(S)),
@@ -1190,11 +1322,14 @@ class TestHybridGC(TestGenerationGC):
             lst = setup(j)
             gc.collect()
             return lst.p.x
-        run = self.runner(f, nbargs=2)
+        return f
+
+    def test_ref_from_rawmalloced_to_regular(self):
+        run = self.runner("ref_from_rawmalloced_to_regular")
         res = run([100, 100])
         assert res == 200
 
-    def test_assume_young_pointers(self):
+    def define_assume_young_pointers(cls):
         from pypy.rlib import rgc
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
@@ -1211,9 +1346,109 @@ class TestHybridGC(TestGenerationGC):
             rgc.collect(0)
             return s0.next.x
 
-        run = self.runner(f, nbargs=0)
+        def cleanup():
+            s0.next = lltype.nullptr(S)
+
+        return f, cleanup, None
+
+    def test_assume_young_pointers(self):
+        run = self.runner("assume_young_pointers")
         res = run([])
         assert res == 42
 
     def test_malloc_nonmovable_fixsize(self):
         py.test.skip("not supported")
+
+# ________________________________________________________________
+# tagged pointers
+
+class TaggedPointerGCTests(GCTest):
+    taggedpointers = True
+
+    def define_tagged_simple(cls):
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.x = UnboxedObject(47)
+        def fn(n):
+            rgc.collect() # check that a prebuilt tagged pointer doesn't explode
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            u.x = x # invoke write barrier
+            rgc.collect()
+            return x.meth(100)
+        def func():
+            return fn(1000) + fn(-1000)
+        assert func() == 205
+        return func
+
+    def test_tagged_simple(self):
+        func = self.runner("tagged_simple")
+        res = func([])
+        assert res == 205
+
+    def define_tagged_prebuilt(cls):
+
+        class F:
+            pass
+
+        f = F()
+        f.l = [UnboxedObject(10)]
+        def fn(n):
+            if n > 0:
+                x = BoxedObject(n)
+            else:
+                x = UnboxedObject(n)
+            f.l.append(x)
+            rgc.collect()
+            return f.l[-1].meth(100)
+        def func():
+            return fn(1000) ^ fn(-1000)
+        assert func() == -1999
+        return func
+
+    def test_tagged_prebuilt(self):
+        func = self.runner("tagged_prebuilt")
+        res = func([])
+        assert res == -1999
+
+from pypy.rlib.objectmodel import UnboxedValue
+
+class TaggedBase(object):
+    __slots__ = ()
+    def meth(self, x):
+        raise NotImplementedError
+
+class BoxedObject(TaggedBase):
+    attrvalue = 66
+    def __init__(self, normalint):
+        self.normalint = normalint
+    def meth(self, x):
+        return self.normalint + x + 2
+
+class UnboxedObject(TaggedBase, UnboxedValue):
+    __slots__ = 'smallint'
+    def meth(self, x):
+        return self.smallint + x + 3
+
+
+class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
+    gcname = "marksweep"
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            GC_PARAMS = {'start_heap_size': 4096 }
+            root_stack_depth = 200
+
+class TestHybridTaggedPointerGC(TaggedPointerGCTests):
+    gcname = "hybrid"
+
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc.generation import GenerationGC as \
+                                                          GCClass
+            GC_PARAMS = {'space_size': 2048,
+                         'nursery_size': 128}
+            root_stack_depth = 200

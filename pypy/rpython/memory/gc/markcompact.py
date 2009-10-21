@@ -91,11 +91,13 @@ class MarkCompactGC(MovingGCBase):
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096):
         import py; py.test.skip("Disabled for now, sorry")
+        self.param_space_size = space_size
         MovingGCBase.__init__(self, config, chunk_size)
-        self.space_size = space_size
-        self.next_collect_after = space_size/2 # whatever...
 
     def setup(self):
+        self.space_size = self.param_space_size
+        self.next_collect_after = self.param_space_size/2 # whatever...
+
         if self.config.gcconfig.debugprint:
             self.program_start_time = time.time()
         self.space = llarena.arena_malloc(self.space_size, True)
