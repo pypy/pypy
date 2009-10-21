@@ -725,7 +725,20 @@ else:
         yield self.st, test, "X.__name__", "X"
 
 
-class AppTestPrint:
+class AppTestCompiler:
+
+    def test_docstring_not_loaded(self):
+        import StringIO, dis, sys
+        ns = {}
+        exec "def f():\n    'hi'" in ns
+        f = ns["f"]
+        save = sys.stdout
+        sys.stdout = output = StringIO.StringIO()
+        try:
+            dis.dis(f)
+        finally:
+            sys.stdout = save
+        assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
          exec """from StringIO import StringIO
