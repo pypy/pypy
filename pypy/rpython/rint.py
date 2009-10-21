@@ -408,10 +408,8 @@ class __extend__(IntegerRepr):
         fn = hop.rtyper.type_system.ll_str.ll_int2oct        
         return hop.gendirectcall(fn, varg, true)
 
-def ll_identity(n):
-    return n
-
-ll_hash_int = ll_identity
+def ll_hash_int(n):
+    return intmask(n)
 
 def ll_check_chr(n):
     if 0 <= n <= 255:
