@@ -34,11 +34,34 @@ class MicrosoftSDK(AbstractSDK):
     CSC = 'csc'
     PEVERIFY = 'peverify'
 
+def get_mono_version():
+    from commands import getoutput
+    lines = getoutput('mono -V').splitlines()
+    parts = lines[0].split()
+    # something like ['Mono', 'JIT', 'compiler', 'version', '2.4.2.3', ...]
+    iversion = parts.index('version')
+    ver = parts[iversion+1]     # '2.4.2.3'
+    ver = ver.split('.')        # ['2', '4', '2', '3']
+    return tuple(map(int, ver)) # (2, 4, 2, 3)
+
+
 class MonoSDK(AbstractSDK):
     RUNTIME = ['mono']
     ILASM = 'ilasm2'
     CSC = 'gmcs'
     PEVERIFY = 'peverify' # it's not part of mono, but we get a meaningful skip message
+
+    # this is a workaround for this bug:
+    # https://bugzilla.novell.com/show_bug.cgi?id=474718 they promised that it
+    # should be fixed in versions after 2.4.3.x, in the meanwhile pass
+    # -O=-branch
+    @classmethod
+    def runtime(cls):
+        cls._check_helper('mono')
+        ver = get_mono_version()
+        if (2, 1) < ver < (2, 4, 3):
+            return ['mono', '-O=-branch']
+        return ['mono']
 
 def key_as_dict(handle):
     import _winreg
