@@ -126,6 +126,17 @@ a GUARD_TRUE guard will be generated for ``x`` before running
 ``do_something_exciting``.
 
 
+Optimization
+------------
+
+Once the meta-interpreter has verified that it has traced a loop, it decides how
+to compile what it has.  There is an optional optimization phase between these
+actions which is covered future down this page.  The backend converts the trace
+operations into assembly for the particular machine.  It then hands it back to
+the frontend.  The next time the loop is seen in application code, the optimized
+version can be run instead of the normal intepreter!
+
+
 More resources
 ==============
 
