@@ -16,6 +16,7 @@ from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
+from pypy.jit.metainterp.compile import GiveUp
 
 # ____________________________________________________________
 
@@ -1154,7 +1155,11 @@ class MetaInterp(object):
             return True
         else:
             if not self.is_blackholing():
-                self.compile_done_with_this_frame(resultbox)
+                try:
+                    self.compile_done_with_this_frame(resultbox)
+                except GiveUp:
+                    self.staticdata.profiler.count(ABORT_BRIDGE)
+                    self.switch_to_blackhole()
             sd = self.staticdata
             if sd.result_type == 'void':
                 assert resultbox is None
@@ -1188,7 +1193,11 @@ class MetaInterp(object):
                 return True
             self.popframe()
         if not self.is_blackholing():
-            self.compile_exit_frame_with_exception(excvaluebox)
+            try:
+                self.compile_exit_frame_with_exception(excvaluebox)
+            except GiveUp:
+                self.staticdata.profiler.count(ABORT_BRIDGE)
+                self.switch_to_blackhole()
         raise self.staticdata.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
 
     def check_recursion_invariant(self):
@@ -1801,6 +1810,3 @@ class GenerateMergePoint(Exception):
         assert target_loop_token is not None
         self.argboxes = args
         self.target_loop_token = target_loop_token
-
-class GiveUp(Exception):
-    pass

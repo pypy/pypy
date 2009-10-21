@@ -393,6 +393,80 @@ class RecursiveTests:
         self.check_aborted_count(8)
         self.check_enter_count_at_most(30)
 
+    def test_max_failure_args(self):
+        FAILARGS_LIMIT = 10
+        jitdriver = JitDriver(greens = [], reds = ['o', 'i', 'n'])
+
+        class A(object):
+            def __init__(self, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9):
+                self.i0 = i0
+                self.i1 = i1
+                self.i2 = i2
+                self.i3 = i3
+                self.i4 = i4
+                self.i5 = i5
+                self.i6 = i6
+                self.i7 = i7
+                self.i8 = i8
+                self.i9 = i9
+                
+        
+        def loop(n):
+            i = 0
+            o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            while i < n:
+                jitdriver.can_enter_jit(o=o, i=i, n=n)
+                jitdriver.jit_merge_point(o=o, i=i, n=n)
+                o = A(i, i + 1, i + 2, i + 3, i + 4, i + 5,
+                      i + 6, i + 7, i + 8, i + 9)
+                i += 1
+            return o
+
+        res = self.meta_interp(loop, [20], failargs_limit=FAILARGS_LIMIT,
+                               listops=True)
+        self.check_aborted_count(5)
+
+    def test_max_failure_args_exc(self):
+        FAILARGS_LIMIT = 10
+        jitdriver = JitDriver(greens = [], reds = ['o', 'i', 'n'])
+
+        class A(object):
+            def __init__(self, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9):
+                self.i0 = i0
+                self.i1 = i1
+                self.i2 = i2
+                self.i3 = i3
+                self.i4 = i4
+                self.i5 = i5
+                self.i6 = i6
+                self.i7 = i7
+                self.i8 = i8
+                self.i9 = i9
+                
+        
+        def loop(n):
+            i = 0
+            o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            while i < n:
+                jitdriver.can_enter_jit(o=o, i=i, n=n)
+                jitdriver.jit_merge_point(o=o, i=i, n=n)
+                o = A(i, i + 1, i + 2, i + 3, i + 4, i + 5,
+                      i + 6, i + 7, i + 8, i + 9)
+                i += 1
+            raise ValueError
+
+        def main(n):
+            try:
+                loop(n)
+                return 1
+            except ValueError:
+                return 0
+
+        res = self.meta_interp(main, [20], failargs_limit=FAILARGS_LIMIT,
+                               listops=True)
+        assert not res
+        self.check_aborted_count(5)        
+
     def test_set_param_inlining(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'recurse'])
         def loop(n, recurse=False):

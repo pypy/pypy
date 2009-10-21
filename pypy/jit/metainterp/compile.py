@@ -13,6 +13,9 @@ from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
+class GiveUp(Exception):
+    pass
+
 def show_loop(metainterp_sd, loop=None, error=None):
     # debugging
     if option.view or option.viewloops:
@@ -284,7 +287,6 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
                                                                 old_loop_tokens,
                                                                 new_loop)
     except InvalidLoop:
-        assert 0, "InvalidLoop in optimize_bridge?"
         return None
     # Did it work?
     if target_loop_token is not None:

@@ -21,6 +21,8 @@ INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
 
+FAILARGS_LIMIT = 1000
+
 def getkind(TYPE, supports_floats=True):
     if TYPE is lltype.Void:
         return "void"
@@ -116,6 +118,9 @@ class AbstractValue(object):
 
     def repr_rpython(self):
         return '%s' % self
+
+    def _get_str(self):
+        raise NotImplementedError
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -930,8 +935,9 @@ class CrashInJIT(Exception):
 # ----------------------------------------------------------------
 
 class Options:
-    def __init__(self, listops=False):
+    def __init__(self, listops=False, failargs_limit=FAILARGS_LIMIT):
         self.listops = listops
+        self.failargs_limit = failargs_limit
     def _freeze_(self):
         return True
 
