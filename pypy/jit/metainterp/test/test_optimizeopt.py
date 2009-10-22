@@ -23,15 +23,17 @@ class FakeFrame(object):
         self.pc = pc
         self.exception_target = exc_target
 
-class FakeOptions(object):
+class Fake(object):
     failargs_limit = 1000
+    storedebug = None
 
 class FakeMetaInterpStaticData(object):
 
     def __init__(self, cpu):
         self.cpu = cpu
         self.profiler = EmptyProfiler()
-        self.options = FakeOptions()
+        self.options = Fake()
+        self.globaldata = Fake()
     
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
