@@ -434,7 +434,7 @@ def dump_storage(logname, storage, liveboxes):
     os.write(fd, 'Log(%d, [\n' % objectmodel.compute_unique_id(storage))
     frameinfo = storage.rd_frame_info_list
     while True:
-        os.write(fd, '\t("%s", %d, %d, %xd),\n' % (
+        os.write(fd, '\t("%s", %d, %d) at %xd,\n' % (
             frameinfo.jitcode, frameinfo.pc, frameinfo.exception_target,
             objectmodel.compute_unique_id(frameinfo)))
         frameinfo = frameinfo.prev
@@ -443,7 +443,8 @@ def dump_storage(logname, storage, liveboxes):
     os.write(fd, '\t],\n\t[\n')
     numb = storage.rd_numb
     while True:
-        os.write(fd, '\t\t%s,\n' % ([untag(i) for i in numb.nums],))
+        os.write(fd, '\t\t%s at %xd,\n' % ([untag(i) for i in numb.nums],
+                                           objectmodel.compute_unique_id(numb)))
         numb = numb.prev
         if numb is None:
             break
