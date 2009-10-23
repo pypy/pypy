@@ -608,7 +608,7 @@ class LoopTest(object):
                     jitdriver.can_enter_jit(n=n, i=i)
                     jitdriver.jit_merge_point(n=n, i=i)
                     i += 1
-
+                return i
             res = self.meta_interp(f, [10])
             data = logfile.read() # assert did not crash
         finally:
