@@ -10,7 +10,7 @@ Implementation of the JIT
 
 The JIT's `theory`_ is great in principle, but actual code is a different
 story. This section tries to give a high level overview of how PyPy's JIT is
-implemented.  It's helpful to have a basic understanding of the PyPy
+implemented.  It's helpful to have a basic understanding of how the PyPy
 `translation tool chain`_ works before digging into the sources.
 
 Almost all JIT specific code is found in the two pypy/jit subdirectories,
