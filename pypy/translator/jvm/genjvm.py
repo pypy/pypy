@@ -9,6 +9,7 @@ import py
 from py.compat import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
+from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.oosupport.genoo import GenOO
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
@@ -225,8 +226,11 @@ def generate_source_for_function(func, annotation, backendopt=False):
         backend_optimizations(t)
     main_graph = t.graphs[0]
     if getoption('view'): t.view()
-    if getoption('wd'): tmpdir = py.path.local('.')
-    else: tmpdir = udir
+    if getoption('wd'):
+        tmpdir = py.path.local('.')
+    else:
+        dirname = uniquemodulename('jvm_testing')
+        tmpdir = udir.ensure(dirname, dir=1)
     jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True, True))
     return jvm.generate_source()
 
