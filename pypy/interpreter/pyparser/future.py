@@ -240,13 +240,19 @@ class FutureAutomaton(object):
         if self.getc() not in letters:
             raise DoneException
         p = self.pos
-        while 1:
-            self.pos += 1
-            if self.getc() not in alphanumerics:
-                break
-        name = self.s[p:self.pos]
-        self.consume_whitespace()
-        return name
+        try:
+            while 1:
+                self.pos += 1
+                if self.getc() not in alphanumerics:
+                    break
+        except DoneException:
+            # If there's any name at all, we want to call self.set_flag().
+            # Something else while get the DoneException again.
+            if self.pos == p:
+                raise
+        else:
+            self.consume_whitespace()
+        return self.s[p:self.pos]
 
     def get_more(self, paren_list=False):
         if paren_list and self.getc() == ')':

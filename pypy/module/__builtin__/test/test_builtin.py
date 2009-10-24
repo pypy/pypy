@@ -397,6 +397,7 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
+        compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')
         raises(ValueError, compile, '1+2', '?', 'maybenot')
