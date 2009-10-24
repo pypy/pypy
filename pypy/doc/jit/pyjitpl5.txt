@@ -154,6 +154,10 @@ in the interpreter to be unwrapped.  For example, a W_IntObject in the PyPy can
 be unwrapped to just be its integer value as long as the object is known not to
 escape the machine code.
 
+A *virtualizable* is similar to a virtual in that its structure is optimized out
+in the machine code.  Virtualizables, howerver, can escape from JIT controlled
+code.
+
 Most of the JIT's optimizer is contained 2 files optimizefindnodes.py and
 optimizeopt.py.
 
