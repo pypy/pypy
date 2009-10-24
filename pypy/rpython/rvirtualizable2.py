@@ -1,4 +1,3 @@
-import py
 from pypy.rpython.rmodel import inputconst, log
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
