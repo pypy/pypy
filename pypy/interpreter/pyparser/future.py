@@ -207,9 +207,7 @@ class FutureAutomaton(object):
                     self.col_offset = col_offset
                     self.lineno = line
             self.consume_empty_line()
-        else:
-            return
-        
+
     def consume_mandatory_whitespace(self):
         if self.getc() not in whitespace + '\\':
             raise DoneException
