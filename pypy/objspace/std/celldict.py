@@ -235,7 +235,7 @@ def load_global_fill_cache(f, nameindex):
     name = f.space.str_w(f.getname_w(nameindex))
     implementation = getimplementation(f.w_globals)
     if isinstance(implementation, ModuleDictImplementation):
-        cell = find_cell_from_dict(implementation, name)
+        cell = implementation.getcell(name, False)
         if cell is None:
             builtin_impl = getimplementation(f.get_builtin().getdict())
             cell = find_cell_from_dict(builtin_impl, name)
