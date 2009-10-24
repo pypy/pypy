@@ -615,6 +615,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for alias in imp.names:
                 assert isinstance(alias, ast.alias)
                 if alias.name not in future.futureFlags_2_5.compiler_features:
+                    if alias.name == "braces":
+                        self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
                                (alias.name,), imp)
         if imp.level == 0 and \
