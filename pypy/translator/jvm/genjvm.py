@@ -68,6 +68,7 @@ class JvmGeneratedSource(object):
     The following attributes also exist to find the state of the sources:
     compiled --- True once the sources have been compiled successfully
     """
+    _cached = None
 
     def __init__(self, tmpdir, package):
         """
@@ -117,29 +118,20 @@ class JvmGeneratedSource(object):
     def _compile_helper(self):
         # HACK: compile the Java helper classes.  Should eventually
         # use rte.py
+        if JvmGeneratedSource._cached == self.classdir:
+           return
+        log.red('Compiling java classes')
         javafiles = self.srcdir.listdir('*.java')
-        classfiles = self.srcdir.listdir('*.class')
-        
-        recompile = True
-        if len(classfiles) == len(javafiles):
-           last_modified_java = max([java.mtime() for java in javafiles])
-           last_modified_class = max([cls.mtime() for cls in classfiles])
-           if last_modified_java < last_modified_class:
-               recompile = False
-
-        if recompile:
-           log.red('Compiling java classes')               
-           javasrcs = [str(jf) for jf in javafiles]
-           self._invoke([getoption('javac'),
-                         '-nowarn',
-                         '-d', str(self.rootdir),
-                         '-classpath', str(self.jnajar)
-                         ] + javasrcs,
-                        True)
-
-        # copy .class files to classdir
-        for classfile in self.srcdir.listdir('*.class'):
-           classfile.copy(self.classdir.join('pypy'))
+        javasrcs = [str(jf) for jf in javafiles]
+        self._invoke([getoption('javac'),
+                      '-nowarn',
+                      '-d', str(self.classdir),
+                      '-classpath', str(self.jnajar),
+                      ] + javasrcs,
+                     True)
+        # NOTE if you are trying to add more caching: some .java files
+        # compile to several .class files of various names.
+        JvmGeneratedSource._cached = self.classdir
 
     def compile(self):
         """
