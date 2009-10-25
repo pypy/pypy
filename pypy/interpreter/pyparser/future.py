@@ -241,18 +241,18 @@ class FutureAutomaton(object):
             raise DoneException
         p = self.pos
         try:
-            while 1:
+            while self.getc() in alphanumerics:
                 self.pos += 1
-                if self.getc() not in alphanumerics:
-                    break
         except DoneException:
             # If there's any name at all, we want to call self.set_flag().
             # Something else while get the DoneException again.
             if self.pos == p:
                 raise
+            end = self.pos
         else:
+            end = self.pos
             self.consume_whitespace()
-        return self.s[p:self.pos]
+        return self.s[p:end]
 
     def get_more(self, paren_list=False):
         if paren_list and self.getc() == ')':
