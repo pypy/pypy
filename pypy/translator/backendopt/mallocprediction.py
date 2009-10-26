@@ -1,15 +1,16 @@
 from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter
+from pypy.translator.backendopt.escape import malloc_like_graphs
 from pypy.translator.backendopt.all import remove_mallocs
 from pypy.translator.backendopt import inline
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator import simplify
+from pypy.translator.simplify import get_graph
 from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log
 
 SMALL_THRESHOLD = 15
 BIG_THRESHOLD = 50
 
-def find_malloc_creps(graph, adi, translator):
+def find_malloc_creps(graph, adi, translator, malloc_graphs):
     # mapping from malloc creation point to graphs that it flows into
     malloc_creps = {}
     # find all mallocs that don't escape
@@ -29,8 +30,17 @@ def find_malloc_creps(graph, adi, translator):
                 pass
             varstate = adi.getstate(op.result)
             assert len(varstate.creation_points) == 1
-            crep = varstate.creation_points.keys()[0]
-            if not crep.escapes:
+            crep, = varstate.creation_points
+            if not crep.escapes and not crep.returns:
+                malloc_creps[crep] = {}
+        if op.opname == 'direct_call':
+            called_graph = get_graph(op.args[0], translator)
+            if called_graph not in malloc_graphs:
+                continue
+            varstate = adi.getstate(op.result)
+            assert len(varstate.creation_points) == 1
+            crep, = varstate.creation_points
+            if not crep.escapes and not crep.returns:
                 malloc_creps[crep] = {}
     return malloc_creps
 
@@ -64,16 +74,19 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
                         del interesting_creps[crep]
         elif op.opname == "direct_call":
             #print op, interesting_creps
-            called_graph = simplify.get_graph(op.args[0], translator)
+            called_graph = get_graph(op.args[0], translator)
             interesting = {}
-            for i, var in enumerate(op.args[1:]):
-                #print i, var,
+            if called_graph is None:
+                graphvars = [None] * len(op.args)
+            else:
+                graphvars = called_graph.getargs() + [called_graph.getreturnvar()]
+            for var, graphvar in zip(op.args[1:] + [op.result], graphvars):
                 varstate = adi.getstate(var)
                 if varstate is None:
                     #print "no varstate"
                     continue
                 if len(varstate.creation_points) == 1:
-                    crep = varstate.creation_points.keys()[0]
+                    crep, = varstate.creation_points
                     if crep not in interesting_creps:
                         #print "not interesting"
                         continue
@@ -81,16 +94,14 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
                         del interesting_creps[crep]
                         #print "graph not found"
                         continue
-                    if (called_graph, i) in seen:
-                        seen[(called_graph, i)][graph] = True
+                    if called_graph in seen:
+                        seen[called_graph][graph] = True
                         #print "seen already"
                     else:
                         #print "taking", crep
-                        seen[(called_graph, i)] = {graph: True}
-                        arg = called_graph.startblock.inputargs[i]
-                        argstate = adi.getstate(arg)
-                        argcrep = [c for c in argstate.creation_points
-                                    if c.creation_method == "arg"][0]
+                        seen[called_graph] = {graph: True}
+                        argstate = adi.getstate(graphvar)
+                        argcrep, = argstate.creation_points
                         interesting[argcrep] = True
             #print interesting
             if interesting:
@@ -104,21 +115,21 @@ def find_malloc_removal_candidates(t, graphs):
         if graph.startblock not in adi.flown_blocks:
             adi.schedule_function(graph)
             adi.complete()
+    malloc_graphs = malloc_like_graphs(adi)
     targetset = dict.fromkeys(graphs)
     caller_candidates = {}
     seen = {}
     for graph in adi.seen_graphs():
-        creps = find_malloc_creps(graph, adi, t)
-        #print "malloc creps", creps
+        creps = find_malloc_creps(graph, adi, t, malloc_graphs)
         if creps:
             find_calls_where_creps_go(creps, graph, adi, t, seen)
             if creps:
                 if graph in targetset:
                     caller_candidates[graph] = True
     callgraph = []
-    for (called_graph, i), callers in seen.iteritems():
+    for called_graph, callers in seen.iteritems():
         for caller in callers:
-            if caller in targetset:
+            if caller in targetset and called_graph in targetset:
                 callgraph.append((caller, called_graph))
             else:
                 log.inlineandremove.WARNING("would like to inline into"

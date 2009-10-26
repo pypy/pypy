@@ -54,7 +54,7 @@ def test_fn():
     assert caller_candidates == {graph: True}
     assert len(callgraph) == 1
     ggraph = graphof(t, g)
-    assert callgraph[graph] == {ggraph: True}
+    assert callgraph == {graph: {ggraph: True}}
 
 def test_multiple_calls():
     class A:
@@ -81,9 +81,48 @@ def test_multiple_calls():
     assert len(callgraph) == 1
     g1graph = graphof(t, g1)
     g2graph = graphof(t, g2)
-    assert callgraph[graph] == {g1graph: True}
+    assert callgraph == {graph: {g1graph: True}}
     callgraph, caller_candidates = check_inlining(t, graph, [0], 3 * 42)
-    assert callgraph[graph] == {g2graph: True}
+    assert callgraph == {graph: {g2graph: True}}
+
+def test_malloc_returns():
+    class A:
+        pass
+    def g(a):
+        return a.x
+    def h(x):
+        return x + 42
+    def make_a(x):
+        a = A()
+        a.x = x
+        return a
+    def fn(i):
+        a = make_a(h(i))
+        return g(a)
+    t, graph = rtype(fn, [int])
+    callgraph, caller_candidates = check_inlining(t, graph, [0], 42)
+    assert caller_candidates == {graph: True}
+    assert len(callgraph) == 1
+    ggraph = graphof(t, g)
+    makegraph = graphof(t, make_a)
+    assert callgraph == {graph: {ggraph: True, makegraph: True}}
+
+def test_tuple():
+    def f(x, y):
+        return h(x + 1, x * y)
+    def h(x, y):
+        return x, y
+
+    def g(x):
+        a, b = f(x, x*5)
+        return a + b
+    t, graph = rtype(g, [int])
+    callgraph, caller_candidates = check_inlining(t, graph, [2], 23)
+    assert caller_candidates == {graph: True}
+    assert len(callgraph) == 2
+    fgraph = graphof(t, f)
+    hgraph = graphof(t, h)
+    assert callgraph == {graph: {fgraph: True}, fgraph: {hgraph:  True}}
     
 def test_indirect_call():
     class A(object):
@@ -133,9 +172,21 @@ def test_pystone():
     assert total0 + total == 10
 
 def test_richards():
-    py.test.skip("Unsure if this makes any sense any more")
     from pypy.translator.goal.richards import entry_point
     t, graph = rtype(entry_point, [int])
     total0 = preparation(t, t.graphs)
     total = clever_inlining_and_malloc_removal(t)
     assert total0 + total == 9
+
+def test_loop():
+    l = [10, 12, 15, 1]
+    def f(x):
+        res = 0
+        for i in range(x):
+            res += i
+        for i in l:
+            res += i
+        return res
+    t, graph = rtype(f, [int])
+    total = clever_inlining_and_malloc_removal(t)
+    assert total == 3 # range, two iterators
