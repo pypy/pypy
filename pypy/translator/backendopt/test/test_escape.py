@@ -1,41 +1,22 @@
-from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, malloc_to_stack
-from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
-from pypy.rpython.llinterp import LLInterpreter
+from pypy.translator.interactive import Translation
+from pypy.translator.translator import graphof
+from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter
+from pypy.translator.backendopt.escape import malloc_like_graphs
 from pypy.rlib.objectmodel import instantiate
 from pypy import conftest
 
 import py
 
 def build_adi(function, types):
-    t = TranslationContext()
-    t.buildannotator().build_types(function, types)
-    t.buildrtyper().specialize()
+    t = Translation(function)
+    t.rtype(types)
     if conftest.option.view:
         t.view()
-    adi = AbstractDataFlowInterpreter(t)
-    graph = graphof(t, function)
+    adi = AbstractDataFlowInterpreter(t.context)
+    graph = graphof(t.context, function)
     adi.schedule_function(graph)
     adi.complete()
-    return t, adi, graph
-
-def check_malloc_removal(function, types, args, expected_result, must_remove=True):
-    t = TranslationContext()
-    t.buildannotator().build_types(function, types)
-    t.buildrtyper().specialize()
-    interp = LLInterpreter(t.rtyper)
-    graph = graphof(t, function)
-    res = interp.eval_graph(graph, args)
-    assert res == expected_result
-    malloc_to_stack(t)
-    if must_remove:
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if op.opname == "malloc":
-                    assert op.args[1].value['flavor'] == 'stack'
-    res = interp.eval_graph(graph, args)
-    assert res == expected_result
-    return t
+    return t.context, adi, graph
 
 def test_simple():
     class A(object):
@@ -47,9 +28,7 @@ def test_simple():
     t, adi, graph = build_adi(f, [])
     avar = graph.startblock.operations[0].result
     state = adi.getstate(avar)
-    assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert not crep.escapes
 
 def test_branch():
@@ -66,9 +45,7 @@ def test_branch():
     t, adi, graph = build_adi(fn2, [int, int])
     tvar = graph.startblock.operations[0].result
     state = adi.getstate(tvar)
-    assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert not crep.escapes
 
 def test_loop():
@@ -85,9 +62,7 @@ def test_loop():
     t, adi, graph = build_adi(f, [])
     avar = graph.startblock.operations[0].result
     state = adi.getstate(avar)
-    assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert not crep.escapes
     avarinloop = graph.startblock.exits[0].target.inputargs[1]
     state1 = adi.getstate(avarinloop)
@@ -106,8 +81,7 @@ def test_global():
     avar = graph.startblock.operations[0].result
     state = adi.getstate(avar)
     assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert crep.escapes
 
 def test_classattrs():
@@ -121,9 +95,7 @@ def test_classattrs():
     t, adi, graph = build_adi(fn5, [])
     bvar = graph.startblock.operations[0].result
     state = adi.getstate(bvar)
-    assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert not crep.escapes
 
 def test_aliasing():
@@ -144,8 +116,7 @@ def test_aliasing():
     avar = graph.startblock.exits[0].target.inputargs[1]
     state = adi.getstate(avar)
     assert len(state.creation_points) == 2
-    for crep in state.creation_points.keys():
-        assert crep.changes
+    for crep in state.creation_points:
         assert not crep.escapes
 
 def test_call():
@@ -161,15 +132,11 @@ def test_call():
     g_graph = graphof(t, g)
     bvar = g_graph.startblock.inputargs[0]
     bstate = adi.getstate(bvar)
-    assert len(bstate.creation_points) == 1
-    bcrep = bstate.creation_points.keys()[0]
-    assert not bcrep.changes
+    bcrep, = bstate.creation_points
     assert not bcrep.escapes
     avar = graph.startblock.operations[0].result
     astate = adi.getstate(avar)
-    assert len(astate.creation_points) == 1
-    acrep = astate.creation_points.keys()[0]
-    assert acrep.changes
+    acrep, = astate.creation_points
     assert not acrep.escapes
 
 def test_dependencies():
@@ -197,10 +164,6 @@ def test_dependencies():
     reallygraph = resizegraph.startblock.exits[0].target.operations[0].args[0].value._obj.graph
     reallyarg0 = reallygraph.startblock.inputargs[0]
     reallystate = adi.getstate(reallyarg0)
-    assert reallystate.does_change()
-    assert resizestate.does_change()
-    assert appendstate.does_change()
-    assert astate.does_change()
 
 def test_substruct():
     class A(object):
@@ -221,14 +184,10 @@ def test_substruct():
     b0var = graph.startblock.operations[3].result 
     a0state = adi.getstate(a0var)
     b0state = adi.getstate(b0var)
-    assert len(a0state.creation_points) == 1
-    a0crep = a0state.creation_points.keys()[0]
+    a0crep, = a0state.creation_points
     assert not a0crep.escapes
-    assert a0crep.changes
-    assert len(b0state.creation_points) == 1
-    b0crep = b0state.creation_points.keys()[0]
+    b0crep, = b0state.creation_points
     assert b0crep.escapes
-    assert b0crep.changes
 
 def test_multiple_calls():
     class A(object):
@@ -251,14 +210,11 @@ def test_multiple_calls():
     a1state = adi.getstate(a1var)
     a2state = adi.getstate(a2var)
     a3state = adi.getstate(a3var)
-    assert len(a1state.creation_points) == 1
-    assert len(a2state.creation_points) == 1
-    assert len(a3state.creation_points) == 1
-    a1crep = a1state.creation_points.keys()[0]
-    a2crep = a2state.creation_points.keys()[0]
-    a3crep = a3state.creation_points.keys()[0]
-    assert a1crep.changes and a2crep.changes and a3crep.changes
-    assert not a1crep.escapes and a2crep.escapes and a3crep.escapes
+    a1crep, = a1state.creation_points
+    a2crep, = a2state.creation_points
+    a3crep, = a3state.creation_points
+    assert not a1crep.escapes and not a2crep.escapes and not a3crep.escapes
+    assert not a1crep.returns and a2crep.returns and a3crep.returns
 
 def test_indirect_call():
     class A(object):
@@ -293,12 +249,9 @@ def test_indirect_call():
     a2var = graph.startblock.operations[3].result
     a1state = adi.getstate(a1var)
     a2state = adi.getstate(a2var)
-    assert len(a1state.creation_points) == 1
-    assert len(a2state.creation_points) == 1
-    a1crep = a1state.creation_points.keys()[0]
-    a2crep = a2state.creation_points.keys()[0]
-    assert a1crep.changes and a2crep.changes
-    assert not a1crep.escapes and a2crep.escapes
+    a1crep, = a1state.creation_points
+    a2crep, = a2state.creation_points
+    assert not a1crep.escapes and a2crep.returns
 
 def test_indirect_call_unknown_graphs():
     class A:
@@ -324,9 +277,7 @@ def test_getarray():
     t, adi, graph = build_adi(f, [])
     avar = graph.startblock.operations[0].result
     state = adi.getstate(avar)
-    assert len(state.creation_points) == 1
-    crep = state.creation_points.keys()[0]
-    assert crep.changes
+    crep, = state.creation_points
     assert crep.escapes
 
 def test_flow_blocksonce():
@@ -367,7 +318,6 @@ def test_getarraysubstruct():
     t, adi, graph = build_adi(createdict, [int, int])
     dvar = graph.startblock.operations[0].result
     dstate = adi.getstate(dvar)
-    assert dstate.does_change()
     assert not dstate.does_escape()
 
 def test_raise_escapes():
@@ -378,7 +328,18 @@ def test_raise_escapes():
     avar = graph.startblock.operations[0].result
     state = adi.getstate(avar)
     assert state.does_escape()
-    assert state.does_change()
+
+def test_return():
+    class A(object):
+        pass
+    def f():
+        a = A()
+        return a
+    t, adi, graph = build_adi(f, [])
+    avar = graph.startblock.operations[0].result
+    state = adi.getstate(avar)
+    assert not state.does_escape()
+    assert state.does_return()
 
 
 def test_big():
@@ -387,95 +348,23 @@ def test_big():
     # does not crash
     t, adi, graph = build_adi(entrypoint, [int])
 
-def test_extfunc_onheaparg():
-    py.test.skip("not a valid test anymore")
-    import os
-    def f(i):
-        s = str(i)
-        os.write(2, s)
-        return len(s)
-    t, adi, graph = build_adi(f, [int])
-    svar = graph.startblock.operations[0].result
-    state = adi.getstate(svar)
-    assert not state.does_escape()
-    assert state.does_change()
-    
-def test_extfunc_resultonheap():
-    py.test.skip("not a valid test anymore")
-    import os
-    def f(i):
-        s = str(i)
-        return len(s)
-    t, adi, graph = build_adi(f, [float])
-    svar = graph.startblock.operations[0].result
-    state = adi.getstate(svar)
-    assert not state.does_escape()
-
-
-
-#__________________________________________________________
-# malloc removal tests
-
-def test_remove_simple():
-    class A(object):
-        pass
-    def f():
-        a = A()
-        a.x = 1
-        return a.x
-    check_malloc_removal(f, [], [], 1)
-
-def test_remove_aliasing():
-    class A:
-        pass
-    def fn6(n):
-        a1 = A()
-        a1.x = 5
-        a2 = A()
-        a2.x = 6
-        if n > 0:
-            a = a1
-        else:
-            a = a2
-        a.x = 12
-        return a1.x
-    t = check_malloc_removal(fn6, [int], [2], 12)
-
-def test_remove_call():
-    class A(object):
-        pass
-    def g(b):
-        return b.i + 2
-    def f():
-        a = A()
-        a.i = 2
-        return g(a)
-    t = check_malloc_removal(f, [], [], 4)
-
-def test_dont_alloca_in_loops():
+def test_find_malloc_like_graphs():
     class A(object):
         pass
     def f(x):
-        result = 0
-        for i in range(x):
-            a = A()
-            a.i = i
-            result += a.i
-        return result
-    t = check_malloc_removal(f, [int], [3], 3, must_remove=False)
-    graph = graphof(t, f)
-    assert graph.startblock.exits[0].target.exits[0].target.operations[0].opname == "malloc"
-
-def test_dont_remove_del_objects():
-    class A(object):
-        def __del__(self):
-            pass
-    def f():
         a = A()
-        a.i = 1
-        return a.i        
-    t = check_malloc_removal(f, [], [], 1, must_remove=False)
-    graph = graphof(t, f)
-    assert graph.startblock.operations[0].opname == "malloc"
-   
+        a.x = x
+        return a
+
+    def g(a):
+        return a
+
+    def h(x):
+        return f(x + 1)
+    def main(x):
+        return f(x).x + g(h(x)).x
+
+    t, adi, graph = build_adi(main, [int])
+    graphs = malloc_like_graphs(adi)
+    assert [g.name for g in graphs] == ["f", "h"]
 

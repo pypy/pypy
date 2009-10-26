@@ -1,4 +1,3 @@
-from pypy.annotation.model import setunion
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
@@ -7,37 +6,31 @@ from pypy.translator.backendopt import support
 from pypy.tool.uid import uid
 
 class CreationPoint(object):
-    def __init__(self, creation_method, lltype):
-        self.changes = False
+    def __init__(self, creation_method, TYPE, op=None):
         self.escapes = False
+        self.returns = False
         self.creation_method = creation_method
         if creation_method == "constant":
-            self.changes = True
             self.escapes = True
-            self.malloced = False
-        self.lltype = lltype
+        self.TYPE = TYPE
+        self.op = op
 
     def __repr__(self):
-        return ("CreationPoint(<0x%x>, %r, %s, esc=%s, cha=%s)" %
-                (uid(self), self.lltype, self.creation_method, self.escapes, self.changes))
+        return ("CreationPoint(<0x%x>, %r, %s, esc=%s)" %
+                (uid(self), self.TYPE, self.creation_method, self.escapes))
 
 class VarState(object):
-    def __init__(self, crep=None):
-        self.creation_points = {}
-        if crep is not None:
-            self.creation_points[crep] = True
+    def __init__(self, *creps):
+        self.creation_points = set()
+        for crep in creps:
+            self.creation_points.add(crep)
 
     def contains(self, other):
-        for crep in other.creation_points:
-            if crep not in self.creation_points:
-                return False
-        return True
+        return other.creation_points.issubset(self.creation_points)
 
     def merge(self, other):
-        creation_points = setunion(self.creation_points, other.creation_points)
-        newstate = VarState()
-        newstate.creation_points = creation_points
-        return newstate
+        creation_points = self.creation_points.union(other.creation_points)
+        return VarState(*creation_points)
 
     def setescapes(self):
         changed = []
@@ -47,29 +40,28 @@ class VarState(object):
                 crep.escapes = True
         return changed
 
-    def setchanges(self):
+    def setreturns(self):
         changed = []
         for crep in self.creation_points:
-            if not crep.changes:
+            if not crep.returns:
                 changed.append(crep)
-                crep.changes = True
+                crep.returns = True
         return changed
-    
+
     def does_escape(self):
         for crep in self.creation_points:
             if crep.escapes:
                 return True
         return False
 
-    def does_change(self):
+    def does_return(self):
         for crep in self.creation_points:
-            if crep.changes:
+            if crep.returns:
                 return True
         return False
-    
+
     def __repr__(self):
-        crepsrepr = (", ".join([repr(crep) for crep in self.creation_points]), )
-        return "VarState({%s})" % crepsrepr
+        return "<VarState %s>" % (self.creation_points, )
 
 class AbstractDataFlowInterpreter(object):
     def __init__(self, translation_context):
@@ -108,15 +100,14 @@ class AbstractDataFlowInterpreter(object):
     def setstate(self, var, state):
         self.varstates[var] = state
     
-    def get_creationpoint(self, var, method="?"):
+    def get_creationpoint(self, var, method="?", op=None):
         if var in self.creationpoints:
             return self.creationpoints[var]
-        crep = CreationPoint(method, var.concretetype)
+        crep = CreationPoint(method, var.concretetype, op)
         self.creationpoints[var] = crep
         return crep
     
     def schedule_function(self, graph):
-        #print "scheduling function:", graph.name
         startblock = graph.startblock
         if graph in self.functionargs:
             args = self.functionargs[graph]
@@ -136,54 +127,39 @@ class AbstractDataFlowInterpreter(object):
         return resultstate, args
 
     def flow_block(self, block, graph):
-        #print "flowing in block %s of function %s" % (block, graph.name)
         self.flown_blocks[block] = True
         if block is graph.returnblock:
             if isonheap(block.inputargs[0]):
-                changed = self.getstate(block.inputargs[0]).setescapes()
-                self.handle_changed(changed)
+                self.returns(self.getstate(block.inputargs[0]))
             return
         if block is graph.exceptblock:
             if isonheap(block.inputargs[0]):
-                changed = self.getstate(block.inputargs[0]).setescapes()
-                self.handle_changed(changed)
+                self.escapes(self.getstate(block.inputargs[0]))
             if isonheap(block.inputargs[1]):
-                changed = self.getstate(block.inputargs[1]).setescapes()
-                self.handle_changed(changed)
+                self.escapes(self.getstate(block.inputargs[1]))
             return
         self.curr_block = block
         self.curr_graph = graph
-        #print "inputargs", self.getstates(block.inputargs)
         
         for op in block.operations:
             self.flow_operation(op)
-        #print "checking exits..."
         for exit in block.exits:
-            #print "exit", exit
             args = self.getstates(exit.args)
             targetargs = self.getstates(exit.target.inputargs)
-            #print "   newargs", args
-            #print "   targetargs", targetargs
-            # flow every block at least once:
+            # flow every block at least once
             if (multicontains(targetargs, args) and
                 exit.target in self.flown_blocks):
-                #print "   not necessary"
                 continue
-            #else:
-                #print "   scheduling for flowin"
             for prevstate, origstate, var in zip(args, targetargs,
                                                 exit.target.inputargs):
                 if not isonheap(var):
                     continue
                 newstate = prevstate.merge(origstate)
                 self.setstate(var, newstate)
-            #print "   args", self.getstates(exit.target.inputargs)
             self.scheduled[exit.target] = graph
 
     def flow_operation(self, op):
-        #print "handling", op
         args = self.getstates(op.args)
-        #print "args:", args
         opimpl = getattr(self, 'op_'+op.opname, None)
         if opimpl is not None:
             res = opimpl(op, *args)
@@ -194,17 +170,20 @@ class AbstractDataFlowInterpreter(object):
         if isonheap(op.result) or filter(None, args):
             for arg in args:
                 if arg is not None:
-                    changed = arg.setchanges()
-                    self.handle_changed(changed)
-                    changed = arg.setescapes()
-                    self.handle_changed(changed)
-            #raise NotImplementedError("can't handle %s" % (op.opname, ))
-            #print "assuming that '%s' is irrelevant" % op
+                    self.escapes(arg)
         
     def complete(self):
         while self.scheduled:
             block, graph = self.scheduled.popitem()
             self.flow_block(block, graph)
+
+    def escapes(self, arg):
+        changed = arg.setescapes()
+        self.handle_changed(changed)
+
+    def returns(self, arg):
+        changed = arg.setreturns()
+        self.handle_changed(changed)
 
     def handle_changed(self, changed):
         for crep in changed:
@@ -222,13 +201,10 @@ class AbstractDataFlowInterpreter(object):
     def register_state_dependency(self, state1, state2):
         "state1 depends on state2: if state2 does escape/change, so does state1"
         # change state1 according to how state2 is now
-        #print "registering dependency of %s on %s" % (state1, state2)
         if state2.does_escape():
-            changed = state1.setescapes()  # mark all crep's as escaping
-            self.handle_changed(changed)
-        if state2.does_change():
-            changed = state1.setchanges()  # mark all crep's as changing
-            self.handle_changed(changed)
+            self.escapes(state1)
+        if state2.does_return():
+            self.returns(state1)
         # register a dependency of the current block on state2:
         # that means that if state2 changes the current block will be reflown
         # triggering this function again and thus updating state1
@@ -242,14 +218,14 @@ class AbstractDataFlowInterpreter(object):
         flags = op.args[1].value
         if flags != {'flavor': 'gc'}:
             return NotImplemented
-        return VarState(self.get_creationpoint(op.result, "malloc"))
+        return VarState(self.get_creationpoint(op.result, "malloc", op))
 
     def op_malloc_varsize(self, op, typestate, flagsstate, lengthstate):
         assert flagsstate is None
         flags = op.args[1].value
         if flags != {'flavor': 'gc'}:
             return NotImplemented
-        return VarState(self.get_creationpoint(op.result, "malloc_varsize"))
+        return VarState(self.get_creationpoint(op.result, "malloc_varsize", op))
 
     def op_keepalive(self, op, state):
         return None
@@ -258,49 +234,26 @@ class AbstractDataFlowInterpreter(object):
         return state
     
     def op_setfield(self, op, objstate, fieldname, valuestate):
-        changed = objstate.setchanges()
-        self.handle_changed(changed)
         if valuestate is not None:
             # be pessimistic for now:
-            # everything that gets stored into a structure escapes and changes
-            self.handle_changed(changed)
-            changed = valuestate.setchanges()
-            self.handle_changed(changed)
-            changed = valuestate.setescapes()
-            self.handle_changed(changed)
+            # everything that gets stored into a structure escapes
+            self.escapes(valuestate)
         return None
 
     def op_setarrayitem(self, op, objstate, indexstate, valuestate):
-        changed = objstate.setchanges()
-        self.handle_changed(changed)
         if valuestate is not None:
-            # everything that gets stored into a structure escapes and changes
-            self.handle_changed(changed)
-            changed = valuestate.setchanges()
-            self.handle_changed(changed)
-            changed = valuestate.setescapes()
-            self.handle_changed(changed)
+            # everything that gets stored into a structure escapes
+            self.escapes(valuestate)
         return None
 
     def op_getarrayitem(self, op, objstate, indexstate):
         if isonheap(op.result):
-            return VarState(self.get_creationpoint(op.result, "getarrayitem"))
+            return VarState(self.get_creationpoint(op.result, "getarrayitem", op))
     
     def op_getfield(self, op, objstate, fieldname):
         if isonheap(op.result):
             # assume that getfield creates a new value
-            return VarState(self.get_creationpoint(op.result, "getfield"))
-
-    def op_getsubstruct(self, op, objstate, fieldname):
-        # since this is really an embedded struct, it has the same
-        # state, the same creationpoints, etc.
-        return objstate
-
-    def op_getarraysubstruct(self, op, arraystate, indexstate):
-        # since this is really a struct embedded somewhere in the array it has
-        # the same state, creationpoints, etc. in most cases the resulting
-        # pointer should not be used much anyway
-        return arraystate
+            return VarState(self.get_creationpoint(op.result, "getfield", op))
 
     def op_getarraysize(self, op, arraystate):
         pass
@@ -311,9 +264,8 @@ class AbstractDataFlowInterpreter(object):
             for arg in args:
                 if arg is None:
                     continue
-                # an external function can change every parameter:
-                changed = arg.setchanges()
-                self.handle_changed(changed)
+                # an external function can escape every parameter:
+                self.escapes(arg)
             funcargs = [None] * len(args)
         else:
             result, funcargs = self.schedule_function(graph)
@@ -326,7 +278,7 @@ class AbstractDataFlowInterpreter(object):
                 self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
             # assume that a call creates a new value
-            return VarState(self.get_creationpoint(op.result, "direct_call"))
+            return VarState(self.get_creationpoint(op.result, "direct_call", op))
 
     def op_indirect_call(self, op, function, *args):
         graphs = op.args[-1].value
@@ -335,10 +287,7 @@ class AbstractDataFlowInterpreter(object):
             for localarg in args:
                 if localarg is None:
                     continue
-                changed = localarg.setescapes()
-                self.handle_changed(changed)
-                changed = localarg.setchanges()
-                self.handle_changed(changed)
+                self.escapes(localarg)
         else:
             for graph in graphs:
                 result, funcargs = self.schedule_function(graph)
@@ -350,7 +299,7 @@ class AbstractDataFlowInterpreter(object):
                     self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
             # assume that a call creates a new value
-            return VarState(self.get_creationpoint(op.result, "indirect_call"))
+            return VarState(self.get_creationpoint(op.result, "indirect_call", op))
 
     def op_ptr_iszero(self, op, ptrstate):
         return None
@@ -377,35 +326,38 @@ def multicontains(l1, l2):
             return False
     return True
 
-def malloc_to_stack(t):
-    adi = AbstractDataFlowInterpreter(t)
-    for graph in t.graphs:
-        if graph.startblock not in adi.flown_blocks:
-            adi.schedule_function(graph)
-            adi.complete()
-    for graph in t.graphs:
-        loop_blocks = support.find_loop_blocks(graph)
-        for block, op in graph.iterblockops():
-            if op.opname != 'malloc':
-                continue
-            STRUCT = op.args[0].value
-            # must not remove mallocs of structures that have a RTTI with a destructor
-            try:
-                destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
-                if destr_ptr:
-                    continue
-            except (ValueError, AttributeError), e:
-                pass
-            varstate = adi.getstate(op.result)
-            assert len(varstate.creation_points) == 1
-            crep = varstate.creation_points.keys()[0]
-            if not crep.escapes:
-                if block not in loop_blocks:
-                    print "moving object from heap to stack %s in %s" % (op, graph.name)
-                    flags = op.args[1].value
-                    assert flags == {'flavor': 'gc'}
-                    op.args[1] = Constant({'flavor': 'stack'}, lltype.Void)
-                else:
-                    print "%s in %s is a non-escaping malloc in a loop" % (op, graph.name)
+
+def is_malloc_like(adi, graph, seen):
+    if graph in seen:
+        return seen[graph]
+    return_state = adi.getstate(graph.getreturnvar())
+    if return_state is None or len(return_state.creation_points) != 1:
+        seen[graph] = False
+        return False
+    crep, = return_state.creation_points
+    if crep.escapes:
+        seen[graph] = False
+        return False
+    if crep.creation_method in ["malloc", "malloc_varsize"]:
+        assert crep.returns
+        seen[graph] = True
+        return True
+    if crep.creation_method == "direct_call":
+        subgraph = get_graph(crep.op.args[0], adi.translation_context)
+        if subgraph is None:
+            seen[graph] = False
+            return False
+        res = is_malloc_like(adi, subgraph, seen)
+        seen[graph] = res
+        return res
+    seen[graph] = False
+    return False
+
+
+def malloc_like_graphs(adi):
+    seen = {}
+    return [graph for graph in adi.seen_graphs()
+        if is_malloc_like(adi, graph, seen)]
+
 
 
