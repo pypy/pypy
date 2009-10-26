@@ -7,6 +7,7 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
     num_graphs = 0
     num_blocks = 0
     num_ops = 0
+    num_mallocs = 0
     per_graph = {}
     while stack:
         graph = stack.pop()
@@ -16,6 +17,7 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
         num_graphs += 1
         old_num_blocks = num_blocks
         old_num_ops = num_ops
+        old_num_mallocs = num_mallocs
         for block in graph.iterblocks():
             num_blocks += 1
             for op in block.operations:
@@ -30,29 +32,34 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
                     called_graphs = op.args[-1].value
                     if called_graphs is not None:
                         stack.extend(called_graphs)
+                elif op.opname.startswith("malloc"):
+                    num_mallocs += 1
                 num_ops += 1
-        per_graph[graph] = (num_blocks-old_num_blocks, num_ops-old_num_ops)
+        per_graph[graph] = (num_blocks-old_num_blocks, num_ops-old_num_ops, num_mallocs-old_num_mallocs)
     if save_per_graph_details:
         details = []
-        for graph, (nblocks, nops) in per_graph.iteritems():
+        for graph, (nblocks, nops, nmallocs) in per_graph.iteritems():
             try:
                 code = graph.func.func_code.co_code
             except AttributeError:
                 code = "None"
             hash = md5(code).hexdigest()
-            details.append((hash, graph.name, nblocks, nops))
+            details.append((hash, graph.name, nblocks, nops, nmallocs))
         details.sort()
         f = open(save_per_graph_details, "w")
         try:
-            for hash, name, nblocks, nops in details:
-                print >>f, hash, name, nblocks, nops
+            for hash, name, nblocks, nops, nmallocs in details:
+                print >>f, hash, name, nblocks, nops, nmallocs
         finally:
             f.close()
-    return num_graphs, num_blocks, num_ops
+    return num_graphs, num_blocks, num_ops, num_mallocs
 
 def print_statistics(graph, translator, save_per_graph_details=None, ignore_stack_checks=False):
-    num_graphs, num_blocks, num_ops = get_statistics(graph, translator, save_per_graph_details,
-                                                     ignore_stack_checks=ignore_stack_checks)
+    num_graphs, num_blocks, num_ops, num_mallocs = get_statistics(
+            graph, translator, save_per_graph_details,
+            ignore_stack_checks=ignore_stack_checks)
     print ("Statistics:\nnumber of graphs %s\n"
            "number of blocks %s\n"
-           "number of operations %s\n") % (num_graphs, num_blocks, num_ops)
+           "number of operations %s\n"
+           "number of mallocs %s\n"
+           ) % (num_graphs, num_blocks, num_ops, num_mallocs)
