@@ -88,6 +88,10 @@ class CPU386(AbstractLLCPU):
         return CPU386.cast_adr_to_int(adr)
 
 
+class CPU386_NO_SSE2(CPU386):
+    supports_floats = False
+
+
 CPU = CPU386
 
 import pypy.jit.metainterp.executor

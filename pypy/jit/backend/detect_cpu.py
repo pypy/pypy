@@ -1,13 +1,14 @@
 """
 Processor auto-detection
 """
+import autopath
 import sys, os
 
 
 class ProcessorAutodetectError(Exception):
     pass
 
-def autodetect():
+def autodetect_main_model():
     mach = None
     try:
         import platform
@@ -40,11 +41,21 @@ def autodetect():
     except KeyError:
         raise ProcessorAutodetectError, "unsupported processor '%s'" % mach
 
+def autodetect():
+    model = autodetect_main_model()
+    if model in ('i386', 'x86'):
+        from pypy.jit.backend.x86.detect_sse2 import detect_sse2
+        if not detect_sse2():
+            model = 'x86-without-sse2'
+    return model
+
 def getcpuclass(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
     if backend_name in ('i386', 'x86'):
         from pypy.jit.backend.x86.runner import CPU
+    elif backend_name == 'x86-without-sse2':
+        from pypy.jit.backend.x86.runner import CPU386_NO_SSE2 as CPU
     elif backend_name == 'cli':
         from pypy.jit.backend.cli.runner import CliCPU as CPU
     elif backend_name == 'llvm':
