@@ -366,5 +366,5 @@ def test_find_malloc_like_graphs():
 
     t, adi, graph = build_adi(main, [int])
     graphs = malloc_like_graphs(adi)
-    assert [g.name for g in graphs] == ["f", "h"]
+    assert set([g.name for g in graphs]) == set(["f", "h"])
 
