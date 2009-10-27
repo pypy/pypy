@@ -27,7 +27,6 @@ translation_optiondescription = OptionDescription(
                  requires={
                      "ootype": [
                                 ("translation.backendopt.constfold", False),
-                                ("translation.backendopt.heap2stack", False),
                                 ("translation.backendopt.clever_malloc_removal", False),
                                 ("translation.gc", "boehm"), # it's not really used, but some jit code expects a value here
                                 ]
@@ -202,9 +201,6 @@ translation_optiondescription = OptionDescription(
         BoolOption("mallocs", "Remove mallocs", default=True),
         BoolOption("constfold", "Constant propagation",
                    default=True),
-        BoolOption("heap2stack", "Escape analysis and stack allocation",
-                   default=False,
-                   requires=[("translation.stackless", False)]),
         # control profile based inlining
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
