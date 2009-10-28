@@ -548,42 +548,8 @@ Escape Analysis and Stack Allocation
 
 Another technique to reduce the memory allocation penalty is to use stack
 allocation for objects that can be proved not to life longer than the stack
-frame they have been allocated in. If this is the case it is possible to
-allocate the object on the stack. This makes allocation faster, since stack
-allocation is just the increase of a pointer, and makes deallocation basically
-free since deallocation happens automatically when the function returns.
-Therefore we wrote an analysis, which analyses which malloc positions lead to
-mallocs which "escape" the current function, e.g. have references to them
-stored into a place where they can be accessed by something outside of the
-stack of frames starting with the frame where the malloc occured.
-
-For this we choose a naive, pessimistic approach. The analysis
-assumes that an object escapes if one of the following situation occurs:
-
-  * the object is returned
-  
-  * the object is raised as an exception
-  
-  * the object is stored into a field of any another object
-  
-The algorithm uses abstract interpretation together with a fix point search to
-find a solution.
-
-After using the escape analysis to find malloc sites that don't escape, we
-replace the mallocs by stack allocations. This cannot be done in all cases,
-namely if the allocated object is variable-sized or if the allocation occurs in
-a loop. Both cases should be avoided because they make stack overflows more
-likely. Also objects that have a finalizer cannot be allocated on the stack,
-since the finalizer might resurrect the object.
-
-The resulting performance improvements by this optimization were not as big
-we hoped. We think that this is due to the fact that the Boehm garbage
-collector becomes slower when the stack is bigger, thus compensating
-any speed improvement achieved by having faster allocation. We did not
-implement stack allocation with any of the other GCs that PyPy can
-use.
-
-Enable this optimization with :config:`translation.backendopt.heap2stack`.
+frame they have been allocated in.  This proved not to really gain us any
+speed, so over time it was removed again.
 
 
 The Stackless Transform
