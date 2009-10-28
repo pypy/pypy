@@ -16,7 +16,7 @@ class AppTestFunctionIntrospection:
         assert f.func_defaults == None
         assert f.func_dict == {}
         assert type(f.func_globals) == dict
-        #self.assertEquals(f.func_closure, None)  XXX
+        assert f.func_closure is None
         assert f.func_doc == None
         assert f.func_name == 'f'
         assert f.__module__ == 'mymodulename'
