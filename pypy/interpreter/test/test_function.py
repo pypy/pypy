@@ -70,6 +70,22 @@ class AppTestFunctionIntrospection:
         f = g(42)
         raises(TypeError, FuncType, f.func_code, f.func_globals, 'f2', None, None)
 
+    def test_write_code(self):
+        def f():
+            return 42
+        def g():
+            return 41
+        assert f() == 42
+        assert g() == 41
+        raises(TypeError, "f.func_code = 1")
+        f.func_code = g.func_code
+        assert f() == 41
+        def h():
+            return f() # a closure
+        raises(ValueError, "f.func_code = h.func_code")
+
+        
+
 class AppTestFunction: 
     def test_simple_call(self):
         def func(arg1, arg2):
