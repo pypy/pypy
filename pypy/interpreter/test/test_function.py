@@ -228,6 +228,14 @@ class AppTestFunction:
         a = A()
         assert a.ord('a') == 97
 
+    def test_builtin_as_special_method_is_not_bound(self):
+        class A(object):
+            __getattr__ = len
+        a = A()
+        assert a.a == 1
+        assert a.ab == 2
+        assert a.abcdefghij == 10
+
     def test_call_builtin(self):
         s = 'hello'
         raises(TypeError, len)
