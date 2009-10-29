@@ -91,6 +91,8 @@ class DescrOperation:
         descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
         if isinstance(descr, Function):
+            # the fastcall paths are purely for performance, but the resulting
+            # increase of speed is huge
             return descr.funccall(w_obj, *args_w)
         else:
             args = Arguments(space, list(args_w))
