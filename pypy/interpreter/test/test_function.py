@@ -221,6 +221,13 @@ class AppTestFunction:
         meth = func.__get__(obj, object)
         assert meth() == obj
 
+    def test_no_get_builtin(self):
+        assert not hasattr(dir, '__get__')
+        class A(object):
+            ord = ord
+        a = A()
+        assert a.ord('a') == 97
+
     def test_call_builtin(self):
         s = 'hello'
         raises(TypeError, len)
