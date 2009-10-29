@@ -90,8 +90,6 @@ TAGVIRTUAL  = 3
 UNASSIGNED = tag(-1, TAGBOX)
 NULLREF = tag(-1, TAGCONST)
 
-VIRTUAL_FLAG = int((sys.maxint+1) // 2)
-assert not (VIRTUAL_FLAG & (VIRTUAL_FLAG-1))    # a power of two
 
 class ResumeDataLoopMemo(object):
 
