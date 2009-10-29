@@ -16,6 +16,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, ClassMethod
+from pypy.interpreter.function import FunctionWithFixedCode
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, Signature
@@ -788,7 +789,7 @@ class GatewayCache(SpaceCache):
         space = cache.space
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
-        fn = Function(space, code, None, defs, forcename = gateway.name)
+        fn = FunctionWithFixedCode(space, code, None, defs, forcename = gateway.name)
         if not space.config.translating: # for tests and py.py
             fn._freeze_()
         if gateway.as_classmethod:

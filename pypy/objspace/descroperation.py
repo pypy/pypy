@@ -90,9 +90,7 @@ class DescrOperation:
     def get_and_call_function(space, w_descr, w_obj, *args_w):
         descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
-        if type(descr) is Function:
-            # the fastcall paths are purely for performance, but the resulting
-            # increase of speed is huge
+        if isinstance(descr, Function):
             return descr.funccall(w_obj, *args_w)
         else:
             args = Arguments(space, list(args_w))
