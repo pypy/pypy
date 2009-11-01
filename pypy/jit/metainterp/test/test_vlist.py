@@ -97,9 +97,9 @@ class ListTests:
         assert res == f(10)
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
 
-    @py.test.mark.xfail
     def test_vlist_alloc_and_set(self):
-        # this fails, because [non-null] * n is not supported yet
+        # the check_loops fails, because [non-null] * n is not supported yet
+        # (it is implemented as a residual call)
         jitdriver = JitDriver(greens = [], reds = ['n'])
         def f(n):
             l = [1] * 20
@@ -116,6 +116,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
+        py.test.skip("'[non-null] * n' gives a residual call so far")
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
         
     def test_append_pop(self):
