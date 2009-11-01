@@ -1,4 +1,4 @@
-
+import sys, time
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 def ll_assert(x, msg):
@@ -20,11 +20,40 @@ class Entry(ExtRegistryEntry):
         hop.genop('debug_assert', vlist)
 
 
+class DebugLog(list):
+    def debug_print(self, *args):
+        self.append(('debug_print',) + args)
+    def debug_start(self, category, time=None):
+        self.append(('debug_start', category, time))
+    def debug_stop(self, category, time=None):
+        for i in xrange(len(self)-1, -1, -1):
+            if self[i][0] == 'debug_start':
+                assert self[i][1] == category, (
+                    "nesting error: starts with %r but stops with %r" %
+                    (self[i][1], category))
+                starttime = self[i][2]
+                if starttime is not None or time is not None:
+                    self[i:] = [(category, starttime, time, self[i+1:])]
+                else:
+                    self[i:] = [(category, self[i+1:])]
+                return
+        assert False, ("nesting error: no start corresponding to stop %r" %
+                       (category,))
+    def __repr__(self):
+        import pprint
+        return pprint.pformat(list(self))
+
+_log = None       # patched from tests to be an object of class DebugLog
+                  # or compatible
+_stderr = sys.stderr   # alternatively, this is patched from tests
+                       # (redirects debug_print(), but not debug_start/stop)
+
 def debug_print(*args):
-    import sys
     for arg in args:
-        print >> sys.stderr, arg,
-    print >> sys.stderr
+        print >> _stderr, arg,
+    print >> _stderr
+    if _log is not None:
+        _log.debug_print(*args)
 
 class Entry(ExtRegistryEntry):
     _about_ = debug_print
@@ -35,7 +64,72 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         vlist = hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
-        hop.genop('debug_print', vlist)
+        t = hop.rtyper.annotator.translator
+        if t.config.translation.log:
+            hop.genop('debug_print', vlist)
+
+
+if sys.stderr.isatty():
+    _start_colors_1 = "\033[1m\033[31m"
+    _start_colors_2 = "\033[31m"
+    _stop_colors = "\033[0m"
+else:
+    _start_colors_1 = ""
+    _start_colors_2 = ""
+    _stop_colors = ""
+
+def debug_start(category):
+    print >> sys.stderr, '%s[%s] {%s%s' % (_start_colors_1, time.clock(),
+                                           category, _stop_colors)
+    if _log is not None:
+        _log.debug_start(category)
+
+def debug_stop(category):
+    print >> sys.stderr, '%s[%s] %s}%s' % (_start_colors_2, time.clock(),
+                                           category, _stop_colors)
+    if _log is not None:
+        _log.debug_stop(category)
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_start, debug_stop
+
+    def compute_result_annotation(self, s_category):
+        return None
+
+    def specialize_call(self, hop):
+        fn = self.instance
+        string_repr = hop.rtyper.type_system.rstr.string_repr
+        vlist = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
+        t = hop.rtyper.annotator.translator
+        if t.config.translation.log:
+            hop.genop(fn.__name__, vlist)
+
+
+def have_debug_prints():
+    # returns True if the next calls to debug_print show up,
+    # and False if they would not have any effect.
+    return True
+
+class Entry(ExtRegistryEntry):
+    _about_ = have_debug_prints
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        t = self.bookkeeper.annotator.translator
+        if t.config.translation.log:
+            return annmodel.s_Bool
+        else:
+            return self.bookkeeper.immutablevalue(False)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        t = hop.rtyper.annotator.translator
+        hop.exception_cannot_occur()
+        if t.config.translation.log:
+            return hop.genop('have_debug_prints', [], resulttype=lltype.Bool)
+        else:
+            return hop.inputconst(lltype.Bool, False)
 
 
 def llinterpcall(RESTYPE, pythonfunction, *args):

@@ -23,7 +23,7 @@ def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
     t = TranslationContext()
     # XXX XXX XXX mess
     t.config.translation.gc = gcname
-    t.config.translation.gcconfig.removetypeptr = True
+    t.config.translation.gcremovetypeptr = True
     if stacklessgc:
         t.config.translation.gcrootfinder = "stackless"
     t.config.set(**extraconfigopts)

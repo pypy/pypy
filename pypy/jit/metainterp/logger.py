@@ -1,48 +1,43 @@
 import os
-from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.debug import have_debug_prints
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
      BoxInt, ConstAddr, ConstFloat, BoxFloat, AbstractFailDescr
-from pypy.rlib.streamio import open_file_as_stream
 
 class Logger(object):
 
     def __init__(self, ts, guard_number=False):
-        self.log_stream = None
         self.ts = ts
         self.guard_number=guard_number
 
-    def create_log(self, extension='.ops'):
-        if self.log_stream is not None:
-            return self.log_stream        
-        s = os.environ.get('PYPYJITLOG')
-        if not s:
-            return None
-        s += extension
-        try:
-            self.log_stream = open_file_as_stream(s, 'w')
-        except OSError:
-            os.write(2, "could not create log file\n")
-            return None
-        return self.log_stream
-
     def log_loop(self, inputargs, operations, number=0, type=None):
-        if self.log_stream is None:
+        if not have_debug_prints():
             return
-        if type is not None:
-            self.log_stream.write("# Loop%d (%s), %d ops\n" % (number,
-                                                              type,
-                                                              len(operations)))
-        self._log_operations(inputargs, operations, {})
+        if type is None:
+            debug_start("jit-log-noopt-loop")
+            self._log_operations(inputargs, operations)
+            debug_stop("jit-log-noopt-loop")
+        else:
+            debug_start("jit-log-opt-loop")
+            debug_print("# Loop", number, ":", type,
+                        "with", len(operations), "ops")
+            self._log_operations(inputargs, operations)
+            debug_stop("jit-log-opt-loop")
 
     def log_bridge(self, inputargs, operations, number=-1):
-        if self.log_stream is None:
+        if not have_debug_prints():
             return
-        if number != -1:
-            self.log_stream.write("# bridge out of Guard%d, %d ops\n" % (number,
-                                                               len(operations)))
-        self._log_operations(inputargs, operations, {})
-        
+        if number == -1:
+            debug_start("jit-log-noopt-bridge")
+            self._log_operations(inputargs, operations)
+            debug_stop("jit-log-noopt-bridge")
+        else:
+            debug_start("jit-log-opt-bridge")
+            debug_print("# bridge out of Guard", number,
+                        "with", len(operations), "ops")
+            self._log_operations(inputargs, operations)
+            debug_stop("jit-log-opt-bridge")
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
@@ -70,15 +65,18 @@ class Logger(object):
         else:
             return '?'
 
-    def _log_operations(self, inputargs, operations, memo):
+    def _log_operations(self, inputargs, operations):
+        if not have_debug_prints():
+            return
+        memo = {}
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(memo, arg) for arg in inputargs])
-            self.log_stream.write('[' + args + ']\n')
+            debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
             if op.opnum == rop.DEBUG_MERGE_POINT:
                 loc = op.args[0]._get_str()
-                self.log_stream.write("debug_merge_point('%s')\n" % (loc,))
+                debug_print("debug_merge_point('%s')" % (loc,))
                 continue
             args = ", ".join([self.repr_of_arg(memo, arg) for arg in op.args])
             if op.result is not None:
@@ -99,6 +97,5 @@ class Logger(object):
                                               for arg in op.fail_args]) + ']'
             else:
                 fail_args = ''
-            self.log_stream.write(res + op.getopname() +
-                                  '(' + args + ')' + fail_args + '\n')
-        self.log_stream.flush()
+            debug_print(res + op.getopname() +
+                        '(' + args + ')' + fail_args)

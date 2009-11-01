@@ -714,6 +714,7 @@ class FunctionCodeGenerator(object):
         from pypy.rpython.lltypesystem.rstr import STR
         format = []
         argv = []
+        free_line = ""
         for arg in op.args:
             T = arg.concretetype
             if T == Ptr(STR):
@@ -722,6 +723,7 @@ class FunctionCodeGenerator(object):
                 else:
                     format.append('%s')
                     argv.append('RPyString_AsCharP(%s)' % self.expr(arg))
+                    free_line = "RPyString_FreeCache();"
                 continue
             elif T == Signed:
                 format.append('%d')
@@ -741,9 +743,22 @@ class FunctionCodeGenerator(object):
             else:
                 raise Exception("don't know how to debug_print %r" % (T,))
             argv.append(self.expr(arg))
-        return "fprintf(stderr, %s%s); RPyString_FreeCache();" % (
-            c_string_constant(' '.join(format) + '\n\000'),
-            ''.join([', ' + s for s in argv]))
+        argv.insert(0, c_string_constant(' '.join(format) + '\n'))
+        return (
+            "if (PYPY_HAVE_DEBUG_PRINTS) { fprintf(PYPY_DEBUG_FILE, %s); %s}"
+            % (', '.join(argv), free_line))
+
+    def OP_DEBUG_START(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant)
+        return "PYPY_DEBUG_START(%s);" % (
+            c_string_constant(''.join(arg.value.chars)),)
+
+    def OP_DEBUG_STOP(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant)
+        return "PYPY_DEBUG_STOP(%s);" % (
+            c_string_constant(''.join(arg.value.chars)),)
 
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),

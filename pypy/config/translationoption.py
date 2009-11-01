@@ -40,6 +40,9 @@ translation_optiondescription = OptionDescription(
                      },
                  cmdline="-b --backend"),
 
+    BoolOption("log", "Include debug prints in the translation (PYPYLOG=...)",
+               default=True, cmdline="--log"),
+
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "marksweep", "semispace", "statistics",
@@ -66,12 +69,8 @@ translation_optiondescription = OptionDescription(
                      "ref": [("translation.gcrootfinder", "n/a")],
                      "none": [("translation.gcrootfinder", "n/a")],
                  }),
-    OptionDescription("gcconfig", "Configure garbage collectors", [
-        BoolOption("debugprint", "Turn on debug printing for the GC",
-                   default=False),
-        BoolOption("removetypeptr", "Remove the typeptr from every object",
-                   default=False, cmdline="--gcremovetypeptr"),
-        ]),
+    BoolOption("gcremovetypeptr", "Remove the typeptr from every object",
+               default=False, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ["n/a", "shadowstack", "asmgcc"],
@@ -97,7 +96,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                requires=[("translation.thread", False),
-                         ("translation.gcconfig.removetypeptr", False)],
+                         ("translation.gcremovetypeptr", False)],
                suggests=[("translation.gc", "hybrid"),     # or "boehm"
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
@@ -359,7 +358,7 @@ def set_opt_level(config, level):
         elif word == 'jit':
             config.translation.suggest(jit=True)
         elif word == 'removetypeptr':
-            config.translation.gcconfig.suggest(removetypeptr=True)
+            config.translation.suggest(gcremovetypeptr=True)
         else:
             raise ValueError(word)
 

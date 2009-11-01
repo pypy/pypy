@@ -4,6 +4,8 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import rarithmetic
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.debug import have_debug_prints
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -177,10 +179,9 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(object):
 
-    def __init__(self, storage, memo, debug_storage=None):
+    def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
-        self.debug_storage = debug_storage
         #self.virtuals = []
         #self.vfieldboxes = []
 
@@ -256,8 +257,8 @@ class ResumeDataVirtualAdder(object):
         self._number_virtuals(liveboxes)
 
         storage.rd_consts = self.memo.consts
-        if self.debug_storage:
-            dump_storage(self.debug_storage, storage, liveboxes)
+        if have_debug_prints():
+            dump_storage(storage, liveboxes)
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes):
@@ -307,6 +308,13 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                                           self.fielddescrs[i],
                                           box, fieldbox)
 
+    def debug_prints(self):
+        assert len(self.fielddescrs) == len(self.fieldnums)
+        for i in range(len(self.fielddescrs)):
+            debug_print("\t\t",
+                        str(self.fielddescrs[i]),
+                        str(untag(self.fieldnums[i])))
+
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -316,11 +324,9 @@ class VirtualInfo(AbstractVirtualStructInfo):
         return metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
                                              None, self.known_class)
 
-    def repr_rpython(self):
-        return 'VirtualInfo("%s", %s, %s)' % (
-            self.known_class,
-            ['"%s"' % (fd,) for fd in self.fielddescrs],
-            [untag(i) for i in self.fieldnums])
+    def debug_prints(self):
+        debug_print("\tvirtualinfo", self.known_class.repr_rpython())
+        AbstractVirtualStructInfo.debug_prints(self)
 
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -330,11 +336,9 @@ class VStructInfo(AbstractVirtualStructInfo):
     def allocate(self, metainterp):
         return metainterp.execute_and_record(rop.NEW, self.typedescr)
 
-    def repr_rpython(self):
-        return 'VStructInfo("%s", %s, %s)' % (
-            self.typedescr,
-            ['"%s"' % (fd,) for fd in self.fielddescrs],
-            [untag(i) for i in self.fieldnums])
+    def debug_prints(self):
+        debug_print("\tvstructinfo", self.typedescr.repr_rpython())
+        AbstractVirtualStructInfo.debug_prints(self)
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -354,10 +358,10 @@ class VArrayInfo(AbstractVirtualInfo):
                                           self.arraydescr,
                                           box, ConstInt(i), itembox)
 
-    def repr_rpython(self):
-        return 'VArrayInfo("%s", %s)' % (
-            self.arraydescr,
-            [untag(i) for i in self.fieldnums])
+    def debug_prints(self):
+        debug_print("\tvarrayinfo", self.arraydescr)
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
 
 
 def rebuild_from_resumedata(metainterp, newboxes, storage, expects_virtualizables):
@@ -423,38 +427,31 @@ class ResumeDataReader(object):
 
 # ____________________________________________________________
 
-def dump_storage(logname, storage, liveboxes):
+def dump_storage(storage, liveboxes):
     "For profiling only."
-    import os
-    from pypy.rlib import objectmodel
-    assert logname is not None    # annotator hack
-    fd = os.open(logname, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0666)
-    os.write(fd, 'Log(%d, [\n' % objectmodel.compute_unique_id(storage))
+    from pypy.rlib.objectmodel import compute_unique_id
+    debug_start("jit-resume")
+    debug_print('Log storage', compute_unique_id(storage))
     frameinfo = storage.rd_frame_info_list
-    while True:
-        os.write(fd, '\t("%s", %d, %d) at %xd,\n' % (
-            frameinfo.jitcode, frameinfo.pc, frameinfo.exception_target,
-            objectmodel.compute_unique_id(frameinfo)))
+    while frameinfo is not None:
+        try:
+            jitcodename = frameinfo.jitcode.name
+        except AttributeError:
+            jitcodename = str(compute_unique_id(frameinfo.jitcode))
+        debug_print('\tjitcode/pc', jitcodename,
+                    frameinfo.pc, frameinfo.exception_target,
+                    'at', compute_unique_id(frameinfo))
         frameinfo = frameinfo.prev
-        if frameinfo is None:
-            break
-    os.write(fd, '\t],\n\t[\n')
     numb = storage.rd_numb
-    while True:
-        os.write(fd, '\t\t%s at %xd,\n' % ([untag(i) for i in numb.nums],
-                                           objectmodel.compute_unique_id(numb)))
+    while numb is not None:
+        debug_print('\tnumb', str([untag(i) for i in numb.nums]),
+                    'at', compute_unique_id(numb))
         numb = numb.prev
-        if numb is None:
-            break
-    os.write(fd, '\t], [\n')
     for const in storage.rd_consts:
-        os.write(fd, '\t"%s",\n' % (const.repr_rpython(),))
-    os.write(fd, '\t], [\n')
+        debug_print('\tconst', const.repr_rpython())
     for box in liveboxes:
-        os.write(fd, '\t"%s",\n' % (box.repr_rpython(),))
-    os.write(fd, '\t], [\n')
+        debug_print('\tbox', box.repr_rpython())
     if storage.rd_virtuals is not None:
         for virtual in storage.rd_virtuals:
-            os.write(fd, '\t%s,\n' % (virtual.repr_rpython(),))
-    os.write(fd, '\t])\n')
-    os.close(fd)
+            virtual.debug_prints()
+    debug_stop("jit-resume")

@@ -50,6 +50,10 @@
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
+/* Pentium only! */
+#define READ_TIMESTAMP(val) \
+     asm volatile("rdtsc" : "=A" (val))
+
 
 /* prototypes */
 

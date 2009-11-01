@@ -2,7 +2,8 @@ import py
 import sys, os, re
 
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.debug import ll_assert, debug_print
+from pypy.rlib.debug import ll_assert, have_debug_prints
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
@@ -11,9 +12,22 @@ from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 
 
-class TestStandalone(object):
+class StandaloneTests(object):
     config = None
-    
+
+    def compile(self, entry_point):
+        t = TranslationContext(self.config)
+        t.buildannotator().build_types(entry_point, [s_list_of_strings])
+        t.buildrtyper().specialize()
+
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+        cbuilder.generate_source()
+        cbuilder.compile()
+        return t, cbuilder
+
+
+class TestStandalone(StandaloneTests):
+
     def test_hello_world(self):
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -23,13 +37,7 @@ class TestStandalone(object):
                 os.write(1, "   '" + str(s) + "'\n")
             return 0
 
-        t = TranslationContext(self.config)
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
-        cbuilder.compile()
+        t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -43,13 +51,7 @@ class TestStandalone(object):
             print [len(s) for s in argv]
             return 0
 
-        t = TranslationContext(self.config)
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
-        cbuilder.compile()
+        t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello simpler world\n'''
                                '''argument count: 2\n'''
@@ -130,13 +132,7 @@ class TestStandalone(object):
             print m, x
             return 0
 
-        t = TranslationContext(self.config)
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
-        cbuilder.compile()
+        t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert map(float, data.split()) == [0.0, 0.0]
 
@@ -173,13 +169,8 @@ class TestStandalone(object):
                 os.setpgrp()
                 return 0
 
-            t = TranslationContext(self.config)
-            t.buildannotator().build_types(entry_point, [s_list_of_strings])
-            t.buildrtyper().specialize()
-
-            cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-            cbuilder.generate_source()
-            cbuilder.compile()
+            t, cbuilder = self.compile(entry_point)
+            cbuilder.cmdexec("")
 
 
     def test_profopt_mac_osx_bug(self):
@@ -223,12 +214,7 @@ class TestStandalone(object):
                 print "BAD POS"
             os.close(fd)
             return 0
-        t = TranslationContext(self.config)
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
-        cbuilder.compile()
+        t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.strip() == "OK"
 
@@ -269,6 +255,128 @@ class TestStandalone(object):
         assert "translator/c/src" not in makefile
         assert "  ll_strtod.h" in makefile
         assert "  ll_strtod.o" in makefile
+
+    def test_debug_print_start_stop(self):
+        def entry_point(argv):
+            x = "got:"
+            debug_start  ("mycat")
+            if have_debug_prints(): x += "b"
+            debug_print    ("foo", 2, "bar", 3)
+            debug_start      ("cat2")
+            if have_debug_prints(): x += "c"
+            debug_print        ("baz")
+            debug_stop       ("cat2")
+            if have_debug_prints(): x += "d"
+            debug_print    ("bok")
+            debug_stop   ("mycat")
+            if have_debug_prints(): x += "a"
+            debug_print("toplevel")
+            os.write(1, x + '.\n')
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        # check with PYPYLOG undefined
+        out, err = cbuilder.cmdexec("", err=True, env={})
+        assert out.strip() == 'got:a.'
+        assert 'toplevel' in err
+        assert 'mycat' not in err
+        assert 'foo 2 bar 3' not in err
+        assert 'cat2' not in err
+        assert 'baz' not in err
+        assert 'bok' not in err
+        # check with PYPYLOG defined to an empty string (same as undefined)
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
+        assert out.strip() == 'got:a.'
+        assert 'toplevel' in err
+        assert 'mycat' not in err
+        assert 'foo 2 bar 3' not in err
+        assert 'cat2' not in err
+        assert 'baz' not in err
+        assert 'bok' not in err
+        # check with PYPYLOG=:- (means print to stderr)
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
+        assert out.strip() == 'got:bcda.'
+        assert 'toplevel' in err
+        assert '{mycat' in err
+        assert 'mycat}' in err
+        assert 'foo 2 bar 3' in err
+        assert '{cat2' in err
+        assert 'cat2}' in err
+        assert 'baz' in err
+        assert 'bok' in err
+        # check with PYPYLOG=:somefilename
+        path = udir.join('test_debug_xxx.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': ':%s' % path})
+        assert out.strip() == 'got:bcda.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' in data
+        assert '{cat2' in data
+        assert 'cat2}' in data
+        assert 'baz' in data
+        assert 'bok' in data
+        # check with PYPYLOG=somefilename
+        path = udir.join('test_debug_xxx_prof.log')
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+        assert out.strip() == 'got:a.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' not in data
+        assert '{cat2' in data
+        assert 'cat2}' in data
+        assert 'baz' not in data
+        assert 'bok' not in data
+        # check with PYPYLOG=myc:somefilename   (includes mycat but not cat2)
+        path = udir.join('test_debug_xxx_myc.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': 'myc:%s' % path})
+        assert out.strip() == 'got:bda.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' in data
+        assert 'cat2' not in data
+        assert 'baz' not in data
+        assert 'bok' in data
+        # check with PYPYLOG=cat:somefilename   (includes cat2 but not mycat)
+        path = udir.join('test_debug_xxx_cat.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': 'cat:%s' % path})
+        assert out.strip() == 'got:a.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in path.read()
+        assert 'mycat' not in path.read()
+        assert 'foo 2 bar 3' not in path.read()
+        assert 'cat2' not in data      # because it is nested
+        assert 'baz' not in data
+        assert 'bok' not in data
+        #
+        # finally, check compiling with logging disabled
+        from pypy.config.pypyoption import get_pypy_config
+        config = get_pypy_config(translating=True)
+        config.translation.log = False
+        self.config = config
+        t, cbuilder = self.compile(entry_point)
+        path = udir.join('test_debug_does_not_show_up.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': ':%s' % path})
+        assert out.strip() == 'got:.'
+        assert not err
+        assert path.check(file=0)
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

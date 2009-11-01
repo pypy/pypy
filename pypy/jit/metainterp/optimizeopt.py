@@ -518,8 +518,7 @@ class Optimizer(object):
     def store_final_boxes_in_guard(self, op):
         descr = op.descr
         assert isinstance(descr, compile.ResumeGuardDescr)
-        modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo,
-                               self.metainterp_sd.globaldata.storedebug)
+        modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values)
         if len(newboxes) > self.metainterp_sd.options.failargs_limit:
             raise compile.GiveUp

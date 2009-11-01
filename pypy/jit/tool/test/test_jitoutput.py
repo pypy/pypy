@@ -51,8 +51,8 @@ def test_really_run():
 
 DATA = '''Tracing:         1       0.006992
 Backend:        1       0.000525
-Running asm:    1       0.016957
-Blackhole:      1       0.000233
+Running asm:            1
+Blackhole:              1
 TOTAL:                  0.025532
 ops:                    2
   calls:                1
@@ -75,9 +75,7 @@ def test_parse():
     assert info.tracing_no == 1
     assert info.tracing_time == 0.006992
     assert info.asm_no == 1
-    assert info.asm_time == 0.016957
     assert info.blackhole_no == 1
-    assert info.blackhole_time == 0.000233
     assert info.backend_no == 1
     assert info.backend_time == 0.000525
     assert info.ops.total == 2

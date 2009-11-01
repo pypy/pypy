@@ -1,5 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem import lltype, rclass
@@ -123,7 +124,8 @@ class VirtualTests:
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def externfn(node):
-            llop.debug_print(lltype.Void, node)
+            llop.debug_print(lltype.Void, compute_unique_id(node),
+                             node.value, node.extra)
             return node.value * 2
         def f(n):
             node = self._new()

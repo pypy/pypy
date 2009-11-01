@@ -8,7 +8,7 @@ from pypy.translator.platform.posix import GnuMakefile, BasePosix
 class Linux(BasePosix):
     name = "linux"
     
-    link_flags = ['-pthread']
+    link_flags = ['-pthread', '-lrt']
     cflags = ['-O3', '-pthread', '-fomit-frame-pointer']
     standalone_only = []
     shared_only = []

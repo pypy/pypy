@@ -2,10 +2,11 @@
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import TreeLoop, log, Box, History, LoopToken
+from pypy.jit.metainterp.history import TreeLoop, Box, History, LoopToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
@@ -92,11 +93,16 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     globaldata.loopnumbering += 1
 
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type)
-    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
         loop.check_consistency()
-    metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
+    metainterp_sd.profiler.start_backend()
+    debug_start("jit-backend")
+    try:
+        metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations,
+                                       loop.token)
+    finally:
+        debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
@@ -109,12 +115,16 @@ def send_loop_to_backend(metainterp_sd, loop, type):
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     n = faildescr.get_index()
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n)
-    metainterp_sd.profiler.start_backend()
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
         pass
-    metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations)        
+    metainterp_sd.profiler.start_backend()
+    debug_start("jit-backend")
+    try:
+        metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations)
+    finally:
+        debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
     if not we_are_translated():
         metainterp_sd.stats.compiled()

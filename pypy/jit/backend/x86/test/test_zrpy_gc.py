@@ -15,6 +15,7 @@ from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.x86.regalloc import X86StackManager
+from pypy.tool.udir import udir
 
 stack_pos = X86StackManager.stack_pos
 
@@ -77,7 +78,6 @@ def compile(f, gc, **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
-    t.config.translation.gcconfig.debugprint = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
@@ -92,7 +92,8 @@ def compile(f, gc, **kwds):
 
 def run(cbuilder, args=''):
     #
-    data = cbuilder.cmdexec(args)
+    pypylog = udir.join('test_zrpy_gc.log')
+    data = cbuilder.cmdexec(args, env={'PYPYLOG': str(pypylog)})
     return data.strip()
 
 def compile_and_run(f, gc, **kwds):
@@ -164,7 +165,9 @@ class TestCompileHybrid(object):
         cls.cbuilder = compile(get_entry(allfuncs), "hybrid", gcrootfinder="asmgcc", jit=True)
 
     def run(self, name, n=2000):
-        res = self.cbuilder.cmdexec("%s %d" %(name, n))
+        pypylog = udir.join('TestCompileHybrid.log')
+        res = self.cbuilder.cmdexec("%s %d" %(name, n),
+                                    env={'PYPYLOG': str(pypylog)})
         assert int(res) == 20
 
     def run_orig(self, name, n, x):

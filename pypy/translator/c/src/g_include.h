@@ -51,6 +51,7 @@
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
+#  include "src/debug.h"
 #ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_strtod.h"

@@ -3,17 +3,12 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
-from pypy.rlib.objectmodel import compute_hash
+from pypy.rlib.objectmodel import compute_hash, compute_unique_id
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.uid import uid
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-
-import py
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer('compiler')
-py.log.setconsumer('compiler', ansi_log)
 
 # ____________________________________________________________
 
@@ -69,14 +64,9 @@ def repr_object(box):
     except AttributeError:
         return box.value
 
-class ReprRPython:
-    def __init__(self):
-        self.seen = {}
-    def repr_rpython(self, box, typechars):
-        n = self.seen.setdefault(box, len(self.seen))
-        return '%s/%s%d' % (box._get_hash_(), typechars, n)
-
-repr_rpython = ReprRPython().repr_rpython
+def repr_rpython(box, typechars):
+    return '%s/%s%d' % (box._get_hash_(), typechars,
+                        compute_unique_id(box))
 
 
 class AbstractValue(object):

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, Box
@@ -875,12 +875,10 @@ class MIFrame(object):
         self.pc = pc
         self.exception_target = exception_target
         self.env = env
-        if self.metainterp.staticdata.state.debug_level >= DEBUG_DETAILED:
-            values = ' '.join([box.repr_rpython() for box in self.env])
-            log = self.metainterp.staticdata.log
-            log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
-                                                       self.pc, values,
-                                                       self.exception_target))
+        ##  values = ' '.join([box.repr_rpython() for box in self.env])
+        ##  log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
+        ##                                             self.pc, values,
+        ##                                             self.exception_target))
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -1020,16 +1018,13 @@ class MetaInterpStaticData(object):
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
         if not self.globaldata.initialized:
+            debug_print(self.jit_starting_line)
             self._setup_class_sizes()
             self.cpu.setup_once()
-            self.log(self.jit_starting_line)
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
             self.globaldata.initialized = True
-            self.logger_noopt.create_log('.noopt')
-            self.logger_ops.create_log('.ops')
-            self.globaldata.storedebug = os.environ.get('PYPYJITRESUMELOG')
 
     def _setup_class_sizes(self):
         class_sizes = {}
@@ -1081,12 +1076,8 @@ class MetaInterpStaticData(object):
 
     # ---------------- logging ------------------------
 
-    def log(self, msg, event_kind='info'):
-        if self.state.debug_level > DEBUG_PROFILE:
-            if not we_are_translated():
-                getattr(history.log, event_kind)(msg)
-            else:
-                debug_print(msg)
+    def log(self, msg):
+        debug_print(msg)
 
 # ____________________________________________________________
 
@@ -1138,12 +1129,6 @@ class MetaInterp(object):
 
     def is_blackholing(self):
         return self.history is None
-
-    def blackholing_text(self):
-        if self.history is None:
-            return " (BlackHole)"
-        else:
-            return ""
 
     def newframe(self, jitcode):
         if jitcode is self.staticdata.portal_code:
@@ -1336,9 +1321,11 @@ class MetaInterp(object):
             op.name = self.framestack[-1].jitcode.name
 
     def switch_to_blackhole(self):
+        debug_print('~~~ ABORTING TRACING')
+        debug_stop('jit-tracing')
+        debug_start('jit-blackhole')
         self.history = None   # start blackholing
         self.staticdata.stats.aborted()
-        self.staticdata.log('~~~ ABORTING TRACING', event_kind='event')
         self.staticdata.profiler.end_tracing()
         self.staticdata.profiler.start_blackhole()
 
@@ -1353,8 +1340,6 @@ class MetaInterp(object):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
         self.staticdata.stats.entered()
-        self.staticdata.log('~~~ ENTER' + self.blackholing_text(),
-                            event_kind='event')
         try:
             while True:
                 self.framestack[-1].run_one_step()
@@ -1366,8 +1351,6 @@ class MetaInterp(object):
                 self.staticdata.profiler.end_blackhole()
             else:
                 self.staticdata.profiler.end_tracing()
-            self.staticdata.log('~~~ LEAVE' + self.blackholing_text(),
-                                event_kind='event')
 
     def interpret(self):
         if we_are_translated():
@@ -1378,11 +1361,22 @@ class MetaInterp(object):
             except:
                 import sys
                 if sys.exc_info()[0] is not None:
-                    history.log.info(sys.exc_info()[0].__name__)
+                    codewriter.log.info(sys.exc_info()[0].__name__)
                 raise
 
     def compile_and_run_once(self, *args):
-        self.staticdata.log('Switching from interpreter to compiler')
+        debug_start('jit-tracing')
+        self.staticdata._setup_once()
+        self.create_empty_history()
+        try:
+            return self._compile_and_run_once(*args)
+        finally:
+            if self.history is None:
+                debug_stop('jit-blackhole')
+            else:
+                debug_stop('jit-tracing')
+
+    def _compile_and_run_once(self, *args):
         original_boxes = self.initialize_state_from_start(*args)
         self.current_merge_points = [(original_boxes, 0)]
         num_green_args = self.staticdata.num_green_args
@@ -1398,9 +1392,24 @@ class MetaInterp(object):
             return self.designate_target_loop(gmp)
 
     def handle_guard_failure(self, key):
-        from pypy.jit.metainterp.warmspot import ContinueRunningNormallyBase
         assert isinstance(key, compile.ResumeGuardDescr)
-        resumedescr = self.initialize_state_from_guard_failure(key)
+        warmrunnerstate = self.staticdata.state
+        must_compile = warmrunnerstate.must_compile_from_failure(key)
+        if must_compile:
+            debug_start('jit-tracing')
+        else:
+            debug_start('jit-blackhole')
+        self.initialize_state_from_guard_failure(key, must_compile)
+        try:
+            return self._handle_guard_failure(key)
+        finally:
+            if self.history is None:
+                debug_stop('jit-blackhole')
+            else:
+                debug_stop('jit-tracing')
+
+    def _handle_guard_failure(self, key):
+        from pypy.jit.metainterp.warmspot import ContinueRunningNormallyBase
         original_greenkey = key.original_greenkey
         # notice that here we just put the greenkey
         # use -1 to mark that we will have to give up
@@ -1418,7 +1427,7 @@ class MetaInterp(object):
         except ContinueRunningNormallyBase:
             if not started_as_blackhole:
                 warmrunnerstate = self.staticdata.state
-                warmrunnerstate.reset_counter_from_failure(resumedescr)
+                warmrunnerstate.reset_counter_from_failure(key)
             raise
 
     def forget_consts(self, boxes, startindex=0):
@@ -1580,9 +1589,7 @@ class MetaInterp(object):
 
     def initialize_state_from_start(self, *args):
         self.in_recursion = -1 # always one portal around
-        self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
-        self.create_empty_history()
         num_green_args = self.staticdata.num_green_args
         original_boxes = []
         self._initialize_from_start(original_boxes, num_green_args, *args)
@@ -1594,12 +1601,11 @@ class MetaInterp(object):
         self.initialize_virtualizable(original_boxes)
         return original_boxes
 
-    def initialize_state_from_guard_failure(self, resumedescr):
+    def initialize_state_from_guard_failure(self, resumedescr, must_compile):
         # guard failure: rebuild a complete MIFrame stack
         self.in_recursion = -1 # always one portal around
         inputargs = self.load_values_from_failure(resumedescr)
         warmrunnerstate = self.staticdata.state
-        must_compile = warmrunnerstate.must_compile_from_failure(resumedescr)
         if must_compile:
             self.history = history.History(self.cpu)
             self.history.inputargs = inputargs
@@ -1608,7 +1614,6 @@ class MetaInterp(object):
             self.staticdata.profiler.start_blackhole()
             self.history = None   # this means that is_blackholing() is true
         self.rebuild_state_after_failure(resumedescr, inputargs)
-        return resumedescr
 
     def load_values_from_failure(self, resumedescr):
         cpu = self.cpu

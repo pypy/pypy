@@ -1,4 +1,5 @@
-
+import sys
+from pypy.rlib import debug
 from pypy.jit.metainterp.test.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
@@ -9,12 +10,20 @@ from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
 class Descr(AbstractDescr):
     pass
 
+def capturing(func, *args, **kwds):
+    log_stream = StringIO()
+    debug._stderr = log_stream
+    try:
+        func(*args, **kwds)
+    finally:
+        debug._stderr = sys.stderr
+    return log_stream.getvalue()
+
 class Logger(logger.Logger):
     def log_loop(self, loop, namespace={}):
-        self.log_stream = StringIO()
         self.namespace = namespace
-        logger.Logger.log_loop(self, loop.inputargs, loop.operations)
-        return self.log_stream.getvalue()
+        return capturing(logger.Logger.log_loop, self,
+                         loop.inputargs, loop.operations)
 
     def repr_of_descr(self, descr):
         for k, v in self.namespace.items():
@@ -116,16 +125,12 @@ class TestLogger(object):
 
     def test_intro_loop(self):
         bare_logger = logger.Logger(self.ts)
-        bare_logger.log_stream = StringIO()
-        bare_logger.log_loop([], [], 1, "foo")
-        output = bare_logger.log_stream.getvalue()
-        assert output.splitlines()[0] == "# Loop1 (foo), 0 ops"
+        output = capturing(bare_logger.log_loop, [], [], 1, "foo")
+        assert output.splitlines()[0] == "# Loop 1 : foo with 0 ops"
         pure_parse(output)
 
     def test_intro_bridge(self):
         bare_logger = logger.Logger(self.ts)
-        bare_logger.log_stream = StringIO()
-        bare_logger.log_bridge([], [], 3)
-        output = bare_logger.log_stream.getvalue()
-        assert output.splitlines()[0] == "# bridge out of Guard3, 0 ops"        
+        output = capturing(bare_logger.log_bridge, [], [], 3)
+        assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)

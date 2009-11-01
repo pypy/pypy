@@ -39,8 +39,7 @@ class TestUsingFramework(object):
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
-                        removetypeptr=cls.removetypeptr,
-                        debugprint=True)
+                        gcremovetypeptr=cls.removetypeptr)
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()

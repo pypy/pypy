@@ -77,8 +77,9 @@ def contains_unsupported_variable_type(graph, supports_floats):
                     getkind(v.concretetype, supports_floats)
                 getkind(op.result.concretetype, supports_floats)
     except NotImplementedError, e:
-        history.log.WARNING('%s, ignoring graph' % (e,))
-        history.log.WARNING('  %s' % (graph,))
+        from pypy.jit.metainterp.codewriter import log
+        log.WARNING('%s, ignoring graph' % (e,))
+        log.WARNING('  %s' % (graph,))
         return True
     return False
 

@@ -6,9 +6,11 @@ from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
 
 class FakeProfiler(Profiler):
-    def __init__(self):
+    def start(self):
         self.counter = 123456
+        Profiler.start(self)
         self.events = []
+        self.times = [0, 0, 0, 0]
     
     def timer(self):
         self.counter += 1
@@ -21,6 +23,12 @@ class FakeProfiler(Profiler):
     def _end(self, event):
         Profiler._end(self, event)
         self.events.append(~event)
+
+    def start_running(self):   self._start(RUNNING)
+    def end_running(self):     self._end(RUNNING)
+
+    def start_blackhole(self): self._start(BLACKHOLE)
+    def end_blackhole(self):   self._end(BLACKHOLE)
 
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):

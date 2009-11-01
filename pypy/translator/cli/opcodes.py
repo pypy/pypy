@@ -1,7 +1,8 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, DebugPrint
+     TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, \
+     DebugPrint, HaveDebugPrints
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
@@ -77,6 +78,9 @@ misc_ops = {
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
     'debug_print':              [DebugPrint],
+    'debug_start':              Ignore,
+    'debug_stop':               Ignore,
+    'have_debug_prints':        [HaveDebugPrints],
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Utils::debug_fatalerror(string)'],
     'keepalive':                Ignore,
     'jit_marker':               Ignore,

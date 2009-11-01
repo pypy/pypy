@@ -130,7 +130,7 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
         else:
-            if translator.config.translation.gcconfig.removetypeptr:
+            if translator.config.translation.gcremovetypeptr:
                 lltype2vtable = translator.rtyper.lltype2vtable
             else:
                 lltype2vtable = {}
@@ -888,7 +888,7 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_getfield(self, hop):
         if (hop.spaceop.args[1].value == 'typeptr' and
             hop.spaceop.args[0].concretetype.TO._hints.get('typeptr') and
-            self.translator.config.translation.gcconfig.removetypeptr):
+            self.translator.config.translation.gcremovetypeptr):
             self.transform_getfield_typeptr(hop)
         else:
             GCTransformer.gct_getfield(self, hop)
@@ -896,7 +896,7 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_setfield(self, hop):
         if (hop.spaceop.args[1].value == 'typeptr' and
             hop.spaceop.args[0].concretetype.TO._hints.get('typeptr') and
-            self.translator.config.translation.gcconfig.removetypeptr):
+            self.translator.config.translation.gcremovetypeptr):
             self.transform_setfield_typeptr(hop)
         else:
             GCTransformer.gct_setfield(self, hop)
@@ -995,7 +995,7 @@ class JITTransformerLayoutBuilder(TransformerLayoutBuilder):
     def __init__(self, config):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
         try:
-            assert not config.translation.gcconfig.removetypeptr
+            assert not config.translation.gcremovetypeptr
         except AttributeError:    # for some tests
             pass
         GCClass, _ = choose_gc_from_config(config)

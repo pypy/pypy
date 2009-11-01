@@ -3,6 +3,7 @@ import math
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import opimpls
+from pypy.rlib import debug
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -411,10 +412,26 @@ def op_getarrayitem(p, index):
         raise TypeError("cannot fold getfield on mutable array")
     return p[index]
 
+def _normalize(x):
+    if not isinstance(x, str):
+        TYPE = lltype.typeOf(x)
+        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
+            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+            from pypy.rpython.annlowlevel import hlstr
+            return hlstr(x)
+    return x
+
 def op_debug_print(*args):
-    for arg in args:
-        print arg,
-    print
+    debug.debug_print(*map(_normalize, args))
+
+def op_debug_start(category):
+    debug.debug_start(_normalize(category))
+
+def op_debug_stop(category):
+    debug.debug_stop(_normalize(category))
+
+def op_have_debug_prints():
+    return debug.have_debug_prints()
 
 def op_gc_stack_bottom():
     pass       # marker for trackgcroot.py

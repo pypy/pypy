@@ -8,7 +8,9 @@ from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 from pypy.jit.metainterp import executor
 
 class Storage:
-    pass
+    rd_frame_info_list = None
+    rd_numb = None
+    rd_consts = []
 
 def test_tag():
     assert tag(3, 1) == rffi.r_short(3<<2|1)
@@ -591,6 +593,7 @@ def make_storage(b1, b2, b3):
     snapshot = Snapshot(snapshot, [ConstInt(2), ConstInt(3)])
     snapshot = Snapshot(snapshot, [b1, b2, b3])    
     storage.rd_snapshot = snapshot
+    storage.rd_frame_info_list = None
     return storage
 
 def test_virtual_adder_int_constants():
@@ -761,6 +764,7 @@ def test_virtual_adder_make_varray():
                          [b4s, c1s])   # new fields
     liveboxes = []
     modifier._number_virtuals(liveboxes)
+    dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     # resume
@@ -807,6 +811,7 @@ def test_virtual_adder_make_vstruct():
                           [c1s, b4s])   # new fields
     liveboxes = []
     modifier._number_virtuals(liveboxes)
+    dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     b4t = BoxPtr()

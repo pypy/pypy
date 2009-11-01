@@ -131,6 +131,7 @@ class WarmspotTests(object):
         assert warmrunnerdescr.state.optimize_bridge is optimize.optimize_bridge
 
     def test_static_debug_level(self):
+        py.test.skip("debug_level is being deprecated")
         from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
         from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
         
@@ -177,6 +178,7 @@ class WarmspotTests(object):
         assert not "Running asm" in err
 
     def test_set_param_debug(self):
+        py.test.skip("debug_level is being deprecated")
         from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
         from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
         

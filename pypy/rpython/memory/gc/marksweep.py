@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.memory.gc.base import GCBase
 
 
@@ -242,8 +243,7 @@ class MarkSweepGC(GCBase):
         #    call __del__, move the object to the list of object-without-del
         import time
         from pypy.rpython.lltypesystem.lloperation import llop
-        if self.config.gcconfig.debugprint:
-            llop.debug_print(lltype.Void, 'collecting...')
+        debug_start("gc-collect")
         start_time = time.time()
         self.collect_in_progress = True
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -406,31 +406,22 @@ class MarkSweepGC(GCBase):
                                             256 * 1024 * 1024)
         self.total_collection_time += collect_time
         self.prev_collect_end_time = end_time
-        if self.config.gcconfig.debugprint:
-            llop.debug_print(lltype.Void,
-                             "  malloced since previous collection:",
-                             old_malloced, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  heap usage at start of collection: ",
-                             self.heap_usage + old_malloced, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  freed:                             ",
-                             freed_size, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  new heap usage:                    ",
-                             curr_heap_size, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  total time spent collecting:       ",
-                             self.total_collection_time, "seconds")
-            llop.debug_print(lltype.Void,
-                             "  collecting time:                   ",
-                             collect_time)
-            llop.debug_print(lltype.Void,
-                             "  computing time:                    ",
-                             collect_time)
-            llop.debug_print(lltype.Void,
-                             "  new threshold:                     ",
-                             self.bytes_malloced_threshold)
+        debug_print("  malloced since previous collection:",
+                    old_malloced, "bytes")
+        debug_print("  heap usage at start of collection: ",
+                    self.heap_usage + old_malloced, "bytes")
+        debug_print("  freed:                             ",
+                    freed_size, "bytes")
+        debug_print("  new heap usage:                    ",
+                    curr_heap_size, "bytes")
+        debug_print("  total time spent collecting:       ",
+                    self.total_collection_time, "seconds")
+        debug_print("  collecting time:                   ",
+                    collect_time)
+        debug_print("  computing time:                    ",
+                    collect_time)
+        debug_print("  new threshold:                     ",
+                    self.bytes_malloced_threshold)
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
@@ -463,8 +454,9 @@ class MarkSweepGC(GCBase):
                 #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
                 finalizer(obj)
                 if not self.collect_in_progress: # another collection was caused?
-                    llop.debug_print(lltype.Void, "outer collect interrupted "
-                                                  "by recursive collect")
+                    debug_print("outer collect interrupted "
+                                "by recursive collect")
+                    debug_stop("gc-collect")
                     return
                 if not last:
                     if self.malloced_objects_with_finalizer == next:
@@ -480,6 +472,7 @@ class MarkSweepGC(GCBase):
                     last.next = lltype.nullptr(self.HDR)
             hdr = next
         self.collect_in_progress = False
+        debug_stop("gc-collect")
 
     def _mark_root(self, root):   # 'root' is the address of the GCPTR
         gcobjectaddr = root.address[0]

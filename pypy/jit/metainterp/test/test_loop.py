@@ -594,25 +594,6 @@ class LoopTest(object):
 
         res = self.meta_interp(f, [200])
 
-    def test_dump_storage(self):
-        import os
-        from pypy.tool.udir import udir
-        logfile = udir.join('resume.log')
-        os.environ['PYPYJITRESUMELOG'] = str(logfile)
-        try:
-            jitdriver = JitDriver(greens = [], reds = ['i', 'n'])
-
-            def f(n):
-                i = 0
-                while i < n:
-                    jitdriver.can_enter_jit(n=n, i=i)
-                    jitdriver.jit_merge_point(n=n, i=i)
-                    i += 1
-                return i
-            res = self.meta_interp(f, [10])
-            data = logfile.read() # assert did not crash
-        finally:
-            del os.environ['PYPYJITRESUMELOG']
 
 class TestOOtype(LoopTest, OOJitMixin):
     pass

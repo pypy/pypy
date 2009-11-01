@@ -219,8 +219,7 @@ class TypeLayoutBuilder(object):
             type_id = self.type_info_group.add_member(fullinfo)
             self.id_of_type[TYPE] = type_id
             # store the vtable of the type (if any) immediately thereafter
-            # (note that if gcconfig.removetypeptr is False, lltype2vtable
-            # is empty)
+            # (note that if gcremovetypeptr is False, lltype2vtable is empty)
             vtable = self.lltype2vtable.get(TYPE, None)
             if vtable is not None:
                 # check that if we have a vtable, we are not varsize

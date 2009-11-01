@@ -352,7 +352,7 @@ class FrameworkGcPolicy(BasicGcPolicy):
 
     def need_no_typeptr(self):
         config = self.db.translator.config
-        return config.translation.gcconfig.removetypeptr
+        return config.translation.gcremovetypeptr
 
     def OP_GC_GETTYPEPTR_GROUP(self, funcgen, op):
         # expands to a number of steps, as per rpython/lltypesystem/opimpl.py,

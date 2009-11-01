@@ -10,6 +10,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.jit import DEBUG_PROFILE
 from pypy.rlib.jit import BaseJitCell
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.jit.metainterp import support, history
 
 # ____________________________________________________________
@@ -229,7 +230,9 @@ class WarmEnterState(object):
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
+                debug_start("jit-running")
                 fail_index = metainterp_sd.cpu.execute_token(loop_token)
+                debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
                 fail_descr = globaldata.get_fail_descr_from_number(fail_index)
                 loop_token = fail_descr.handle_fail(metainterp_sd)

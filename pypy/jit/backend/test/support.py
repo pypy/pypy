@@ -1,6 +1,6 @@
 import py
 import sys
-from pypy.jit.metainterp.history import log
+from pypy.rlib.debug import debug_print
 from pypy.translator.translator import TranslationContext
 
 class BaseCompiledMixin(object):
@@ -119,10 +119,10 @@ class CCompiledMixin(BaseCompiledMixin):
         cbuilder = CBuilder(t, entry_point, config=t.config)
         cbuilder.generate_source()
         exe_name = cbuilder.compile()
-        log('---------- Test starting ----------')
+        debug_print('---------- Test starting ----------')
         stdout = cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
         res = int(stdout)
-        log('---------- Test done (%d) ----------' % (res,))
+        debug_print('---------- Test done (%d) ----------' % (res,))
         return res
 
 class CliCompiledMixin(BaseCompiledMixin):

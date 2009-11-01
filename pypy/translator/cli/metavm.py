@@ -270,6 +270,10 @@ class _DebugPrint(MicroInstruction):
 
         generator.ilasm.call('void [pypylib]pypy.runtime.Utils::debug_print(%s)' % signature)
 
+class _HaveDebugPrints(MicroInstruction):
+    def render(self, generator, op):
+        generator.ilasm.load_const(ootype.Bool, True)
+
 
 OOTYPE_TO_MNEMONIC = {
     ootype.Bool: 'i1', 
@@ -306,3 +310,4 @@ GetStaticField = _GetStaticField()
 SetStaticField = _SetStaticField()
 CastPrimitive = _CastPrimitive()
 DebugPrint = _DebugPrint()
+HaveDebugPrints = _HaveDebugPrints()

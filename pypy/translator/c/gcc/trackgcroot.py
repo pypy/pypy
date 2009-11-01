@@ -588,7 +588,7 @@ class FunctionGcRootTracker(object):
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
-        'bswap', 'bt',
+        'bswap', 'bt', 'rdtsc',
         # zero-extending moves should not produce GC pointers
         'movz',
         ])
@@ -1297,6 +1297,7 @@ if __name__ == '__main__':
         f = open(fn, 'r')
         firstline = f.readline()
         f.seek(0)
+        assert firstline, "file %r is empty!" % (fn,)
         if firstline.startswith('seen_main = '):
             tracker.reload_raw_table(f)
             f.close()
