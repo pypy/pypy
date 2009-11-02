@@ -39,6 +39,20 @@ def parse_log_file(filename):
     f.close()
     return log
 
+def extract_category(log, catprefix='', toplevel=False):
+    got = []
+    resulttext = []
+    for entry in log:
+        if entry[0] == 'debug_print':
+            resulttext.append(entry[1])
+        else:
+            got.extend(extract_category(
+                entry[3], catprefix, toplevel=entry[0].startswith(catprefix)))
+    if toplevel:
+        resulttext.append('')
+        got.insert(0, '\n'.join(resulttext))
+    return got
+
 def getsubcategories(log):
     return [entry for entry in log if entry[0] != 'debug_print']
 
