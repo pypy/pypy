@@ -252,8 +252,7 @@ class PyPyCJITTests(object):
         assert len(callisinstance.get_opnames("guard")) <= 2
 
         bytecode, = self.get_by_bytecode("STORE_ATTR")
-        # XXX where does that come from?
-        assert bytecode.get_opnames() == ["getfield_gc", "guard_value"]
+        assert bytecode.get_opnames() == []
 
     def test_mixed_type_loop(self):
         self.run_source('''
@@ -272,7 +271,28 @@ class PyPyCJITTests(object):
         bytecode, = self.get_by_bytecode("BINARY_ADD")
         assert not bytecode.get_opnames("call")
         assert not bytecode.get_opnames("new")
-        assert len(bytecode.get_opnames("guard")) <= 3
+        assert len(bytecode.get_opnames("guard")) <= 2
+
+    def test_call_builtin_function(self):
+        self.run_source('''
+            class A(object):
+                pass
+            def main(n):
+                i = 2
+                l = []
+                while i < n:
+                    i += 1
+                    l.append(i)
+                return i, len(l)
+        ''',
+                   ([20], (20, 18)),
+                   ([31], (31, 29)))
+
+        bytecode, = self.get_by_bytecode("CALL_METHOD")
+        assert len(bytecode.get_opnames("new_with_vtable")) == 1 # the forcing of the int
+        assert len(bytecode.get_opnames("call")) == 1 # the call to append
+        assert len(bytecode.get_opnames("guard")) == 1 # guard_no_exception after the call
+
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
@@ -288,7 +308,7 @@ class AppTestJIT(PyPyCJITTests):
 class TestJIT(PyPyCJITTests):
     def setup_class(cls):
         if option.pypy_c is None:
-            py.test.skip("pass --pypy-c!")
+            py.test.skip("pass --pypy!")
         cls.tmpdir = udir.join('pypy-jit')
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0

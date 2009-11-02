@@ -84,7 +84,12 @@ class AppTestFunctionIntrospection:
             return f() # a closure
         raises(ValueError, "f.func_code = h.func_code")
 
-        
+    def test_write_code_builtin_forbidden(self):
+        def f(*args):
+            return 42
+            raises(TypeError, "dir.func_code = f.func_code")
+            raises(TypeError, "list.append.im_func.func_code = f.func_code") 
+
 
 class AppTestFunction: 
     def test_simple_call(self):

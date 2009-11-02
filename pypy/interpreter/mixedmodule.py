@@ -56,7 +56,14 @@ class MixedModule(Module):
                 #print "loaded", w_value 
                 # obscure
                 func = space.interpclass_w(w_value)
-                if type(func) is Function:
+                # the idea of the following code is that all functions that are
+                # directly in a mixed-module are "builtin", e.g. they get a
+                # special type without a __get__
+                # note that this is not just all functions that contain a
+                # builtin code object, as e.g. methods of builtin types have to
+                # be normal Functions to get the correct binding behaviour
+                if (isinstance(func, Function) and
+                    type(func) is not BuiltinFunction):
                     try:
                         bltin = func._builtinversion_
                     except AttributeError:

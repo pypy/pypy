@@ -55,14 +55,16 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
             # this handles directly the common case
             #   module.function(args..)
             w_value = w_obj.getdictvalue(space, w_name)
-        elif type(w_descr) is function.Function:
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
-            if w_value is None:
-                # fast method path: a function object in the class,
-                # nothing in the instance
-                f.pushvalue(w_descr)
-                f.pushvalue(w_obj)
-                return
+        else:
+            typ = type(w_descr)
+            if typ is function.Function or typ is function.FunctionWithFixedCode:
+                w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
+                if w_value is None:
+                    # fast method path: a function object in the class,
+                    # nothing in the instance
+                    f.pushvalue(w_descr)
+                    f.pushvalue(w_obj)
+                    return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
     f.pushvalue(w_value)
@@ -89,7 +91,8 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     w_getattribute = space.lookup(w_obj, '__getattribute__')
     if w_getattribute is object_getattribute(space):
         w_descr = space.lookup(w_obj, methname)
-        if type(w_descr) is function.Function:
+        typ = type(w_descr)
+        if typ is function.Function or typ is function.FunctionWithFixedCode:
             w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
             if w_value is None:
                 # fast method path: a function object in the class,

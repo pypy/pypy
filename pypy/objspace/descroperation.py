@@ -1,7 +1,7 @@
 import operator
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.function import Function, Method
+from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
@@ -81,7 +81,7 @@ class DescrOperation:
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
-        if type(descr) is Function:
+        if isinstance(descr, Function):
             return descr.call_obj_args(w_obj, args)
         else:
             w_impl = space.get(w_descr, w_obj)
@@ -89,8 +89,15 @@ class DescrOperation:
 
     def get_and_call_function(space, w_descr, w_obj, *args_w):
         descr = space.interpclass_w(w_descr)
+        typ = type(descr)
         # a special case for performance and to avoid infinite recursion
-        if type(descr) is Function:
+        if typ is Function or typ is FunctionWithFixedCode:
+            # isinstance(typ, Function) would not be correct here:
+            # for a BuiltinFunction we must not use that shortcut, because a
+            # builtin function binds differently than a normal function
+            # see test_builtin_as_special_method_is_not_bound
+            # in interpreter/test/test_function.py
+
             # the fastcall paths are purely for performance, but the resulting
             # increase of speed is huge
             return descr.funccall(w_obj, *args_w)

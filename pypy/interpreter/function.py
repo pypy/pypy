@@ -16,12 +16,20 @@ from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
+@jit.purefunction
+def _get_immutable_code(func):
+    assert not func.can_change_code
+    return func.code
+
 class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
 
-    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None, forcename=None):
+    can_change_code = True
+
+    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
+                 forcename=None):
         self.space = space
         self.name = forcename or code.co_name
         self.w_doc = None   # lazily read from code.getdocstring()
@@ -48,7 +56,12 @@ class Function(Wrappable):
         return self.getcode().funcrun_obj(self, w_obj, args)
 
     def getcode(self):
-        return jit.hint(self.code, promote=True)
+        if jit.we_are_jitted():
+            if not self.can_change_code:
+                self = jit.hint(self, promote=True)
+                return _get_immutable_code(self)
+            return jit.hint(self.code, promote=True)
+        return self.code
     
     def funccall(self, *args_w): # speed hack
         from pypy.interpreter import gateway
@@ -368,6 +381,9 @@ class Function(Wrappable):
 
     def fset_func_code(space, self, w_code):
         from pypy.interpreter.pycode import PyCode
+        if not self.can_change_code:
+            raise OperationError(space.w_TypeError,
+                    space.wrap("Cannot change code attribute of builtin functions"))
         code = space.interp_w(Code, w_code)
         closure_len = 0
         if self.closure:
@@ -568,7 +584,11 @@ class ClassMethod(Wrappable):
                                  "'%s' object is not callable" % typename))
         return space.wrap(ClassMethod(w_function))
 
+class FunctionWithFixedCode(Function):
+    can_change_code = False
+
 class BuiltinFunction(Function):
+    can_change_code = False
 
     def __init__(self, func):
         assert isinstance(func, Function)
