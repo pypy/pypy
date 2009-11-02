@@ -5,13 +5,14 @@
 import autopath
 import py
 import sys
-from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
+from pypy.tool import logparser
+from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.history import ConstInt
 from pypy.rpython.lltypesystem import llmemory, lltype
 
 def main(loopnum, loopfile):
-    data = py.path.local(loopfile).read()
-    loops = split_logs_into_loops(data)
+    log = logparser.parse_log_file(loopfile)
+    loops = logparser.extract_category(log, "jit-log-opt-")
     inp = loops[loopnum]
     loop = parse(inp, no_namespace=True)
     loop.show()

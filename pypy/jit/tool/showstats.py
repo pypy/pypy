@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import autopath
 import sys, py
-from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
+from pypy.tool import logparser
+from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 def main(argv):
-    parts = split_logs_into_loops(py.path.local(argv[0]).read())
+    log = logparser.parse_log_file(argv[0])
+    parts = logparser.extract_category(log, "jit-log-opt-")
     for oplist in parts:
         loop = parse(oplist, no_namespace=True)
         num_ops = 0
