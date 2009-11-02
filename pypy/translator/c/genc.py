@@ -703,7 +703,7 @@ def gen_structdef(f, database):
         if hasattr(node, 'forward_decl'):
             if node.forward_decl:
                 print >> f, node.forward_decl
-        else:
+        elif node.name is not None:
             print >> f, '%s %s;' % (node.typetag, node.name)
     print >> f
     for node in structdeflist:
