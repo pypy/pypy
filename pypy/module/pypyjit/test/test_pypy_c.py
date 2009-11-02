@@ -55,22 +55,21 @@ class PyPyCJITTests(object):
         # we don't have os.popen() yet on pypy-c...
         if sys.platform.startswith('win'):
             py.test.skip("XXX this is not Windows-friendly")
-        child_stdin, child_stdout = os.popen2('PYPYJITLOG="%s" "%s" "%s"' % (
+        child_stdin, child_stdout = os.popen2('PYPYLOG=":%s" "%s" "%s"' % (
             logfilepath, self.pypy_c, filepath))
         child_stdin.close()
         result = child_stdout.read()
         child_stdout.close()
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
-        assert logfilepath.check()
-        opslogfile = logfilepath.new(ext='.log.ops')
-        self.parse_loops(opslogfile)
+        self.parse_loops(logfilepath)
 
     def parse_loops(self, opslogfile):
-        from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
+        from pypy.jit.metainterp.test.oparser import parse
+        from pypy.tool import logparser
         assert opslogfile.check()
-        logs = opslogfile.read()
-        parts = split_logs_into_loops(logs)
+        log = logparser.parse_log_file(str(opslogfile))
+        parts = logparser.extract_category(log, 'jit-log-opt-')
         # skip entry bridges, they can contain random things
         self.loops = [parse(part, no_namespace=True) for part in parts
                           if "entry bridge" not in part]
