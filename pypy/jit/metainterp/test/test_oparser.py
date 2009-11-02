@@ -1,7 +1,7 @@
 
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-from pypy.jit.metainterp.test.oparser import parse, split_logs_into_loops
+from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
      BoxFloat
@@ -161,55 +161,7 @@ def test_descr_with_obj_print():
     loop = parse(x)
     # assert did not explode
 
-examplelog = '''\
-# Loop0 (loop), 12 ops
-[i0, i1]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-i3 = call(ConstClass(cls2), i0, descr=<Descr object at 0xb18a86c>)
-guard_no_exception(, descr=<Guard5>) [i0, i1, i3]
-i5 = int_add(i1, 2)
-i7 = call(ConstClass(cls6), i0, descr=<Descr object at 0xb18a86c>)
-p9 = guard_exception(4, descr=<Guard6>) [i5, i0, i7]
-i11 = int_sub(i5, 1)
-i12 = int_sub(i0, 1)
-i14 = int_gt(i12, 3)
-guard_true(i14, descr=<Guard7>) [i11, i12]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-jump(i12, i11, descr=<Loop0>)
-# Loop1 (entry bridge), 12 ops
-[i0, i1]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-i3 = call(ConstClass(cls2), i0, descr=<Descr object at 0xb18a86c>)
-p5 = guard_exception(4, descr=<Guard8>) [i0, i1, i3]
-i7 = int_add(i1, 1)
-i9 = call(ConstClass(cls8), i0, descr=<Descr object at 0xb18a86c>)
-p11 = guard_exception(4, descr=<Guard9>) [i7, i0, i9]
-i12 = int_sub(i7, 1)
-i13 = int_sub(i0, 1)
-i15 = int_gt(i13, 3)
-guard_true(i15, descr=<Guard10>) [i12, i13]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-jump(i13, i12, descr=<Loop0>)
-# bridge out of Guard5, 10 ops
-[i0, i1, i2]
-p4 = guard_exception(4, descr=<Guard11>) [i0, i1, i2]
-i6 = int_add(i1, 1)
-i8 = call(ConstClass(cls7), i0, descr=<Descr object at 0xb18a86c>)
-p10 = guard_exception(4, descr=<Guard12>) [i6, i0, i8]
-i11 = int_sub(i6, 1)
-i12 = int_sub(i0, 1)
-i14 = int_gt(i12, 3)
-guard_true(i14, descr=<Guard13>) [i11, i12]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-jump(i12, i11, descr=<Loop0>)
-# bridge out of Guard9, 6 ops
-[i0, i1, i2]
-i4 = int_add(i0, 2)
-i6 = int_sub(i1, 1)
-i8 = int_gt(i6, 3)
-guard_true(i8, descr=<Guard14>) [i4, i6]
-debug_merge_point('(no jitdriver.get_printable_location!)')
-jump(i6, i4, descr=<Loop0>)
+example_loop_log = '''\
 # bridge out of Guard12, 6 ops
 [i0, i1, i2]
 i4 = int_add(i0, 2)
@@ -220,18 +172,5 @@ debug_merge_point('(no jitdriver.get_printable_location!)')
 jump(i6, i4, descr=<Loop0>)
 '''
 
-def test_split_logs_into_loops():
-    parts = split_logs_into_loops(examplelog)
-    assert len(parts) == 5
-    assert "\n".join(parts) == examplelog.strip()
-    for part, typ in zip(parts,
-            ["Loop0", "Loop1",
-             "bridge out of Guard5",
-             "bridge out of Guard9",
-             "bridge out of Guard12"]):
-        assert part.startswith("# %s" % typ)
-
 def test_parse_no_namespace():
-    parts = split_logs_into_loops(examplelog)
-    for part in parts:
-        loop = parse(part, no_namespace=True)
+    loop = parse(example_loop_log, no_namespace=True)
