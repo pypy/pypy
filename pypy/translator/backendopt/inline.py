@@ -631,7 +631,7 @@ def inlining_heuristic(graph):
             count), True
 
 def inlinable_static_callers(graphs):
-    ok_to_call = dict.fromkeys(graphs)
+    ok_to_call = set(graphs)
     result = []
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
