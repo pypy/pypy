@@ -43,9 +43,7 @@ extern FILE *pypy_debug_file;
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
-#include <sys/time.h>
 #include <string.h>
-#include <unistd.h>
 
 int pypy_ignoring_nested_prints = 0;
 FILE *pypy_debug_file = NULL;
