@@ -382,11 +382,13 @@ class AppTestMethod:
                 pass
         assert repr(A.f) == "<unbound method A.f>"
         assert repr(A().f).startswith("<bound method A.f of <") 
+        assert repr(A().f).endswith(">>") 
         class B:
             def f(self):
                 pass
         assert repr(B.f) == "<unbound method B.f>"
         assert repr(B().f).startswith("<bound method B.f of <")
+        assert repr(A().f).endswith(">>") 
 
 
     def test_method_call(self):

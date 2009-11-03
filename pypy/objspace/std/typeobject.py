@@ -131,10 +131,7 @@ class W_TypeObject(W_Object):
     def compute_default_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
 
-    def getdictvalue(w_self, space, w_attr):
-        return w_self.getdictvalue_w(space, space.str_w(w_attr))
-    
-    def getdictvalue_w(w_self, space, attr):
+    def getdictvalue(w_self, space, attr):
         w_value = w_self.dict_w.get(attr, None)
         if w_self.lazyloaders and w_value is None:
             if attr in w_self.lazyloaders:
@@ -172,7 +169,7 @@ class W_TypeObject(W_Object):
             if w_class is w_starttype:
                 look = True
             elif look:
-                w_value = w_class.getdictvalue_w(space, name)
+                w_value = w_class.getdictvalue(space, name)
                 if w_value is not None:
                     return w_value
         return None
@@ -182,7 +179,7 @@ class W_TypeObject(W_Object):
     def _lookup(w_self, key):
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = w_class.getdictvalue_w(space, key)
+            w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_value
         return None
@@ -193,7 +190,7 @@ class W_TypeObject(W_Object):
         # attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = w_class.getdictvalue_w(space, key)
+            w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None
@@ -273,7 +270,7 @@ class W_TypeObject(W_Object):
         "NOT_RPYTHON.  Forces the lazy attributes to be computed."
         if 'lazyloaders' in w_self.__dict__:
             for attr in w_self.lazyloaders.keys():
-                w_self.getdictvalue_w(w_self.space, attr)
+                w_self.getdictvalue(w_self.space, attr)
             del w_self.lazyloaders
         return False
 
@@ -281,8 +278,7 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
         space = w_self.space
-        newdic = space.DictObjectCls(space)
-        newdic.initialize_from_strdict_shared(w_self.dict_w)
+        newdic = space.newdict(from_strdict_shared=w_self.dict_w)
         return W_DictProxyObject(newdic)
 
     def unwrap(w_self, space):

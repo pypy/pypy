@@ -141,8 +141,8 @@ register_all(vars(), globals())
 # ____________________________________________________________
 
 def descr__new__(space, w_dicttype, __args__):
-    w_obj = space.allocate_instance(space.DictObjectCls, w_dicttype)
-    space.DictObjectCls.__init__(w_obj, space)
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
     return w_obj
 
 # ____________________________________________________________

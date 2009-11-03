@@ -304,12 +304,7 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
 class W_InstanceObject(Wrappable):
     def __init__(self, space, w_class, w_dict=None):
         if w_dict is None:
-            if space.config.objspace.std.withsharingdict:
-                from pypy.objspace.std import dictmultiobject
-                w_dict = dictmultiobject.W_DictMultiObject(space,
-                            sharing=True)
-            else:
-                w_dict = space.newdict()
+            w_dict = space.newdict(instance=True)
         assert isinstance(w_class, W_ClassObject)
         self.w_class = w_class
         self.w_dict = w_dict
@@ -388,7 +383,7 @@ class W_InstanceObject(Wrappable):
         if w_meth is not None:
             space.call_function(w_meth, w_name, w_value)
         else:
-            self.setdictvalue(space, w_name, w_value)
+            self.setdictvalue(space, name, w_value)
 
     def descr_delattr(self, space, w_name):
         name = unwrap_attr(space, w_name)

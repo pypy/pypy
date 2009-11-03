@@ -26,6 +26,7 @@ class StdTypeModel:
 
     def __init__(self, config):
         """NOT_RPYTHON: inititialization only"""
+        self.config = config
         # All the Python types that we want to provide in this StdObjSpace
         class result:
             from pypy.objspace.std.objecttype import object_typedef
@@ -250,7 +251,7 @@ class StdTypeModel:
             for cls in self.typeorder:
                 if (hasattr(cls, 'typedef') and cls.typedef is not None and
                     cls.typedef.acceptable_as_base_class):
-                    subclslist = enum_interplevel_subclasses(cls)
+                    subclslist = enum_interplevel_subclasses(self.config, cls)
                     for subcls in subclslist:
                         if cls in subcls.__bases__:   # only direct subclasses
                             # for user subclasses we only accept "generic"

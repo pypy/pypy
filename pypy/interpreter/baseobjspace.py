@@ -20,26 +20,24 @@ class W_Root(object):
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ()
     _settled_ = True
+    user_overridden_class = False
 
     def getdict(self):
         return None
 
-    def getdictvalue_w(self, space, attr):
-        return self.getdictvalue(space, space.wrap(attr))
-
-    def getdictvalue(self, space, w_attr):
+    def getdictvalue(self, space, attr):
         w_dict = self.getdict()
         if w_dict is not None:
-            return space.finditem(w_dict, w_attr)
+            return space.finditem_str(w_dict, attr)
         return None
 
-    def getdictvalue_attr_is_in_class(self, space, w_attr):
-        return self.getdictvalue(space, w_attr)
+    def getdictvalue_attr_is_in_class(self, space, attr):
+        return self.getdictvalue(space, attr)
 
-    def setdictvalue(self, space, w_attr, w_value, shadows_type=True):
+    def setdictvalue(self, space, attr, w_value, shadows_type=True):
         w_dict = self.getdict()
         if w_dict is not None:
-            space.set_str_keyed_item(w_dict, w_attr, w_value, shadows_type)
+            space.set_str_keyed_item(w_dict, attr, w_value, shadows_type)
             return True
         return False
 
@@ -281,7 +279,7 @@ class ObjSpace(object):
                 self.timer.stop("startup " + modname)
 
     def finish(self):
-        w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')
+        w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
         from pypy.interpreter.module import Module
@@ -550,12 +548,6 @@ class ObjSpace(object):
     # that can be defined in term of more primitive ones.  Subclasses
     # may also override specific functions for performance.
 
-    #def is_(self, w_x, w_y):   -- not really useful.  Must be subclassed
-    #    "'x is y'."
-    #    w_id_x = self.id(w_x)
-    #    w_id_y = self.id(w_y)
-    #    return self.eq(w_id_x, w_id_y)
-
     def not_(self, w_obj):
         return self.wrap(not self.is_true(w_obj))
 
@@ -571,8 +563,11 @@ class ObjSpace(object):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
 
-    def set_str_keyed_item(self, w_obj, w_key, w_value, shadows_type=True):
-        return self.setitem(w_obj, w_key, w_value)
+    def set_str_keyed_item(self, w_obj, key, w_value, shadows_type=True):
+        return self.setitem(w_obj, self.wrap(key), w_value)
+
+    def finditem_str(self, w_obj, key):
+        return self.finditem(w_obj, self.wrap(key))
 
     def finditem(self, w_obj, w_key):
         try:
@@ -777,7 +772,7 @@ class ObjSpace(object):
         w_type = self.type(w_obj)
         w_mro = self.getattr(w_type, self.wrap("__mro__"))
         for w_supertype in self.unpackiterable(w_mro):
-            w_value = w_supertype.getdictvalue_w(self, name)
+            w_value = w_supertype.getdictvalue(self, name)
             if w_value is not None:
                 return w_value
         return None

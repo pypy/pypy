@@ -36,9 +36,9 @@ class Object:
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 return space.get(w_descr, w_obj)
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
+            w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
         else:
-            w_value = w_obj.getdictvalue(space, w_name)
+            w_value = w_obj.getdictvalue(space, name)
         if w_value is not None:
             return w_value
         if w_descr is not None:
@@ -54,7 +54,7 @@ class Object:
                 space.set(w_descr, w_obj, w_value)
                 return
             shadows_type = True
-        if w_obj.setdictvalue(space, w_name, w_value, shadows_type):
+        if w_obj.setdictvalue(space, name, w_value, shadows_type):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 

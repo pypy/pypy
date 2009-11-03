@@ -34,19 +34,19 @@ def transparent_class(name, BaseCls):
             raise OperationError(space.w_TypeError,
                                  space.wrap("You cannot override __class__ for transparent proxies"))
         
-        def getdictvalue(self, space, w_attr):
+        def getdictvalue(self, space, attr):
             try:
                 return space.call_function(self.w_controller, space.wrap('__getattribute__'),
-                   w_attr)
+                   space.wrap(attr))
             except OperationError, e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return None
         
-        def setdictvalue(self, space, w_attr, w_value, shadows_type=True):
+        def setdictvalue(self, space, attr, w_value, shadows_type=True):
             try:
                 space.call_function(self.w_controller, space.wrap('__setattr__'),
-                   w_attr, w_value)
+                   space.wrap(attr), w_value)
                 return True
             except OperationError, e:
                 if not e.match(space, space.w_AttributeError):
@@ -64,18 +64,11 @@ def transparent_class(name, BaseCls):
                 return False
         
         def getdict(self):
-            return self.getdictvalue(self.space, self.space.wrap('__dict__'))
+            return self.getdictvalue(self.space, '__dict__')
         
         def setdict(self, space, w_dict):
-            if not self.setdictvalue(space, space.wrap('__dict__'), w_dict):
+            if not self.setdictvalue(space, '__dict__', w_dict):
                 baseobjspace.W_Root.setdict(self, space, w_dict)
-        
-##        def __getattr__(self, attr):
-##            # NOT_RPYTHON
-##            try:
-##                return self.getdictvalue(self.space, self.space.wrap(attr))
-##            except OperationError, e:
-##                raise AttributeError(attr)
         
     W_Transparent.__name__ = name
     return W_Transparent

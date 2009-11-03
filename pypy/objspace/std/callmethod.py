@@ -54,11 +54,11 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)
-            w_value = w_obj.getdictvalue(space, w_name)
+            w_value = w_obj.getdictvalue(space, name)
         else:
             typ = type(w_descr)
             if typ is function.Function or typ is function.FunctionWithFixedCode:
-                w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
+                w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
                 if w_value is None:
                     # fast method path: a function object in the class,
                     # nothing in the instance
@@ -87,16 +87,16 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     """An optimized version of space.call_method()
     based on the same principle as above.
     """
-    w_name = space.wrap(methname)
     w_getattribute = space.lookup(w_obj, '__getattribute__')
     if w_getattribute is object_getattribute(space):
         w_descr = space.lookup(w_obj, methname)
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
+            w_value = w_obj.getdictvalue_attr_is_in_class(space, methname)
             if w_value is None:
                 # fast method path: a function object in the class,
                 # nothing in the instance
                 return space.call_function(w_descr, w_obj, *arg_w)
+    w_name = space.wrap(methname)
     w_meth = space.getattr(w_obj, w_name)
     return space.call_function(w_meth, *arg_w)

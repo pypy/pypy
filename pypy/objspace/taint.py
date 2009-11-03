@@ -20,14 +20,11 @@ class W_Tainted(baseobjspace.W_Root):
 ##    def getdict(self):
 ##        return taint(self.w_obj.getdict())
 
-##    def getdictvalue_w(self, space, attr):
-##        return taint(self.w_obj.getdictvalue_w(space, attr))
+##    def getdictvalue(self, space, attr):
+##        return taint(self.w_obj.getdictvalue(space, attr))
 
-##    def getdictvalue(self, space, w_attr):
-##        return taint(self.w_obj.getdictvalue(space, w_attr))
-
-##    def setdictvalue(self, space, w_attr, w_value):
-##        return self.w_obj.setdictvalue(space, w_attr, w_value)
+##    def setdictvalue(self, space, attr, w_value):
+##        return self.w_obj.setdictvalue(space, attr, w_value)
 
 ##    ...
 

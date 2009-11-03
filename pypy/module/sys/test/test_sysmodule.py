@@ -65,6 +65,26 @@ class AppTestAppSysTests:
         assert exc_val2 ==e2
         assert tb2.tb_lineno - tb.tb_lineno == 5
 
+    def test_dynamic_attributes(self):
+        try:
+            raise Exception
+        except Exception,e:
+            import sys
+            exc_type = sys.exc_type
+            exc_val = sys.exc_value
+            tb = sys.exc_traceback
+        try:
+            raise Exception   # 7 lines below the previous one
+        except Exception,e2:
+            exc_type2 = sys.exc_type
+            exc_val2 = sys.exc_value
+            tb2 = sys.exc_traceback
+        assert exc_type ==Exception
+        assert exc_val ==e
+        assert exc_type2 ==Exception
+        assert exc_val2 ==e2
+        assert tb2.tb_lineno - tb.tb_lineno == 7
+
     def test_exc_info_normalization(self):
         import sys
         try:

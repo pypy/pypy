@@ -125,7 +125,7 @@ class TestTypeDef:
                                checks[2], checks[3]))
         subclasses = {}
         for key, subcls in typedef._subclass_cache.items():
-            cls = key[0]
+            cls = key[1]
             subclasses.setdefault(cls, {})
             subclasses[cls][subcls] = True
         for cls, set in subclasses.items():

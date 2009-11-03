@@ -1,10 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
-     MeasuringDictImplementation
+     StrDictImplementation
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
+from pypy.objspace.std.sharingdict import SharedDictImplementation
 from pypy.conftest import gettestobjspace
 
 
@@ -15,13 +15,13 @@ class TestW_DictObject:
 
     def test_empty(self):
         space = self.space
-        d = self.space.DictObjectCls(space)
+        d = self.space.newdict()
         assert not self.space.is_true(d)
 
     def test_nonempty(self):
         space = self.space
         wNone = space.w_None
-        d = self.space.DictObjectCls(space)
+        d = self.space.newdict()
         d.initialize_content([(wNone, wNone)])
         assert space.is_true(d)
         i = space.getitem(d, wNone)
@@ -32,7 +32,7 @@ class TestW_DictObject:
         space = self.space
         wk1 = space.wrap('key')
         wone = space.wrap(1)
-        d = self.space.DictObjectCls(space)
+        d = self.space.newdict()
         d.initialize_content([(space.wrap('zero'),space.wrap(0))])
         space.setitem(d,wk1,wone)
         wback = space.getitem(d,wk1)
@@ -41,7 +41,7 @@ class TestW_DictObject:
     def test_delitem(self):
         space = self.space
         wk1 = space.wrap('key')
-        d = self.space.DictObjectCls(space)
+        d = self.space.newdict()
         d.initialize_content( [(space.wrap('zero'),space.wrap(0)),
                                (space.wrap('one'),space.wrap(1)),
                                (space.wrap('two'),space.wrap(2))])
@@ -52,7 +52,7 @@ class TestW_DictObject:
                             space.getitem,d,space.wrap('one'))
 
     def test_wrap_dict(self):
-        assert isinstance(self.space.wrap({}), self.space.DictObjectCls)
+        assert isinstance(self.space.wrap({}), W_DictMultiObject)
 
 
     def test_dict_compare(self):
@@ -134,8 +134,7 @@ class TestW_DictObject:
         space = self.space
         w = space.wrap
         d = {"a": w(1), "b": w(2)}
-        w_d = space.DictObjectCls(space)
-        w_d.initialize_from_strdict_shared(d)
+        w_d = space.newdict(from_strdict_shared=d)
         assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
         assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
         
@@ -143,8 +142,7 @@ class TestW_DictObject:
         space = self.space
         w = space.wrap
         d = {"a": w(1), "b": w(2)}
-        w_d = space.DictObjectCls(space)
-        w_d.initialize_from_strdict_shared(d)
+        w_d = space.newdict(from_strdict_shared=d)
         assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
         assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
         d["c"] = w(41)
@@ -552,7 +550,11 @@ class AppTestModuleDict(object):
         raises(KeyError, "d['def']")
 
 
-class C: pass
+
+class FakeString(str):
+    def unwrap(self, space):
+        self.unwrapped = True
+        return str(self)
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -587,9 +589,25 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
+    def newdict(self, module=False, instance=False, classofinstance=None,
+                from_strdict_shared=None):
+        return W_DictMultiObject.allocate_and_init_instance(
+                self, module=module, instance=instance,
+                classofinstance=classofinstance,
+                from_strdict_shared=from_strdict_shared)
+
+    def allocate_instance(self, cls, type):
+        return object.__new__(cls)
+
+    def fromcache(self, cls):
+        return cls(self)
+
     w_StopIteration = StopIteration
     w_None = None
-    StringObjectCls = None  # xxx untested: shortcut in StrDictImpl.getitem
+    StringObjectCls = FakeString
+    w_dict = None
+    iter = iter
+    viewiterable = list
 
 
 class Config:
@@ -599,6 +617,7 @@ class Config:
             withsharingdict = False
             withsmalldicts = False
             withcelldict = False
+            withshadowtracking = False
         class opcodes:
             CALL_LIKELY_BUILTIN = False
 
@@ -608,143 +627,147 @@ FakeSpace.config = Config()
 class TestDictImplementation:
     def setup_method(self,method):
         self.space = FakeSpace()
-        self.space.emptydictimpl = EmptyDictImplementation(self.space)
-        self.space.DefaultDictImpl = RDictImplementation
 
     def test_stressdict(self):
         from random import randint
-        d = self.space.DictObjectCls(self.space)
+        d = self.space.newdict()
         N = 10000
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
             setitem__DictMulti_ANY_ANY(self.space, d, x, i)
             pydict[x] = i
-        for x in pydict:
-            assert pydict[x] == getitem__DictMulti_ANY(self.space, d, x)
+        for key, value in pydict.iteritems():
+            assert value == getitem__DictMulti_ANY(self.space, d, key)
 
-class TestRDictImplementation:
-    ImplementionClass = RDictImplementation
-    DevolvedClass = RDictImplementation
-    EmptyClass = EmptyDictImplementation
-    DefaultDictImpl = RDictImplementation
+class BaseTestRDictImplementation:
 
     def setup_method(self,method):
-        self.space = FakeSpace()
-        self.space.emptydictimpl = EmptyDictImplementation(self.space)
-        self.space.DefaultDictImpl = self.DefaultDictImpl
-        self.string = self.space.wrap("fish")
-        self.string2 = self.space.wrap("fish2")
+        self.fakespace = FakeSpace()
+        self.string = self.fakespace.wrap("fish")
+        self.string2 = self.fakespace.wrap("fish2")
         self.impl = self.get_impl()
 
     def get_impl(self):
-        "Needs to be empty, or one entry with key self.string"
-        return self.ImplementionClass(self.space)
+        return self.ImplementionClass(self.fakespace)
+
+    def fill_impl(self):
+        self.impl.setitem(self.string, 1000)
+        self.impl.setitem(self.string2, 2000)
+
+    def check_not_devolved(self):
+        assert self.impl.r_dict_content is None
 
     def test_setitem(self):
-        assert self.impl.setitem(self.string, 1000) is self.impl
+        self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
-        assert self.impl.get(self.string) == 1000
+        assert self.impl.getitem(self.string) == 1000
+        assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
 
     def test_setitem_str(self):
-        assert self.impl.setitem_str(self.space.str_w(self.string), 1000) is self.impl
+        self.impl.setitem_str(self.fakespace.str_w(self.string), 1000)
         assert self.impl.length() == 1
-        assert self.impl.get(self.string) == 1000
+        assert self.impl.getitem(self.string) == 1000
+        assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
 
     def test_delitem(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
+        self.fill_impl()
         assert self.impl.length() == 2
-        newimpl =  self.impl.delitem(self.string)
+        self.impl.delitem(self.string2)
         assert self.impl.length() == 1
-        assert newimpl is self.impl
-        newimpl = self.impl.delitem(self.string2)
+        self.impl.delitem(self.string)
         assert self.impl.length() == 0
-        assert isinstance(newimpl, self.EmptyClass)
+        self.check_not_devolved()
 
     def test_keys(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
+        self.fill_impl()
         keys = self.impl.keys()
         keys.sort()
         assert keys == [self.string, self.string2]
+        self.check_not_devolved()
 
     def test_values(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
+        self.fill_impl()
         values = self.impl.values()
         values.sort()
         assert values == [1000, 2000]
+        self.check_not_devolved()
 
     def test_items(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
+        self.fill_impl()
         items = self.impl.items()
         items.sort()
         assert items == zip([self.string, self.string2], [1000, 2000])
+        self.check_not_devolved()
 
-    def test_iterkeys(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
-        iteratorimplementation = self.impl.iterkeys()
-        keys = []
-        while 1:
-            key = iteratorimplementation.next()
-            if key is None:
-                break
-            keys.append(key)
-        keys.sort()
-        assert keys == [self.string, self.string2]
-
-    def test_itervalues(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
-        iteratorimplementation = self.impl.itervalues()
-        values = []
-        while 1:
-            value = iteratorimplementation.next()
-            if value is None:
-                break
-            values.append(value)
-        values.sort()
-        assert values == [1000, 2000]
-
-    def test_iteritems(self):
-        self.impl.setitem(self.string, 1000)
-        self.impl.setitem(self.string2, 2000)
-        iteratorimplementation = self.impl.iteritems()
+    def test_iter(self):
+        self.fill_impl()
+        iteratorimplementation = self.impl.iter()
         items = []
         while 1:
             item = iteratorimplementation.next()
-            if item is None:
+            if item == (None, None):
                 break
             items.append(item)
         items.sort()
         assert items == zip([self.string, self.string2], [1000, 2000])
+        self.check_not_devolved()
 
     def test_devolve(self):
         impl = self.impl
         for x in xrange(100):
-            impl = impl.setitem(self.space.str_w(str(x)), x)
-            impl = impl.setitem(x, x)
-        assert isinstance(impl, self.DevolvedClass)
+            impl.setitem(self.fakespace.str_w(str(x)), x)
+            impl.setitem(x, x)
+        assert impl.r_dict_content is not None
 
-class TestStrDictImplementation(TestRDictImplementation):
+class TestStrDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = StrDictImplementation
 
-class TestMeasuringDictImplementation(TestRDictImplementation):
-    ImplementionClass = MeasuringDictImplementation
-    DevolvedClass = MeasuringDictImplementation
-    EmptyClass = MeasuringDictImplementation
+    def test_str_shortcut(self):
+        self.fill_impl()
+        s = FakeString(self.string)
+        assert self.impl.getitem(s) == 1000
+        assert s.unwrapped
 
-class TestModuleDictImplementation(TestRDictImplementation):
-    ImplementionClass = ModuleDictImplementation
-    EmptyClass = ModuleDictImplementation
+## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
+##     ImplementionClass = MeasuringDictImplementation
+##     DevolvedClass = MeasuringDictImplementation
 
-class TestModuleDictImplementationWithBuiltinNames(TestRDictImplementation):
+class TestModuleDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = ModuleDictImplementation
-    EmptyClass = ModuleDictImplementation
+
+class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
+    ImplementionClass = ModuleDictImplementation
 
     string = "int"
     string2 = "isinstance"
+
+class TestSharedDictImplementation(BaseTestRDictImplementation):
+    ImplementionClass = SharedDictImplementation
+
+
+class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
+    def fill_impl(self):
+        BaseTestRDictImplementation.fill_impl(self)
+        self.impl._as_rdict()
+
+    def check_not_devolved(self):
+        pass
+
+class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
+    ImplementionClass = StrDictImplementation
+
+class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
+    ImplementionClass = ModuleDictImplementation
+
+class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
+    ImplementionClass = ModuleDictImplementation
+
+    string = "int"
+    string2 = "isinstance"
+
+class TestDevolvedSharedDictImplementation(BaseTestDevolvedDictImplementation):
+    ImplementionClass = SharedDictImplementation
 

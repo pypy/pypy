@@ -494,9 +494,8 @@ class Method(Wrappable):
             return space.wrap(s)
         else:
             objrepr = space.str_w(space.repr(self.w_instance))
-            info = 'bound method %s.%s of %s' % (typename, name, objrepr)
-            # info = "method %s of %s object" % (name, typename)
-            return self.w_instance.getrepr(self.space, info)
+            s = '<bound method %s.%s of %s>' % (typename, name, objrepr)
+            return space.wrap(s)
 
     def descr_method_getattribute(self, w_attr):
         space = self.space

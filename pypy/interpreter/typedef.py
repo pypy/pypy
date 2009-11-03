@@ -97,23 +97,24 @@ no_hash_descr = interp2app(descr__hash__unhashable)
 #         /           \
 #        5             6
 
-def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
-                                    weakrefable=False):
+def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
+                                    needsdel=False, weakrefable=False):
     "NOT_RPYTHON: initialization-time only"
     if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
         needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = cls, hasdict, wants_slots, needsdel, weakrefable
+    key = config, cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
     except KeyError:
-        subcls = _getusercls(cls, hasdict, wants_slots, needsdel, weakrefable)
+        subcls = _getusercls(config, cls, hasdict, wants_slots, needsdel,
+                             weakrefable)
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def enum_interplevel_subclasses(cls):
+def enum_interplevel_subclasses(config, cls):
     """Return a list of all the extra interp-level subclasses of 'cls' that
     can be built by get_unique_interplevel_subclass()."""
     result = []
@@ -121,14 +122,13 @@ def enum_interplevel_subclasses(cls):
         for flag2 in (False, True):
             for flag3 in (False, True):
                 for flag4 in (False, True):
-                    result.append(get_unique_interplevel_subclass(cls, flag1,
-                                                                  flag2, flag3,
-                                                                  flag4))
+                    result.append(get_unique_interplevel_subclass(
+                        config, cls, flag1, flag2, flag3, flag4))
     result = dict.fromkeys(result)
     assert len(result) <= 6
     return result.keys()
 
-def _getusercls(cls, wants_dict, wants_slots, wants_del, weakrefable):
+def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:
         wants_dict = False
@@ -136,47 +136,47 @@ def _getusercls(cls, wants_dict, wants_slots, wants_del, weakrefable):
     if wants_del:
         if wants_dict:
             # case 5.  Parent class is 3.
-            parentcls = get_unique_interplevel_subclass(cls, True, True,
+            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
                                                         False, True)
         else:
             # case 6.  Parent class is 4.
-            parentcls = get_unique_interplevel_subclass(cls, False, True,
+            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
                                                         False, True)
-        return _usersubclswithfeature(parentcls, "del")
+        return _usersubclswithfeature(config, parentcls, "del")
     elif wants_dict:
         if wants_slots:
             # case 3.  Parent class is 1.
-            parentcls = get_unique_interplevel_subclass(cls, True, False,
+            parentcls = get_unique_interplevel_subclass(config, cls, True, False,
                                                         False, True)
-            return _usersubclswithfeature(parentcls, "slots")
+            return _usersubclswithfeature(config, parentcls, "slots")
         else:
             # case 1 (we need to add weakrefable unless it's already in 'cls')
             if not typedef.weakrefable:
-                return _usersubclswithfeature(cls, "user", "dict", "weakref")
+                return _usersubclswithfeature(config, cls, "user", "dict", "weakref")
             else:
-                return _usersubclswithfeature(cls, "user", "dict")
+                return _usersubclswithfeature(config, cls, "user", "dict")
     else:
         if weakrefable and not typedef.weakrefable:
             # case 4.  Parent class is 2.
-            parentcls = get_unique_interplevel_subclass(cls, False, True,
+            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
                                                         False, False)
-            return _usersubclswithfeature(parentcls, "weakref")
+            return _usersubclswithfeature(config, parentcls, "weakref")
         else:
             # case 2 (if the base is already weakrefable, case 2 == case 4)
-            return _usersubclswithfeature(cls, "user", "slots")
+            return _usersubclswithfeature(config, cls, "user", "slots")
 
-def _usersubclswithfeature(parentcls, *features):
-    key = parentcls, features
+def _usersubclswithfeature(config, parentcls, *features):
+    key = config, parentcls, features
     try:
         return _usersubclswithfeature_cache[key]
     except KeyError:
-        subcls = _builduserclswithfeature(parentcls, *features)
+        subcls = _builduserclswithfeature(config, parentcls, *features)
         _usersubclswithfeature_cache[key] = subcls
         return subcls
 _usersubclswithfeature_cache = {}
 _allusersubcls_cache = {}
 
-def _builduserclswithfeature(supercls, *features):
+def _builduserclswithfeature(config, supercls, *features):
     "NOT_RPYTHON: initialization-time only"
     name = supercls.__name__
     name += ''.join([name.capitalize() for name in features])
@@ -190,6 +190,8 @@ def _builduserclswithfeature(supercls, *features):
 
     if "user" in features:     # generic feature needed by all subcls
         class Proto(object):
+            user_overridden_class = True
+
             def getclass(self, space):
                 return hint(self.w__class__, promote=True)
 
@@ -242,7 +244,16 @@ def _builduserclswithfeature(supercls, *features):
                 return self.slots_w[index]
         add(Proto)
 
-    if "dict" in features:
+    wantdict = "dict" in features
+    if wantdict and config.objspace.std.withinlineddict:
+        from pypy.objspace.std.objectobject import W_ObjectObject
+        from pypy.objspace.std.inlinedict import make_mixin
+        if supercls is W_ObjectObject:
+            Mixin = make_mixin(config)
+            add(Mixin)
+            wantdict = False
+
+    if wantdict:
         class Proto(object):
             def getdict(self):
                 return self.w__dict__
@@ -253,32 +264,22 @@ def _builduserclswithfeature(supercls, *features):
             def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
-                if space.config.objspace.std.withsharingdict:
-                    from pypy.objspace.std import dictmultiobject
-                    self.w__dict__ = dictmultiobject.W_DictMultiObject(space,
-                            sharing=True)
-                elif space.config.objspace.std.withshadowtracking:
-                    from pypy.objspace.std import dictmultiobject
-                    self.w__dict__ = dictmultiobject.W_DictMultiObject(space)
-                    self.w__dict__.implementation = \
-                        dictmultiobject.ShadowDetectingDictImplementation(
-                                space, w_subtype)
-                else:
-                    self.w__dict__ = space.newdict()
+                self.w__dict__ = space.newdict(
+                    instance=True, classofinstance=w_subtype)
                 self.user_setup_slots(w_subtype.nslots)
 
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
                 self.w__class__ = w_subtype
                 if space.config.objspace.std.withshadowtracking:
-                    self.w__dict__.implementation.set_shadows_anything()
+                    self.w__dict__.set_shadows_anything()
 
-            def getdictvalue_attr_is_in_class(self, space, w_name):
+            def getdictvalue_attr_is_in_class(self, space, name):
                 w_dict = self.w__dict__
                 if space.config.objspace.std.withshadowtracking:
-                    if not w_dict.implementation.shadows_anything():
+                    if not w_dict.shadows_anything():
                         return None
-                return space.finditem(w_dict, w_name)
+                return space.finditem_str(w_dict, name)
 
         add(Proto)
 

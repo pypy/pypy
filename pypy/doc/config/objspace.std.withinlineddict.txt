@@ -1,0 +1,2 @@
+Make instances smaller by creating the __dict__ only when somebody actually
+accesses it. Also makes attribute accesses a tiny bit faster.

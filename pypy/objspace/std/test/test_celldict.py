@@ -26,7 +26,7 @@ class AppTestCellDict(object):
         def rescue_builtins(space):
             w_dict = space.builtin.getdict()
             content = {}
-            for key, cell in w_dict.implementation.content.iteritems():
+            for key, cell in w_dict.content.iteritems():
                 newcell = ModuleCell()
                 newcell.w_value = cell.w_value
                 content[key] = newcell
@@ -35,9 +35,9 @@ class AppTestCellDict(object):
         cls.w_rescue_builtins = cls.space.wrap(rescue_builtins) 
         def restore_builtins(space):
             w_dict = space.builtin.getdict()
-            if not isinstance(w_dict.implementation, ModuleDictImplementation):
-                w_dict.implementation = ModuleDictImplementation(space)
-            w_dict.implementation.content = stored_builtins.pop()
+            assert isinstance(w_dict, ModuleDictImplementation)
+            w_dict.content = stored_builtins.pop()
+            w_dict.fallback = None
         restore_builtins = gateway.interp2app(restore_builtins)
         cls.w_restore_builtins = cls.space.wrap(restore_builtins) 
 

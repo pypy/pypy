@@ -772,8 +772,7 @@ class AppTestOldStyleSharing(AppTestOldstyle):
         def is_sharing(space, w_inst):
             from pypy.objspace.std.sharingdict import SharedDictImplementation, W_DictMultiObject
             w_d = w_inst.getdict()
-            return space.wrap(isinstance(w_d, W_DictMultiObject) and
-                              isinstance(w_d.implementation, SharedDictImplementation))
+            return space.wrap(isinstance(w_d, SharedDictImplementation))
         cls.w_is_sharing = cls.space.wrap(gateway.interp2app(is_sharing))
 
 

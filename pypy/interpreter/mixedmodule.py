@@ -32,7 +32,7 @@ class MixedModule(Module):
 
     def get(self, name):
         space = self.space
-        w_value = self.getdictvalue_w(space, name) 
+        w_value = self.getdictvalue(space, name) 
         if w_value is None: 
             raise OperationError(space.w_AttributeError, space.wrap(name))
         return w_value 
@@ -41,39 +41,40 @@ class MixedModule(Module):
         w_builtin = self.get(name) 
         return self.space.call_function(w_builtin, *args_w)
 
-    def getdictvalue(self, space, w_name):
-        w_value = space.finditem(self.w_dict, w_name)
+    def getdictvalue(self, space, name):
+        w_value = space.finditem_str(self.w_dict, name)
         if self.lazy and w_value is None:
-            name = space.str_w(w_name)
-            w_name = space.new_interned_w_str(w_name)
-            try: 
-                loader = self.loaders[name]
-            except KeyError: 
-                return None 
-            else: 
-                #print "trying to load", name
-                w_value = loader(space) 
-                #print "loaded", w_value 
-                # obscure
-                func = space.interpclass_w(w_value)
-                # the idea of the following code is that all functions that are
-                # directly in a mixed-module are "builtin", e.g. they get a
-                # special type without a __get__
-                # note that this is not just all functions that contain a
-                # builtin code object, as e.g. methods of builtin types have to
-                # be normal Functions to get the correct binding behaviour
-                if (isinstance(func, Function) and
-                    type(func) is not BuiltinFunction):
-                    try:
-                        bltin = func._builtinversion_
-                    except AttributeError:
-                        bltin = BuiltinFunction(func)
-                        bltin.w_module = self.w_name
-                        func._builtinversion_ = bltin
-                        bltin.name = name
-                    w_value = space.wrap(bltin)
-                space.setitem(self.w_dict, w_name, w_value) 
+            return self._load_lazily(space, name)
         return w_value
+
+    def _load_lazily(self, space, name):
+        w_name = space.new_interned_str(name)
+        try: 
+            loader = self.loaders[name]
+        except KeyError: 
+            return None 
+        else: 
+            w_value = loader(space) 
+            func = space.interpclass_w(w_value)
+            # the idea of the following code is that all functions that are
+            # directly in a mixed-module are "builtin", e.g. they get a
+            # special type without a __get__
+            # note that this is not just all functions that contain a
+            # builtin code object, as e.g. methods of builtin types have to
+            # be normal Functions to get the correct binding behaviour
+            if (isinstance(func, Function) and
+                type(func) is not BuiltinFunction):
+                try:
+                    bltin = func._builtinversion_
+                except AttributeError:
+                    bltin = BuiltinFunction(func)
+                    bltin.w_module = self.w_name
+                    func._builtinversion_ = bltin
+                    bltin.name = name
+                w_value = space.wrap(bltin)
+            space.setitem(self.w_dict, w_name, w_value) 
+            return w_value
+
 
     def getdict(self): 
         if self.lazy: 

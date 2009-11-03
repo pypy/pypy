@@ -355,7 +355,7 @@ register(TYPE_LIST, unmarshal_List)
 
 def marshal_w__DictMulti(space, w_dict, m):
     m.start(TYPE_DICT)
-    for w_tuple in w_dict.implementation.items():
+    for w_tuple in w_dict.items():
         w_key, w_value = space.viewiterable(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)

@@ -41,6 +41,7 @@ config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 set_pypy_opt_level(config, level='jit')
+config.objspace.std.withinlineddict = True
 
 if BACKEND == 'c':
     config.objspace.std.multimethods = 'mrd'

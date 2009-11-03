@@ -140,13 +140,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     w_globals = f.w_globals
                     num = oparg >> 8
                     assert isinstance(w_globals, W_DictMultiObject)
-                    w_value = w_globals.implementation.get_builtin_indexed(num)
+                    w_value = w_globals.get_builtin_indexed(num)
                     if w_value is None:
                         builtins = f.get_builtin()
                         assert isinstance(builtins, Module)
                         w_builtin_dict = builtins.w_dict
                         assert isinstance(w_builtin_dict, W_DictMultiObject)
-                        w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
+                        w_value = w_builtin_dict.get_builtin_indexed(num)
         ##                 if w_value is not None:
         ##                     print "CALL_LIKELY_BUILTIN fast"
                     if w_value is None:
@@ -240,16 +240,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         self.FrameClass = StdObjSpaceFrame
 
-        # XXX store the dict class on the space to access it in various places
+        # store the dict class on the space to access it in various places
         from pypy.objspace.std import dictmultiobject
         self.DictObjectCls = dictmultiobject.W_DictMultiObject
-        self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)
-        if self.config.objspace.std.withbucketdict:
-            from pypy.objspace.std import dictbucket
-            self.DefaultDictImpl = dictbucket.BucketDictImplementation
-        else:
-            self.DefaultDictImpl = dictmultiobject.RDictImplementation
-        assert self.DictObjectCls in self.model.typeorder
 
         from pypy.objspace.std import tupleobject
         self.TupleObjectCls = tupleobject.W_TupleObject
@@ -577,11 +570,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.std.listobject import W_ListObject
         return W_ListObject(list_w)
 
-    def newdict(self, module=False):
+    def newdict(self, module=False, instance=False, classofinstance=None,
+                from_strdict_shared=None):
         from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-        if module:
-            return W_DictMultiObject(self, module=True)
-        return W_DictMultiObject(self)
+        return W_DictMultiObject.allocate_and_init_instance(
+                self, module=module, instance=instance,
+                classofinstance=classofinstance,
+                from_strdict_shared=from_strdict_shared)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
@@ -615,12 +610,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         user-defined type, without actually __init__ializing the instance."""
         w_type = self.gettypeobject(cls.typedef)
         if self.is_w(w_type, w_subtype):
-            instance =  instantiate(cls)
+            instance = instantiate(cls)
         elif cls.typedef.acceptable_as_base_class:
             # the purpose of the above check is to avoid the code below
             # to be annotated at all for 'cls' if it is not necessary
             w_subtype = w_type.check_user_subclass(w_subtype)
-            subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0, w_subtype.needsdel, w_subtype.weakrefable)
+            subcls = get_unique_interplevel_subclass(
+                    self.config, cls, w_subtype.hasdict, w_subtype.nslots != 0,
+                    w_subtype.needsdel, w_subtype.weakrefable)
             instance = instantiate(subcls)
             instance.user_setup(self, w_subtype)
         else:
@@ -672,7 +669,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
     def is_(self, w_one, w_two):
-        # XXX a bit of hacking to gain more speed 
         if w_one is w_two:
             return self.w_True
         return self.w_False
@@ -712,7 +708,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         e = None
         if w_descr is not None:
             if not self.is_data_descr(w_descr):
-                w_value = w_obj.getdictvalue_attr_is_in_class(self, w_name)
+                w_value = w_obj.getdictvalue_attr_is_in_class(self, name)
                 if w_value is not None:
                     return w_value
             try:
@@ -721,7 +717,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 if not e.match(self, self.w_AttributeError):
                     raise
         else:
-            w_value = w_obj.getdictvalue(self, w_name)
+            w_value = w_obj.getdictvalue(self, name)
             if w_value is not None:
                 return w_value
 
@@ -733,18 +729,27 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             raiseattrerror(self, w_obj, name)
 
+    def finditem_str(self, w_obj, key):
+        # performance shortcut to avoid creating the OperationError(KeyError)
+        if (isinstance(w_obj, self.DictObjectCls) and
+                not w_obj.user_overridden_class):
+            return w_obj.getitem_str(key)
+        return ObjSpace.finditem_str(self, w_obj, key)
+
     def finditem(self, w_obj, w_key):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if type(w_obj) is self.DictObjectCls:
-            return w_obj.get(w_key, None)
+        if (isinstance(w_obj, self.DictObjectCls) and
+                not w_obj.user_overridden_class):
+            return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
-    def set_str_keyed_item(self, w_obj, w_key, w_value, shadows_type=True):
+    def set_str_keyed_item(self, w_obj, key, w_value, shadows_type=True):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if type(w_obj) is self.DictObjectCls:
-            w_obj.set_str_keyed_item(w_key, w_value, shadows_type)
+        if (isinstance(w_obj, self.DictObjectCls) and
+                not w_obj.user_overridden_class):
+            w_obj.set_str_keyed_item(key, w_value, shadows_type)
         else:
-            self.setitem(w_obj, w_key, w_value)
+            self.setitem(w_obj, self.wrap(key), w_value)
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         # Performance shortcut for the common case of w_obj being an int.

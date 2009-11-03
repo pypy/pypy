@@ -9,7 +9,7 @@ class Module(MixedModule):
 
     def __init__(self, space, w_name):
         def create_lambda(name, alsoname):
-            return lambda space : self.getdictvalue(space, space.wrap(alsoname))
+            return lambda space : self.getdictvalue(space, alsoname)
         
         MixedModule.__init__(self, space, w_name)
         for name, alsoname in self.mapping.iteritems():
