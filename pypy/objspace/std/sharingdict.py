@@ -126,12 +126,24 @@ class SharedDictImplementation(W_DictMultiObject):
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
             key = space.str_w(w_key)
-            if (self.structure.last_key is not None and
-                key == self.structure.last_key):
-                self.entries[self.structure.length - 1] = None
-                self.structure = self.structure.back_struct
-                return
-            self._as_rdict().delitem(w_key)
+            pos = self.structure.lookup_position(key)
+            if pos == -1:
+                raise KeyError
+            for i in range(pos, len(self.entries)):
+                self.entries[pos] = self.entries[pos + 1]
+            # don't make the entries list shorter, new keys might be added soon
+            self.entries[-1] = None
+            structure = self.structure
+            num_back = len(self.entries) - pos - 1
+            keys = [None] * num_back
+            for i in range(num_back):
+                keys[i] = structure.last_key
+                structure = structure.back_struct
+            # go back the structure that contains the deleted key
+            structure = structure.back_struct
+            for i in range(num_back - 1, -1, -1):
+                structure = structure.get_next_structure(keys[i])
+            self.structure = structure
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:

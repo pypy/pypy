@@ -1,6 +1,8 @@
+import py
 from pypy.conftest import gettestobjspace
-from pypy.objspace.std.sharingdict import SharedStructure, NUM_DIGITS
+from pypy.objspace.std.sharingdict import SharedStructure, NUM_DIGITS, SharedDictImplementation
 from pypy.interpreter import gateway
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
 
 def instance_with_keys(structure, *keys):
     for key in keys:
@@ -27,3 +29,19 @@ def test_size_estimate2():
     assert empty_structure.size_estimate() == 3
     assert empty_structure.other_structs.get("a").size_estimate() == 6
     assert empty_structure.other_structs.get("x").size_estimate() == 2
+
+def test_delete():
+    space = FakeSpace()
+    d = SharedDictImplementation(space)
+    d.setitem_str("a", 1)
+    d.setitem_str("b", 2)
+    d.setitem_str("c", 3)
+    d.delitem("b")
+    assert d.r_dict_content is None
+    assert d.entries == [1, 3, None]
+    assert d.structure.keys == {"a": 0, "c": 1}
+    assert d.getitem("a") == 1
+    assert d.getitem("c") == 3
+    assert d.getitem("b") is None
+    py.test.raises(KeyError, d.delitem, "b")
+
