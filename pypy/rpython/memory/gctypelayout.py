@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
+from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
@@ -169,7 +170,7 @@ class TypeLayoutBuilder(object):
 
     size_of_fixed_type_info = llmemory.sizeof(GCData.TYPE_INFO)
 
-    def __init__(self, GCClass, lltype2vtable):
+    def __init__(self, GCClass, lltype2vtable=None):
         self.GCClass = GCClass
         self.lltype2vtable = lltype2vtable
         self.make_type_info_group()
@@ -218,15 +219,27 @@ class TypeLayoutBuilder(object):
             # store it
             type_id = self.type_info_group.add_member(fullinfo)
             self.id_of_type[TYPE] = type_id
-            # store the vtable of the type (if any) immediately thereafter
-            # (note that if gcremovetypeptr is False, lltype2vtable is empty)
-            vtable = self.lltype2vtable.get(TYPE, None)
-            if vtable is not None:
-                # check that if we have a vtable, we are not varsize
-                assert lltype.typeOf(fullinfo) == GCData.TYPE_INFO_PTR
-                vtable = lltype.normalizeptr(vtable)
-                self.type_info_group.add_member(vtable)
+            self.add_vtable_after_typeinfo(TYPE)
             return type_id
+
+    def add_vtable_after_typeinfo(self, TYPE):
+        # if gcremovetypeptr is False, then lltype2vtable is None and it
+        # means that we don't have to store the vtables in type_info_group.
+        if self.lltype2vtable is None:
+            return
+        # does the type have a vtable?
+        vtable = self.lltype2vtable.get(TYPE, None)
+        if vtable is not None:
+            # yes.  check that in this case, we are not varsize
+            assert not TYPE._is_varsize()
+            vtable = lltype.normalizeptr(vtable)
+            self.type_info_group.add_member(vtable)
+        else:
+            # no vtable from lltype2vtable -- double-check to be sure
+            # that it's not a subclass of OBJECT.
+            while isinstance(TYPE, lltype.GcStruct):
+                assert TYPE is not rclass.OBJECT
+                _, TYPE = TYPE._first_struct()
 
     def get_info(self, type_id):
         return llop.get_group_member(GCData.TYPE_INFO_PTR,

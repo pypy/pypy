@@ -37,7 +37,7 @@ def test_struct():
     for T, c in [(GC_S, 0), (GC_S2, 2), (GC_A, 0), (GC_A2, 0), (GC_S3, 2)]:
         assert len(offsets_to_gc_pointers(T)) == c
 
-def test_layout_builder(lltype2vtable={}):
+def test_layout_builder(lltype2vtable=None):
     # XXX a very minimal test
     layoutbuilder = TypeLayoutBuilder(FakeGC, lltype2vtable)
     for T1, T2 in [(GC_A, GC_S), (GC_A2, GC_S2), (GC_S3, GC_S2)]:
@@ -67,7 +67,7 @@ def test_layout_builder_with_vtable():
                        layoutbuilder.size_of_fixed_type_info)
 
 def test_constfold():
-    layoutbuilder = TypeLayoutBuilder(FakeGC, {})
+    layoutbuilder = TypeLayoutBuilder(FakeGC)
     tid1 = layoutbuilder.get_type_id(GC_A)
     tid2 = layoutbuilder.get_type_id(GC_S3)
     class MockGC:

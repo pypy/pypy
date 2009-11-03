@@ -288,10 +288,8 @@ class LowLevelDatabase(object):
             finish_callbacks.append(('Stackless transformer: finished',
                                      self.stacklesstransformer.finish))
         if self.gctransformer:
-            finish_callbacks.append(('GC transformer: tracking vtables',
-                                    self.gctransformer.get_final_dependencies))
             finish_callbacks.append(('GC transformer: finished tables',
-                                     self.gctransformer.finish_tables))
+                                     self.gctransformer.get_finish_tables()))
 
         def add_dependencies(newdependencies):
             for value in newdependencies:
@@ -336,8 +334,18 @@ class LowLevelDatabase(object):
 
             if finish_callbacks:
                 logmsg, finish = finish_callbacks.pop(0)
-                newdependencies = finish()
-                log.database(logmsg)
+                if not hasattr(finish, 'next'):
+                    newdependencies = finish()
+                else:
+                    # if 'finish' is a generator, consume the next element
+                    # and put the generator again in the queue
+                    try:
+                        newdependencies = finish.next()
+                        finish_callbacks.insert(0, (None, finish))
+                    except StopIteration:
+                        newdependencies = None
+                if logmsg:
+                    log.database(logmsg)
                 if newdependencies:
                     add_dependencies(newdependencies)
                 continue       # progress - follow all dependencies again

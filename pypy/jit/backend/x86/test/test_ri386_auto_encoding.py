@@ -218,6 +218,8 @@ def rec_test_all(instrname, modes, args=[]):
                 return []   # MOV [constant-address], accum
         if instrname == "MOV16":
             return []   # skipped
+        if instrname == "CMP16":
+            return []   # skipped
         if instrname == "LEA":
             if (args[1][1].__class__ != i386.MODRM or
                 args[1][1].is_register()):

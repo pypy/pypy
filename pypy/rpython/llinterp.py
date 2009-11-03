@@ -890,6 +890,9 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_get_type_info_group(self):
+        raise NotImplementedError("gc_get_type_info_group")
+
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
 

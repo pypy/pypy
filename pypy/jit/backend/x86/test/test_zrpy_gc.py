@@ -78,6 +78,8 @@ def compile(f, gc, **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
+    if gc != 'boehm':
+        t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())

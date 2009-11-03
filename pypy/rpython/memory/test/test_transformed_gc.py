@@ -709,9 +709,7 @@ class GenericMovingGCTests(GenericGCTests):
         if jit2gc:
             return jit2gc['layoutbuilder']
         GCClass = cls.gcpolicy.transformerclass.GCClass
-        lltype2vtable = translator.rtyper.lltype2vtable
-        layoutbuilder = framework.TransformerLayoutBuilder(GCClass,
-                                                               lltype2vtable)
+        layoutbuilder = framework.TransformerLayoutBuilder(translator, GCClass)
         layoutbuilder.delay_encoding()
         translator._jit2gc = {
             'layoutbuilder': layoutbuilder,

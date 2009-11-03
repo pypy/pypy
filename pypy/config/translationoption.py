@@ -65,9 +65,12 @@ translation_optiondescription = OptionDescription(
                  ["boehm", "ref", "framework", "none"],
                  default="ref", cmdline=None,
                  requires={
-                     "boehm": [("translation.gcrootfinder", "n/a")],
-                     "ref": [("translation.gcrootfinder", "n/a")],
-                     "none": [("translation.gcrootfinder", "n/a")],
+                     "boehm": [("translation.gcrootfinder", "n/a"),
+                               ("translation.gcremovetypeptr", False)],
+                     "ref": [("translation.gcrootfinder", "n/a"),
+                             ("translation.gcremovetypeptr", False)],
+                     "none": [("translation.gcrootfinder", "n/a"),
+                              ("translation.gcremovetypeptr", False)],
                  }),
     BoolOption("gcremovetypeptr", "Remove the typeptr from every object",
                default=False, cmdline="--gcremovetypeptr"),
@@ -95,8 +98,7 @@ translation_optiondescription = OptionDescription(
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
                default=False,
-               requires=[("translation.thread", False),
-                         ("translation.gcremovetypeptr", False)],
+               requires=[("translation.thread", False)],
                suggests=[("translation.gc", "hybrid"),     # or "boehm"
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),

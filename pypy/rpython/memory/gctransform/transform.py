@@ -312,11 +312,11 @@ class BaseGCTransformer(object):
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies
 
-    def get_final_dependencies(self):
-        pass
-
     def finish_tables(self):
         pass
+
+    def get_finish_tables(self):
+        return self.finish_tables
 
     def finish(self, backendopt=True):
         self.finish_helpers(backendopt=backendopt)

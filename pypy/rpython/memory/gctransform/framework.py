@@ -130,12 +130,7 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
         else:
-            if translator.config.translation.gcremovetypeptr:
-                lltype2vtable = translator.rtyper.lltype2vtable
-            else:
-                lltype2vtable = {}
-            self.layoutbuilder = TransformerLayoutBuilder(GCClass,
-                                                          lltype2vtable)
+            self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
         self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
@@ -508,11 +503,16 @@ class FrameworkGCTransformer(GCTransformer):
         self.write_typeid_list()
         return newgcdependencies
 
-    def get_final_dependencies(self):
-        # returns an iterator enumerating the type_info_group's members,
-        # to make sure that they are all followed (only a part of them
-        # might have been followed by a previous enum_dependencies()).
-        return iter(self.layoutbuilder.type_info_group.members)
+    def get_finish_tables(self):
+        # We must first make sure that the type_info_group's members
+        # are all followed.  Do it repeatedly while new members show up.
+        # Once it is really done, do finish_tables().
+        seen = 0
+        while seen < len(self.layoutbuilder.type_info_group.members):
+            curtotal = len(self.layoutbuilder.type_info_group.members)
+            yield self.layoutbuilder.type_info_group.members[seen:curtotal]
+            seen = curtotal
+        yield self.finish_tables()
 
     def write_typeid_list(self):
         """write out the list of type ids together with some info"""
@@ -821,6 +821,9 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(self.root_walker, 'thread_die_ptr'):
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
 
+    def gct_gc_get_type_info_group(self, hop):
+        return hop.cast_result(self.c_type_info_group)
+
     def gct_malloc_nonmovable_varsize(self, hop):
         TYPE = hop.spaceop.result.concretetype
         if self.gcdata.gc.can_malloc_nonmovable():
@@ -964,6 +967,16 @@ class FrameworkGCTransformer(GCTransformer):
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
+    def __init__(self, translator, GCClass=None):
+        if GCClass is None:
+            from pypy.rpython.memory.gc.base import choose_gc_from_config
+            GCClass, _ = choose_gc_from_config(translator.config)
+        if translator.config.translation.gcremovetypeptr:
+            lltype2vtable = translator.rtyper.lltype2vtable
+        else:
+            lltype2vtable = None
+        super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
+
     def has_finalizer(self, TYPE):
         rtti = get_rtti(TYPE)
         return rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
@@ -988,18 +1001,6 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         else:
             fptr = lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
         return fptr
-
-
-class JITTransformerLayoutBuilder(TransformerLayoutBuilder):
-    # for the JIT: currently does not support removetypeptr
-    def __init__(self, config):
-        from pypy.rpython.memory.gc.base import choose_gc_from_config
-        try:
-            assert not config.translation.gcremovetypeptr
-        except AttributeError:    # for some tests
-            pass
-        GCClass, _ = choose_gc_from_config(config)
-        TransformerLayoutBuilder.__init__(self, GCClass, {})
 
 
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):

@@ -432,6 +432,7 @@ LL_OPERATIONS = {
     'do_malloc_fixedsize_clear': LLOp(canunwindgc=True),
     'do_malloc_varsize_clear': LLOp(canunwindgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
+    'gc_get_type_info_group': LLOp(sideeffects=False),
 
     # __________ GC operations __________
 

@@ -310,6 +310,11 @@ XOR.common_modes(6)
 CMP = Instruction()
 CMP.common_modes(7)
 
+# special mode for comparing a 16-bit operand with an immediate
+CMP16 = Instruction()
+CMP16.mode2(MODRM, IMM32, ['\x66', '\x81', orbyte(7<<3), modrm(1),
+                           immediate(2,'h')])
+
 NOP = Instruction()
 NOP.mode0(['\x90'])
 

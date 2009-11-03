@@ -518,7 +518,8 @@ class Assembler386(object):
         self.set_vtable(eax, loc_vtable)
 
     def set_vtable(self, loc, loc_vtable):
-        self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
+        if self.cpu.vtable_offset is not None:
+            self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
 
     # XXX genop_new is abused for all varsized mallocs with Boehm, for now
     # (instead of genop_new_array, genop_newstr, genop_newunicode)
@@ -713,7 +714,24 @@ class Assembler386(object):
 
     def genop_guard_guard_class(self, ign_1, guard_op, addr, locs, ign_2):
         offset = self.cpu.vtable_offset
-        self.mc.CMP(mem(locs[0], offset), locs[1])
+        if offset is not None:
+            self.mc.CMP(mem(locs[0], offset), locs[1])
+        else:
+            # XXX hard-coded assumption: to go from an object to its class
+            # we use the following algorithm:
+            #   - read the typeid from mem(locs[0]), i.e. at offset 0
+            #   - keep the lower 16 bits read there
+            #   - multiply by 4 and use it as an offset in type_info_group.
+            loc = locs[1]
+            assert isinstance(loc, IMM32)
+            classptr = loc.value
+            # here, we have to go back from 'classptr' to the value expected
+            # from reading the 16 bits in the object header
+            type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+            type_info_group = rffi.cast(lltype.Signed, type_info_group)
+            expected_typeid = (classptr - type_info_group) >> 2
+            self.mc.CMP16(mem(locs[0], 0), imm32(expected_typeid))
+            #
         return self.implement_guard(addr, self.mc.JNE)
 
     def _no_const_locs(self, args):

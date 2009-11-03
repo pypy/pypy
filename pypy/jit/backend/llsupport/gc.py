@@ -325,8 +325,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
-        self.layoutbuilder = framework.JITTransformerLayoutBuilder(
-            gcdescr.config)
+        self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
         self.translator._jit2gc = {
             'layoutbuilder': self.layoutbuilder,

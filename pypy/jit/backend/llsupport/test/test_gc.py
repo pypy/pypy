@@ -147,19 +147,20 @@ class FakeLLOp:
 class TestFramework:
 
     def setup_method(self, meth):
-        class FakeTranslator:
-            pass
-        class config:
+        class config_:
             class translation:
                 gc = 'hybrid'
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
+                gcremovetypeptr = False
+        class FakeTranslator:
+            config = config_
         class FakeCPU:
             def cast_adr_to_int(self, adr):
                 ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
                 assert ptr._obj._callable == llop1._write_barrier_failing_case
                 return 42
-        gcdescr = get_description(config)
+        gcdescr = get_description(config_)
         translator = FakeTranslator()
         llop1 = FakeLLOp()
         gc_ll_descr = GcLLDescr_framework(gcdescr, FakeTranslator(), llop1)

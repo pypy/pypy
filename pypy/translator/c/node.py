@@ -960,8 +960,8 @@ class GroupNode(ContainerNode):
 
     def enum_dependencies(self):
         # note: for the group used by the GC, it can grow during this phase,
-        # which means that we might not return all members yet.  This is
-        # fixed by finish_tables() in rpython/memory/gctransform/framework.py
+        # which means that we might not return all members yet.  This is fixed
+        # by get_finish_tables() in rpython.memory.gctransform.framework.
         for member in self.obj.members:
             yield member._as_ptr()
 

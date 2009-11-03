@@ -28,8 +28,11 @@ class AbstractLLCPU(AbstractCPU):
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator)
-        self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
-                                                         'typeptr',
+        if translator and translator.config.translation.gcremovetypeptr:
+            self.vtable_offset = None
+        else:
+            self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
+                                                             'typeptr',
                                                         translate_support_code)
         self._setup_prebuilt_error('ovf', OverflowError)
         self._setup_prebuilt_error('zer', ZeroDivisionError)
@@ -424,8 +427,9 @@ class AbstractLLCPU(AbstractCPU):
         classint = classbox.getint()
         descrsize = self.class_sizes[classint]
         res = self.gc_ll_descr.gc_malloc(descrsize)
-        as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-        as_array[self.vtable_offset/WORD] = classint
+        if self.vtable_offset is not None:
+            as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+            as_array[self.vtable_offset/WORD] = classint
         return BoxPtr(res)
 
     def do_new_array(self, countbox, arraydescr):
