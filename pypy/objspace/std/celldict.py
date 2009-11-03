@@ -150,24 +150,27 @@ class State(object):
         self.space = space
         self.invalidcell = ModuleCell()
         self.always_invalid_cache = []
-        self.neverused_dictimpl = ModuleDictImplementation(space)
+        self.neverused_dictcontent = {}
 
 class GlobalCacheHolder(object):
     def __init__(self, space):
         self.cache = None
         state = space.fromcache(State)
-        self.dictimpl = state.neverused_dictimpl
+        self.dictcontent = state.neverused_dictcontent
 
     def getcache(self, space, code, w_globals):
-        implementation = getimplementation(w_globals)
-        if self.dictimpl is implementation:
+        if type(w_globals) is ModuleDictImplementation:
+            content = w_globals.content
+        else:
+            content = None
+        if self.dictcontent is content:
             return self.cache
-        return self.getcache_slow(space, code, w_globals, implementation)
+        return self.getcache_slow(space, code, w_globals, content)
     getcache._always_inline_ = True
 
-    def getcache_slow(self, space, code, w_globals, implementation):
+    def getcache_slow(self, space, code, w_globals, content):
         state = space.fromcache(State)
-        if not isinstance(implementation, ModuleDictImplementation):
+        if content is None:
             cache = state.always_invalid_cache
             if len(code.co_names_w) > len(cache):
                 cache = [state.invalidcell] * len(code.co_names_w)
@@ -175,7 +178,7 @@ class GlobalCacheHolder(object):
         else:
             cache = [state.invalidcell] * len(code.co_names_w)
         self.cache = cache
-        self.dictimpl = implementation
+        self.dictcontent = content
         return cache
     getcache_slow._dont_inline_ = True
 
@@ -210,7 +213,7 @@ def LOAD_GLOBAL(f, nameindex, *ignored):
 LOAD_GLOBAL._always_inline_ = True
 
 def find_cell_from_dict(implementation, name):
-    if isinstance(implementation, ModuleDictImplementation):
+    if implementation is not None:
         return implementation.getcell(name, False)
     return None
 
@@ -218,7 +221,7 @@ def find_cell_from_dict(implementation, name):
 def load_global_fill_cache(f, nameindex):
     name = f.space.str_w(f.getname_w(nameindex))
     implementation = getimplementation(f.w_globals)
-    if isinstance(implementation, ModuleDictImplementation):
+    if implementation is not None:
         cell = implementation.getcell(name, False)
         if cell is None:
             builtin_impl = getimplementation(f.get_builtin().getdict())
