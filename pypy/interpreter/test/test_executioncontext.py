@@ -713,7 +713,7 @@ class TestFrameChaining(object):
       
         self.leave_two_jitted_levels(ec, frame, frame2)
 
-    def test_check_escaping_jitted_with_two_differen_virtualizables(self):
+    def test_check_escaping_jitted_with_two_different_virtualizables(self):
         ec, frame, frame2 = self.enter_two_jitted_levels()
 
         frame3 = self.Frame(ec, frame)
@@ -741,3 +741,17 @@ class TestFrameChaining(object):
         ec._unchain(frame3)
         assert not frame2.escaped
 
+    def test_frame_top_is_virtualizable(self):
+        skip("crash!")
+        ec, frame, frame2 = self.enter_two_jitted_levels()
+        frame3 = self.Frame(ec, frame2)
+        ec.jitted = False
+        ec._chain(frame3)
+        ec.gettopframe()
+        frame3.force_f_back()
+        ec._unchain(frame3)
+        assert not frame2.f_forward
+        ec.jitted = True
+        ec._unchain(frame2)
+        assert not frame.f_forward
+        assert ec.gettopframe() is frame
