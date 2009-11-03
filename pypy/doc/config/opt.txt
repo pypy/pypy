@@ -18,6 +18,7 @@ where ``#`` is the desired optimization level.  The valid choices are:
     `--opt=mem`    minimize the run-time RAM consumption (in-progress)
     `--opt=2`      all optimizations on; good run-time performance
     `--opt=3`      same as `--opt=2`; remove asserts; gcc profiling `(**)`_
+    `--opt=jit`    includes the JIT and tweak other optimizations for it
     =============  ========================================================
 
 .. _`(*)`:
