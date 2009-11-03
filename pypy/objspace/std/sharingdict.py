@@ -129,12 +129,15 @@ class SharedDictImplementation(W_DictMultiObject):
             pos = self.structure.lookup_position(key)
             if pos == -1:
                 raise KeyError
-            for i in range(pos, len(self.entries)):
-                self.entries[pos] = self.entries[pos + 1]
+            struct_len = self.structure.length
+            num_back = struct_len - pos - 1
+
+            if num_back > 0:
+                for i in range(pos, struct_len):
+                    self.entries[pos] = self.entries[pos + 1]
             # don't make the entries list shorter, new keys might be added soon
-            self.entries[-1] = None
+            self.entries[struct_len - 1] = None
             structure = self.structure
-            num_back = len(self.entries) - pos - 1
             keys = [None] * num_back
             for i in range(num_back):
                 keys[i] = structure.last_key

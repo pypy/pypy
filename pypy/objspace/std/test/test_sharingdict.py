@@ -45,3 +45,10 @@ def test_delete():
     assert d.getitem("b") is None
     py.test.raises(KeyError, d.delitem, "b")
 
+    d.delitem("c")
+    assert d.entries == [1, None, None]
+    assert d.structure.keys == {"a": 0}
+
+    d.delitem("a")
+    assert d.entries == [None, None, None]
+    assert d.structure.keys == {}
