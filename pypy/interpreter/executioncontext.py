@@ -178,6 +178,9 @@ class ExecutionContext(object):
         while frame is not None and not frame.f_back_forced:
             frame.f_back_some = f_back = ExecutionContext._extract_back_from_frame(frame)
             frame.f_back_forced = True
+            # now that we force the whole chain, we also have to set the
+            # forward links to None
+            frame.f_forward = None
             frame = f_back
         return orig_frame.f_back_some
 
