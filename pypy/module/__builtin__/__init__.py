@@ -32,8 +32,6 @@ class Module(MixedModule):
         # redirected to functional.py, applevel version
         # is still needed and should stay where it is.
         'sorted'        : 'app_functional.sorted',
-        'globals'       : 'app_inspect.globals',
-        'locals'        : 'app_inspect.locals',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -109,6 +107,9 @@ class Module(MixedModule):
         'staticmethod'  : 'descriptor.StaticMethod',
         'classmethod'   : 'descriptor.ClassMethod',
         'property'      : 'descriptor.W_Property',
+
+        'globals'       : 'interp_inspect.globals',
+        'locals'        : 'interp_inspect.locals',
 
     }
 

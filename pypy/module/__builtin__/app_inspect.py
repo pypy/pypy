@@ -5,16 +5,9 @@ program introspection.
 
 import sys
 
-def globals():
-    "Return the dictionary containing the current scope's global variables."
-    return sys._getframe(0).f_globals
-
-def locals():
-    """Return a dictionary containing the current scope's local variables.
-Note that this may be the real dictionary of local variables, or a copy."""
-    return sys._getframe(0).f_locals
-
 def _caller_locals(): 
+    # note: the reason why this is working is because the functions in here are
+    # compiled by geninterp, so they don't have a frame
     return sys._getframe(0).f_locals 
 
 def vars(*obj):
