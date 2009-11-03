@@ -363,7 +363,7 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def assemble(self):
         """Build a PyCode object."""
-        # Unless it's interactive, every code object must in an a return.
+        # Unless it's interactive, every code object must end in a return.
         if not self.current_block.have_return:
             self.use_next_block()
             if self.add_none_to_final_return:
