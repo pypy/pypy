@@ -188,3 +188,31 @@ class AppTestCodeIntrospection:
         # CO_NESTED
         assert f(4).func_code.co_flags & 0x10
         assert f.func_code.co_flags & 0x10 == 0
+        # check for CO_CONTAINSLOOP
+        assert not f.func_code.co_flags & 0x0080
+        # check for CO_CONTAINSGLOBALS
+        assert not f.func_code.co_flags & 0x0800
+
+
+        exec """if 1:
+        def f():
+            return [l for l in range(100)]
+        def g():
+            return [l for l in [1, 2, 3, 4]]
+"""
+
+        # check for CO_CONTAINSLOOP
+        assert f.func_code.co_flags & 0x0080
+        assert g.func_code.co_flags & 0x0080
+        # check for CO_CONTAINSGLOBALS
+        assert f.func_code.co_flags & 0x0800
+        assert not g.func_code.co_flags & 0x0800
+
+        exec """if 1:
+        b = 2
+        def f(x):
+            exec "a = 1";
+            return a + b + x
+"""
+        # check for CO_CONTAINSGLOBALS
+        assert f.func_code.co_flags & 0x0800

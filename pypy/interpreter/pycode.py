@@ -11,23 +11,20 @@ from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
+    CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
+    CO_GENERATOR, CO_CONTAINSLOOP, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.debug import make_sure_not_resized, make_sure_not_modified
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash
+from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
 # helper
 
 def unpack_str_tuple(space,w_str_tuple):
     return [space.str_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
-# code object contants, for co_flags below
-CO_OPTIMIZED    = 0x0001
-CO_NEWLOCALS    = 0x0002
-CO_VARARGS      = 0x0004
-CO_VARKEYWORDS  = 0x0008
-CO_NESTED       = 0x0010
-CO_GENERATOR    = 0x0020
 
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/__builtin__/importing.
@@ -87,6 +84,7 @@ class PyCode(eval.Code):
         self._initialize()
 
     def _initialize(self):
+        self._init_flags()
         # Precompute what arguments need to be copied into cellvars
         self._args_as_cellvars = []
         
@@ -122,6 +120,24 @@ class PyCode(eval.Code):
         if self.space.config.objspace.std.withcelldict:
             from pypy.objspace.std.celldict import init_code
             init_code(self)
+
+    def _init_flags(self):
+        co_code = self.co_code
+        next_instr = 0
+        while next_instr < len(co_code):
+            opcode = ord(co_code[next_instr])
+            next_instr += 1
+            if opcode >= HAVE_ARGUMENT:
+                next_instr += 2
+            while opcode == opcodedesc.EXTENDED_ARG.index:
+                opcode = ord(co_code[next_instr])
+                next_instr += 3
+            if opcode == opcodedesc.JUMP_ABSOLUTE.index:
+                self.co_flags |= CO_CONTAINSLOOP
+            elif opcode == opcodedesc.LOAD_GLOBAL.index:
+                self.co_flags |= CO_CONTAINSGLOBALS
+            elif opcode == opcodedesc.LOAD_NAME.index:
+                self.co_flags |= CO_CONTAINSGLOBALS
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -162,18 +178,6 @@ class PyCode(eval.Code):
                       list(code.co_freevars),
                       list(code.co_cellvars),
                       hidden_applevel, cpython_magic)
-
-    def _code_new_w(space, argcount, nlocals, stacksize, flags,
-                    code, consts, names, varnames, filename,
-                    name, firstlineno, lnotab, freevars, cellvars,
-                    hidden_applevel=False):
-        """Initialize a new code objects from parameters given by
-        the pypy compiler"""
-        return PyCode(space, argcount, nlocals, stacksize, flags, code,
-                      consts[:], names, varnames, filename, name, firstlineno,
-                      lnotab, freevars, cellvars, hidden_applevel)
-
-    _code_new_w = staticmethod(_code_new_w)
 
     
     def _compute_flatcall(self):

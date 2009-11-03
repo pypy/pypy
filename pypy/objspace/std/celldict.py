@@ -1,3 +1,4 @@
+from pypy.interpreter.pycode import CO_CONTAINSGLOBALS
 from pypy.objspace.std.dictmultiobject import DictImplementation
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
@@ -201,14 +202,19 @@ class GlobalCacheHolder(object):
     getcache_slow._dont_inline_ = True
 
 def init_code(code):
-    code.globalcacheholder = GlobalCacheHolder(code.space)
+    if code.co_flags & CO_CONTAINSGLOBALS:
+        code.globalcacheholder = GlobalCacheHolder(code.space)
+    else:
+        code.globalcacheholder = None
 
 
 def get_global_cache(space, code, w_globals):
     from pypy.interpreter.pycode import PyCode
     assert isinstance(code, PyCode)
     holder = code.globalcacheholder
-    return holder.getcache(space, code, w_globals)
+    if holder is not None:
+        return holder.getcache(space, code, w_globals)
+    return None
 
 def getimplementation(w_dict):
     if type(w_dict) is W_DictMultiObject:

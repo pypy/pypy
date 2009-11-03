@@ -442,9 +442,9 @@ def unmarshal_pycode(space, u, tc):
     name        = unmarshal_str(u)
     firstlineno = u.get_int()
     lnotab      = unmarshal_str(u)
-    code = PyCode._code_new_w(space, argcount, nlocals, stacksize, flags,
-                              code, consts_w, names, varnames, filename,
-                              name, firstlineno, lnotab, freevars, cellvars)
+    code = PyCode(space, argcount, nlocals, stacksize, flags,
+                  code, consts_w[:], names, varnames, filename,
+                  name, firstlineno, lnotab, freevars, cellvars)
     return space.wrap(code)
 register(TYPE_CODE, unmarshal_pycode)
 

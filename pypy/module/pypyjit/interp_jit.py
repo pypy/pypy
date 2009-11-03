@@ -11,12 +11,11 @@ import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, Arguments
 from pypy.interpreter.eval import Frame
-from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
+from pypy.interpreter.pycode import PyCode, CO_CONTAINSLOOP
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.function import Function
 from pypy.interpreter.pyopcode import ExitFrame
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -28,19 +27,7 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def can_inline(next_instr, bytecode):
-    co_code = bytecode.co_code
-    next_instr = 0
-    while next_instr < len(co_code):
-        opcode = ord(co_code[next_instr])
-        next_instr += 1
-        if opcode >= HAVE_ARGUMENT:
-            next_instr += 2
-        while opcode == opcodedesc.EXTENDED_ARG.index:
-            opcode = ord(co_code[next_instr])
-            next_instr += 3
-        if opcode == JUMP_ABSOLUTE:
-            return False
-    return True
+    return not bool(bytecode.co_flags & CO_CONTAINSLOOP)
 
 def get_printable_location(next_instr, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
