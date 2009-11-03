@@ -590,10 +590,12 @@ class SourceGenerator:
             yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
+        split_criteria_big = SPLIT_CRITERIA
         if py.std.sys.platform != "win32":
-            split_criteria_big = SPLIT_CRITERIA * 4 
-        else:
-            split_criteria_big = SPLIT_CRITERIA
+            if self.database.gcpolicy.need_no_typeptr():
+                pass    # XXX gcc uses toooooons of memory???
+            else:
+                split_criteria_big = SPLIT_CRITERIA * 4 
         if self.one_source_file:
             return gen_readable_parts_of_main_c_file(f, self.database,
                                                      self.preimpl)
