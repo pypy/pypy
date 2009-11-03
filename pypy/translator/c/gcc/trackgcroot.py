@@ -715,6 +715,10 @@ class FunctionGcRootTracker(object):
             return self._visit_prologue()
         elif source == '%ebp' and target == '%esp':
             return self._visit_epilogue()
+        if source == '%esp' and self.funcname.startswith('VALGRIND_'):
+            return []     # in VALGRIND_XXX functions, there is a dummy-looking
+                          # mov %esp, %eax.  Shows up only when compiling with
+                          # gcc -fno-unit-at-a-time.
         return self.insns_for_copy(source, target)
 
     def visit_pushl(self, line):
