@@ -201,6 +201,7 @@ class __extend__(pyframe.PyFrame):
         cell = f.cells[varindex]
         cell.set(w_newvalue)
 
+    @jit.unroll_safe
     def MAKE_CLOSURE(f, numdefaults, *ignored):
         w_codeobj = f.popvalue()
         codeobj = f.space.interp_w(pycode.PyCode, w_codeobj)
