@@ -566,7 +566,7 @@ def run_example_code(filepath, eci):
 def get_python_include_dir():
     from distutils import sysconfig
     gcv = sysconfig.get_config_vars()
-    return gcv['INCLUDEPY']
+    return gcv.get('INCLUDEPY', '.') # this is for running on top of pypy-c
 
 def configure_external_library(name, eci, configurations,
                                symbol=None, _cache={}):
