@@ -205,6 +205,20 @@ treatment please send us a bug report (or even better, a fix :-)
 
 .. _`py.cleanup`: http://codespeak.net/py/current/doc/bin.html
 
+-------------------------------------------------------------
+OSError: ... cannot restore segment prot after reloc... Help?
+-------------------------------------------------------------
+
+On Linux, if SELinux is enabled, you may get errors along the lines of
+"OSError: externmod.so: cannot restore segment prot after reloc: Permission
+denied." This is caused by a slight abuse of the C compiler during
+configuration, and can be disabled by running the following command with root
+privileges::
+
+    # setenforce 0
+
+This will disable SELinux's protection and allow PyPy to configure correctly.
+Be sure to enable it again if you need it!
 
 PyPy translation tool chain
 ========================================================================
