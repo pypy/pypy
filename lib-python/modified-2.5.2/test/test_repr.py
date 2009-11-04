@@ -148,8 +148,7 @@ class ReprTests(unittest.TestCase):
         # Functions
         eq(repr(hash), '<built-in function hash>')
         # Methods
-        self.failUnless(repr(''.split).find(
-            "bound method str.split of '' at 0x") > -1)
+        self.assertEquals(repr(''.split), "<bound method str.split of ''>")
 
     def test_xrange(self):
         import warnings
