@@ -153,8 +153,8 @@ class Profiler(BaseProfiler):
         calls = self.calls
         self._print_line_time("Tracing", cnt[TRACING],   tim[TRACING])
         self._print_line_time("Backend", cnt[BACKEND],   tim[BACKEND])
-        self._print_intline("Running asm", cnt[RUNNING])
-        self._print_intline("Blackhole", cnt[BLACKHOLE])
+        self._print_line_time("Running asm", cnt[RUNNING], tim[RUNNING])
+        self._print_line_time("Blackhole", cnt[BLACKHOLE], tim[BLACKHOLE])
         line = "TOTAL:      \t\t%f\n" % (self.tk - self.starttime, )
         os.write(2, line)
         self._print_intline("ops", cnt[OPS])
