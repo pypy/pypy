@@ -52,3 +52,17 @@ def test_delete():
     d.delitem("a")
     assert d.entries == [None, None, None]
     assert d.structure.keys == {}
+
+    d = SharedDictImplementation(space)
+    d.setitem_str("a", 1)
+    d.setitem_str("b", 2)
+    d.setitem_str("c", 3)
+    d.setitem_str("d", 4)
+    d.setitem_str("e", 5)
+    d.setitem_str("f", 6)
+    d.setitem_str("g", 7)
+    d.setitem_str("h", 8)
+    d.setitem_str("i", 9)
+    d.delitem("d")
+    assert d.entries == [1, 2, 3, 5, 6, 7, 8, 9, None]
+    assert d.structure.keys == {"a": 0, "b": 1, "c": 2, "e": 3, "f": 4, "g": 5, "h": 6, "i": 7}

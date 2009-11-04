@@ -133,8 +133,8 @@ class SharedDictImplementation(W_DictMultiObject):
             num_back = struct_len - pos - 1
 
             if num_back > 0:
-                for i in range(pos, struct_len):
-                    self.entries[pos] = self.entries[pos + 1]
+                for i in range(pos, struct_len - 1):
+                    self.entries[i] = self.entries[i + 1]
             # don't make the entries list shorter, new keys might be added soon
             self.entries[struct_len - 1] = None
             structure = self.structure
