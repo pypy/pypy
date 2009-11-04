@@ -4,7 +4,6 @@ from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
 from pypy.lang.prolog.interpreter.error import UnificationFailed, FunctionNotFound
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.jit import we_are_jitted, hint
 from pypy.rlib.unroll import unrolling_iterable
 
 arithmetic_functions = {}
