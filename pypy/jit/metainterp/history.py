@@ -685,7 +685,6 @@ class TreeLoop(object):
     inputargs = None
     operations = None
     token = None
-    specnodes = property(lambda x: crash, lambda x, y: crash)  # XXX temp
 
     def __init__(self, name):
         self.name = name

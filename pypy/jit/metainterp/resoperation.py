@@ -4,12 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated
 class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
-    # for 'jump': points to the target loop;
-    jump_target = property(lambda x: crash, lambda x, y: crash)  # XXX temp
-
     # for 'guard_*'
-    suboperations = property(lambda x: crash, lambda x, y: crash)  # XXX temp
-    optimized = property(lambda x: crash, lambda x, y: crash)  # XXX temp
     fail_args = None
 
     # debug
