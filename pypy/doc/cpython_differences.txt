@@ -120,11 +120,22 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
 
+Note that the time at which __del__ is called is not well-defined in any
+implementation apart from CPython.  A __del__ method may appear to be
+called sometimes later in PyPy; for example, a file may stay open for a
+bit longer, which can have visible effects (e.g. a file opened for
+writing might still contain data not flushed yet).  This also makes
+"weak proxies" less useful (see ``weakref.proxy()``).  They will appear
+to stay alive a bit longer in PyPy, and suddenly they will really be
+dead, raising a ``ReferenceError`` on the next access.  Any code that
+uses weak proxies must carefully catch such ``ReferenceError`` at any
+place that uses them.
+
 The built-in function ``id()`` returns numbers that are not addresses
 for most of PyPy's garbage collectors.
 This is most visible in the default repr: a typical PyPy object can
 pretend to be located ``at 0x00000009``.  This is just its ``id()``, not
-its real address (because the physical address can change for some GCs). Calling
+its real address (because an object can move around in some GCs). Calling
 ``id`` a lot can lead to performance problem.
 
 Note that if you have a long chain of objects, each with a reference to
