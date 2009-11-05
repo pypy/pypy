@@ -257,8 +257,7 @@ class ResumeDataVirtualAdder(object):
         self._number_virtuals(liveboxes)
 
         storage.rd_consts = self.memo.consts
-        if have_debug_prints():
-            dump_storage(storage, liveboxes)
+        dump_storage(storage, liveboxes)
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes):
@@ -431,27 +430,28 @@ def dump_storage(storage, liveboxes):
     "For profiling only."
     from pypy.rlib.objectmodel import compute_unique_id
     debug_start("jit-resume")
-    debug_print('Log storage', compute_unique_id(storage))
-    frameinfo = storage.rd_frame_info_list
-    while frameinfo is not None:
-        try:
-            jitcodename = frameinfo.jitcode.name
-        except AttributeError:
-            jitcodename = str(compute_unique_id(frameinfo.jitcode))
-        debug_print('\tjitcode/pc', jitcodename,
-                    frameinfo.pc, frameinfo.exception_target,
-                    'at', compute_unique_id(frameinfo))
-        frameinfo = frameinfo.prev
-    numb = storage.rd_numb
-    while numb is not None:
-        debug_print('\tnumb', str([untag(i) for i in numb.nums]),
-                    'at', compute_unique_id(numb))
-        numb = numb.prev
-    for const in storage.rd_consts:
-        debug_print('\tconst', const.repr_rpython())
-    for box in liveboxes:
-        debug_print('\tbox', box.repr_rpython())
-    if storage.rd_virtuals is not None:
-        for virtual in storage.rd_virtuals:
-            virtual.debug_prints()
+    if have_debug_prints():
+        debug_print('Log storage', compute_unique_id(storage))
+        frameinfo = storage.rd_frame_info_list
+        while frameinfo is not None:
+            try:
+                jitcodename = frameinfo.jitcode.name
+            except AttributeError:
+                jitcodename = str(compute_unique_id(frameinfo.jitcode))
+            debug_print('\tjitcode/pc', jitcodename,
+                        frameinfo.pc, frameinfo.exception_target,
+                        'at', compute_unique_id(frameinfo))
+            frameinfo = frameinfo.prev
+        numb = storage.rd_numb
+        while numb is not None:
+            debug_print('\tnumb', str([untag(i) for i in numb.nums]),
+                        'at', compute_unique_id(numb))
+            numb = numb.prev
+        for const in storage.rd_consts:
+            debug_print('\tconst', const.repr_rpython())
+        for box in liveboxes:
+            debug_print('\tbox', box.repr_rpython())
+        if storage.rd_virtuals is not None:
+            for virtual in storage.rd_virtuals:
+                virtual.debug_prints()
     debug_stop("jit-resume")

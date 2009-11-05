@@ -353,15 +353,15 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_cat.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'cat:%s' % path})
-        assert out.strip() == 'got:a.'
+        assert out.strip() == 'got:ca.'
         assert not err
         assert path.check(file=1)
         data = path.read()
         assert 'toplevel' in path.read()
         assert 'mycat' not in path.read()
         assert 'foo 2 bar 3' not in path.read()
-        assert 'cat2' not in data      # because it is nested
-        assert 'baz' not in data
+        assert 'cat2' in data
+        assert 'baz' in data
         assert 'bok' not in data
         #
         # finally, check compiling with logging disabled

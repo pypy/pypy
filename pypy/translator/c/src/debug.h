@@ -21,12 +21,12 @@
 
 
 /* macros used by the generated code */
-#define PYPY_HAVE_DEBUG_PRINTS    (pypy_ignoring_nested_prints ? 0 : \
-                                   (pypy_debug_ensure_opened(), 1))
+#define PYPY_HAVE_DEBUG_PRINTS    (pypy_have_debug_prints & 1 ? \
+                                   (pypy_debug_ensure_opened(), 1) : 0)
 #define PYPY_DEBUG_FILE           pypy_debug_file
 #define PYPY_DEBUG_START(cat)     pypy_debug_start(cat)
 #define PYPY_DEBUG_STOP(cat)      pypy_debug_stop(cat)
-#define OP_HAVE_DEBUG_PRINTS(r)   r = !pypy_ignoring_nested_prints
+#define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
 
 
 /************************************************************/
@@ -36,7 +36,7 @@ void pypy_debug_ensure_opened(void);
 void pypy_debug_start(const char *category);
 void pypy_debug_stop(const char *category);
 
-extern int pypy_ignoring_nested_prints;
+extern long pypy_have_debug_prints;
 extern FILE *pypy_debug_file;
 
 
@@ -45,7 +45,7 @@ extern FILE *pypy_debug_file;
 #ifndef PYPY_NOT_MAIN_FILE
 #include <string.h>
 
-int pypy_ignoring_nested_prints = 0;
+long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;
 static bool_t debug_ready = 0;
 static bool_t debug_profile = 0;
@@ -139,39 +139,30 @@ static void display_startstop(const char *prefix, const char *postfix,
 void pypy_debug_start(const char *category)
 {
   pypy_debug_ensure_opened();
-  if (debug_profile)
-    {
-      /* profiling version */
-      pypy_ignoring_nested_prints++;    /* disable nested debug_print */
-    }
-  else
+  /* Enter a nesting level.  Nested debug_prints are disabled by default
+     because the following left shift introduces a 0 in the last bit.
+     Note that this logic assumes that we are never going to nest
+     debug_starts more than 31 levels (63 on 64-bits). */
+  pypy_have_debug_prints <<= 1;
+  if (!debug_profile)
     {
       /* non-profiling version */
-      if (pypy_ignoring_nested_prints > 0)
-        {
-          /* already ignoring the parent section */
-          pypy_ignoring_nested_prints++;
-          return;
-        }
       if (!debug_prefix || !startswith(category, debug_prefix))
         {
           /* wrong section name, or no PYPYLOG at all, skip it */
-          pypy_ignoring_nested_prints = 1;
           return;
         }
+      /* else make this subsection active */
+      pypy_have_debug_prints |= 1;
     }
   display_startstop("{", "", category, debug_start_colors_1);
 }
 
 void pypy_debug_stop(const char *category)
 {
-  if (pypy_ignoring_nested_prints > 0)
-    {
-      pypy_ignoring_nested_prints--;
-      if (!debug_profile)
-        return;
-    }
-  display_startstop("", "}", category, debug_start_colors_2);
+  if (debug_profile | (pypy_have_debug_prints & 1))
+    display_startstop("", "}", category, debug_start_colors_2);
+  pypy_have_debug_prints >>= 1;
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */
