@@ -55,17 +55,26 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    `optimization level`_ `1` in the next step.  A level of
    `2` or `3` gives much better results, though.
 
+   Let me stress this another time: at ``--opt=1`` you get the Boehm
+   GC, which is here mostly for historical and for testing reasons.
+   You really do not want to pick it.  The resulting ``pypy-c`` is
+   slow.
+
+   Alternatively, if you want to enable the experimental JIT, choose
+   the optimization level ``jit``.
+
 3. Run::
 
      cd pypy/translator/goal
      python translate.py --opt=3 targetpypystandalone.py
 
-   possibly replacing ``--opt=3`` with ``--opt=1`` or another
+   possibly replacing ``--opt=3`` with ``--opt=jit`` or another
    `optimization level`_ of your choice.
 
-   On Linux 32-bit Intel machines, if you don't need threads, you
-   can get some extra speed (and extra translation time) by adding
-   ``--gcrootfinder=asmgcc`` just after the ``--opt`` option.
+   On Linux 32-bit Intel machines, you can get some extra speed
+   (and extra translation time) by adding ``--gcrootfinder=asmgcc``
+   just after the ``--opt`` option.  (This option is implied by
+   ``--opt=jit``.)
 
 .. _`optimization level`: config/opt.html
 
