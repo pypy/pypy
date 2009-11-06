@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
-from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
+from pypy.annotation.model import SomePBC, SomeInstance, SomeDict, SomeList
 from pypy.annotation.model import SomeWeakRef
 from pypy.annotation.model import SomeOOObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
@@ -218,6 +218,8 @@ def builtin_tuple(s_iterable):
     return SomeObject()
 
 def builtin_list(s_iterable):
+    if isinstance(s_iterable, SomeList):
+        return s_iterable.listdef.offspring()
     s_iter = s_iterable.iter()
     return getbookkeeper().newlist(s_iter.next())
 

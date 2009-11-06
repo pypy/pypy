@@ -1306,6 +1306,22 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [3])
         assert res == 0
 
+    def test_make_new_list(self):
+        class A:
+            def _freeze_(self):
+                return True
+        a1 = A()
+        a2 = A()
+        def f(i):
+            lst = [a1, a1]
+            lst2 = list(lst)
+            lst2.append(a2)
+            return lst2[i] is a2
+        res = self.interpret(f, [1])
+        assert res == False
+        res = self.interpret(f, [2])
+        assert res == True
+
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
     rlist = ll_rlist
