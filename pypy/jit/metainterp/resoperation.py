@@ -93,14 +93,6 @@ class ResOperation(object):
     def is_final(self):
         return rop._FINAL_FIRST <= self.opnum <= rop._FINAL_LAST
 
-    def returns_bool_result(self):
-        opnum = self.opnum
-        if we_are_translated():
-            assert opnum >= 0
-        elif opnum < 0:
-            return False     # for tests
-        return opboolresult[opnum]
-
 # ____________________________________________________________
 
 _oplist = [
@@ -145,40 +137,40 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'FLOAT_IS_TRUE/1b',
+    'FLOAT_IS_TRUE/1',
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
     #
     '_COMPARISON_FIRST',
-    'INT_LT/2b',
-    'INT_LE/2b',
-    'INT_EQ/2b',
-    'INT_NE/2b',
-    'INT_GT/2b',
-    'INT_GE/2b',
-    'UINT_LT/2b',
-    'UINT_LE/2b',
-    'UINT_GT/2b',
-    'UINT_GE/2b',
+    'INT_LT/2',
+    'INT_LE/2',
+    'INT_EQ/2',
+    'INT_NE/2',
+    'INT_GT/2',
+    'INT_GE/2',
+    'UINT_LT/2',
+    'UINT_LE/2',
+    'UINT_GT/2',
+    'UINT_GE/2',
     '_COMPARISON_LAST',
-    'FLOAT_LT/2b',          # maybe these ones should be comparisons too
-    'FLOAT_LE/2b',
-    'FLOAT_EQ/2b',
-    'FLOAT_NE/2b',
-    'FLOAT_GT/2b',
-    'FLOAT_GE/2b',
+    'FLOAT_LT/2',          # maybe these ones should be comparisons too
+    'FLOAT_LE/2',
+    'FLOAT_EQ/2',
+    'FLOAT_NE/2',
+    'FLOAT_GT/2',
+    'FLOAT_GE/2',
     #
-    'INT_IS_TRUE/1b',
+    'INT_IS_TRUE/1',
     'INT_NEG/1',
     'INT_INVERT/1',
-    'BOOL_NOT/1b',
+    'BOOL_NOT/1',
     #
     'SAME_AS/1',      # gets a Const, turns it into a Box
     #
-    'OONONNULL/1b',
-    'OOISNULL/1b',
-    'OOIS/2b',
-    'OOISNOT/2b',
+    'OONONNULL/1',
+    'OOISNULL/1',
+    'OOIS/2',
+    'OOISNOT/2',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -190,8 +182,8 @@ _oplist = [
     'UNICODEGETITEM/2',
     #
     # ootype operations
-    'INSTANCEOF/1db',
-    'SUBCLASSOF/2b',
+    'INSTANCEOF/1d',
+    'SUBCLASSOF/2',
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
@@ -239,7 +231,6 @@ class rop(object):
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
-opboolresult= [] # mapping numbers to a flag "returns a boolean"
 
 
 def setup(debug_print=False):
@@ -248,18 +239,16 @@ def setup(debug_print=False):
             print '%30s = %d' % (name, i)
         if '/' in name:
             name, arity = name.split('/')
-            withdescr = 'd' in arity
-            boolresult = 'b' in arity
-            arity = int(arity.rstrip('db'))
+            withdescr = arity.endswith('d')
+            arity = int(arity.rstrip('d'))
         else:
-            arity, withdescr, boolresult = -1, True, False       # default
+            arity, withdescr = -1, True       # default
         setattr(rop, name, i)
         if not name.startswith('_'):
             opname[i] = name
         oparity.append(arity)
         opwithdescr.append(withdescr)
-        opboolresult.append(boolresult)
-    assert len(oparity)==len(opwithdescr)==len(opboolresult)==len(_oplist)
+    assert len(oparity) == len(opwithdescr) == len(_oplist)
 
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist

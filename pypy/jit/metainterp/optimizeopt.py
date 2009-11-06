@@ -367,7 +367,6 @@ class Optimizer(object):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.cpu)
         self.heap_op_optimizer = HeapOpOptimizer(self)
-        self.bool_boxes = {}
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(OPT_FORCINGS)
@@ -514,8 +513,6 @@ class Optimizer(object):
             self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        elif op.returns_bool_result():
-            self.bool_boxes[op.result] = None
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
@@ -569,16 +566,6 @@ class Optimizer(object):
     def optimize_GUARD_VALUE(self, op):
         constbox = op.args[1]
         assert isinstance(constbox, Const)
-        if op.args[0] in self.bool_boxes:
-            if constbox.value == 0:
-                opnum = rop.GUARD_FALSE
-            elif constbox.value == 1:
-                opnum = rop.GUARD_TRUE
-            else:
-                raise InvalidLoop
-            newop = ResOperation(opnum, [op.args[0]], None, op.descr)
-            newop.fail_args = op.fail_args
-            op = newop
         self.optimize_guard(op, constbox)
 
     def optimize_GUARD_TRUE(self, op):
