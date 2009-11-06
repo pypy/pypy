@@ -45,6 +45,19 @@ extern FILE *pypy_debug_file;
 #ifndef PYPY_NOT_MAIN_FILE
 #include <string.h>
 
+#if defined(__GNUC__) && !defined(WIN32)
+# include <sched.h>
+  static void pypy_setup_profiling()
+  {
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(0, &set);   /* restrict to a single cpu */
+    sched_setaffinity(0, sizeof(cpu_set_t), &set);
+  }
+#else
+static void pypy_setup_profiling() { }
+#endif
+
 long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;
 static bool_t debug_ready = 0;
@@ -64,6 +77,7 @@ static void pypy_debug_open(void)
         {
           /* PYPYLOG=filename --- profiling version */
           debug_profile = 1;
+          pypy_setup_profiling();
         }
       else
         {
