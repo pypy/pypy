@@ -524,6 +524,45 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, '', ops)
 
+    def test_guard_value_to_guard_true(self):
+        ops = """
+        [i]
+        i1 = int_lt(i, 3)
+        guard_value(i1, 1) [i]
+        jump(i)
+        """
+        expected = """
+        [i]
+        i1 = int_lt(i, 3)
+        guard_true(i1) [i]
+        jump(i)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_guard_value_to_guard_false(self):
+        ops = """
+        [p]
+        i1 = ooisnull(p)
+        guard_value(i1, 0) [p]
+        jump(p)
+        """
+        expected = """
+        [p]
+        i1 = ooisnull(p)
+        guard_false(i1) [p]
+        jump(p)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_guard_value_on_nonbool(self):
+        ops = """
+        [i]
+        i1 = int_add(i, 3)
+        guard_value(i1, 0) [i]
+        jump(i)
+        """
+        self.optimize_loop(ops, 'Not', ops)
+
 
     def test_p123_simple(self):
         ops = """

@@ -354,7 +354,6 @@ class MIFrame(object):
     def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
         negbox = self.metainterp.execute_and_record(
             rop.INT_LT, None, indexbox, ConstInt(0))
-        # xxx inefficient
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
@@ -394,7 +393,6 @@ class MIFrame(object):
                                          indexbox):
         negbox = self.metainterp.execute_and_record(
             rop.INT_LT, None, indexbox, ConstInt(0))
-        # xxx inefficient
         negbox = self.implement_guard_value(pc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
@@ -408,7 +406,6 @@ class MIFrame(object):
     def opimpl_check_zerodivisionerror(self, pc, box):
         nonzerobox = self.metainterp.execute_and_record(
             rop.INT_NE, None, box, ConstInt(0))
-        # xxx inefficient
         nonzerobox = self.implement_guard_value(pc, nonzerobox)
         if nonzerobox.getint():
             return False
@@ -426,7 +423,6 @@ class MIFrame(object):
             rop.INT_AND, None, tmp1, box2)                    # tmp2=-1
         tmp3 = self.metainterp.execute_and_record(
             rop.INT_EQ, None, tmp2, ConstInt(-1))             # tmp3?
-        # xxx inefficient
         tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
         if not tmp4.getint():
             return False
@@ -442,7 +438,6 @@ class MIFrame(object):
     def opimpl_int_abs(self, pc, box):
         nonneg = self.metainterp.execute_and_record(
             rop.INT_GE, None, box, ConstInt(0))
-        # xxx inefficient
         nonneg = self.implement_guard_value(pc, nonneg)
         if nonneg.getint():
             self.make_result_box(box)
