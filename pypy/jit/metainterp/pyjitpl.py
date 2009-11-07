@@ -106,7 +106,7 @@ class MIFrame(object):
     parent_resumedata_snapshot = None
     parent_resumedata_frame_info_list = None
 
-    def __init__(self, metainterp, jitcode):
+    def __init__(self, metainterp, jitcode, greenkey=None):
         assert isinstance(jitcode, codewriter.JitCode)
         self.metainterp = metainterp
         self.jitcode = jitcode
@@ -114,6 +114,8 @@ class MIFrame(object):
         self.constants = jitcode.constants
         self.exception_target = -1
         self.name = jitcode.name # purely for having name attribute
+        # this is not None for frames that are recursive portal calls
+        self.greenkey = greenkey
 
     # ------------------------------
     # Decoding of the JitCode
@@ -589,7 +591,7 @@ class MIFrame(object):
         result = vinfo.get_array_length(virtualizable, arrayindex)
         self.make_result_box(ConstInt(result))
 
-    def perform_call(self, jitcode, varargs):
+    def perform_call(self, jitcode, varargs, greenkey=None):
         if (self.metainterp.is_blackholing() and
             jitcode.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
@@ -613,7 +615,7 @@ class MIFrame(object):
             return res
         else:
             # when tracing, this bytecode causes the subfunction to be entered
-            f = self.metainterp.newframe(jitcode)
+            f = self.metainterp.newframe(jitcode, greenkey)
             f.setup_call(varargs)
             return True
 
@@ -646,7 +648,7 @@ class MIFrame(object):
             portal_code = self.metainterp.staticdata.portal_code
             greenkey = varargs[1:num_green_args + 1]
             if warmrunnerstate.can_inline_callable(greenkey):
-                return self.perform_call(portal_code, varargs[1:])
+                return self.perform_call(portal_code, varargs[1:], greenkey)
         return self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=True)
 
     @arguments("descr", "varargs")
@@ -1126,14 +1128,19 @@ class MetaInterp(object):
     def __init__(self, staticdata):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
+        self.portal_trace_positions = []
+        self.greenkey_of_huge_function = None
 
     def is_blackholing(self):
         return self.history is None
 
-    def newframe(self, jitcode):
+    def newframe(self, jitcode, greenkey=None):
         if jitcode is self.staticdata.portal_code:
             self.in_recursion += 1
-        f = MIFrame(self, jitcode)
+        if greenkey is not None and not self.is_blackholing():
+            self.portal_trace_positions.append(
+                    (greenkey, len(self.history.operations)))
+        f = MIFrame(self, jitcode, greenkey)
         self.framestack.append(f)
         return f
 
@@ -1141,6 +1148,9 @@ class MetaInterp(object):
         frame = self.framestack.pop()
         if frame.jitcode is self.staticdata.portal_code:
             self.in_recursion -= 1
+        if frame.greenkey is not None and not self.is_blackholing():
+            self.portal_trace_positions.append(
+                    (None, len(self.history.operations)))
         return frame
 
     def finishframe(self, resultbox):
@@ -1334,6 +1344,8 @@ class MetaInterp(object):
             warmrunnerstate = self.staticdata.state
             if len(self.history.operations) > warmrunnerstate.trace_limit:
                 self.staticdata.profiler.count(ABORT_TOO_LONG)
+                self.greenkey_of_huge_function = self.find_biggest_function()
+                self.portal_trace_positions = None
                 self.switch_to_blackhole()
 
     def _interpret(self):
@@ -1427,7 +1439,7 @@ class MetaInterp(object):
         except ContinueRunningNormallyBase:
             if not started_as_blackhole:
                 warmrunnerstate = self.staticdata.state
-                warmrunnerstate.reset_counter_from_failure(key)
+                warmrunnerstate.reset_counter_from_failure(key, self)
             raise
 
     def forget_consts(self, boxes, startindex=0):
@@ -1816,6 +1828,30 @@ class MetaInterp(object):
             for i in range(len(boxes)):
                 if boxes[i] is oldbox:
                     boxes[i] = newbox
+
+    def find_biggest_function(self):
+        assert not self.is_blackholing()
+
+        start_stack = []
+        max_size = 0
+        max_key = None
+        for pair in self.portal_trace_positions:
+            key, pos = pair
+            if key is not None:
+                start_stack.append(pair)
+            else:
+                greenkey, startpos = start_stack.pop()
+                size = pos - startpos
+                if size > max_size:
+                    max_size = size
+                    max_key = greenkey
+        if start_stack:
+            key, pos = start_stack[0]
+            size = len(self.history.operations) - pos
+            if size > max_size:
+                max_size = size
+                max_key = key
+        return max_key
 
 
 class GenerateMergePoint(Exception):

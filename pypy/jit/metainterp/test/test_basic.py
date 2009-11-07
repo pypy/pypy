@@ -109,7 +109,12 @@ class JitMixin:
         else:
             raise Exception("FAILED")
 
-    def check_history_(self, expected=None, **isns):
+    def check_history(self, expected=None, **isns):
+        # this can be used after calling meta_interp
+        get_stats().check_history(expected, **isns)
+
+    def check_operations_history(self, expected=None, **isns):
+        # this can be used after interp_operations
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 
@@ -304,7 +309,7 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
-        self.check_history_(int_add=1, int_mul=0, call=1, guard_no_exception=0)
+        self.check_operations_history(int_add=1, int_mul=0, call=1, guard_no_exception=0)
 
     def test_residual_call_pure(self):
         def externfn(x, y):
@@ -315,7 +320,7 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
-        self.check_history_(int_add=0, int_mul=0, call=0)
+        self.check_operations_history(int_add=0, int_mul=0, call=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -417,7 +422,7 @@ class BasicTests:
             return a.foo * x
         res = self.interp_operations(f, [42])
         assert res == 210
-        self.check_history_(getfield_gc=1)
+        self.check_operations_history(getfield_gc=1)
 
     def test_getfield_immutable(self):
         class A:
@@ -434,7 +439,7 @@ class BasicTests:
             return a.foo * x
         res = self.interp_operations(f, [42])
         assert res == 210
-        self.check_history_(getfield_gc=0)
+        self.check_operations_history(getfield_gc=0)
 
     def test_setfield_bool(self):
         class A:
@@ -748,7 +753,7 @@ class BasicTests:
             return isinstance(obj, B)
         res = self.interp_operations(fn, [0])
         assert res
-        self.check_history_(guard_class=1)
+        self.check_operations_history(guard_class=1)
         res = self.interp_operations(fn, [1])
         assert not res
 
@@ -769,7 +774,7 @@ class BasicTests:
             return obj.a
         res = self.interp_operations(fn, [1])
         assert res == 1
-        self.check_history_(guard_class=0, instanceof=0)
+        self.check_operations_history(guard_class=0, instanceof=0)
 
     def test_r_dict(self):
         from pypy.rlib.objectmodel import r_dict
@@ -901,7 +906,7 @@ class BasicTests:
             return g(a, b)
         res = self.interp_operations(f, [3, 5])
         assert res == 8
-        self.check_history_(int_add=0, call=1)
+        self.check_operations_history(int_add=0, call=1)
 
     def test_listcomp(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'lst'])
@@ -925,7 +930,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_history_(setfield_gc=2, getfield_gc_pure=1)
+        self.check_operations_history(setfield_gc=2, getfield_gc_pure=1)
 
     def test_oosend_look_inside_only_one(self):
         class A:

@@ -356,7 +356,7 @@ class ImmutableFieldsTests:
             return y.x + 5
         res = self.interp_operations(f, [23])
         assert res == 28
-        self.check_history_(getfield_gc=0, getfield_gc_pure=1, int_add=1)
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=1, int_add=1)
 
     def test_array(self):
         class X(object):
@@ -371,7 +371,7 @@ class ImmutableFieldsTests:
             return a.y[index]
         res = self.interp_operations(f, [2], listops=True)
         assert res == 30
-        self.check_history_(getfield_gc=0, getfield_gc_pure=1,
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=1,
                             getarrayitem_gc=0, getarrayitem_gc_pure=1)
 
 
@@ -389,7 +389,7 @@ class ImmutableFieldsTests:
             return y.lst[index] + y.y + 5
         res = self.interp_operations(f, [23, 0], listops=True)
         assert res == 23 + 24 + 5
-        self.check_history_(getfield_gc=0, getfield_gc_pure=2,
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=2,
                             getarrayitem_gc=0, getarrayitem_gc_pure=1,
                             int_add=3)
 

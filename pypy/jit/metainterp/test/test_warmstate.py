@@ -165,7 +165,13 @@ def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         can_inline_ptr = None
         get_printable_location_ptr = None
+        green_args_spec = [lltype.Signed, lltype.Float]
+    class FakeCell:
+        dont_trace_here = False
     state = WarmEnterState(FakeWarmRunnerDesc())
+    def jit_getter(*args):
+        return FakeCell()
+    state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
     res = state.can_inline_callable([BoxInt(5), BoxFloat(42.5)])
     assert res is True
@@ -179,12 +185,17 @@ def test_make_jitdriver_callbacks_2():
         return False
     CAN_INLINE = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Float],
                                             lltype.Bool))
+    class FakeCell:
+        dont_trace_here = False
     class FakeWarmRunnerDesc:
         rtyper = None
         green_args_spec = [lltype.Signed, lltype.Float]
         can_inline_ptr = llhelper(CAN_INLINE, can_inline)
         get_printable_location_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc())
+    def jit_getter(*args):
+        return FakeCell()
+    state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
     res = state.can_inline_callable([BoxInt(5), BoxFloat(42.5)])
     assert res is False

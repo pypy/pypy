@@ -6,8 +6,8 @@ from pypy.jit.metainterp import pyjitpl
 class BlackholeTests(object):
 
     def meta_interp(self, *args):
-        def counting_init(frame, metainterp, jitcode):
-            previnit(frame, metainterp, jitcode)
+        def counting_init(frame, metainterp, jitcode, greenkey=None):
+            previnit(frame, metainterp, jitcode, greenkey)
             self.seen_frames.append(jitcode.name)
         #
         previnit = pyjitpl.MIFrame.__init__.im_func

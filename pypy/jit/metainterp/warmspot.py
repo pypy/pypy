@@ -161,18 +161,19 @@ class WarmRunnerDesc:
 
         self.build_meta_interp(CPUClass, **kwds)
         self.make_args_specification()
-        self.rewrite_jit_merge_point(policy)
-        self.make_driverhook_graphs()
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
+        self.make_exception_classes()
+        self.make_driverhook_graphs()
+        self.make_enter_function()
+        self.rewrite_jit_merge_point(policy)
                 
         self.codewriter.generate_bytecode(self.metainterp_sd,
                                           self.portal_graph,
                                           self.leave_graph,
                                           self.portal_runner_ptr
                                           )
-        self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
         self.add_profiler_finish()
@@ -262,7 +263,68 @@ class WarmRunnerDesc:
                                                   self.stats, opt,
                                                   ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self)
-        
+
+    def make_exception_classes(self):
+        portalfunc_ARGS = unrolling_iterable(
+            [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(self.PORTAL_FUNCTYPE.ARGS)])
+        class DoneWithThisFrameVoid(JitException):
+            def __str__(self):
+                return 'DoneWithThisFrameVoid()'
+
+        class DoneWithThisFrameInt(JitException):
+            def __init__(self, result):
+                assert lltype.typeOf(result) is lltype.Signed
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameInt(%s)' % (self.result,)
+
+        class DoneWithThisFrameRef(JitException):
+            def __init__(self, cpu, result):
+                assert lltype.typeOf(result) == cpu.ts.BASETYPE
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameRef(%s)' % (self.result,)
+
+        class DoneWithThisFrameFloat(JitException):
+            def __init__(self, result):
+                assert lltype.typeOf(result) is lltype.Float
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameFloat(%s)' % (self.result,)
+
+        class ExitFrameWithExceptionRef(JitException):
+            def __init__(self, cpu, value):
+                assert lltype.typeOf(value) == cpu.ts.BASETYPE
+                self.value = value
+            def __str__(self):
+                return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
+
+        class ContinueRunningNormally(ContinueRunningNormallyBase):
+            def __init__(self, argboxes):
+                # accepts boxes as argument, but unpacks them immediately
+                # before we raise the exception -- the boxes' values will
+                # be modified in a 'finally' by restore_patched_boxes().
+                from pypy.jit.metainterp.warmstate import unwrap
+                for i, name, ARG in portalfunc_ARGS:
+                    v = unwrap(ARG, argboxes[i])
+                    setattr(self, name, v)
+
+            def __str__(self):
+                return 'ContinueRunningNormally(%s)' % (
+                    ', '.join(map(str, self.args)),)
+
+        self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
+        self.DoneWithThisFrameInt = DoneWithThisFrameInt
+        self.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.DoneWithThisFrameFloat = DoneWithThisFrameFloat
+        self.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
+        self.ContinueRunningNormally = ContinueRunningNormally
+        self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
+        self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
+        self.metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
+        self.metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrameFloat
+        self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
+        self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
     def make_enter_function(self):
         from pypy.jit.metainterp.warmstate import WarmEnterState
         state = WarmEnterState(self)
@@ -294,8 +356,15 @@ class WarmRunnerDesc:
             def maybe_enter_jit(*args):
                 maybe_compile_and_run(*args)
             maybe_enter_jit._always_inline_ = True
-
         self.maybe_enter_jit_fn = maybe_enter_jit
+
+        can_inline = self.state.can_inline_greenargs
+        def maybe_enter_from_start(*args):
+            if can_inline is not None and not can_inline(*args[:self.num_green_args]):
+                maybe_compile_and_run(*args)
+        maybe_enter_from_start._always_inline_ = True
+        self.maybe_enter_from_start_fn = maybe_enter_from_start
+
 
     def make_leave_jit_graph(self):
         self.leave_graph = None
@@ -439,64 +508,7 @@ class WarmRunnerDesc:
         portalfunc_ARGS = unrolling_iterable(
             [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(PORTALFUNC.ARGS)])
 
-        class DoneWithThisFrameVoid(JitException):
-            def __str__(self):
-                return 'DoneWithThisFrameVoid()'
 
-        class DoneWithThisFrameInt(JitException):
-            def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Signed
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameInt(%s)' % (self.result,)
-
-        class DoneWithThisFrameRef(JitException):
-            def __init__(self, cpu, result):
-                assert lltype.typeOf(result) == cpu.ts.BASETYPE
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameRef(%s)' % (self.result,)
-
-        class DoneWithThisFrameFloat(JitException):
-            def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Float
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameFloat(%s)' % (self.result,)
-
-        class ExitFrameWithExceptionRef(JitException):
-            def __init__(self, cpu, value):
-                assert lltype.typeOf(value) == cpu.ts.BASETYPE
-                self.value = value
-            def __str__(self):
-                return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
-
-        class ContinueRunningNormally(ContinueRunningNormallyBase):
-            def __init__(self, argboxes):
-                # accepts boxes as argument, but unpacks them immediately
-                # before we raise the exception -- the boxes' values will
-                # be modified in a 'finally' by restore_patched_boxes().
-                from pypy.jit.metainterp.warmstate import unwrap
-                for i, name, ARG in portalfunc_ARGS:
-                    v = unwrap(ARG, argboxes[i])
-                    setattr(self, name, v)
-
-            def __str__(self):
-                return 'ContinueRunningNormally(%s)' % (
-                    ', '.join(map(str, self.args)),)
-
-        self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
-        self.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.DoneWithThisFrameRef = DoneWithThisFrameRef
-        self.DoneWithThisFrameFloat = DoneWithThisFrameFloat
-        self.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
-        self.ContinueRunningNormally = ContinueRunningNormally
-        self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
-        self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
-        self.metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrameFloat
-        self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
-        self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
         rtyper = self.translator.rtyper
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
@@ -505,26 +517,27 @@ class WarmRunnerDesc:
         def ll_portal_runner(*args):
             while 1:
                 try:
+                    self.maybe_enter_from_start_fn(*args)
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
-                except ContinueRunningNormally, e:
+                except self.ContinueRunningNormally, e:
                     args = ()
                     for _, name, _ in portalfunc_ARGS:
                         v = getattr(e, name)
                         args = args + (v,)
-                except DoneWithThisFrameVoid:
+                except self.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return
-                except DoneWithThisFrameInt, e:
+                except self.DoneWithThisFrameInt, e:
                     assert result_kind == 'int'
                     return lltype.cast_primitive(RESULT, e.result)
-                except DoneWithThisFrameRef, e:
+                except self.DoneWithThisFrameRef, e:
                     assert result_kind == 'ref'
                     return ts.cast_from_ref(RESULT, e.result)
-                except DoneWithThisFrameFloat, e:
+                except self.DoneWithThisFrameFloat, e:
                     assert result_kind == 'float'
                     return e.result
-                except ExitFrameWithExceptionRef, e:
+                except self.ExitFrameWithExceptionRef, e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
                         raise LLException(ts.get_typeptr(value), value)
