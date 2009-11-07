@@ -367,6 +367,7 @@ class Optimizer(object):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.cpu)
         self.heap_op_optimizer = HeapOpOptimizer(self)
+        self.bool_boxes = {}
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(OPT_FORCINGS)
@@ -513,6 +514,8 @@ class Optimizer(object):
             self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        elif op.returns_bool_result():
+            self.bool_boxes[op.result] = None
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
@@ -523,6 +526,22 @@ class Optimizer(object):
         if len(newboxes) > self.metainterp_sd.options.failargs_limit:
             raise compile.GiveUp
         descr.store_final_boxes(op, newboxes)
+        #
+        # Hack: turn guard_value(bool) into guard_true/guard_false.
+        # This is done after the operation is emitted, to let
+        # store_final_boxes_in_guard set the guard_opnum field
+        # of the descr to the original rop.GUARD_VALUE.
+        if op.opnum == rop.GUARD_VALUE and op.args[0] in self.bool_boxes:
+            constvalue = op.args[1].getint()
+            if constvalue == 0:
+                opnum = rop.GUARD_FALSE
+            elif constvalue == 1:
+                opnum = rop.GUARD_TRUE
+            else:
+                raise AssertionError("uh?")
+            op.opnum = opnum
+            assert len(op.args) == 2
+            op.args.pop()
 
     def optimize_default(self, op):
         if op.is_always_pure():
