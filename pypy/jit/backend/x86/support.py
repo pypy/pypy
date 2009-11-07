@@ -22,6 +22,7 @@ def new_nonmovable_growable_array(TP):
                 new_item = lltype.malloc(ATP, CHUNK_SIZE, zero=True)
             self.chunks.append(new_item)
             self.lgt += 1
+        _grow._dont_inline_ = True
 
         def get_addr_for_num(self, i):
             chunk_no, ofs = self._no_of(i)
@@ -34,6 +35,7 @@ def new_nonmovable_growable_array(TP):
             while i >= len(self.chunks) * CHUNK_SIZE:
                 self._grow()
             return i / CHUNK_SIZE, i % CHUNK_SIZE
+        _no_of._always_inline_ = True
 
         def setitem(self, i, v):
             chunk_no, ofs = self._no_of(i)
