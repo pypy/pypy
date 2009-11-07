@@ -165,7 +165,7 @@ _oplist = [
     'INT_INVERT/1',
     'BOOL_NOT/1',
     #
-    'SAME_AS/1',      # gets a Const, turns it into a Box
+    'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
     #
     'OONONNULL/1',
     'OOISNULL/1',

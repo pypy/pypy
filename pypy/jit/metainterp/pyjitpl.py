@@ -1442,22 +1442,33 @@ class MetaInterp(object):
                 warmrunnerstate.reset_counter_from_failure(key, self)
             raise
 
-    def forget_consts(self, boxes, startindex=0):
-        for i in range(startindex, len(boxes)):
+    def remove_consts_and_duplicates(self, boxes, startindex, endindex,
+                                     duplicates):
+        for i in range(startindex, endindex):
             box = boxes[i]
-            if isinstance(box, Const):
-                constbox = box
-                box = constbox.clonebox()
+            if isinstance(box, Const) or box in duplicates:
+                oldbox = box
+                box = oldbox.clonebox()
                 boxes[i] = box
-                self.history.record(rop.SAME_AS, [constbox], box)
+                self.history.record(rop.SAME_AS, [oldbox], box)
+            else:
+                duplicates[box] = None
 
     def reached_can_enter_jit(self, live_arg_boxes):
-        self.forget_consts(live_arg_boxes, self.staticdata.num_green_args)
+        num_green_args = self.staticdata.num_green_args
+        duplicates = {}
+        self.remove_consts_and_duplicates(live_arg_boxes,
+                                          num_green_args,
+                                          len(live_arg_boxes),
+                                          duplicates)
         live_arg_boxes = live_arg_boxes[:]
         if self.staticdata.virtualizable_info is not None:
             # we use ':-1' to remove the last item, which is the virtualizable
             # itself
-            self.forget_consts(self.virtualizable_boxes)
+            self.remove_consts_and_duplicates(self.virtualizable_boxes,
+                                              0,
+                                              len(self.virtualizable_boxes)-1,
+                                              duplicates)
             live_arg_boxes += self.virtualizable_boxes[:-1]
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:

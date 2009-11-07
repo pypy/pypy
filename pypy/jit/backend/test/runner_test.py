@@ -673,12 +673,18 @@ class BaseBackendTest(Runner):
     def test_same_as(self):
         r = self.execute_operation(rop.SAME_AS, [ConstInt(5)], 'int')
         assert r.value == 5
+        r = self.execute_operation(rop.SAME_AS, [BoxInt(5)], 'int')
+        assert r.value == 5
         u_box = self.alloc_unicode(u"hello\u1234")
         r = self.execute_operation(rop.SAME_AS, [u_box.constbox()], 'ref')
+        assert r.value == u_box.value
+        r = self.execute_operation(rop.SAME_AS, [u_box], 'ref')
         assert r.value == u_box.value
 
         if self.cpu.supports_floats:
             r = self.execute_operation(rop.SAME_AS, [ConstFloat(5.5)], 'float')
+            assert r.value == 5.5
+            r = self.execute_operation(rop.SAME_AS, [BoxFloat(5.5)], 'float')
             assert r.value == 5.5
 
     def test_jump(self):

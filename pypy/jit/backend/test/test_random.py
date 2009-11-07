@@ -246,7 +246,9 @@ class BooleanUnaryOperation(UnaryOperation):
 
 class ConstUnaryOperation(UnaryOperation):
     def produce_into(self, builder, r):
-        if r.random() < 0.75 or not builder.cpu.supports_floats:
+        if r.random() < 0.4:
+            UnaryOperation.produce_into(self, builder, r)
+        elif r.random() < 0.75 or not builder.cpu.supports_floats:
             self.put(builder, [ConstInt(r.random_integer())])
         else:
             self.put(builder, [ConstFloat(r.random_float())])

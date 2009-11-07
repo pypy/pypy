@@ -2,7 +2,10 @@
 # some unit tests for the bytecode decoding
 
 from pypy.jit.metainterp import pyjitpl, codewriter, resoperation
-from pypy.jit.metainterp.history import AbstractFailDescr
+from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt, ConstInt
+from pypy.jit.metainterp.history import History
+from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
 
 def make_frame(code):
     bytecode = codewriter.JitCode("hello")
@@ -103,3 +106,39 @@ def test_portal_trace_positions():
 
     history.operations.extend([9, 10, 11, 12])
     assert metainterp.find_biggest_function() == "green3"
+
+def test_remove_consts_and_duplicates():
+    class FakeStaticData:
+        cpu = None
+    def is_another_box_like(box, referencebox):
+        assert box is not referencebox
+        assert isinstance(box, referencebox.clonebox().__class__)
+        assert box.value == referencebox.value
+        return True
+    metainterp = pyjitpl.MetaInterp(FakeStaticData())
+    metainterp.history = History(None)
+    b1 = BoxInt(1)
+    b2 = BoxInt(2)
+    c3 = ConstInt(3)
+    boxes = [b1, b2, b1, c3]
+    dup = {}
+    metainterp.remove_consts_and_duplicates(boxes, 0, 4, dup)
+    assert boxes[0] is b1
+    assert boxes[1] is b2
+    assert is_another_box_like(boxes[2], b1)
+    assert is_another_box_like(boxes[3], c3)
+    assert equaloplists(metainterp.history.operations, [
+        ResOperation(rop.SAME_AS, [b1], boxes[2]),
+        ResOperation(rop.SAME_AS, [c3], boxes[3]),
+        ])
+    assert dup == {b1: None, b2: None}
+    #
+    del metainterp.history.operations[:]
+    b4 = BoxInt(4)
+    boxes = ["something random", b2, b4, "something else"]
+    metainterp.remove_consts_and_duplicates(boxes, 1, 3, dup)
+    assert is_another_box_like(boxes[1], b2)
+    assert boxes[2] is b4
+    assert equaloplists(metainterp.history.operations, [
+        ResOperation(rop.SAME_AS, [b2], boxes[1]),
+        ])
