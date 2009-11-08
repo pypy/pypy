@@ -224,13 +224,17 @@ class BaseCallDescr(AbstractDescr):
                 result = BoxInt()
             result_list = [result]
         operations = [
-            ResOperation(rop.CALL, args, result, self),
+            ResOperation(rop.CALL, args[:], result, self),
             ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
                          descr=BasicFailDescr()),
             ResOperation(rop.FINISH, result_list, None,
                          descr=BasicFailDescr())]
         operations[1].fail_args = []
         loop_token = LoopToken()
+        # note: the 'args' that we pass below is not the same object as the
+        # 'args[:]' that was passed above to ResOperation, because we want
+        # the argument to ResOperation to be non-resizable, but the argument
+        # to compile_loop to be resizable.
         cpu.compile_loop(args, operations, loop_token)
         self.loop_token = loop_token
         return loop_token

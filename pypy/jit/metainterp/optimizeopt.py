@@ -540,8 +540,7 @@ class Optimizer(object):
             else:
                 raise AssertionError("uh?")
             op.opnum = opnum
-            assert len(op.args) == 2
-            op.args.pop()
+            op.args = [op.args[0]]
 
     def optimize_default(self, op):
         if op.is_always_pure():
@@ -568,7 +567,7 @@ class Optimizer(object):
             value = self.getvalue(op.args[i])
             specnodes[i].teardown_virtual_node(self, value, exitargs)
         op2 = op.clone()
-        op2.args = exitargs
+        op2.args = exitargs[:]
         self.emit_operation(op2, must_clone=False)
 
     def optimize_guard(self, op, constbox):

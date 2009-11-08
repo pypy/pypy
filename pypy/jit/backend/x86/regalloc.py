@@ -190,7 +190,9 @@ class RegAlloc(object):
         self.xrm.free_regs.insert(0, xmmtmp)
         assert tmpreg not in nonfloatlocs
         assert xmmtmp not in floatlocs
-        self.possibly_free_vars(inputargs)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op.args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
         return nonfloatlocs, floatlocs
 
     def possibly_free_var(self, var):
@@ -234,11 +236,11 @@ class RegAlloc(object):
                     loop_consts[inputargs[i]] = i
         return loop_consts
 
-    def _update_bindings(self, locs, args):
+    def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
         used = {}
-        for i in range(len(args)):
-            arg = args[i]
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
             loc = locs[i]
             if arg.type == FLOAT:
                 if isinstance(loc, REG):
@@ -260,7 +262,9 @@ class RegAlloc(object):
         for reg in X86XMMRegisterManager.all_regs:
             if reg not in used:
                 self.xrm.free_regs.append(reg)
-        self.possibly_free_vars(args)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op.args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
         self.rm._check_invariants()
         self.xrm._check_invariants()
 
@@ -851,7 +855,7 @@ class RegAlloc(object):
         ofs = arraydescr.get_ofs_length(self.translate_support_code)
         base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
         self.rm.possibly_free_vars(op.args)
-        result_loc = self.rm.force_allocate_reg(op.result, [])
+        result_loc = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, imm(ofs)], result_loc)
 
     def consider_strgetitem(self, op, ignored):

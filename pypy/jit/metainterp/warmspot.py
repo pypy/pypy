@@ -66,6 +66,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
                     debug_level=DEBUG_STEPS, inline=False, **kwds):
     translator = interp.typer.annotator.translator
     translator.config.translation.gc = "boehm"
+    translator.config.translation.list_comprehension_operations = True
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests

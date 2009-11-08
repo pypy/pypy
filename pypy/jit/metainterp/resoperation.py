@@ -1,4 +1,5 @@
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.debug import make_sure_not_resized
 
 
 class ResOperation(object):
@@ -12,9 +13,11 @@ class ResOperation(object):
     pc = 0
 
     def __init__(self, opnum, args, result, descr=None):
+        make_sure_not_resized(args)
         assert isinstance(opnum, int)
         self.opnum = opnum
         self.args = list(args)
+        make_sure_not_resized(self.args)
         assert not isinstance(result, list)
         self.result = result
         self.setdescr(descr)

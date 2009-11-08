@@ -1283,6 +1283,7 @@ class MetaInterp(object):
             if require_attention:
                 require_attention = self.after_residual_call()
             # check if the operation can be constant-folded away
+            argboxes = list(argboxes)
             if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
                 resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
             else:
