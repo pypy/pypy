@@ -1240,8 +1240,8 @@ class BytecodeMaker(object):
         else:
             opname = 'residual_call'
 
-        calldescr, non_void_args = self.codewriter.getcalldescr(c_func, args,
-                                                                op.result)
+        calldescr, non_void_args = self.codewriter.getcalldescr(
+            c_func, args, op.result, consider_effects_of=op)
         self.emit(opname)
         self.emit(self.get_position(calldescr))
         self.emit_varargs([c_func] + non_void_args)

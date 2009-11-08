@@ -378,8 +378,30 @@ class ListTests:
         self.check_all_virtualized()
 
 
+
 class TestOOtype(ListTests, OOJitMixin):
     pass
 
 class TestLLtype(ListTests, LLJitMixin):
-    pass
+    def test_listops_dont_invalidate_caches(self):
+        class A(object):
+            pass
+        jitdriver = JitDriver(greens = [], reds = ['n', 'a', 'lst'])
+        def f(n):
+            a = A()
+            a.x = 1
+            if n < 1091212:
+                a.x = 2 # fool the annotator
+            lst = [n * 5, n * 10, n * 20]
+            while n > 0:
+                jitdriver.can_enter_jit(n=n, a=a, lst=lst)
+                jitdriver.jit_merge_point(n=n, a=a, lst=lst)
+                n += a.x
+                n = lst.pop()
+                lst.append(n - 10 + a.x)
+            a = lst.pop()
+            b = lst.pop()
+            return a * b
+        res = self.meta_interp(f, [37])
+        assert res == f(37)
+        self.check_loops(getfield_gc=1)
