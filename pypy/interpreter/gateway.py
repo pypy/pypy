@@ -257,6 +257,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
             activation_cls = type("BuiltinActivation_UwS_%s" % label,
                              (BuiltinActivation,), d)
+            activation_cls._immutable_ = True
 
             cache[key] = activation_cls, self.run_args
             return activation_cls
@@ -270,6 +271,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
 
 class BuiltinActivation(object):
+    _immutable_ = True
 
     def __init__(self, behavior):
         """NOT_RPYTHON"""
