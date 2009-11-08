@@ -25,6 +25,8 @@ def effectinfo_from_writeanalyze(effects, cpu):
             _, T, fieldname = tup
             if not isinstance(T.TO, lltype.GcStruct): # can be a non-GC-struct
                 continue
+            if getattr(T.TO, fieldname) is lltype.Void:
+                continue
             if fieldname == "typeptr" and T.TO is OBJECT:
                 # filter out the typeptr, because
                 # a) it is optimized in different ways
