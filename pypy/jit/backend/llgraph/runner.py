@@ -24,9 +24,13 @@ class Descr(history.AbstractDescr):
     ofs = -1
     typeinfo = '?'
     
-    def __init__(self, ofs, typeinfo='?'):
+    def __init__(self, ofs, typeinfo='?', extrainfo=None):
         self.ofs = ofs
         self.typeinfo = typeinfo
+        self.extrainfo = extrainfo
+
+    def get_extra_info(self):
+        return self.extrainfo
 
     def __hash__(self):
         return hash((self.ofs, self.typeinfo))
@@ -284,9 +288,9 @@ class LLtypeCPU(BaseCPU):
         return res
 
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
         token = history.getkind(RESULT)
-        return Descr(0, token[0])
+        return Descr(0, token[0], extrainfo=extrainfo)
 
     def get_exception(self):
         return self.cast_adr_to_int(llimpl.get_exception())
@@ -681,6 +685,9 @@ class StaticMethDescr(OODescr):
             if RESULT is not ootype.Void:
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
+
+    def get_extra_info(self):
+        return None # XXX
 
 class MethDescr(history.AbstractMethDescr):
 

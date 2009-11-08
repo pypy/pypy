@@ -180,8 +180,12 @@ class BaseCallDescr(AbstractDescr):
     loop_token = None
     arg_classes = ''     # <-- annotation hack
 
-    def __init__(self, arg_classes):
+    def __init__(self, arg_classes, extrainfo=None):
         self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
+        self.extrainfo = extrainfo
+
+    def get_extra_info(self):
+        return self.extrainfo
 
     def instantiate_arg_classes(self):
         result = []
@@ -256,7 +260,7 @@ def getCallDescrClass(RESULT):
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
                          '_returns_a_float')
 
-def get_call_descr(gccache, ARGS, RESULT):
+def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []
     for ARG in ARGS:
         kind = getkind(ARG)
@@ -267,12 +271,12 @@ def get_call_descr(gccache, ARGS, RESULT):
             raise NotImplementedError('ARG = %r' % (ARG,))
     arg_classes = ''.join(arg_classes)
     cls = getCallDescrClass(RESULT)
-    key = (cls, arg_classes)
+    key = (cls, arg_classes, extrainfo)
     cache = gccache._cache_call
     try:
         return cache[key]
     except KeyError:
-        calldescr = cls(arg_classes)
+        calldescr = cls(arg_classes, extrainfo)
         cache[key] = calldescr
         return calldescr
 

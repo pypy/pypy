@@ -180,6 +180,20 @@ def test_get_call_descr_translated():
     assert descr4.returns_a_float()
     assert descr4.arg_classes == "ff"
 
+def test_call_descr_extra_info():
+    c1 = GcCache(True)
+    T = lltype.GcStruct('T')
+    U = lltype.GcStruct('U', ('x', lltype.Signed))
+    descr1 = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U), "hello")
+    extrainfo = descr1.get_extra_info()
+    assert extrainfo == "hello"
+    descr2 = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U), "hello")
+    assert descr1 is descr2
+    descr3 = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U))
+    extrainfo = descr3.get_extra_info()
+    assert extrainfo is None
+
+
 def test_repr_of_descr():
     c0 = GcCache(False)
     T = lltype.GcStruct('T')

@@ -225,8 +225,8 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, ptr, float
     unpack_arraydescr._always_inline_ = True
 
-    def calldescrof(self, FUNC, ARGS, RESULT):
-        return get_call_descr(self.gc_ll_descr, ARGS, RESULT)
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
+        return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)

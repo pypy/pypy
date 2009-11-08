@@ -414,6 +414,9 @@ class StaticMethDescr(DescrWithKey):
     def get_meth_info(self):
         clitype = self.get_delegate_clitype()
         return clitype.GetMethod('Invoke')
+
+    def get_extra_info(self):
+        return None # XXX fix me
         
 
 class MethDescr(AbstractMethDescr):
