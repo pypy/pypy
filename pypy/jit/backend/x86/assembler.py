@@ -864,7 +864,7 @@ class Assembler386(object):
         loc_mask = arglocs[1]
         mc = self.mc._mc
         mc.TEST(loc_cond, loc_mask)
-        mc.write('\x74\x00')             # JZ after_the_call
+        mc.write(constlistofchars('\x74\x00'))             # JZ after_the_call
         jz_location = mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
@@ -884,7 +884,7 @@ class Assembler386(object):
         # patch the JZ above
         offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
-        mc.overwrite(jz_location-1, chr(offset))
+        mc.overwrite(jz_location-1, [chr(offset)])
 
     def not_implemented_op_discard(self, op, arglocs):
         msg = "not implemented operation: %s" % op.getopname()
@@ -920,7 +920,7 @@ class Assembler386(object):
         mc.MOV(eax, heap(nursery_free_adr))
         mc.LEA(edx, addr_add(eax, imm(size)))
         mc.CMP(edx, heap(nursery_top_adr))
-        mc.write('\x76\x00') # JNA after the block
+        mc.write(constlistofchars('\x76\x00')) # JNA after the block
         jmp_adr = mc.get_relative_pos()
         mc.PUSH(imm(size))
         mc.CALL(rel32(slowpath_addr))
@@ -932,7 +932,7 @@ class Assembler386(object):
         mc.ADD(esp, imm(4))
         offset = mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
-        mc.overwrite(jmp_adr-1, chr(offset))
+        mc.overwrite(jmp_adr-1, [chr(offset)])
         mc.MOV(addr_add(eax, imm(0)), imm(tid))
         mc.MOV(heap(nursery_free_adr), edx)
         

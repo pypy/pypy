@@ -164,7 +164,7 @@ def generate_function(sig, opcodes):
                 op = op[1:]
             if op:
                 if len(op) > 1:
-                    lines.append('builder.write(%r)' % (op,))
+                    lines.append('builder.write(constlistofchars(%r))' % (op,))
                 else:
                     lines.append('builder.writechr(%d)' % (ord(op),))
         else:
@@ -180,6 +180,7 @@ def generate_function(sig, opcodes):
         'packimm32': packimm32,
         'packimm8': packimm8,
         'packimm16': packimm16,
+        'constlistofchars': constlistofchars,
         }
     exec compile2(source) in miniglobals
     return miniglobals['encode']

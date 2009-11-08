@@ -1,5 +1,6 @@
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
+from pypy.rlib.debug import make_sure_not_resized
 
 class OPERAND(object):
     _attrs_ = []
@@ -112,6 +113,7 @@ class MODRM(OPERAND):
     def __init__(self, byte, extradata):
         self.byte = byte
         self.extradata = extradata
+        make_sure_not_resized(extradata)
 
     def lowest8bits(self):
         return MODRM8(self.byte, self.extradata)
@@ -282,7 +284,7 @@ def imm(value):
 
 def memregister(register):
     assert register.width == 4
-    return MODRM(0xC0 | register.op, '')
+    return MODRM(0xC0 | register.op, constlistofchars(''))
 
 def mem(basereg, offset=0):
     return memSIB(basereg, None, 0, offset)
@@ -307,11 +309,11 @@ def memSIB64(base, index, scaleshift, offset):
 
 def memregister8(register):
     assert register.width == 1
-    return MODRM8(0xC0 | register.op, '')
+    return MODRM8(0xC0 | register.op, constlistofchars(''))
 
 def memregister64(register):
     assert register.width == 8
-    return MODRM64(0xC0 | register.op, '')
+    return MODRM64(0xC0 | register.op, constlistofchars(''))
 
 def mem8(basereg, offset=0):
     return memSIB8(basereg, None, 0, offset)
@@ -328,17 +330,17 @@ def _SIBencode(cls, base, index, scaleshift, offset):
         if index is None:
             return cls(0x05, packimm32(offset))
         if scaleshift > 0:
-            return cls(0x04, chr((scaleshift<<6) | (index.op<<3) | 0x05) +
+            return cls(0x04, [chr((scaleshift<<6) | (index.op<<3) | 0x05)] +
                                packimm32(offset))
         base = index
         index = None
 
     if index is not None:
-        SIB = chr((scaleshift<<6) | (index.op<<3) | base.op)
+        SIB = [chr((scaleshift<<6) | (index.op<<3) | base.op)]
     elif base is esp:
-        SIB = '\x24'
+        SIB = constlistofchars('\x24')
     elif offset == 0 and base is not ebp:
-        return cls(base.op, '')
+        return cls(base.op, constlistofchars(''))
     elif single_byte(offset):
         return cls(0x40 | base.op, packimm8(offset))
     else:
@@ -358,19 +360,25 @@ def single_byte(value):
     return -128 <= value < 128
 
 def packimm32(i):
-    return (chr(i & 0xFF) +
-            chr((i >> 8) & 0xFF) +
-            chr((i >> 16) & 0xFF) +
-            chr((i >> 24) & 0xFF))
+    lst = [chr(i & 0xFF),
+           chr((i >> 8) & 0xFF),
+           chr((i >> 16) & 0xFF),
+           chr((i >> 24) & 0xFF)]
+    make_sure_not_resized(lst)
+    return lst
 
 def packimm8(i):
     if i < 0:
         i += 256
-    return chr(i)
+    lst = [chr(i)]
+    make_sure_not_resized(lst)
+    return lst
 
 def packimm16(i):
-    return (chr(i & 0xFF) +
-            chr((i >> 8) & 0xFF))
+    lst = [chr(i & 0xFF),
+           chr((i >> 8) & 0xFF)]
+    make_sure_not_resized(lst)
+    return lst
 
 def unpack(s):
     assert len(s) in (1, 2, 4)
@@ -388,6 +396,11 @@ def unpack(s):
             a = intmask(a)
     return a
 
+def constlistofchars(s):
+    assert isinstance(s, str)
+    return [c for c in s]
+constlistofchars._annspecialcase_ = 'specialize:memo'
+
 missing = MISSING()
 
 # __________________________________________________________
@@ -395,11 +408,11 @@ missing = MISSING()
 
 class I386CodeBuilder(object):
 
-    def write(self, data):
+    def write(self, listofchars):
         raise NotImplementedError
 
     def writechr(self, n):
-        self.write(chr(n))
+        self.write([chr(n)])
 
     def tell(self):
         raise NotImplementedError

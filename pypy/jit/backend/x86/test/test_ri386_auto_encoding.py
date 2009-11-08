@@ -256,7 +256,8 @@ class CodeChecker(i386.I386CodeBuilder):
         self.op = op
         self.instrindex = self.index
 
-    def write(self, data):
+    def write(self, listofchars):
+        data = ''.join(listofchars)
         end = self.index+len(data)
         if data != self.expected[self.index:end]:
             print self.op
