@@ -42,7 +42,9 @@ LEVEL_CONSTANT   = '\x03'
 
 
 class OptValue(object):
-    _attrs_ = ('box', 'known_class', 'level')
+    _attrs_ = ('box', 'known_class', 'guard_class_index', 'level')
+    guard_class_index = -1
+
     level = LEVEL_UNKNOWN
 
     def __init__(self, box):
@@ -85,10 +87,11 @@ class OptValue(object):
         else:
             return None
 
-    def make_constant_class(self, classbox):
+    def make_constant_class(self, classbox, opindex):
         if self.level < LEVEL_KNOWNCLASS:
             self.known_class = classbox
             self.level = LEVEL_KNOWNCLASS
+            self.guard_class_index = opindex
 
     def is_nonnull(self):
         level = self.level
@@ -570,7 +573,7 @@ class Optimizer(object):
         op2.args = exitargs[:]
         self.emit_operation(op2, must_clone=False)
 
-    def optimize_guard(self, op, constbox):
+    def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.args[0])
         if value.is_constant():
             box = value.box
@@ -578,13 +581,23 @@ class Optimizer(object):
             if not box.same_constant(constbox):
                 raise InvalidLoop
             return
-        self.emit_operation(op)
+        if emit_operation:
+            self.emit_operation(op)
         value.make_constant(constbox)
 
     def optimize_GUARD_VALUE(self, op):
+        value = self.getvalue(op.args[0])
+        emit_operation = True
+        if value.guard_class_index != -1:
+            # there already has been a guard_class on this value, which is
+            # rather silly. replace the original guard_class with a guard_value
+            guard_class_op = self.newoperations[value.guard_class_index]
+            guard_class_op.opnum = op.opnum
+            guard_class_op.args[1] = op.args[1]
+            emit_operation = False
         constbox = op.args[1]
         assert isinstance(constbox, Const)
-        self.optimize_guard(op, constbox)
+        self.optimize_guard(op, constbox, emit_operation)
 
     def optimize_GUARD_TRUE(self, op):
         self.optimize_guard(op, CONST_1)
@@ -604,7 +617,7 @@ class Optimizer(object):
             assert realclassbox.same_constant(expectedclassbox)
             return
         self.emit_operation(op)
-        value.make_constant_class(expectedclassbox)
+        value.make_constant_class(expectedclassbox, len(self.newoperations) - 1)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if not self.exception_might_have_happened:

@@ -1163,5 +1163,33 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [20], listops=True)
         self.check_loops(getfield_gc=2, getarrayitem_gc=1)
 
+    def test_merge_guardclass_guardvalue(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            def g(self, x):
+                return x - 1
+        class B(A):
+            def g(self, y):
+                return y - 2
+
+        a1 = A()
+        a2 = A()
+        b = B()
+        def f(x):
+            l = [a1] * 100 + [a2] * 100 + [b] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                x = a.g(x)
+                hint(a, promote=True)
+            return x
+        res = self.meta_interp(f, [299], listops=True)
+        self.check_loops(guard_class=0, guard_value=3)
+
+
+
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

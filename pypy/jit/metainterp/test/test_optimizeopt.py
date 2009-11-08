@@ -1513,6 +1513,23 @@ class BaseTestOptimizeOpt(BaseTest):
                        'Virtual(node_vtable, nextdescr=Virtual(node_vtable))',
                        None)
 
+    def test_merge_guard_class_guard_value(self):
+        ops = """
+        [p1, i0, i1, i2, p2]
+        guard_class(p1, ConstClass(node_vtable)) [i0]
+        i3 = int_add(i1, i2)
+        guard_value(p1, ConstPtr(myptr)) [i1]
+        jump(p2, i0, i1, i3, p2)
+        """
+        expected = """
+        [p1, i0, i1, i2, p2]
+        guard_value(p1, ConstPtr(myptr)) [i0]
+        i3 = int_add(i1, i2)
+        jump(p2, i0, i1, i3, p2)
+        """
+        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+
+
     # ----------
 
     def make_fail_descr(self):
