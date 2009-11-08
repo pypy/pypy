@@ -1,3 +1,4 @@
+from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 
 class EffectInfo(object):
@@ -23,6 +24,11 @@ def effectinfo_from_writeanalyze(effects, cpu):
         if tup[0] == "struct":
             _, T, fieldname = tup
             if not isinstance(T.TO, lltype.GcStruct): # can be a non-GC-struct
+                continue
+            if fieldname == "typeptr" and T.TO is OBJECT:
+                # filter out the typeptr, because
+                # a) it is optimized in different ways
+                # b) it might not be there in C if removetypeptr is specified
                 continue
             descr = cpu.fielddescrof(T.TO, fieldname)
             write_descrs_fields.append(descr)
