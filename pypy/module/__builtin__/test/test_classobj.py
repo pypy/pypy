@@ -1,4 +1,5 @@
-from pypy.conftest import gettestobjspace
+import py
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
 
 
@@ -769,6 +770,8 @@ class AppTestOldstyle(object):
 class AppTestOldStyleSharing(AppTestOldstyle):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+        if option.runappdirect:
+            py.test.skip("can only be run on py.py")
         def is_sharing(space, w_inst):
             from pypy.objspace.std.sharingdict import SharedDictImplementation, W_DictMultiObject
             w_d = w_inst.getdict()
