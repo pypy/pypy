@@ -7,3 +7,9 @@ def test_filter_out_typeptr():
     effectinfo = effectinfo_from_writeanalyze(effects, None)
     assert not effectinfo.write_descrs_fields
     assert not effectinfo.write_descrs_arrays
+
+def test_filter_out_array_of_void():
+    effects = frozenset([("array", lltype.Ptr(lltype.GcArray(lltype.Void)))])
+    effectinfo = effectinfo_from_writeanalyze(effects, None)
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays

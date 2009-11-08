@@ -36,6 +36,8 @@ def effectinfo_from_writeanalyze(effects, cpu):
             _, T = tup
             if not isinstance(T.TO, lltype.GcArray): # can be a non-GC-array
                 continue
+            if T.TO.OF is lltype.Void:
+                continue
             descr = cpu.arraydescrof(T.TO)
             write_descrs_arrays.append(descr)
         else:
