@@ -228,7 +228,8 @@ class ExplicitVirtualizableTests:
         assert f(20) == 10000*20 + (20*21)/2
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
         assert res == 10000*20 + (20*21)/2
-        self.check_loops(call=1, getfield_gc=2, setfield_gc=2)
+        # there are no getfields because the optimizer gets rid of them
+        self.check_loops(call=1, getfield_gc=0, setfield_gc=2)
         # xxx for now a call that forces the virtualizable during tracing
         # is supposed to always force it later too.
 
@@ -259,7 +260,9 @@ class ExplicitVirtualizableTests:
             return m
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
         assert res == f(20)
-        self.check_loops(call=1, getfield_gc=2, setfield_gc=2)
+        # the getfield_gc of inst_node is optimized away, because ext does not
+        # write to it
+        self.check_loops(call=1, getfield_gc=1, setfield_gc=2)
         # xxx for now a call that forces the virtualizable during tracing
         # is supposed to always force it later too.
 

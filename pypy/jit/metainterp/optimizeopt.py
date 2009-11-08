@@ -852,6 +852,20 @@ class HeapOpOptimizer(object):
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.DEBUG_MERGE_POINT):
             return
+        if opnum == rop.CALL:
+            effectinfo = op.descr.get_extra_info()
+            if effectinfo is not None:
+                for fielddescr in effectinfo.write_descrs_fields:
+                    try:
+                        del self.cached_fields[fielddescr]
+                    except KeyError:
+                        pass
+                for arraydescr in effectinfo.write_descrs_arrays:
+                    try:
+                        del self.cached_arrayitems[arraydescr]
+                    except KeyError:
+                        pass
+                return
         self.clean_caches()
 
     def optimize_GETFIELD_GC(self, op, value):

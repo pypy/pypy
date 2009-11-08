@@ -16,6 +16,7 @@ from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
+from pypy.jit.metainterp.effectinfo import EffectInfo
 from pypy.jit.metainterp.test.oparser import parse
 
 def test_sort_descrs():
@@ -93,6 +94,11 @@ class LLtypeMixin(object):
     usize = cpu.sizeof(U)
     onedescr = cpu.fielddescrof(U, 'one')
 
+    FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+    nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([], []))
+    writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([adescr], []))
+    writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([adescr], [arraydescr]))
+
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
                       cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2),
                        cpu.cast_adr_to_int(u_vtable_adr): cpu.sizeof(U)}
@@ -158,6 +164,9 @@ class OOtypeMixin(object):
     nextdescr.sort_key()
     adescr.sort_key()
     bdescr.sort_key()
+
+    FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+    nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT) # XXX fix ootype
 
     cpu.class_sizes = {node_vtable_adr: cpu.typedescrof(NODE),
                        node_vtable_adr2: cpu.typedescrof(NODE2),

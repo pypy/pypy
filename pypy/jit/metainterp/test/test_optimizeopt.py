@@ -616,18 +616,18 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_no_exception() []
         i1 = int_add(i, 3)
         guard_no_exception() []
-        i2 = call(i1)
+        i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
         guard_no_exception() []
-        i3 = call(i2)
+        i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
         expected = """
         [i]
         i1 = int_add(i, 3)
-        i2 = call(i1)
+        i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        i3 = call(i2)
+        i3 = call(i2, descr=nonwritedescr)
         jump(i1)
         """
         self.optimize_loop(ops, 'Not', expected)
@@ -1841,7 +1841,117 @@ class BaseTestOptimizeOpt(BaseTest):
 
 
 class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
-    pass
+
+    def test_residual_call_does_not_invalidate_caches(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = call(i1, descr=nonwritedescr)
+        i3 = getfield_gc(p1, descr=valuedescr)
+        escape(i1)
+        escape(i3)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = call(i1, descr=nonwritedescr)
+        escape(i1)
+        escape(i1)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_residual_call_invalidate_some_caches(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=adescr)
+        i2 = getfield_gc(p1, descr=bdescr)
+        i3 = call(i1, descr=writeadescr)
+        i4 = getfield_gc(p1, descr=adescr)
+        i5 = getfield_gc(p1, descr=bdescr)
+        escape(i1)
+        escape(i2)
+        escape(i4)
+        escape(i5)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=adescr)
+        i2 = getfield_gc(p1, descr=bdescr)
+        i3 = call(i1, descr=writeadescr)
+        i4 = getfield_gc(p1, descr=adescr)
+        escape(i1)
+        escape(i2)
+        escape(i4)
+        escape(i2)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_residual_call_invalidate_arrays(self):
+        ops = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i3 = call(i1, descr=writeadescr)
+        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        escape(p3)
+        escape(p4)
+        escape(p5)
+        escape(p6)
+        jump(p1, p2, i1)
+        """
+        expected = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i3 = call(i1, descr=writeadescr)
+        escape(p3)
+        escape(p4)
+        escape(p3)
+        escape(p4)
+        jump(p1, p2, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
+
+    def test_residual_call_invalidate_some_arrays(self):
+        ops = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i3 = call(i1, descr=writearraydescr)
+        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        escape(p3)
+        escape(p4)
+        escape(p5)
+        escape(p6)
+        escape(i2)
+        escape(i4)
+        jump(p1, p2, i1)
+        """
+        expected = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i3 = call(i1, descr=writearraydescr)
+        i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        escape(p3)
+        escape(p4)
+        escape(p3)
+        escape(p4)
+        escape(i2)
+        escape(i4)
+        jump(p1, p2, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
+
 
 class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
 

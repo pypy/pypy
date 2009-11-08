@@ -11,7 +11,9 @@ from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
+from pypy.translator.backendopt.writeanalyze import WriteAnalyzer
 from pypy.jit.metainterp.typesystem import deref, arrayItem, fieldType
+from pypy.jit.metainterp.effectinfo import effectinfo_from_writeanalyze
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -177,6 +179,7 @@ class CodeWriter(object):
         self.cpu = metainterp_sd.cpu
         self.portal_runner_ptr = portal_runner_ptr
         self.raise_analyzer = RaiseAnalyzer(self.rtyper.annotator.translator)
+        self.write_analyzer = WriteAnalyzer(self.rtyper.annotator.translator)
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
@@ -302,7 +305,7 @@ class CodeWriter(object):
                 jitcodes[oocls] = jitcode
         methdescr.setup(jitcodes)
 
-    def getcalldescr(self, v_func, args, result):
+    def getcalldescr(self, v_func, args, result, consider_effects_of=None):
         non_void_args = [x for x in args if x.concretetype is not lltype.Void]
         NON_VOID_ARGS = [x.concretetype for x in non_void_args]
         RESULT = result.concretetype
@@ -312,7 +315,13 @@ class CodeWriter(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
+        if (self.rtyper.type_system.name == 'lltypesystem' and
+                consider_effects_of is not None):
+            effectinfo = effectinfo_from_writeanalyze(
+                    self.write_analyzer.analyze(consider_effects_of), self.cpu)
+            calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT, effectinfo)
+        else:
+            calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
         return calldescr, non_void_args
 
     def register_known_gctype(self, vtable, STRUCT):
@@ -1147,9 +1156,8 @@ class BytecodeMaker(object):
             args = op.args[1:-1]
         else:
             args = op.args[1:]
-        calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
-                                                                args,
-                                                                op.result)
+        calldescr, non_void_args = self.codewriter.getcalldescr(
+            op.args[0], args, op.result, consider_effects_of=op)
         pure = False
         if op.opname == "direct_call":
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
