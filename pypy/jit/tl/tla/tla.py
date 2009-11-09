@@ -71,9 +71,13 @@ NEWSTR    = 8
 
 # ____________________________________________________________
 
+def get_printable_location(bytecode, pc):
+    return str(pc)
+
 jitdriver = JitDriver(greens=['bytecode', 'pc'],
                       reds=['self'],
-                      virtualizables=['self'])
+                      virtualizables=['self'],
+                      get_printable_location=get_printable_location)
 
 class Frame(object):
     _virtualizable2_ = ['stackpos', 'stack[*]']
