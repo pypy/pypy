@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
@@ -7,16 +8,18 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.conftest import option
 
 
-class TestCanRaise(object):
+class BaseTestCanRaise(object):
 
+    type_system = None
+
+    
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper().specialize()
+        t.buildrtyper(type_system=self.type_system).specialize()
         if option.view:
             t.view()
         return t, WriteAnalyzer(t)
-
 
     def test_writes_simple(self):
         def g(x):
@@ -108,7 +111,10 @@ class TestCanRaise(object):
         t, wa = self.translate(f, [int])
         fgraph = graphof(t, f)
         result = wa.analyze(fgraph.startblock.operations[0])
-        assert result is top_set
+        if self.type_system == 'lltype':
+            assert result is top_set
+        else:
+            assert not result # ootype is more precise in this case
 
     def test_llexternal(self):
         from pypy.rpython.lltypesystem.rffi import llexternal
@@ -123,6 +129,10 @@ class TestCanRaise(object):
 
         result = wa.analyze(fgraph.startblock.operations[0])
         assert not result
+
+
+class TestLLtype(BaseTestCanRaise):
+    type_system = 'lltype'
 
     def test_list(self):
         def g(x, y, z):
@@ -152,3 +162,40 @@ class TestCanRaise(object):
         assert struct == "struct"
         assert name == "length"
         assert S1 is S2
+
+
+class TestOOtype(BaseTestCanRaise):
+    type_system = 'ootype'
+    
+    def test_array(self):
+        def g(x, y, z):
+            return f(x, y, z)
+        def f(x, y, z):
+            l = [0] * x
+            l[1] = 42
+            return len(l) + z
+
+        t, wa = self.translate(g, [int, int, int])
+        ggraph = graphof(t, g)
+        assert ggraph.startblock.operations[0].opname == 'direct_call'
+
+        result = sorted(wa.analyze(ggraph.startblock.operations[0]))
+        assert len(result) == 1
+        array, A = result[0]
+        assert array == 'array'
+        assert A.ITEM is ootype.Signed
+        
+    def test_list(self):
+        def g(x, y, z):
+            return f(x, y, z)
+        def f(x, y, z):
+            l = [0] * x
+            l.append(z)
+            return len(l) + z
+
+        t, wa = self.translate(g, [int, int, int])
+        ggraph = graphof(t, g)
+        assert ggraph.startblock.operations[0].opname == 'direct_call'
+
+        result = wa.analyze(ggraph.startblock.operations[0])
+        assert result is top_set
