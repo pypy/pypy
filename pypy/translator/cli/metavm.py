@@ -253,7 +253,7 @@ class _SetStaticField(MicroInstruction):
 
 class _DebugPrint(MicroInstruction):
     def render(self, generator, op):
-        MAXARGS = 4
+        MAXARGS = 8
         if len(op.args) > MAXARGS:
             generator.db.genoo.log.WARNING('debug_print supported only up to '
                                            '%d arguments (got %d)' % (MAXARGS, len(op.args)))
@@ -268,11 +268,7 @@ class _DebugPrint(MicroInstruction):
                 boxtype = generator.cts.lltype_to_cts(TYPE)
                 generator.ilasm.opcode('box', boxtype)
 
-        generator.ilasm.call('void [pypylib]pypy.runtime.Utils::debug_print(%s)' % signature)
-
-class _HaveDebugPrints(MicroInstruction):
-    def render(self, generator, op):
-        generator.ilasm.load_const(ootype.Bool, True)
+        generator.ilasm.call('void [pypylib]pypy.runtime.DebugPrint::DEBUG_PRINT(%s)' % signature)
 
 
 OOTYPE_TO_MNEMONIC = {
@@ -310,4 +306,4 @@ GetStaticField = _GetStaticField()
 SetStaticField = _SetStaticField()
 CastPrimitive = _CastPrimitive()
 DebugPrint = _DebugPrint()
-HaveDebugPrints = _HaveDebugPrints()
+

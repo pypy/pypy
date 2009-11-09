@@ -65,6 +65,8 @@ class StandaloneEntryPoint(BaseEntryPoint):
 
         ilasm.call(self.cts.graph_to_signature(self.graph))
         ilasm.opcode('pop') # XXX: return this value, if it's an int32
+
+        ilasm.call('void [pypylib]pypy.runtime.DebugPrint::close_file()')
         ilasm.opcode('ret')
         ilasm.end_function()
         self.db.pending_function(self.graph)

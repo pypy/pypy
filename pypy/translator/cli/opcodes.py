@@ -2,7 +2,7 @@ from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, \
-     DebugPrint, HaveDebugPrints
+     DebugPrint
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
@@ -78,10 +78,10 @@ misc_ops = {
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
     'debug_print':              [DebugPrint],
-    'debug_start':              Ignore,
-    'debug_stop':               Ignore,
-    'have_debug_prints':        [HaveDebugPrints],
-    'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Utils::debug_fatalerror(string)'],
+    'debug_start':              [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_START(string)'],
+    'debug_stop':               [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_STOP(string)'],
+    'have_debug_prints':        [PushAllArgs, 'call bool [pypylib]pypy.runtime.DebugPrint::HAVE_DEBUG_PRINTS()'],
+    'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Debug::DEBUG_FATALERROR(string)'],
     'keepalive':                Ignore,
     'jit_marker':               Ignore,
     'promote_virtualizable':    Ignore,

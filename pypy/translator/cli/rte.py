@@ -77,7 +77,8 @@ class MainStub(Target):
     get_COMPILER = classmethod(get_COMPILER)
     
 class PyPyLibDLL(Target):
-    SOURCES = ['pypylib.cs', 'll_os.cs', 'll_os_path.cs', 'errno.cs', 'll_math.cs']
+    SOURCES = ['pypylib.cs', 'll_os.cs', 'll_os_path.cs', 'errno.cs', 'll_math.cs',
+               'debug.cs']
     OUTPUT = 'pypylib.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
     DEPENDENCIES = [MainStub]
