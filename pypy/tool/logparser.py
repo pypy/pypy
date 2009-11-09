@@ -16,27 +16,34 @@ def parse_log_file(filename):
     r_stop  = re.compile(r"\[([0-9a-f]+)\] ([\w-]+)\}$")
     lasttime = 0
     log = DebugLog()
+    time_decrase = False
+    performance_log = True
+    nested = 0
     f = open(filename, 'r')
     for line in f:
         line = line.rstrip()
         match = r_start.match(line)
         if match:
             record = log.debug_start
+            nested += 1
         else:
             match = r_stop.match(line)
             if match:
                 record = log.debug_stop
+                nested -= 1
             else:
                 log.debug_print(line)
+                performance_log = performance_log and nested == 0
                 continue
         time = int(int(match.group(1), 16))
-        if time < lasttime:
-            raise Exception("The time decreases!  The log file may have been"
-                            " produced on a multi-CPU machine and the process"
-                            " moved between CPUs.")
+        time_decrase = time_decrase or time < lasttime
         lasttime = time
         record(match.group(2), time=int(match.group(1), 16))
     f.close()
+    if performance_log and time_decrase:
+        raise Exception("The time decreases!  The log file may have been"
+                        " produced on a multi-CPU machine and the process"
+                        " moved between CPUs.")
     return log
 
 def extract_category(log, catprefix='', toplevel=False):
