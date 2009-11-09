@@ -95,7 +95,9 @@ class Frame(object):
         stackpos = self.stackpos - 1
         assert stackpos >= 0
         self.stackpos = stackpos
-        return self.stack[stackpos]
+        res = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return res
 
     def interp(self):
         bytecode = self.bytecode
