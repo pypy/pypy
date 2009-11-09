@@ -338,10 +338,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
-        i0 = oononnull(p0)
-        guard_true(i0) []
-        i1 = ooisnull(p0)
-        guard_false(i1) []
+        guard_nonnull(p0) []
         jump(p0)
         """
         expected = """
@@ -352,6 +349,7 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_int_is_true_1(self):
+        py.test.skip("too bad")
         ops = """
         [i0]
         i1 = int_is_true(i0)
@@ -371,31 +369,13 @@ class BaseTestOptimizeOpt(BaseTest):
     def test_ooisnull_oononnull_2(self):
         ops = """
         [p0]
-        i0 = oononnull(p0)         # p0 != NULL
-        guard_true(i0) []
-        i1 = ooisnull(p0)
-        guard_false(i1) []
+        guard_nonnull(p0) []
+        guard_nonnull(p0) []
         jump(p0)
         """
         expected = """
         [p0]
-        i0 = oononnull(p0)
-        guard_true(i0) []
-        jump(p0)
-        """
-        self.optimize_loop(ops, 'Not', expected)
-        ops = """
-        [p0]
-        i1 = ooisnull(p0)
-        guard_false(i1) []
-        i0 = oononnull(p0)         # p0 != NULL
-        guard_true(i0) []
-        jump(p0)
-        """
-        expected = """
-        [p0]
-        i1 = ooisnull(p0)
-        guard_false(i1) []
+        guard_nonnull(p0) []
         jump(p0)
         """
         self.optimize_loop(ops, 'Not', expected)
@@ -404,34 +384,14 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         []
         p0 = escape()
-        i0 = ooisnull(p0)
-        guard_true(i0) []
-        i1 = oononnull(p0)
-        guard_false(i1) []
+        guard_isnull(p0) []
+        guard_isnull(p0) []
         jump()
         """
         expected = """
         []
         p0 = escape()
-        i0 = ooisnull(p0)
-        guard_true(i0) []
-        jump()
-        """
-        self.optimize_loop(ops, '', expected)
-        ops = """
-        []
-        p0 = escape()
-        i0 = oononnull(p0)
-        guard_false(i0) []
-        i1 = ooisnull(p0)
-        guard_true(i1) []
-        jump()
-        """
-        expected = """
-        []
-        p0 = escape()
-        i0 = oononnull(p0)
-        guard_false(i0) []
+        guard_isnull(p0) []
         jump()
         """
         self.optimize_loop(ops, '', expected)
@@ -441,17 +401,14 @@ class BaseTestOptimizeOpt(BaseTest):
         [p0]
         pv = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(pv, p0, descr=valuedescr)
-        i0 = oononnull(p0)         # p0 != NULL
-        guard_true(i0) []
+        guard_nonnull(p0) []
         p1 = getfield_gc(pv, descr=valuedescr)
-        i1 = ooisnull(p1)
-        guard_false(i1) []
+        guard_nonnull(p1) []
         jump(p0)
         """
         expected = """
         [p0]
-        i0 = oononnull(p0)
-        guard_true(i0) []
+        guard_nonnull(p0) []
         jump(p0)
         """
         self.optimize_loop(ops, 'Not', expected)
@@ -489,10 +446,7 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_true(i0) []
         i3 = oois(NULL, p0)
         guard_false(i1) []
-        i4 = oononnull(p0)
-        guard_true(i4) []
-        i5 = ooisnull(p0)
-        guard_false(i5) []
+        guard_nonnull(p0) []
         jump(p0)
         """
         expected = """
@@ -541,16 +495,16 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def test_guard_value_to_guard_false(self):
         ops = """
-        [p]
-        i1 = ooisnull(p)
-        guard_value(i1, 0) [p]
-        jump(p)
+        [i]
+        i1 = int_is_true(i)
+        guard_value(i1, 0) [i]
+        jump(i)
         """
         expected = """
-        [p]
-        i1 = ooisnull(p)
-        guard_false(i1) [p]
-        jump(p)
+        [i]
+        i1 = int_is_true(i)
+        guard_false(i1) [i]
+        jump(i)
         """
         self.optimize_loop(ops, 'Not', expected)
 
@@ -686,10 +640,7 @@ class BaseTestOptimizeOpt(BaseTest):
     def test_virtual_oois(self):
         ops = """
         [p0, p1, p2]
-        i1 = oononnull(p0)
-        guard_true(i1) []
-        i2 = ooisnull(p0)
-        guard_false(i2) []
+        guard_nonnull(p0) []
         i3 = ooisnot(p0, NULL)
         guard_true(i3) []
         i4 = oois(p0, NULL)
@@ -727,8 +678,7 @@ class BaseTestOptimizeOpt(BaseTest):
         # the details of the algorithm...
         expected2 = """
         [p0, p1, p2]
-        i1 = oononnull(p0)
-        guard_true(i1) []
+        guard_nonnull(p0) []
         i7 = ooisnot(p0, p1)
         guard_true(i7) []
         i8 = oois(p0, p1)
@@ -833,7 +783,7 @@ class BaseTestOptimizeOpt(BaseTest):
         p0 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p0, NULL, descr=nextdescr)
         p2 = getfield_gc(p0, descr=nextdescr)
-        i1 = ooisnull(p2)
+        i1 = oois(p2, NULL)
         jump(i1)
         """
         expected = """
@@ -849,7 +799,7 @@ class BaseTestOptimizeOpt(BaseTest):
         p0 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
         p2 = getfield_gc(p0, descr=nextdescr)
-        i1 = ooisnull(p2)
+        i1 = oois(p2, NULL)
         jump(i1)
         """
         expected = """
@@ -1003,8 +953,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [i1, p0]
         setarrayitem_gc(p0, 0, i1, descr=arraydescr)
-        i2 = ooisnull(p0)
-        guard_false(i2) []
+        guard_nonnull(p0) []
         p1 = new_array(i1, descr=arraydescr)
         jump(i1, p1)
         """
@@ -1426,8 +1375,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [i0, p1]
         p4 = getfield_gc(p1, descr=nextdescr)
-        i2 = ooisnull(p4)
-        guard_false(i2) []
+        guard_nonnull(p4) []
         escape(p4)
         #
         p2 = new_with_vtable(ConstClass(node_vtable))
@@ -1437,8 +1385,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         expected = """
         [i0, p4]
-        i2 = ooisnull(p4)
-        guard_false(i2) []
+        guard_nonnull(p4) []
         escape(p4)
         #
         p3 = escape()
@@ -1451,8 +1398,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [i0, p1]
         p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        i2 = ooisnull(p4)
-        guard_false(i2) []
+        guard_nonnull(p4) []
         escape(p4)
         #
         p2 = new_array(1, descr=arraydescr2)
@@ -1462,8 +1408,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         expected = """
         [i0, p4]
-        i2 = ooisnull(p4)
-        guard_false(i2) []
+        guard_nonnull(p4) []
         escape(p4)
         #
         p3 = escape()
@@ -1475,8 +1420,7 @@ class BaseTestOptimizeOpt(BaseTest):
     def test_invalid_loop_1(self):
         ops = """
         [p1]
-        i1 = ooisnull(p1)
-        guard_true(i1) []
+        guard_isnull(p1) []
         #
         p2 = new_with_vtable(ConstClass(node_vtable))
         jump(p2)
@@ -1501,8 +1445,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p1]
         p2 = getfield_gc(p1, descr=nextdescr)
-        i1 = ooisnull(p2)
-        guard_true(i1) []
+        guard_isnull(p2) []
         #
         p3 = new_with_vtable(ConstClass(node_vtable))
         p4 = new_with_vtable(ConstClass(node_vtable))

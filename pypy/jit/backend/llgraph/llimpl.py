@@ -104,8 +104,6 @@ TYPES = {
     'new_with_vtable' : (('ref',), 'ref'),
     'new'             : ((), 'ref'),
     'new_array'       : (('int',), 'ref'),
-    'oononnull'       : (('ref',), 'bool'),
-    'ooisnull'        : (('ref',), 'bool'),
     'oois'            : (('ref', 'ref'), 'bool'),
     'ooisnot'         : (('ref', 'ref'), 'bool'),
     'instanceof'      : (('ref',), 'bool'),
@@ -134,6 +132,8 @@ TYPES = {
     'guard_exception'      : (('ref',), 'ref'),
     'guard_no_overflow'    : ((), None),
     'guard_overflow'       : ((), None),
+    'guard_nonnull'        : (('ref',), None),
+    'guard_isnull'        : (('ref',), None),
     'newstr'          : (('int',), 'ref'),
     'strlen'          : (('ref',), 'int'),
     'strgetitem'      : (('ref', 'int'), 'int'),
@@ -550,6 +550,9 @@ class Frame(object):
     def op_guard_false(self, _, value):
         if value:
             raise GuardFailed
+
+    op_guard_nonnull = op_guard_true
+    op_guard_isnull  = op_guard_false
 
     def op_guard_class(self, _, value, expected_class):
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)

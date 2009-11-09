@@ -229,7 +229,7 @@ class TestX86(LLtypeBackendTest):
         assert c.value == 3
 
     def test_nullity_with_guard(self):
-        allops = [rop.OONONNULL, rop.OOISNULL, rop.INT_IS_TRUE]
+        allops = [rop.INT_IS_TRUE]
         guards = [rop.GUARD_TRUE, rop.GUARD_FALSE]
         p = lltype.cast_opaque_ptr(llmemory.GCREF,
                                    lltype.malloc(lltype.GcStruct('x')))

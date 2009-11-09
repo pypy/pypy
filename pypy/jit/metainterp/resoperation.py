@@ -1,7 +1,6 @@
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import make_sure_not_resized
 
-
 class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
@@ -118,6 +117,8 @@ _oplist = [
     'GUARD_FALSE',
     'GUARD_VALUE',
     'GUARD_CLASS',
+    'GUARD_NONNULL',
+    'GUARD_ISNULL',
     '_GUARD_FOLDABLE_LAST',
     'GUARD_NO_EXCEPTION',
     'GUARD_EXCEPTION',
@@ -178,8 +179,6 @@ _oplist = [
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
     #
-    'OONONNULL/1b',
-    'OOISNULL/1b',
     'OOIS/2b',
     'OOISNOT/2b',
     #

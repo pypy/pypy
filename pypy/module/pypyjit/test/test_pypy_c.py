@@ -158,8 +158,7 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("LOAD_GLOBAL")
         assert len(ops) == 2
         assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
-                                        "getfield_gc", "ooisnull",
-                                        "guard_false"]
+                                        "getfield_gc", "guard_nonnull"]
         assert not ops[1] # second LOAD_GLOBAL folded away
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
@@ -203,7 +202,7 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("LOAD_ATTR")
         assert len(ops) == 2
         assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
-                                        "ooisnull", "guard_false"]
+                                        "guard_nonnull"]
         assert not ops[1] # second LOAD_ATTR folded away
 
     def test_default_and_kw(self):

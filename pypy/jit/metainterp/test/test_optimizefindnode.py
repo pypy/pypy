@@ -474,10 +474,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         [p3, p4, p2]
         p0 = new_with_vtable(ConstClass(node_vtable))
         p1 = new_with_vtable(ConstClass(node_vtable))
-        i1 = oononnull(p0)
-        guard_true(i1) []
-        i2 = ooisnull(p0)
-        guard_false(i2) []
+        guard_nonnull(p0) []
         i3 = ooisnot(p0, NULL)
         guard_true(i3) []
         i4 = oois(p0, NULL)
@@ -827,14 +824,12 @@ class BaseTestOptimizeFindNode(BaseTest):
     def test_find_nodes_bug_1(self):
         ops = """
         [p12]
-        i16 = ooisnull(p12)
-        guard_false(i16) []
+        guard_nonnull(p12) []
         guard_class(p12, ConstClass(node_vtable)) []
         guard_class(p12, ConstClass(node_vtable)) []
         i22 = getfield_gc_pure(p12, descr=valuedescr)
         escape(i22)
-        i25 = ooisnull(p12)
-        guard_false(i25) []
+        guard_nonnull(p12) []
         guard_class(p12, ConstClass(node_vtable)) []
         guard_class(p12, ConstClass(node_vtable)) []
         i29 = getfield_gc_pure(p12, descr=valuedescr)
@@ -847,10 +842,8 @@ class BaseTestOptimizeFindNode(BaseTest):
         setarrayitem_gc(p35, 0, p33, descr=arraydescr3)
         p38 = new_with_vtable(ConstClass(u_vtable))         # U
         setfield_gc(p38, p35, descr=onedescr)
-        i39 = ooisnull(p38)
-        guard_false(i39) []
-        i40 = oononnull(p38)
-        guard_true(i40) []
+        guard_nonnull(p38) []
+        guard_nonnull(p38) []
         guard_class(p38, ConstClass(u_vtable)) []
         p42 = getfield_gc(p38, descr=onedescr)              # Array(NODE)
         i43 = arraylen_gc(p42, descr=arraydescr3)
@@ -871,8 +864,7 @@ class BaseTestOptimizeFindNode(BaseTest):
         guard_false(i55) []
         p56 = getfield_gc(p46, descr=ddescr)                # Array(NODE)
         p58 = getarrayitem_gc(p56, 0, descr=arraydescr3)    # NODE
-        i59 = ooisnull(p38)
-        guard_false(i59) []
+        guard_nonnull(p38) []
         jump(p58)
         """
         self.find_nodes(ops, 'Virtual(node_vtable, valuedescr=Not)')

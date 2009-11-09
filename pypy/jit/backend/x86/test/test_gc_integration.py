@@ -132,11 +132,9 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
         guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
         i11 = getfield_gc(i4, descr=descr0)
-        i12 = ooisnull(i11)
-        guard_false(i12) [i4, i5, i6, i7, i0, i1, i11, i8]
+        guard_nonnull(i11) [i4, i5, i6, i7, i0, i1, i11, i8]
         i13 = getfield_gc(i11, descr=descr0)
-        i14 = ooisnull(i13)
-        guard_true(i14) [i4, i5, i6, i7, i0, i1, i11, i8]
+        guard_isnull(i13) [i4, i5, i6, i7, i0, i1, i11, i8]
         i15 = getfield_gc(i4, descr=descr0)
         i17 = int_lt(i15, 0)
         guard_false(i17) [i4, i5, i6, i7, i0, i1, i11, i15, i8]

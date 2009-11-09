@@ -305,8 +305,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_discard(op, arglocs)
 
     def can_optimize_cmp_op(self, op, i, operations):
-        if not (op.is_comparison() or op.opnum == rop.OOISNULL or
-                op.opnum == rop.OONONNULL):
+        if not op.is_comparison():
             return False
         if (operations[i + 1].opnum != rop.GUARD_TRUE and
             operations[i + 1].opnum != rop.GUARD_FALSE):
@@ -385,6 +384,8 @@ class RegAlloc(object):
 
     consider_guard_true = _consider_guard
     consider_guard_false = _consider_guard
+    consider_guard_nonnull = _consider_guard
+    consider_guard_isnull = _consider_guard
 
     def consider_finish(self, op, ignored):
         locs = [self.loc(v) for v in op.args]
@@ -831,8 +832,6 @@ class RegAlloc(object):
             self.Perform(op, [argloc], resloc)
 
     consider_int_is_true = _consider_nullity
-    consider_ooisnull = _consider_nullity
-    consider_oononnull = _consider_nullity
 
     def consider_same_as(self, op, ignored):
         argloc = self.loc(op.args[0])

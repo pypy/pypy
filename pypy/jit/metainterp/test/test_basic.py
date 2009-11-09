@@ -1180,8 +1180,24 @@ class BaseLLtypeTests(BasicTests):
             history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))).value
         assert res == expected
 
+    def test_collapsing_ptr_eq(self):
+        S = lltype.GcStruct('S')
+        p = lltype.malloc(S)
+        driver = JitDriver(greens = [], reds = ['n', 'x'])
 
+        def f(n, x):
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x)
+                driver.jit_merge_point(n=n, x=x)
+                if x:
+                    n -= 1
+                n -= 1
 
+        def main():
+            f(10, p)
+            f(10, lltype.nullptr(S))
+
+        self.meta_interp(main, [])
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

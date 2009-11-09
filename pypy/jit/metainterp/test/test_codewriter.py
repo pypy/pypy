@@ -341,6 +341,30 @@ class TestCodeWriter:
                 assert 0, "missing instantiate_*_%s in:\n%r" % (expected,
                                                                 names)
 
+    def test_oois_constant_null(self):
+        from pypy.rpython.lltypesystem import lltype
+        
+        S = lltype.GcStruct('S')
+        s = lltype.malloc(S)
+        NULL = lltype.nullptr(S)
+        def f(p, i):
+            if i % 2:
+                return p == NULL
+            elif i % 3:
+                return NULL == p
+            elif i % 4:
+                return p != NULL
+            else:
+                return NULL != p
+        graphs = self.make_graphs(f, [s, 5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = graphs
+        cw._start(self.metainterp_sd, None)        
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        assert 'ptr_eq' not in jitcode._source
+        assert 'ptr_ne' not in jitcode._source
+        assert jitcode._source.count('ptr_iszero') == 2
+        assert jitcode._source.count('ptr_nonzero') == 2
 
 class ImmutableFieldsTests:
 

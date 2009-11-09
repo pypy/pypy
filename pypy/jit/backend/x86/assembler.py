@@ -466,7 +466,7 @@ class Assembler386(object):
             loc2 = cl
         self.mc.SHR(loc, loc2)
 
-    def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
+    def genop_guard_int_is_true(self, op, guard_op, addr, arglocs, resloc):
         guard_opnum = guard_op.opnum
         loc = arglocs[0]
         self.mc.TEST(loc, loc)
@@ -475,28 +475,10 @@ class Assembler386(object):
         else:
             return self.implement_guard(addr, self.mc.JNZ)
 
-    def genop_guard_ooisnull(self, op, guard_op, addr, arglocs, resloc):
-        guard_opnum = guard_op.opnum
-        loc = arglocs[0]
-        self.mc.TEST(loc, loc)
-        if guard_opnum == rop.GUARD_TRUE:
-            return self.implement_guard(addr, self.mc.JNZ)
-        else:
-            return self.implement_guard(addr, self.mc.JZ)
-
-    genop_guard_int_is_true = genop_guard_oononnull
-
-    def genop_oononnull(self, op, arglocs, resloc):
+    def genop_int_is_true(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETNE(lower_byte(resloc))
-
-    genop_int_is_true = genop_oononnull
-
-    def genop_ooisnull(self, op, arglocs, resloc):
-        self.mc.CMP(arglocs[0], imm8(0))
-        self.mc.MOV(resloc, imm8(0))
-        self.mc.SETE(lower_byte(resloc))
 
     def genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
@@ -672,6 +654,7 @@ class Assembler386(object):
         loc = locs[0]
         self.mc.TEST(loc, loc)
         return self.implement_guard(addr, self.mc.JZ)
+    genop_guard_guard_nonnull = genop_guard_guard_true
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, addr,
                                        locs, ign_2):
@@ -703,6 +686,7 @@ class Assembler386(object):
         loc = locs[0]
         self.mc.TEST(loc, loc)
         return self.implement_guard(addr, self.mc.JNZ)
+    genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_value(self, ign_1, guard_op, addr, locs, ign_2):
         if guard_op.args[0].type == FLOAT:

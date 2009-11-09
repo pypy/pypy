@@ -437,20 +437,6 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
         assert self.getints(6) == [1, 1, 0, 0, 1, 1]
 
-    def test_nullity(self):
-        ops = '''
-        [i0, i1, i2, i3, i4, i5, i6]
-        i10 = oononnull(i0)
-        i11 = ooisnull(i1)
-        i12 = oononnull(i2)
-        i13 = oononnull(i3)
-        i14 = ooisnull(i6)
-        i15 = ooisnull(i5)
-        finish(i10, i11, i12, i13, i14, i15)
-        '''
-        self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
-        assert self.getints(6) == [0, 0, 1, 1, 0, 0]
-
     def test_strsetitem(self):
         ops = '''
         [p0, i]

@@ -103,26 +103,6 @@ def do_bool_not(cpu, box1):
 def do_same_as(cpu, box1):
     return box1
 
-def do_oononnull(cpu, box1):
-    tp = box1.type
-    if tp == INT:
-        x = bool(box1.getint())
-    elif tp == REF:
-        x = bool(box1.getref_base())
-    else:
-        assert False
-    return ConstInt(x)
-
-def do_ooisnull(cpu, box1):
-    tp = box1.type
-    if tp == INT:
-        x = bool(box1.getint())
-    elif tp == REF:
-        x = bool(box1.getref_base())
-    else:
-        assert False
-    return ConstInt(not x)
-
 def do_oois(cpu, box1, box2):
     tp = box1.type
     assert tp == box2.type

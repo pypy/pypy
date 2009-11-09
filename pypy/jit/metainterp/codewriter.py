@@ -808,6 +808,31 @@ class BytecodeMaker(object):
 
     serialize_op_uint_is_true = serialize_op_int_is_true
 
+    def _serialize_op_ptr_eq(self, op, opname):
+        arg0, arg1 = op.args
+        if isinstance(arg0, Constant) and not arg0.value:
+            self.emit(opname, self.var_position(arg1))
+            self.register_var(op.result)
+        elif isinstance(arg1, Constant) and not arg1.value:
+            self.emit(opname, self.var_position(arg0))
+            self.register_var(op.result)
+        else:
+            self.default_serialize_op(op)
+
+    def serialize_op_ptr_eq(self, op):
+        self._serialize_op_ptr_eq(op, 'ooisnull')
+    serialize_op_oois = serialize_op_ptr_eq
+
+    def serialize_op_ptr_ne(self, op):
+        self._serialize_op_ptr_eq(op, 'oononnull')
+    serialize_op_ooisnot = serialize_op_ptr_ne
+
+    def serialize_op_ptr_iszero(self, op):
+        self.default_serialize_op(op, 'ooisnull')
+
+    def serialize_op_ptr_nonzero(self, op):
+        self.default_serialize_op(op, 'oononnull')
+
     def serialize_op_malloc(self, op):
         assert op.args[1].value == {'flavor': 'gc'}
         STRUCT = op.args[0].value

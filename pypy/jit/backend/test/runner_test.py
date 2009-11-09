@@ -441,9 +441,13 @@ class BaseBackendTest(Runner):
 
 
     def test_passing_guards(self):
+        t_box, T_box = self.alloc_instance(self.T)
+        nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [BoxInt(1)]),
                (rop.GUARD_FALSE, [BoxInt(0)]),
-               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)])]
+               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
+               (rop.GUARD_NONNULL, [t_box]),
+               (rop.GUARD_ISNULL, [nullbox])]
         if self.cpu.supports_floats:
             all.append((rop.GUARD_VALUE, [BoxFloat(3.5), BoxFloat(3.5)]))
         for (opname, args) in all:
@@ -460,9 +464,13 @@ class BaseBackendTest(Runner):
         #                       'void')
 
     def test_failing_guards(self):
+        t_box, T_box = self.alloc_instance(self.T)
+        nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [BoxInt(0)]),
                (rop.GUARD_FALSE, [BoxInt(1)]),
-               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)])]
+               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
+               (rop.GUARD_NONNULL, [nullbox]),
+               (rop.GUARD_ISNULL, [t_box])]
         if self.cpu.supports_floats:
             all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), BoxFloat(1.0)]))
         for opname, args in all:
@@ -493,10 +501,6 @@ class BaseBackendTest(Runner):
         assert r.value == 0
         r = self.execute_operation(rop.OOISNOT, [u2_box, u1_box], 'int')
         assert r.value == 1
-        r = self.execute_operation(rop.OOISNULL, [u1_box], 'int')
-        assert r.value == 0
-        r = self.execute_operation(rop.OONONNULL, [u2_box], 'int')
-        assert r.value == 1
         #
         null_box = self.null_instance()
         r = self.execute_operation(rop.OOIS, [null_box,
@@ -513,10 +517,6 @@ class BaseBackendTest(Runner):
         assert r.value == 1
         r = self.execute_operation(rop.OOISNOT, [null_box, u1_box], 'int')
         assert r.value == 1
-        r = self.execute_operation(rop.OOISNULL, [null_box], 'int')
-        assert r.value == 1
-        r = self.execute_operation(rop.OONONNULL, [null_box], 'int')
-        assert r.value == 0
 
     def test_array_basic(self):
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
@@ -962,10 +962,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert r.value == 1
         r = self.execute_operation(rop.OOISNOT, [BoxInt(v), BoxInt(v)], 'int')
         assert r.value == 0
-        r = self.execute_operation(rop.OOISNULL, [BoxInt(v)], 'int')
-        assert r.value == 0
-        r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
-        assert r.value == 1
         lltype.free(x, flavor='raw')
 
     def test_new_plain_struct(self):
@@ -1334,6 +1330,22 @@ class LLtypeBackendTest(BaseBackendTest):
         assert (sorted([chr2, chr1, value]) ==
                 [value, chr1, chr2])
         assert len(dict.fromkeys([value, chr1, chr2]).keys()) == 3
+
+    def test_guards_nongc(self):
+        x = lltype.malloc(lltype.Struct('x'), flavor='raw')
+        v = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
+        vbox = BoxInt(v)
+        ops = [
+            (rop.GUARD_NONNULL, vbox, False),
+            (rop.GUARD_ISNULL, vbox, True),
+            (rop.GUARD_NONNULL, BoxInt(0), True),
+            (rop.GUARD_ISNULL, BoxInt(0), False),
+            ]
+        for opname, arg, res in ops:
+            self.execute_operation(opname, [arg], 'void')
+            assert self.guard_failed == res
+        
+        lltype.free(x, flavor='raw')
 
 class OOtypeBackendTest(BaseBackendTest):
 

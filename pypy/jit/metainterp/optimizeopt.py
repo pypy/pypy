@@ -69,7 +69,7 @@ class OptValue(object):
         if self.is_constant():
             box = self.box
             assert isinstance(box, Const)
-            return not box.nonnull_constant()
+            return not box.nonnull()
         return False
 
     def make_constant(self, constbox):
@@ -100,7 +100,7 @@ class OptValue(object):
         elif level == LEVEL_CONSTANT:
             box = self.box
             assert isinstance(box, Const)
-            return box.nonnull_constant()
+            return box.nonnull()
         else:
             return False
 
@@ -113,25 +113,6 @@ class OptValue(object):
         # Even if it is a VirtualValue, the 'box' can be non-None,
         # meaning it has been forced.
         return self.box is None
-
-class BoolValue(OptValue):
-
-    def __init__(self, box, fromvalue, reversed, nullconstbox):
-        OptValue.__init__(self, box)
-        # If later 'box' is turned into a constant False
-        # (resp. True), then 'fromvalue' will be known to
-        # be null (resp. non-null).  If 'reversed', then
-        # this logic is reversed.
-        self.fromvalue = fromvalue
-        self.reversed = reversed
-        self.nullconstbox = nullconstbox   # of the correct type
-
-    def make_constant(self, constbox):
-        OptValue.make_constant(self, constbox)
-        if constbox.nonnull_constant() ^ self.reversed:
-            self.fromvalue.make_nonnull()
-        else:
-            self.fromvalue.make_constant(self.nullconstbox)
 
 class ConstantValue(OptValue):
     level = LEVEL_CONSTANT
@@ -434,11 +415,6 @@ class Optimizer(object):
         self.make_equal_to(box, vvalue)
         return vvalue
 
-    def make_bool(self, box, fromvalue, reversed, nullconstbox):
-        value = BoolValue(box, fromvalue, reversed, nullconstbox)
-        self.make_equal_to(box, value)
-        return value
-
     def new_ptr_box(self):
         return self.cpu.ts.BoxRef()
 
@@ -585,6 +561,24 @@ class Optimizer(object):
             self.emit_operation(op)
         value.make_constant(constbox)
 
+    def optimize_GUARD_ISNULL(self, op):
+        value = self.getvalue(op.args[0])
+        if value.is_null():
+            return
+        elif value.is_nonnull():
+            raise InvalidLoop
+        self.emit_operation(op)
+        value.make_constant(self.cpu.ts.CONST_NULL)
+
+    def optimize_GUARD_NONNULL(self, op):
+        value = self.getvalue(op.args[0])
+        if value.is_nonnull():
+            return
+        elif value.is_null():
+            raise InvalidLoop
+        self.emit_operation(op)
+        value.make_nonnull()
+
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.args[0])
         emit_operation = True
@@ -631,26 +625,19 @@ class Optimizer(object):
         self.emit_operation(op)
 
 
-    def _optimize_nullness(self, op, expect_nonnull, nullconstbox):
-        value = self.getvalue(op.args[0])
+    def _optimize_nullness(self, op, box, expect_nonnull):
+        value = self.getvalue(box)
         if value.is_nonnull():
             self.make_constant_int(op.result, expect_nonnull)
         elif value.is_null():
             self.make_constant_int(op.result, not expect_nonnull)
         else:
-            self.make_bool(op.result, value, not expect_nonnull, nullconstbox)
             self.emit_operation(op)
 
-    def optimize_OONONNULL(self, op):
-        self._optimize_nullness(op, True, self.cpu.ts.CONST_NULL)
-
-    def optimize_OOISNULL(self, op):
-        self._optimize_nullness(op, False, self.cpu.ts.CONST_NULL)
-
     def optimize_INT_IS_TRUE(self, op):
-        self._optimize_nullness(op, True, CONST_0)
+        self._optimize_nullness(op, op.args[0], True)
 
-    def _optimize_oois_ooisnot(self, op, expect_isnot, unary_opnum):
+    def _optimize_oois_ooisnot(self, op, expect_isnot):
         value0 = self.getvalue(op.args[0])
         value1 = self.getvalue(op.args[1])
         if value0.is_virtual():
@@ -662,19 +649,17 @@ class Optimizer(object):
         elif value1.is_virtual():
             self.make_constant_int(op.result, expect_isnot)
         elif value1.is_null():
-            op = ResOperation(unary_opnum, [op.args[0]], op.result)
-            self._optimize_nullness(op, expect_isnot, self.cpu.ts.CONST_NULL)
+            self._optimize_nullness(op, op.args[0], expect_isnot)
         elif value0.is_null():
-            op = ResOperation(unary_opnum, [op.args[1]], op.result)
-            self._optimize_nullness(op, expect_isnot, self.cpu.ts.CONST_NULL)
+            self._optimize_nullness(op, op.args[1], expect_isnot)
         else:
             self.optimize_default(op)
 
     def optimize_OOISNOT(self, op):
-        self._optimize_oois_ooisnot(op, True, rop.OONONNULL)
+        self._optimize_oois_ooisnot(op, True)
 
     def optimize_OOIS(self, op):
-        self._optimize_oois_ooisnot(op, False, rop.OOISNULL)
+        self._optimize_oois_ooisnot(op, False)
 
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.args[0])

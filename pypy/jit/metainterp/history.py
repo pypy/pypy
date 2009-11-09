@@ -106,6 +106,9 @@ class AbstractValue(object):
     def set_future_value(self, cpu, j):
         raise NotImplementedError
 
+    def nonnull(self):
+        raise NotImplementedError
+
     def repr_rpython(self):
         return '%s' % self
 
@@ -177,9 +180,6 @@ class Const(AbstractValue):
     def same_constant(self, other):
         raise NotImplementedError
 
-    def nonnull_constant(self):
-        raise NotImplementedError
-
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
 
@@ -239,7 +239,7 @@ class ConstInt(Const):
         assert isinstance(other, Const)
         return self.value == other.getint()
 
-    def nonnull_constant(self):
+    def nonnull(self):
         return self.value != 0
 
     def _getrepr_(self):
@@ -286,7 +286,7 @@ class ConstAddr(Const):       # only for constants built before translation
         assert isinstance(other, Const)
         return self.value == other.getaddr(self.cpu)
 
-    def nonnull_constant(self):
+    def nonnull(self):
         return bool(self.value)
 
     def _getrepr_(self):
@@ -322,7 +322,7 @@ class ConstFloat(Const):
         assert isinstance(other, ConstFloat)
         return self.value == other.value
 
-    def nonnull_constant(self):
+    def nonnull(self):
         return self.value != 0.0
 
     def _getrepr_(self):
@@ -368,7 +368,7 @@ class ConstPtr(Const):
         assert isinstance(other, ConstPtr)
         return self.value == other.value
 
-    def nonnull_constant(self):
+    def nonnull(self):
         return bool(self.value)
 
     _getrepr_ = repr_pointer
@@ -421,7 +421,7 @@ class ConstObj(Const):
         assert isinstance(other, ConstObj)
         return self.value == other.value
 
-    def nonnull_constant(self):
+    def nonnull(self):
         return bool(self.value)
 
     _getrepr_ = repr_object
@@ -512,6 +512,9 @@ class BoxInt(Box):
     def set_future_value(self, cpu, j):
         cpu.set_future_value_int(j, self.value)
 
+    def nonnull(self):
+        return self.value != 0
+
     def _getrepr_(self):
         return self.value
 
@@ -540,6 +543,9 @@ class BoxFloat(Box):
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_float(j, self.value)
+
+    def nonnull(self):
+        return self.value != 0.0
 
     def _getrepr_(self):
         return self.value
@@ -580,6 +586,9 @@ class BoxPtr(Box):
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)
 
+    def nonnull(self):
+        return bool(self.value)
+
     def repr_rpython(self):
         return repr_rpython(self, 'bp')
 
@@ -614,6 +623,9 @@ class BoxObj(Box):
             return ootype.identityhash(self.value)
         else:
             return 0
+
+    def nonnull(self):
+        return bool(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ref(j, self.value)

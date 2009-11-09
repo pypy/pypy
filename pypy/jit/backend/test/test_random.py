@@ -57,27 +57,18 @@ class OperationBuilder(object):
 
     def get_bool_var(self, r):
         if self.boolvars and r.random() < 0.8:
-            v = r.choice(self.boolvars)
+            return r.choice(self.boolvars)
         elif self.ptrvars and r.random() < 0.4:
             v, S = r.choice(self.ptrvars + self.prebuilt_ptr_consts)[:2]
             v2, S2 = r.choice(self.ptrvars + self.prebuilt_ptr_consts)[:2]
             if S == S2 and not (isinstance(v, ConstPtr) and
                                 isinstance(v2, ConstPtr)):
                 if r.random() < 0.5:
-                    v = self.do(rop.OOIS, [v, v2])
+                    return self.do(rop.OOIS, [v, v2])
                 else:
-                    v = self.do(rop.OOISNOT, [v, v2])
-            else:
-                if isinstance(v, ConstPtr):
-                    v, S = r.choice(self.ptrvars)
-                if r.random() < 0.5:
-                    v = self.do(rop.OONONNULL, [v])
-                else:
-                    v = self.do(rop.OOISNULL, [v])
-        else:
-            v = r.choice(self.intvars)
-            v = self.do(rop.INT_IS_TRUE, [v])
-        return v
+                    return self.do(rop.OOISNOT, [v, v2])
+        v = r.choice(self.intvars)
+        return self.do(rop.INT_IS_TRUE, [v])
 
     def subset_of_intvars(self, r):
         subset = []
@@ -358,6 +349,16 @@ class GuardOperation(AbstractOperation):
             builder.should_fail_by = op
             builder.guard_op = op
 
+class GuardPtrOperation(GuardOperation):
+    def gen_guard(self, builder, r):
+        if not builder.ptrvars:
+            raise CannotProduceOperation
+        box = r.choice(builder.ptrvars)[0]
+        op = ResOperation(self.opnum, [box], None)
+        passing = ((self.opnum == rop.GUARD_NONNULL and box.value) or
+                   (self.opnum == rop.GUARD_ISNULL and not box.value))
+        return op, passing
+
 class GuardValueOperation(GuardOperation):
     def gen_guard(self, builder, r):
         v = r.choice(builder.intvars)
@@ -410,6 +411,8 @@ OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
 OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
 OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
 OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
+OPERATIONS.append(GuardPtrOperation(rop.GUARD_NONNULL))
+OPERATIONS.append(GuardPtrOperation(rop.GUARD_ISNULL))
 OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
