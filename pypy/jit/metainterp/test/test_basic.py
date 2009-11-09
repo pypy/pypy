@@ -1023,6 +1023,31 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         self.check_loops(guard_class=0, guard_value=3)
 
+    def test_residual_call_doesnt_lose_info(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])
+
+        class A(object):
+            pass
+
+        globall = [""]
+        @dont_look_inside
+        def g(x):
+            globall[0] = str(x)
+            return x
+
+        def f(x):
+            y = A()
+            y.v = x
+            l = [0]
+            while y.v > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, l=l)
+                myjitdriver.jit_merge_point(x=x, y=y, l=l)
+                l[0] = y.v
+                lc = l[0]
+                y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
+            return y.v
+        res = self.meta_interp(f, [20], listops=True)
+        self.check_loops(getfield_gc=1, getarrayitem_gc=0)
 
 class TestOOtype(BasicTests, OOJitMixin):
 

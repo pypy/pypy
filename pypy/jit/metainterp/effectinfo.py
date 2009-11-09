@@ -1,5 +1,7 @@
+from pypy.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 
 class EffectInfo(object):
     _cache = {}
@@ -23,27 +25,42 @@ def effectinfo_from_writeanalyze(effects, cpu):
     for tup in effects:
         if tup[0] == "struct":
             _, T, fieldname = tup
-            if not isinstance(T.TO, lltype.GcStruct): # can be a non-GC-struct
+            T = deref(T)
+            if not consider_struct(T, fieldname):
                 continue
-            if getattr(T.TO, fieldname) is lltype.Void:
-                continue
-            if fieldname == "typeptr" and T.TO is OBJECT:
-                # filter out the typeptr, because
-                # a) it is optimized in different ways
-                # b) it might not be there in C if removetypeptr is specified
-                continue
-            descr = cpu.fielddescrof(T.TO, fieldname)
+            descr = cpu.fielddescrof(T, fieldname)
             write_descrs_fields.append(descr)
         elif tup[0] == "array":
             _, T = tup
-            if not isinstance(T.TO, lltype.GcArray): # can be a non-GC-array
+            ARRAY = deref(T)
+            if not consider_array(ARRAY):
                 continue
-            if T.TO.OF is lltype.Void:
-                continue
-            descr = cpu.arraydescrof(T.TO)
+            descr = cpu.arraydescrof(ARRAY)
             write_descrs_arrays.append(descr)
         else:
             assert 0
     return EffectInfo(write_descrs_fields, write_descrs_arrays)
 
+def consider_struct(TYPE, fieldname):
+    if fieldType(TYPE, fieldname) is lltype.Void:
+        return False
+    if isinstance(TYPE, ootype.OOType):
+        return True
+    if not isinstance(TYPE, lltype.GcStruct): # can be a non-GC-struct
+        return False
+    if fieldname == "typeptr" and TYPE is OBJECT:
+        # filter out the typeptr, because
+        # a) it is optimized in different ways
+        # b) it might not be there in C if removetypeptr is specified
+        return False
+    return True
 
+
+def consider_array(ARRAY):
+    if arrayItem(ARRAY) is lltype.Void:
+        return False
+    if isinstance(ARRAY, ootype.Array):
+        return True
+    if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
+        return False
+    return True

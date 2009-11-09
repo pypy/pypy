@@ -506,8 +506,8 @@ class OOtypeCPU(BaseCPU):
         return FieldDescr.new(T1, fieldname)
 
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
-        return StaticMethDescr.new(FUNC, ARGS, RESULT)
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+        return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
 
     @staticmethod
     def methdescrof(SELFTYPE, methname):
@@ -675,7 +675,7 @@ class OODescr(history.AbstractDescr):
 
 class StaticMethDescr(OODescr):
 
-    def __init__(self, FUNC, ARGS, RESULT):
+    def __init__(self, FUNC, ARGS, RESULT, extrainfo=None):
         self.FUNC = FUNC
         getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
@@ -685,9 +685,10 @@ class StaticMethDescr(OODescr):
             if RESULT is not ootype.Void:
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
+        self.extrainfo = extrainfo
 
     def get_extra_info(self):
-        return None # XXX
+        return self.extrainfo
 
 class MethDescr(history.AbstractMethDescr):
 

@@ -315,8 +315,7 @@ class CodeWriter(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        if (self.rtyper.type_system.name == 'lltypesystem' and
-                consider_effects_of is not None):
+        if consider_effects_of is not None:
             effectinfo = effectinfo_from_writeanalyze(
                     self.write_analyzer.analyze(consider_effects_of), self.cpu)
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT, effectinfo)
