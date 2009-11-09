@@ -71,8 +71,8 @@ class CliCPU(model.AbstractCPU):
         return self.inputargs
     
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
-        return StaticMethDescr.new(FUNC, ARGS, RESULT)
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+        return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
 
     @staticmethod
     def methdescrof(SELFTYPE, methname):
@@ -384,7 +384,7 @@ class StaticMethDescr(DescrWithKey):
     funcclass = ootype.nullruntimeclass
     has_result = False
 
-    def __init__(self, FUNC, ARGS, RESULT):
+    def __init__(self, FUNC, ARGS, RESULT, extrainfo=None):
         DescrWithKey.__init__(self, (FUNC, ARGS, RESULT))
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         getargs = make_getargs(FUNC.ARGS)
@@ -397,6 +397,7 @@ class StaticMethDescr(DescrWithKey):
         self.callfunc = callfunc
         self.funcclass = dotnet.classof(FUNC)
         self.has_result = (FUNC.RESULT != ootype.Void)
+        self.extrainfo = extrainfo
         if RESULT is ootype.Void:
             def get_errbox():
                 return None
@@ -416,7 +417,7 @@ class StaticMethDescr(DescrWithKey):
         return clitype.GetMethod('Invoke')
 
     def get_extra_info(self):
-        return None # XXX fix me
+        return self.extrainfo
         
 
 class MethDescr(AbstractMethDescr):

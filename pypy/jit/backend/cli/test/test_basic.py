@@ -44,13 +44,3 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     test_instantiate_does_not_call = skip
     test_listcomp = skip
     test_tuple_immutable = skip
-
-
-def test_fielddescr_ootype():
-    from pypy.rpython.ootypesystem import ootype
-    from pypy.jit.backend.cli.runner import CliCPU
-    A = ootype.Instance("A", ootype.ROOT, {"foo": ootype.Signed})
-    B = ootype.Instance("B", A)
-    descr1 = CliCPU.fielddescrof(A, "foo")
-    descr2 = CliCPU.fielddescrof(B, "foo")
-    assert descr1 is descr2
