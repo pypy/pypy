@@ -757,6 +757,31 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert not res
 
+    def test_isinstance_2(self):
+        driver = JitDriver(greens = [], reds = ['x', 'n', 'sum'])
+        class A:
+            pass
+        class B(A):
+            pass
+        class C(B):
+            pass
+
+        def main():
+            return f(5, B()) * 10 + f(5, C()) + f(5, A()) * 100
+
+        def f(n, x):
+            sum = 0
+            while n > 0:
+                driver.can_enter_jit(x=x, n=n, sum=sum)
+                driver.jit_merge_point(x=x, n=n, sum=sum)
+                if isinstance(x, B):
+                    sum += 1
+                n -= 1
+            return sum
+
+        res = self.meta_interp(main, [])
+        assert res == 55
+
     def test_assert_isinstance(self):
         class A:
             pass
