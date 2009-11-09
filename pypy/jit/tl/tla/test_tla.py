@@ -161,11 +161,17 @@ from pypy.rlib.jit import OPTIMIZER_FULL
 class TestLLtype(LLJitMixin):
     def test_loop(self):
         code = [
-            tla.CONST_INT, 1,
-            tla.SUB,
-            tla.DUP,
-            tla.JUMP_IF, 0,
-            tla.RETURN
+                tla.DUP,
+                tla.CONST_INT, 1,
+                tla.SUB,
+                tla.DUP,
+                tla.JUMP_IF, 1,
+                tla.POP,
+                tla.CONST_INT, 1,
+                tla.SUB,
+                tla.DUP,
+                tla.JUMP_IF, 0,
+                tla.RETURN
             ]
         def interp_w(intvalue):
             w_result = interp(code, tla.W_IntObject(intvalue))
