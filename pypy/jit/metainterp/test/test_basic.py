@@ -997,6 +997,33 @@ class BasicTests:
         self.check_loop_count(1)
         self.check_loops(call=1)
 
+    def test_merge_guardclass_guardvalue(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            def g(self, x):
+                return x - 1
+        class B(A):
+            def g(self, y):
+                return y - 2
+
+        a1 = A()
+        a2 = A()
+        b = B()
+        def f(x):
+            l = [a1] * 100 + [a2] * 100 + [b] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                x = a.g(x)
+                hint(a, promote=True)
+            return x
+        res = self.meta_interp(f, [299], listops=True)
+        self.check_loops(guard_class=0, guard_value=3)
+
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
@@ -1128,91 +1155,6 @@ class BaseLLtypeTests(BasicTests):
             history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))).value
         assert res == expected
 
-    def test_residual_call_doesnt_lose_info(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])
-
-        class A(object):
-            pass
-
-        globall = [""]
-        @dont_look_inside
-        def g(x):
-            globall[0] = str(x)
-            return x
-
-        def f(x):
-            y = A()
-            y.v = x
-            l = [0]
-            while y.v > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, l=l)
-                myjitdriver.jit_merge_point(x=x, y=y, l=l)
-                l[0] = y.v
-                lc = l[0]
-                y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
-            return y.v
-        res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=1, getarrayitem_gc=0)
-
-    def test_writeanalyzer_top_set(self):
-        from pypy.rlib.objectmodel import instantiate
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])
-
-        class A(object):
-            pass
-        class B(A):
-            pass
-
-        @dont_look_inside
-        def g(x):
-            # instantiate cannot be followed by the writeanalyzer
-            if x % 2:
-                C = A
-            else:
-                C = B
-            a = instantiate(C)
-            a.v = x
-            return a.v
-
-        def f(x):
-            y = A()
-            y.v = x
-            l = [0]
-            while y.v > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, l=l)
-                myjitdriver.jit_merge_point(x=x, y=y, l=l)
-                l[0] = y.v
-                lc = l[0]
-                y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
-            return y.v
-        res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=2, getarrayitem_gc=1)
-
-    def test_merge_guardclass_guardvalue(self):
-        from pypy.rlib.objectmodel import instantiate
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
-
-        class A(object):
-            def g(self, x):
-                return x - 1
-        class B(A):
-            def g(self, y):
-                return y - 2
-
-        a1 = A()
-        a2 = A()
-        b = B()
-        def f(x):
-            l = [a1] * 100 + [a2] * 100 + [b] * 100
-            while x > 0:
-                myjitdriver.can_enter_jit(x=x, l=l)
-                myjitdriver.jit_merge_point(x=x, l=l)
-                a = l[x]
-                x = a.g(x)
-                hint(a, promote=True)
-            return x
-        res = self.meta_interp(f, [299], listops=True)
-        self.check_loops(guard_class=0, guard_value=3)
 
 
 
