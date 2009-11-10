@@ -45,7 +45,7 @@ extern FILE *pypy_debug_file;
 #ifndef PYPY_NOT_MAIN_FILE
 #include <string.h>
 
-#if defined(__GNUC__) && !defined(WIN32)
+#if defined(__GNUC__) && defined(__linux__)
 # include <sched.h>
   static void pypy_setup_profiling()
   {
