@@ -363,8 +363,8 @@ class TestCodeWriter:
         jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert 'ptr_eq' not in jitcode._source
         assert 'ptr_ne' not in jitcode._source
-        assert jitcode._source.count('ptr_iszero') == 2
-        assert jitcode._source.count('ptr_nonzero') == 2
+        assert jitcode._source.count('oononnull') == 2
+        assert jitcode._source.count('ooisnull') == 2
 
 class ImmutableFieldsTests:
 
