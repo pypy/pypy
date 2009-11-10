@@ -898,7 +898,41 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     def test_gc_set_max_heap_size(self):
         res = self.run('gc_set_max_heap_size')
         assert res == 2
+
+    def define_gc_heap_stats(cls):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        l1 = []
+        l2 = []
+        l3 = []
         
+        def f():
+            for i in range(10):
+                s = lltype.malloc(S)
+                l1.append(s)
+                l2.append(s)
+                l3.append(s)
+            tb = rgc._heap_stats()
+            a = 0
+            nr = 0
+            b = 0
+            c = 0
+            for i in range(len(tb)):
+                if tb[i].count == 10:
+                    a += 1
+                    nr = i
+            for i in range(len(tb)):
+                if tb[i].count == 3:
+                    b += 1
+                    c += tb[i].links[nr]
+            # we don't count b here since there can be more singletons,
+            # important one is c, a is for check
+            return c * 100 + b * 10 + a
+        return f
+
+    def test_gc_heap_stats(self):
+        res = self.run("gc_heap_stats")
+        assert res == 3011
+
     def definestr_string_builder(cls):
         def fn(_):
             s = StringBuilder()

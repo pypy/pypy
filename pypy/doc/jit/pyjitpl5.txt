@@ -32,6 +32,7 @@ the JIT to bail back to the interpreter in case running machine code is no
 longer suitable.  can_enter_jit goes at the end of a application level loop.  In
 the Python interpreter, this is the JUMP_ABSOLUTE bytecode.  The Python
 interpreter defines its hints in pypy/module/pypyjit/interp_jit.py.
+XXX by overloading default frame behavior from pyframe
 
 The interpreter wishing to use the PyPy's JIT must define a list of *green*
 variables and a list of *red* variables.  The *green* variables are loop
@@ -98,6 +99,8 @@ for optimization purposes, are also stored in constant boxes.  Normal boxes
 contain values that may change during the running of a loop.  There are three
 kinds of normal boxes: BoxInt, BoxPtr, and BoxFloat, and four kinds of constant
 boxes: ConstInt, ConstPtr, ConstFloat, and ConstAddr.
+XXX ConstAddr is only a hack for translation not to translate pointers,
+XXX nothing more
 
 The meta-interpreter starts interpreting the JIT bytecode.  Each operation is
 executed and then recorded in a list of operations, called the trace.

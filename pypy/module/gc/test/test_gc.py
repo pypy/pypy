@@ -1,3 +1,5 @@
+from pypy.conftest import gettestobjspace
+
 class AppTestGC(object):
     def test_collect(self):
         import gc
@@ -72,4 +74,35 @@ class AppTestGC(object):
         assert gc.isenabled()
         gc.enable()
         assert gc.isenabled()
+
+class AppTestGcDumpHeap(object):
+    def setup_class(cls):
+        from pypy.tool.udir import udir
+        from pypy.rlib import rgc
+        class X(object):
+            def __init__(self, count, size, links):
+                self.count = count
+                self.size = size
+                self.links = links
         
+        def fake_heap_stats():
+            return [X(1, 12, [0, 0]), X(2, 10, [10, 0])]
+        
+        cls._heap_stats = rgc._heap_stats
+        rgc._heap_stats = fake_heap_stats
+        fname = udir.join('gcdump.log')
+        cls.space = gettestobjspace()
+        cls.w_fname = cls.space.wrap(str(fname))
+        cls._fname = fname
+
+    def teardown_class(cls):
+        import py
+        from pypy.rlib import rgc
+        
+        rgc._heap_stats = cls._heap_stats
+        assert py.path.local(cls._fname).read() == '1 12 0,0\n2 10 10,0\n'
+    
+    def test_gc_heap_stats(self):
+        import gc
+        gc.dump_heap_stats(self.fname)
+

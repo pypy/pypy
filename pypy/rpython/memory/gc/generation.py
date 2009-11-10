@@ -511,6 +511,17 @@ class GenerationGC(SemiSpaceGC):
     def _id_grow_older(self, obj, id, ignored):
         self.objects_with_id.setitem(obj, id)
 
+    def heap_stats_walk_roots(self):
+        self.last_generation_root_objects.foreach(
+            self._track_heap_ext, None)
+        self.root_walker.walk_roots(
+            SemiSpaceGC._track_heap_root,
+            SemiSpaceGC._track_heap_root,
+            SemiSpaceGC._track_heap_root)
+
+    def _track_heap_ext(self, adr, ignored):
+        self.trace(adr, self.track_heap_parent, adr)
+
     def debug_check_object(self, obj):
         """Check the invariants about 'obj' that should be true
         between collections."""
@@ -563,6 +574,7 @@ class GenerationGC(SemiSpaceGC):
             pass    # it's ok to copy an object out of the nursery
         else:
             SemiSpaceGC.debug_check_can_copy(self, obj)
+
 
 # ____________________________________________________________
 

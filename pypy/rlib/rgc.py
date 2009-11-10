@@ -184,6 +184,25 @@ class CanMoveEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_can_move', hop.args_v, resulttype=hop.r_result)
 
+def _heap_stats():
+    raise NotImplementedError # can't be run directly
+
+class DumpHeapEntry(ExtRegistryEntry):
+    _about_ = _heap_stats
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        from pypy.rpython.lltypesystem import lltype
+        return annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP))
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_is_here()
+        return hop.genop('gc_heap_stats', [], resulttype=hop.r_result)
+
 def malloc_nonmovable(TP, n=None, zero=False):
     """ Allocate a non-moving buffer or return nullptr.
     When running directly, will pretend that gc is always

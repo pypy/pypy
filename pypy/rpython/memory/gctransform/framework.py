@@ -24,7 +24,6 @@ import sys, types
 
 TYPE_ID = rffi.USHORT
 
-
 class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
 
     def analyze_direct_call(self, graph, seen=None):
@@ -117,6 +116,7 @@ class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
+        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
@@ -147,6 +147,7 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_root_start = a_random_address      # patched in finish()
         gcdata.static_root_nongcend = a_random_address   # patched in finish()
         gcdata.static_root_end = a_random_address        # patched in finish()
+        gcdata.max_type_id = 13                          # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
@@ -183,6 +184,9 @@ class FrameworkGCTransformer(GCTransformer):
         data_classdef.generalize_attr(
             'static_root_end',
             annmodel.SomeAddress())
+        data_classdef.generalize_attr(
+            'max_type_id',
+            annmodel.SomeInteger())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -261,6 +265,15 @@ class FrameworkGCTransformer(GCTransformer):
                 GCClass.assume_young_pointers.im_func,
                 [s_gc, annmodel.SomeAddress()],
                 annmodel.s_None)
+
+        if hasattr(GCClass, 'heap_stats'):
+            self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
+                    [s_gc], annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
+                    minimal_transform=False)
+            self.get_member_index_ptr = getfn(
+                GCClass.get_member_index.im_func,
+                [s_gc, annmodel.SomeInteger(knowntype=rffi.r_ushort)],
+                annmodel.SomeInteger())
 
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, True, False, False)
@@ -492,14 +505,15 @@ class FrameworkGCTransformer(GCTransformer):
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
                                                immortal=True)
+
         for i in range(len(addresses_of_static_ptrs)):
             ll_static_roots_inside[i] = addresses_of_static_ptrs[i]
         ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
         ll_instance.inst_static_root_nongcend = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(self.layoutbuilder.addresses_of_static_ptrs_in_nongc)
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(addresses_of_static_ptrs)
-
         newgcdependencies = []
         newgcdependencies.append(ll_static_roots_inside)
+        ll_instance.inst_max_type_id = len(group.members)
         self.write_typeid_list()
         return newgcdependencies
 
@@ -633,6 +647,21 @@ class FrameworkGCTransformer(GCTransformer):
         v_addr = op.args[0]
         hop.genop("direct_call", [self.assume_young_pointers_ptr,
                                   self.c_const_gc, v_addr])
+
+    def gct_gc_heap_stats(self, hop):
+        if not hasattr(self, 'heap_stats_ptr'):
+            return GCTransformer.gct_gc_heap_stats(self, hop)
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.heap_stats_ptr, self.c_const_gc],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_get_member_index(self, hop):
+        op = hop.spaceop
+        v_typeid = op.args[0]
+        hop.genop("direct_call", [self.get_member_index_ptr, self.c_const_gc,
+                                  v_typeid], resultvar=op.result)
 
     def gct_gc_adr_of_nursery_free(self, hop):
         if getattr(self.gcdata.gc, 'nursery_free', None) is None:

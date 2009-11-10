@@ -10,7 +10,8 @@ from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.memory.gc.base import MovingGCBase
+from pypy.rpython.memory.gc.base import MovingGCBase, ARRAY_TYPEID_MAP,\
+     TYPEID_MAP
 
 import sys, os
 
@@ -24,7 +25,6 @@ GCFLAG_HASHTAKEN = first_gcflag << 3      # someone already asked for the hash
 GCFLAG_HASHFIELD = first_gcflag << 4      # we have an extra hash field
 
 memoryError = MemoryError()
-
 
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
@@ -623,3 +623,47 @@ class SemiSpaceGC(MovingGCBase):
                 hdr.tid |= GCFLAG_HASHTAKEN
             #
             return llmemory.cast_adr_to_int(obj)  # direct case
+
+    def track_heap_parent(self, obj, parent):
+        addr = obj.address[0]
+        parent_idx = llop.get_member_index(lltype.Signed,
+                                           self.get_type_id(parent))
+        idx = llop.get_member_index(lltype.Signed, self.get_type_id(addr))
+        self._ll_typeid_map[parent_idx].links[idx] += 1
+        self.track_heap(addr)
+
+    def track_heap(self, adr):
+        if self._tracked_dict.contains(adr):
+            return
+        self._tracked_dict.add(adr)
+        idx = llop.get_member_index(lltype.Signed, self.get_type_id(adr))
+        self._ll_typeid_map[idx].count += 1
+        totsize = self.get_size(adr) + self.size_gc_header()
+        self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
+        self.trace(adr, self.track_heap_parent, adr)
+
+    def _track_heap_root(self, root):
+        self.track_heap(root.address[0])
+
+    def heap_stats_walk_roots(self):
+        self.root_walker.walk_roots(
+            SemiSpaceGC._track_heap_root,
+            SemiSpaceGC._track_heap_root,
+            SemiSpaceGC._track_heap_root)
+        
+    def heap_stats(self):
+        self._tracked_dict = self.AddressDict()
+        max_tid = self.root_walker.gcdata.max_type_id
+        ll_typeid_map = lltype.malloc(ARRAY_TYPEID_MAP, max_tid, zero=True)
+        for i in range(max_tid):
+            ll_typeid_map[i] = lltype.malloc(TYPEID_MAP, max_tid, zero=True)
+        self._ll_typeid_map = ll_typeid_map
+        self._tracked_dict.add(llmemory.cast_ptr_to_adr(ll_typeid_map))
+        i = 0
+        while i < max_tid:
+            self._tracked_dict.add(llmemory.cast_ptr_to_adr(ll_typeid_map[i]))
+            i += 1
+        self.heap_stats_walk_roots()
+        self._ll_typeid_map = lltype.nullptr(ARRAY_TYPEID_MAP)
+        self._tracked_dict.delete()
+        return ll_typeid_map

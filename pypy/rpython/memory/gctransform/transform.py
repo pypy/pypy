@@ -388,6 +388,11 @@ class BaseGCTransformer(object):
         # this assumes a non-moving GC.  Moving GCs need to override this
         hop.rename('cast_ptr_to_int')
 
+    def gct_gc_heap_stats(self, hop):
+        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        
+        return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
+                                        lltype.nullptr(ARRAY_TYPEID_MAP)))
 
 class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):

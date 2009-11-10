@@ -380,6 +380,15 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(fn, [])
         assert c_fn() == False
 
+    def test_heap_stats(self):
+        from pypy.rlib import rgc
+        
+        def fn():
+            return bool(rgc._heap_stats())
+
+        c_fn = self.getcompiled(fn, [])
+        assert not c_fn()
+
     def test_malloc_nonmovable(self):
         TP = lltype.GcArray(lltype.Char)
         def func():

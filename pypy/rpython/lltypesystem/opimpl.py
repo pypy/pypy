@@ -483,6 +483,9 @@ def op_gc_gettypeptr_group(TYPE, obj, grpptr, skipoffset, vtableinfo):
     return op_get_next_group_member(TYPE, grpptr, typeid, skipoffset)
 op_gc_gettypeptr_group.need_result_type = True
 
+def op_get_member_index(memberoffset):
+    raise NotImplementedError
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

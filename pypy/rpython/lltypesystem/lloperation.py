@@ -422,6 +422,7 @@ LL_OPERATIONS = {
     'extract_ushort':       LLOp(canfold=True),
     'combine_ushort':       LLOp(canfold=True),
     'gc_gettypeptr_group':  LLOp(canfold=True),
+    'get_member_index':     LLOp(canfold=True),
 
     # __________ used by the JIT ________
 
@@ -460,6 +461,7 @@ LL_OPERATIONS = {
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_assume_young_pointers': LLOp(),
+    'gc_heap_stats'       : LLOp(canunwindgc=True),
 
     # ------- JIT & GC interaction, only for some GCs ----------
     
