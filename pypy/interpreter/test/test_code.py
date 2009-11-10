@@ -195,8 +195,9 @@ class AppTestCodeIntrospection:
 
 
         exec """if 1:
+        r = range
         def f():
-            return [l for l in range(100)]
+            return [l for l in r(100)]
         def g():
             return [l for l in [1, 2, 3, 4]]
 """
