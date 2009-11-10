@@ -23,14 +23,19 @@ OTHERSECTIONS = ['section', 'zerofill',
 r_sectionstart         = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
 r_functionstart_darwin = re.compile(r"_(\w+):\s*$")
 
-OFFSET_LABELS   = 2**30
+if sys.platform != 'darwin':
+    OFFSET_LABELS = 2**30
+else:
+    OFFSET_LABELS =  0
 
 # inside functions
 r_label         = re.compile(LABEL+"[:]\s*$")
+r_rel_label     = re.compile(r"(\d+):\s*$")
 r_globl         = re.compile(r"\t[.]globl\t"+LABEL+"\s*$")
 r_globllabel    = re.compile(LABEL+r"=[.][+]%d\s*$"%OFFSET_LABELS)
 r_insn          = re.compile(r"\t([a-z]\w*)\s")
 r_jump          = re.compile(r"\tj\w+\s+"+LABEL+"\s*$")
+r_jump_rel_label = re.compile(r"\tj\w+\s+"+"(\d+)f"+"\s*$")
 OPERAND         =           r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
 r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+OPERAND+")\s*$")
 r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+([*]"+OPERAND+")\s*$")
@@ -358,9 +363,16 @@ class FunctionGcRootTracker(object):
         self.labels = {}      # {name: Label()}
         for lineno, line in enumerate(self.lines):
             match = r_label.match(line)
+            label = None
             if match:
                 label = match.group(1)
-                assert label not in self.labels, "duplicate label"
+            else:
+                # labels used by: j* NNNf
+                match = r_rel_label.match(line)
+                if match:
+                    label = "rel %d" % lineno
+            if label:
+                assert label not in self.labels, "duplicate label: %s" % label
                 self.labels[label] = Label(label, lineno)
 
     def append_instruction(self, insn):
@@ -721,6 +733,8 @@ class FunctionGcRootTracker(object):
                           # gcc -fno-unit-at-a-time.
         return self.insns_for_copy(source, target)
 
+    visit_mov = visit_movl
+
     def visit_pushl(self, line):
         match = r_unaryinsn.match(line)
         source = match.group(1)
@@ -825,8 +839,20 @@ class FunctionGcRootTracker(object):
     def conditional_jump(self, line):
         match = r_jump.match(line)
         if not match:
-            raise UnrecognizedOperation(line)
-        label = match.group(1)
+            match = r_jump_rel_label.match(line)
+            if not match:
+                raise UnrecognizedOperation(line)
+            # j* NNNf
+            label = match.group(1)
+            label += ":"
+            i = self.currentlineno + 1
+            while True:
+                if self.lines[i].startswith(label):
+                    label = "rel %d" % i
+                    break
+                i += 1
+        else:
+            label = match.group(1)
         self.register_jump_to(label)
         return []
 
