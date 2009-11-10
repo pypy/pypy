@@ -20,6 +20,8 @@ class CliJitMixin(object):
 
 
 class TestRunner(CliJitMixin, OOtypeBackendTest):
+    avoid_instances = True
+    
     def skip(self):
         py.test.skip("not supported in non-translated version")
 
@@ -29,6 +31,7 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     test_field = skip
     test_field_basic = skip
     test_ooops = skip
+    test_jump = skip
 
     def test_unused_result_float(self):
         py.test.skip('fixme! max 32 inputargs so far')

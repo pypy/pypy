@@ -86,6 +86,8 @@ class Runner(object):
 
 class BaseBackendTest(Runner):
 
+    avoid_instances = False
+
     def test_compile_linear_loop(self):
         i0 = BoxInt()
         i1 = BoxInt()
@@ -446,8 +448,12 @@ class BaseBackendTest(Runner):
         all = [(rop.GUARD_TRUE, [BoxInt(1)]),
                (rop.GUARD_FALSE, [BoxInt(0)]),
                (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
+               ]
+        if not self.avoid_instances:
+            all.extend([
                (rop.GUARD_NONNULL, [t_box]),
-               (rop.GUARD_ISNULL, [nullbox])]
+               (rop.GUARD_ISNULL, [nullbox])
+               ])
         if self.cpu.supports_floats:
             all.append((rop.GUARD_VALUE, [BoxFloat(3.5), BoxFloat(3.5)]))
         for (opname, args) in all:
@@ -469,8 +475,11 @@ class BaseBackendTest(Runner):
         all = [(rop.GUARD_TRUE, [BoxInt(0)]),
                (rop.GUARD_FALSE, [BoxInt(1)]),
                (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
+               ]
+        if not self.avoid_instances:
+            all.extend([
                (rop.GUARD_NONNULL, [nullbox]),
-               (rop.GUARD_ISNULL, [t_box])]
+               (rop.GUARD_ISNULL, [t_box])])
         if self.cpu.supports_floats:
             all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), BoxFloat(1.0)]))
         for opname, args in all:
