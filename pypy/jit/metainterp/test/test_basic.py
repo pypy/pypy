@@ -1049,6 +1049,35 @@ class BasicTests:
         res = self.meta_interp(f, [20], listops=True)
         self.check_loops(getfield_gc=1, getarrayitem_gc=0)
 
+    def test_guard_isnull_nonnull(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
+        class A(object):
+            pass
+
+        @dont_look_inside
+        def create(x):
+            if x >= -40:
+                return A()
+            return None
+
+        def f(x):
+            res = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, res=res)
+                myjitdriver.jit_merge_point(x=x, res=res)
+                obj = create(x-1)
+                if obj is not None:
+                    res += 1
+                obj2 = create(x-1000)
+                if obj2 is None:
+                    res += 1
+                x -= 1
+            return res
+        res = self.meta_interp(f, [21])
+        assert res == 42
+        self.check_loops(guard_nonnull=1, guard_isnull=1)
+        
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

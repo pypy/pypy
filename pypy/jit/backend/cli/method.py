@@ -471,6 +471,12 @@ class Method(object):
     def emit_op_guard_false(self, op):
         self.emit_guard_bool(op, OpCodes.Brtrue)
 
+    def emit_op_guard_nonnull(self, op):
+        self.emit_guard_bool(op, OpCodes.Brfalse)
+        
+    def emit_op_guard_isnull(self, op):
+        self.emit_guard_bool(op, OpCodes.Brtrue)
+
     def emit_op_guard_value(self, op):
         assert len(op.args) == 2
         il_label = self.newbranch(op)
