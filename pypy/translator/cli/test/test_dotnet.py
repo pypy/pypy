@@ -632,6 +632,20 @@ class TestDotnetRtyping(CliTest):
             return d[OpCodes.Add]
         assert self.interpret(fn, []) == 42
 
+    def test_valuetype_exceptiontransform(self):
+        def foo(x):
+            if x:
+                return OpCodes.Add
+            raise ValueError
+        def fn(x):
+            try:
+                foo(x)
+                return False
+            except ValueError:
+                return True
+        res = self.interpret(fn, [0], exctrans=True)
+        assert res
+
     def test_classof(self):
         int32_class = classof(System.Int32)
         def fn():
@@ -694,7 +708,7 @@ class TestDotnetRtyping(CliTest):
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
-    def interpret(self, f, args, backendopt='ignored'):
+    def interpret(self, f, args, backendopt='ignored', exctrans='ignored'):
         return f(*args)
 
     def _skip_pythonnet(self, msg):

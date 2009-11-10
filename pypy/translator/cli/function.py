@@ -139,6 +139,21 @@ class Function(OOFunction, Node, CLIBaseGenerator):
                 self.store(link.last_exc_value)
             self._setup_link(link)
 
+    def _dont_store(self, to_load, to_store):
+        # ugly workaround to make the exceptiontransformer work with
+        # valuetypes: when exceptiontransforming a function whose result is a
+        # .NET valuetype, it tries to store a null into the return variable.
+        # Since it is not possible to store a null into a valuetype, and that
+        # in that case the value is not used anyway, we simply ignore it.
+        from pypy.translator.cli.dotnet import NativeInstance
+        if isinstance(to_load, flowmodel.Constant):
+            value = to_load.value
+            is_null = not value
+            T = ootype.typeOf(to_load.value)
+            if isinstance(T, NativeInstance) and T._is_value_type and is_null:
+                return True
+        return OOFunction._dont_store(self, to_load, to_store)
+
     def render_numeric_switch(self, block):
         if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):
             # TODO: it could be faster to check is the values fit in

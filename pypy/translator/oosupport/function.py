@@ -321,6 +321,9 @@ class Function(object):
         self._setup_link(link)
         self.generator.branch_unconditionally(target_label)
 
+    def _dont_store(self, to_load, to_store):
+        return False
+
     def _setup_link(self, link):
         target = link.target
         linkvars = []
@@ -328,6 +331,8 @@ class Function(object):
             if isinstance(to_load, flowmodel.Variable) and to_load.name == to_store.name:
                 continue
             if to_load.concretetype is ootype.Void:
+                continue
+            if self._dont_store(to_load, to_store):
                 continue
             linkvars.append((to_load, to_store))
 
