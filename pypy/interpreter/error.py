@@ -1,5 +1,6 @@
 import os, sys
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import jit
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -141,6 +142,7 @@ class OperationError(Exception):
             import debug
             debug.fire(self)
 
+    @jit.unroll_safe
     def normalize_exception(self, space):
         """Normalize the OperationError.  In other words, fix w_type and/or
         w_value to make sure that the __class__ of w_value is exactly w_type.
