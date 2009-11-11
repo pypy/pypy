@@ -87,10 +87,15 @@ def svn_revision():
     # to depend on an external 'svn' executable in the path.
     rev = int(REV)
     try:
-        f = open(os.path.join(pypydir, '.svn', 'format'), 'r')
-        format = int(f.readline().strip())
-        f.close()
-        if format <= 6: # Old XML-format
+        formatfile = os.path.join(pypydir, '.svn', 'format')
+        if os.path.exists(formatfile):
+            f = open(formatfile, 'r')
+            format = int(f.readline().strip())
+            f.close()
+            oldformat = (format <= 6) # Old XML-format
+        else:
+            oldformat = False
+        if oldformat:
             f = open(os.path.join(pypydir, '.svn', 'entries'), 'r')
             for line in f:
                 line = line.strip()
