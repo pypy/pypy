@@ -1,6 +1,7 @@
 import py
 import sys
 from pypy.rlib.debug import debug_print
+from pypy.rlib.jit import OPTIMIZER_FULL
 from pypy.translator.translator import TranslationContext
 
 class BaseCompiledMixin(object):
@@ -64,6 +65,7 @@ class BaseCompiledMixin(object):
         warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
         warmrunnerdesc.state.set_param_trace_limit(trace_limit)
         warmrunnerdesc.state.set_param_inlining(inline)
+        warmrunnerdesc.state.set_param_optimizer(OPTIMIZER_FULL)
         mixlevelann = warmrunnerdesc.annhelper
         entry_point_graph = mixlevelann.getgraph(entry_point, [s_list_of_strings],
                                                  annmodel.SomeInteger())

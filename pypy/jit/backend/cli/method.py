@@ -492,6 +492,19 @@ class Method(object):
         self.push_arg(op, 1)
         self.il.Emit(OpCodes.Bne_Un, il_label)
 
+    def emit_op_guard_nonnull_class(self, op):
+        assert len(op.args) == 2
+        il_label = self.newbranch(op)
+        # nonnull check
+        self.push_arg(op, 0)
+        self.il.Emit(OpCodes.Brfalse, il_label)
+        # class check
+        self.push_arg(op, 0)
+        meth = dotnet.typeof(System.Object).GetMethod("GetType")
+        self.il.Emit(OpCodes.Callvirt, meth)
+        self.push_arg(op, 1)
+        self.il.Emit(OpCodes.Bne_Un, il_label)
+
     def emit_op_guard_no_exception(self, op):
         il_label = self.newbranch(op)
         self.av_inputargs.load(self)
