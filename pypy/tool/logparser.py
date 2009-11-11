@@ -12,8 +12,8 @@ from pypy.rlib.debug import DebugLog
 
 
 def parse_log_file(filename):
-    r_start = re.compile(r"\[([0-9a-f]+)\] \{([\w-]+)$")
-    r_stop  = re.compile(r"\[([0-9a-f]+)\] ([\w-]+)\}$")
+    r_start = re.compile(r"\[([0-9a-fA-F]+)\] \{([\w-]+)$")
+    r_stop  = re.compile(r"\[([0-9a-fA-F]+)\] ([\w-]+)\}$")
     lasttime = 0
     log = DebugLog()
     time_decrase = False
