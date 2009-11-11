@@ -301,6 +301,8 @@ def get_class_for_type(T):
         return ootype.nullruntimeclass
     elif T is ootype.Signed:
         return dotnet.classof(System.Int32)
+    elif T is ootype.Unsigned:
+        return dotnet.classof(System.UInt32)
     elif T is ootype.Bool:
         return dotnet.classof(System.Boolean)
     elif T is ootype.Float:
