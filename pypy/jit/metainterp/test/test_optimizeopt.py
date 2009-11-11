@@ -1523,6 +1523,21 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
 
+    def test_guard_class_oois(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        i = ooisnot(ConstPtr(myptr), p1)
+        guard_true(i) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        jump(p1)
+        """
+        self.optimize_loop(ops, "Not", expected)
+
     # ----------
 
     def make_fail_descr(self):

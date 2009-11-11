@@ -688,6 +688,14 @@ class Optimizer(object):
         elif value0.is_null():
             self._optimize_nullness(op, op.args[1], expect_isnot)
         else:
+            cls0 = value0.get_constant_class(self.cpu)
+            if cls0 is not None:
+                cls1 = value1.get_constant_class(self.cpu)
+                if cls1 is not None and not cls0.same_constant(cls1):
+                    # cannot be the same object, as we know that their
+                    # class is different
+                    self.make_constant_int(op.result, expect_isnot)
+                    return
             self.optimize_default(op)
 
     def optimize_OOISNOT(self, op):
