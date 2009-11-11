@@ -606,7 +606,18 @@ if [ -z $EXE ]
 then
     EXE=$0
 fi
-if  uname -s | grep -iq Cygwin ; then MONO=; else MONO=mono; fi
+if  uname -s | grep -iq Cygwin
+then 
+    MONO=
+else 
+    MONO=mono
+    # workaround for known mono buggy versions
+    VER=`mono -V | head -1 | sed s/'Mono JIT compiler version \(.*\) (.*'/'\1/'`
+    if [[ 2.1 < "$VER" && "$VER" < 2.4.3 ]]
+    then
+        MONO="mono -O=-branch"
+    fi
+fi
 $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
 """ % main_exe_name)
         f.close()
