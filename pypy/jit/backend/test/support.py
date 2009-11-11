@@ -31,24 +31,28 @@ class BaseCompiledMixin(object):
         if listcomp:
             t.config.translation.list_comprehension_operations = True
 
+        arglist = ", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))])
+        if len(args) == 1:
+            arglist += ','
+        arglist = '(%s)' % arglist
         if repeat != 1:
             src = py.code.Source("""
             def entry_point(argv):
-                args = (%s,)
+                args = %s
                 res = function(*args)
                 for k in range(%d - 1):
                     res = function(*args)
                 print res
                 return 0
-            """ % (", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))]), repeat))
+            """ % (arglist, repeat))
         else:
             src = py.code.Source("""
             def entry_point(argv):
-                args = (%s,)
+                args = %s
                 res = function(*args)
                 print res
                 return 0
-            """ % (", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))]),))
+            """ % (arglist,))
         exec src.compile() in locals()
 
         t.buildannotator().build_types(function, [int] * len(args))
