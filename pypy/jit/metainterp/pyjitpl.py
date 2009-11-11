@@ -1022,15 +1022,18 @@ class MetaInterpStaticData(object):
 
         self.portal_code = None
         self.leave_code = None
-        self._class_sizes = None        
+        self._class_sizes = None
+        self._list_of_addr2name = None
 
     def _freeze_(self):
         return True
 
-    def info_from_codewriter(self, portal_code, leave_code, class_sizes):
+    def info_from_codewriter(self, portal_code, leave_code, class_sizes,
+                             list_of_addr2name=[]):
         self.portal_code = portal_code
         self.leave_code = leave_code
         self._class_sizes = class_sizes
+        self._list_of_addr2name = list_of_addr2name
 
     def finish_setup(self, optimizer=None):
         warmrunnerdesc = self.warmrunnerdesc
@@ -1062,6 +1065,10 @@ class MetaInterpStaticData(object):
             vtable = self.cpu.ts.cast_vtable_to_hashable(self.cpu, vtable)
             class_sizes[vtable] = sizedescr
         self.cpu.set_class_sizes(class_sizes)
+
+    def get_addr2name_dict(self):
+        # for debugging
+        pass #...
 
     def bytecode_for_address(self, fnaddress):
         if we_are_translated():
