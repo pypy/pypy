@@ -599,7 +599,7 @@ class TranslationDriver(SimpleTaskEngine):
             shutil.copy(os.path.join(usession_path, 'main.il'), dirname)
         newexename = basename
         f = file(newexename, 'w')
-        f.write("""#!/bin/bash
+        f.write(r"""#!/bin/bash
 LEDIT=`type -p ledit`
 EXE=`readlink $0`
 if [ -z $EXE ]
