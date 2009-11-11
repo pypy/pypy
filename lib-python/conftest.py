@@ -28,7 +28,7 @@ rsyncdirs = ['.', '../pypy']
 #
 
 def pytest_addoption(parser):
-    group = parser.addgroup("complicance testing options") 
+    group = parser.getgroup("complicance testing options") 
     group.addoption('-T', '--timeout', action="store", type="string", 
        default="1000", dest="timeout", 
        help="fail a test module after the given timeout. "

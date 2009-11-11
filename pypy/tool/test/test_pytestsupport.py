@@ -1,5 +1,5 @@
 import autopath
-from py.__.magic import exprinfo
+from py.impl.code import _assertionold as exprinfo
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.argument import Arguments

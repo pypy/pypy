@@ -52,7 +52,7 @@ class BenchResult(object):
             
 
 if __name__ == "__main__":
-    x = py.magic.autopath().dirpath("bench-unix.benchmark_result")
+    x = py.path.local(__file__).dirpath("bench-unix.benchmark_result")
     db = ResultDB()
     db.parsepickle(x)
     

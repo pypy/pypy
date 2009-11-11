@@ -35,7 +35,7 @@ def test_v():
         sorttest(lst1)
 
 def test_file():
-    for fn in py.magic.autopath().dirpath().listdir():
+    for fn in py.path.local(__file__).dirpath().listdir():
         if fn.ext == '.py': 
             lines1 = fn.readlines()
             sorttest(lines1)

@@ -1,7 +1,7 @@
 
 import py
 
-innertest = py.magic.autopath().dirpath('conftest1_innertest.py')
+innertest = py.path.local(__file__).dirpath('conftest1_innertest.py')
 pytest_plugins = "pytest_pytester"
 
 class TestPyPyTests:

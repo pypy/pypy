@@ -718,7 +718,7 @@ class PackratParser(object):
 
 
 def test_generate():
-    f = py.magic.autopath().dirpath().join("pypackrat.py")
+    f = py.path.local(__file__).dirpath().join("pypackrat.py")
     from pypackrat import PyPackratSyntaxParser
     p = PyPackratSyntaxParser(syntax)
     t = p.file()

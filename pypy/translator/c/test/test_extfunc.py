@@ -141,7 +141,7 @@ def test_largefile():
     os.unlink(filename)
 
 def test_os_access():
-    filename = str(py.magic.autopath())
+    filename = str(py.path.local(__file__))
     def call_access(path, mode):
         return os.access(path, mode)
     f = compile(call_access, [str, int])
@@ -150,7 +150,7 @@ def test_os_access():
 
 
 def test_os_stat():
-    filename = str(py.magic.autopath())
+    filename = str(py.path.local(__file__))
     has_blksize = hasattr(os.stat_result, 'st_blksize')
     has_blocks = hasattr(os.stat_result, 'st_blocks')
     def call_stat():
@@ -189,7 +189,7 @@ def test_os_stat_raises_winerror():
 def test_os_fstat():
     if os.environ.get('PYPY_CC', '').startswith('tcc'):
         py.test.skip("segfault with tcc :-(")
-    filename = str(py.magic.autopath())
+    filename = str(py.path.local(__file__))
     def call_fstat():
         fd = os.open(filename, os.O_RDONLY, 0777)
         st = os.fstat(fd)

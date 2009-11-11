@@ -12,7 +12,7 @@ from pypy.lang.smalltalk import objspace
 
 def setup_module(module, filename='mini.image'):
     space = objspace.ObjSpace()
-    module.mini_image = py.magic.autopath().dirpath().dirpath().join(filename)
+    module.mini_image = py.path.local(__file__).dirpath().dirpath().join(filename)
     module.reader = open_miniimage(space)
     reader.initialize()
     module.image = squeakimage.SqueakImage()

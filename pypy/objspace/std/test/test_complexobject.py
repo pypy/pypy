@@ -67,7 +67,7 @@ class AppTestAppComplexTest:
                 sys.path.append(%r)
                 import helper
                 return helper
-        """ % (str(py.magic.autopath().dirpath())))
+        """ % (str(py.path.local(__file__).dirpath())))
 
     def test_div(self):
         h = self.helper

@@ -1,5 +1,5 @@
 import py
-from py.__.misc.cmdline.countloc import get_loccount
+from py.impl.misc.cmdline.countloc import get_loccount
 import datetime
 import time
 

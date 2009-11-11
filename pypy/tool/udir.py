@@ -35,7 +35,7 @@ def make_udir(dir=None, basename=None):
         dir = local(dir)
     if basename is None:
         try:
-            p = py.magic.autopath().dirpath()
+            p = py.path.local(__file__).dirpath()
             basename = svn_info(py.path.svnwc(p).info().url)
         except:
             basename = ''

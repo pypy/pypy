@@ -3,7 +3,7 @@ import os, py, pdb, sys, time
 from pypy.lang.gameboy.profiling.gameboy_profiling_implementation import GameBoyProfiler
 
 
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
 
 def entry_point(argv=None):
     if argv is not None and len(argv) > 1:

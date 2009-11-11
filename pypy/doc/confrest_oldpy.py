@@ -1,6 +1,6 @@
 import py
-from py.__.misc.rest import convert_rest_html, strip_html_header 
-from py.__.misc.difftime import worded_time 
+from pypy.tool.rest.rest import convert_rest_html, strip_html_header 
+from pypy.tool.difftime import worded_time 
 
 html = py.xml.html 
 
@@ -104,7 +104,7 @@ def getrealname(username):
     
 
 class Project:
-    mydir = py.magic.autopath().dirpath()
+    mydir = py.path.local(__file__).dirpath()
     title = "py lib"
     prefix_title = ""  # we have a logo already containing "py lib"
     encoding = 'latin1' 
@@ -186,7 +186,9 @@ class Project:
                      id = 'docinfoline'))
 
         page.contentspace.append(py.xml.raw(content))
-        outputpath.ensure().write(page.unicode().encode(encoding)) 
+        f = outputpath.open('w')
+        f.write(page.unicode().encode(encoding))
+        f.close()
 
 # XXX this function comes from apigen/linker.py, put it
 # somewhere in py lib 

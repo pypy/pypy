@@ -1,6 +1,6 @@
 import py, sys
 
-rootdir = py.magic.autopath().dirpath()
+rootdir = py.path.local(__file__).dirpath()
 
 Option = py.test.config.Option
 

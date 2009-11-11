@@ -1,12 +1,12 @@
-# xxx copied and tweaked from py.lib trunk until a new release comes around
 """resultlog plugin for machine-readable logging of test results. 
    Useful for buildbot integration code. 
 """ 
 
 import py
+from py.builtin import print_
 
 def pytest_addoption(parser):
-    group = parser.addgroup("resultlog", "resultlog plugin options")
+    group = parser.getgroup("resultlog", "resultlog plugin options")
     group.addoption('--resultlog', action="store", dest="resultlog", metavar="path", default=None,
            help="path for machine-readable result log.")
 
@@ -53,9 +53,9 @@ class ResultLog(object):
         self.logfile = logfile # preferably line buffered
 
     def write_log_entry(self, testpath, shortrepr, longrepr):
-        print >>self.logfile, "%s %s" % (shortrepr, testpath)
+        print_("%s %s" % (shortrepr, testpath), file=self.logfile)
         for line in longrepr.splitlines():
-            print >>self.logfile, " %s" % line
+            print_(" %s" % line, file=self.logfile)
 
     def log_outcome(self, node, shortrepr, longrepr):
         testpath = generic_path(node)

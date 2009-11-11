@@ -15,12 +15,12 @@ def setup_module(mod):
     def create_temp_file(crlf=False):
         f = py.test.ensuretemp("bz2").join("foo")
         data = (DATA, DATA_CRLF)[crlf]
-        f.write(data)
+        f.write(data, 'wb')
 
     def create_broken_temp_file():
         f = py.test.ensuretemp("bz2").join("foo")
         data = DATA[:100]
-        f.write(data)
+        f.write(data, 'wb')
     
     def decompress(data):
         import popen2

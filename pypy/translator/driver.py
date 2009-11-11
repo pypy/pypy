@@ -9,7 +9,7 @@ from pypy.translator.goal.timing import Timer
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
-from py.compat import optparse
+import optparse
 from pypy.tool.udir import udir
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_DETAILED, DEBUG_PROFILE, DEBUG_STEPS
 

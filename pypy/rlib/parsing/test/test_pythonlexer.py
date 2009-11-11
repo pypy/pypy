@@ -230,7 +230,7 @@ def test_complex_quoting():
         assert tokens[i * 3].name == 'String'
 
 def test_self():
-    s = py.magic.autopath().read()
+    s = py.path.local(__file__).read()
     tokens = pythonlexer.tokenize(s)
     print tokens
 
@@ -263,7 +263,7 @@ def dont_test_self_full():
         "op": "operator",
     }
     import tokenize, token
-    s = py.magic.autopath().read()
+    s = py.path.local(__file__).read()
     tokens = pythonlex(s)
     print [t.name for t in tokens][:20]
     tokens2 = list(tokenize.generate_tokens(iter(s.splitlines(True)).next))

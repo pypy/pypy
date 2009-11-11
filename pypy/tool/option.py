@@ -3,7 +3,7 @@
 import os
 from pypy.config.pypyoption import get_pypy_config
 from pypy.config.config import Config, OptionDescription, to_optparse
-from py.compat import optparse
+import optparse
 
 extra_useage = """For detailed descriptions of all the options see
 http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"""

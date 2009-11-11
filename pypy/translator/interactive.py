@@ -1,4 +1,4 @@
-from py.compat import optparse
+import optparse
 
 import autopath
 from pypy.translator.translator import TranslationContext

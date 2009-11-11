@@ -4,7 +4,7 @@ from pypy.lang.gameboy import constants
 from pypy.lang.gameboy.gameboy import GameBoy
 
 
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
 EMULATION_CYCLES = 1<<24
 
 

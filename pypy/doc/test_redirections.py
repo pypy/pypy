@@ -1,6 +1,6 @@
 
 import py 
-redir = py.magic.autopath().dirpath('redirections') 
+redir = py.path.local(__file__).dirpath('redirections') 
 
 def checkexist(path):
     print "checking", path

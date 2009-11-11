@@ -5,7 +5,7 @@ from pypy.config.config import OptionDescription, BoolOption, IntOption, Arbitra
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConflictConfigError
 
-modulepath = py.magic.autopath().dirpath().dirpath().join("module")
+modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
                if p.check(dir=True, dotfile=False)
                and p.join('__init__.py').check()]

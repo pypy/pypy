@@ -1,5 +1,5 @@
 import py, sys, os
-from py.__.test.outcome import Failed
+from py.impl.test.outcome import Failed
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport
@@ -9,18 +9,14 @@ from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 
-rootdir = py.magic.autopath().dirpath()
+rootdir = py.path.local(__file__).dirpath()
 
 # pytest settings
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../lib-python', '../demo']
 rsyncignore = ['_cache']
 
-# XXX workaround for a py.test bug clashing with lib/py symlink
-# do we really need the latter?
-empty_conftest = type(sys)('conftest')
-empty_conftest.__file__ = "?"
-sys.modules['pypy.lib.py.conftest'] = empty_conftest
+collect_ignore = ['./lib/py']
 
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
@@ -36,7 +32,7 @@ def _set_platform(opt, opt_str, value, parser):
 option = py.test.config.option
 
 def pytest_addoption(parser):
-    group = parser.addgroup("pypy options")
+    group = parser.getgroup("pypy options")
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
     group.addoption('-A', '--runappdirect', action="store_true",

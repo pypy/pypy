@@ -9,7 +9,7 @@ def get_rsdl_compilation_info():
             includes = ['SDL.h'],
             include_dirs = ['/Library/Frameworks/SDL.framework/Headers'],
             link_files = [
-                str(py.magic.autopath().dirpath().join('macosx-sdl-main/SDLMain.m')),
+                str(py.path.local(__file__).dirpath().join('macosx-sdl-main/SDLMain.m')),
             ],
             frameworks = ['SDL', 'Cocoa']
         )

@@ -8,7 +8,7 @@ from pypy.lang.gameboy.cartridge import *
 def mapToByte(value):
         return ord(value) & 0xFF
 
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath())+"/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath())+"/rom"
 CONTENT = "abcdefghijklmnopqrstuvwxyz1234567890"
 
 MAPPED_CONTENT = map_to_byte(CONTENT)

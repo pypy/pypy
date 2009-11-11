@@ -19,7 +19,7 @@ for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
 
 
 def setup_module(mod):
-    udir.join('sample').write(SAMPLE)
+    udir.join('sample').write(SAMPLE, 'wb')
 
 
 class BaseROTests:

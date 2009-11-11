@@ -2,13 +2,13 @@ import py
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Array, JsBaseExcept
 from pypy.rlib.parsing.parsing import ParseError
-from py.__.test.outcome import Failed, ExceptionFailure
+from py.impl.test.outcome import Failed, ExceptionFailure
 import pypy.lang.js as js
 from pypy.lang.js import interpreter
 
 interpreter.TEST = True
 
-rootdir = py.magic.autopath().dirpath()
+rootdir = py.path.local(__file__).dirpath()
 exclusionlist = ['shell.js', 'browser.js']
 
 def pytest_addoption(parser):

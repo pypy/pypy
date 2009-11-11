@@ -2,7 +2,7 @@ import autopath
 import py
 from pypy.config import pypyoption, translationoption, config
 
-thisdir = py.magic.autopath().dirpath()
+thisdir = py.path.local(__file__).dirpath()
 
 if __name__ == '__main__':
     c = config.Config(pypyoption.pypy_optiondescription).usemodules

@@ -20,7 +20,7 @@ class TestInteraction:
         return child
 
     def spawn(self, argv):
-        return self._spawn(str(py.magic.autopath().dirpath().dirpath().join('js_interactive.py')), argv)
+        return self._spawn(str(py.path.local(__file__).dirpath().dirpath().join('js_interactive.py')), argv)
     
     def prompt_send(self, message):
         self.child.expect('js>')

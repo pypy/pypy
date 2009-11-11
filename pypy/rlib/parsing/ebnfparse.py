@@ -2125,7 +2125,7 @@ lexer = DummyLexer(recognize, DFA(28,
 # generated code between this line and its other occurence
 
 if __name__ == '__main__':
-    f = py.magic.autopath()
+    f = py.path.local(__file__)
     oldcontent = f.read()
     s = "# GENERATED CODE BETWEEN THIS LINE AND ITS OTHER OCCURENCE\n".lower()
     pre, gen, after = oldcontent.split(s)

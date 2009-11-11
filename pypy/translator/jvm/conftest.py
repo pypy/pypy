@@ -1,6 +1,6 @@
 
 def pytest_addoption(parser):
-    group = parser.addgroup("pypy-jvm options")
+    group = parser.getgroup("pypy-jvm options")
     group.addoption('--java', action='store', dest='java', default='java',
             help='Define the java executable to use')
     group.addoption('--javac', action='store', dest='javac',

@@ -23,7 +23,7 @@ EXTRA_MODULES = [
     "random",
 ]
 
-thisdir = py.magic.autopath().dirpath()
+thisdir = py.path.local(__file__).dirpath()
 
 try:
     this_dir = os.path.dirname(__file__)

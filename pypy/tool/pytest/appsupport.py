@@ -1,9 +1,10 @@
 import autopath
 import py
-from py.__.magic import exprinfo
+import py.impl.code.assertion
+from py.impl.code import _assertionold as exprinfo
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from py.__.test.outcome import ExceptionFailure
+from py.impl.test.outcome import ExceptionFailure
 
 # ____________________________________________________________
 

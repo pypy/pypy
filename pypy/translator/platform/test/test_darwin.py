@@ -32,7 +32,7 @@ class TestDarwin(BasicTest):
             return 0;
         }
         ''')
-        includedir = py.magic.autopath().dirpath().join('include')
+        includedir = py.path.local(__file__).dirpath().join('include')
         eci = ExternalCompilationInfo(frameworks=('Cocoa',),
                                       include_dirs=(includedir,))
         executable = self.platform.compile([objcfile], eci)

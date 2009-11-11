@@ -6,7 +6,7 @@ from pypy.lang.gameboy.cartridge import *
 from pypy.lang.gameboy.gameboy import *
 
 
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath())+"/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath())+"/rom"
 EMULATION_CYCLES = 64
 
 # ------------------------------------------------------------------------------

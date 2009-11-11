@@ -1,5 +1,5 @@
 import py
-from py.compat import optparse
+import optparse
 from pypy.tool.pairtype import extendabletype
 
 SUPPRESS_USAGE = optparse.SUPPRESS_USAGE

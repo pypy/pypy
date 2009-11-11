@@ -1,6 +1,6 @@
 import time
 import py
-py.magic.autopath()
+py.path.local(__file__)
 from pypy.jit.tl.tlc import interp, interp_nonjit, ConstantPool
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.backend.hlinfo import highleveljitinfo

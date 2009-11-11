@@ -1,5 +1,5 @@
 def pytest_addoption(parser):
-    group = parser.addgroup("pypy-cli options")
+    group = parser.getgroup("pypy-cli options")
     group.addoption('--source', action="store_true", dest="source", default=False,
             help="only generate IL source, don't compile")
     group.addoption('--wd', action="store_true", dest="wd", default=False,

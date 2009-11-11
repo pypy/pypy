@@ -1,5 +1,5 @@
 import py
-py.magic.autopath()
+py.path.local(__file__)
 from pypy.jit.tl.tlr import interpret
 from pypy.jit.backend.hlinfo import highleveljitinfo
 

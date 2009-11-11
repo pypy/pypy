@@ -1,5 +1,5 @@
 import py
-from py.__.doc.confrest import *
+from pypy.doc.confrest import *
 
 class PyPyPage(Page): 
     def fill_menubar(self):
@@ -17,7 +17,7 @@ class PyPyPage(Page):
             " ", id="menubar")
 
 class Project(Project): 
-    mydir = py.magic.autopath().dirpath()
+    mydir = py.path.local(__file__).dirpath()
     title = "PyPy" 
     stylesheet = 'style.css'
     encoding = 'latin1' 

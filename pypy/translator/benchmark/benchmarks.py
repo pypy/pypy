@@ -34,7 +34,7 @@ class Benchmark(object):
 
 def external_dependency(dirname, svnurl, revision):
     """Check out (if necessary) a given fixed revision of a svn url."""
-    dirpath = py.magic.autopath().dirpath().join(dirname)
+    dirpath = py.path.local(__file__).dirpath().join(dirname)
     revtag = dirpath.join('-svn-rev-')
     if dirpath.check():
         if not revtag.check() or int(revtag.read()) != revision:
@@ -70,13 +70,13 @@ def run_pystone(executable='/usr/local/bin/python', n=''):
     return get_result(txt, PYSTONE_PATTERN)
 
 def run_richards(executable='/usr/local/bin/python', n=5):
-    richards = py.magic.autopath().dirpath().dirpath().join('goal').join('richards.py')
+    richards = py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py')
     txt = run_cmd('"%s" %s %s' % (executable, richards, n))
     return get_result(txt, RICHARDS_PATTERN)
 
 def run_translate(executable='/usr/local/bin/python'):
-    translate = py.magic.autopath().dirpath().dirpath().join('goal').join('translate.py')
-    target = py.magic.autopath().dirpath().dirpath().join('goal').join('targetrpystonedalone.py')
+    translate = py.path.local(__file__).dirpath().dirpath().join('goal').join('translate.py')
+    target = py.path.local(__file__).dirpath().dirpath().join('goal').join('targetrpystonedalone.py')
     argstr = '%s %s --batch --backendopt --no-compile %s > /dev/null 2> /dev/null'
     T = time.time()
     status = os.system(argstr%(executable, translate, target))
@@ -87,7 +87,7 @@ def run_translate(executable='/usr/local/bin/python'):
 
 def run_docutils(executable='/usr/local/bin/python'):
     docutilssvnpath = 'docutils'    # subdir of the local dir
-    translatetxt = py.magic.autopath().dirpath().dirpath().dirpath().join('doc').join('translation.txt')
+    translatetxt = py.path.local(__file__).dirpath().dirpath().dirpath().join('doc').join('translation.txt')
     command = """import sys
 sys.modules['unicodedata'] = sys # docutils need 'import unicodedata' to work, but no more...
 sys.path[0:0] = ['%s', '%s/extras']
@@ -123,7 +123,7 @@ def run_templess(executable='/usr/local/bin/python'):
         templess is some simple templating language, to check out use
         'svn co -r100 http://johnnydebris.net/templess/trunk templess'
     """
-    here = py.magic.autopath().dirpath()
+    here = py.path.local(__file__).dirpath()
     pypath = os.path.dirname(os.path.dirname(py.__file__))
     templessdir = here.join('templess')
     testscript = templessdir.join('test/oneshot.py')
@@ -143,7 +143,7 @@ def check_templess():
 
 def run_gadfly(executable='/usr/local/bin/python'):
     """ run some tests in the gadfly pure Python database """
-    here = py.magic.autopath().dirpath()
+    here = py.path.local(__file__).dirpath()
     gadfly = here.join('gadfly')
     testscript = gadfly.join('test', 'testsubset.py')
     command = 'PYTHONPATH="%s" "%s" "%s"' % (gadfly, executable, testscript)
@@ -167,7 +167,7 @@ def check_gadfly():
 
 def run_mako(executable='/usr/local/bin/python'):
     """ run some tests in the mako templating system """
-    here = py.magic.autopath().dirpath()
+    here = py.path.local(__file__).dirpath()
     mako = here.join('mako')
     testscript = mako.join('examples', 'bench', 'basic.py')
     command = 'PYTHONPATH="%s" "%s" "%s" mako' % (mako.join('lib'),

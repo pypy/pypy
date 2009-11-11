@@ -3,7 +3,7 @@ import os, py, pdb, sys
 from pypy.lang.gameboy.gameboy_implementation import GameBoyImplementation
 
 
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
 
 print ROM_PATH
 

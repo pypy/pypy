@@ -7,7 +7,7 @@ NSApplication.sharedApplication()
 
 
 debug.DEBUG_PRINT_LOGS = False
-ROM_PATH = str(py.magic.autopath().dirpath().dirpath())+"/rom"
+ROM_PATH = str(py.path.local(__file__).dirpath().dirpath())+"/rom"
 
 filename = ""
 if len(sys.argv) > 1:

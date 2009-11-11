@@ -14,7 +14,7 @@ def upload_results(stderr, url=BASE):
     response.read()
 
 def run_richards(executable='python'):
-    richards = str(py.magic.autopath().dirpath().dirpath().join('goal').join('richards.py'))
+    richards = str(py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py'))
     pipe = subprocess.Popen([executable, richards], stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     return pipe.communicate()

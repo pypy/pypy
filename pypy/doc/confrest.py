@@ -34,7 +34,7 @@ class PyPyPage(Page):
         
 
 class Project(Project): 
-    mydir = py.magic.autopath().dirpath()
+    mydir = py.path.local(__file__).dirpath()
 
     title = "PyPy" 
     stylesheet = 'style.css'

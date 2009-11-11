@@ -3,7 +3,7 @@ import py, random
 option = py.test.config.option
 
 def pytest_addoption(parser):
-    group = parser.addgroup('random test options')
+    group = parser.getgroup('random test options')
     group.addoption('--random-seed', action="store", type="int",
                     default=random.randrange(0, 10000),
                     dest="randomseed",

@@ -3,7 +3,7 @@ import autopath
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.conftest import gettestobjspace, option
-from py.__.test.outcome import Skipped
+from py.impl.test.outcome import Skipped
 
 def init_globals_hack(space):
     space.appexec([space.wrap(autopath.this_dir)], """(this_dir):

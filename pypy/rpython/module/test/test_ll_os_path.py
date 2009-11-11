@@ -11,7 +11,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.tool.udir import udir
 
 def test_exists():
-    filename = impl.to_rstr(str(py.magic.autopath()))
+    filename = impl.to_rstr(str(py.path.local(__file__)))
     assert impl.ll_os_path_exists(filename) == True
     assert not impl.ll_os_path_exists(impl.to_rstr(
         "strange_filename_that_looks_improbable.sde"))

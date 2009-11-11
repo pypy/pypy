@@ -1,12 +1,12 @@
 import py
 
 from pypy.config.makerestdoc import register_config_role 
-docdir = py.magic.autopath().dirpath()
+docdir = py.path.local(__file__).dirpath()
 
 pytest_plugins = "pytest_restdoc"
 
 def pytest_addoption(parser):
-    group = parser.addgroup("pypy-doc options")
+    group = parser.getgroup("pypy-doc options")
     group.addoption('--pypy-doctests', action="store_true",
            dest="pypy_doctests", default=False, 
            help="enable doctests in .txt files")

@@ -19,7 +19,7 @@ for mod in (ssobject, syntax, procedure, macro):
         except (TypeError, AttributeError):
             pass
 
-de_file = py.magic.autopath().dirpath().join("r5rs_derived_expr.ss")
+de_file = py.path.local(__file__).dirpath().join("r5rs_derived_expr.ss")
 de_code = de_file.read()
 de_expr_lst = parse(de_code)
 

@@ -9,7 +9,7 @@ from pypy.lang.js.astbuilder import ASTBuilder
 from pypy import conftest
 import sys
 
-GFILE = py.magic.autopath().dirpath().dirpath().join("jsgrammar.txt")
+GFILE = py.path.local(__file__).dirpath().dirpath().join("jsgrammar.txt")
 
 try:
     t = GFILE.read(mode='U')

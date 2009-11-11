@@ -294,7 +294,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         def f(fn):
             fn = hlstr(fn)
             return os.path.exists(fn)
-        filename = self.string_to_ll(str(py.magic.autopath()))
+        filename = self.string_to_ll(str(py.path.local(__file__)))
         assert self.interpret(f, [filename]) == True
         #assert self.interpret(f, [
         #    self.string_to_ll("strange_filename_that_looks_improbable.sde")]) == False
@@ -308,7 +308,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
             fn = hlstr(fn)
             return os.path.isdir(fn)
         assert self.interpret(f, [self.string_to_ll("/")]) == True
-        assert self.interpret(f, [self.string_to_ll(str(py.magic.autopath()))]) == False
+        assert self.interpret(f, [self.string_to_ll(str(py.path.local(__file__)))]) == False
         assert self.interpret(f, [self.string_to_ll("another/unlikely/directory/name")]) == False
 
     def test_pbc_isTrue(self):

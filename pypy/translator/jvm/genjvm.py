@@ -83,7 +83,7 @@ class JvmGeneratedSource(object):
         self.jasmin_files = None
         
         # Determine various paths:
-        self.thisdir = py.magic.autopath().dirpath()
+        self.thisdir = py.path.local(__file__).dirpath()
         self.rootdir = self.thisdir.join('src')
         self.srcdir = self.rootdir.join('pypy')
         self.jnajar = self.rootdir.join('jna.jar')

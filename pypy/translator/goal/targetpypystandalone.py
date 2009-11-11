@@ -11,7 +11,7 @@ from pypy.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.translator.goal.nanos import setup_nanos
 
-thisdir = py.magic.autopath().dirpath()
+thisdir = py.path.local(__file__).dirpath()
 
 try:
     this_dir = os.path.dirname(__file__)

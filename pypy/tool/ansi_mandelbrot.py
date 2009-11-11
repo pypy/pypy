@@ -1,6 +1,6 @@
 import sys
 
-from py.__.io.terminalwriter import ansi_print, get_terminal_width
+from py.impl.io.terminalwriter import ansi_print, get_terminal_width
 
 """
 Black       0;30     Dark Gray     1;30

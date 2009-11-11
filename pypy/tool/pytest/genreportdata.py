@@ -3,7 +3,7 @@ import autopath
 import py
 import sys
         
-mydir = py.magic.autopath().dirpath().realpath()
+mydir = py.path.local(__file__).dirpath().realpath()
 from pypy.tool.pytest import htmlreport 
 from pypy.tool.pytest import confpath 
 

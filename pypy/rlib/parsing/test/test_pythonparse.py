@@ -7,7 +7,7 @@ from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
 from pypy.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 
-grammar = py.magic.autopath().dirpath().join("pygrammar.txt").read(mode='rt')
+grammar = py.path.local(__file__).dirpath().join("pygrammar.txt").read(mode='rt')
 
 
 def test_parse_grammar():
@@ -240,12 +240,12 @@ a = 1 - 2 - 3
         t = self.ToAST.transform(t)
 
     def test_parse_this(self):
-        s = py.magic.autopath().read()
+        s = py.path.local(__file__).read()
         t = self.parse(s)
         t = self.ToAST.transform(t)
 
     def test_parsing(self):
-        s = py.magic.autopath().dirpath().dirpath().join("parsing.py").read()
+        s = py.path.local(__file__).dirpath().dirpath().join("parsing.py").read()
         t = self.parse(s)
         t = self.ToAST.transform(t)
 

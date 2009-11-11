@@ -6,7 +6,7 @@ from pypy.lang.smalltalk import model
 from pypy.lang.smalltalk import interpreter 
 import sys
 
-mini_image = py.magic.autopath().dirpath().dirpath().join('mini.image')
+mini_image = py.path.local(__file__).dirpath().dirpath().join('mini.image')
 
 def get_miniimage(space):
     return squeakimage.ImageReader(space, squeakimage.Stream(mini_image.open()))

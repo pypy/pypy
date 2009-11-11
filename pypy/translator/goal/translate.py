@@ -84,7 +84,7 @@ OVERRIDES = {
 
 import py
 # we want 2.4 expand_default functionality
-optparse = py.compat.optparse
+import optparse
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)

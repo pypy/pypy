@@ -1,7 +1,7 @@
 from pypy.config.config import *
 from pypy.config.makerestdoc import make_cmdline_overview
 
-from py.__.misc.rest import process as restcheck
+from pypy.tool.rest.rest import process as restcheck
 
 tempdir = py.test.ensuretemp('config')
 

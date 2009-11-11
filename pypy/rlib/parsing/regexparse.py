@@ -1966,7 +1966,7 @@ RegexParser.init_parser = Parser.__init__.im_func
 
 
 def test_generate():
-    f = py.magic.autopath()
+    f = py.path.local(__file__)
     oldcontent = f.read()
     s = "# GENERATED CODE BETWEEN THIS LINE AND ITS OTHER OCCURENCE\n".lower()
     pre, gen, after = oldcontent.split(s)

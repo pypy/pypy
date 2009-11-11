@@ -1,7 +1,7 @@
 
 import autopath
 import py
-from py.__.misc.cmdline import countloc 
+from py.impl.misc.cmdline import countloc 
 from py.xml import raw
 
 pypydir = py.path.local(autopath.pypydir)

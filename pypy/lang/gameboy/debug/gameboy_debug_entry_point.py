@@ -11,7 +11,7 @@ from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 
 # ------------------------------------------------------------------------------
 
-ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
+ROM_PATH    = str(py.path.local(__file__).dirpath().dirpath())+"/rom"
 # filename    = ROM_PATH + "/rom9/rom9.gb"
 filename = "/home/tverwaes/roms/SuperMarioLand.gb"
 SOCKET_PORT = 55682
@@ -83,7 +83,7 @@ def start_python_version():
 
 # ------------------------------------------------------------------------------ 
     
-MARIO_DIR =  str(py.magic.autopath().dirpath().dirpath()\
+MARIO_DIR =  str(py.path.local(__file__).dirpath().dirpath()\
                         .dirpath().dirpath()\
                         .dirpath().dirpath()) + "/mario"
 

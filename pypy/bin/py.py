@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 from pypy.tool import option
-from py.compat.optparse import make_option
+from optparse import make_option
 from pypy.interpreter import main, interactive, error, gateway
 from pypy.config.config import OptionDescription, BoolOption, StrOption
 from pypy.config.config import Config, to_optparse

@@ -1,7 +1,7 @@
 import py
 
 from pypy.translator.driver import TranslationDriver
-from py.compat import optparse
+import optparse
 
 def test_ctr():
     td = TranslationDriver()

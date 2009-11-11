@@ -37,8 +37,7 @@ def __dirinfo(part):
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
-            # check if "../py/__init__.py" exists
-            checkfile = os.path.join(partdir, os.pardir, 'py', '__init__.py')
+            checkfile = os.path.join(partdir, os.pardir, 'pypy', '__init__.py')
             if not os.path.exists(checkfile):
                 error = "Cannot find %r" % (os.path.normpath(checkfile),)
             break

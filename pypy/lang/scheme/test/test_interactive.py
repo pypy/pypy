@@ -20,7 +20,7 @@ class TestInteractive:
         return child
 
     def spawn(self, argv=[]):
-        path = py.magic.autopath()/".."/".."/"interactive.py"
+        path = py.path.local(__file__)/".."/".."/"interactive.py"
         return self._spawn(str(path), argv)
 
     def test_interactive(self):

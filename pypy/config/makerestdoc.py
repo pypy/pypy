@@ -1,13 +1,13 @@
 import py
-from py.__.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
-from py.__.rest.rst import Directive, Em, Quote, Text
+from pypy.tool.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
+from pypy.tool.rest.rst import Directive, Em, Quote, Text
 
 from pypy.config.config import ChoiceOption, BoolOption, StrOption, IntOption
 from pypy.config.config import FloatOption, OptionDescription, Option, Config
 from pypy.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
 from pypy.config.config import _getnegation
 
-configdocdir = py.magic.autopath().dirpath().dirpath().join("doc", "config")
+configdocdir = py.path.local(__file__).dirpath().dirpath().join("doc", "config")
 
 def get_fullpath(opt, path):
     if path:
@@ -212,7 +212,7 @@ def register_config_role(docdir):
     """ register a :config: ReST link role for use in documentation. """
     try:
         from docutils.parsers.rst import directives, states, roles
-        from py.__.rest.directive import register_linkrole
+        from pypy.tool.rest.directive import register_linkrole
     except ImportError:
         return
     # enable :config: link role

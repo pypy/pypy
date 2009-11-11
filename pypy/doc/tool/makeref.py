@@ -1,6 +1,6 @@
 
 import py
-py.magic.autopath()
+py.path.local(__file__)
 import pypy
 pypydir = py.path.local(pypy.__file__).dirpath()
 distdir = pypydir.dirpath() 

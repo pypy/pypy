@@ -232,7 +232,7 @@ class TestOfHtmlReportClass:
         t = self.rep.render_latest_table(self.rep.results)
         assert unicode(t)
 
-mydir = py.magic.autopath().dirpath()
+mydir = py.path.local(__file__).dirpath()
 
 def getpicklepath(): 
     return mydir.join('.htmlreport.pickle')

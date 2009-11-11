@@ -26,7 +26,7 @@ class TestMaemo(BasicTest):
             return 0;
         }
         ''')
-        includedir = py.magic.autopath().dirpath().join('include')
+        includedir = py.path.local(__file__).dirpath().join('include')
         eci = ExternalCompilationInfo(include_dirs=(includedir,))
         executable = self.platform.compile([cfile], eci)
         res = self.platform.execute(executable)
