@@ -130,6 +130,21 @@ class BaseTestCanRaise(object):
         result = wa.analyze(fgraph.startblock.operations[0])
         assert not result
 
+    def test_contains(self):
+        def g(x, y, z):
+            l = [x]
+            return f(l, y, z)
+        def f(x, y, z):
+            return y in x
+
+
+        t, wa = self.translate(g, [int, int, int])
+        ggraph = graphof(t, g)
+        assert ggraph.startblock.operations[-1].opname == 'direct_call'
+
+        result = wa.analyze(ggraph.startblock.operations[-1])
+        assert not result
+
 
 class TestLLtype(BaseTestCanRaise):
     type_system = 'lltype'
@@ -163,20 +178,6 @@ class TestLLtype(BaseTestCanRaise):
         assert name == "length"
         assert S1 is S2
 
-    def test_contains(self):
-        def g(x, y, z):
-            l = [x]
-            return f(l, y, z)
-        def f(x, y, z):
-            return y in x
-
-
-        t, wa = self.translate(g, [int, int, int])
-        ggraph = graphof(t, g)
-        assert ggraph.startblock.operations[-1].opname == 'direct_call'
-
-        result = wa.analyze(ggraph.startblock.operations[-1])
-        assert not result
 
 
 class TestOOtype(BaseTestCanRaise):
