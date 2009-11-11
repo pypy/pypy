@@ -14,3 +14,9 @@ class Module(MixedModule):
         'garbage' : 'space.newlist([])',
         'dump_heap_stats': 'interp_gc.dump_heap_stats',
     }
+
+    def __init__(self, space, w_name):
+        ts = space.config.translation.type_system
+        if ts == 'ootype':
+            del self.interpleveldefs['dump_heap_stats']
+        MixedModule.__init__(self, space, w_name)
