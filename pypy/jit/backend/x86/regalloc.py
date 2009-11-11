@@ -424,7 +424,9 @@ class RegAlloc(object):
         y = self.loc(op.args[1])
         self.perform_guard(op, [x, y], None)
         self.rm.possibly_free_vars(op.args)
-    
+
+    consider_guard_nonnull_class = consider_guard_class
+
     def _consider_binop_part(self, op, ignored):
         x = op.args[0]
         argloc = self.loc(op.args[1])

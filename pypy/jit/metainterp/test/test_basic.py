@@ -1003,10 +1003,10 @@ class BasicTests:
 
         class A(object):
             def g(self, x):
-                return x - 1
+                return x - 5
         class B(A):
             def g(self, y):
-                return y - 2
+                return y - 3
 
         a1 = A()
         a2 = A()
@@ -1021,7 +1021,124 @@ class BasicTests:
                 hint(a, promote=True)
             return x
         res = self.meta_interp(f, [299], listops=True)
+        assert res == f(299)
         self.check_loops(guard_class=0, guard_value=3)
+
+    def test_merge_guardnonnull_guardclass(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            def g(self, x):
+                return x - 3
+        class B(A):
+            def g(self, y):
+                return y - 5
+
+        a1 = A()
+        b1 = B()
+        def f(x):
+            l = [None] * 100 + [b1] * 100 + [a1] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                if a:
+                    x = a.g(x)
+                else:
+                    x -= 7
+            return x
+        res = self.meta_interp(f, [299], listops=True)
+        assert res == f(299)
+        self.check_loops(guard_class=0, guard_nonnull=0,
+                         guard_nonnull_class=2, guard_isnull=1)
+
+    def test_merge_guardnonnull_guardvalue(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            pass
+        class B(A):
+            pass
+
+        a1 = A()
+        b1 = B()
+        def f(x):
+            l = [b1] * 100 + [None] * 100 + [a1] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                if a:
+                    x -= 5
+                else:
+                    x -= 7
+                hint(a, promote=True)
+            return x
+        res = self.meta_interp(f, [299], listops=True)
+        assert res == f(299)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
+                         guard_nonnull_class=0, guard_isnull=1)
+
+    def test_merge_guardnonnull_guardvalue_2(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            pass
+        class B(A):
+            pass
+
+        a1 = A()
+        b1 = B()
+        def f(x):
+            l = [None] * 100 + [b1] * 100 + [a1] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                if a:
+                    x -= 5
+                else:
+                    x -= 7
+                hint(a, promote=True)
+            return x
+        res = self.meta_interp(f, [299], listops=True)
+        assert res == f(299)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
+                         guard_nonnull_class=0, guard_isnull=1)
+
+    def test_merge_guardnonnull_guardclass_guardvalue(self):
+        from pypy.rlib.objectmodel import instantiate
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
+
+        class A(object):
+            def g(self, x):
+                return x - 3
+        class B(A):
+            def g(self, y):
+                return y - 5
+
+        a1 = A()
+        a2 = A()
+        b1 = B()
+        def f(x):
+            l = [a2] * 100 + [None] * 100 + [b1] * 100 + [a1] * 100
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, l=l)
+                myjitdriver.jit_merge_point(x=x, l=l)
+                a = l[x]
+                if a:
+                    x = a.g(x)
+                else:
+                    x -= 7
+                hint(a, promote=True)
+            return x
+        res = self.meta_interp(f, [399], listops=True)
+        assert res == f(399)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
+                         guard_nonnull_class=0, guard_isnull=1)
 
     def test_residual_call_doesnt_lose_info(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])

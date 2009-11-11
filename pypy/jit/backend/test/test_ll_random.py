@@ -203,6 +203,21 @@ class GuardClassOperation(test_random.GuardOperation):
         op = ResOperation(self.opnum, [v, c_vtable2], None)
         return op, (vtable == vtable2)
 
+class GuardNonNullClassOperation(GuardClassOperation):
+    def gen_guard(self, builder, r):
+        if r.random() < 0.5:
+            return GuardClassOperation.gen_guard(self, builder, r)
+        else:
+            v = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+            op = ResOperation(rop.SAME_AS, [ConstPtr(v.value)], v)
+            builder.loop.operations.append(op)
+            v2, S2 = builder.get_structptr_var(r, must_have_vtable=True)
+            vtable2 = S2._hints['vtable']._as_ptr()
+            c_vtable2 = ConstAddr(llmemory.cast_ptr_to_adr(vtable2),
+                                  builder.cpu)
+            op = ResOperation(self.opnum, [v, c_vtable2], None)
+            return op, False
+
 class GetFieldOperation(test_random.AbstractOperation):
     def field_descr(self, builder, r):
         v, S = builder.get_structptr_var(r)
@@ -577,6 +592,7 @@ for i in range(2):
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL))
     OPERATIONS.append(CallOperationException(rop.CALL))
+OPERATIONS.append(GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 

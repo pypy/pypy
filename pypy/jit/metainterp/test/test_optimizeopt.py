@@ -1472,6 +1472,56 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
 
+    def test_merge_guard_nonnull_guard_class(self):
+        ops = """
+        [p1, i0, i1, i2, p2]
+        guard_nonnull(p1) [i0]
+        i3 = int_add(i1, i2)
+        guard_class(p1, ConstClass(node_vtable)) [i1]
+        jump(p2, i0, i1, i3, p2)
+        """
+        expected = """
+        [p1, i0, i1, i2, p2]
+        guard_nonnull_class(p1, ConstClass(node_vtable)) [i0]
+        i3 = int_add(i1, i2)
+        jump(p2, i0, i1, i3, p2)
+        """
+        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+
+    def test_merge_guard_nonnull_guard_value(self):
+        ops = """
+        [p1, i0, i1, i2, p2]
+        guard_nonnull(p1) [i0]
+        i3 = int_add(i1, i2)
+        guard_value(p1, ConstPtr(myptr)) [i1]
+        jump(p2, i0, i1, i3, p2)
+        """
+        expected = """
+        [p1, i0, i1, i2, p2]
+        guard_value(p1, ConstPtr(myptr)) [i0]
+        i3 = int_add(i1, i2)
+        jump(p2, i0, i1, i3, p2)
+        """
+        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+
+    def test_merge_guard_nonnull_guard_class_guard_value(self):
+        ops = """
+        [p1, i0, i1, i2, p2]
+        guard_nonnull(p1) [i0]
+        i3 = int_add(i1, i2)
+        guard_class(p1, ConstClass(node_vtable)) [i2]
+        i4 = int_sub(i3, 1)
+        guard_value(p1, ConstPtr(myptr)) [i1]
+        jump(p2, i0, i1, i4, p2)
+        """
+        expected = """
+        [p1, i0, i1, i2, p2]
+        guard_value(p1, ConstPtr(myptr)) [i0]
+        i3 = int_add(i1, i2)
+        i4 = int_sub(i3, 1)
+        jump(p2, i0, i1, i4, p2)
+        """
+        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
 
     # ----------
 

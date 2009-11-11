@@ -696,10 +696,10 @@ class Assembler386(object):
             self.mc.CMP(locs[0], locs[1])
         return self.implement_guard(addr, self.mc.JNE)
 
-    def genop_guard_guard_class(self, ign_1, guard_op, addr, locs, ign_2):
+    def _cmp_guard_class(self, mc, locs):
         offset = self.cpu.vtable_offset
         if offset is not None:
-            self.mc.CMP(mem(locs[0], offset), locs[1])
+            mc.CMP(mem(locs[0], offset), locs[1])
         else:
             # XXX hard-coded assumption: to go from an object to its class
             # we use the following algorithm:
@@ -714,8 +714,24 @@ class Assembler386(object):
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
             expected_typeid = (classptr - type_info_group) >> 2
-            self.mc.CMP16(mem(locs[0], 0), imm32(expected_typeid))
-            #
+            mc.CMP16(mem(locs[0], 0), imm32(expected_typeid))
+
+    def genop_guard_guard_class(self, ign_1, guard_op, addr, locs, ign_2):
+        self._cmp_guard_class(self.mc._mc, locs)
+        return self.implement_guard(addr, self.mc.JNE)
+
+    def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
+                                        addr, locs, ign_2):
+        mc = self.mc._mc
+        mc.CMP(locs[0], imm8(1))
+        mc.write(constlistofchars('\x72\x00'))             # JB later
+        jb_location = mc.get_relative_pos()
+        self._cmp_guard_class(mc, locs)
+        # patch the JB above
+        offset = mc.get_relative_pos() - jb_location
+        assert 0 < offset <= 127
+        mc.overwrite(jb_location-1, [chr(offset)])
+        #
         return self.implement_guard(addr, self.mc.JNE)
 
     def _no_const_locs(self, args):
@@ -880,8 +896,9 @@ class Assembler386(object):
         print msg
         raise NotImplementedError(msg)
 
-    def not_implemented_op_guard(self, op, regalloc, arglocs, resloc, descr):
-        msg = "not implemented operation (guard): %s" % op.getopname()
+    def not_implemented_op_guard(self, op, guard_op,
+                                 failaddr, arglocs, resloc):
+        msg = "not implemented operation (guard): %s" % guard_op.getopname()
         print msg
         raise NotImplementedError(msg)
 

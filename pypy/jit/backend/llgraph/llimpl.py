@@ -134,6 +134,7 @@ TYPES = {
     'guard_overflow'       : ((), None),
     'guard_nonnull'        : (('ref',), None),
     'guard_isnull'        : (('ref',), None),
+    'guard_nonnull_class' : (('ref', 'ref'), None),
     'newstr'          : (('int',), 'ref'),
     'strlen'          : (('ref',), 'int'),
     'strgetitem'      : (('ref', 'int'), 'int'),
@@ -561,6 +562,11 @@ class Frame(object):
             rclass.CLASSTYPE)
         if value.typeptr != expected_class:
             raise GuardFailed
+
+    def op_guard_nonnull_class(self, _, value, expected_class):
+        if not value:
+            raise GuardFailed
+        self.op_guard_class(_, value, expected_class)
 
     def op_guard_value(self, _, value, expected_value):
         if value != expected_value:

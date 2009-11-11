@@ -466,8 +466,8 @@ class BaseBackendTest(Runner):
         #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
         assert not self.guard_failed
-        #self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
-        #                       'void')
+        self.execute_operation(rop.GUARD_NONNULL_CLASS, [t_box, T_box], 'void')
+        assert not self.guard_failed
 
     def test_failing_guards(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -489,10 +489,12 @@ class BaseBackendTest(Runner):
     def test_failing_guard_class(self):
         t_box, T_box = self.alloc_instance(self.T)
         u_box, U_box = self.alloc_instance(self.U)        
-        #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
+        null_box = self.null_instance()
         for opname, args in [(rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
-                             #(rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
+                             (rop.GUARD_NONNULL_CLASS, [t_box, U_box]),
+                             (rop.GUARD_NONNULL_CLASS, [u_box, T_box]),
+                             (rop.GUARD_NONNULL_CLASS, [null_box, T_box]),
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed

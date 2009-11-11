@@ -42,8 +42,8 @@ LEVEL_CONSTANT   = '\x03'
 
 
 class OptValue(object):
-    _attrs_ = ('box', 'known_class', 'guard_class_index', 'level')
-    guard_class_index = -1
+    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level')
+    last_guard_index = -1
 
     level = LEVEL_UNKNOWN
 
@@ -88,10 +88,15 @@ class OptValue(object):
             return None
 
     def make_constant_class(self, classbox, opindex):
-        if self.level < LEVEL_KNOWNCLASS:
-            self.known_class = classbox
-            self.level = LEVEL_KNOWNCLASS
-            self.guard_class_index = opindex
+        assert self.level < LEVEL_KNOWNCLASS
+        self.known_class = classbox
+        self.level = LEVEL_KNOWNCLASS
+        self.last_guard_index = opindex
+
+    def make_nonnull(self, opindex):
+        assert self.level < LEVEL_NONNULL
+        self.level = LEVEL_NONNULL
+        self.last_guard_index = opindex
 
     def is_nonnull(self):
         level = self.level
@@ -104,7 +109,7 @@ class OptValue(object):
         else:
             return False
 
-    def make_nonnull(self):
+    def ensure_nonnull(self):
         if self.level < LEVEL_NONNULL:
             self.level = LEVEL_NONNULL
 
@@ -577,17 +582,26 @@ class Optimizer(object):
         elif value.is_null():
             raise InvalidLoop
         self.emit_operation(op)
-        value.make_nonnull()
+        value.make_nonnull(len(self.newoperations) - 1)
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.args[0])
         emit_operation = True
-        if value.guard_class_index != -1:
-            # there already has been a guard_class on this value, which is
-            # rather silly. replace the original guard_class with a guard_value
-            guard_class_op = self.newoperations[value.guard_class_index]
-            guard_class_op.opnum = op.opnum
-            guard_class_op.args[1] = op.args[1]
+        if value.last_guard_index != -1:
+            # there already has been a guard_nonnull or guard_class or
+            # guard_nonnull_class on this value, which is rather silly.
+            # replace the original guard with a guard_value
+            old_guard_op = self.newoperations[value.last_guard_index]
+            old_opnum = old_guard_op.opnum
+            old_guard_op.opnum = op.opnum
+            old_guard_op.args = [old_guard_op.args[0], op.args[1]]
+            if old_opnum == rop.GUARD_NONNULL:
+                # hack hack hack.  Change the guard_opnum on
+                # old_guard_op.descr so that when resuming,
+                # the operation is not skipped by pyjitpl.py.
+                descr = old_guard_op.descr
+                assert isinstance(descr, compile.ResumeGuardDescr)
+                descr.guard_opnum = rop.GUARD_NONNULL_CLASS
             emit_operation = False
         constbox = op.args[1]
         assert isinstance(constbox, Const)
@@ -610,8 +624,29 @@ class Optimizer(object):
             # earlier, in optimizefindnode.py.
             assert realclassbox.same_constant(expectedclassbox)
             return
-        self.emit_operation(op)
-        value.make_constant_class(expectedclassbox, len(self.newoperations) - 1)
+        emit_operation = True
+        if value.last_guard_index != -1:
+            # there already has been a guard_nonnull or guard_class or
+            # guard_nonnull_class on this value.
+            old_guard_op = self.newoperations[value.last_guard_index]
+            if old_guard_op.opnum == rop.GUARD_NONNULL:
+                # it was a guard_nonnull, which we replace with a
+                # guard_nonnull_class.
+                old_guard_op.opnum = rop.GUARD_NONNULL_CLASS
+                old_guard_op.args = [old_guard_op.args[0], op.args[1]]
+                # hack hack hack.  Change the guard_opnum on
+                # old_guard_op.descr so that when resuming,
+                # the operation is not skipped by pyjitpl.py.
+                descr = old_guard_op.descr
+                assert isinstance(descr, compile.ResumeGuardDescr)
+                descr.guard_opnum = rop.GUARD_NONNULL_CLASS
+                emit_operation = False
+        if emit_operation:
+            self.emit_operation(op)
+            last_guard_index = len(self.newoperations) - 1
+        else:
+            last_guard_index = value.last_guard_index
+        value.make_constant_class(expectedclassbox, last_guard_index)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if not self.exception_might_have_happened:
@@ -669,7 +704,7 @@ class Optimizer(object):
             assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
         else:
-            value.make_nonnull()
+            value.ensure_nonnull()
             self.heap_op_optimizer.optimize_GETFIELD_GC(op, value)
 
     # note: the following line does not mean that the two operations are
@@ -681,7 +716,7 @@ class Optimizer(object):
         if value.is_virtual():
             value.setfield(op.descr, self.getvalue(op.args[1]))
         else:
-            value.make_nonnull()
+            value.ensure_nonnull()
             fieldvalue = self.getvalue(op.args[1])
             self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
 
@@ -708,7 +743,7 @@ class Optimizer(object):
         if value.is_virtual():
             self.make_constant_int(op.result, value.getlength())
         else:
-            value.make_nonnull()
+            value.ensure_nonnull()
             self.optimize_default(op)
 
     def optimize_GETARRAYITEM_GC(self, op):
@@ -719,7 +754,7 @@ class Optimizer(object):
                 itemvalue = value.getitem(indexbox.getint())
                 self.make_equal_to(op.result, itemvalue)
                 return
-        value.make_nonnull()
+        value.ensure_nonnull()
         self.heap_op_optimizer.optimize_GETARRAYITEM_GC(op, value)
 
     # note: the following line does not mean that the two operations are
@@ -733,7 +768,7 @@ class Optimizer(object):
             if indexbox is not None:
                 value.setitem(indexbox.getint(), self.getvalue(op.args[2]))
                 return
-        value.make_nonnull()
+        value.ensure_nonnull()
         fieldvalue = self.getvalue(op.args[2])
         self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
 
@@ -873,7 +908,7 @@ class HeapOpOptimizer(object):
             self.optimizer.make_equal_to(op.result, fieldvalue)
             return
         # default case: produce the operation
-        value.make_nonnull()
+        value.ensure_nonnull()
         self.optimizer.optimize_default(op)
         # then remember the result of reading the field
         fieldvalue = self.optimizer.getvalue(op.result)
