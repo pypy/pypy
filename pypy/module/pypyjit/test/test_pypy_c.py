@@ -122,7 +122,6 @@ class PyPyCJITTests(object):
                     ([20], 2432902008176640000L))
 
     def test_factorialrec(self):
-        skip("does not make sense yet")        
         self.run_source('''
             def main(n):
                 if n > 1:
