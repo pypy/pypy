@@ -399,6 +399,9 @@ class TestLLtype(ListTests, LLJitMixin):
                 n += a.x
                 n = lst.pop()
                 lst.append(n - 10 + a.x)
+                if a.x in lst:
+                    pass
+                a.x = a.x + 1 - 1
             a = lst.pop()
             b = lst.pop()
             return a * b
