@@ -77,6 +77,7 @@ module_import_dependencies = {
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
+    "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     }
 
 def get_module_validator(modname):
