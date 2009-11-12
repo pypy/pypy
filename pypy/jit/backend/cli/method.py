@@ -1,5 +1,6 @@
 import py
 import os
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.tool.pairtype import extendabletype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli import dotnet
@@ -164,15 +165,20 @@ class Method(object):
 
     def compile(self):
         # ----
+        debug_start('jit-backend-emit_ops')
         if self.nocast:
             self.compute_types()
         self.emit_load_inputargs()
-        self.emit_preamble()
+        self.emit_preamble()        
         self.emit_operations(self.cliloop.operations)
         self.emit_branches()
         self.emit_end()
+        debug_stop('jit-backend-emit_ops')
         # ----
-        return self.finish_code()
+        debug_start('jit-backend-finish_code')
+        res = self.finish_code()
+        debug_stop('jit-backend-finish_code')
+        return res
 
     def _parseopt(self, text):
         text = text.lower()
