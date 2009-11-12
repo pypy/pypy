@@ -7,9 +7,10 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box, \
 
 class Logger(object):
 
-    def __init__(self, ts, guard_number=False):
-        self.ts = ts
-        self.guard_number=guard_number
+    def __init__(self, metainterp_sd, guard_number=False):
+        self.metainterp_sd = metainterp_sd
+        self.ts = metainterp_sd.cpu.ts
+        self.guard_number = guard_number
 
     def log_loop(self, inputargs, operations, number=0, type=None):
         if type is None:
@@ -57,7 +58,11 @@ class Logger(object):
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
         elif isinstance(arg, self.ts.ConstAddr):
-            return 'ConstClass(cls' + str(mv) + ')'
+            addr = arg.getaddr(self.metainterp_sd.cpu)
+            name = self.metainterp_sd.get_name_from_address(addr)
+            if not name:
+                name = 'cls' + str(mv)
+            return 'ConstClass(' + name + ')'
         else:
             return '?'
 

@@ -121,12 +121,14 @@ class TestCodeWriter:
             supports_floats = False
             def fielddescrof(self, STRUCT, fieldname):
                 return ('fielddescr', STRUCT, fieldname)
-            def calldescrof(self, FUNC, NON_VOID_ARGS, RESULT):
+            def calldescrof(self, FUNC, NON_VOID_ARGS, RESULT, stuff=None):
                 return ('calldescr', FUNC, NON_VOID_ARGS, RESULT)
             def typedescrof(self, CLASS):
                 return ('typedescr', CLASS)
             def methdescrof(self, CLASS, methname):
                 return FakeMethDescr(CLASS, methname)
+            def sizeof(self, STRUCT):
+                return ('sizeof', STRUCT)
 
         if type_system == 'lltype':
             FakeCPU.ts = typesystem.llhelper
@@ -365,6 +367,24 @@ class TestCodeWriter:
         assert 'ptr_ne' not in jitcode._source
         assert jitcode._source.count('oononnull') == 2
         assert jitcode._source.count('ooisnull') == 2
+
+    def test_list_of_addr2name(self):
+        class A1:
+            def g(self):
+                self.x = 123
+                return 5
+        def f():
+            a = A1()
+            a.y = a.g()
+            return a
+        graphs = self.make_graphs(f, [])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = [graphs[0]]
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        assert len(cw.list_of_addr2name) == 2
+        assert cw.list_of_addr2name[0][1].endswith('.A1')
+        assert cw.list_of_addr2name[1][1] == 'A1.g'
 
 class ImmutableFieldsTests:
 

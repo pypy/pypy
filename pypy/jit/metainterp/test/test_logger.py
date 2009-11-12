@@ -34,6 +34,14 @@ class Logger(logger.Logger):
 class TestLogger(object):
     ts = llhelper
 
+    def make_metainterp_sd(self):
+        class FakeMetaInterpSd:
+            class cpu:
+                ts = self.ts
+            def get_name_from_address(self, addr):
+                return 'Name'
+        return FakeMetaInterpSd()
+
     def reparse(self, inp, namespace=None, check_equal=True):
         """ parse loop once, then log it and parse again.
         Checks that we get the same thing.
@@ -41,7 +49,7 @@ class TestLogger(object):
         if namespace is None:
             namespace = {}
         loop = pure_parse(inp, namespace=namespace)
-        logger = Logger(self.ts)
+        logger = Logger(self.make_metainterp_sd())
         output = logger.log_loop(loop, namespace)
         oloop = pure_parse(output, namespace=namespace)
         if check_equal:
@@ -99,7 +107,7 @@ class TestLogger(object):
         jump(i0, descr=target)
         '''
         loop = pure_parse(inp, namespace=namespace)
-        logger = Logger(self.ts)
+        logger = Logger(self.make_metainterp_sd())
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "jump(i0, descr=<Loop3>)"
         pure_parse(output)
@@ -111,7 +119,7 @@ class TestLogger(object):
         guard_true(i0, descr=fdescr) [i0]
         '''
         loop = pure_parse(inp, namespace=namespace)
-        logger = Logger(self.ts, guard_number=True)
+        logger = Logger(self.make_metainterp_sd(), guard_number=True)
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard4>) [i0]"
         pure_parse(output)
@@ -119,18 +127,34 @@ class TestLogger(object):
         def boom():
             raise Exception
         namespace['fdescr'].get_index = boom
-        logger = Logger(self.ts, guard_number=False)
+        logger = Logger(self.make_metainterp_sd(), guard_number=False)
         output = logger.log_loop(loop)
         assert output.splitlines()[-1].startswith("guard_true(i0, descr=<")
 
+    def test_class_name(self):
+        from pypy.rpython.lltypesystem import lltype
+        AbcVTable = lltype.Struct('AbcVTable')
+        abcvtable = lltype.malloc(AbcVTable, immortal=True)
+        namespace = {'Name': abcvtable}
+        inp = '''
+        [i0]
+        p = new_with_vtable(ConstClass(Name))
+        '''
+        loop = pure_parse(inp, namespace=namespace)
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop)
+        assert output.splitlines()[-1].endswith(
+            " = new_with_vtable(ConstClass(Name))")
+        pure_parse(output, namespace=namespace)
+
     def test_intro_loop(self):
-        bare_logger = logger.Logger(self.ts)
+        bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_loop, [], [], 1, "foo")
         assert output.splitlines()[0] == "# Loop 1 : foo with 0 ops"
         pure_parse(output)
 
     def test_intro_bridge(self):
-        bare_logger = logger.Logger(self.ts)
+        bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_bridge, [], [], 3)
         assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)

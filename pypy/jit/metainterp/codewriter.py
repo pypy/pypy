@@ -65,6 +65,8 @@ class CodeWriter(object):
         self.counter = 0
         self.class_sizes = []
         self._class_sizes_seen = {}
+        self.list_of_addr2name = []
+        self._functions_addr_seen = {}
 
         # set later with .start()
         self.metainterp_sd = None
@@ -172,7 +174,9 @@ class CodeWriter(object):
         portal_code = self.make_portal_bytecode(portal_graph)
 
         self.metainterp_sd.info_from_codewriter(portal_code, leave_code,
-                                                self.class_sizes)
+                                                self.class_sizes,
+                                                self.list_of_addr2name,
+                                                portal_runner_ptr)
 
     def _start(self, metainterp_sd, portal_runner_ptr):
         self.metainterp_sd = metainterp_sd
@@ -306,6 +310,8 @@ class CodeWriter(object):
         methdescr.setup(jitcodes)
 
     def getcalldescr(self, v_func, args, result, consider_effects_of=None):
+        if isinstance(v_func, Constant):
+            self.register_known_function(v_func.value)
         non_void_args = [x for x in args if x.concretetype is not lltype.Void]
         NON_VOID_ARGS = [x.concretetype for x in non_void_args]
         RESULT = result.concretetype
@@ -330,6 +336,8 @@ class CodeWriter(object):
             self._class_sizes_seen[key] = True
             sizedescr = self.cpu.sizeof(STRUCT)
             self.class_sizes.append((vtable, sizedescr))
+            vtable_addr = llmemory.cast_ptr_to_adr(vtable)
+            self.list_of_addr2name.append((vtable_addr, STRUCT.__name__))
 
     def register_known_ooclass(self, cls, CLASS):
         # ootype only
@@ -338,6 +346,16 @@ class CodeWriter(object):
             typedescr = self.cpu.typedescrof(CLASS)
             self.class_sizes.append((cls, typedescr))
 
+    def register_known_function(self, func):
+        if self.rtyper.type_system.name == 'lltypesystem':
+            try:
+                obj = func._obj
+            except lltype.DelayedPointer:   # probably ll_portal_runner
+                return
+            if obj not in self._functions_addr_seen:
+                self._functions_addr_seen[obj] = True
+                func_addr = llmemory.cast_ptr_to_adr(func)
+                self.list_of_addr2name.append((func_addr, obj._name))
 
 
 class BytecodeMaker(object):
