@@ -6,16 +6,18 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
-def setup_module(module):
-    if sys.platform == 'win32':
-        if not ('mingw' in os.popen('gcc --version').read() and
-                'GNU' in os.popen('make --version').read()):
-            py.test.skip("mingw32 and MSYS are required for asmgcc on Windows")
-
 class AbstractTestAsmGCRoot:
     # the asmgcroot gc transformer doesn't generate gc_reload_possibly_moved
     # instructions:
     should_be_moving = False
+
+    @classmethod
+    def make_config(cls):
+        from pypy.config.pypyoption import get_pypy_config
+        config = get_pypy_config(translating=True)
+        config.translation.gc = cls.gcpolicy
+        config.translation.gcrootfinder = "asmgcc"
+        return config
 
     @classmethod
     def _makefunc_str_int(cls, func):
@@ -29,12 +31,7 @@ class AbstractTestAsmGCRoot:
             else:
                 print 'Result: "%s"' % (res,)
             return 0
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
-        config.translation.gc = cls.gcpolicy
-        config.translation.gcrootfinder = "asmgcc"
-        if sys.platform == 'win32':
-            config.translation.cc = 'mingw32'
+        config = cls.make_config()
         t = TranslationContext(config=config)
         a = t.buildannotator()
         a.build_types(main, [s_list_of_strings])
@@ -51,7 +48,7 @@ class AbstractTestAsmGCRoot:
 
         def run(arg0, arg1):
             lines = []
-            print >> sys.stderr, 'RUN: starting', exe_name
+            print >> sys.stderr, 'RUN: starting', exe_name, arg0, arg1
             if sys.platform == 'win32':
                 redirect = ' 2> NUL'
             else:
@@ -161,6 +158,33 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         res = self.run('callback_simple')
         assert res == 4900
 
+
+class TestAsmGCRootWithSemiSpaceGC_Mingw32(TestAsmGCRootWithSemiSpaceGC):
+    # for the individual tests see
+    # ====> ../../test/test_newgc.py
+
+    @classmethod
+    def setup_class(cls):
+        if sys.platform != 'win32':
+            py.test.skip("mingw32 specific test")
+        if not ('mingw' in os.popen('gcc --version').read() and
+                'GNU' in os.popen('make --version').read()):
+            py.test.skip("mingw32 and MSYS are required for this test")
+
+        test_newgc.TestSemiSpaceGC.setup_class.im_func(cls)
+
+    @classmethod
+    def make_config(cls):
+        config = TestAsmGCRootWithSemiSpaceGC.make_config()
+        config.translation.cc = 'mingw32'
+        return config
+
+
+    def test_callback_with_collect(self):
+        py.test.skip("No libffi yet with mingw32")
+
+    def define_callback_with_collect(cls):
+        return lambda: 0
 
 class TestAsmGCRootWithHybridTagged(AbstractTestAsmGCRoot,
                                     test_newgc.TestHybridTaggedPointers):

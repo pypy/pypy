@@ -139,12 +139,18 @@ static bool_t startswith(const char *str, const char *substr)
   return 1;
 }
 
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#define PYPY_LONG_LONG_PRINTF_FORMAT "I64"
+#else
+#define PYPY_LONG_LONG_PRINTF_FORMAT "ll"
+#endif
+
 static void display_startstop(const char *prefix, const char *postfix,
                               const char *category, const char *colors)
 {
   long long timestamp;
   READ_TIMESTAMP(timestamp);
-  fprintf(pypy_debug_file, "%s[%llx] %s%s%s\n%s",
+  fprintf(pypy_debug_file, "%s[%"PYPY_LONG_LONG_PRINTF_FORMAT"x] %s%s%s\n%s",
           colors,
           timestamp, prefix, category, postfix,
           debug_stop_colors);

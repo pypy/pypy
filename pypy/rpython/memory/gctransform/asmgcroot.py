@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import Constant, Variable, Block, Link, copygraph
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.translator.unsimplify import copyvar
 from pypy.rlib.debug import ll_assert
+import sys
 
 
 #
@@ -296,6 +297,7 @@ class AsmStackRootWalker(BaseRootWalker):
                 return
         # the item may have been not found because the main array was
         # not sorted.  Sort it and try again.
+        win32_follow_gcmap_jmp(gcmapstart, gcmapend)
         sort_gcmap(gcmapstart, gcmapend)
         item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
         if item:
@@ -383,6 +385,22 @@ def sort_gcmap(gcmapstart, gcmapend):
           rffi.cast(rffi.SIZE_T, count),
           rffi.cast(rffi.SIZE_T, arrayitemsize),
           llhelper(QSORT_CALLBACK_PTR, _compare_gcmap_entries))
+
+if sys.platform == 'win32':
+    def win32_follow_gcmap_jmp(start, end):
+        # The initial gcmap table contains addresses to a JMP
+        # instruction that jumps indirectly to the real code.
+        # Replace them with the target addresses.
+        while start < end:
+            code = rffi.cast(rffi.CCHARP, start.address[0])[0]
+            if code == '\xe9': # jmp
+                rel32 = rffi.cast(rffi.LONGP, start.address[0]+1)[0]
+                target = start.address[0] + (rel32 + 5)
+                start.address[0] = target
+            start += arrayitemsize
+else:
+    def win32_follow_gcmap_jmp(start, end):
+        pass
 
 def _compare_gcmap_entries(addr1, addr2):
     key1 = addr1.address[0]

@@ -622,7 +622,7 @@ class TestUsingFramework(object):
         import gc
         slong = cast_type_to_ffitype(rffi.LONG)
 
-        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        from pypy.rlib.libffi import get_libc_name
 
         def callback(ll_args, ll_res, stuff):
             gc.collect()
@@ -637,7 +637,7 @@ class TestUsingFramework(object):
                 res[0] = -1
 
         def f():
-            libc = CDLL(libc_name)
+            libc = CDLL(get_libc_name())
             qsort = libc.getpointer('qsort', [ffi_type_pointer, slong,
                                               slong, ffi_type_pointer],
                                 ffi_type_void)

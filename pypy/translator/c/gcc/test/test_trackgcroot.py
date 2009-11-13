@@ -4,11 +4,11 @@ from pypy.translator.c.gcc.trackgcroot import format_location
 from pypy.translator.c.gcc.trackgcroot import format_callshape
 from pypy.translator.c.gcc.trackgcroot import LOC_NOWHERE, LOC_REG
 from pypy.translator.c.gcc.trackgcroot import LOC_EBP_BASED, LOC_ESP_BASED
-from pypy.translator.c.gcc.trackgcroot import GcRootTracker
-from pypy.translator.c.gcc.trackgcroot import FunctionGcRootTracker
+from pypy.translator.c.gcc.trackgcroot import ElfAssemblerParser
+from pypy.translator.c.gcc.trackgcroot import DarwinAssemblerParser
 from pypy.translator.c.gcc.trackgcroot import compress_callshape
 from pypy.translator.c.gcc.trackgcroot import decompress_callshape
-from pypy.translator.c.gcc.trackgcroot import OFFSET_LABELS
+from pypy.translator.c.gcc.trackgcroot import PARSERS
 from StringIO import StringIO
 
 this_dir = py.path.local(__file__).dirpath()
@@ -63,7 +63,7 @@ def test_find_functions_elf():
 \tMORE STUFF
 """
     lines = source.splitlines(True)
-    parts = list(GcRootTracker().find_functions(iter(lines)))
+    parts = list(ElfAssemblerParser().find_functions(iter(lines)))
     assert len(parts) == 5
     assert parts[0] == (False, lines[:2])
     assert parts[1] == (True,  lines[2:5])
@@ -96,7 +96,7 @@ _pypy_g_RPyRaiseException:
 \t.section stuff
 """
     lines = source.splitlines(True)
-    parts = list(GcRootTracker(format='darwin').find_functions(iter(lines)))
+    parts = list(DarwinAssemblerParser().find_functions(iter(lines)))
     assert len(parts) == 7
     assert parts[0] == (False, lines[:3])
     assert parts[1] == (True,  lines[3:7])
@@ -108,7 +108,7 @@ _pypy_g_RPyRaiseException:
  
 def test_computegcmaptable():
     tests = []
-    for format in ('elf', 'darwin'):
+    for format in ('elf', 'darwin', 'msvc'):
         for path in this_dir.join(format).listdir("track*.s"):
             n = path.purebasename[5:]
             try:
@@ -120,15 +120,20 @@ def test_computegcmaptable():
     for format, _, path in tests:
         yield check_computegcmaptable, format, path
 
-r_globallabel = re.compile(r"([\w]+)=[.]+")
-r_expected = re.compile(r"\s*;;\s*expected\s+([{].+[}])")
+
+r_expected        = re.compile(r"\s*;;\s*expected\s+([{].+[}])")
+r_gcroot_constant = re.compile(r";\tmov\t.+, .+_constant_always_one_")
 
 def check_computegcmaptable(format, path):
+    if format == 'msvc':
+        r_globallabel = re.compile(r"([\w]+)::")
+    else:
+        r_globallabel = re.compile(r"([\w]+)=[.]+")
     print
-    print path.basename
+    print path.dirpath().basename + '/' + path.basename
     lines = path.readlines()
     expectedlines = lines[:]
-    tracker = FunctionGcRootTracker(lines, format=format)
+    tracker = PARSERS[format].FunctionGcRootTracker(lines)
     table = tracker.computegcmaptable(verbose=sys.maxint)
     tabledict = {}
     seen = {}
@@ -148,10 +153,22 @@ def check_computegcmaptable(format, path):
             got = tabledict[label]
             assert format_callshape(got) == expected
             seen[label] = True
-            expectedlines.insert(i-2, '\t.globl\t%s\n' % (label,))
-            expectedlines.insert(i-1, '%s=.+%d\n' % (label, OFFSET_LABELS))
+            if format == 'msvc':
+                expectedlines.insert(i-2, 'PUBLIC\t%s\n' % (label,))
+                expectedlines.insert(i-1, '%s::\n' % (label,))
+            else:
+                expectedlines.insert(i-2, '\t.globl\t%s\n' % (label,))
+                expectedlines.insert(i-1, '%s=.+%d\n' % (label,
+                                                         tracker.OFFSET_LABELS))
+        if format == 'msvc' and r_gcroot_constant.match(line):
+            expectedlines[i] = ';' + expectedlines[i]
+            expectedlines[i+1] = (expectedlines[i+1]
+                                  .replace('\timul\t', '\tmov\t')
+                                  + '\t; GCROOT\n')
         prevline = line
     assert len(seen) == len(tabledict), (
         "computed table contains unexpected entries:\n%r" %
         [key for key in tabledict if key not in seen])
+    print lines
+    print expectedlines
     assert lines == expectedlines
