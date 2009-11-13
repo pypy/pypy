@@ -285,7 +285,7 @@ by the single regular expressions.
     anything except a.
 
 To parse a regular expression and to get a matcher for it, you can use the
-function ``make_runner(s)`` in the ``pypy.rlib.parsing.parseregex`` module.  It
+function ``make_runner(s)`` in the ``pypy.rlib.parsing.regexparse`` module.  It
 returns a object with a ``recognize(input)`` method that returns True or False
 depending on whether ``input`` matches the string or not.
 
