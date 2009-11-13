@@ -108,7 +108,7 @@ class Platform(object):
     def _handle_error(self, returncode, stderr, stdout, outname):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
-            errorfile.write(stderr)
+            errorfile.write(stderr, 'wb')
             stderrlines = stderr.splitlines()
             for line in stderrlines[:50]:
                 log.ERROR(line)
