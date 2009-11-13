@@ -1,5 +1,4 @@
 import py
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.parsing import deterministic, regex
 
 class Token(object):
