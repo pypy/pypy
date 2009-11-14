@@ -925,7 +925,7 @@ class PyObjectNode(ContainerNode):
         if isinstance(value, (type, types.ClassType)):
             if (issubclass(value, BaseException) and
                 (value.__module__ == 'exceptions'
-                 or value is py.magic.AssertionError)):
+                 or value is py.code._AssertionError)):
                 return 'PyExc_' + value.__name__
         raise Exception("don't know how to simply render py object: %r" %
                         (value, ))

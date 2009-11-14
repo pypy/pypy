@@ -552,7 +552,7 @@ class ClassDesc(Desc):
         if self.is_exception_class():
             if self.pyobj.__module__ == 'exceptions':
                 return True
-            if self.pyobj is py.magic.AssertionError:
+            if self.pyobj is py.code._AssertionError:
                 return True
         return False
 
