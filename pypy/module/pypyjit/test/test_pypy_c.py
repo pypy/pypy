@@ -279,9 +279,6 @@ class PyPyCJITTests(object):
         # 1 guard_nonnull_class for the result since it is used later
         assert len(load.get_opnames("guard")) <= 4
 
-        bytecode, = self.get_by_bytecode("STORE_ATTR")
-        assert bytecode.get_opnames() == []
-
     def test_mixed_type_loop(self):
         self.run_source('''
             class A(object):
