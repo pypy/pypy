@@ -187,7 +187,7 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 8
+        assert len(ops[0].get_opnames("guard")) <= 7
         assert not ops[1] # second LOOKUP_METHOD folded away
 
         ops = self.get_by_bytecode("CALL_METHOD")
@@ -233,6 +233,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     a = A()
                     assert isinstance(a, A)
+                    assert not isinstance(a, int)
                     a.x = 2
                     i = i + a.x
                 return i
@@ -240,13 +241,42 @@ class PyPyCJITTests(object):
                    ([20], 20),
                    ([31], 32))
 
-        callA, callisinstance = self.get_by_bytecode("CALL_FUNCTION")
+        callA, callisinstance1, callisinstance2 = (
+                self.get_by_bytecode("CALL_FUNCTION"))
         assert not callA.get_opnames("call")
         assert not callA.get_opnames("new")
-        assert len(callA.get_opnames("guard")) <= 9
-        assert not callisinstance.get_opnames("call")
-        assert not callisinstance.get_opnames("new")
-        assert len(callisinstance.get_opnames("guard")) <= 2
+        assert len(callA.get_opnames("guard")) <= 8
+        assert not callisinstance1.get_opnames("call")
+        assert not callisinstance1.get_opnames("new")
+        assert len(callisinstance1.get_opnames("guard")) <= 2
+        # calling isinstance on a builtin type gives zero guards
+        # because the version_tag of a builtin type is immutable
+        assert not len(callisinstance1.get_opnames("guard"))
+
+
+        bytecode, = self.get_by_bytecode("STORE_ATTR")
+        assert bytecode.get_opnames() == []
+
+    def test_load_attr(self):
+        self.run_source('''
+            class A(object):
+                pass
+            a = A()
+            a.x = 2
+            def main(n):
+                i = 0
+                while i < n:
+                    i = i + a.x
+                return i
+        ''',
+                   ([20], 20),
+                   ([31], 32))
+
+        load = self.get_by_bytecode("LOAD_ATTR")
+        # 1 guard_value for the class
+        # 1 guard_value for the version_tag
+        # 1 guard_value for the structure
+        assert len(load.get_opnames("guard")) <= 3
 
         bytecode, = self.get_by_bytecode("STORE_ATTR")
         assert bytecode.get_opnames() == []

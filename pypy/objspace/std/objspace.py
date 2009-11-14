@@ -692,13 +692,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.descroperation import raiseattrerror
         from pypy.objspace.descroperation import object_getattribute
         w_type = self.type(w_obj)
-        if not w_type.uses_object_getattribute:
-            # slow path: look for a custom __getattribute__ on the class
-            w_descr = w_type.lookup('__getattribute__')
-            # if it was not actually overriden in the class, we remember this
-            # fact for the next time.
-            if w_descr is object_getattribute(self):
-                w_type.uses_object_getattribute = True
+        w_descr = w_type.getattribute_if_not_from_object()
+        if w_descr is not None:
             return self._handle_getattribute(w_descr, w_obj, w_name)
 
         # fast path: XXX this is duplicating most of the logic

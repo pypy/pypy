@@ -194,6 +194,7 @@ def descr_set__module(space, w_type, w_value):
         raise OperationError(space.w_TypeError, 
                              space.wrap("can't set %s.__module__" %
                                         w_type.name))
+    w_type.mutated()
     w_type.dict_w['__module__'] = w_value
 
 def descr___subclasses__(space, w_type):

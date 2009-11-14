@@ -33,22 +33,8 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_name = f.getname_w(nameindex)
     w_value = None
 
-    if space.config.objspace.std.getattributeshortcut:
-        w_type = space.type(w_obj)
-        fastpath = w_type.uses_object_getattribute
-        # conservatively, 'uses_object_getattribute' can be False
-        # even if __getattribute__ was not overridden.  In this
-        # case, the code below calls space.getattr(), which will
-        # set 'uses_object_getattribute' to True for the next time.
-    else:
-        w_getattribute = space.lookup(w_obj, '__getattribute__')
-        if w_getattribute is object_getattribute(space):
-            w_type = space.type(w_obj)
-            fastpath = True
-        else:
-            fastpath = False
-
-    if fastpath:
+    w_type = space.type(w_obj)
+    if w_type.has_object_getattribute():
         name = space.str_w(w_name)
         w_descr = w_type.lookup(name)
         if w_descr is None:
@@ -87,8 +73,8 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     """An optimized version of space.call_method()
     based on the same principle as above.
     """
-    w_getattribute = space.lookup(w_obj, '__getattribute__')
-    if w_getattribute is object_getattribute(space):
+    w_type = space.type(w_obj)
+    if w_type.has_object_getattribute():
         w_descr = space.lookup(w_obj, methname)
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:

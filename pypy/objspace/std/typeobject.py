@@ -48,7 +48,10 @@ class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
     lazyloaders = {} # can be overridden by specific instances
-    version_tag = None
+
+    # the version_tag changes if the dict or the inheritance hierarchy changes
+    # other changes to the type (e.g. the name) leave it unchanged
+    _version_tag = None
 
     _immutable_fields_ = ["__flags__",
                           'needsdel',
@@ -92,10 +95,11 @@ class W_TypeObject(W_Object):
             if w_self.instancetypedef.hasdict or custom_metaclass:
                 pass
             else:
-                w_self.version_tag = VersionTag()
+                w_self._version_tag = VersionTag()
 
     def mutated(w_self):
         space = w_self.space
+        assert w_self.is_heaptype() or not space.config.objspace.std.immutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.newshortcut):
@@ -109,13 +113,51 @@ class W_TypeObject(W_Object):
             w_self.w_bltin_new = None
 
         if (space.config.objspace.std.withtypeversion
-            and w_self.version_tag is not None):
-            w_self.version_tag = VersionTag()
+            and w_self._version_tag is not None):
+            w_self._version_tag = VersionTag()
 
         subclasses_w = w_self.get_subclasses()
         for w_subclass in subclasses_w:
             assert isinstance(w_subclass, W_TypeObject)
             w_subclass.mutated()
+
+    def version_tag(w_self):
+        if (not we_are_jitted() or w_self.is_heaptype() or not
+            w_self.space.config.objspace.std.immutable_builtintypes):
+            return w_self._version_tag
+        # pure objects cannot get their version_tag changed
+        w_self = hint(w_self, promote=True)
+        return w_self._pure_version_tag()
+
+    def getattribute_if_not_from_object(w_self):
+        """ this method returns the applevel __getattribute__ if that is not
+        the one from object, in which case it returns None """
+        from pypy.objspace.descroperation import object_getattribute
+        if not we_are_jitted():
+            shortcut = w_self.space.config.objspace.std.getattributeshortcut
+            if not shortcut or not w_self.uses_object_getattribute:
+                # slow path: look for a custom __getattribute__ on the class
+                w_descr = w_self.lookup('__getattribute__')
+                # if it was not actually overriden in the class, we remember this
+                # fact for the next time.
+                if w_descr is object_getattribute(w_self.space):
+                    if shortcut:
+                        w_self.uses_object_getattribute = True
+                else:
+                    return w_descr
+            return None
+        # in the JIT case, just use a lookup, because it is folded away
+        # correctly using the version_tag
+        w_descr = w_self.lookup('__getattribute__')
+        if w_descr is not object_getattribute(w_self.space):
+            return w_descr
+
+    def has_object_getattribute(w_self):
+        return w_self.getattribute_if_not_from_object() is None
+
+    @purefunction
+    def _pure_version_tag(w_self):
+        return w_self._version_tag
 
     def ready(w_self):
         for w_base in w_self.bases_w:
@@ -195,21 +237,11 @@ class W_TypeObject(W_Object):
                 return w_class, w_value
         return None, None
 
-    @purefunction
-    def _pure_lookup_where_builtin_type(w_self, name):
-        assert not w_self.is_heaptype()
-        return w_self._lookup_where(name)
-
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
         w_self = hint(w_self, promote=True)
         assert space.config.objspace.std.withmethodcache
-        if (space.config.objspace.std.immutable_builtintypes and
-                we_are_jitted() and not w_self.is_heaptype()):
-            w_self = hint(w_self, promote=True)
-            name = hint(name, promote=True)
-            return w_self._pure_lookup_where_builtin_type(name)
-        version_tag = w_self.version_tag
+        version_tag = w_self.version_tag()
         version_tag = hint(version_tag, promote=True)
         if version_tag is None:
             tup = w_self._lookup_where(name)
@@ -594,7 +626,15 @@ def call__Type(space, w_type, __args__):
         else:
             return space.type(w_obj)
     # invoke the __new__ of the type
-    w_bltin_new = w_type.w_bltin_new
+    if not we_are_jitted():
+        # note that the annotator will figure out that w_type.w_bltin_new can
+        # only be None if the newshortcut config option is not set
+        w_bltin_new = w_type.w_bltin_new
+    else:
+        # for the JIT it is better to take the slow path because normal lookup
+        # is nicely optimized, but the w_type.w_bltin_new attribute is not
+        # known to the JIT
+        w_bltin_new = None
     call_init = True
     if w_bltin_new is not None:
         w_newobject = space.call_obj_args(w_bltin_new, w_type, __args__)
@@ -602,6 +642,7 @@ def call__Type(space, w_type, __args__):
         w_newtype, w_newdescr = w_type.lookup_where('__new__')
         w_newfunc = space.get(w_newdescr, w_type)
         if (space.config.objspace.std.newshortcut and
+            not we_are_jitted() and
             isinstance(w_newtype, W_TypeObject) and
             not w_newtype.is_heaptype() and
             not space.is_w(w_newtype, space.w_type)):
@@ -622,10 +663,6 @@ def _issubtype(w_type1, w_type2):
     return w_type2 in w_type1.mro_w
 
 @purefunction
-def _pure_issubtype_builtin(w_type1, w_type2):
-    return _issubtype(w_type1, w_type2)
-
-@purefunction
 def _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2):
     return _issubtype(w_type1, w_type2)
 
@@ -633,19 +670,13 @@ def issubtype__Type_Type(space, w_type1, w_type2):
     w_type1 = hint(w_type1, promote=True)
     w_type2 = hint(w_type2, promote=True)
     if space.config.objspace.std.withtypeversion and we_are_jitted():
-        if (space.config.objspace.std.immutable_builtintypes and
-            not w_type1.is_heaptype() and
-            not w_type2.is_heaptype()):
-            res = _pure_issubtype_builtin(w_type1, w_type2)
+        version_tag1 = w_type1.version_tag()
+        version_tag2 = w_type2.version_tag()
+        version_tag1 = hint(version_tag1, promote=True)
+        version_tag2 = hint(version_tag2, promote=True)
+        if version_tag1 is not None and version_tag2 is not None:
+            res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
             return space.newbool(res)
-        else:
-            version_tag1 = w_type1.version_tag
-            version_tag2 = w_type2.version_tag
-            version_tag1 = hint(version_tag1, promote=True)
-            version_tag2 = hint(version_tag2, promote=True)
-            if version_tag1 is not None and version_tag2 is not None:
-                res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
-                return space.newbool(res)
     res = _issubtype(w_type1, w_type2)
     return space.newbool(res)
 
@@ -684,7 +715,6 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     # Note. This is exactly the same thing as descroperation.descr__setattr__,
     # but it is needed at bootstrap to avoid a call to w_type.getdict() which
     # would un-lazify the whole type.
-    w_type.mutated()
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
@@ -699,10 +729,10 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     if name == "__del__" and name not in w_type.dict_w:
         msg = "a __del__ method added to an existing type will not be called"
         space.warn(msg, space.w_RuntimeWarning)
+    w_type.mutated()
     w_type.dict_w[name] = w_value
 
 def delattr__Type_ANY(space, w_type, w_name):
-    w_type.mutated()
     if w_type.lazyloaders:
         w_type._freeze_()    # force un-lazification
     name = space.str_w(w_name)
@@ -717,9 +747,11 @@ def delattr__Type_ANY(space, w_type, w_name):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     try:
         del w_type.dict_w[name]
-        return
     except KeyError:
         raise OperationError(space.w_AttributeError, w_name)
+    else:
+        w_type.mutated()
+        return
 
 
 # ____________________________________________________________

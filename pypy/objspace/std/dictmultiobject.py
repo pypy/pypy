@@ -393,7 +393,7 @@ class ShadowDetectingDictImplementation(StrDictImplementation):
     def __init__(self, space, w_type):
         StrDictImplementation.__init__(self, space)
         self.w_type = w_type
-        self.original_version_tag = w_type.version_tag
+        self.original_version_tag = w_type.version_tag()
         if self.original_version_tag is None:
             self._shadows_anything = True
         else:
@@ -419,7 +419,7 @@ class ShadowDetectingDictImplementation(StrDictImplementation):
 
     def impl_shadows_anything(self):
         return (self._shadows_anything or 
-                self.w_type.version_tag is not self.original_version_tag)
+                self.w_type.version_tag() is not self.original_version_tag)
 
     def impl_set_shadows_anything(self):
         self._shadows_anything = True
