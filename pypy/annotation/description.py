@@ -14,6 +14,7 @@ class CallFamily:
     """
     overridden = False
     normalized = False
+    modified   = True
     
     def __init__(self, desc):
         self.descs = { desc: True }
@@ -21,6 +22,7 @@ class CallFamily:
         self.total_calltable_size = 0
 
     def update(self, other):
+        self.modified = True
         self.normalized = self.normalized or other.normalized
         self.descs.update(other.descs)
         for shape, table in other.calltables.items():
@@ -33,7 +35,7 @@ class CallFamily:
         # call at which call site.  Each call site gets a row of graphs,
         # sharable with other call sites.  Each column is a FunctionDesc.
         # There is one such table per "call shape".
-        table = self.calltables.setdefault(callshape, [])
+        table = self.calltables.get(callshape, [])
         for i, existing_row in enumerate(table):
             if existing_row == row:   # XXX maybe use a dict again here?
                 return i
@@ -43,6 +45,7 @@ class CallFamily:
         try:
             self.calltable_lookup_row(callshape, row)
         except LookupError:
+            self.modified = True
             table = self.calltables.setdefault(callshape, [])
             table.append(row)
             self.total_calltable_size += 1
@@ -801,6 +804,15 @@ class FrozenDesc(Desc):
         self.attrcache = {}
         self.knowntype = new_or_old_class(pyobj)
         assert bool(pyobj), "__nonzero__ unsupported on frozen PBC %r" %(pyobj,)
+
+    def has_attribute(self, attr):
+        if attr in self.attrcache:
+            return True
+        try:
+            self._read_attribute(attr)
+            return True
+        except AttributeError:
+            return False
 
     def read_attribute(self, attr):
         try:
