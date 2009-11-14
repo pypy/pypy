@@ -272,11 +272,12 @@ class PyPyCJITTests(object):
                    ([20], 20),
                    ([31], 32))
 
-        load = self.get_by_bytecode("LOAD_ATTR")
+        load, = self.get_by_bytecode("LOAD_ATTR")
         # 1 guard_value for the class
         # 1 guard_value for the version_tag
         # 1 guard_value for the structure
-        assert len(load.get_opnames("guard")) <= 3
+        # 1 guard_nonnull_class for the result since it is used later
+        assert len(load.get_opnames("guard")) <= 4
 
         bytecode, = self.get_by_bytecode("STORE_ATTR")
         assert bytecode.get_opnames() == []
