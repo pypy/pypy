@@ -14,8 +14,12 @@ from pypy.interpreter.argument import Signature
 
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
+        if not callfamily.modified:
+            assert callfamily.normalized
+            continue
         normalize_calltable(annotator, callfamily)
         callfamily.normalized = True
+        callfamily.modified = False
 
 def normalize_calltable(annotator, callfamily):
     """Try to normalize all rows of a table."""

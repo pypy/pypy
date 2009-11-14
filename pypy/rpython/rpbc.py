@@ -484,7 +484,8 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 try:
                     thisattrvalue = frozendesc.attrcache[attr]
                 except KeyError:
-                    warning("Desc %r has no attribute %r" % (frozendesc, attr))
+                    if not frozendesc.has_attribute(attr):
+                        warning("Desc %r has no attribute %r" % (frozendesc, attr))
                     continue
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
