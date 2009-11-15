@@ -185,8 +185,6 @@ def _ll_list_resize_really(l, newsize):
     l.length to newsize.  Note that l.items may change, and even if
     newsize is less than l.length on entry.
     """
-    allocated = len(l.items)
-
     # This over-allocates proportional to the list size, making room
     # for additional growth.  The over-allocation is mild, but is
     # enough to give linear-time amortized behavior over a long
