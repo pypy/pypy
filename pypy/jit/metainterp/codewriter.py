@@ -924,8 +924,7 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_oonewcustomdict(self, op):
-        self.emit('not_implemented')
-        self.register_var(op.result)
+        assert False, 'should not be seen by the jit'
 
     def serialize_op_instanceof(self, op):
         v, c_TYPE = op.args

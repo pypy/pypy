@@ -1,4 +1,5 @@
 from pypy.objspace.flow import model as flowmodel
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.treebuilder import SubOperation
@@ -148,7 +149,7 @@ class Function(OOFunction, Node, CLIBaseGenerator):
         from pypy.translator.cli.dotnet import NativeInstance
         if isinstance(to_load, flowmodel.Constant):
             value = to_load.value
-            is_null = not value
+            is_null = (not isinstance(value, CDefinedIntSymbolic)) and (not value)
             T = ootype.typeOf(to_load.value)
             if isinstance(T, NativeInstance) and T._is_value_type and is_null:
                 return True

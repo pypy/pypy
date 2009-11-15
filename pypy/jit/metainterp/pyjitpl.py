@@ -885,10 +885,6 @@ class MIFrame(object):
         return self.metainterp.finishframe_exception(self.exception_box,
                                                      self.exc_value_box)
 
-    @arguments()
-    def opimpl_not_implemented(self):
-        raise NotImplementedError
-
     # ------------------------------
 
     def setup_call(self, argboxes):

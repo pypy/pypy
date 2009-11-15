@@ -1242,10 +1242,6 @@ class TestOOtype(BasicTests, OOJitMixin):
         res = self.interp_operations(f, [0])
         assert res == ord('A') + ord('B')
 
-    def test_r_dict(self):
-        py.test.skip('in-progress')
-
-
     def test_subclassof(self):
         A = ootype.Instance("A", ootype.ROOT)
         B = ootype.Instance("B", A)

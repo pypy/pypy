@@ -1336,7 +1336,7 @@ def wrap_callable(llinterpreter, fn, obj, method_name):
         # obj is an instance, we want to call 'method_name' on it
         assert fn is None        
         self_arg = [obj]
-        func_graph = obj._TYPE._methods[method_name].graph
+        func_graph = obj._TYPE._methods[method_name._str].graph
 
     return wrap_graph(llinterpreter, func_graph, self_arg)
 
