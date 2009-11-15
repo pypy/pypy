@@ -189,12 +189,13 @@ OCIParamGet = external(
 
 # Bind, Define, and Describe Functions
 
-OCIBindByPos = external(
-    'OCIBindByPos',
+OCIBindByName = external(
+    'OCIBindByName',
     [OCIStmt,      # stmtp
      Ptr(OCIBind), # bindpp
      OCIError,     # errhp
-     ub4,          # position
+     oratext,      # placeholder
+     sb4,          # placeh_len
      dvoidp,       # valuep
      sb4,          # value_sz
      ub2,          # dty
@@ -206,13 +207,12 @@ OCIBindByPos = external(
      ub4],         # mode
     sword)
 
-OCIBindByName = external(
-    'OCIBindByName',
+OCIBindByPos = external(
+    'OCIBindByPos',
     [OCIStmt,      # stmtp
      Ptr(OCIBind), # bindpp
      OCIError,     # errhp
-     oratext,      # placeholder
-     sb4,          # placeh_len
+     ub4,          # position
      dvoidp,       # valuep
      sb4,          # value_sz
      ub2,          # dty
@@ -339,10 +339,19 @@ OCINumberFromInt = external(
      Ptr(OCINumber)],  # number
     sword)
 
+OCINumberToInt = external(
+    'OCINumberToInt',
+    [OCIError,         # err
+     Ptr(OCINumber),   # number
+     uword,            # rsl_length
+     uword,            # rsl_flag
+     dvoidp],          # rsl
+    sword)
+
 OCINumberToReal = external(
     'OCINumberToReal',
     [OCIError,         # err
-     Ptr(OCINumber),   # number      
+     Ptr(OCINumber),   # number
      uword,            # rsl_length
      dvoidp],          # rsl
     sword)

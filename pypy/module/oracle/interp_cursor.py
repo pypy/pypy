@@ -126,8 +126,26 @@ class W_Cursor(Wrappable):
         else:
             args_w = space.unpackiterable(w_parameters)
 
-        return self._call(space, name, retvar, args_w)
+        self._call(space, name, retvar, args_w)
+
+        # determine the results
+        return retvar.getValue(space, 0)
     callfunc.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
+
+    def callproc(self, space, name, w_parameters=None):
+        if space.is_w(w_parameters, space.w_None):
+            args_w = None
+        else:
+            args_w = space.unpackiterable(w_parameters)
+
+        self._call(space, name, None, args_w)
+
+        # create the return value
+        print "AFA", self.bindList
+        ret_w = [v.getValue(space, 0) for v in self.bindList]
+        return space.newlist(ret_w)
+
+    callproc.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
     def _call(self, space, name, retvar, args_w):
         # determine the number of arguments passed
@@ -159,9 +177,6 @@ class W_Cursor(Wrappable):
             stmt = "begin %s(%s); end;" % (name, args)
 
         self._execute(space, space.wrap(stmt), vars_w)
-
-        if retvar:
-            return retvar.getValue(space, 0)
 
     def _checkOpen(self, space):
         if not self.isOpen:
@@ -709,6 +724,8 @@ W_Cursor.typedef = TypeDef(
                            unwrap_spec=W_Cursor.bindnames.unwrap_spec),
     callfunc = interp2app(W_Cursor.callfunc,
                           unwrap_spec=W_Cursor.callfunc.unwrap_spec),
+    callproc = interp2app(W_Cursor.callproc,
+                          unwrap_spec=W_Cursor.callproc.unwrap_spec),
     var = interp2app(W_Cursor.var,
                      unwrap_spec=W_Cursor.var.unwrap_spec),
 

@@ -66,7 +66,7 @@ class AppTestCursor:
                     "begin return 42; end;")
         assert cur.callfunc("pypy_temp_function",
                             oracle.NUMBER) == 42
-        
+
     def test_callFunc1(self):
         cur = self.cnx.cursor()
         try:
@@ -80,4 +80,18 @@ class AppTestCursor:
                             oracle.NUMBER, ("Hi", 5))
         assert res == 7
 
-
+    def test_callProc(self):
+        cur = self.cnx.cursor()
+        var = cur.var(oracle.NUMBER)
+        try:
+            cur.execute("drop procedure pypy_temp_procedure")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create procedure pypy_temp_procedure "
+                    "(x varchar2, y in out number, z out number) as "
+                    "begin "
+                    "  y := 10;"
+                    "  z := 2;"
+                    "end;")
+        results = cur.callproc("pypy_temp_procedure", ("hi", 5, var))
+        assert results == ["hi", 10, 2.0]

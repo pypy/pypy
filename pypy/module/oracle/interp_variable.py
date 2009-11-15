@@ -441,18 +441,23 @@ class VT_Float(W_Variable):
             rffi.cast(roci.Ptr(roci.OCINumber), self.data),
             pos)
         if isinstance(self, VT_Integer):
-            status = roci.OCINumberToInt(
-                self.environment.errorHandle,
-                dataptr,
-                rffi.sizeof(rffi.LONG),
-                roci.OCI_NUMBER_SIGNED,
-                intergerValuePtr)
-            self.environment.checkForError(
-                status, "NumberVar_GetValue(): as integer")
-            if isinstance(self, VT_Boolean):
-                return space.wrap(integerValuePtr[0])
-            else:
-                return space.w_bool(integerValuePtr[0])
+            integerValuePtr = lltype.malloc(roci.Ptr(lltype.Signed).TO, 1,
+                                            flavor='raw')
+            try:
+                status = roci.OCINumberToInt(
+                    self.environment.errorHandle,
+                    dataptr,
+                    rffi.sizeof(rffi.LONG),
+                    roci.OCI_NUMBER_SIGNED,
+                    rffi.cast(roci.dvoidp, integerValuePtr))
+                self.environment.checkForError(
+                    status, "NumberVar_GetValue(): as integer")
+                if isinstance(self, VT_Boolean):
+                    return space.newbool(integerValuePtr[0])
+                else:
+                    return space.wrap(integerValuePtr[0])
+            finally:
+                lltype.free(integerValuePtr, flavor='raw')
         elif isinstance(self, (VT_NumberAsString, VT_LongInteger)):
             XXX = NumberAsString, LongInteger
         else:
