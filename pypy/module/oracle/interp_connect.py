@@ -66,7 +66,7 @@ class W_Connection(Wrappable):
                                   space.wrap('@'), space.wrap(1)))
 
         self.connect(space, mode, twophase)
-	return space.wrap(self)
+    return space.wrap(self)
 
     descr_new.unwrap_spec = [ObjSpace, W_Root,
                              W_Root, W_Root, W_Root,
