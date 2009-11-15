@@ -1,10 +1,14 @@
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
+import os
 import py
 
-
-ORACLE_HOME = py.path.local('c:/oraclexe/app/oracle/product/10.2.0/server')
+try:
+    ORACLE_HOME = py.path.local(os.environ['ORACLE_HOME'])
+except KeyError:
+    raise ImportError(
+        "Please set ORACLE_HOME to the root of an Oracle client installation")
 
 eci = ExternalCompilationInfo(
     includes = ['oci.h'],
