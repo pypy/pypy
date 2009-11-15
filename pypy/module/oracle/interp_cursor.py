@@ -47,7 +47,7 @@ class W_Cursor(Wrappable):
         elif len(args_w) == 1:
             if len(kw_w) > 0:
                 raise OperationError(
-                    interp.error.get(space, 'InterfaceError'),
+                    interp_error.get(space).w_InterfaceError,
                     space.wrap(
                         "expecting argument or keyword arguments, not both"))
             w_args = args_w[0]
@@ -77,7 +77,11 @@ class W_Cursor(Wrappable):
         self._internalPrepare(space, w_stmt, None)
 
         # perform binds
-        if vars_w is not None:
+        if vars_w is None:
+            pass
+        elif isinstance(vars_w, dict):
+            self._setBindVariablesByName(space, vars_w, 1, 0, 0)
+        else:
             self._setBindVariablesByPos(space, vars_w, 1, 0, 0)
         self._performBind(space)
 
@@ -298,6 +302,7 @@ class W_Cursor(Wrappable):
 
     def _setBindVariablesByPos(self, space,
                                vars_w, numElements, arrayPos, defer):
+        "handle positional binds"
         # make sure positional and named binds are not being intermixed
         if self.bindDict is not None:
             raise OperationalError(
@@ -318,6 +323,24 @@ class W_Cursor(Wrappable):
                 else:
                     assert i == len(self.bindList)
                     self.bindList.append(newVar)
+
+    def _setBindVariablesByName(self, space,
+                                vars_w, numElements, arrayPos, defer):
+        "handle named binds"
+        # make sure positional and named binds are not being intermixed
+        if self.bindList is not None:
+            raise OperationalError(
+                get(space).w_ProgrammingErrorException,
+                space.wrap("positional and named binds cannot be intermixed"))
+
+        self.bindDict = {}
+
+        for key, w_value in vars_w.iteritems():
+            origVar = self.bindDict.get(key, None)
+            newVar = self._setBindVariableHelper(space, w_value, origVar,
+                                                 numElements, arrayPos, defer)
+            if newVar:
+                self.bindDict[key] = newVar
 
     def _setBindVariableHelper(self, space, w_value, origVar,
                                numElements, arrayPos, defer):
@@ -373,17 +396,13 @@ class W_Cursor(Wrappable):
 
         return newVar
 
-    def _setBindVariablesByName(self, space,
-                                vars_w, numElements, arrayPos, defer):
-        XXX
-
     def _performBind(self, space):
         # set values and perform binds for all bind variables
         if self.bindList:
             for i, var in enumerate(self.bindList):
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
-            for key, var in self.bindDict.itervalues():
+            for key, var in self.bindDict.iteritems():
                 var.bind(space, self, key, 0)
 
         # ensure that input sizes are reset

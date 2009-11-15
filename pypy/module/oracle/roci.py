@@ -202,6 +202,24 @@ OCIBindByPos = external(
      ub4],         # mode
     sword)
 
+OCIBindByName = external(
+    'OCIBindByName',
+    [OCIStmt,      # stmtp
+     Ptr(OCIBind), # bindpp
+     OCIError,     # errhp
+     oratext,      # placeholder
+     sb4,          # placeh_len
+     dvoidp,       # valuep
+     sb4,          # value_sz
+     ub2,          # dty
+     dvoidp,       # indp
+     Ptr(ub2),     # alenp
+     Ptr(ub2),     # rcodep
+     ub4,          # maxarr_len
+     Ptr(ub4),     # curelep
+     ub4],         # mode
+    sword)
+
 OCIDefineByPos = external(
     'OCIDefineByPos',
     [OCIStmt,        # stmtp

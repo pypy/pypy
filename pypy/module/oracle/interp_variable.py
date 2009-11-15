@@ -203,9 +203,9 @@ class W_Variable(Wrappable):
         self.boundName = name
 
         # perform the bind
-        self._internalBind()
+        self._internalBind(space)
 
-    def _internalBind(self):
+    def _internalBind(self, space):
         bindHandlePtr = lltype.malloc(roci.Ptr(roci.OCIBind).TO, 1,
                                       flavor='raw')
         if self.isArray:
@@ -218,7 +218,7 @@ class W_Variable(Wrappable):
         try:
             if self.boundName:
                 nameBuffer = config.StringBuffer()
-                nameBuffer.fill(self.boundName)
+                nameBuffer.fill(space, space.wrap(self.boundName))
                 status = roci.OCIBindByName(
                     self.boundCursorHandle, bindHandlePtr,
                     self.environment.errorHandle,
@@ -321,9 +321,9 @@ class W_Variable(Wrappable):
 
 W_Variable.typedef = TypeDef(
     'Variable',
-    getValue = interp2app(W_Variable.getValue,
+    getvalue = interp2app(W_Variable.getValue,
                           unwrap_spec=W_Variable.getValue.unwrap_spec),
-    setValue = interp2app(W_Variable.setValue,
+    setvalue = interp2app(W_Variable.setValue,
                           unwrap_spec=W_Variable.setValue.unwrap_spec),
     )
 

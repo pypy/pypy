@@ -41,13 +41,19 @@ class AppTestCursor:
     def test_bind_out(self):
         cur = self.cnx.cursor()
         var = cur.var(oracle.NUMBER)
-        var.setValue(0, 5)
-        assert var.getValue(0) == 5
-        assert var.getValue() == 5
+        var.setvalue(0, 5)
+        assert var.getvalue(0) == 5
+        assert var.getvalue() == 5
         cur.execute("begin :1 := 3; end;", (var,))
-        value = var.getValue(0)
+        value = var.getvalue(0)
         assert value == 3
         assert isinstance(value, float)
+
+    def test_execute_with_keywords(self):
+        cur = self.cnx.cursor()
+        simpleVar = cur.var(oracle.NUMBER)
+        cur.execute("begin :p := 5; end;", p=simpleVar)
+        assert simpleVar.getvalue() == 5
 
     def test_callFunc0(self):
         cur = self.cnx.cursor()
