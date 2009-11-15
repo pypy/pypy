@@ -95,3 +95,18 @@ class AppTestCursor:
                     "end;")
         results = cur.callproc("pypy_temp_procedure", ("hi", 5, var))
         assert results == ["hi", 10, 2.0]
+
+    def test_executemanyByPosition(self):
+        cur = self.cnx.cursor()
+        try:
+            cur.execute("drop table pypy_temp_table")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create table pypy_temp_table (intcol number)")
+        rows = [ [n] for n in range(23) ]
+        cur.arraysize = 10
+        statement = "insert into TestExecuteMany (IntCol) values (:1)"
+        cur.executemany(statement, rows)
+        cur.execute("select count(*) from TestExecuteMany")
+        count, = cur.fetchone()
+        assert count == len(rows)

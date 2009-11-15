@@ -15,6 +15,7 @@ class State:
         self.w_InterfaceError = get('InterfaceError')
         self.w_ProgrammingError = get('ProgrammingError')
         self.w_NotSupportedError = get('NotSupportedError')
+        self.w_IntegrityError = get('IntegrityError')
         self.w_Variable = get('Variable')
         self.w_NUMBER = get('NUMBER')
 

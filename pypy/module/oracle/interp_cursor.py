@@ -108,6 +108,45 @@ class W_Cursor(Wrappable):
         # for all other statements, simply return None
         return space.w_None
 
+    def executemany(self, space, w_stmt, w_list_of_args):
+        if space.is_w(w_stmt, space.w_None):
+            w_stmt = None
+        if not space.is_true(space.isinstance(w_list_of_args, space.w_list)):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("list expected"))
+
+        # make sure the cursor is open
+        self._checkOpen(space)
+
+        # prepare the statement
+        self._internalPrepare(space, w_stmt, None)
+
+        # queries are not supported as the result is undefined
+        if self.statementType == roci.OCI_STMT_SELECT:
+            raise OperationError(
+                w_NotSupportedErrorException,
+                space.wrap("queries not supported: results undefined"))
+
+        # perform binds
+        numrows = space.int_w(space.len(w_list_of_args))
+        for i, arguments in enumerate(space.viewiterable(w_list_of_args)):
+            deferred = i < numrows - 1
+            if space.is_true(space.isinstance(arguments, space.w_dict)):
+                self._setBindVariablesByName(
+                    space, arguments, numrows, i, deferred)
+            else:
+                args_w = space.viewiterable(arguments)
+                self._setBindVariablesByPos(
+                    space, args_w, numrows, i, deferred)
+        self._performBind(space)
+
+        # execute the statement, but only if the number of rows is greater than
+        # zero since Oracle raises an error otherwise
+        if numrows > 0:
+            self._internalExecute(space, numIters=numrows)
+    executemany.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
+
     def close(self, space):
         # make sure we are actually open
         self._checkOpen(space)
@@ -141,7 +180,6 @@ class W_Cursor(Wrappable):
         self._call(space, name, None, args_w)
 
         # create the return value
-        print "AFA", self.bindList
         ret_w = [v.getValue(space, 0) for v in self.bindList]
         return space.newlist(ret_w)
 
@@ -324,7 +362,9 @@ class W_Cursor(Wrappable):
                 get(space).w_ProgrammingErrorException,
                 space.wrap("positional and named binds cannot be intermixed"))
 
-        self.bindList = []
+        if self.bindList is None:
+            self.bindList = []
+
         for i, w_value in enumerate(vars_w):
             if i < len(self.bindList):
                 origVar = self.bindList[i]
@@ -348,7 +388,8 @@ class W_Cursor(Wrappable):
                 get(space).w_ProgrammingErrorException,
                 space.wrap("positional and named binds cannot be intermixed"))
 
-        self.bindDict = {}
+        if self.bindDict is None:
+            self.bindDict = {}
 
         for key, w_value in vars_w.iteritems():
             origVar = self.bindDict.get(key, None)
@@ -382,7 +423,7 @@ class W_Cursor(Wrappable):
             else:
                 newVar = None
                 try:
-                    origVar.setValue(space, arrayPos, value)
+                    origVar.setValue(space, arrayPos, w_value)
                 except OperationError, e:
                     # executemany() should simply fail after the first element
                     if arrayPos > 0:
@@ -712,6 +753,8 @@ W_Cursor.typedef = TypeDef(
     'Cursor',
     execute = interp2app(W_Cursor.execute,
                          unwrap_spec=W_Cursor.execute.unwrap_spec),
+    executemany = interp2app(W_Cursor.executemany,
+                             unwrap_spec=W_Cursor.executemany.unwrap_spec),
     prepare = interp2app(W_Cursor.prepare,
                          unwrap_spec=W_Cursor.prepare.unwrap_spec),
     fetchone = interp2app(W_Cursor.fetchone,

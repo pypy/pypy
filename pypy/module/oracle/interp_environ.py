@@ -33,7 +33,7 @@ class Environment:
             if not handleptr[0] or status not in (roci.OCI_SUCCESS,
                                                   roci.OCI_SUCCESS_WITH_INFO):
                 raise OperationError(
-                    w_InterfaceErrorException,
+                    get(self.space).w_InterfaceError,
                     self.space.wrap(
                         "Unable to acquire Oracle environment handle"))
 
@@ -69,7 +69,7 @@ class Environment:
             # environment is fully initialized
             error = W_Error(self.space, self, context, 1)
             if error.code in (1, 1400, 2290, 2291, 2292):
-                w_type = w_IntegrityErrorException
+                w_type = get(self.space).w_IntegrityError
             elif error.code in (1012, 1033, 1034, 1089, 3113, 3114,
                                 12203, 12500, 12571):
                 w_type = get(self.space).w_OperationalError
@@ -80,4 +80,5 @@ class Environment:
         error = W_Error(self.space, self, context, 0)
         error.code = 0
         error.message = self.space.wrap("Invalid handle!")
-        raise OperationError(w_DatabaseErrorException, self.space.wrap(error))
+        raise OperationError(get(self.space).w_DatabaseError,
+                             self.space.wrap(error))
