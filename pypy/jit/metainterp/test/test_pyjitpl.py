@@ -149,7 +149,8 @@ def test_get_name_from_address():
             pass
     metainterp_sd = FakeMetaInterpSd()
     metainterp_sd.info_from_codewriter(None, None, None,
-                                       [(123, "a"), (456, "b")])
+                                       [(123, "a"), (456, "b")],
+                                       None)
     assert metainterp_sd.get_name_from_address(123) == 'a'
     assert metainterp_sd.get_name_from_address(456) == 'b'
     assert metainterp_sd.get_name_from_address(789) == ''
