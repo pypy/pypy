@@ -180,8 +180,11 @@ class W_Cursor(Wrappable):
         self._call(space, name, None, args_w)
 
         # create the return value
-        ret_w = [v.getValue(space, 0) for v in self.bindList]
-        return space.newlist(ret_w)
+        if self.bindList:
+            ret_w = [v.getValue(space, 0) for v in self.bindList]
+            return space.newlist(ret_w)
+        else:
+            return space.newlist([])
 
     callproc.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
