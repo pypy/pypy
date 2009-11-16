@@ -78,7 +78,7 @@ class _NewCustomDict(MicroInstruction):
             # object, using the "bind()" static method that bound
             # method wrapper classes have.
             INSTANCE = obj.concretetype
-            method_name = method_name.value
+            method_name = method_name.value._str
             ty = db.record_delegate_bound_method_impl(INSTANCE, method_name)
             gen.load(obj)
             gen.emit(ty.bind_method)
