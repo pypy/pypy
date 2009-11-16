@@ -50,17 +50,18 @@ class W_Cursor(Wrappable):
                     interp_error.get(space).w_InterfaceError,
                     space.wrap(
                         "expecting argument or keyword arguments, not both"))
-            w_args = args_w[0]
-            vars_w = space.unpackiterable(w_args)
+            w_vars = args_w[0]
         elif len(kw_w) > 0:
-            vars_w = kw_w
+            w_vars = space.newdict()
+            for key, w_value in kw_w.iteritems():
+                space.setitem(w_vars, space.wrap(key), w_value)
         else:
-            vars_w = None
+            w_vars = None
 
         # make sure the cursor is open
         self._checkOpen(space)
 
-        return self._execute(space, w_stmt, vars_w)
+        return self._execute(space, w_stmt, w_vars)
     execute.unwrap_spec = ['self', ObjSpace, W_Root, Arguments]
 
     def prepare(self, space, w_stmt, w_tag=None):
@@ -71,18 +72,18 @@ class W_Cursor(Wrappable):
         self._internalPrepare(space, w_stmt, w_tag)
     prepare.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
-    def _execute(self, space, w_stmt, vars_w):
+    def _execute(self, space, w_stmt, w_vars):
 
         # prepare the statement, if applicable
         self._internalPrepare(space, w_stmt, None)
 
         # perform binds
-        if vars_w is None:
+        if w_vars is None:
             pass
-        elif isinstance(vars_w, dict):
-            self._setBindVariablesByName(space, vars_w, 1, 0, 0)
+        elif space.is_true(space.isinstance(w_vars, space.w_dict)):
+            self._setBindVariablesByName(space, w_vars, 1, 0, 0)
         else:
-            self._setBindVariablesByPos(space, vars_w, 1, 0, 0)
+            self._setBindVariablesByPos(space, w_vars, 1, 0, 0)
         self._performBind(space)
 
         # execute the statement
@@ -136,9 +137,8 @@ class W_Cursor(Wrappable):
                 self._setBindVariablesByName(
                     space, arguments, numrows, i, deferred)
             else:
-                args_w = space.viewiterable(arguments)
                 self._setBindVariablesByPos(
-                    space, args_w, numrows, i, deferred)
+                    space, arguments, numrows, i, deferred)
         self._performBind(space)
 
         # execute the statement, but only if the number of rows is greater than
@@ -217,7 +217,7 @@ class W_Cursor(Wrappable):
         else:
             stmt = "begin %s(%s); end;" % (name, args)
 
-        self._execute(space, space.wrap(stmt), vars_w)
+        self._execute(space, space.wrap(stmt), space.newlist(vars_w))
 
     def _checkOpen(self, space):
         if not self.isOpen:
@@ -357,7 +357,7 @@ class W_Cursor(Wrappable):
         self.fetchVariables = None
 
     def _setBindVariablesByPos(self, space,
-                               vars_w, numElements, arrayPos, defer):
+                               w_vars, numElements, arrayPos, defer):
         "handle positional binds"
         # make sure positional and named binds are not being intermixed
         if self.bindDict is not None:
@@ -368,7 +368,7 @@ class W_Cursor(Wrappable):
         if self.bindList is None:
             self.bindList = []
 
-        for i, w_value in enumerate(vars_w):
+        for i, w_value in enumerate(space.viewiterable(w_vars)):
             if i < len(self.bindList):
                 origVar = self.bindList[i]
             else:
@@ -383,7 +383,7 @@ class W_Cursor(Wrappable):
                     self.bindList.append(newVar)
 
     def _setBindVariablesByName(self, space,
-                                vars_w, numElements, arrayPos, defer):
+                                w_vars, numElements, arrayPos, defer):
         "handle named binds"
         # make sure positional and named binds are not being intermixed
         if self.bindList is not None:
@@ -392,14 +392,16 @@ class W_Cursor(Wrappable):
                 space.wrap("positional and named binds cannot be intermixed"))
 
         if self.bindDict is None:
-            self.bindDict = {}
+            self.bindDict = space.newdict()
 
-        for key, w_value in vars_w.iteritems():
-            origVar = self.bindDict.get(key, None)
+        items = space.viewiterable(space.call_method(w_vars, "iteritems"))
+        for item in items:
+            w_key, w_value = space.unpackiterable(item)
+            origVar = space.finditem(self.bindDict, w_key)
             newVar = self._setBindVariableHelper(space, w_value, origVar,
                                                  numElements, arrayPos, defer)
             if newVar:
-                self.bindDict[key] = newVar
+                space.setitem(self.bindDict, w_key, newVar)
 
     def _setBindVariableHelper(self, space, w_value, origVar,
                                numElements, arrayPos, defer):
@@ -461,8 +463,11 @@ class W_Cursor(Wrappable):
             for i, var in enumerate(self.bindList):
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
-            for key, var in self.bindDict.iteritems():
-                var.bind(space, self, key, 0)
+            items = space.viewiterable(
+                space.call_method(self.bindDict, "iteritems"))
+            for item in items:
+                w_key, var = space.unpackiterable(item)
+                var.bind(space, self, w_key, 0)
 
         # ensure that input sizes are reset
         self.setInputSizes = False

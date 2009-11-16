@@ -191,16 +191,16 @@ class W_Variable(Wrappable):
     def postDefine(self):
         pass
 
-    def bind(self, space, cursor, name, pos):
+    def bind(self, space, cursor, w_name, pos):
         # nothing to do if already bound
         if (cursor.handle == self.boundCursorHandle and
-            name == self.boundName and pos == self.boundPos):
+            w_name == self.w_boundName and pos == self.boundPos):
             return
 
         # set the instance variables specific for binding
         self.boundCursorHandle = cursor.handle
         self.boundPos = pos
-        self.boundName = name
+        self.w_boundName = w_name
 
         # perform the bind
         self._internalBind(space)
@@ -216,9 +216,9 @@ class W_Variable(Wrappable):
             actualElementsPtr = lltype.nullptr(roci.Ptr(roci.ub4).TO)
 
         try:
-            if self.boundName:
+            if self.w_boundName:
                 nameBuffer = config.StringBuffer()
-                nameBuffer.fill(space, space.wrap(self.boundName))
+                nameBuffer.fill(space, self.w_boundName)
                 status = roci.OCIBindByName(
                     self.boundCursorHandle, bindHandlePtr,
                     self.environment.errorHandle,
