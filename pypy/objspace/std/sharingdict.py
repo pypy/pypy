@@ -42,8 +42,8 @@ class SharedStructure(object):
         if new_structure is None:
             new_structure = self.new_structure(key)
         self._size_estimate -= self.size_estimate()
-        self._size_estimate += newstruct.size_estimate()
-        return newstruct
+        self._size_estimate += new_structure.size_estimate()
+        return new_structure
 
     @purefunction_promote
     def size_estimate(self):
