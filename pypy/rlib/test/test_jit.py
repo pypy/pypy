@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import hint, we_are_jitted, JitDriver
+from pypy.rlib.jit import hint, we_are_jitted, JitDriver, purefunction_promote
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
@@ -23,6 +23,14 @@ class BaseTestJIT(BaseRtypingTest):
         res = self.interpret(f, [4])
         assert res == 5
 
+    def test_purefunction_promote(self):
+        @purefunction_promote
+        def g(x):
+            return x + 1
+        def f(x):
+            return g(x * 2)
+        res = self.interpret(f, [2])
+        assert res == 5
 
     def test_annotate_hooks(self):
         

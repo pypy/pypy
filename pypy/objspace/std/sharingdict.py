@@ -1,6 +1,6 @@
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
-from pypy.rlib.jit import purefunction, hint, we_are_jitted, unroll_safe
+from pypy.rlib.jit import purefunction_promote, hint, we_are_jitted, unroll_safe
 from pypy.rlib.rweakref import RWeakValueDictionary
 
 NUM_DIGITS = 4
@@ -32,41 +32,22 @@ class SharedStructure(object):
         self.other_structs.set(added_key, new_structure)
         return new_structure
 
+    @purefunction_promote
     def lookup_position(self, key):
-        # jit helper
-        self = hint(self, promote=True)
-        key = hint(key, promote=True)
-        return _lookup_position_shared(self, key)
+        return self.keys.get(key, -1)
 
+    @purefunction_promote
     def get_next_structure(self, key):
-        # jit helper
-        self = hint(self, promote=True)
-        key = hint(key, promote=True)
-        newstruct = _get_next_structure_shared(self, key)
-        if not we_are_jitted():
-            self._size_estimate -= self.size_estimate()
-            self._size_estimate += newstruct.size_estimate()
+        new_structure = self.other_structs.get(key)
+        if new_structure is None:
+            new_structure = self.new_structure(key)
+        self._size_estimate -= self.size_estimate()
+        self._size_estimate += newstruct.size_estimate()
         return newstruct
 
+    @purefunction_promote
     def size_estimate(self):
-        self = hint(self, promote=True)
-        return _size_estimate(self)
-
-@purefunction
-def _lookup_position_shared(self, key):
-    return self.keys.get(key, -1)
-
-@purefunction
-def _get_next_structure_shared(self, key):
-    new_structure = self.other_structs.get(key)
-    if new_structure is None:
-        new_structure = self.new_structure(key)
-    return new_structure
-
-@purefunction
-def _size_estimate(self):
-    return self._size_estimate >> NUM_DIGITS
-
+        return self._size_estimate >> NUM_DIGITS
 
 class State(object):
     def __init__(self, space):

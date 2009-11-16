@@ -16,7 +16,7 @@ from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
-@jit.purefunction
+@jit.purefunction_promote
 def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
@@ -58,7 +58,6 @@ class Function(Wrappable):
     def getcode(self):
         if jit.we_are_jitted():
             if not self.can_change_code:
-                self = jit.hint(self, promote=True)
                 return _get_immutable_code(self)
             return jit.hint(self.code, promote=True)
         return self.code

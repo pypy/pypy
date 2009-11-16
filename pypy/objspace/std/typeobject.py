@@ -7,7 +7,8 @@ from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import hint, purefunction, we_are_jitted, dont_look_inside
+from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
+from pypy.rlib.jit import dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
@@ -126,7 +127,6 @@ class W_TypeObject(W_Object):
             w_self.space.config.objspace.std.immutable_builtintypes):
             return w_self._version_tag
         # pure objects cannot get their version_tag changed
-        w_self = hint(w_self, promote=True)
         return w_self._pure_version_tag()
 
     def getattribute_if_not_from_object(w_self):
@@ -155,7 +155,7 @@ class W_TypeObject(W_Object):
     def has_object_getattribute(w_self):
         return w_self.getattribute_if_not_from_object() is None
 
-    @purefunction
+    @purefunction_promote
     def _pure_version_tag(w_self):
         return w_self._version_tag
 
@@ -242,14 +242,12 @@ class W_TypeObject(W_Object):
         w_self = hint(w_self, promote=True)
         assert space.config.objspace.std.withmethodcache
         version_tag = w_self.version_tag()
-        version_tag = hint(version_tag, promote=True)
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        name = hint(name, promote=True)
         return w_self._pure_lookup_where_with_method_cache(name, version_tag)
 
-    @purefunction
+    @purefunction_promote
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
         SHIFT = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -662,7 +660,7 @@ def call__Type(space, w_type, __args__):
 def _issubtype(w_type1, w_type2):
     return w_type2 in w_type1.mro_w
 
-@purefunction
+@purefunction_promote
 def _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2):
     return _issubtype(w_type1, w_type2)
 
@@ -672,8 +670,6 @@ def issubtype__Type_Type(space, w_type1, w_type2):
     if space.config.objspace.std.withtypeversion and we_are_jitted():
         version_tag1 = w_type1.version_tag()
         version_tag2 = w_type2.version_tag()
-        version_tag1 = hint(version_tag1, promote=True)
-        version_tag2 = hint(version_tag2, promote=True)
         if version_tag1 is not None and version_tag2 is not None:
             res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
             return space.newbool(res)
