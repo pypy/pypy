@@ -25,8 +25,8 @@ class BaseTestJIT(BaseRtypingTest):
 
     def test_purefunction_promote(self):
         @purefunction_promote
-        def g(x):
-            return x + 1
+        def g(func):
+            return func + 1
         def f(x):
             return g(x * 2)
         res = self.interpret(f, [2])

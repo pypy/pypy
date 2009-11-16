@@ -23,6 +23,7 @@ def purefunction_promote(func):
     import inspect
     purefunction(func)
     args, varargs, varkw, defaults = inspect.getargspec(func)
+    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     argstring = ", ".join(args)
