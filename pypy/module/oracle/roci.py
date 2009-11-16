@@ -1,12 +1,13 @@
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.conftest import option
 import os
 import py
 
-try:
-    ORACLE_HOME = py.path.local(os.environ['ORACLE_HOME'])
-except KeyError:
+if option.oracle_home:
+    ORACLE_HOME = py.path.local(option.oracle_home)
+else:
     raise ImportError(
         "Please set ORACLE_HOME to the root of an Oracle client installation")
 

@@ -1,37 +1,51 @@
 from pypy.conftest import gettestobjspace
+from pypy.conftest import option
+from pypy.rpython.tool.rffi_platform import CompilationError
 import py
 
-from pypy.rpython.tool.rffi_platform import CompilationError
-try:
-    from pypy.module.oracle import roci
-except (CompilationError, ImportError):
-    py.test.skip("Oracle client not available")
+class OracleTestBase(object):
 
-class AppTestConnection:
-
+    @classmethod
     def setup_class(cls):
+        try:
+            from pypy.module.oracle import roci
+        except ImportError:
+            py.test.skip("Oracle client not available")
+
         space = gettestobjspace(usemodules=('oracle',))
         cls.space = space
         space.setitem(space.builtin.w_dict, space.wrap('oracle'),
                       space.getbuiltinmodule('cx_Oracle'))
-        cls.w_username = space.wrap('cx_oracle')
-        cls.w_password = space.wrap('dev')
-        cls.w_tnsentry = space.wrap('xe')
+        oracle_connect = option.oracle_connect
+        if not oracle_connect:
+            py.test.skip(
+                "Please set --oracle-connect to a valid connect string")
+        usrpwd, tnsentry = oracle_connect.rsplit('@', 1)
+        username, password = usrpwd.split('/', 1)
+        cls.w_username = space.wrap(username)
+        cls.w_password = space.wrap(password)
+        cls.w_tnsentry = space.wrap(tnsentry)
+
+class AppTestConnection(OracleTestBase):
+
+    def teardown_method(self, func):
+        if hasattr(self, 'cnx'):
+            self.cnx.close()
 
     def test_connect(self):
-        cnx = oracle.connect(self.username, self.password,
-                             self.tnsentry, threaded=True)
-        assert cnx.username == self.username
-        assert cnx.password == self.password
-        assert cnx.tnsentry == self.tnsentry
-        assert isinstance(cnx.version, str)
+        self.cnx = oracle.connect(self.username, self.password,
+                                  self.tnsentry, threaded=True)
+        assert self.cnx.username == self.username
+        assert self.cnx.password == self.password
+        assert self.cnx.tnsentry == self.tnsentry
+        assert isinstance(self.cnx.version, str)
 
     def test_singleArg(self):
-        cnx = oracle.connect("%s/%s@%s" % (self.username, self.password,
-                                           self.tnsentry))
-        assert cnx.username == self.username
-        assert cnx.password == self.password
-        assert cnx.tnsentry == self.tnsentry
+        self.cnx = oracle.connect("%s/%s@%s" % (self.username, self.password,
+                                                self.tnsentry))
+        assert self.cnx.username == self.username
+        assert self.cnx.password == self.password
+        assert self.cnx.tnsentry == self.tnsentry
 
     def test_connect_badPassword(self):
         raises(oracle.DatabaseError, oracle.connect,
@@ -59,9 +73,9 @@ class AppTestConnection:
         assert result == formatString % args
 
     def test_rollbackOnClose(self):
-        connection = oracle.connect(self.username, self.password,
+        self.cnx = oracle.connect(self.username, self.password,
                 self.tnsentry)
-        cursor = connection.cursor()
+        cursor = self.cnx.cursor()
         try:
             cursor.execute("drop table pypy_test_temp")
         except oracle.DatabaseError:

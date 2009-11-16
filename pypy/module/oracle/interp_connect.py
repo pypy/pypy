@@ -308,8 +308,8 @@ class W_Connection(Wrappable):
 
         # call stored procedure
         cursor._call(space, "dbms_utility.db_version",
-                     None, [space.wrap(versionVar),
-                            space.wrap(compatVar)])
+                     None, space.newlist([space.wrap(versionVar),
+                                          space.wrap(compatVar)]))
 
         # retrieve value
         self.w_version = versionVar.getValue(space, 0)

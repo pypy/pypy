@@ -1,28 +1,19 @@
-from pypy.conftest import gettestobjspace
-import py
+from pypy.module.oracle.test.test_connect import OracleTestBase
 
-from pypy.rpython.tool.rffi_platform import CompilationError
-try:
-    from pypy.module.oracle import roci
-except (CompilationError, ImportError):
-    py.test.skip("Oracle client not available")
+class AppTestCursor(OracleTestBase):
 
-class AppTestCursor:
-
+    @classmethod
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('oracle',))
-        cls.space = space
-        space.setitem(space.builtin.w_dict, space.wrap('oracle'),
-                      space.getbuiltinmodule('cx_Oracle'))
-        cls.w_username = space.wrap('cx_oracle')
-        cls.w_password = space.wrap('dev')
-        cls.w_tnsentry = space.wrap('')
-        cls.w_cnx = space.appexec(
+        super(AppTestCursor, cls).setup_class()
+        cls.w_cnx = cls.space.appexec(
             [cls.w_username, cls.w_password, cls.w_tnsentry],
             """(username, password, tnsentry):
                 import cx_Oracle
                 return cx_Oracle.connect(username, password, tnsentry)
             """)
+
+    def teardown_class(cls):
+        cls.space.call_method(cls.w_cnx, "close")
 
     def test_bindNames(self):
         cur = self.cnx.cursor()
