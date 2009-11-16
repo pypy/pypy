@@ -106,6 +106,8 @@ class AppTestCursor:
                     "begin null; end;")
         results = cur.callproc("pypy_temp_procedure", ())
         assert results == []
+        results = cur.callproc("pypy_temp_procedure")
+        assert results == []
 
     def test_executemany_bypos(self):
         cur = self.cnx.cursor()

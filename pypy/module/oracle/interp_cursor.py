@@ -161,11 +161,9 @@ class W_Cursor(Wrappable):
     def callfunc(self, space, name, w_returnType, w_parameters=None):
         retvar = interp_variable.newVariableByType(space, self, w_returnType, 1)
         if space.is_w(w_parameters, space.w_None):
-            args_w = None
-        else:
-            args_w = space.unpackiterable(w_parameters)
+            w_parameters = None
 
-        self._call(space, name, retvar, args_w)
+        self._call(space, name, retvar, w_parameters)
 
         # determine the results
         return retvar.getValue(space, 0)
@@ -173,11 +171,9 @@ class W_Cursor(Wrappable):
 
     def callproc(self, space, name, w_parameters=None):
         if space.is_w(w_parameters, space.w_None):
-            args_w = None
-        else:
-            args_w = space.unpackiterable(w_parameters)
+            w_parameters = None
 
-        self._call(space, name, None, args_w)
+        self._call(space, name, None, w_parameters)
 
         # create the return value
         if self.bindList:
@@ -188,10 +184,10 @@ class W_Cursor(Wrappable):
 
     callproc.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
-    def _call(self, space, name, retvar, args_w):
+    def _call(self, space, name, retvar, w_args):
         # determine the number of arguments passed
-        if args_w:
-            numArguments = len(args_w)
+        if w_args:
+            numArguments = space.int_w(space.len(w_args))
         else:
             numArguments = 0
 
@@ -201,13 +197,12 @@ class W_Cursor(Wrappable):
         # add the return value, if applicable
         if retvar:
             offset = 1
-            if args_w:
-                vars_w = [retvar] + args_w
-            else:
-                vars_w = [retvar]
+            w_vars = space.newlist([retvar])
+            if w_args:
+                space.call_method(w_vars, "extend", w_args)
         else:
             offset = 0
-            vars_w = args_w
+            w_vars = w_args
 
         # build up the statement
         args = ', '.join(':%d' % (i + offset + 1,)
@@ -217,7 +212,7 @@ class W_Cursor(Wrappable):
         else:
             stmt = "begin %s(%s); end;" % (name, args)
 
-        self._execute(space, space.wrap(stmt), space.newlist(vars_w))
+        self._execute(space, space.wrap(stmt), w_vars)
 
     def _checkOpen(self, space):
         if not self.isOpen:
