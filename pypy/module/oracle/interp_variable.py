@@ -485,7 +485,9 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
             return
-        raise TypeError("expecting numeric data")
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("expecting numeric data"))
 
 class VT_Integer(VT_Float):
     pass

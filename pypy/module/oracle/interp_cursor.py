@@ -416,7 +416,7 @@ class W_Cursor(Wrappable):
             # this is only necessary for executemany() since execute() always
             # passes a value of 1 for the number of elements
             elif numElements > origVar.allocatedElements:
-                newVar = type(origVar)(numElements, origVar.size)
+                newVar = type(origVar)(self, numElements, origVar.size)
                 newVar.setValue(space, arrayPos, w_value)
 
             # otherwise, attempt to set the value

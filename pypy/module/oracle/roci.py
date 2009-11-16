@@ -72,6 +72,7 @@ class CConfig:
 globals().update(platform.configure(CConfig))
 
 OCI_IND_NOTNULL = rffi.cast(rffi.SHORT, OCI_IND_NOTNULL)
+OCI_IND_NULL = rffi.cast(rffi.SHORT, OCI_IND_NULL)
 
 OCISvcCtx = rffi.VOIDP
 OCIEnv = rffi.VOIDP
