@@ -52,7 +52,7 @@ def find_initializing_stores(collect_analyzer, graph):
     # a bit of a hackish analysis: if a block contains a malloc and check that
     # the result is not zero, then the block following the True link will
     # usually initialize the newly allocated object
-    result = {}
+    result = set()
     def find_in_block(block, mallocvars):
         for i, op in enumerate(block.operations):
             if op.opname in ("cast_pointer", "same_as"):
@@ -63,7 +63,7 @@ def find_initializing_stores(collect_analyzer, graph):
                 if (op.args[0] in mallocvars and
                     isinstance(TYPE, lltype.Ptr) and
                     TYPE.TO._gckind == "gc"):
-                    result[op] = True
+                    result.add(op)
             else:
                 if collect_analyzer.analyze(op):
                     return
@@ -108,6 +108,20 @@ def find_initializing_stores(collect_analyzer, graph):
         find_in_block(target, mallocvars)
     #if result:
     #    print "found %s initializing stores in %s" % (len(result), graph.name)
+    return result
+
+def find_clean_setarrayitems(collect_analyzer, graph):
+    result = set()
+    for block in graph.iterblocks():
+        cache = set()
+        for op in block.operations:
+            if op.opname == 'getarrayitem':
+                cache.add((op.args[0], op.result))
+            elif op.opname == 'setarrayitem':
+                if (op.args[0], op.args[2]) in cache:
+                    result.add(op)
+            elif collect_analyzer.analyze(op):
+                cache = set()
     return result
 
 class FrameworkGCTransformer(GCTransformer):
@@ -544,11 +558,12 @@ class FrameworkGCTransformer(GCTransformer):
 
     def transform_graph(self, graph):
         if self.write_barrier_ptr:
-            self.initializing_stores = find_initializing_stores(
-                self.collect_analyzer, graph)
+            self.clean_sets = (
+                find_clean_setarrayitems(self.collect_analyzer, graph).union(
+                find_initializing_stores(self.collect_analyzer, graph)))
         super(FrameworkGCTransformer, self).transform_graph(graph)
         if self.write_barrier_ptr:
-            self.initializing_stores = None
+            self.clean_sets = None
 
     def gct_direct_call(self, hop):
         if self.collect_analyzer.analyze(hop.spaceop):
@@ -879,7 +894,7 @@ class FrameworkGCTransformer(GCTransformer):
         if (self.write_barrier_ptr is not None
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
-            and hop.spaceop not in self.initializing_stores):
+            and hop.spaceop not in self.clean_sets):
             self.write_barrier_calls += 1
             v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
                                    resulttype = llmemory.Address)

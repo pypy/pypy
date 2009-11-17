@@ -5,13 +5,14 @@ from pypy.rpython.memory.gctransform.test.test_transform import rtype, \
     rtype_and_transform
 from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, \
-    CollectAnalyzer, find_initializing_stores
+    CollectAnalyzer, find_initializing_stores, find_clean_setarrayitems
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.translator.c.gc import FrameworkGcPolicy
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import varoftype
 from pypy.translator.exceptiontransform import ExceptionTransformer
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy import conftest
 
 import py
@@ -87,7 +88,7 @@ def test_cancollect_stack_check():
     assert can_collect
 
 class WriteBarrierTransformer(FrameworkGCTransformer):
-    initializing_stores = {}
+    clean_sets = {}
     GC_PARAMS = {}
     class GCClass(MarkSweepGC):
         needs_write_barrier = True
@@ -188,3 +189,88 @@ def test_find_initializing_stores_across_blocks():
     collect_analyzer = CollectAnalyzer(t)
     init_stores = find_initializing_stores(collect_analyzer, t.graphs[0])
     assert len(init_stores) == 5
+
+def test_find_clean_setarrayitems():
+    S = lltype.GcStruct('S')
+    A = lltype.GcArray(lltype.Ptr(S))
+    
+    def f():
+        l = lltype.malloc(A, 3)
+        l[0] = lltype.malloc(S)
+        l[1] = lltype.malloc(S)
+        l[2] = lltype.malloc(S)
+        x = l[1]
+        l[0] = x
+        return len(l)
+
+    t = rtype(f, [])
+    etrafo = ExceptionTransformer(t)
+    graph = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    clean_setarrayitems = find_clean_setarrayitems(collect_analyzer,
+                                                   t.graphs[0])
+    assert len(clean_setarrayitems) == 1
+
+def test_find_clean_setarrayitems_2():
+    S = lltype.GcStruct('S')
+    A = lltype.GcArray(lltype.Ptr(S))
+    
+    def f():
+        l = lltype.malloc(A, 3)
+        l[0] = lltype.malloc(S)
+        l[1] = lltype.malloc(S)
+        l[2] = lltype.malloc(S)
+        x = l[1]
+        l[2] = lltype.malloc(S) # <- this can possibly collect
+        l[0] = x
+        return len(l)
+
+    t = rtype(f, [])
+    etrafo = ExceptionTransformer(t)
+    graph = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    clean_setarrayitems = find_clean_setarrayitems(collect_analyzer,
+                                                   t.graphs[0])
+    assert len(clean_setarrayitems) == 0
+
+def test_find_clean_setarrayitems_3():
+    S = lltype.GcStruct('S')
+    A = lltype.GcArray(lltype.Ptr(S))
+    
+    def f():
+        l = lltype.malloc(A, 3)
+        l[0] = lltype.malloc(S)
+        l[1] = lltype.malloc(S)
+        l[2] = lltype.malloc(S)
+        l2 = lltype.malloc(A, 4)
+        x = l[1]
+        l2[0] = x # <- different list
+        return len(l)
+
+    t = rtype(f, [])
+    etrafo = ExceptionTransformer(t)
+    graph = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    clean_setarrayitems = find_clean_setarrayitems(collect_analyzer,
+                                                   t.graphs[0])
+    assert len(clean_setarrayitems) == 0
+
+def test_list_operations():
+
+    class A(object):
+        pass
+
+    def f():
+        l = [A(), A()]
+        l.append(A())
+        l[1] = l[0]
+        return len(l)
+
+    t = rtype(f, [])
+    backend_optimizations(t, clever_malloc_removal=False, storesink=True)
+    etrafo = ExceptionTransformer(t)
+    graph = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    clean_setarrayitems = find_clean_setarrayitems(collect_analyzer,
+                                                   t.graphs[0])
+    assert len(clean_setarrayitems) == 1
