@@ -72,7 +72,7 @@ class PyPyCJITTests(object):
         parts = logparser.extract_category(log, 'jit-log-opt-')
         # skip entry bridges, they can contain random things
         self.loops = [parse(part, no_namespace=True) for part in parts
-                          if "entry bridge" not in part]
+                          if "bridge" not in part.lower()]
         self.sliced_loops = [] # contains all bytecodes of all loops
         for loop in self.loops:
             for op in loop.operations:
