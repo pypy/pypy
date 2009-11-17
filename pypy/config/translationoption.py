@@ -98,7 +98,6 @@ translation_optiondescription = OptionDescription(
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
                default=False,
-               requires=[("translation.thread", False)],
                suggests=[("translation.gc", "hybrid"),     # or "boehm"
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
