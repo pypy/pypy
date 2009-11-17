@@ -1,5 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
@@ -325,6 +326,9 @@ W_Variable.typedef = TypeDef(
                           unwrap_spec=W_Variable.getValue.unwrap_spec),
     setvalue = interp2app(W_Variable.setValue,
                           unwrap_spec=W_Variable.setValue.unwrap_spec),
+
+    maxlength = interp_attrproperty('bufferSize', W_Variable),
+
     )
 
 class VT_String(W_Variable):
@@ -667,6 +671,8 @@ def typeByPythonType(space, cursor, w_type):
     moduledict = get(space)
     if space.is_w(w_type, moduledict.w_NUMBER):
         return VT_Float
+    if space.is_w(w_type, space.w_int):
+        return VT_Integer
     raise OperationError(
         moduledict.w_NotSupportedError,
         space.wrap("Variable_TypeByPythonType(): unhandled data type"))
@@ -733,7 +739,7 @@ def newVariableByType(space, cursor, w_value, numElements):
     # passing an integer is assumed to be a string
     if space.is_true(space.isinstance(w_value, space.w_int)):
         size = space.int_w(w_value)
-        if size > MAX_STRING_CHARS:
+        if size > config.MAX_STRING_CHARS:
             varType = VT_LongString
         else:
             varType = VT_String

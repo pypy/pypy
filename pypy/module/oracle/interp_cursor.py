@@ -747,10 +747,60 @@ class W_Cursor(Wrappable):
         return space.wrap(var)
     var.unwrap_spec = ['self', ObjSpace, W_Root, int, W_Root, W_Root, W_Root]
 
+    def setinputsizes(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+
+        # only expect keyword arguments or positional arguments, not both
+        if args_w and kw_w:
+            raise OperationError(
+                interp_error.get(space).w_InterfaceError,
+                space.wrap(
+                    "expecting argument or keyword arguments, not both"))
+
+        # make sure the cursor is open
+        self._checkOpen(space)
+
+        # eliminate existing bind variables
+        self.bindList = None
+        self.bindDict = None
+
+        self.setInputSizes = 1
+
+        # process each input
+        if kw_w:
+            self.bindDict = space.newdict()
+            for key, w_value in kw_w.iteritems():
+                var = interp_variable.newVariableByType(
+                    space, self, w_value, self.bindArraySize)
+                space.setitem(self.bindDict, space.wrap(key), var)
+            return self.bindDict
+        else:
+            self.bindList = [None] * len(args_w)
+            for i, w_value in enumerate(args_w):
+                if space.is_w(w_value, space.w_None):
+                    var = space.w_None
+                else:
+                    var = interp_variable.newVariableByType(
+                        space, self, w_value, self.bindArraySize)
+                self.bindList[i] = var
+            return space.newlist(self.bindList)
+    setinputsizes.unwrap_spec = ['self', ObjSpace, Arguments]
+
 def cursor_arraysize_get(space, obj):
-    return space.wrap(space.arraySize)
+    return space.wrap(obj.arraySize)
 def cursor_arraysize_set(space, obj, w_value):
-    space.arraySize = space.int_w(w_value)
+    obj.arraySize = space.int_w(w_value)
+
+def cursor_bindarraysize_get(space, obj):
+    return space.wrap(obj.bindArraySize)
+def cursor_bindarraysize_set(space, obj, w_value):
+    obj.bindArraySize = space.int_w(w_value)
+
+def cursor_bindvars_get(space, obj):
+    if obj.bindList:
+        return space.newlist(obj.bindList)
+    if obj.bindDict:
+        return obj.bindDict
 
 W_Cursor.typedef = TypeDef(
     'Cursor',
@@ -774,11 +824,15 @@ W_Cursor.typedef = TypeDef(
                           unwrap_spec=W_Cursor.callproc.unwrap_spec),
     var = interp2app(W_Cursor.var,
                      unwrap_spec=W_Cursor.var.unwrap_spec),
+    setinputsizes = interp2app(W_Cursor.setinputsizes,
+                               unwrap_spec=W_Cursor.setinputsizes.unwrap_spec),
 
     __iter__ = interp2app(W_Cursor.descr_iter),
     next = interp2app(W_Cursor.descr_next),
 
     arraysize = GetSetProperty(cursor_arraysize_get, cursor_arraysize_set),
+    bindarraysize = GetSetProperty(cursor_bindarraysize_get, cursor_bindarraysize_set),
     rowcount = interp_attrproperty('rowCount', W_Cursor),
     statement = interp_attrproperty_w('w_statement', W_Cursor),
+    bindvars = GetSetProperty(cursor_bindvars_get)
 )

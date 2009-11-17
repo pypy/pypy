@@ -293,6 +293,8 @@ class W_Connection(Wrappable):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
     def get_nationalencoding(space, self):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
+    def get_maxbytespercharacter(space, self):
+        return space.wrap(self.environment.maxBytesPerCharacter)
 
     def get_version(space, self):
         # if version has already been determined, no need to determine again
@@ -335,5 +337,6 @@ W_Connection.typedef = TypeDef(
 
     encoding = GetSetProperty(W_Connection.get_encoding),
     nationalencoding = GetSetProperty(W_Connection.get_nationalencoding),
+    maxBytesPerCharacter = GetSetProperty(W_Connection.get_maxbytespercharacter),
     version = GetSetProperty(W_Connection.get_version),
     )

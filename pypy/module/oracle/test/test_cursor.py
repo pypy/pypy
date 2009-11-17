@@ -2,6 +2,15 @@ from pypy.module.oracle.test.test_connect import OracleTestBase
 
 class AppTestCursor(OracleTestBase):
 
+    def test_attributes(self):
+        cur = self.cnx.cursor()
+        stmt = "select 1 from dual"
+        cur.execute(stmt)
+        assert cur.rowcount == 0
+        cur.fetchall()
+        assert cur.rowcount == 1
+        assert cur.statement == stmt
+
     def test_bindNames(self):
         cur = self.cnx.cursor()
         raises(oracle.ProgrammingError, cur.bindnames)
@@ -117,11 +126,27 @@ class AppTestCursor(OracleTestBase):
         count, = cur.fetchone()
         assert count == len(rows)
 
-    def test_attributes(self):
+    def test_executemany_withresize(self):
         cur = self.cnx.cursor()
-        stmt = "select 1 from dual"
-        cur.execute(stmt)
-        assert cur.rowcount == 0
-        cur.fetchall()
-        assert cur.rowcount == 1
-        assert cur.statement == stmt
+        try:
+            cur.execute("drop table pypy_temp_table")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create table pypy_temp_table"
+                    "(intcol number, stringcol varchar2(10))")
+        rows = [ ( 1, "First" ),
+                 ( 2, "Second" ),
+                 ( 3, "Third" ),
+                 ( 4, "Fourth" ),
+                 ( 5, "Fifth" ),
+                 ( 6, "Sixth" ),
+                 ( 7, "Seventh" ) ]
+        cur.bindarraysize = 5
+        cur.setinputsizes(int, 100)
+        sql = "insert into pypy_temp_table (intcol, stringcol) values (:1, :2)"
+        cur.executemany(sql, rows)
+        var = cur.bindvars[1]
+        cur.execute("select count(*) from pypy_temp_table")
+        count, = cur.fetchone()
+        assert count == len(rows)
+        assert var.maxlength == 100 * self.cnx.maxBytesPerCharacter
