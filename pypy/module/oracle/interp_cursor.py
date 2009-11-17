@@ -1,8 +1,8 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
-from pypy.interpreter.typedef import GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -779,4 +779,5 @@ W_Cursor.typedef = TypeDef(
     next = interp2app(W_Cursor.descr_next),
 
     arraysize = GetSetProperty(cursor_arraysize_get, cursor_arraysize_set),
+    rowcount = interp_attrproperty('rowCount', W_Cursor),
 )

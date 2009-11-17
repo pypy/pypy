@@ -26,6 +26,7 @@ class AppTestSelect(OracleTestBase):
         cur.execute("select level-1 from dual connect by level-1<42")
         rows = cur.fetchall()
         assert rows == zip(range(42))
+        assert cur.rowcount == 42
 
     def test_iterator(self):
         cur = self.cnx.cursor()
