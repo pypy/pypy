@@ -1,6 +1,6 @@
 from pypy.module.oracle.test.test_connect import OracleTestBase
 
-class AppTestSelect(OracleTestBase):
+class AppTestNumberVar(OracleTestBase):
 
     def test_float(self):
         cur = self.cnx.cursor()

@@ -424,8 +424,10 @@ class VT_LongString(W_Variable):
 class VT_FixedNationalChar(W_Variable):
     pass
 
-class VT_Rowid(W_Variable):
-    pass
+class VT_Rowid(VT_String):
+    oracleType = roci.SQLT_CHR
+    size = 18
+    isVariableLength = False
 
 class VT_Binary(W_Variable):
     pass
