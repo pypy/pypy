@@ -449,11 +449,9 @@ class Term(Callable):
         return intmask(compute_hash(self.signature) << TAGBITS | self.TAG)
 
     def unify_hash_of_children(self, heap):
-        unify_hash = []
-        i = 0
-        while i < len(self.args):
-            unify_hash.append(self.args[i].get_unify_hash(heap))
-            i += 1
+        unify_hash = [0] * len(self.args)
+        for i in range(len(self.args)):
+            unify_hash[i] = self.args[i].get_unify_hash(heap)
         return unify_hash
 
     def get_prolog_signature(self):
