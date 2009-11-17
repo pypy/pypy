@@ -22,6 +22,9 @@ class State:
         w_decimal = space.call(w_import, space.newlist(
             [space.wrap('decimal')]))
         self.w_DecimalType = space.getattr(w_decimal, space.wrap("Decimal"))
+        w_datetime = space.call(w_import, space.newlist(
+            [space.wrap('datetime')]))
+        self.w_DateTimeType = space.getattr(w_datetime, space.wrap("datetime"))
 
 
 def get(space): 

@@ -545,6 +545,33 @@ class VT_DateTime(W_Variable):
         dataptr = rffi.cast(roci.Ptr(roci.OCIDate), self.data)
         return transform.OracleDateToPythonDateTime(self.environment, dataptr)
 
+    def setValueProc(self, space, pos, w_value):
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIDate), self.data),
+            pos)
+        if space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+            year = space.int_w(space.getattr(w_value, space.wrap('year')))
+            month = space.int_w(space.getattr(w_value, space.wrap('month')))
+            day = space.int_w(space.getattr(w_value, space.wrap('day')))
+            hour = space.int_w(space.getattr(w_value, space.wrap('hour')))
+            minute = space.int_w(space.getattr(w_value, space.wrap('minute')))
+            second = space.int_w(space.getattr(w_value, space.wrap('second')))
+        elif space.is_true(space.isinstance(w_value, get(space).w_DateType)):
+            XXX
+        else:
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("expecting date data"))
+
+        # store a copy of the value
+        timePart = dataptr[0].c_OCIDateTime
+        rffi.setintfield(timePart, 'c_OCITimeHH', hour)
+        rffi.setintfield(timePart, 'c_OCITimeMI', minute)
+        rffi.setintfield(timePart, 'c_OCITimeSS', second)
+        rffi.setintfield(dataptr[0], 'c_OCIDateYYYY', year)
+        rffi.setintfield(dataptr[0], 'c_OCIDateMM', month)
+        rffi.setintfield(dataptr[0], 'c_OCIDateDD', day)
+
 class VT_Date(W_Variable):
     oracleType = roci.SQLT_ODT
     size = rffi.sizeof(roci.OCIDate)
@@ -707,7 +734,8 @@ def typeByValue(space, w_value, numElements):
 
     # XXX bool
 
-    # XXX datetime
+    if space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+        return VT_DateTime, 0, numElements
 
     # XXX date
 
