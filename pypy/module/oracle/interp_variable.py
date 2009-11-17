@@ -579,11 +579,15 @@ class VT_Cursor(W_Variable):
 class VT_Object(W_Variable):
     pass
 
-for cls in (VT_NationalCharString, VT_String):
+variableTypeByTypedef = {}
+for name, cls in globals().items():
+    if not name.startswith('VT_') or not isinstance(cls, type):
+        continue
     cls.typedef = TypeDef(
         cls.__name__, W_Variable.typedef,
         )
-    
+    variableTypeByTypedef[cls.typedef] = cls
+
 def _typeByOracleDescriptor(param, environment):
     # retrieve datatype of the parameter
     attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO, 1, flavor='raw')
@@ -669,8 +673,8 @@ def _typeByOracleDataType(dataType, charsetForm):
 def typeByPythonType(space, cursor, w_type):
     """Return a variable type given a Python type object"""
     moduledict = get(space)
-    if space.is_w(w_type, moduledict.w_NUMBER):
-        return VT_Float
+    if w_type.instancetypedef in variableTypeByTypedef:
+        return variableTypeByTypedef[w_type.instancetypedef]
     if space.is_w(w_type, space.w_int):
         return VT_Integer
     raise OperationError(

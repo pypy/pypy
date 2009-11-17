@@ -17,7 +17,6 @@ class State:
         self.w_NotSupportedError = get('NotSupportedError')
         self.w_IntegrityError = get('IntegrityError')
         self.w_Variable = get('Variable')
-        self.w_NUMBER = get('NUMBER')
 
         w_import = space.builtin.get('__import__')
         w_decimal = space.call(w_import, space.newlist(

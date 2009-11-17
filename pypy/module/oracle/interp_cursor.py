@@ -366,6 +366,8 @@ class W_Cursor(Wrappable):
         for i, w_value in enumerate(space.viewiterable(w_vars)):
             if i < len(self.bindList):
                 origVar = self.bindList[i]
+                if space.is_w(origVar, space.w_None):
+                    origVar = None
             else:
                 origVar = None
             newVar = self._setBindVariableHelper(space, w_value, origVar,

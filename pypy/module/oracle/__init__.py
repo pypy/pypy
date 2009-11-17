@@ -7,6 +7,7 @@ class Module(MixedModule):
         'connect': 'interp_connect.W_Connection',
         'UNICODE': 'interp_variable.VT_NationalCharString',
         'NUMBER': 'interp_variable.VT_Float',
+        'STRING': 'interp_variable.VT_String',
         'Variable': 'interp_variable.W_Variable',
     }
 
