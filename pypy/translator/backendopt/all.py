@@ -10,6 +10,7 @@ from pypy.translator.backendopt import mallocprediction
 from pypy.translator.backendopt.removeassert import remove_asserts
 from pypy.translator.backendopt.support import log
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
+from pypy.translator.backendopt.storesink import storesink_graph
 from pypy.objspace.flow.model import checkgraph
 
 INLINE_THRESHOLD_FOR_TEST = 33
@@ -104,6 +105,9 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
             print "after clever inlining and malloc removal"
             print_statistics(translator.graphs[0], translator)        
 
+    if config.storesink:
+        for graph in graphs:
+            storesink_graph(graph)
 
     if config.profile_based_inline and not secondary:
         threshold = config.profile_based_inline_threshold
