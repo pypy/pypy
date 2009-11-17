@@ -58,3 +58,39 @@ def OracleDateToPythonDateTime(environment, valueptr):
         w(time.c_OCITimeMI),
         w(time.c_OCITimeSS))
 
+def DecimalToFormatAndText(environment, w_value):
+    space = environment.space
+    w_tuple_value = space.call_method(w_value, "as_tuple")
+
+    # acquire basic information from the value tuple
+    w_sign, w_digits, w_scale = space.viewiterable(w_tuple_value)
+
+    text = ''
+    format = ''
+
+    digits_w = space.viewiterable(w_digits)
+    num_digits = len(digits_w)
+    scale = space.int_w(w_scale)
+
+    # allocate memory for the string and format to use in conversion
+    if space.is_true(w_sign):
+        text += '-'
+    for i in xrange(0, num_digits + scale):
+        format += '9'
+        if i < numdigits:
+            digit = space.int_w(digits_w[i])
+            text += "0123456789"[digit]
+        else:
+            text += '0'
+    if scale < 0:
+        format += 'D'
+        text += '.'
+        for i in xrange(scale, 0):
+            format += '9'
+            if num_digits + i < 0:
+                text += '0'
+            else:
+                digit = space.int_w(digits_w[num_digits + i])
+                text += "0123456789"[digit]
+
+    return space.wrap(text), space.wrap(format)

@@ -485,6 +485,35 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
             return
+        elif space.is_true(space.isinstance(w_value, space.w_float)):
+            doubleValuePtr = lltype.malloc(roci.Ptr(lltype.Float).TO, 1,
+                                           flavor='raw')
+            try:
+                doubleValuePtr[0] = space.float_w(w_value)
+                status = roci.OCINumberFromReal(
+                    self.environment.errorHandle,
+                    rffi.cast(roci.dvoidp, doubleValuePtr),
+                    rffi.sizeof(lltype.Float),
+                    dataptr)
+                self.environment.checkForError(
+                    status, "NumberVar_SetValue(): from float")
+            finally:
+                lltype.free(doubleValuePtr, flavor='raw')
+            return
+        elif space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
+            w_text, w_format = transform.DecimalToFormatAndText(self.environment, w_value)
+            text_buf = config.StringBuffer()
+            text_buf.fill(space, w_text)
+            format_buf = config.StringBuffer()
+            format_buf.fill(space, w_format)
+            status = roci.OCINumberFromText(
+                self.environment.errorHandle,
+                text_buf.ptr, text_buf.size,
+                format_buf.ptr, format_buf.size,
+                None, 0, dataptr)
+            self.environment.checkForError(
+                status, "NumberVar_SetValue(): from decimal")
+            return
         raise OperationError(
             space.w_TypeError,
             space.wrap("expecting numeric data"))
@@ -658,6 +687,26 @@ def typeByValue(space, w_value, numElements):
 
     if space.is_true(space.isinstance(w_value, space.w_int)):
         return VT_Integer, 0, numElements
+
+    # XXX long
+
+    if space.is_true(space.isinstance(w_value, space.w_float)):
+        return VT_Float, 0, numElements
+
+    # XXX cxBinary
+
+    # XXX bool
+
+    # XXX datetime
+
+    # XXX date
+
+    # XXX Delta
+
+    # XXX cursorType
+
+    if space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
+        return VT_NumberAsString, 0, numElements
 
     raise OperationError(
         moduledict.w_NotSupportedError,

@@ -2,19 +2,6 @@ from pypy.module.oracle.test.test_connect import OracleTestBase
 
 class AppTestSelect(OracleTestBase):
 
-    @classmethod
-    def setup_class(cls):
-        super(AppTestSelect, cls).setup_class()
-        cls.w_cnx = cls.space.appexec(
-            [cls.w_username, cls.w_password, cls.w_tnsentry],
-            """(username, password, tnsentry):
-                import cx_Oracle
-                return cx_Oracle.connect(username, password, tnsentry)
-            """)
-
-    def teardown_class(cls):
-        cls.space.call_method(cls.w_cnx, "close")
-
     def test_fetchone(self):
         cur = self.cnx.cursor()
         cur.execute("select 42, 'Hello' from dual")

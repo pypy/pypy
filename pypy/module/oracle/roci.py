@@ -5,8 +5,10 @@ from pypy.conftest import option
 import os
 import py
 
-if option.oracle_home:
-    ORACLE_HOME = py.path.local(option.oracle_home)
+oracle_home = getattr(option, 'oracle_home',
+                      os.environ.get("ORACLE_HOME"))
+if oracle_home:
+    ORACLE_HOME = py.path.local(oracle_home)
 else:
     raise ImportError(
         "Please set ORACLE_HOME to the root of an Oracle client installation")
@@ -338,6 +340,26 @@ OCINumberFromInt = external(
      dvoidp,           # inum
      uword,            # inum_length
      uword,            # inum_s_flag
+     Ptr(OCINumber)],  # number
+    sword)
+
+OCINumberFromReal = external(
+    'OCINumberFromReal',
+    [OCIError,         # err
+     dvoidp,           # rnum
+     uword,            # rnum_length
+     Ptr(OCINumber)],  # number
+    sword)
+
+OCINumberFromText = external(
+    'OCINumberFromText',
+    [OCIError,         # err
+     oratext,          # str
+     ub4,              # str_length
+     oratext,          # fmt
+     ub4,              # fmt_length
+     oratext,          # nls_params
+     ub4,              # nls_p_length
      Ptr(OCINumber)],  # number
     sword)
 

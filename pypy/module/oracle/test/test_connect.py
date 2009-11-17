@@ -3,7 +3,7 @@ from pypy.conftest import option
 from pypy.rpython.tool.rffi_platform import CompilationError
 import py
 
-class OracleTestBase(object):
+class OracleNotConnectedTestBase(object):
 
     @classmethod
     def setup_class(cls):
@@ -26,7 +26,21 @@ class OracleTestBase(object):
         cls.w_password = space.wrap(password)
         cls.w_tnsentry = space.wrap(tnsentry)
 
-class AppTestConnection(OracleTestBase):
+class OracleTestBase(OracleNotConnectedTestBase):
+    @classmethod
+    def setup_class(cls):
+        super(OracleTestBase, cls).setup_class()
+        cls.w_cnx = cls.space.appexec(
+            [cls.w_username, cls.w_password, cls.w_tnsentry],
+            """(username, password, tnsentry):
+                import cx_Oracle
+                return cx_Oracle.connect(username, password, tnsentry)
+            """)
+
+    def teardown_class(cls):
+        cls.space.call_method(cls.w_cnx, "close")
+
+class AppTestConnection(OracleNotConnectedTestBase):
 
     def teardown_method(self, func):
         if hasattr(self, 'cnx'):

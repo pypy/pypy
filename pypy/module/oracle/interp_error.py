@@ -19,6 +19,12 @@ class State:
         self.w_Variable = get('Variable')
         self.w_NUMBER = get('NUMBER')
 
+        w_import = space.builtin.get('__import__')
+        w_decimal = space.call(w_import, space.newlist(
+            [space.wrap('decimal')]))
+        self.w_DecimalType = space.getattr(w_decimal, space.wrap("Decimal"))
+
+
 def get(space): 
     return space.fromcache(State) 
 
