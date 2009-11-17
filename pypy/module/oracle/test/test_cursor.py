@@ -117,3 +117,11 @@ class AppTestCursor(OracleTestBase):
         count, = cur.fetchone()
         assert count == len(rows)
 
+    def test_attributes(self):
+        cur = self.cnx.cursor()
+        stmt = "select 1 from dual"
+        cur.execute(stmt)
+        assert cur.rowcount == 0
+        cur.fetchall()
+        assert cur.rowcount == 1
+        assert cur.statement == stmt
