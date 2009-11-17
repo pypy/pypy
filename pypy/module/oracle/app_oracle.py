@@ -35,3 +35,7 @@ def makedsn(host, port, sid):
     return ("(DESCRIPTION=(ADDRESS_LIST=(ADDRESS="
             "(PROTOCOL=TCP)(HOST=%s)(PORT=%s)))"
             "(CONNECT_DATA=(SID=%s)))" % (host, port, sid))
+
+def TimestampFromTicks(*args):
+    import datetime
+    return datetime.datetime.fromtimestamp(*args)

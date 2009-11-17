@@ -94,3 +94,4 @@ def DecimalToFormatAndText(environment, w_value):
                 text += "0123456789"[digit]
 
     return space.wrap(text), space.wrap(format)
+
