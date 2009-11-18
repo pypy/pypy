@@ -122,6 +122,8 @@ class W_Variable(Wrappable):
     def __init__(self, cursor, numElements, size=0):
         self.environment = cursor.environment
         self.boundCursorHandle = lltype.nullptr(roci.OCIStmt.TO)
+        self.boundName = None
+        self.boundPos = 0
         self.isArray = False
         self.actualElementsPtr = lltype.malloc(roci.Ptr(roci.ub4).TO, 1,
                                                zero=True, flavor='raw')
@@ -183,6 +185,25 @@ class W_Variable(Wrappable):
 
         self.data = lltype.malloc(rffi.CCHARP.TO, int(dataLength),
                                   flavor='raw', zero=True)
+
+    def resize(self, size):
+        # allocate the data for the new array
+        orig_data = self.data
+        orig_size = self.bufferSize
+        self.size = size
+        self.allocateData()
+
+        # copy the data from the original array to the new array
+        for i in range(self.allocatedElements):
+            for j in range(orig_size):
+                self.data[self.bufferSize * i + j] = \
+                                          orig_data[orig_size * i + j]
+
+        lltype.free(orig_data, flavor='raw')
+
+        # force rebinding
+        if self.boundName or self.boundPos:
+            self._internalBind()
 
     def makeArray(self, space):
         if not self.canBeInArray:
