@@ -482,7 +482,26 @@ class VT_NationalCharString(W_Variable):
     pass
 
 class VT_LongString(W_Variable):
-    pass
+    oracleType = roci.SQLT_LVC
+    isVariableLength = True
+    size = 128 * 1024
+
+    def setValueProc(self, space, pos, w_value):
+        buf = config.StringBuffer()
+        buf.fill(space, w_value)
+
+        try:
+            # ensure that the buffer is large enough
+            if buf.size + rffi.sizeof(roci.ub4) > self.bufferSize:
+                self.resize(buf.size + rffi.sizeof(roci.ub4))
+
+            # copy the string to the Oracle buffer
+            data = rffi.ptradd(self.data, pos * self.bufferSize)
+            rffi.cast(roci.Ptr(roci.ub4), data)[0] = rffi.cast(roci.ub4, buf.size)
+            for index in range(buf.size):
+                data[index + rffi.sizeof(roci.ub4)] = buf.ptr[index]
+        finally:
+            buf.clear()
 
 class VT_FixedNationalChar(W_Variable):
     pass
@@ -496,7 +515,7 @@ class VT_Binary(VT_String):
     oracleType = roci.SQLT_BIN
     size = config.MAX_BINARY_BYTES
 
-class VT_LongBinary(W_Variable):
+class VT_LongBinary(VT_LongString):
     pass
 
 class VT_NativeFloat(W_Variable):
@@ -872,7 +891,10 @@ def typeByValue(space, w_value, numElements):
 
     if space.is_true(space.isinstance(w_value, space.w_str)):
         size = space.int_w(space.len(w_value))
-        return VT_String, size, numElements
+        if size > config.MAX_STRING_CHARS:
+            return VT_LongString, size, numElements
+        else:
+            return VT_String, size, numElements
 
     # XXX Unicode
 

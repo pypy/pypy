@@ -106,3 +106,14 @@ class AppTestStringVar(OracleTestBase):
         cur.execute("select * from pypy_temp_table")
         data = cur.fetchall()
         assert data == [("raw string",)]
+
+    def test_longstring(self):
+        cur = self.cnx.cursor()
+        cur.execute("""
+            declare
+              t_Temp varchar2(10000);
+            begin
+              t_Temp := :bigString;
+            end;""",
+            bigString="X" * 10000)
+
