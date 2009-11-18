@@ -70,6 +70,9 @@ def _defineHelper(cursor, param, position, numElements):
                 position == cursor.outputSizeColumn):
                 size = cursor.outputSize
 
+    # call the procedure to set values prior to define
+    varType = varType.preDefine(param, cursor.environment)
+
     # create a variable of the correct type
     if cursor.outputTypeHandler:
         var = _newByOutputTypeHandler(
@@ -83,9 +86,6 @@ def _defineHelper(cursor, param, position, numElements):
             varType, size, numElements)
     else:
         var = varType(cursor, numElements, size)
-
-    # call the procedure to set values prior to define
-    var.preDefine(param)
 
     # perform the define
     handleptr = lltype.malloc(roci.Ptr(roci.OCIDefine).TO, 1, flavor='raw')
@@ -216,8 +216,9 @@ class W_Variable(Wrappable):
     def initialize(self, cursor):
         pass
 
-    def preDefine(self, param):
-        pass
+    @classmethod
+    def preDefine(cls, param, environment):
+        return cls
 
     def postDefine(self):
         pass
@@ -502,6 +503,51 @@ class VT_Float(W_Variable):
     oracleType = roci.SQLT_VNU
     size = rffi.sizeof(roci.OCINumber)
 
+    @classmethod
+    def preDefine(cls, param, environment):
+        # if the return type has not already been specified, check to
+        # see if the number can fit inside an integer by looking at
+        # the precision and scale
+        if cls is VT_Float:
+            attrptr = lltype.malloc(rffi.CArrayPtr(roci.sb1).TO, 1,
+                                    flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    param, roci.OCI_HTYPE_DESCRIBE,
+                    rffi.cast(roci.dvoidp, attrptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_SCALE,
+                    environment.errorHandle)
+                environment.checkForError(
+                    status,
+                    "NumberVar_PreDefine(): scale")
+                scale = attrptr[0]
+            finally:
+                lltype.free(attrptr, flavor='raw')
+
+            attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO, 1,
+                                    flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    param, roci.OCI_HTYPE_DESCRIBE,
+                    rffi.cast(roci.dvoidp, attrptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_PRECISION,
+                    environment.errorHandle)
+                environment.checkForError(
+                    status,
+                    "NumberVar_PreDefine(): precision")
+                precision = attrptr[0]
+            finally:
+                lltype.free(attrptr, flavor='raw')
+
+            if scale == 0 or (scale == -127 and precision == 0):
+                return VT_LongInteger
+            elif precision > 0 and precision < 10:
+                return VT_Integer
+
+        return cls
+
     def getValueProc(self, space, pos):
         dataptr = rffi.ptradd(
             rffi.cast(roci.Ptr(roci.OCINumber), self.data),
@@ -525,7 +571,32 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
         elif isinstance(self, (VT_NumberAsString, VT_LongInteger)):
-            XXX = NumberAsString, LongInteger
+            format_buf = config.StringBuffer()
+            format_buf.fill(space, space.wrap("TM9"))
+            sizeptr = lltype.malloc(rffi.CArray(roci.ub4), 1, flavor='raw')
+            BUFSIZE = 200
+            sizeptr[0] = rffi.cast(lltype.Unsigned, BUFSIZE)
+            textbuf, text = rffi.alloc_buffer(BUFSIZE)
+            try:
+                status = roci.OCINumberToText(
+                    self.environment.errorHandle,
+                    dataptr,
+                    format_buf.ptr, format_buf.size,
+                    None, 0,
+                    sizeptr, textbuf);
+                self.environment.checkForError(
+                    status, "NumberVar_GetValue(): as string")
+                w_strvalue = space.wrap(
+                    rffi.str_from_buffer(textbuf, text,
+                                         BUFSIZE,
+                                         rffi.cast(lltype.Signed, sizeptr[0])))
+                if isinstance(self, VT_NumberAsString):
+                    return w_strvalue
+                else:
+                    return space.call_function(space.w_int, w_strvalue)
+            finally:
+                rffi.keep_buffer_alive_until_here(textbuf, text)
+                lltype.free(sizeptr, flavor='raw')
         else:
             return transform.OracleNumberToPythonFloat(
                 self.environment, dataptr)
@@ -551,6 +622,22 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
             return
+        if space.is_true(space.isinstance(w_value, space.w_long)):
+            text_buf = config.StringBuffer()
+            text_buf.fill(space, space.str(w_value))
+            format_buf = config.StringBuffer()
+            format_buf.fill(space, space.wrap("9" * 63))
+            status = roci.OCINumberFromText(
+                self.environment.errorHandle,
+                text_buf.ptr, text_buf.size,
+                format_buf.ptr, format_buf.size,
+                None, 0,
+                dataptr)
+            self.environment.checkForError(
+                status, "NumberVar_SetValue(): from long")
+            return
+        elif space.is_true(space.isinstance(w_value, space.w_bool)):
+            XXX
         elif space.is_true(space.isinstance(w_value, space.w_float)):
             doubleValuePtr = lltype.malloc(roci.Ptr(lltype.Float).TO, 1,
                                            flavor='raw')
@@ -789,7 +876,8 @@ def typeByValue(space, w_value, numElements):
     if space.is_true(space.isinstance(w_value, space.w_int)):
         return VT_Integer, 0, numElements
 
-    # XXX long
+    if space.is_true(space.isinstance(w_value, space.w_long)):
+        return VT_LongInteger, 0, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_float)):
         return VT_Float, 0, numElements

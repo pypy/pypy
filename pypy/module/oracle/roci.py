@@ -382,3 +382,15 @@ OCINumberToReal = external(
      dvoidp],          # rsl
     sword)
 
+OCINumberToText = external(
+    'OCINumberToText',
+    [OCIError,         # err
+     Ptr(OCINumber),   # number
+     oratext,          # fmt
+     ub4,              # fmt_length
+     oratext,          # nls_params
+     ub4,              # nls_p_length
+     Ptr(ub4),         # buf_size
+     oratext],         # buf
+    sword)
+

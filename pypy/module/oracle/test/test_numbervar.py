@@ -16,3 +16,18 @@ class AppTestNumberVar(OracleTestBase):
         cur.execute("begin :a := :b*2.5; end;", a=var,
                     b=decimal.Decimal("0.5"))
         assert var.getvalue() == 1.25
+
+    def test_largelong(self):
+        cur = self.cnx.cursor()
+        var = cur.var(oracle.NUMBER)
+        var.setvalue(0, 6088343244)
+        cur.execute("select :x+5 from dual", x=var)
+        value, = cur.fetchone()
+        assert value == 6088343249
+
+    def test_smalllong(self):
+        cur = self.cnx.cursor()
+        cur.execute("select :x from dual", x=3L)
+        value, = cur.fetchone()
+        assert value == 3
+
