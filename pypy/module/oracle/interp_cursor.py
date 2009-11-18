@@ -749,6 +749,33 @@ class W_Cursor(Wrappable):
         return space.wrap(var)
     var.unwrap_spec = ['self', ObjSpace, W_Root, int, W_Root, W_Root, W_Root]
 
+    def arrayvar(self, space, w_type, w_value, size=0):
+        # determine the type of variable
+        varType = interp_variable.typeByPythonType(space, self, w_type)
+        if varType.isVariableLength and size == 0:
+            size = varType.size
+
+        # determine the number of elements to create
+        if space.is_true(space.isinstance(w_value, space.w_list)):
+            numElements = space.int_w(space.len(w_value))
+        elif space.is_true(space.isinstance(w_value, space.w_int)):
+            numElements = space.int_w(w_value)
+        else:
+            raise OperationError(
+                w_NotSupportedErrorException,
+                space.wrap("expecting integer or list of values"))
+
+        # create the variable
+        var = varType(self, numElements, size)
+        var.makeArray(space)
+
+        # set the value, if applicable
+        if space.is_true(space.isinstance(w_value, space.w_list)):
+            var.setArrayValue(space, w_value)
+
+        return var
+    arrayvar.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, int]
+
     def setinputsizes(self, space, __args__):
         args_w, kw_w = __args__.unpack()
 
@@ -826,6 +853,8 @@ W_Cursor.typedef = TypeDef(
                           unwrap_spec=W_Cursor.callproc.unwrap_spec),
     var = interp2app(W_Cursor.var,
                      unwrap_spec=W_Cursor.var.unwrap_spec),
+    arrayvar = interp2app(W_Cursor.arrayvar,
+                          unwrap_spec=W_Cursor.arrayvar.unwrap_spec),
     setinputsizes = interp2app(W_Cursor.setinputsizes,
                                unwrap_spec=W_Cursor.setinputsizes.unwrap_spec),
 

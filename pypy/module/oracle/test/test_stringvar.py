@@ -50,3 +50,24 @@ class AppTestStringVar(OracleTestBase):
                     output=output)
         assert tablelen.getvalue() == 20
         assert output.getvalue() == ','.join(array)
+
+    def test_arrayvar(self):
+        cur = self.cnx.cursor()
+        array = map(str, range(20))
+        tablelen = cur.var(oracle.NUMBER)
+        output = cur.var(oracle.STRING)
+        arrayvar = cur.arrayvar(oracle.STRING, array)
+        arrayvar.setvalue(0, array)
+        statement = """
+                declare
+                  array dbms_utility.uncl_array := :array;
+                begin
+                  dbms_utility.table_to_comma(
+                      array, :tablelen, :output);
+                end;"""
+        cur.execute(statement,
+                    array=arrayvar,
+                    tablelen=tablelen,
+                    output=output)
+        assert tablelen.getvalue() == 20
+        assert output.getvalue() == ','.join(array)
