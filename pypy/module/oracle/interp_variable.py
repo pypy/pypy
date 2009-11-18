@@ -295,9 +295,14 @@ class W_Variable(Wrappable):
         # XXX outConverter
         return value
 
+    def getArrayValue(self, space, numElements):
+        return space.newlist(
+            [self.getSingleValue(space, i)
+             for i in range(numElements)])
+
     def getValue(self, space, pos=0):
         if self.isArray:
-            return self.getArrayValue(self, self.actualElements)
+            return self.getArrayValue(space, self.actualElementsPtr[0])
         return self.getSingleValue(space, pos)
     getValue.unwrap_spec = ['self', ObjSpace, int]
 
