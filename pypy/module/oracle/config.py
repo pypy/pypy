@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 WITH_UNICODE = False
 
 MAX_STRING_CHARS = 4000
+MAX_BINARY_BYTES = 4000
 
 if WITH_UNICODE:
     CHARSETID = roci.OCI_UTF16ID

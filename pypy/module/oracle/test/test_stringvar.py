@@ -4,7 +4,6 @@ class AppTestStringVar(OracleTestBase):
 
     def test_rowid(self):
         cur = self.cnx.cursor()
-        var = cur.var(oracle.NUMBER)
         cur.execute("select rowid from dual")
         rowid, = cur.fetchone()
         cur.execute("select * from dual where rowid = :r",
@@ -92,3 +91,18 @@ class AppTestStringVar(OracleTestBase):
         assert tablelen.getvalue() == 20
         # dbms_utility.comma_to_table returns a 'NULL-terminated' table
         assert arrayvar.getvalue() == array + [None]
+
+    def test_binary(self):
+        cur = self.cnx.cursor()
+        try:
+            cur.execute("drop table pypy_temp_table")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create table pypy_temp_table (rawcol raw(30))")
+
+        cur.setinputsizes(p=oracle.BINARY)
+        cur.execute("insert into pypy_temp_table values (:p)",
+                    p="raw string")
+        cur.execute("select * from pypy_temp_table")
+        data = cur.fetchall()
+        assert data == [("raw string",)]

@@ -149,7 +149,7 @@ class W_Variable(Wrappable):
         # allocate the indicator for the variable
         self.indicator = lltype.malloc(rffi.CArrayPtr(roci.sb2).TO,
                                        self.allocatedElements,
-                                       flavor='raw', zero=True) # XXX
+                                       flavor='raw', zero=True)
 
         # ensure that all variable values start out NULL
         for i in range(self.allocatedElements):
@@ -159,7 +159,7 @@ class W_Variable(Wrappable):
         if self.isVariableLength:
             self.returnCode = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO,
                                             self.allocatedElements,
-                                            flavor='raw', zero=True) # XXX
+                                            flavor='raw', zero=True)
 
         # perform extended initialization
         self.initialize(cursor)
@@ -170,6 +170,8 @@ class W_Variable(Wrappable):
             lltype.free(self.actualLength, flavor='raw')
         if self.data:
             lltype.free(self.data, flavor='raw')
+        if self.returnCode:
+            lltype.free(self.returnCode, flavor='raw')
 
     def getBufferSize(self):
         return self.size
@@ -490,8 +492,9 @@ class VT_Rowid(VT_String):
     size = 18
     isVariableLength = False
 
-class VT_Binary(W_Variable):
-    pass
+class VT_Binary(VT_String):
+    oracleType = roci.SQLT_BIN
+    size = config.MAX_BINARY_BYTES
 
 class VT_LongBinary(W_Variable):
     pass
