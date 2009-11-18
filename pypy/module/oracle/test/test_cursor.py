@@ -150,3 +150,27 @@ class AppTestCursor(OracleTestBase):
         count, = cur.fetchone()
         assert count == len(rows)
         assert var.maxlength == 100 * self.cnx.maxBytesPerCharacter
+
+    def test_description_number(self):
+        cur = self.cnx.cursor()
+        try:
+            cur.execute("drop table pypy_temp_table")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create table pypy_temp_table ("
+                    "intcol                number(9) not null,"
+                    "numbercol             number(9, 2) not null,"
+                    "floatcol              float not null,"
+                    "unconstrainedcol      number not null,"
+                    "nullablecol           number(38)"
+                    ")")
+        cur.execute("select * from pypy_temp_table")
+        got = cur.description
+        expected = [
+            ('INTCOL', oracle.NUMBER, 10, 22, 9, 0, 0),
+            ('NUMBERCOL', oracle.NUMBER, 13, 22, 9, 2, 0),
+            ('FLOATCOL', oracle.NUMBER, 127, 22, 126, -127, 0),
+            ('UNCONSTRAINEDCOL', oracle.NUMBER, 127, 22, 0, -127, 0),
+            ('NULLABLECOL', oracle.NUMBER, 39, 22, 38, 0, 1),
+            ]
+        assert got == expected

@@ -24,6 +24,7 @@ class CConfig:
     _compilation_info_ = eci
 
     ub1 = platform.SimpleType('ub1', rffi.UINT)
+    sb1 = platform.SimpleType('sb1', rffi.INT)
     ub2 = platform.SimpleType('ub2', rffi.UINT)
     sb2 = platform.SimpleType('sb2', rffi.INT)
     ub4 = platform.SimpleType('ub4', rffi.UINT)
@@ -53,6 +54,7 @@ class CConfig:
     OCI_CRED_RDBMS
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
+    OCI_ATTR_NAME OCI_ATTR_SCALE OCI_ATTR_PRECISION OCI_ATTR_IS_NULL
     OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_CHARSET_FORM
     OCI_ATTR_PARSE_ERROR_OFFSET
     OCI_NTV_SYNTAX

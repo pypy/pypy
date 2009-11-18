@@ -36,7 +36,7 @@ def define(cursor, position, numElements):
     
 def _defineHelper(cursor, param, position, numElements):
     # determine data type
-    varType = _typeByOracleDescriptor(param, cursor.environment)
+    varType = typeByOracleDescriptor(param, cursor.environment)
     if cursor.numbersAsStrings and varType is VT_Float:
         varType = VT_NumberAsString
 
@@ -656,7 +656,7 @@ for name, cls in globals().items():
         )
     variableTypeByTypedef[cls.typedef] = cls
 
-def _typeByOracleDescriptor(param, environment):
+def typeByOracleDescriptor(param, environment):
     # retrieve datatype of the parameter
     attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO, 1, flavor='raw')
     try:

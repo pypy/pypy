@@ -351,6 +351,187 @@ class W_Cursor(Wrappable):
 
         self.fetchVariables = None
 
+    def getDescription(space, self):
+        "Return a list of 7-tuples consisting of the description of "
+        "the define variables"
+
+        # make sure the cursor is open
+        self._checkOpen(space)
+
+        # fixup bound cursor, if necessary
+        self._fixupBoundCursor()
+
+        # if not a query, return None
+        if self.statementType != roci.OCI_STMT_SELECT:
+            return
+
+        # determine number of items in select-list
+        attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub1).TO, 1, flavor='raw')
+        try:
+            status = roci.OCIAttrGet(
+                self.handle, roci.OCI_HTYPE_STMT,
+                rffi.cast(roci.dvoidp, attrptr),
+                lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                roci.OCI_ATTR_PARAM_COUNT,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status,
+                "Cursor_GetDescription()")
+            numItems = attrptr[0]
+        finally:
+            lltype.free(attrptr, flavor='raw')
+
+        return space.newlist(
+            [space.newtuple(self._itemDescription(space, i + 1))
+             for i in range(numItems)])
+
+    def _itemDescription(self, space, pos):
+        "Return a tuple describing the item at the given position"
+
+        # acquire parameter descriptor
+        paramptr = lltype.malloc(roci.Ptr(roci.OCIParam).TO,
+                                 1, flavor='raw')
+        try:
+            status = roci.OCIParamGet(
+                self.handle, roci.OCI_HTYPE_STMT,
+                self.environment.errorHandle,
+                rffi.cast(roci.dvoidpp, paramptr),
+                pos)
+            self.environment.checkForError(
+                status,
+                "Cursor_GetDescription(): parameter")
+            param = paramptr[0]
+        finally:
+            lltype.free(paramptr, flavor='raw')
+
+        try:
+            # acquire usable type of item
+            varType = interp_variable.typeByOracleDescriptor(
+                param, self.environment)
+
+            # acquire internal size of item
+            attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO, 1,
+                                    flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    param, roci.OCI_HTYPE_DESCRIBE,
+                    rffi.cast(roci.dvoidp, attrptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_DATA_SIZE,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status,
+                    "Cursor_ItemDescription(): internal size")
+                internalSize = attrptr[0]
+            finally:
+                lltype.free(attrptr, flavor='raw')
+
+            # acquire name of item
+            nameptr = lltype.malloc(rffi.CArrayPtr(roci.oratext).TO, 1,
+                                    flavor='raw')
+            lenptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1,
+                                    flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    param, roci.OCI_HTYPE_DESCRIBE,
+                    rffi.cast(roci.dvoidp, nameptr),
+                    lenptr,
+                    roci.OCI_ATTR_NAME,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status,
+                    "Cursor_ItemDescription(): name")
+                name = rffi.charpsize2str(nameptr[0], lenptr[0])
+            finally:
+                lltype.free(nameptr, flavor='raw')
+                lltype.free(lenptr, flavor='raw')
+
+            # lookup precision and scale
+            if varType == interp_variable.VT_Float:
+                attrptr = lltype.malloc(rffi.CArrayPtr(roci.sb1).TO, 1,
+                                        flavor='raw')
+                try:
+                    status = roci.OCIAttrGet(
+                        param, roci.OCI_HTYPE_DESCRIBE,
+                        rffi.cast(roci.dvoidp, attrptr),
+                        lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                        roci.OCI_ATTR_SCALE,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status,
+                        "Cursor_ItemDescription(): scale")
+                    scale = attrptr[0]
+                finally:
+                    lltype.free(attrptr, flavor='raw')
+
+                attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO, 1,
+                                        flavor='raw')
+                try:
+                    status = roci.OCIAttrGet(
+                        param, roci.OCI_HTYPE_DESCRIBE,
+                        rffi.cast(roci.dvoidp, attrptr),
+                        lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                        roci.OCI_ATTR_PRECISION,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status,
+                        "Cursor_ItemDescription(): precision")
+                    precision = attrptr[0]
+                finally:
+                    lltype.free(attrptr, flavor='raw')
+            else:
+                scale = 0
+                precision = 0
+
+            # lookup whether null is permitted for the attribute
+            attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub1).TO, 1,
+                                    flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    param, roci.OCI_HTYPE_DESCRIBE,
+                    rffi.cast(roci.dvoidp, attrptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_IS_NULL,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status,
+                    "Cursor_ItemDescription(): nullable")
+                nullable = attrptr[0] != 0
+            finally:
+                lltype.free(attrptr, flavor='raw')
+
+            # set display size based on data type
+            if varType == interp_variable.VT_String:
+                displaySize = internalSize
+            elif varType == interp_variable.VT_NationalCharString:
+                displaySize = internalSize / 2
+            elif varType == interp_variable.VT_Binary:
+                displaySize = internalSize
+            elif varType == interp_variable.VT_FixedChar:
+                displaySize = internalSize
+            elif varType == interp_variable.VT_FixedNationalChar:
+                displaySize = internalSize / 2
+            elif varType == interp_variable.VT_Float:
+                if precision:
+                    displaySize = precision + 1
+                    if scale > 0:
+                        displaySize += scale + 1
+                else:
+                    displaySize = 127
+            elif varType == interp_variable.VT_DateTime:
+                displaySize = 23
+            else:
+                displaySize = -1
+
+            # return the tuple
+            return [space.wrap(name), space.gettypeobject(varType.typedef),
+                    space.wrap(displaySize), space.wrap(internalSize),
+                    space.wrap(precision), space.wrap(scale),
+                    space.wrap(nullable)]
+
+        finally:
+            roci.OCIDescriptorFree(param, roci.OCI_DTYPE_PARAM)
+
     def _setBindVariablesByPos(self, space,
                                w_vars, numElements, arrayPos, defer):
         "handle positional binds"
@@ -865,5 +1046,6 @@ W_Cursor.typedef = TypeDef(
     bindarraysize = GetSetProperty(cursor_bindarraysize_get, cursor_bindarraysize_set),
     rowcount = interp_attrproperty('rowCount', W_Cursor),
     statement = interp_attrproperty_w('w_statement', W_Cursor),
-    bindvars = GetSetProperty(cursor_bindvars_get)
+    bindvars = GetSetProperty(cursor_bindvars_get),
+    description = GetSetProperty(W_Cursor.getDescription),
 )
