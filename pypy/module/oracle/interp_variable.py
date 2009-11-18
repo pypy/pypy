@@ -572,11 +572,13 @@ class VT_Float(W_Variable):
             text_buf.fill(space, w_text)
             format_buf = config.StringBuffer()
             format_buf.fill(space, w_format)
+            nls_params = "NLS_NUMERIC_CHARACTERS='.,'"
             status = roci.OCINumberFromText(
                 self.environment.errorHandle,
                 text_buf.ptr, text_buf.size,
                 format_buf.ptr, format_buf.size,
-                None, 0, dataptr)
+                nls_params, len(nls_params),
+                dataptr)
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from decimal")
             return
