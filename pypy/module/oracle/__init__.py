@@ -10,6 +10,7 @@ class Module(MixedModule):
         'STRING': 'interp_variable.VT_String',
         'DATETIME': 'interp_variable.VT_DateTime',
         'BINARY': 'interp_variable.VT_Binary',
+        'LONG_STRING': 'interp_variable.VT_LongString',
         'Variable': 'interp_variable.W_Variable',
     }
 

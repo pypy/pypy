@@ -988,4 +988,4 @@ def newVariableByType(space, cursor, w_value, numElements):
 
     # everything else ought to be a Python type
     varType = typeByPythonType(space, cursor, w_value)
-    return varType(cursor, numElements)
+    return varType(cursor, numElements, varType.size)

@@ -2,6 +2,16 @@ from pypy.module.oracle.test.test_connect import OracleTestBase
 
 class AppTestStringVar(OracleTestBase):
 
+    def test_bind_inout(self):
+        cur = self.cnx.cursor()
+        vars = cur.setinputsizes(value=oracle.STRING)
+        cur.execute("""
+            begin
+              :value := :value || ' output';
+            end;""",
+            value="input")
+        assert vars["value"].getvalue() == "input output"
+
     def test_rowid(self):
         cur = self.cnx.cursor()
         cur.execute("select rowid from dual")
