@@ -245,7 +245,7 @@ translation_optiondescription = OptionDescription(
                    "Tranform graphs in SSI form into graphs tailored for "
                    "stack based virtual machines (only for backends that support it)",
                    default=True),
-        BoolOption("storesink", "Perform store sinking", default=False),
+        BoolOption("storesink", "Perform store sinking", default=True),
         BoolOption("none",
                    "Do not run any backend optimizations",
                    requires=[('translation.backendopt.inline', False),
