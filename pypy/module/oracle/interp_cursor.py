@@ -393,7 +393,7 @@ class W_Cursor(Wrappable):
 
         items = space.viewiterable(space.call_method(w_vars, "iteritems"))
         for item in items:
-            w_key, w_value = space.unpackiterable(item)
+            w_key, w_value = space.viewiterable(item, 2)
             origVar = space.finditem(self.bindDict, w_key)
             newVar = self._setBindVariableHelper(space, w_value, origVar,
                                                  numElements, arrayPos, defer)
@@ -463,7 +463,7 @@ class W_Cursor(Wrappable):
             items = space.viewiterable(
                 space.call_method(self.bindDict, "iteritems"))
             for item in items:
-                w_key, var = space.unpackiterable(item)
+                w_key, var = space.viewiterable(item, 2)
                 var.bind(space, self, w_key, 0)
 
         # ensure that input sizes are reset

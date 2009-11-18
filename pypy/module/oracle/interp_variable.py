@@ -117,6 +117,7 @@ def _defineHelper(cursor, param, position, numElements):
 class W_Variable(Wrappable):
     charsetForm = roci.SQLCS_IMPLICIT
     isVariableLength = False
+    canBeInArray = True
     
     def __init__(self, cursor, numElements, size=0):
         self.environment = cursor.environment
@@ -182,6 +183,14 @@ class W_Variable(Wrappable):
 
         self.data = lltype.malloc(rffi.CCHARP.TO, int(dataLength),
                                   flavor='raw', zero=True)
+
+    def makeArray(self, space):
+        if not self.canBeInArray:
+            raise OperationError(
+                get(space).w_NotSupportedError,
+                space.wrap(
+                    "Variable_MakeArray(): type does not support arrays"))
+        self.isArray = True
 
     def initialize(self, cursor):
         pass
@@ -296,7 +305,7 @@ class W_Variable(Wrappable):
         # ensure we do not exceed the number of allocated elements
         if pos >= self.allocatedElements:
             raise OperationError(
-                space.w_PyExc_IndexError,
+                space.w_IndexError,
                 space.wrap("Variable_SetSingleValue: array size exceeded"))
 
         # convert value, if necessary
@@ -313,10 +322,31 @@ class W_Variable(Wrappable):
 
         self.setValueProc(space, pos, w_value)
 
+    def setArrayValue(self, space, w_value):
+        # ensure we have an array to set
+        if not space.is_true(space.isinstance(w_value, space.w_list)):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("expecting array data"))
+
+        elements_w = space.viewiterable(w_value)
+
+        # ensure we haven't exceeded the number of allocated elements
+        if len(elements_w) > self.allocatedElements:
+            raise OperationError(
+                space.w_IndexError,
+                space.wrap("Variable_SetArrayValue: array size exceeded"))
+
+        # set all of the values
+        self.actualElementsPtr[0] = rffi.cast(lltype.Unsigned, len(elements_w))
+        for i, w_element in enumerate(elements_w):
+            self.setSingleValue(space, i, w_element)
+
     def setValue(self, space, pos, w_value):
         if self.isArray:
-            self.setArrayValue(self, w_value)
-        self.setSingleValue(space, pos, w_value)
+            self.setArrayValue(space, w_value)
+        else:
+            self.setSingleValue(space, pos, w_value)
     setValue.unwrap_spec = ['self', ObjSpace, int, W_Root]
 
 
@@ -392,6 +422,10 @@ class VT_String(W_Variable):
                 buf = config.StringBuffer()
                 buf.fill(space, w_value)
                 size = buf.size
+            else:
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("expecting string or buffer data"))
 
         try:
             if buf.size > self.environment.maxStringBytes:
@@ -603,10 +637,10 @@ class VT_BFILE(W_Variable):
     pass
 
 class VT_Cursor(W_Variable):
-    pass
+    canBeInArray = False
 
 class VT_Object(W_Variable):
-    pass
+    canBeInArray = False
 
 variableTypeByTypedef = {}
 for name, cls in globals().items():
@@ -748,6 +782,17 @@ def typeByValue(space, w_value, numElements):
     if space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
         return VT_NumberAsString, 0, numElements
 
+    # handle arrays
+    if space.is_true(space.isinstance(w_value, space.w_list)):
+        elements_w = space.viewiterable(w_value)
+        for w_element in elements_w:
+            if not space.is_w(w_element, space.w_None):
+                break
+        else:
+            w_element = space.w_None
+        varType, size, _ = typeByValue(space, w_element, numElements)
+        return varType, size, len(elements_w)
+
     raise OperationError(
         moduledict.w_NotSupportedError,
         space.wrap("Variable_TypeByValue(): unhandled data type %s" %
@@ -766,8 +811,20 @@ def newVariableByValue(space, cursor, w_value, numElements):
         varType, size, numElements = typeByValue(space, w_value, numElements)
         var = varType(cursor, numElements, size)
         if space.is_true(space.isinstance(w_value, space.w_list)):
-            var.makeArray()
+            var.makeArray(space)
         return var
+
+def newArrayVariableByType(space, cursor, w_value):
+    "Allocate a new PL/SQL array by looking at the Python data type."
+
+    w_type, w_numElements = space.viewiterable(w_value, 2)
+
+    numElements = space.int_w(w_numElements)
+    varType = typeByPythonType(space, cursor, w_type)
+
+    var = varType(cursor, numElements)
+    var.makeArray(space)
+    return var
 
 def newVariableByType(space, cursor, w_value, numElements):
     # passing an integer is assumed to be a string
@@ -781,7 +838,7 @@ def newVariableByType(space, cursor, w_value, numElements):
 
     # passing an array of two elements define an array
     if space.is_true(space.isinstance(w_value, space.w_list)):
-        XXX
+        return newArrayVariableByType(space, cursor, w_value)
 
     # handle directly bound variables
     if space.is_true(space.isinstance(w_value,
