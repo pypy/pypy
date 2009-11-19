@@ -47,3 +47,9 @@ class AppTestSelect(OracleTestBase):
             assert row == (i,)
         assert i == 41
 
+    def test_arraysize_too_large(self):
+        cur = self.cnx.cursor()
+        cur.arraysize = 2 ** 20
+        largevar = cur.var(oracle.STRING)
+        raises(ValueError,
+               cur.execute, "select :large from dual", large=largevar)

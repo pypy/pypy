@@ -144,7 +144,7 @@ class W_Variable(Wrappable):
                 self.size = size
 
         # allocate the data for the variable
-        self.allocateData()
+        self.allocateData(self.environment.space)
     
         # allocate the indicator for the variable
         self.indicator = lltype.malloc(rffi.CArrayPtr(roci.sb2).TO,
@@ -176,24 +176,27 @@ class W_Variable(Wrappable):
     def getBufferSize(self):
         return self.size
 
-    def allocateData(self):
+    def allocateData(self, space):
         # set the buffer size for the variable
         self.bufferSize = self.getBufferSize()
 
         # allocate the data as long as it is small enough
-        dataLength = ovfcheck(self.allocatedElements * self.bufferSize)
-        if dataLength > sys.maxint:
-            raise ValueError("array size too large")
+        try:
+            dataLength = ovfcheck(self.allocatedElements * self.bufferSize)
+        except OverflowError:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("array size too large"))
 
         self.data = lltype.malloc(rffi.CCHARP.TO, int(dataLength),
                                   flavor='raw', zero=True)
 
-    def resize(self, size):
+    def resize(self, space, size):
         # allocate the data for the new array
         orig_data = self.data
         orig_size = self.bufferSize
         self.size = size
-        self.allocateData()
+        self.allocateData(space)
 
         # copy the data from the original array to the new array
         for i in range(self.allocatedElements):
@@ -292,13 +295,13 @@ class W_Variable(Wrappable):
                 error = W_Error(space, self.environment,
                                 "Variable_VerifyFetch()", 0)
                 error.code = self.returnCode[pos]
-                error.message = self.space.wrap(
+                error.message = space.wrap(
                     "column at array pos %d fetched with error: %d" %
                     (pos, self.returnCode[pos]))
-                w_error = get(self.space).w_DatabaseError
+                w_error = get(space).w_DatabaseError
 
-                raise OperationError(get(self.space).w_DatabaseError,
-                                     self.space.wrap(error))
+                raise OperationError(get(space).w_DatabaseError,
+                                     space.wrap(error))
 
     def getSingleValue(self, space, pos):
         # ensure we do not exceed the number of allocated elements
@@ -464,7 +467,7 @@ class VT_String(W_Variable):
 
             # ensure that the buffer is large enough
             if buf.size > self.bufferSize:
-                self.resize(size)
+                self.resize(space, size)
 
             # keep a copy of the string
             self.actualLength[pos] = rffi.cast(roci.ub2, buf.size)
@@ -504,7 +507,7 @@ class VT_LongString(W_Variable):
         try:
             # ensure that the buffer is large enough
             if buf.size + rffi.sizeof(roci.ub4) > self.bufferSize:
-                self.resize(buf.size + rffi.sizeof(roci.ub4))
+                self.resize(space, buf.size + rffi.sizeof(roci.ub4))
 
             # copy the string to the Oracle buffer
             ptr = rffi.ptradd(self.data, pos * self.bufferSize)
