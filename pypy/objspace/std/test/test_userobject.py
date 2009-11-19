@@ -1,3 +1,4 @@
+import py
 from pypy.interpreter import gateway
 
 
