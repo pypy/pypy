@@ -732,7 +732,6 @@ class VT_DateTime(W_Variable):
         dataptr = rffi.ptradd(
             rffi.cast(roci.Ptr(roci.OCIDate), self.data),
             pos)
-        dataptr = rffi.cast(roci.Ptr(roci.OCIDate), self.data)
         return transform.OracleDateToPythonDateTime(self.environment, dataptr)
 
     def setValueProc(self, space, pos, w_value):
@@ -757,7 +756,8 @@ class VT_DateTime(W_Variable):
                 space.wrap("expecting date data"))
 
         # store a copy of the value
-        timePart = dataptr[0].c_OCIDateTime
+        value = dataptr[0]
+        timePart = value.c_OCIDateTime
         rffi.setintfield(timePart, 'c_OCITimeHH', hour)
         rffi.setintfield(timePart, 'c_OCITimeMI', minute)
         rffi.setintfield(timePart, 'c_OCITimeSS', second)
