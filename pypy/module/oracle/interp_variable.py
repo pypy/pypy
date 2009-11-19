@@ -486,6 +486,17 @@ class VT_LongString(W_Variable):
     isVariableLength = True
     size = 128 * 1024
 
+    def getValueProc(self, space, pos):
+        ptr = rffi.ptradd(self.data, pos * self.bufferSize)
+        length = rffi.cast(roci.Ptr(roci.ub4), ptr)[0]
+
+        l = []
+        i = 0
+        while i < length:
+            l.append(self.data[i + rffi.sizeof(roci.ub4)])
+            i += 1
+        return space.wrap(''.join(l))
+
     def setValueProc(self, space, pos, w_value):
         buf = config.StringBuffer()
         buf.fill(space, w_value)
@@ -496,10 +507,10 @@ class VT_LongString(W_Variable):
                 self.resize(buf.size + rffi.sizeof(roci.ub4))
 
             # copy the string to the Oracle buffer
-            data = rffi.ptradd(self.data, pos * self.bufferSize)
-            rffi.cast(roci.Ptr(roci.ub4), data)[0] = rffi.cast(roci.ub4, buf.size)
+            ptr = rffi.ptradd(self.data, pos * self.bufferSize)
+            rffi.cast(roci.Ptr(roci.ub4), ptr)[0] = rffi.cast(roci.ub4, buf.size)
             for index in range(buf.size):
-                data[index + rffi.sizeof(roci.ub4)] = buf.ptr[index]
+                ptr[index + rffi.sizeof(roci.ub4)] = buf.ptr[index]
         finally:
             buf.clear()
 

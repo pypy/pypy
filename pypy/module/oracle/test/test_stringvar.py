@@ -119,11 +119,14 @@ class AppTestStringVar(OracleTestBase):
 
     def test_longstring(self):
         cur = self.cnx.cursor()
+        output = cur.var(oracle.LONG_STRING)
         cur.execute("""
             declare
               t_Temp varchar2(10000);
             begin
               t_Temp := :bigString;
+              :output := t_Temp;
             end;""",
-            bigString="X" * 10000)
+            bigString="X" * 10000, output=output)
+        assert output.getvalue() == "X" * 10000
 
