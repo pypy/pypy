@@ -389,8 +389,9 @@ W_Variable.typedef = TypeDef(
     setvalue = interp2app(W_Variable.setValue,
                           unwrap_spec=W_Variable.setValue.unwrap_spec),
 
-    maxlength = interp_attrproperty('bufferSize', W_Variable),
-
+    maxlength  = interp_attrproperty('bufferSize', W_Variable),
+    bufferSize = interp_attrproperty('bufferSize', W_Variable),
+    size = interp_attrproperty('size', W_Variable),
     )
 
 class VT_String(W_Variable):
@@ -489,16 +490,15 @@ class VT_LongString(W_Variable):
     isVariableLength = True
     size = 128 * 1024
 
+    def getBufferSize(self):
+        return self.size + rffi.sizeof(roci.ub4)
+
     def getValueProc(self, space, pos):
         ptr = rffi.ptradd(self.data, pos * self.bufferSize)
         length = rffi.cast(roci.Ptr(roci.ub4), ptr)[0]
 
-        l = []
-        i = 0
-        while i < length:
-            l.append(self.data[i + rffi.sizeof(roci.ub4)])
-            i += 1
-        return space.wrap(''.join(l))
+        ptr = rffi.ptradd(ptr, rffi.sizeof(roci.ub4))
+        return space.wrap(rffi.charpsize2str(ptr, length))
 
     def setValueProc(self, space, pos, w_value):
         buf = config.StringBuffer()
@@ -530,7 +530,7 @@ class VT_Binary(VT_String):
     size = config.MAX_BINARY_BYTES
 
 class VT_LongBinary(VT_LongString):
-    pass
+    oracleType = roci.SQLT_LVB
 
 class VT_NativeFloat(W_Variable):
     pass
