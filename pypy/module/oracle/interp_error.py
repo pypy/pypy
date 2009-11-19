@@ -25,6 +25,7 @@ class State:
         w_datetime = space.call(w_import, space.newlist(
             [space.wrap('datetime')]))
         self.w_DateTimeType = space.getattr(w_datetime, space.wrap("datetime"))
+        self.w_DateType = space.getattr(w_datetime, space.wrap("date"))
 
 
 def get(space): 

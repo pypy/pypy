@@ -747,7 +747,10 @@ class VT_DateTime(W_Variable):
             minute = space.int_w(space.getattr(w_value, space.wrap('minute')))
             second = space.int_w(space.getattr(w_value, space.wrap('second')))
         elif space.is_true(space.isinstance(w_value, get(space).w_DateType)):
-            XXX
+            year = space.int_w(space.getattr(w_value, space.wrap('year')))
+            month = space.int_w(space.getattr(w_value, space.wrap('month')))
+            day = space.int_w(space.getattr(w_value, space.wrap('day')))
+            hour = minute = second = 0
         else:
             raise OperationError(
                 space.w_TypeError,
@@ -762,7 +765,7 @@ class VT_DateTime(W_Variable):
         rffi.setintfield(dataptr[0], 'c_OCIDateMM', month)
         rffi.setintfield(dataptr[0], 'c_OCIDateDD', day)
 
-class VT_Date(W_Variable):
+class VT_Date(VT_DateTime):
     oracleType = roci.SQLT_ODT
     size = rffi.sizeof(roci.OCIDate)
 
@@ -931,7 +934,8 @@ def typeByValue(space, w_value, numElements):
     if space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
         return VT_DateTime, 0, numElements
 
-    # XXX date
+    if space.is_true(space.isinstance(w_value, get(space).w_DateType)):
+        return VT_Date, 0, numElements
 
     # XXX Delta
 
