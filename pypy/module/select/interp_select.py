@@ -113,9 +113,9 @@ that are ready.
 On Windows, only sockets are supported; on Unix, all file descriptors.
 """
 
-    iwtd_w = space.unpackiterable(w_iwtd)
-    owtd_w = space.unpackiterable(w_owtd)
-    ewtd_w = space.unpackiterable(w_ewtd)
+    iwtd_w = space.listview(w_iwtd)
+    owtd_w = space.listview(w_owtd)
+    ewtd_w = space.listview(w_ewtd)
     iwtd = [as_fd_w(space, w_f) for w_f in iwtd_w]
     owtd = [as_fd_w(space, w_f) for w_f in owtd_w]
     ewtd = [as_fd_w(space, w_f) for w_f in ewtd_w]

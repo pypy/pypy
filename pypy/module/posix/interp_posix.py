@@ -573,7 +573,7 @@ second form is used, set the access and modified times to the current time.
             raise wrap_oserror(space, e)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.unpackiterable(w_tuple)
+        args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0])

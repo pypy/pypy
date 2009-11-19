@@ -106,7 +106,7 @@ def unpack_to_ffi_type(space, w_shape, shape=False):
             resshape = cache.get_array_type(letter2tp(space, letter))
     else:
         letter = 'V'
-        w_shapetype, w_length = space.viewiterable(w_shape, expected_length=2)
+        w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
         from pypy.module._rawffi.structure import W_Structure
         resshape = space.interp_w(W_Structure, w_shapetype)
         ffi_type = resshape.get_ffi_type()
@@ -117,7 +117,7 @@ def unpack_to_size_alignment(space, w_shape):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
-        w_shapetype, w_length = space.viewiterable(w_shape, expected_length=2)
+        w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
         resshape = space.interp_w(W_DataShape, w_shapetype)
         length = space.int_w(w_length)
         size, alignment = resshape._size_alignment()
@@ -155,7 +155,7 @@ class W_CDLL(Wrappable):
         """
         ffi_restype, resshape = unpack_resshape(space, w_restype)
         w = space.wrap
-        argtypes_w = space.viewiterable(w_argtypes)
+        argtypes_w = space.fixedview(w_argtypes)
         w_argtypes = space.newtuple(argtypes_w)
         w_key = space.newtuple([w_name, w_argtypes, w(resshape)])
         try:

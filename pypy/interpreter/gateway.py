@@ -210,7 +210,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                              % (self.scopenext(), self.scopenext()))
 
     def visit_args_w(self, el):
-        self.run_args.append("space.viewiterable(%s)" % self.scopenext())
+        self.run_args.append("space.fixedview(%s)" % self.scopenext())
 
     def visit_w_args(self, el):
         self.run_args.append(self.scopenext())
@@ -416,7 +416,7 @@ class BuiltinCode(eval.Code):
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
         #  baseobjspace.Wrappable subclasses imply interp_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
-        # 'args_w' for viewiterable applied to rest arguments
+        # 'args_w' for fixedview applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
         # str,int,float: unwrap argument as such type
         # (function, cls) use function to check/unwrap argument of type cls

@@ -260,11 +260,7 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
 
 def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
-    if isinstance(w_iterable, W_ListObject):
-        sequence2 = w_iterable.wrappeditems
-    else:
-        sequence2 = space.unpackiterable(w_iterable)
-
+    sequence2 = space.listview(w_iterable)
     assert slicelength >= 0
     items = w_list.wrappeditems
     oldsize = len(items)
@@ -357,7 +353,7 @@ def list_extend__List_List(space, w_list, w_other):
     return space.w_None
 
 def list_extend__List_ANY(space, w_list, w_any):
-    w_list.wrappeditems += space.unpackiterable(w_any)
+    w_list.wrappeditems += space.listview(w_any)
     return space.w_None
 
 # note that the default value will come back wrapped!!!

@@ -581,7 +581,7 @@ class __extend__(pyframe.PyFrame):
                                      w_compile_flags,
                                      f.space.wrap(f.get_builtin()),
                                      f.space.gettypeobject(PyCode.typedef))
-        w_prog, w_globals, w_locals = f.space.viewiterable(w_resulttuple, 3)
+        w_prog, w_globals, w_locals = f.space.fixedview(w_resulttuple, 3)
 
         plain = f.w_locals is not None and f.space.is_w(w_locals, f.w_locals)
         if plain:
@@ -637,7 +637,7 @@ class __extend__(pyframe.PyFrame):
     def UNPACK_SEQUENCE(f, itemcount, *ignored):
         w_iterable = f.popvalue()
         try:
-            items = f.space.viewiterable(w_iterable, itemcount)
+            items = f.space.fixedview(w_iterable, itemcount)
         except UnpackValueError, e:
             raise OperationError(f.space.w_ValueError, f.space.wrap(e.msg))
         f.pushrevvalues(itemcount, items)

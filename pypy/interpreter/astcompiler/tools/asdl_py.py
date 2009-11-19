@@ -144,7 +144,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if attr.seq:
                 self.emit("w_list = self.w_%s" % (attr.name,), 2)
                 self.emit("if w_list is not None:", 2)
-                self.emit("list_w = space.viewiterable(w_list)", 3)
+                self.emit("list_w = space.listview(w_list)", 3)
                 self.emit("if list_w:", 3)
                 unwrapper = get_unwrapper(attr.type.value, "w_obj",
                                           self.data.simple_types)

@@ -13,7 +13,7 @@ def descr__new__(space, w_tupletype, w_sequence=NoneNotWrapped):
           space.is_w(space.type(w_sequence), space.w_tuple)):
         return w_sequence
     else:
-        tuple_w = space.viewiterable(w_sequence)
+        tuple_w = space.fixedview(w_sequence)
     w_obj = space.allocate_instance(space.TupleObjectCls, w_tupletype)
     space.TupleObjectCls.__init__(w_obj, tuple_w)
     return w_obj

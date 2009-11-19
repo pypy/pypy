@@ -596,7 +596,7 @@ def compute_mro(w_self):
         if not space.is_w(w_where, space.w_type):
             w_mro_meth = space.get(w_mro_func, w_self)
             w_mro = space.call_function(w_mro_meth)
-            mro_w = space.viewiterable(w_mro)
+            mro_w = space.fixedview(w_mro)
             w_self.mro_w = validate_custom_mro(space, mro_w)
             return    # done
     w_self.mro_w = w_self.compute_default_mro()[:]

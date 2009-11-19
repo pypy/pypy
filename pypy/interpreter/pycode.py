@@ -349,7 +349,7 @@ class PyCode(eval.Code):
         if not space.is_true(space.isinstance(w_constants, space.w_tuple)):
             raise OperationError(space.w_TypeError,
                                  space.wrap("Expected tuple for constants"))
-        consts_w   = space.viewiterable(w_constants)
+        consts_w   = space.fixedview(w_constants)
         names      = unpack_str_tuple(space, w_names)
         varnames   = unpack_str_tuple(space, w_varnames)
         if w_freevars is not None:

@@ -45,7 +45,7 @@ def make_inlinedict_mixin(dictimplclass, attrname):
             # XXX sucky
             items = []
             for w_item in self.impl_items():
-                w_key, w_value = self.space.viewiterable(w_item)
+                w_key, w_value = self.space.fixedview(w_item)
                 items.append((w_key, w_value))
             return IndirectionIterImplementation(self.space, self, items)
 

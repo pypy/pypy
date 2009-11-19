@@ -607,8 +607,8 @@ class FakeSpace:
     StringObjectCls = FakeString
     w_dict = None
     iter = iter
-    viewiterable = list
-
+    fixedview = list
+    listview  = list
 
 class Config:
     class objspace:

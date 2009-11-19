@@ -60,8 +60,11 @@ class DummySpace(object):
     def is_true(self, obj):
         return bool(obj)
 
-    def viewiterable(self, it):
+    def fixedview(self, it):
         return list(it)
+
+    def listview(self, it):
+        return list(it)        
 
     def unpackiterable(self, it):
         return list(it)

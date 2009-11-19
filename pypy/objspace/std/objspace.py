@@ -383,7 +383,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             space = self
             # too early for unpackiterable as well :-(
             name  = space.unwrap(space.getitem(w_args, space.wrap(0)))
-            bases = space.viewiterable(space.getitem(w_args, space.wrap(1)))
+            bases = space.fixedview(space.getitem(w_args, space.wrap(1)))
             dic   = space.unwrap(space.getitem(w_args, space.wrap(2)))
             dic = dict([(key,space.wrap(value)) for (key, value) in dic.items()])
             bases = list(bases)
@@ -643,7 +643,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise UnpackValueError("Expected length %d, got %d" % (expected_length, len(t)))
         return t
 
-    def viewiterable(self, w_obj, expected_length=-1):
+    def fixedview(self, w_obj, expected_length=-1):
         """ Fast paths
         """
         if isinstance(w_obj, W_TupleObject):
@@ -651,7 +651,18 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif isinstance(w_obj, W_ListObject):
             t = w_obj.wrappeditems[:]
         else:
-            return ObjSpace.viewiterable(self, w_obj, expected_length)
+            return ObjSpace.fixedview(self, w_obj, expected_length)
+        if expected_length != -1 and len(t) != expected_length:
+            raise UnpackValueError("Expected length %d, got %d" % (expected_length, len(t)))
+        return t
+
+    def listview(self, w_obj, expected_length=-1):
+        if isinstance(w_obj, W_ListObject):
+            t = w_obj.wrappeditems
+        elif isinstance(w_obj, W_TupleObject):
+            t = w_obj.wrappeditems[:]
+        else:
+            return ObjSpace.listview(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
             raise UnpackValueError("Expected length %d, got %d" % (expected_length, len(t)))
         return t

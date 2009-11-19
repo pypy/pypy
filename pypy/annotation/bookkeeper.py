@@ -757,7 +757,8 @@ class RPythonCallsSpace:
             getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
             return [Ellipsis]
         raise CallPatternTooComplex, "'*' argument must be SomeTuple"
-    viewiterable = unpackiterable
+    fixedview = unpackiterable
+    listview  = unpackiterable
 
     def is_w(self, one, other):
         return one is other

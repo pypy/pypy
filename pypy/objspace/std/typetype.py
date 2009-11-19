@@ -11,7 +11,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
 
     w_typetype = _precheck_for_new(space, w_typetype)
     
-    bases_w = space.viewiterable(w_bases)
+    bases_w = space.fixedview(w_bases)
 
     w_winner = w_typetype
     for base in bases_w:
@@ -38,7 +38,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     name = space.str_w(w_name)
     assert isinstance(name, str)
     dict_w = {}
-    dictkeys_w = space.unpackiterable(w_dict)
+    dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
         key = space.str_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
@@ -115,7 +115,7 @@ def descr_set__bases__(space, w_type, w_value):
                                         " to %s.__bases__, not %s"%
                                     (w_type.name,
                                      space.type(w_value).getname(space, '?'))))
-    newbases_w = space.viewiterable(w_value)
+    newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise OperationError(space.w_TypeError,
                              space.wrap("can only assign non-empty tuple"

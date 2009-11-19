@@ -222,7 +222,7 @@ def _gettmarg(space, w_tup, allowNone=True):
                 space.wrap(_get_error_msg()))
         return pbuf
 
-    tup_w = space.unpackiterable(w_tup)
+    tup_w = space.fixedview(w_tup)
     if len(tup_w) != 9:
         raise OperationError(space.w_TypeError, 
                              space.wrap("argument must be sequence of "

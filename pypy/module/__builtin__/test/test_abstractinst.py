@@ -5,7 +5,7 @@ class TestAbstractInst:
 
     def test_abstract_isclass(self):
         space = self.space
-        w_B1, w_B2, w_B3, w_X, w_Y = space.viewiterable(space.appexec([], """():
+        w_B1, w_B2, w_B3, w_X, w_Y = space.fixedview(space.appexec([], """():
             class X(object): pass
             class Y: pass
             B1, B2, B3 = X(), X(), X()
@@ -22,7 +22,7 @@ class TestAbstractInst:
 
     def test_abstract_getclass(self):
         space = self.space
-        w_x, w_y, w_A, w_MyInst = space.viewiterable(space.appexec([], """():
+        w_x, w_y, w_A, w_MyInst = space.fixedview(space.appexec([], """():
             class MyInst(object):
                 def __init__(self, myclass):
                     self.myclass = myclass

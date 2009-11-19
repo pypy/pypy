@@ -202,7 +202,7 @@ class FlowObjSpace(ObjSpace):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
         # checking a tuple of classes
-        for w_klass in self.viewiterable(w_check_class):
+        for w_klass in self.fixedview(w_check_class):
             if ObjSpace.exception_match(self, w_exc_type, w_klass):
                 return True
         return False
@@ -263,8 +263,9 @@ class FlowObjSpace(ObjSpace):
         checkgraph(graph)
         return graph
 
-    def viewiterable(self, w_tuple, expected_length=None):
+    def fixedview(self, w_tuple, expected_length=None):
         return self.unpackiterable(w_tuple, expected_length)
+    listview = fixedview
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):

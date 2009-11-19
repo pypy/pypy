@@ -73,7 +73,7 @@ class MultiDimArray(BaseNumArray):
         make_sure_not_resized(self.storage)
 
     def _unpack_indexes(self, space, w_index):
-        indexes = [space.int_w(w_i) for w_i in space.viewiterable(w_index)]
+        indexes = [space.int_w(w_i) for w_i in space.fixedview(w_index)]
         if len(indexes) != len(self.dim):
             raise OperationError(space.w_IndexError, space.wrap(
                 'Wrong index'))
@@ -108,7 +108,7 @@ MultiDimArray.typedef = TypeDef(
 def unpack_dim(space, w_dim):
     if space.is_true(space.isinstance(w_dim, space.w_int)):
         return [space.int_w(w_dim)]
-    dim_w = space.viewiterable(w_dim)
+    dim_w = space.fixedview(w_dim)
     return [space.int_w(w_i) for w_i in dim_w]
 
 def unpack_dtype(space, w_dtype):

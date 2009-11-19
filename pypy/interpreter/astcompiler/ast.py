@@ -97,7 +97,7 @@ class Module(mod):
             pass
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -132,7 +132,7 @@ class Interactive(mod):
             pass
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -191,7 +191,7 @@ class Suite(mod):
             pass
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -244,7 +244,7 @@ class FunctionDef(stmt):
         self.args.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -254,7 +254,7 @@ class FunctionDef(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_decorators
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.decorators = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -297,7 +297,7 @@ class ClassDef(stmt):
             pass
         w_list = self.w_bases
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.bases = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -307,7 +307,7 @@ class ClassDef(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -375,7 +375,7 @@ class Delete(stmt):
             pass
         w_list = self.w_targets
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.targets = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -415,7 +415,7 @@ class Assign(stmt):
             pass
         w_list = self.w_targets
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.targets = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -492,7 +492,7 @@ class Print(stmt):
             self.dest.sync_app_attrs(space)
         w_list = self.w_values
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.values = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -540,7 +540,7 @@ class For(stmt):
         self.iter.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -550,7 +550,7 @@ class For(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_orelse
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.orelse = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -595,7 +595,7 @@ class While(stmt):
         self.test.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -605,7 +605,7 @@ class While(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_orelse
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.orelse = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -650,7 +650,7 @@ class If(stmt):
         self.test.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -660,7 +660,7 @@ class If(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_orelse
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.orelse = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -707,7 +707,7 @@ class With(stmt):
             self.optional_vars.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -795,7 +795,7 @@ class TryExcept(stmt):
             pass
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -805,7 +805,7 @@ class TryExcept(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_handlers
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.handlers = [space.interp_w(excepthandler, w_obj) for w_obj in list_w]
             else:
@@ -815,7 +815,7 @@ class TryExcept(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_orelse
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.orelse = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -857,7 +857,7 @@ class TryFinally(stmt):
             pass
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -867,7 +867,7 @@ class TryFinally(stmt):
                 node.sync_app_attrs(space)
         w_list = self.w_finalbody
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.finalbody = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -936,7 +936,7 @@ class Import(stmt):
             pass
         w_list = self.w_names
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.names = [space.interp_w(alias, w_obj) for w_obj in list_w]
             else:
@@ -977,7 +977,7 @@ class ImportFrom(stmt):
                 self.level = 0
         w_list = self.w_names
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.names = [space.interp_w(alias, w_obj) for w_obj in list_w]
             else:
@@ -1053,7 +1053,7 @@ class Global(stmt):
             pass
         w_list = self.w_names
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.names = [space.str_w(w_obj) for w_obj in list_w]
             else:
@@ -1196,7 +1196,7 @@ class BoolOp(expr):
             pass
         w_list = self.w_values
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.values = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1359,7 +1359,7 @@ class Dict(expr):
             pass
         w_list = self.w_keys
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.keys = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1369,7 +1369,7 @@ class Dict(expr):
                 node.sync_app_attrs(space)
         w_list = self.w_values
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.values = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1408,7 +1408,7 @@ class ListComp(expr):
         self.elt.sync_app_attrs(space)
         w_list = self.w_generators
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
             else:
@@ -1447,7 +1447,7 @@ class GeneratorExp(expr):
         self.elt.sync_app_attrs(space)
         w_list = self.w_generators
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
             else:
@@ -1520,14 +1520,14 @@ class Compare(expr):
         self.left.sync_app_attrs(space)
         w_list = self.w_ops
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.ops = [space.interp_w(cmpop, w_obj).to_simple_int(space) for w_obj in list_w]
             else:
                 self.ops = None
         w_list = self.w_comparators
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.comparators = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1579,7 +1579,7 @@ class Call(expr):
         self.func.sync_app_attrs(space)
         w_list = self.w_args
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.args = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1589,7 +1589,7 @@ class Call(expr):
                 node.sync_app_attrs(space)
         w_list = self.w_keywords
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.keywords = [space.interp_w(keyword, w_obj) for w_obj in list_w]
             else:
@@ -1795,7 +1795,7 @@ class List(expr):
             pass
         w_list = self.w_elts
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.elts = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -1834,7 +1834,7 @@ class Tuple(expr):
             pass
         w_list = self.w_elts
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.elts = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -2012,7 +2012,7 @@ class ExtSlice(slice):
             pass
         w_list = self.w_dims
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.dims = [space.interp_w(slice, w_obj) for w_obj in list_w]
             else:
@@ -2305,7 +2305,7 @@ class comprehension(AST):
         self.iter.sync_app_attrs(space)
         w_list = self.w_ifs
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.ifs = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -2344,7 +2344,7 @@ class excepthandler(AST):
             self.name.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.body = [space.interp_w(stmt, w_obj) for w_obj in list_w]
             else:
@@ -2379,7 +2379,7 @@ class arguments(AST):
                 self.kwarg = None
         w_list = self.w_args
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.args = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
@@ -2389,7 +2389,7 @@ class arguments(AST):
                 node.sync_app_attrs(space)
         w_list = self.w_defaults
         if w_list is not None:
-            list_w = space.viewiterable(w_list)
+            list_w = space.listview(w_list)
             if list_w:
                 self.defaults = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:

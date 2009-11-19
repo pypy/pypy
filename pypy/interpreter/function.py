@@ -198,7 +198,7 @@ class Function(Wrappable):
         else:
             name = None
         if not space.is_w(w_argdefs, space.w_None):
-            defs_w = space.viewiterable(w_argdefs)
+            defs_w = space.fixedview(w_argdefs)
         else:
             defs_w = []
         nfreevars = 0
@@ -316,7 +316,7 @@ class Function(Wrappable):
         if space.is_w(w_func_dict, space.w_None):
             w_func_dict = None
         self.w_func_dict = w_func_dict
-        self.defs_w    = space.viewiterable(w_defs_w)
+        self.defs_w    = space.fixedview(w_defs_w)
         self.w_module = w_module
 
     def fget_func_defaults(space, self):
@@ -331,7 +331,7 @@ class Function(Wrappable):
             return
         if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
-        self.defs_w = space.viewiterable(w_defaults)
+        self.defs_w = space.fixedview(w_defaults)
 
     def fdel_func_defaults(space, self):
         self.defs_w = []

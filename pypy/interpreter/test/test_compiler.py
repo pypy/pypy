@@ -651,6 +651,9 @@ class TestPyCCompiler(BaseTestCompiler):
     elif sys.version_info < (2, 6):
         _unicode_error_kind = "w_UnicodeDecodeError"
     else:
+        def skip_on_2_6(self):
+            py.test.skip("syntax different on CPython 2.6 compiler")
+        test_globals_warnings = skip_on_2_6
         _unicode_error_kind = "w_SyntaxError"
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):

@@ -650,9 +650,9 @@ def init__DictMulti(space, w_dict, __args__):
     if w_src is None:
         pass
     elif space.findattr(w_src, space.wrap("keys")) is None:
-        list_of_w_pairs = space.unpackiterable(w_src)
+        list_of_w_pairs = space.listview(w_src)
         for w_pair in list_of_w_pairs:
-            pair = space.unpackiterable(w_pair)
+            pair = space.fixedview(w_pair)
             if len(pair)!=2:
                 raise OperationError(space.w_ValueError,
                              space.wrap("dict() takes a sequence of pairs"))
@@ -793,7 +793,7 @@ def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
         return w_default
 
 def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
-    defaults = space.unpackiterable(w_defaults)
+    defaults = space.listview(w_defaults)
     len_defaults = len(defaults)
     if len_defaults > 1:
         raise OperationError(space.w_TypeError, space.wrap("pop expected at most 2 arguments, got %d" % (1 + len_defaults, )))

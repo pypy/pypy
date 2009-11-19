@@ -135,7 +135,7 @@ class Arguments(object):
         # unpack the * arguments 
         if w_stararg is not None:
             self.arguments_w = (self.arguments_w +
-                                self.space.viewiterable(w_stararg))
+                                self.space.fixedview(w_stararg))
         # unpack the ** arguments
         if w_starstararg is not None:
             space = self.space

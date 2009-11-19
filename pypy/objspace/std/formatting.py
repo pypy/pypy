@@ -495,7 +495,7 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
 
 def mod_format(space, w_format, w_values, do_unicode=False):
     if space.is_true(space.isinstance(w_values, space.w_tuple)):
-        values_w = space.unpackiterable(w_values)
+        values_w = space.fixedview(w_values)
         return format(space, w_format, values_w, None, do_unicode)
     else:
         # we check directly for dict to avoid obscure checking

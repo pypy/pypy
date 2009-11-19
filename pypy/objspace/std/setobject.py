@@ -111,7 +111,7 @@ def next__SetIterObject(space, w_setiter):
 def make_setdata_from_w_iterable(space, w_iterable=None):
     data = r_dict(space.eq_w, space.hash_w)
     if w_iterable is not None:
-        for w_item in space.viewiterable(w_iterable):
+        for w_item in space.listview(w_iterable):
             data[w_item] = None
     return data
 

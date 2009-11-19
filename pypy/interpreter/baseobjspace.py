@@ -668,12 +668,16 @@ class ObjSpace(object):
                                    (i, plural))
         return items
 
-    def viewiterable(self, w_iterable, expected_length=-1):
-        """ More or less the same as unpackiterable, but does not return
-        a copy. Please don't modify the result
+    def fixedview(self, w_iterable, expected_length=-1):
+        """ A fixed list view of w_iterable. Don't modify the result
         """
         return make_sure_not_resized(self.unpackiterable(w_iterable,
                                                          expected_length)[:])
+
+    def listview(self, w_iterable, expected_length=-1):
+        """ A non-fixed view of w_iterable. Don't modify the result
+        """
+        return self.unpackiterable(w_iterable, expected_length)
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
@@ -771,7 +775,7 @@ class ObjSpace(object):
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         w_mro = self.getattr(w_type, self.wrap("__mro__"))
-        for w_supertype in self.unpackiterable(w_mro):
+        for w_supertype in self.fixedview(w_mro):
             w_value = w_supertype.getdictvalue(self, name)
             if w_value is not None:
                 return w_value
@@ -880,7 +884,7 @@ class ObjSpace(object):
         if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
             w_indices = self.call_method(w_index_or_slice, "indices",
                                          self.wrap(seqlength))
-            w_start, w_stop, w_step = self.unpackiterable(w_indices, 3)
+            w_start, w_stop, w_step = self.fixedview(w_indices, 3)
             start = self.int_w(w_start)
             stop  = self.int_w(w_stop)
             step  = self.int_w(w_step)
