@@ -575,9 +575,10 @@ class VT_Float(W_Variable):
                 lltype.free(attrptr, flavor='raw')
 
             if scale == 0 or (scale == -127 and precision == 0):
-                return VT_LongInteger
-            elif precision > 0 and precision < 10:
-                return VT_Integer
+                if precision > 0 and precision < 10:
+                    return VT_Integer
+                else:
+                    return VT_LongInteger
 
         return cls
 
@@ -625,8 +626,13 @@ class VT_Float(W_Variable):
                                          rffi.cast(lltype.Signed, sizeptr[0])))
                 if isinstance(self, VT_NumberAsString):
                     return w_strvalue
-                else:
+
+                try:
                     return space.call_function(space.w_int, w_strvalue)
+                except OperationError, e:
+                    if e.match(space, space.w_ValueError):
+                        return space.call_function(space.w_float, w_strvalue)
+                    raise
             finally:
                 rffi.keep_buffer_alive_until_here(textbuf, text)
                 lltype.free(sizeptr, flavor='raw')

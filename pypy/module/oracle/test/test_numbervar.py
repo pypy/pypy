@@ -2,6 +2,12 @@ from pypy.module.oracle.test.test_connect import OracleTestBase
 
 class AppTestNumberVar(OracleTestBase):
 
+    def test_fetch(self):
+        cur = self.cnx.cursor()
+        cur.execute("select 1.5 from dual")
+        value, = cur.fetchone()
+        assert value == 1.5
+
     def test_float(self):
         cur = self.cnx.cursor()
         var = cur.var(oracle.NUMBER)
