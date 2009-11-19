@@ -6,7 +6,7 @@ class AppTestSelect(OracleTestBase):
         cur = self.cnx.cursor()
         cur.execute("select 42, 'Hello' from dual")
         row = cur.fetchone()
-        assert isinstance(row[0], float)
+        assert isinstance(row[0], int)
         assert isinstance(row[1], str)
         assert row == (42, 'Hello')
 
