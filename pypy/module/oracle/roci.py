@@ -30,7 +30,7 @@ class CConfig:
     ub4 = platform.SimpleType('ub4', rffi.UINT)
     sb4 = platform.SimpleType('sb4', rffi.INT)
     sword = platform.SimpleType('sword', rffi.INT)
-    uword = platform.SimpleType('sword', rffi.UINT)
+    uword = platform.SimpleType('uword', rffi.UINT)
 
     OCINumber = platform.Struct('OCINumber', [])
     OCITime   = platform.Struct('OCITime',
@@ -49,13 +49,14 @@ class CConfig:
     OCI_DEFAULT OCI_OBJECT OCI_THREADED OCI_EVENTS
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
     OCI_HTYPE_ERROR OCI_HTYPE_SVCCTX OCI_HTYPE_SERVER OCI_HTYPE_SESSION
-    OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE
+    OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV
     OCI_DTYPE_PARAM
-    OCI_CRED_RDBMS
+    OCI_CRED_RDBMS OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
     OCI_ATTR_NAME OCI_ATTR_SCALE OCI_ATTR_PRECISION OCI_ATTR_IS_NULL
     OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_CHARSET_FORM
+    OCI_ATTR_ENV_CHARSET_ID
     OCI_ATTR_PARSE_ERROR_OFFSET
     OCI_NTV_SYNTAX
     OCI_FETCH_NEXT
@@ -69,6 +70,7 @@ class CConfig:
     SQLT_CLOB SQLT_CLOB SQLT_BLOB SQLT_BFILE SQLT_RSET SQLT_NTY
     SQLCS_IMPLICIT SQLCS_NCHAR
     OCI_NUMBER_SIGNED
+    OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
     '''.split()
 
     for c in constants:
@@ -394,3 +396,21 @@ OCINumberToText = external(
      oratext],         # buf
     sword)
 
+# OCI Locale Functions
+
+OCINlsCharSetIdToName = external(
+    'OCINlsCharSetIdToName',
+    [dvoidp,           # hndl
+     oratext,          # buf
+     size_t,           # buflen
+     ub2],             # id
+    sword)
+
+OCINlsNameMap = external(
+    'OCINlsNameMap',
+    [dvoidp,           # hndl
+     oratext,          # buf
+     size_t,           # buflen
+     oratext,          # srcbuf
+     uword],           # flag
+    sword)

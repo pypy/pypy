@@ -105,4 +105,14 @@ class AppTestConnection(OracleNotConnectedTestBase):
         count, = cursor.fetchone()
         assert count == 0
 
+    def test_charset(self):
+        self.cnx = oracle.connect(self.username, self.password,
+                                  self.tnsentry)
+        encoding = self.cnx.encoding
+        assert isinstance(encoding, str)
+        assert encoding != ""
+        encoding = self.cnx.nationalencoding
+        assert isinstance(encoding, str)
+        assert encoding != ""
+
 

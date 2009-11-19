@@ -12,6 +12,7 @@ from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS
 from pypy.module.oracle.interp_environ import Environment
 from pypy.module.oracle.interp_cursor import W_Cursor
+from pypy.module.oracle.interp_pool import W_Pool
 from pypy.module.oracle.interp_variable import VT_String
 
 class W_Connection(Wrappable):
@@ -263,32 +264,51 @@ class W_Connection(Wrappable):
 
     def _getCharacterSetName(self, space, attribute):
         # get character set id
-        status = roci.OCIAttrGet(
-            self.environment.handle, roci.HTYPE_ENV,
-            charsetId, None,
-            attribute,
-            self.environment.errorHandle)
-        self.environment.checkForError(
-            status, "Connection_GetCharacterSetName(): get charset id")
+        charsetIdPtr = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO,
+                                  1, flavor='raw')
+        try:
+            status = roci.OCIAttrGet(
+                self.environment.handle, roci.OCI_HTYPE_ENV,
+                rffi.cast(roci.dvoidp, charsetIdPtr),
+                lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                attribute,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "Connection_GetCharacterSetName(): get charset id")
+            charsetId = charsetIdPtr[0]
+        finally:
+            lltype.free(charsetIdPtr, flavor='raw')
 
         # get character set name
-        status = roci.OCINlsCharsetIdToName(
-            self.environmentHandle,
-            charsetNameBuf.buf, charsetNameBuf.size,
-            charsetIdPtr[0])
-        self.environment.checkForError(
-            status, "Connection_GetCharacterSetName(): get Oracle charset name")
+        charsetname_buf, charsetname = rffi.alloc_buffer(roci.OCI_NLS_MAXBUFSZ)
+        try:
+            status = roci.OCINlsCharSetIdToName(
+                self.environment.handle,
+                charsetname_buf, roci.OCI_NLS_MAXBUFSZ,
+                charsetId)
+            self.environment.checkForError(
+                status,
+                "Connection_GetCharacterSetName(): get Oracle charset name")
 
-        # get IANA character set name
-        status = roci.OCINlsNameMap(
-            self.environmentHandle,
-            ianaCharsetNameBuf.buf, inaCharsetNameBuf.size,
-            charsetNameBuf.buf, roci.OCI_NLS_CS_ORA_TO_IANA)
-        self.environment.checkForError(
-            status, "Connection_GetCharacterSetName(): translate NLS charset")
+            ianacharset_buf, ianacharset = rffi.alloc_buffer(
+                roci.OCI_NLS_MAXBUFSZ)
 
-        return space.wrap(ianaCharsetName) 
-        
+            try:
+                # get IANA character set name
+                status = roci.OCINlsNameMap(
+                    self.environment.handle,
+                    ianacharset_buf, roci.OCI_NLS_MAXBUFSZ,
+                    charsetname_buf, roci.OCI_NLS_CS_ORA_TO_IANA)
+                self.environment.checkForError(
+                    status,
+                    "Connection_GetCharacterSetName(): translate NLS charset")
+                charset = rffi.charp2str(ianacharset_buf)
+            finally:
+                rffi.keep_buffer_alive_until_here(ianacharset_buf, ianacharset)
+        finally:
+            rffi.keep_buffer_alive_until_here(charsetname_buf, charsetname)
+        return space.wrap(charset)
+
     def get_encoding(space, self):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
     def get_nationalencoding(space, self):
