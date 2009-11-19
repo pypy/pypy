@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf
+from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import formatd
 
 import math
@@ -196,6 +196,9 @@ def hash__Float(space, w_value):
 
 def _hash_float(space, v):
     from pypy.objspace.std.longobject import hash__Long
+
+    if isnan(v):
+        return 0
 
     # This is designed so that Python numbers of different types
     # that compare equal hash to the same value; otherwise comparisons
