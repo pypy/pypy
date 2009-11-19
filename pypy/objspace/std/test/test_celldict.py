@@ -1,4 +1,5 @@
-from pypy.conftest import gettestobjspace
+import py
+from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.celldict import get_global_cache, ModuleCell, ModuleDictImplementation
 from pypy.interpreter import gateway
 
@@ -8,6 +9,8 @@ from pypy.interpreter import gateway
 
 class AppTestCellDict(object):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("not appdirect tests")
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
         cls.w_impl_used = cls.space.appexec([], """():
             import __pypy__
