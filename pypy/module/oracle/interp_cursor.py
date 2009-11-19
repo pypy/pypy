@@ -733,6 +733,18 @@ class W_Cursor(Wrappable):
         return space.w_None
     fetchone.unwrap_spec = ['self', ObjSpace]
 
+    def fetchmany(self, space, w_numRows=NoneNotWrapped):
+        if w_numRows is not None:
+            numRows = space.int_w(w_numRows)
+        else:
+            numRows = self.arraySize
+
+        # verify fetch can be performed
+        self._verifyFetch(space)
+
+        return self._multiFetch(space, limit=numRows)
+    fetchmany.unwrap_spec = ['self', ObjSpace, W_Root]
+
     def fetchall(self, space):
         # verify fetch can be performed
         self._verifyFetch(space)
@@ -811,6 +823,7 @@ class W_Cursor(Wrappable):
 
         # fetch as many rows as possible
         while limit is None or rowNum < limit:
+            rowNum += 1
             if not self._moreRows(space):
                 break
             w_row = self._createRow(space)
@@ -1022,6 +1035,8 @@ W_Cursor.typedef = TypeDef(
                          unwrap_spec=W_Cursor.prepare.unwrap_spec),
     fetchone = interp2app(W_Cursor.fetchone,
                          unwrap_spec=W_Cursor.fetchone.unwrap_spec),
+    fetchmany = interp2app(W_Cursor.fetchmany,
+                         unwrap_spec=W_Cursor.fetchmany.unwrap_spec),
     fetchall = interp2app(W_Cursor.fetchall,
                          unwrap_spec=W_Cursor.fetchall.unwrap_spec),
     close = interp2app(W_Cursor.close,

@@ -28,9 +28,17 @@ class AppTestSelect(OracleTestBase):
         assert rows == zip(range(42))
         assert cur.rowcount == 42
 
+    def test_fetchmany(self):
+        cur = self.cnx.cursor()
+        cur.execute("select level-1 from dual connect by level-1<442")
+        rows = cur.fetchmany()
+        assert rows == zip(range(cur.arraysize))
+        rows = cur.fetchmany(3)
+        assert rows == zip(range(cur.arraysize, cur.arraysize+3))
+        assert cur.rowcount == cur.arraysize+3
+
     def test_iterator(self):
         cur = self.cnx.cursor()
-        # An Oracle trick to retrieve 42 lines
         cur.execute("select level-1 from dual connect by level-1<42")
         for i, row in enumerate(cur):
             assert row == (i,)
