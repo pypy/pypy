@@ -174,3 +174,8 @@ class AppTestCursor(OracleTestBase):
             ('NULLABLECOL', oracle.NUMBER, 39, 22, 38, 0, 1),
             ]
         assert got == expected
+
+    def test_outputsize(self):
+        cur = self.cnx.cursor()
+        cur.setoutputsize(25000)
+        cur.setoutputsize(25000, 2)

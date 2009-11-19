@@ -29,6 +29,8 @@ class W_Cursor(Wrappable):
         self.bindList = None
         self.bindDict = None
         self.numbersAsStrings = False
+        self.outputSize = -1
+        self.outputSizeColumn = -1
 
         self.inputTypeHandler = None
         self.outputTypeHandler = None
@@ -987,7 +989,7 @@ class W_Cursor(Wrappable):
         self.bindList = None
         self.bindDict = None
 
-        self.setInputSizes = 1
+        self.setInputSizes = True
 
         # process each input
         if kw_w:
@@ -1008,6 +1010,12 @@ class W_Cursor(Wrappable):
                 self.bindList[i] = var
             return space.newlist(self.bindList)
     setinputsizes.unwrap_spec = ['self', ObjSpace, Arguments]
+
+    def setoutputsize(self, space, outputSize, outputSizeColumn=-1):
+        self.outputSize = outputSize
+        self.outputSizeColumn = outputSizeColumn
+    setoutputsize.unwrap_spec = ['self', ObjSpace, int, int]
+
 
 def cursor_arraysize_get(space, obj):
     return space.wrap(obj.arraySize)
@@ -1053,6 +1061,8 @@ W_Cursor.typedef = TypeDef(
                           unwrap_spec=W_Cursor.arrayvar.unwrap_spec),
     setinputsizes = interp2app(W_Cursor.setinputsizes,
                                unwrap_spec=W_Cursor.setinputsizes.unwrap_spec),
+    setoutputsize = interp2app(W_Cursor.setoutputsize,
+                               unwrap_spec=W_Cursor.setoutputsize.unwrap_spec),
 
     __iter__ = interp2app(W_Cursor.descr_iter),
     next = interp2app(W_Cursor.descr_next),
