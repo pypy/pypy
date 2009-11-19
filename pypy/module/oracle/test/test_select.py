@@ -10,6 +10,9 @@ class AppTestSelect(OracleTestBase):
         assert isinstance(row[1], str)
         assert row == (42, 'Hello')
 
+        assert isinstance(cur.fetchvars[0], oracle.Variable)
+        assert isinstance(cur.fetchvars[1], oracle.Variable)
+
     def test_sysdate(self):
         import datetime
         cur = self.cnx.cursor()
@@ -19,7 +22,7 @@ class AppTestSelect(OracleTestBase):
         assert isinstance(sysdate, datetime.datetime)
         delta = abs(sysdate - datetime.datetime.now())
         assert delta < datetime.timedelta(seconds=2)
-        
+
     def test_fetchall(self):
         cur = self.cnx.cursor()
         # An Oracle trick to retrieve 42 lines
@@ -44,4 +47,3 @@ class AppTestSelect(OracleTestBase):
             assert row == (i,)
         assert i == 41
 
-        

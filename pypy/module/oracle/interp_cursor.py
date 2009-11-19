@@ -1033,6 +1033,9 @@ def cursor_bindvars_get(space, obj):
     if obj.bindDict:
         return obj.bindDict
 
+def cursor_fetchvars_get(space, obj):
+    return space.newlist(obj.fetchVariables)
+
 W_Cursor.typedef = TypeDef(
     'Cursor',
     execute = interp2app(W_Cursor.execute,
@@ -1072,5 +1075,6 @@ W_Cursor.typedef = TypeDef(
     rowcount = interp_attrproperty('rowCount', W_Cursor),
     statement = interp_attrproperty_w('w_statement', W_Cursor),
     bindvars = GetSetProperty(cursor_bindvars_get),
+    fetchvars = GetSetProperty(cursor_fetchvars_get),
     description = GetSetProperty(W_Cursor.getDescription),
 )
