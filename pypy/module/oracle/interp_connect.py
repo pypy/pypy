@@ -43,7 +43,7 @@ class W_Connection(Wrappable):
         W_Connection.__init__(self)
 
         # set up the environment
-        if w_pool:
+        if 0 and w_pool: # XXX
             pool = space.instance_w(W_Pool, w_pool)
             self.environment = pool.environment.clone()
         else:
@@ -149,6 +149,8 @@ class W_Connection(Wrappable):
             self.sessionHandle = handleptr[0]
         finally:
             lltype.free(handleptr, flavor='raw')
+
+        credentialType = roci.OCI_CRED_EXT
 
         # set user name in session handle
         stringBuffer.fill(space, self.w_username)
@@ -322,7 +324,7 @@ class W_Connection(Wrappable):
             return self.w_version
 
         # allocate a cursor to retrieve the version
-        cursor = self.newCursor(space)
+        cursor = W_Cursor(space, self)
 
         # allocate version and compatibility variables
         versionVar = VT_String(cursor, cursor.arraySize, MAX_STRING_CHARS)

@@ -128,7 +128,7 @@ class W_Cursor(Wrappable):
         # queries are not supported as the result is undefined
         if self.statementType == roci.OCI_STMT_SELECT:
             raise OperationError(
-                w_NotSupportedErrorException,
+                get(space).w_NotSupportedErrorException,
                 space.wrap("queries not supported: results undefined"))
 
         # perform binds
@@ -207,8 +207,8 @@ class W_Cursor(Wrappable):
             w_vars = w_args
 
         # build up the statement
-        args = ', '.join(':%d' % (i + offset + 1,)
-                         for i in range(numArguments))
+        args = ', '.join([':%d' % (i + offset + 1,)
+                          for i in range(numArguments)])
         if retvar:
             stmt = "begin :1 := %s(%s); end;" % (name, args)
         else:
@@ -226,7 +226,7 @@ class W_Cursor(Wrappable):
         if not self.handle:
             return
         if self.isOwned:
-            roci.OciHandleFree(self.handle, OCI_HTYPE_STMT)
+            roci.OCIHandleFree(self.handle, roci.OCI_HTYPE_STMT)
         elif self.connection.handle:
             tagBuffer = StringBuffer()
             tagBuffer.fill(space, self.w_statementTag)
@@ -958,7 +958,7 @@ class W_Cursor(Wrappable):
             numElements = space.int_w(w_value)
         else:
             raise OperationError(
-                w_NotSupportedErrorException,
+                get(space).w_NotSupportedErrorException,
                 space.wrap("expecting integer or list of values"))
 
         # create the variable
@@ -1017,24 +1017,24 @@ class W_Cursor(Wrappable):
     setoutputsize.unwrap_spec = ['self', ObjSpace, int, int]
 
 
-def cursor_arraysize_get(space, obj):
-    return space.wrap(obj.arraySize)
-def cursor_arraysize_set(space, obj, w_value):
-    obj.arraySize = space.int_w(w_value)
+    def arraysize_get(space, self):
+        return space.wrap(self.arraySize)
+    def arraysize_set(space, self, w_value):
+        self.arraySize = space.int_w(w_value)
 
-def cursor_bindarraysize_get(space, obj):
-    return space.wrap(obj.bindArraySize)
-def cursor_bindarraysize_set(space, obj, w_value):
-    obj.bindArraySize = space.int_w(w_value)
+    def bindarraysize_get(space, self):
+        return space.wrap(self.bindArraySize)
+    def bindarraysize_set(space, self, w_value):
+        self.bindArraySize = space.int_w(w_value)
 
-def cursor_bindvars_get(space, obj):
-    if obj.bindList:
-        return space.newlist(obj.bindList)
-    if obj.bindDict:
-        return obj.bindDict
+    def bindvars_get(space, self):
+        if self.bindList:
+            return space.newlist(self.bindList)
+        if self.bindDict:
+            return self.bindDict
 
-def cursor_fetchvars_get(space, obj):
-    return space.newlist(obj.fetchVariables)
+    def fetchvars_get(space, self):
+        return space.newlist(self.fetchVariables)
 
 W_Cursor.typedef = TypeDef(
     'Cursor',
@@ -1070,11 +1070,13 @@ W_Cursor.typedef = TypeDef(
     __iter__ = interp2app(W_Cursor.descr_iter),
     next = interp2app(W_Cursor.descr_next),
 
-    arraysize = GetSetProperty(cursor_arraysize_get, cursor_arraysize_set),
-    bindarraysize = GetSetProperty(cursor_bindarraysize_get, cursor_bindarraysize_set),
+    arraysize = GetSetProperty(W_Cursor.arraysize_get,
+                               W_Cursor.arraysize_set),
+    bindarraysize = GetSetProperty(W_Cursor.bindarraysize_get,
+                                   W_Cursor.bindarraysize_set),
     rowcount = interp_attrproperty('rowCount', W_Cursor),
     statement = interp_attrproperty_w('w_statement', W_Cursor),
-    bindvars = GetSetProperty(cursor_bindvars_get),
-    fetchvars = GetSetProperty(cursor_fetchvars_get),
+    bindvars = GetSetProperty(W_Cursor.bindvars_get),
+    fetchvars = GetSetProperty(W_Cursor.fetchvars_get),
     description = GetSetProperty(W_Cursor.getDescription),
 )
