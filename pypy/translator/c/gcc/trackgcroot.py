@@ -754,7 +754,8 @@ class ElfFunctionGcRootTracker(FunctionGcRootTracker):
         '_exit': None,
         '__assert_fail': None,
         '___assert_rtn': None,
-        'L___assert_rtn$stub': None
+        'L___assert_rtn$stub': None,
+        'L___eprintf$stub': None,
         }
 
     def __init__(self, lines, filetag=0):
