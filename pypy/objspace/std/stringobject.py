@@ -355,7 +355,7 @@ def str_join__String_ANY(space, w_self, w_list):
         self = w_self._value
         listlen = 0
         reslen = 0
-        l = []
+        l = [None] * len(list_w)
         for i in range(len(list_w)):
             w_s = list_w[i]
             if not space.is_true(space.isinstance(w_s, space.w_str)):
@@ -367,7 +367,7 @@ def str_join__String_ANY(space, w_self, w_list):
                     space.wrap("sequence item %d: expected string, %s "
                                "found" % (i,
                                           space.type(w_s).getname(space, '?'))))
-            l.append(space.str_w(w_s))
+            l[i] = space.str_w(w_s)
         return space.wrap(self.join(l))
     else:
         return W_StringObject.EMPTY
