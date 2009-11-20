@@ -63,12 +63,12 @@ def DecimalToFormatAndText(environment, w_value):
     w_tuple_value = space.call_method(w_value, "as_tuple")
 
     # acquire basic information from the value tuple
-    w_sign, w_digits, w_scale = space.viewiterable(w_tuple_value)
+    w_sign, w_digits, w_scale = space.fixedview(w_tuple_value, 3)
 
     text = ''
     format = ''
 
-    digits_w = space.viewiterable(w_digits)
+    digits_w = space.listview(w_digits)
     num_digits = len(digits_w)
     scale = space.int_w(w_scale)
 

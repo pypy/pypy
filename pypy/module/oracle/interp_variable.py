@@ -361,7 +361,7 @@ class W_Variable(Wrappable):
                 space.w_TypeError,
                 space.wrap("expecting array data"))
 
-        elements_w = space.viewiterable(w_value)
+        elements_w = space.listview(w_value)
 
         # ensure we haven't exceeded the number of allocated elements
         if len(elements_w) > self.allocatedElements:
@@ -949,7 +949,7 @@ def typeByValue(space, w_value, numElements):
 
     # handle arrays
     if space.is_true(space.isinstance(w_value, space.w_list)):
-        elements_w = space.viewiterable(w_value)
+        elements_w = space.listview(w_value)
         for w_element in elements_w:
             if not space.is_w(w_element, space.w_None):
                 break
@@ -982,7 +982,7 @@ def newVariableByValue(space, cursor, w_value, numElements):
 def newArrayVariableByType(space, cursor, w_value):
     "Allocate a new PL/SQL array by looking at the Python data type."
 
-    w_type, w_numElements = space.viewiterable(w_value, 2)
+    w_type, w_numElements = space.fixedview(w_value, 2)
 
     numElements = space.int_w(w_numElements)
     varType = typeByPythonType(space, cursor, w_type)

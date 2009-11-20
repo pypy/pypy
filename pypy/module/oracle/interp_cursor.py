@@ -132,15 +132,16 @@ class W_Cursor(Wrappable):
                 space.wrap("queries not supported: results undefined"))
 
         # perform binds
-        numrows = space.int_w(space.len(w_list_of_args))
-        for i, arguments in enumerate(space.viewiterable(w_list_of_args)):
+        args_w = space.listview(w_list_of_args)
+        numrows = len(args_w)
+        for i, w_arguments in enumerate(args_w):
             deferred = i < numrows - 1
-            if space.is_true(space.isinstance(arguments, space.w_dict)):
+            if space.is_true(space.isinstance(w_arguments, space.w_dict)):
                 self._setBindVariablesByName(
-                    space, arguments, numrows, i, deferred)
+                    space, w_arguments, numrows, i, deferred)
             else:
                 self._setBindVariablesByPos(
-                    space, arguments, numrows, i, deferred)
+                    space, w_arguments, numrows, i, deferred)
         self._performBind(space)
 
         # execute the statement, but only if the number of rows is greater than
@@ -546,7 +547,7 @@ class W_Cursor(Wrappable):
         if self.bindList is None:
             self.bindList = []
 
-        for i, w_value in enumerate(space.viewiterable(w_vars)):
+        for i, w_value in enumerate(space.fixedview(w_vars)):
             if i < len(self.bindList):
                 origVar = self.bindList[i]
                 if space.is_w(origVar, space.w_None):
@@ -574,9 +575,9 @@ class W_Cursor(Wrappable):
         if self.bindDict is None:
             self.bindDict = space.newdict()
 
-        items = space.viewiterable(space.call_method(w_vars, "iteritems"))
+        items = space.fixedview(space.call_method(w_vars, "iteritems"))
         for item in items:
-            w_key, w_value = space.viewiterable(item, 2)
+            w_key, w_value = space.fixedview(item, 2)
             origVar = space.finditem(self.bindDict, w_key)
             newVar = self._setBindVariableHelper(space, w_value, origVar,
                                                  numElements, arrayPos, defer)
@@ -643,10 +644,10 @@ class W_Cursor(Wrappable):
             for i, var in enumerate(self.bindList):
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
-            items = space.viewiterable(
+            items_w = space.fixedview(
                 space.call_method(self.bindDict, "iteritems"))
-            for item in items:
-                w_key, var = space.viewiterable(item, 2)
+            for w_item in items_w:
+                w_key, var = space.fixedview(w_item, 2)
                 var.bind(space, self, w_key, 0)
 
         # ensure that input sizes are reset

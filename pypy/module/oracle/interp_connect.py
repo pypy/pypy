@@ -56,13 +56,13 @@ class W_Connection(Wrappable):
         # perform some parsing, if necessary
         if (self.w_username and not self.w_password and
             space.is_true(space.contains(self.w_username, space.wrap('/')))):
-            (self.w_username, self.w_password) = space.unpackiterable(
+            (self.w_username, self.w_password) = space.listview(
                 space.call_method(self.w_username, 'split',
                                   space.wrap('/'), space.wrap(1)))
-            
+
         if (self.w_password and not self.w_tnsentry and
             space.is_true(space.contains(self.w_password, space.wrap('@')))):
-            (self.w_password, self.w_tnsentry) = space.unpackiterable(
+            (self.w_password, self.w_tnsentry) = space.listview(
                 space.call_method(self.w_password, 'split',
                                   space.wrap('@'), space.wrap(1)))
 
