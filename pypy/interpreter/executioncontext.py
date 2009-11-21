@@ -71,6 +71,8 @@ class ExecutionContext(object):
     def _init_frame_chain(self):
         # 'some_frame' points to any frame from this thread's frame stack
         # (although in general it should point to the top one).
+        # XXX not true: some_frame must point to a frame from which we can
+        # reach the top frame by following the chain of f_forward
         self.some_frame = None
         self.framestackdepth = 0
 

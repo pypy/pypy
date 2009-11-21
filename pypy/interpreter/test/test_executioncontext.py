@@ -575,7 +575,7 @@ class TestFrameChaining(object):
         assert frame.f_back_some is None
         assert ec.gettopframe() is None
 
-
+    @py.test.mark.xfail
     def test_frame_chain_jitted_forced(self):
 
         ec = self.EC()
@@ -593,8 +593,10 @@ class TestFrameChaining(object):
         # recursive enter/leave seen by the jit
         frame3 = self.Frame(ec)
         ec._chain(frame3)
+        assert ec.gettopframe() is frame3
         res = frame3.force_f_back()
         assert res is frame2
+        assert ec.gettopframe() is frame3
 
         assert frame3.f_back() is frame2
         ec._unchain(frame3)
