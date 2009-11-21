@@ -16,6 +16,7 @@ from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
+    _immutable_ = True
 
     def __init__(w_self, node):
         if not we_are_translated():

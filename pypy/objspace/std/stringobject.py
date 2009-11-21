@@ -20,8 +20,8 @@ from pypy.objspace.std.formatting import mod_format
 
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
-
     _immutable_ = True
+
     def __init__(w_self, str):
         w_self._value = str
 
