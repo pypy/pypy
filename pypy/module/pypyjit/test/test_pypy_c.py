@@ -2,7 +2,7 @@ from pypy.conftest import gettestobjspace, option
 from pypy.tool.udir import udir
 import py
 from py.test import skip
-import sys, os
+import sys, os, re
 
 class BytecodeTrace(list):
     def get_opnames(self, prefix=""):
@@ -27,8 +27,60 @@ ZERO_OP_BYTECODES = [
     'STORE_FAST',
     ]
 
+
+r_bridge = re.compile(r"bridge out of Guard (\d+)")
+
+def from_entry_bridge(text, allparts):
+    firstline = text.splitlines()[0]
+    if 'entry bridge' in firstline:
+        return True
+    match = r_bridge.search(firstline)
+    if match:
+        search = '<Guard' + match.group(1) + '>'
+        for part in allparts:
+            if search in part:
+                break
+        else:
+            raise AssertionError, "%s not found??" % (search,)
+        return from_entry_bridge(part, allparts)
+    return False
+
+def test_from_entry_bridge():
+    assert from_entry_bridge(
+        "# Loop 4 : entry bridge with 31 ops\n[p0, etc", [])
+    assert not from_entry_bridge(
+        "# Loop 1 : loop with 31 ops\n[p0, p1, etc", [])
+    assert not from_entry_bridge(
+        "# bridge out of Guard 5 with 24 ops\n[p0, p1, etc",
+        ["# Loop 1 : loop with 31 ops\n"
+             "[p0, p1]\n"
+             "guard_stuff(descr=<Guard5>)\n"])
+    assert from_entry_bridge(
+        "# bridge out of Guard 5 with 24 ops\n[p0, p1, etc",
+        ["# Loop 1 : entry bridge with 31 ops\n"
+             "[p0, p1]\n"
+             "guard_stuff(descr=<Guard5>)\n"])
+    assert not from_entry_bridge(
+        "# bridge out of Guard 51 with 24 ops\n[p0, p1, etc",
+        ["# Loop 1 : loop with 31 ops\n"
+             "[p0, p1]\n"
+             "guard_stuff(descr=<Guard5>)\n",
+         "# bridge out of Guard 5 with 13 ops\n"
+             "[p0, p1]\n"
+             "guard_other(p1, descr=<Guard51>)\n"])
+    assert from_entry_bridge(
+        "# bridge out of Guard 51 with 24 ops\n[p0, p1, etc",
+        ["# Loop 1 : entry bridge with 31 ops\n"
+             "[p0, p1]\n"
+             "guard_stuff(descr=<Guard5>)\n",
+         "# bridge out of Guard 5 with 13 ops\n"
+             "[p0, p1]\n"
+             "guard_other(p1, descr=<Guard51>)\n"])
+
+
 class PyPyCJITTests(object):
-    def run_source(self, source, *testcases):
+    def run_source(self, source, expected_max_ops, *testcases):
+        assert isinstance(expected_max_ops, int)
         source = py.code.Source(source)
         filepath = self.tmpdir.join('case%d.py' % self.counter)
         logfilepath = filepath.new(ext='.log')
@@ -63,6 +115,7 @@ class PyPyCJITTests(object):
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
         self.parse_loops(logfilepath)
+        assert self.total_ops <= expected_max_ops
 
     def parse_loops(self, opslogfile):
         from pypy.jit.metainterp.test.oparser import parse
@@ -72,9 +125,11 @@ class PyPyCJITTests(object):
         parts = logparser.extract_category(log, 'jit-log-opt-')
         # skip entry bridges, they can contain random things
         self.loops = [parse(part, no_namespace=True) for part in parts
-                          if "bridge" not in part.lower()]
+                          if not from_entry_bridge(part, parts)]
         self.sliced_loops = [] # contains all bytecodes of all loops
+        self.total_ops = 0
         for loop in self.loops:
+            self.total_ops += len(loop.operations)
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
@@ -106,7 +161,7 @@ class PyPyCJITTests(object):
                         x = x + (i&j)
                     i = i + 1
                 return x
-        ''',
+        ''', 194,
                    ([2117], 1083876708))
 
     def test_factorial(self):
@@ -117,7 +172,7 @@ class PyPyCJITTests(object):
                     r *= n
                     n -= 1
                 return r
-        ''',
+        ''', 26,
                    ([5], 120),
                     ([20], 2432902008176640000L))
 
@@ -128,7 +183,7 @@ class PyPyCJITTests(object):
                     return n * main(n-1)
                 else:
                     return 1
-        ''',
+        ''', 0,
                    ([5], 120),
                     ([20], 2432902008176640000L))
 
@@ -139,7 +194,7 @@ class PyPyCJITTests(object):
 
             def main():
                 return richards.main(iterations = 1)
-        ''' % (sys.path,),
+        ''' % (sys.path,), 7000,
                    ([], 42))
 
     def test_simple_call(self):
@@ -151,7 +206,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = f(f(i))
                 return i
-        ''',
+        ''', 76,
                    ([20], 20),
                     ([31], 32))
         ops = self.get_by_bytecode("LOAD_GLOBAL")
@@ -180,7 +235,7 @@ class PyPyCJITTests(object):
                     x = a.f(i)
                     i = a.f(x)
                 return i
-        ''',
+        ''', 92,
                    ([20], 20),
                     ([31], 32))
         ops = self.get_by_bytecode("LOOKUP_METHOD")
@@ -213,7 +268,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = f(f(i), j=1)
                 return i
-        ''',
+        ''', 98,
                    ([20], 20),
                    ([31], 32))
         ops = self.get_by_bytecode("CALL_FUNCTION")
@@ -237,7 +292,7 @@ class PyPyCJITTests(object):
                     a.x = 2
                     i = i + a.x
                 return i
-        ''',
+        ''', 63,
                    ([20], 20),
                    ([31], 32))
 
@@ -268,7 +323,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = i + a.x
                 return i
-        ''',
+        ''', 39,
                    ([20], 20),
                    ([31], 32))
 
@@ -289,7 +344,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = j + i
                 return i, type(i) is float
-        ''',
+        ''', 35,
                    ([20], (20, True)),
                    ([31], (32, True)))
 
@@ -309,7 +364,7 @@ class PyPyCJITTests(object):
                     i += 1
                     l.append(i)
                 return i, len(l)
-        ''',
+        ''', 37,
                    ([20], (20, 18)),
                    ([31], (31, 29)))
 
