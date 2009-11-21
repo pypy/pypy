@@ -110,7 +110,7 @@ def simplify_dfa(dfa):
                     del dfa[j]
                     for sub_state in dfa:
                         sub_state.unify_state(other_state, state)
-                    changes = True
+                    changed = True
                     break
 
 
