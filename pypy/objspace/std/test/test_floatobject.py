@@ -35,6 +35,30 @@ class TestW_FloatObject:
         v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
         assert v.floatval == x**y
 
+    def test_dont_use_long_impl(self):
+        from pypy.objspace.std.longobject import W_LongObject
+        space = self.space
+        saved = W_LongObject.__dict__['fromfloat']
+        W_LongObject.fromfloat = lambda x: disabled
+        try:
+            w_i = space.wrap(12)
+            w_f = space.wrap(12.3)
+            assert space.unwrap(space.eq(w_f, w_i)) is False
+            assert space.unwrap(space.eq(w_i, w_f)) is False
+            assert space.unwrap(space.ne(w_f, w_i)) is True
+            assert space.unwrap(space.ne(w_i, w_f)) is True
+            assert space.unwrap(space.lt(w_f, w_i)) is False
+            assert space.unwrap(space.lt(w_i, w_f)) is True
+            assert space.unwrap(space.le(w_f, w_i)) is False
+            assert space.unwrap(space.le(w_i, w_f)) is True
+            assert space.unwrap(space.gt(w_f, w_i)) is True
+            assert space.unwrap(space.gt(w_i, w_f)) is False
+            assert space.unwrap(space.ge(w_f, w_i)) is True
+            assert space.unwrap(space.ge(w_i, w_f)) is False
+        finally:
+            W_LongObject.fromfloat = saved
+
+
 class AppTestAppFloatTest:
     def test_negatives(self):
         assert -1.1 < 0
@@ -187,9 +211,75 @@ class AppTestAppFloatTest:
         assert 13 <= 13.0
         assert 13 <= 13.01
 
+    def test_comparison_more(self):
+        infinity = 1e200*1e200
+        nan = infinity/infinity
+        for x in (123, 1 << 30,
+                  (1 << 33) - 1, 1 << 33, (1 << 33) + 1,
+                  1 << 62, 1 << 70):
+            #
+            assert     (x == float(x))
+            assert     (x >= float(x))
+            assert     (x <= float(x))
+            assert not (x != float(x))
+            assert not (x >  float(x))
+            assert not (x <  float(x))
+            #
+            assert not ((x - 1) == float(x))
+            assert not ((x - 1) >= float(x))
+            assert     ((x - 1) <= float(x))
+            assert     ((x - 1) != float(x))
+            assert not ((x - 1) >  float(x))
+            assert     ((x - 1) <  float(x))
+            #
+            assert not ((x + 1) == float(x))
+            assert     ((x + 1) >= float(x))
+            assert not ((x + 1) <= float(x))
+            assert     ((x + 1) != float(x))
+            assert     ((x + 1) >  float(x))
+            assert not ((x + 1) <  float(x))
+            #
+            #assert not (x == nan)
+            #assert not (x >= nan)
+            #assert not (x <= nan)
+            #assert     (x != nan)
+            #assert not (x >  nan)
+            #assert not (x <  nan)
+            #
+            assert     (float(x) == x)
+            assert     (float(x) <= x)
+            assert     (float(x) >= x)
+            assert not (float(x) != x)
+            assert not (float(x) <  x)
+            assert not (float(x) >  x)
+            #
+            assert not (float(x) == (x - 1))
+            assert not (float(x) <= (x - 1))
+            assert     (float(x) >= (x - 1))
+            assert     (float(x) != (x - 1))
+            assert not (float(x) <  (x - 1))
+            assert     (float(x) >  (x - 1))
+            #
+            assert not (float(x) == (x + 1))
+            assert     (float(x) <= (x + 1))
+            assert not (float(x) >= (x + 1))
+            assert     (float(x) != (x + 1))
+            assert     (float(x) <  (x + 1))
+            assert not (float(x) >  (x + 1))
+            #
+            #assert not (nan == x)
+            #assert not (nan <= x)
+            #assert not (nan >= x)
+            #assert     (nan != x)
+            #assert not (nan <  x)
+            #assert not (nan >  x)
+
     def test_multimethod_slice(self):
         assert 5 .__add__(3.14) is NotImplemented
         assert 3.25 .__add__(5) == 8.25
         if hasattr(int, '__eq__'):  # for py.test -A: CPython is inconsistent
             assert 5 .__eq__(3.14) is NotImplemented
             assert 3.14 .__eq__(5) is False
+        #if hasattr(long, '__eq__'):  # for py.test -A: CPython is inconsistent
+        #    assert 5L .__eq__(3.14) is NotImplemented
+        #    assert 3.14 .__eq__(5L) is False

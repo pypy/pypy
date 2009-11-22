@@ -100,36 +100,9 @@ def declare_new_float_comparison(opname):
     name = opname + "__Float_Float"
     return func_with_new_name(f, name), name
 
-def declare_new_int_float_comparison(opname):
-    import operator
-    from pypy.tool.sourcetools import func_with_new_name
-    op = getattr(operator, opname)
-    def f(space, w_int1, w_float2):
-        i = w_int1.intval
-        j = w_float2.floatval
-        return space.newbool(op(float(i), j))
-    name = opname + "__Int_Float"
-    return func_with_new_name(f, name), name
-
-def declare_new_float_int_comparison(opname):
-    import operator
-    from pypy.tool.sourcetools import func_with_new_name
-    op = getattr(operator, opname)
-    def f(space, w_float1, w_int2):
-        i = w_float1.floatval
-        j = w_int2.intval
-        return space.newbool(op(i, float(j)))
-    name = opname + "__Float_Int"
-    return func_with_new_name(f, name), name
-
 for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
     func, name = declare_new_float_comparison(op)
     globals()[name] = func
-    # XXX shortcuts disabled: see r54171 and issue #384.
-    #func, name = declare_new_int_float_comparison(op)
-    #globals()[name] = func
-    #func, name = declare_new_float_int_comparison(op)
-    #globals()[name] = func
 
 # for overflowing comparisons between longs and floats
 # XXX we might have to worry (later) about eq__Float_Int, for the case
