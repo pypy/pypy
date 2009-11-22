@@ -633,18 +633,19 @@ class VT_Float(W_Variable):
                     rffi.str_from_buffer(textbuf, text,
                                          BUFSIZE,
                                          rffi.cast(lltype.Signed, sizeptr[0])))
-                if isinstance(self, VT_NumberAsString):
-                    return w_strvalue
-
-                try:
-                    return space.call_function(space.w_int, w_strvalue)
-                except OperationError, e:
-                    if e.match(space, space.w_ValueError):
-                        return space.call_function(space.w_float, w_strvalue)
-                    raise
             finally:
                 rffi.keep_buffer_alive_until_here(textbuf, text)
                 lltype.free(sizeptr, flavor='raw')
+
+            if isinstance(self, VT_NumberAsString):
+                return w_strvalue
+
+            try:
+                return space.call_function(space.w_int, w_strvalue)
+            except OperationError, e:
+                if e.match(space, space.w_ValueError):
+                    return space.call_function(space.w_float, w_strvalue)
+                raise
         else:
             return transform.OracleNumberToPythonFloat(
                 self.environment, dataptr)
