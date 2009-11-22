@@ -485,10 +485,13 @@ class ProcessTestCase(unittest.TestCase):
             """
             try:
                 import resource
+            except ImportError:
+                return None
+            try:
                 old_limit = resource.getrlimit(resource.RLIMIT_CORE)
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
                 return old_limit
-            except (ImportError, ValueError, resource.error):
+            except (ValueError, resource.error):
                 return None
 
         def _unsuppress_core_files(self, old_limit):
@@ -497,8 +500,11 @@ class ProcessTestCase(unittest.TestCase):
                 return
             try:
                 import resource
+            except ImportError:
+                return
+            try:
                 resource.setrlimit(resource.RLIMIT_CORE, old_limit)
-            except (ImportError, ValueError, resource.error):
+            except (ValueError, resource.error):
                 return
 
         def test_run_abort(self):
