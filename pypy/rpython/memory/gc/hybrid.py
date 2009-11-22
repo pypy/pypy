@@ -240,8 +240,11 @@ class HybridGC(GenerationGC):
             result = llop.raw_realloc_grow(llmemory.Address, source_addr,
                                            old_tot_size, tot_size)
         else:
-            result = llop.raw_realloc_shrink(llmemory.Address, source_addr,
-                                             old_tot_size, tot_size)
+            if old_tot_size == tot_size:
+                result = source_addr
+            else:
+                result = llop.raw_realloc_shrink(llmemory.Address, source_addr,
+                                                 old_tot_size, tot_size)
         if not result:
             self.gen2_resizable_objects.append(addr)
             raise MemoryError()
