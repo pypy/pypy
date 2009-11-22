@@ -82,7 +82,7 @@ class HybridGC(GenerationGC):
     """
     first_unused_gcflag = _gcflag_next_bit
     prebuilt_gc_objects_are_static_roots = True
-    can_realloc = False
+    can_realloc = True
 
     # the following values override the default arguments of __init__ when
     # translating to a real backend.
