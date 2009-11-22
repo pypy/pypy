@@ -21,6 +21,7 @@ class W_Cursor(Wrappable):
         self.statementType = -1
         self.handle = None
         self.isOpen = True
+        self.isOwned = False
 
         self.setInputSizes = False
         self.arraySize = 50
@@ -155,7 +156,7 @@ class W_Cursor(Wrappable):
         self._checkOpen(space)
 
         # close the cursor
-        self._freeHandle(space, raiseError=True)
+        self.freeHandle(space, raiseError=True)
 
         self.isOpen = False
         self.handle = None
@@ -223,7 +224,22 @@ class W_Cursor(Wrappable):
                 interp_error.get(space).w_InterfaceError,
                 space.wrap("not open"))
 
-    def _freeHandle(self, space, raiseError=True):
+    def allocateHandle(self):
+        handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIStmt).TO,
+                                  1, flavor='raw')
+        try:
+            status = roci.OCIHandleAlloc(
+                self.environment.handle,
+                handleptr, roci.OCI_HTYPE_STMT, 0,
+                lltype.nullptr(rffi.CArray(roci.dvoidp)))
+            self.environment.checkForError(
+                status, "Cursor_New()")
+            self.handle = handleptr[0]
+        finally:
+            lltype.free(handleptr, flavor='raw')
+        self.isOwned = True
+
+    def freeHandle(self, space, raiseError=True):
         if not self.handle:
             return
         if self.isOwned:
@@ -262,7 +278,7 @@ class W_Cursor(Wrappable):
 
         # release existing statement, if necessary
         self.w_statementTag = w_tag
-        self._freeHandle(space)
+        self.freeHandle(space)
 
         # prepare statement
         self.isOwned = False

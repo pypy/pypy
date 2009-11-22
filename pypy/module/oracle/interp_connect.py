@@ -12,7 +12,7 @@ from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS
 from pypy.module.oracle.interp_environ import Environment
 from pypy.module.oracle.interp_cursor import W_Cursor
-from pypy.module.oracle.interp_pool import W_Pool
+#from pypy.module.oracle.interp_pool import W_Pool
 from pypy.module.oracle.interp_variable import VT_String
 
 class W_Connection(Wrappable):

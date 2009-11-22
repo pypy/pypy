@@ -162,9 +162,10 @@ class W_Variable(Wrappable):
                                             flavor='raw', zero=True)
 
         # perform extended initialization
-        self.initialize(cursor)
+        self.initialize(self.environment.space, cursor)
 
     def __del__(self):
+        self.finalize()
         lltype.free(self.actualElementsPtr, flavor='raw')
         if self.actualLength:
             lltype.free(self.actualLength, flavor='raw')
@@ -172,6 +173,8 @@ class W_Variable(Wrappable):
             lltype.free(self.data, flavor='raw')
         if self.returnCode:
             lltype.free(self.returnCode, flavor='raw')
+        if self.indicator:
+            lltype.free(self.indicator, flavor='raw')
 
     def getBufferSize(self):
         return self.size
@@ -218,7 +221,10 @@ class W_Variable(Wrappable):
                     "Variable_MakeArray(): type does not support arrays"))
         self.isArray = True
 
-    def initialize(self, cursor):
+    def initialize(self, space, cursor):
+        pass
+
+    def finalize(self):
         pass
 
     @classmethod
@@ -408,7 +414,7 @@ class VT_String(W_Variable):
             else:
                 return self.size * 2
 
-    def initialize(self, cursor):
+    def initialize(self, space, cursor):
         self.actualLength = lltype.malloc(rffi.CArrayPtr(roci.ub2).TO,
                                           self.allocatedElements,
                                           zero=True, flavor='raw')
@@ -797,7 +803,46 @@ class VT_BFILE(W_Variable):
     pass
 
 class VT_Cursor(W_Variable):
+    oracleType = roci.SQLT_RSET
+    size = rffi.sizeof(roci.OCIStmt)
     canBeInArray = False
+
+    def initialize(self, space, cursor):
+        from pypy.module.oracle import interp_cursor
+        self.connection = cursor.connection
+        self.cursors_w = [None] * self.allocatedElements
+        for i in range(self.allocatedElements):
+            tempCursor = interp_cursor.W_Cursor(space, self.connection)
+            tempCursor.allocateHandle()
+            self.cursors_w[i] = space.wrap(tempCursor)
+
+            dataptr = rffi.ptradd(
+                rffi.cast(roci.Ptr(roci.OCIStmt), self.data),
+                i)
+            dataptr[0] = tempCursor.handle
+
+    def setValueProc(self, space, pos, w_value):
+        from pypy.module.oracle import interp_cursor
+        w_CursorType = space.gettypeobject(interp_cursor.W_Cursor.typedef)
+        if not space.is_true(space.isinstance(w_value, w_CursorType)):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("expecting cursor"))
+
+        self.cursors_w[pos] = w_value
+
+        cursor = space.interp_w(interp_cursor.W_Cursor, w_value)
+        if not cursor.isOwned:
+            cursor.freeHandle(space, raiseError=True)
+            cursor.isOwned = True
+            cursor.allocateHandle()
+
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIStmt), self.data),
+            pos)
+        dataptr[0] = cursor.handle
+        cursor.statementType = -1
+
 
 class VT_Object(W_Variable):
     canBeInArray = False
@@ -942,7 +987,11 @@ def typeByValue(space, w_value, numElements):
 
     # XXX Delta
 
-    # XXX cursorType
+    from pypy.module.oracle import interp_cursor
+    if space.is_true(space.isinstance( # XXX is there an easier way?
+        w_value,
+        space.gettypeobject(interp_cursor.W_Cursor.typedef))):
+        return VT_Cursor, 0, numElements
 
     if space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
         return VT_NumberAsString, 0, numElements
