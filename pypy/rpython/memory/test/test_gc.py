@@ -660,6 +660,21 @@ class TestHybridGC(TestGenerationalGC):
         res = self.interpret(f, [15])
         assert res == 16
 
+    def test_resizable_buffer_no_realloc(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+        from pypy.rpython.annlowlevel import hlstr
+
+        def f():
+            ptr = rgc.resizable_buffer_of_shape(STR, 1)
+            ptr.chars[0] = 'a'
+            ptr = rgc.resize_buffer(ptr, 1, 2)
+            ptr.chars[1] = 'b'
+            newptr = rgc.finish_building_buffer(ptr, 2)
+            return ptr == newptr
+
+        assert self.interpret(f, []) == 1
+
+
     def test_malloc_nonmovable_fixsize(self):
         py.test.skip("Not supported")
 
