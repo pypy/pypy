@@ -351,6 +351,7 @@ str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_Strin
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
     str_w = space.str_w
+    s = space.str_w(w_self)
     if list_w:
         self = w_self._value
         listlen = 0
@@ -367,8 +368,17 @@ def str_join__String_ANY(space, w_self, w_list):
                     space.wrap("sequence item %d: expected string, %s "
                                "found" % (i,
                                           space.type(w_s).getname(space, '?'))))
-            l[i] = space.str_w(w_s)
-        return space.wrap(self.join(l))
+            # We can do a shortcut here "if isinstance(w_s, W_StringObject)",
+            # but this should be rendered pointless by having multilist
+            # which will simply always contain strings
+            reslen += len(space.str_w(w_s))
+        reslen += len(s) * (len(list_w) - 1)
+        res = StringBuilder(reslen)
+        for i in range(len(list_w)):
+            res.append(space.str_w(list_w[i]))
+            if i != len(list_w) - 1:
+                res.append(s)
+        return space.wrap(res.build())
     else:
         return W_StringObject.EMPTY
 
