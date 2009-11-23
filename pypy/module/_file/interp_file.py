@@ -387,7 +387,8 @@ optimizations previously implemented in the xreadlines module.""")
             head = "closed"
         else:
             head = "open"
-        if self.space.abstract_isinstance_w(self.w_name, self.space.w_str):
+        if self.space.is_true(self.space.isinstance(self.w_name,
+                                                    self.space.w_str)):
             info = "%s file '%s', mode '%s'" % (
                 head,
                 self.space.str_w(self.w_name),

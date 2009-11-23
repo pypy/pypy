@@ -42,6 +42,25 @@ class AppTestPyFrame:
         origin = g.func_code.co_firstlineno
         assert g() == [origin+3, origin+4, origin+5]
 
+    def test_f_lineno_set(self):
+        def tracer(f, *args):
+            def x(f, *args):
+                if f.f_lineno == origin + 1:
+                    f.f_lineno = origin + 2
+            return x
+
+        def function():
+            xyz
+            return 3
+        
+        def g():
+            import sys
+            sys.settrace(tracer)
+            function()
+            sys.settrace(None)
+        origin = function.func_code.co_firstlineno
+        g() # assert did not crash
+
     def test_f_back(self):
         import sys
         def f():

@@ -453,7 +453,7 @@ class ClassDesc(Desc):
             # is of type FunctionType.  But bookkeeper.immutablevalue()
             # will do the right thing in s_get_value().
 
-        if type(value) is MemberDescriptorType:
+        if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects
             return
         if name == '__init__' and self.is_builtin_exception_class():
@@ -896,5 +896,9 @@ class MethodOfFrozenDesc(Desc):
 
 class Sample(object):
     __slots__ = 'x'
-MemberDescriptorType = type(Sample.x)
+MemberDescriptorTypes = [type(Sample.x)]
 del Sample
+try:
+    MemberDescriptorTypes.append(type(OSError.errno))
+except AttributeError:    # on CPython <= 2.4
+    pass

@@ -26,7 +26,6 @@ Return something that looks like it is of type typ. Its behaviour is
 completely controlled by the controller."""
     from pypy.interpreter.typedef import Function, PyTraceback, PyFrame, \
         PyCode, GeneratorIterator
-    
     if not space.is_true(space.callable(w_controller)):
         raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
     
@@ -49,14 +48,12 @@ completely controlled by the controller."""
             return W_Transparent(space, w_type, w_controller)
     else:
         raise OperationError(space.w_TypeError, space.wrap("type expected as first argument"))
-    try:
-        w_lookup = w_type or w_type.w_besttype
-        for k, v in type_cache.cache:
-            if w_lookup == k:
-                return v(space, w_type, w_controller)
-    except KeyError:
-        raise OperationError(space.w_TypeError, space.wrap("Object type %s could not "\
-                                                           "be wrapped (YET)" % w_type.getname(space, "?")))
+    w_lookup = w_type
+    for k, v in type_cache.cache:
+        if w_lookup == k:
+            return v(space, w_type, w_controller)
+    raise OperationError(space.w_TypeError, space.wrap("Object type %s could not "\
+                                                       "be wrapped (YET)" % w_type.getname(space, "?")))
 
 def register_proxyable(space, cls):
     tpdef = cls.typedef

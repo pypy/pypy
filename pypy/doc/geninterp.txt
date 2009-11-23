@@ -18,20 +18,15 @@ corresponding interpreted code, but no interpreter is needed
 any longer to execute this code.
 
 .. _`application-level`: coding-guide.html#app-preferable
-.. _exceptions: ../../pypy/lib/_exceptions.py
 
-An example is exceptions_. They are
-needed in a very early phase of bootstrapping StdObjspace, but
-for simplicity, they are written as RPythonic application
-level code. This implies that the interpreter must be quite
-completely initialized to execute this code, which is
-impossible in the early phase, where we have neither
-exceptions implemented nor classes available.
+Bootstrap issue
++++++++++++++++
 
-Solution
-++++++++
+One issue we had so far was of bootstrapping: some pieces of the
+interpreter (e.g. exceptions) were written in geninterped code.
+It is unclear how much of it is left, thought.
 
-This bootstrap issue is solved by invoking a new bytecode interpreter
+That bootstrap issue is (was?) solved by invoking a new bytecode interpreter
 which runs on FlowObjspace. FlowObjspace is complete without
 complicated initialization. It is able to do abstract interpretation
 of any Rpythonic code, without actually implementing anything. It just
@@ -176,10 +171,8 @@ get optimized anyway when we produce the executable.
 Interplevel Snippets in the Sources
 +++++++++++++++++++++++++++++++++++
 
-.. _`_exceptions.py`: ../../pypy/lib/_exceptions.py
-
 Code written in application space can consist of complete files
-to be translated (e.g. `_exceptions.py`_), or they
+to be translated, or they
 can be tiny snippets scattered all over a source file, similar
 to our example from above.
 

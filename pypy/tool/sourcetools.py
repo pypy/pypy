@@ -236,12 +236,13 @@ PY_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
                            'a' <= chr(i) <= 'z' or
                            'A' <= chr(i) <= 'Z') and chr(i) or '_')
                          for i in range(256)])
+PY_IDENTIFIER_MAX = 120
 
 def valid_identifier(stuff):
     stuff = str(stuff).translate(PY_IDENTIFIER)
     if not stuff or ('0' <= stuff[0] <= '9'):
         stuff = '_' + stuff
-    return stuff
+    return stuff[:PY_IDENTIFIER_MAX]
 
 CO_VARARGS      = 0x0004
 CO_VARKEYWORDS  = 0x0008

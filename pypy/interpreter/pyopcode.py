@@ -274,11 +274,8 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def unrollstack(self, unroller_kind):
-        n = self.blockcount
-        n = jit.hint(n, promote=True)
-        while n > 0:
+        while self.blockstack_non_empty():
             block = self.pop_block()
-            n -= 1
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)

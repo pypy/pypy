@@ -373,6 +373,51 @@ class PyPyCJITTests(object):
         assert len(bytecode.get_opnames("call")) == 1 # the call to append
         assert len(bytecode.get_opnames("guard")) == 1 # guard_no_exception after the call
 
+    def test_exception_inside_loop_1(self):
+        py.test.skip("exceptions: in-progress")
+        self.run_source('''
+            def main(n):
+                while n:
+                    try:
+                        raise ValueError
+                    except ValueError:
+                        pass
+                    n -= 1
+                return n
+        ''',
+                  ([30], 0))
+
+        bytecode, = self.get_by_bytecode("SETUP_EXCEPT")
+        #assert not bytecode.get_opnames("new")   -- currently, we have
+        #               new_with_vtable(pypy.interpreter.pyopcode.ExceptBlock)
+        bytecode, = self.get_by_bytecode("RAISE_VARARGS")
+        assert not bytecode.get_opnames("new")
+        bytecode, = self.get_by_bytecode("COMPARE_OP")
+        assert not bytecode.get_opnames()
+
+    def test_exception_inside_loop_2(self):
+        py.test.skip("exceptions: in-progress")
+        self.run_source('''
+            def g(n):
+                raise ValueError(n)
+            def f(n):
+                g(n)
+            def main(n):
+                while n:
+                    try:
+                        f(n)
+                    except ValueError:
+                        pass
+                    n -= 1
+                return n
+        ''',
+                  ([30], 0))
+
+        bytecode, = self.get_by_bytecode("RAISE_VARARGS")
+        assert not bytecode.get_opnames("new")
+        bytecode, = self.get_by_bytecode("COMPARE_OP")
+        assert len(bytecode.get_opnames()) <= 2    # oois, guard_true
+
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):

@@ -73,13 +73,6 @@ class OperationError(Exception):
         else:
             return '%s: %s' % (exc_typename, exc_value)
 
-    def getframe(self):
-        "The frame this exception was raised in, or None."
-        if self.application_traceback:
-            return self.application_traceback.frame
-        else:
-            return None
-
     def record_interpreter_traceback(self):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
@@ -102,7 +95,7 @@ class OperationError(Exception):
             print >> file, "Traceback (application-level):"
             while tb is not None:
                 co = tb.frame.pycode
-                lineno = tb.lineno
+                lineno = tb.get_lineno()
                 fname = co.co_filename
                 if fname.startswith('<inline>\n'):
                     lines = fname.split('\n')
@@ -177,16 +170,15 @@ class OperationError(Exception):
             while space.is_true(space.isinstance(w_type, space.w_tuple)):
                 w_type = space.getitem(w_type, space.wrap(0))
 
-        if (space.abstract_isclass_w(w_type) and
-            is_valid_exception_class(space, w_type)):
+        if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
-                w_type = space.abstract_getclass(w_value)
+                w_type = space.exception_getclass(w_value)
             else:
-                w_valuetype = space.abstract_getclass(w_value)
-                if space.abstract_issubclass_w(w_valuetype, w_type):
+                w_valuetype = space.exception_getclass(w_value)
+                if space.exception_issubclass_w(w_valuetype, w_type):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
@@ -198,7 +190,7 @@ class OperationError(Exception):
                     else:
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
-                    w_type = space.abstract_getclass(w_value)
+                    w_type = space.exception_getclass(w_value)
 
         elif space.full_exceptions and space.is_w(space.type(w_type),
                                                   space.w_str):
@@ -208,8 +200,8 @@ class OperationError(Exception):
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
-            w_instclass = space.abstract_getclass(w_inst)
-            if not is_valid_exception_class(space, w_instclass):
+            w_instclass = space.exception_getclass(w_inst)
+            if not space.exception_is_valid_class_w(w_instclass):
                 instclassname = w_instclass.getname(space, '?')
                 msg = ("exceptions must be classes, or instances,"
                        "or strings (deprecated) not %s" % (instclassname,))
@@ -239,23 +231,6 @@ class OperationError(Exception):
             space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
         except OperationError:
             pass   # ignored
-
-
-def is_valid_exception_class(space, w_type):
-    """Assuming that 'w_type' is a new-style or old-style class, is it
-    correct to use it as the class of an exception?  The answer is no
-    if it is a new-style class that doesn't inherit from BaseException.
-    """
-    if not space.full_exceptions:
-        return True         # always, for the flow space
-    try:
-        return space.is_true(
-            space.issubtype(w_type, space.w_BaseException))
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        return True         # assuming w_type is an old-style class
-
 
 # Utilities
 from pypy.tool.ansi_print import ansi_print

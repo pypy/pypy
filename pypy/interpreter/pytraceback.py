@@ -5,19 +5,24 @@ from pypy.interpreter.error import OperationError
 class PyTraceback(baseobjspace.Wrappable):
     """Traceback object
 
-    Public fields:
+    Public app-level fields:
      * 'tb_frame'
      * 'tb_lasti'
      * 'tb_lineno'
      * 'tb_next'
     """
 
-    def __init__(self, space, frame, lasti, lineno, next):
+    def __init__(self, space, frame, lasti, next):
         self.space = space
         self.frame = frame
         self.lasti = lasti
-        self.lineno = lineno
         self.next = next
+
+    def get_lineno(self):
+        return offset2lineno(self.frame.pycode, self.lasti)
+
+    def descr_tb_lineno(space, self):
+        return space.wrap(self.get_lineno())
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -30,7 +35,6 @@ class PyTraceback(baseobjspace.Wrappable):
         tup_state = [
             w(self.frame),
             w(self.lasti),
-            w(self.lineno),
             w(self.next),
             ]
         nt = space.newtuple
@@ -39,19 +43,17 @@ class PyTraceback(baseobjspace.Wrappable):
     def descr__setstate__(self, space, w_args):
         from pypy.interpreter.pyframe import PyFrame
         args_w = space.unpackiterable(w_args)
-        w_frame, w_lasti, w_lineno, w_next = args_w
+        w_frame, w_lasti, w_next = args_w
         self.frame = space.interp_w(PyFrame, w_frame)
         self.lasti = space.int_w(w_lasti)
-        self.lineno = space.int_w(w_lineno)
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
 
 def record_application_traceback(space, operror, frame, last_instruction):
     frame.force_f_back()
     if frame.pycode.hidden_applevel:
         return
-    lineno = offset2lineno(frame.pycode, last_instruction)
     tb = operror.application_traceback
-    tb = PyTraceback(space, frame, last_instruction, lineno, tb)
+    tb = PyTraceback(space, frame, last_instruction, tb)
     operror.application_traceback = tb
 
 def offset2lineno(c, stopat):

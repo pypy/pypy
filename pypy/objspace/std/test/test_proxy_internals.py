@@ -1,7 +1,8 @@
 
 """ test proxy internals like code, traceback, frame
 """
-from pypy.conftest import gettestobjspace
+import py
+from pypy.conftest import gettestobjspace, option
 
 class AppProxy(object):
     def setup_class(cls):
@@ -21,6 +22,28 @@ class AppProxy(object):
         return get_proxy
         """)
 
+class AppTestProxyInterpOnly(AppProxy):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("interp only test")
+        from pypy.interpreter.typedef import TypeDef, interp2app
+        from pypy.interpreter.baseobjspace import Wrappable
+
+        class W_Stuff(Wrappable):
+            pass
+
+        def descr_new(space, w_subtype):
+            return W_Stuff()
+
+        W_Stuff.typedef = TypeDef(
+            'Stuff',
+            __new__ = interp2app(descr_new),
+        )
+        cls.w_Stuff = cls.space.gettypefor(W_Stuff)
+
+    def test_unproxyable(self):
+        raises(TypeError, self.get_proxy, self.Stuff())
+
 class AppTestProxyInternals(AppProxy):
     def test_traceback_basic(self):
         try:
@@ -31,7 +54,7 @@ class AppTestProxyInternals(AppProxy):
         
         tb = self.get_proxy(e[2])
         assert tb.tb_frame is e[2].tb_frame
-    
+
     def test_traceback_catch(self):
         try:
             try:

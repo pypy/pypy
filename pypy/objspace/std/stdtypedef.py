@@ -2,7 +2,7 @@ from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
-from pypy.interpreter.typedef import no_hash_descr
+from pypy.interpreter.typedef import no_hash_descr, descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -38,9 +38,6 @@ def issubtypedef(a, b):
             return False
         a = a.base
     return True
-
-def descr_del_dict(space, w_obj): # blame CPython for the existence of this one
-    w_obj.setdict(space, space.newdict())
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
 std_dict_descr.name = '__dict__'
@@ -91,8 +88,12 @@ class TypeCache(SpaceCache):
         for descrname, descrvalue in rawdict.items():
             dict_w[descrname] = w(descrvalue)
 
+        if typedef.applevel_subclasses_base is not None:
+            overridetypedef = typedef.applevel_subclasses_base.typedef
+        else:
+            overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
-                              overridetypedef=typedef)
+                              overridetypedef=overridetypedef)
         w_type.lazyloaders = lazyloaders
         return w_type
 

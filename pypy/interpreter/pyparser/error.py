@@ -8,7 +8,6 @@ class SyntaxError(Exception):
         self.offset = offset
         self.text = text
         self.filename = filename
-        self.print_file_and_line = False
 
     def wrap_info(self, space):
         return space.newtuple([space.wrap(self.msg),

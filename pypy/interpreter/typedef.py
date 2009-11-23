@@ -24,6 +24,7 @@ class TypeDef:
             self.weakrefable |= __base.weakrefable
         self.rawdict = {}
         self.acceptable_as_base_class = True
+        self.applevel_subclasses_base = None
         # xxx used by faking
         self.fakedcpytype = None
         self.add_entries(**rawdict)
@@ -561,6 +562,9 @@ def descr_get_dict(space, w_obj):
 def descr_set_dict(space, w_obj, w_dict):
     w_obj.setdict(space, w_dict)
 
+def descr_del_dict(space, w_obj): # blame CPython for the existence of this one
+    w_obj.setdict(space, space.newdict())
+
 def descr_get_weakref(space, w_obj):
     lifeline = w_obj.getweakref()
     if lifeline is None:
@@ -825,7 +829,7 @@ PyTraceback.typedef = TypeDef("traceback",
                               unwrap_spec=['self', ObjSpace, W_Root]),
     tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
-    tb_lineno = interp_attrproperty('lineno', cls=PyTraceback),
+    tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
     tb_next   = interp_attrproperty('next', cls=PyTraceback),
     )
 PyTraceback.typedef.acceptable_as_base_class = False

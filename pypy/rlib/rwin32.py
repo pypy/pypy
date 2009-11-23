@@ -6,7 +6,7 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
-import os, sys
+import os, sys, errno
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -14,8 +14,13 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h'],
+        includes = ['windows.h', 'errno.h'],
         libraries = ['kernel32'],
+        separate_module_sources = ["""
+        long WINAPI pypy_dosmaperr(long winerror)
+        { _dosmaperr(winerror); return errno; }
+        """],
+        export_symbols = ["pypy_dosmaperr"],
         )
 else:
     eci = ExternalCompilationInfo()
@@ -60,7 +65,6 @@ class CConfig:
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
-
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
@@ -93,6 +97,20 @@ if WIN32:
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
+    dosmaperr = winexternal('pypy_dosmaperr', [rffi.LONG], rffi.LONG)
+
+
+    def build_winerror_to_errno():
+        """Build a dictionary mapping windows error numbers to POSIX errno.
+        The function returns the dict, and the default value for codes not
+        in the dict."""
+        default = errno.EINVAL
+        errors = {}
+        for i in range(1, 65000):
+            error = dosmaperr(i)
+            if error != default:
+                errors[i] = error
+        return errors, default
 
     # A bit like strerror...
     def FormatError(code):

@@ -11,6 +11,7 @@ from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
 
 def _get_bases(space, w_cls):
     """Returns 'cls.__bases__'.  Returns None if there is
@@ -152,6 +153,37 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple):
                 " or tuple of classes and types")
     return _issubclass_recurse(space, w_derived, w_klass_or_tuple)
 
+# ------------------------------------------------------------
+# Exception helpers
+
+def exception_is_valid_obj_as_class_w(space, w_obj):
+    obj = space.interpclass_w(w_obj)
+    if isinstance(obj, W_ClassObject):
+        return True
+    return BaseObjSpace.exception_is_valid_obj_as_class_w(space, w_obj)
+
+def exception_is_valid_class_w(space, w_cls):
+    cls = space.interpclass_w(w_cls)
+    if isinstance(cls, W_ClassObject):
+        return True
+    return BaseObjSpace.exception_is_valid_class_w(space, w_cls)
+
+def exception_getclass(space, w_obj):
+    obj = space.interpclass_w(w_obj)
+    if isinstance(obj, W_InstanceObject):
+        return obj.w_class
+    return BaseObjSpace.exception_getclass(space, w_obj)
+
+def exception_issubclass_w(space, w_cls1, w_cls2):
+    cls1 = space.interpclass_w(w_cls1)
+    cls2 = space.interpclass_w(w_cls2)
+    if isinstance(cls1, W_ClassObject):
+        if isinstance(cls2, W_ClassObject):
+            return cls1.is_subclass_of(cls2)
+        return False
+    if isinstance(cls2, W_ClassObject):
+        return False
+    return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
 
 # ____________________________________________________________
 # App-level interface

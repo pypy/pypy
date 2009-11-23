@@ -9,7 +9,7 @@ from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
-from pypy.rlib.jit import we_are_jitted, dont_look_inside
+from pypy.rlib.jit import we_are_jitted, dont_look_inside, unroll_safe
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -389,11 +389,18 @@ class ObjSpace(object):
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
+        from pypy.module.exceptions import Module
+        w_name_exceptions = self.wrap('exceptions')
+        self.exceptions_module = Module(self, w_name_exceptions)
+
         from pypy.module.sys import Module
         w_name = self.wrap('sys')
         self.sys = Module(self, w_name)
         w_modules = self.sys.get('modules')
         self.setitem(w_modules, w_name, self.wrap(self.sys))
+
+        self.setitem(w_modules, w_name_exceptions,
+                     self.wrap(self.exceptions_module))
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
@@ -404,6 +411,8 @@ class ObjSpace(object):
 
         bootstrap_modules = ['sys', '__builtin__', 'exceptions']
         installed_builtin_modules = bootstrap_modules[:]
+
+        self.export_builtin_exceptions()
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
@@ -429,6 +438,18 @@ class ObjSpace(object):
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.wrap('builtin_module_names'),
                      w_builtin_module_names)
+
+    def export_builtin_exceptions(self):
+        """NOT_RPYTHON"""
+        w_dic = self.exceptions_module.getdict()
+        names_w = self.unpackiterable(self.call_function(self.getattr(w_dic, self.wrap("keys"))))
+
+        for w_name in names_w:
+            name = self.str_w(w_name)
+            if not name.startswith('__'):
+                excname = name
+                w_exc = self.getitem(w_dic, w_name)
+                setattr(self, "w_"+excname, w_exc)
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
         """NOT_RPYTHON"""
@@ -679,12 +700,19 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    @unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if self.is_w(w_exc_type, w_check_class):
             return True   # fast path (also here to handle string exceptions)
         try:
-            return self.abstract_issubclass_w(w_exc_type, w_check_class)
+            if self.is_true(self.isinstance(w_check_class, self.w_tuple)):
+                for w_t in self.fixedview(w_check_class):
+                    if self.exception_match(w_exc_type, w_t):
+                        return True
+                else:
+                    return False
+            return self.exception_issubclass_w(w_exc_type, w_check_class)
         except OperationError, e:
             if e.match(self, self.w_TypeError):   # string exceptions maybe
                 return False
@@ -806,33 +834,51 @@ class ObjSpace(object):
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
 
+    # The code below only works
+    # for the simple case (new-style instance).
+    # These methods are patched with the full logic by the __builtin__
+    # module when it is loaded
+
     def abstract_issubclass_w(self, w_cls1, w_cls2):
-        # Equivalent to 'issubclass(cls1, cls2)'.  The code below only works
-        # for the simple case (new-style class, new-style class).
-        # This method is patched with the full logic by the __builtin__
-        # module when it is loaded.
+        # Equivalent to 'issubclass(cls1, cls2)'.
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
     def abstract_isinstance_w(self, w_obj, w_cls):
-        # Equivalent to 'isinstance(obj, cls)'.  The code below only works
-        # for the simple case (new-style instance, new-style class).
-        # This method is patched with the full logic by the __builtin__
-        # module when it is loaded.
+        # Equivalent to 'isinstance(obj, cls)'.
         return self.is_true(self.isinstance(w_obj, w_cls))
 
     def abstract_isclass_w(self, w_obj):
-        # Equivalent to 'isinstance(obj, type)'.  The code below only works
-        # for the simple case (new-style instance without special stuff).
-        # This method is patched with the full logic by the __builtin__
-        # module when it is loaded.
+        # Equivalent to 'isinstance(obj, type)'.
         return self.is_true(self.isinstance(w_obj, self.w_type))
 
     def abstract_getclass(self, w_obj):
-        # Equivalent to 'obj.__class__'.  The code below only works
-        # for the simple case (new-style instance without special stuff).
-        # This method is patched with the full logic by the __builtin__
-        # module when it is loaded.
+        # Equivalent to 'obj.__class__'.
         return self.type(w_obj)
+
+    # CPython rules allows old style classes or subclasses
+    # of BaseExceptions to be exceptions.
+    # This is slightly less general than the case above, so we prefix
+    # it with exception_
+
+    def exception_is_valid_obj_as_class_w(self, w_obj):
+        if not self.is_true(self.isinstance(w_obj, self.w_type)):
+            return False
+        if not self.full_exceptions:
+            return True
+        return self.is_true(self.issubtype(w_obj, self.w_BaseException))
+
+    def exception_is_valid_class_w(self, w_cls):
+        if not self.full_exceptions:
+            return True
+        return self.is_true(self.issubtype(w_cls, self.w_BaseException))
+
+    def exception_getclass(self, w_obj):
+        return self.type(w_obj)
+
+    def exception_issubclass_w(self, w_cls1, w_cls2):
+        return self.is_true(self.issubtype(w_cls1, w_cls2))
+
+    # end of special support code
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
@@ -990,6 +1036,21 @@ class ObjSpace(object):
                 raise
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
+
+    def realstr_w(self, w_obj):
+        # Like str_w, but only works if w_obj is really of type 'str'.
+        if not self.is_true(self.isinstance(w_obj, self.w_str)):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap('argument must be a string'))
+        return self.str_w(w_obj)
+
+    def realunicode_w(self, w_obj):
+        # Like unicode_w, but only works if w_obj is really of type
+        # 'unicode'.
+        if not self.is_true(self.isinstance(w_obj, self.w_unicode)):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap('argument must be a unicode'))
+        return self.unicode_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
