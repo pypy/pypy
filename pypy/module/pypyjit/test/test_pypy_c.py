@@ -113,7 +113,10 @@ class PyPyCJITTests(object):
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
         self.parse_loops(logfilepath)
-        assert self.total_ops <= expected_max_ops
+        if self.total_ops > expected_max_ops:
+            self.print_loops()
+            assert 0, "too many operations: got %d, expected maximum %d" % (
+                self.total_ops, expected_max_ops)
 
     def parse_loops(self, opslogfile):
         from pypy.jit.metainterp.test.oparser import parse
@@ -145,6 +148,16 @@ class PyPyCJITTests(object):
 
     def get_by_bytecode(self, name):
         return [ops for ops in self.sliced_loops if ops.bytecode == name]
+
+    def print_loops(self):
+        for loop in self.loops:
+            print
+            print '@' * 79
+            print
+            for op in loop.operations:
+                print op
+        print
+        print '@' * 79
 
     def test_f1(self):
         self.run_source('''
