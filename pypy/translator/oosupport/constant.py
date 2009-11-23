@@ -29,7 +29,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import rffi
 import operator
 
-MAX_CONST_PER_STEP = 50
+MAX_CONST_PER_STEP = 40
 
 PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                        ootype.Float, ootype.Signed, ootype.Unsigned,
