@@ -82,7 +82,7 @@ class HybridGC(GenerationGC):
     """
     first_unused_gcflag = _gcflag_next_bit
     prebuilt_gc_objects_are_static_roots = True
-    can_realloc = True
+    can_realloc = False
 
     # the following values override the default arguments of __init__ when
     # translating to a real backend.
@@ -240,11 +240,8 @@ class HybridGC(GenerationGC):
             result = llop.raw_realloc_grow(llmemory.Address, source_addr,
                                            old_tot_size, tot_size)
         else:
-            if old_tot_size == tot_size:
-                result = source_addr
-            else:
-                result = llop.raw_realloc_shrink(llmemory.Address, source_addr,
-                                                 old_tot_size, tot_size)
+            result = llop.raw_realloc_shrink(llmemory.Address, source_addr,
+                                             old_tot_size, tot_size)
         if not result:
             self.gen2_resizable_objects.append(addr)
             raise MemoryError()

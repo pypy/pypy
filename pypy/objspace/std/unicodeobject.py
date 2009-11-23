@@ -13,7 +13,6 @@ from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
-from pypy.rlib.rstring import UnicodeBuilder
 
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
@@ -175,38 +174,29 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
-    l_w = space.listview(w_list)
+    l = space.listview(w_list)
     delim = w_self._value
-    if len(l_w) == 0:
+    totlen = 0
+    if len(l) == 0:
         return W_UnicodeObject.EMPTY
-    if (len(l_w) == 1 and
-        space.is_w(space.type(l_w[0]), space.w_unicode)):
-        return l_w[0]
-    lgt = 0
-    for i in range(len(l_w)):
-        w_item = l_w[i]
-        if isinstance(w_item, W_UnicodeObject):
+    if (len(l) == 1 and
+        space.is_w(space.type(l[0]), space.w_unicode)):
+        return l[0]
+    
+    values_list = [None] * len(l)
+    for i in range(len(l)):
+        item = l[i]
+        if isinstance(item, W_UnicodeObject):
             # shortcut for performane
-            lgt += len(w_item._value)
-        elif space.is_true(space.isinstance(w_item, space.w_str)):
-            lgt += len(space.str_w(w_item))
-            # some estimate, does not need to be perfect
+            item = item._value
+        elif space.is_true(space.isinstance(item, space.w_str)):
+            item = space.unicode_w(item)
         else:
             w_msg = space.mod(space.wrap('sequence item %d: expected string or Unicode'),
                               space.wrap(i))
             raise OperationError(space.w_TypeError, w_msg)
-    # now we know it's a list of unicode or string
-    lgt += len(delim) * (len(l_w) - 1)
-    builder = UnicodeBuilder(lgt)
-    for i in range(len(l_w)):
-        w_item = l_w[i]
-        if isinstance(w_item, W_UnicodeObject):
-            builder.append(w_item._value)
-        else:
-            builder.append(space.unicode_w(w_item))
-        if i != len(l_w) - 1:
-            builder.append(delim)
-    return W_UnicodeObject(builder.build())
+        values_list[i] = item
+    return W_UnicodeObject(w_self._value.join(values_list))
 
 def hash__Unicode(space, w_uni):
     s = w_uni._value
