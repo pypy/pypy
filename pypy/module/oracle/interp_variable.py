@@ -942,6 +942,10 @@ def _typeByOracleDataType(dataType, charsetForm):
 def typeByPythonType(space, cursor, w_type):
     """Return a variable type given a Python type object"""
     moduledict = get(space)
+    if not space.is_true(space.isinstance(w_type, space.w_type)):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("Variable_TypeByPythonType(): type expected"))
     if w_type.instancetypedef in variableTypeByTypedef:
         return variableTypeByTypedef[w_type.instancetypedef]
     if space.is_w(w_type, space.w_int):

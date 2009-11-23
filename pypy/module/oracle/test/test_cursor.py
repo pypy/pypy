@@ -25,6 +25,11 @@ class AppTestCursor(OracleTestBase):
         assert cur.bindnames() == ["A", "B", "C", "D", "E", "F",
                                    "G", "H", "I", "J", "K", "L"]
 
+    def test_var(self):
+        cur = self.cnx.cursor()
+        cur.var(oracle.NUMBER)
+        raises(TypeError, cur.var, 0)
+
     def test_bind_out(self):
         cur = self.cnx.cursor()
         var = cur.var(oracle.NUMBER)
