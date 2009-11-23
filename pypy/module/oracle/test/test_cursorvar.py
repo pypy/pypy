@@ -11,7 +11,9 @@ class AppTestCursorVar(OracleTestBase):
               open :cursor for select 1 numbercol from dual;
             end;""",
             cursor=cursor)
-        assert cursor.description == [
-            ('NUMBERCOL', oracle.NUMBER, 127, 2, 0, 0, 1)]
+        assert (cursor.description ==
+                [('NUMBERCOL', oracle.NUMBER, 127, 2, 0, 0, 1)]
+                or cursor.description ==
+                [('NUMBERCOL', oracle.NUMBER, 127, 2, 0, -127, 1)])
         data = cursor.fetchall()
         assert data == [(1,)]
