@@ -377,8 +377,8 @@ class W_Variable(Wrappable):
 
         # set all of the values
         self.actualElementsPtr[0] = rffi.cast(lltype.Unsigned, len(elements_w))
-        for i, w_element in enumerate(elements_w):
-            self.setSingleValue(space, i, w_element)
+        for i in range(len(elements_w)):
+            self.setSingleValue(space, i, elements_w[i])
 
     def setValue(self, space, pos, w_value):
         if self.isArray:

@@ -135,7 +135,8 @@ class W_Cursor(Wrappable):
         # perform binds
         args_w = space.listview(w_list_of_args)
         numrows = len(args_w)
-        for i, w_arguments in enumerate(args_w):
+        for i in range(numrows):
+            w_arguments = args_w[i]
             deferred = i < numrows - 1
             if space.is_true(space.isinstance(w_arguments, space.w_dict)):
                 self._setBindVariablesByName(
@@ -563,7 +564,9 @@ class W_Cursor(Wrappable):
         if self.bindList is None:
             self.bindList = []
 
-        for i, w_value in enumerate(space.fixedview(w_vars)):
+        vars_w = space.fixedview(w_vars)
+        for i in range(len(vars_w)):
+            w_value = vars_w[i]
             if i < len(self.bindList):
                 origVar = self.bindList[i]
                 if space.is_w(origVar, space.w_None):
@@ -657,7 +660,8 @@ class W_Cursor(Wrappable):
     def _performBind(self, space):
         # set values and perform binds for all bind variables
         if self.bindList:
-            for i, var in enumerate(self.bindList):
+            for i in range(len(self.bindList)):
+                var = self.bindList[i]
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
             items_w = space.fixedview(
@@ -1018,7 +1022,8 @@ class W_Cursor(Wrappable):
             return self.bindDict
         else:
             self.bindList = [None] * len(args_w)
-            for i, w_value in enumerate(args_w):
+            for i in range(len(args_w)):
+                w_value = args_w[i]
                 if space.is_w(w_value, space.w_None):
                     var = space.w_None
                 else:
