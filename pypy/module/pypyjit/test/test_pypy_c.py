@@ -104,12 +104,10 @@ class PyPyCJITTests(object):
         print >> f, "print 'OK :-)'"
         f.close()
 
-        # we don't have os.popen() yet on pypy-c...
         if sys.platform.startswith('win'):
             py.test.skip("XXX this is not Windows-friendly")
-        child_stdin, child_stdout = os.popen2('PYPYLOG=":%s" "%s" "%s"' % (
-            logfilepath, self.pypy_c, filepath))
-        child_stdin.close()
+        child_stdout = os.popen('PYPYLOG=":%s" "%s" "%s"' % (
+            logfilepath, self.pypy_c, filepath), 'r')
         result = child_stdout.read()
         child_stdout.close()
         assert result
