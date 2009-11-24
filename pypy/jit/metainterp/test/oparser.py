@@ -205,10 +205,15 @@ class OpParser(object):
             if i < j:
                 for arg in line[i:j].split(','):
                     arg = arg.strip()
-                    try:
-                        fail_args.append(self.vars[arg])
-                    except KeyError:
-                        raise ParseError("Unknown var in fail_args: %s" % arg)
+                    if arg == 'None':
+                        fail_arg = None
+                    else:
+                        try:
+                            fail_arg = self.vars[arg]
+                        except KeyError:
+                            raise ParseError(
+                                "Unknown var in fail_args: %s" % arg)
+                    fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
                 descr = self.invent_fail_descr(fail_args)
             if hasattr(descr, '_oparser_uses_descr_of_guard'):

@@ -233,7 +233,12 @@ class ResumeGuardDescr(ResumeDescr):
     def store_final_boxes(self, guard_op, boxes):
         guard_op.fail_args = boxes
         self.guard_opnum = guard_op.opnum
-        self.fail_arg_types = [box.type for box in boxes]
+        fail_arg_types = [history.HOLE] * len(boxes)
+        for i in range(len(boxes)):
+            box = boxes[i]
+            if box:
+                fail_arg_types[i] = box.type
+        self.fail_arg_types = fail_arg_types
 
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp

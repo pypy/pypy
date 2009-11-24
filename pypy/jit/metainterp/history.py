@@ -15,6 +15,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+HOLE  = '_'
 
 FAILARGS_LIMIT = 1000
 
@@ -756,8 +757,9 @@ class TreeLoop(object):
                     ops = op.descr._debug_suboperations
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.fail_args or []:
-                    assert isinstance(box, Box)
-                    assert box in seen
+                    if box is not None:
+                        assert isinstance(box, Box)
+                        assert box in seen
             else:
                 assert op.fail_args is None
             box = op.result

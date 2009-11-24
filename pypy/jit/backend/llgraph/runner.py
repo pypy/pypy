@@ -171,7 +171,10 @@ class BaseCPU(model.AbstractCPU):
                 index = llimpl.compile_add_fail(c, fail_index)
                 faildescr._compiled_fail = c, index
                 for box in op.fail_args:
-                    llimpl.compile_add_fail_arg(c, var2index[box])
+                    if box is not None:
+                        llimpl.compile_add_fail_arg(c, var2index[box])
+                    else:
+                        llimpl.compile_add_fail_arg(c, -1)
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):

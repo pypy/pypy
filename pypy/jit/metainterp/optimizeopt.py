@@ -2,7 +2,7 @@ from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
      ConstFloat
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.jitprof import OPT_OPS, OPT_GUARDS, OPT_FORCINGS
+from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
@@ -61,6 +61,9 @@ class OptValue(object):
 
     def get_args_for_fail(self, modifier):
         pass
+
+    def make_virtual_info(self, modifier, fieldnums):
+        raise NotImplementedError # should not be called on this level
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -134,9 +137,10 @@ oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 
 class AbstractVirtualValue(OptValue):
-    _attrs_ = ('optimizer', 'keybox', 'source_op')
+    _attrs_ = ('optimizer', 'keybox', 'source_op', '_cached_vinfo')
     box = None
     level = LEVEL_NONNULL
+    _cached_vinfo = None
 
     def __init__(self, optimizer, keybox, source_op=None):
         self.optimizer = optimizer
@@ -154,6 +158,19 @@ class AbstractVirtualValue(OptValue):
             self.optimizer.forget_numberings(self.keybox)
             self._really_force()
         return self.box
+
+    def make_virtual_info(self, modifier, fieldnums):
+        vinfo = self._cached_vinfo 
+        if vinfo is not None and resume.tagged_list_eq(
+                vinfo.fieldnums, fieldnums):
+            return vinfo
+        vinfo = self._make_virtual(modifier)
+        vinfo.fieldnums = fieldnums
+        self._cached_vinfo = vinfo
+        return vinfo
+
+    def _make_virtual(self, modifier):
+        raise NotImplementedError("abstract base")
 
 
 class AbstractVirtualStructValue(AbstractVirtualValue):
@@ -207,13 +224,10 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             # we have already seen the very same keybox
             lst = self._get_field_descr_list()
             fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-            self._make_virtual(modifier, lst, fieldboxes)
+            modifier.register_virtual_fields(self.keybox, fieldboxes)
             for ofs in lst:
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
-
-    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
-        raise NotImplementedError
 
 
 class VirtualValue(AbstractVirtualStructValue):
@@ -224,10 +238,9 @@ class VirtualValue(AbstractVirtualStructValue):
         assert isinstance(known_class, Const)
         self.known_class = known_class
 
-    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
-        modifier.make_virtual(self.keybox, self.known_class,
-                              fielddescrs, fieldboxes)
-
+    def _make_virtual(self, modifier):
+        fielddescrs = self._get_field_descr_list()
+        return modifier.make_virtual(self.known_class, fielddescrs)
 
 class VStructValue(AbstractVirtualStructValue):
 
@@ -235,10 +248,9 @@ class VStructValue(AbstractVirtualStructValue):
         AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
         self.structdescr = structdescr
 
-    def _make_virtual(self, modifier, fielddescrs, fieldboxes):
-        modifier.make_vstruct(self.keybox, self.structdescr,
-                              fielddescrs, fieldboxes)
-
+    def _make_virtual(self, modifier):
+        fielddescrs = self._get_field_descr_list()
+        return modifier.make_vstruct(self.structdescr, fielddescrs)
 
 class VArrayValue(AbstractVirtualValue):
 
@@ -282,10 +294,13 @@ class VArrayValue(AbstractVirtualValue):
             const = self.optimizer.new_const_item(self.arraydescr)
             for itemvalue in self._items:
                 itemboxes.append(itemvalue.get_key_box())
-            modifier.make_varray(self.keybox, self.arraydescr, itemboxes)
+            modifier.register_virtual_fields(self.keybox, itemboxes)
             for itemvalue in self._items:
                 if itemvalue is not self.constvalue:
                     itemvalue.get_args_for_fail(modifier)
+
+    def _make_virtual(self, modifier):
+        return modifier.make_varray(self.arraydescr)
 
 class __extend__(SpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
@@ -354,12 +369,12 @@ class Optimizer(object):
         self.loop = loop
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
-        self.resumedata_memo = resume.ResumeDataLoopMemo(self.cpu)
+        self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.heap_op_optimizer = HeapOpOptimizer(self)
         self.bool_boxes = {}
 
     def forget_numberings(self, virtualbox):
-        self.metainterp_sd.profiler.count(OPT_FORCINGS)
+        self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)
         self.resumedata_memo.forget_numberings(virtualbox)
 
     def getinterned(self, box):
@@ -480,6 +495,8 @@ class Optimizer(object):
             else:
                 self.optimize_default(op)
         self.loop.operations = self.newoperations
+        # accumulate counters
+        self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 
     def emit_operation(self, op, must_clone=True):
         self.heap_op_optimizer.emitting_operation(op)
@@ -492,9 +509,9 @@ class Optimizer(object):
                         op = op.clone()
                         must_clone = False
                     op.args[i] = box
-        self.metainterp_sd.profiler.count(OPT_OPS)
+        self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
-            self.metainterp_sd.profiler.count(OPT_GUARDS)
+            self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
             self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
@@ -507,7 +524,7 @@ class Optimizer(object):
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values)
-        if len(newboxes) > self.metainterp_sd.options.failargs_limit:
+        if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             raise compile.GiveUp
         descr.store_final_boxes(op, newboxes)
         #

@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.test.test_virtual import VirtualTests
+from pypy.jit.metainterp.test.test_virtual import VirtualTests, VirtualMiscTests
 from pypy.jit.backend.x86.test.test_basic import Jit386Mixin
 
 class MyClass:
@@ -13,3 +13,8 @@ class TestsVirtual(Jit386Mixin, VirtualTests):
     @staticmethod
     def _new():
         return MyClass()
+
+class TestsVirtualMisc(Jit386Mixin, VirtualMiscTests):
+    # for the individual tests see
+    # ====> ../../../metainterp/test/test_virtual.py
+    pass

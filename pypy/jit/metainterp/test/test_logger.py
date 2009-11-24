@@ -83,6 +83,15 @@ class TestLogger(object):
         '''
         self.reparse(inp)
 
+    def test_guard_w_hole(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        guard_true(i0) [i0, None, i1]
+        finish(i1)
+        '''
+        self.reparse(inp)
+
     def test_debug_merge_point(self):
         inp = '''
         []
@@ -112,7 +121,7 @@ class TestLogger(object):
         assert output.splitlines()[-1] == "jump(i0, descr=<Loop3>)"
         pure_parse(output)
         
-    def test_guard(self):
+    def test_guard_descr(self):
         namespace = {'fdescr': BasicFailDescr(4)}
         inp = '''
         [i0]

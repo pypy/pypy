@@ -20,6 +20,9 @@ OPT_GUARDS
 OPT_FORCINGS
 ABORT_TOO_LONG
 ABORT_BRIDGE
+NVIRTUALS
+NVHOLES
+NVREUSED
 """
 
 def _setup():
@@ -175,6 +178,9 @@ class Profiler(BaseProfiler):
         self._print_intline("forcings", cnt[OPT_FORCINGS])
         self._print_intline("trace too long", cnt[ABORT_TOO_LONG])
         self._print_intline("bridge abort", cnt[ABORT_BRIDGE])
+        self._print_intline("nvirtuals", cnt[NVIRTUALS])
+        self._print_intline("nvholes", cnt[NVHOLES])
+        self._print_intline("nvreused", cnt[NVREUSED])
 
     def _print_line_time(self, string, i, tim):
         final = "%s:%s\t%d\t%f\n" % (string, " " * max(0, 13-len(string)), i, tim)

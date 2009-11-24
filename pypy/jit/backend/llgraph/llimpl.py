@@ -364,7 +364,10 @@ def compile_add_fail_arg(loop, intvar):
     op = loop.operations[-1]
     if op.fail_args is None:
         op.fail_args = []
-    op.fail_args.append(_variables[intvar])
+    if intvar == -1:
+        op.fail_args.append(None)
+    else:
+        op.fail_args.append(_variables[intvar])
 
 def compile_redirect_fail(old_loop, old_index, new_loop):
     old_loop = _from_opaque(old_loop)
@@ -407,23 +410,27 @@ class Frame(object):
                 except GuardFailed:
                     assert op.is_guard()
                     _stats.exec_conditional_jumps += 1
-                    if op.fail_args:
-                        args = [self.getenv(v) for v in op.fail_args]
-                    else:
-                        args = []
                     if op.jump_target is not None:
                         # a patched guard, pointing to further code
+                        args = [self.getenv(v) for v in op.fail_args if v]
                         assert len(op.jump_target.inputargs) == len(args)
                         self.env = dict(zip(op.jump_target.inputargs, args))
                         operations = op.jump_target.operations
                         opindex = 0
                         continue
                     else:
+                        fail_args = []
+                        if op.fail_args:
+                            for fail_arg in op.fail_args:
+                                if fail_arg is None:
+                                    fail_args.append(None)
+                                else:
+                                    fail_args.append(self.getenv(fail_arg))
                         # a non-patched guard
                         if self.verbose:
                             log.trace('failed: %s' % (
-                                ', '.join(map(str, args)),))
-                        self.fail_args = args
+                                ', '.join(map(str, fail_args)),))
+                        self.fail_args = fail_args
                         return op.fail_index
                 #verbose = self.verbose
                 assert (result is None) == (op.result is None)

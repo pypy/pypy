@@ -74,6 +74,22 @@ def test_sharing_field_lists_of_virtual():
     lst2 = virt1._get_field_descr_list()
     assert lst1 is lst2
 
+def test_reuse_vinfo():
+    class FakeVInfo(object):
+        pass
+    class FakeVirtualValue(optimizeopt.AbstractVirtualValue):
+        def _make_virtual(self, *args):
+            return FakeVInfo()
+    v1 = FakeVirtualValue(None, None, None)
+    vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
+    vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
+    assert vinfo1 is vinfo2
+    vinfo3 = v1.make_virtual_info(None, [1, 2, 6])
+    assert vinfo3 is not vinfo2
+    vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
+    assert vinfo3 is vinfo4
+    
+
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):

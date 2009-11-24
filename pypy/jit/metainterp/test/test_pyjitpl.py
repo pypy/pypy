@@ -1,7 +1,8 @@
 
 # some unit tests for the bytecode decoding
 
-from pypy.jit.metainterp import pyjitpl, codewriter, resoperation
+from pypy.jit.metainterp import pyjitpl, codewriter, resoperation, history
+from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt, ConstInt
 from pypy.jit.metainterp.history import History
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -154,3 +155,39 @@ def test_get_name_from_address():
     assert metainterp_sd.get_name_from_address(123) == 'a'
     assert metainterp_sd.get_name_from_address(456) == 'b'
     assert metainterp_sd.get_name_from_address(789) == ''
+
+def test_initialize_state_from_guard_failure():
+    from pypy.jit.metainterp.typesystem import llhelper        
+    calls = []
+
+    class FakeCPU:
+        ts = llhelper
+
+        def get_latest_value_int(self, index):
+            return index
+        
+    class FakeStaticData:
+        cpu = FakeCPU()
+        profiler = jitprof.EmptyProfiler()
+
+    metainterp = pyjitpl.MetaInterp(FakeStaticData())
+
+    def rebuild_state_after_failure(descr, newboxes):
+        calls.append(newboxes)
+    metainterp.rebuild_state_after_failure = rebuild_state_after_failure
+    
+    class FakeResumeDescr:
+        pass
+    resumedescr = FakeResumeDescr()
+    resumedescr.fail_arg_types = [history.INT, history.HOLE,
+                                  history.INT, history.HOLE,
+                                  history.INT]
+
+    metainterp.initialize_state_from_guard_failure(resumedescr, True)
+
+    inp = metainterp.history.inputargs
+    assert len(inp) == 3
+    assert [box.value for box in inp] == [0, 2, 4]
+    b0, b2, b4 = inp
+    assert len(calls) == 1
+    assert calls[0] == [b0, None, b2, None, b4]

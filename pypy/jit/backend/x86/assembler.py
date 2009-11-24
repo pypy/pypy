@@ -738,7 +738,7 @@ class Assembler386(object):
         """ assert that all args are actually Boxes
         """
         for arg in args:
-            assert isinstance(arg, Box)
+            assert arg is None or isinstance(arg, Box) # hole
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                                                fail_locs):
@@ -754,6 +754,8 @@ class Assembler386(object):
         pos = mc.tell()
         for i in range(len(failargs)):
             arg = failargs[i]
+            if arg is None: # hole
+                continue
             loc = locs[i]
             if isinstance(loc, REG):
                 if arg.type == FLOAT:
@@ -767,6 +769,8 @@ class Assembler386(object):
                     mc.MOV(heap(adr), loc)
         for i in range(len(failargs)):
             arg = failargs[i]
+            if arg is None: # hole
+                continue
             loc = locs[i]
             if not isinstance(loc, REG):
                 if arg.type == FLOAT:

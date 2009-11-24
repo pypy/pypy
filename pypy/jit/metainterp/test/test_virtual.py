@@ -304,6 +304,8 @@ class VirtualTests:
         #    ENTER             - compile the leaving path
         self.check_enter_count(4)
 
+class VirtualMiscTests:
+
     def test_guards_around_forcing(self):
         class A(object):
             def __init__(self, x):
@@ -329,6 +331,29 @@ class VirtualTests:
             return 0
         self.meta_interp(f, [50])
 
+    def test_guards_and_holes(self):
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+        mydriver = JitDriver(reds = ['n', 'tot'], greens = [])
+
+        def f(n):
+            tot = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, tot=tot)
+                mydriver.jit_merge_point(n=n, tot=tot)
+                a = A(n)
+                b = A(n+1)
+                if n % 9 == 0:
+                    tot += (a.x + b.x) % 3
+                c = A(n+1)
+                if n % 10 == 0:
+                    tot -= (c.x + a.x) % 3
+                n -= 1
+            return tot
+        r = self.meta_interp(f, [70])
+        expected = f(70)
+        assert r == expected
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
@@ -435,3 +460,11 @@ class TestLLtype_Object(VirtualTests, LLJitMixin):
         p = lltype.malloc(NODE2)
         p.parent.typeptr = vtable2
         return p
+
+# misc
+
+class TestOOTypeMisc(VirtualMiscTests, OOJitMixin):
+    pass
+
+class TestLLTypeMisc(VirtualMiscTests, LLJitMixin):
+    pass

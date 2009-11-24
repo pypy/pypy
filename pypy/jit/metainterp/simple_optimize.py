@@ -16,7 +16,7 @@ def optimize_loop(metainterp_sd, old_loops, loop):
         # we need it since the backend can modify those lists, which make
         # get_guard_op in compile.py invalid
         # in fact, x86 modifies this list for moving GCs
-        memo = resume.ResumeDataLoopMemo(metainterp_sd.cpu)
+        memo = resume.ResumeDataLoopMemo(metainterp_sd)
         newoperations = []
         for op in loop.operations:
             if op.is_guard():

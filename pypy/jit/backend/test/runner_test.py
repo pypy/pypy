@@ -125,6 +125,27 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_latest_value_int(0)
         assert res == 10
 
+    def test_compile_with_holes_in_fail_args(self):
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        looptoken = LoopToken()
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=BasicFailDescr(2)),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        operations[2].fail_args = [None, None, i1, None]
+        
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail == 2
+        res = self.cpu.get_latest_value_int(2)
+        assert res == 10
+
     def test_backends_dont_keep_loops_alive(self):
         import weakref, gc
         self.cpu.dont_keepalive_stuff = True
@@ -164,6 +185,40 @@ class BaseBackendTest(Runner):
             ]
         inputargs = [i0]
         operations[2].fail_args = [i1]
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+
+        i1b = BoxInt()
+        i3 = BoxInt()
+        bridge = [
+            ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
+            ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
+            ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
+        ]
+        bridge[1].fail_args = [i1b]
+
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail == 2
+        res = self.cpu.get_latest_value_int(0)
+        assert res == 20
+
+    def test_compile_bridge_with_holes(self):
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        faildescr1 = BasicFailDescr(1)
+        faildescr2 = BasicFailDescr(2)
+        looptoken = LoopToken()
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        operations[2].fail_args = [None, i1, None]
         self.cpu.compile_loop(inputargs, operations, looptoken)
 
         i1b = BoxInt()

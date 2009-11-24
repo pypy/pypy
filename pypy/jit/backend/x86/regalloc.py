@@ -203,7 +203,8 @@ class RegAlloc(object):
 
     def possibly_free_vars(self, vars):
         for var in vars:
-            self.possibly_free_var(var)
+            if var is not None: # xxx kludgy
+                self.possibly_free_var(var)
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, imm_fine=True,
@@ -239,9 +240,12 @@ class RegAlloc(object):
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
         used = {}
-        for i in range(len(inputargs)):
+        i = 0
+        for loc in locs:
+            if loc is None: # xxx bit kludgy
+                continue
             arg = inputargs[i]
-            loc = locs[i]
+            i += 1
             if arg.type == FLOAT:
                 if isinstance(loc, REG):
                     self.xrm.reg_bindings[arg] = loc
@@ -360,6 +364,8 @@ class RegAlloc(object):
                     longevity[arg] = (start_live[arg], i)
             if op.is_guard():
                 for arg in op.fail_args:
+                    if arg is None: # hole
+                        continue
                     assert isinstance(arg, Box)
                     if arg not in start_live:
                         print "Bogus arg in guard %d at %d" % (op.opnum, i)
@@ -373,6 +379,8 @@ class RegAlloc(object):
         return longevity
 
     def loc(self, v):
+        if v is None: # xxx kludgy
+            return None
         if v.type == FLOAT:
             return self.xrm.loc(v)
         return self.rm.loc(v)

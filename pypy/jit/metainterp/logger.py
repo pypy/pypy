@@ -63,6 +63,8 @@ class Logger(object):
             if not name:
                 name = 'cls' + str(mv)
             return 'ConstClass(' + name + ')'
+        elif arg is None:
+            return 'None'
         else:
             return '?'
 
