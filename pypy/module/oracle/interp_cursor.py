@@ -369,7 +369,7 @@ class W_Cursor(Wrappable):
 
             self.environment.checkForError(
                 status, "Cursor_GetStatementType()")
-            self.statementType = attrptr[0]
+            self.statementType = rffi.cast(lltype.Signed, attrptr[0])
         finally:
             lltype.free(attrptr, flavor='raw')
 
@@ -520,29 +520,29 @@ class W_Cursor(Wrappable):
                 self.environment.checkForError(
                     status,
                     "Cursor_ItemDescription(): nullable")
-                nullable = attrptr[0] != 0
+                nullable = rffi.cast(lltype.Signed, attrptr[0]) != 0
             finally:
                 lltype.free(attrptr, flavor='raw')
 
             # set display size based on data type
-            if varType == interp_variable.VT_String:
+            if varType is interp_variable.VT_String:
                 displaySize = internalSize
-            elif varType == interp_variable.VT_NationalCharString:
+            elif varType is interp_variable.VT_NationalCharString:
                 displaySize = internalSize / 2
-            elif varType == interp_variable.VT_Binary:
+            elif varType is interp_variable.VT_Binary:
                 displaySize = internalSize
-            elif varType == interp_variable.VT_FixedChar:
+            elif varType is interp_variable.VT_FixedChar:
                 displaySize = internalSize
-            elif varType == interp_variable.VT_FixedNationalChar:
+            elif varType is interp_variable.VT_FixedNationalChar:
                 displaySize = internalSize / 2
-            elif varType == interp_variable.VT_Float:
+            elif varType is interp_variable.VT_Float:
                 if precision:
                     displaySize = precision + 1
                     if scale > 0:
                         displaySize += scale + 1
                 else:
                     displaySize = 127
-            elif varType == interp_variable.VT_DateTime:
+            elif varType is interp_variable.VT_DateTime:
                 displaySize = 23
             else:
                 displaySize = -1
@@ -706,7 +706,7 @@ class W_Cursor(Wrappable):
 
                 self.environment.checkForError(
                     status, "Cursor_SetRowCount()")
-                self.rowCount = attrptr[0]
+                self.rowCount = rffi.cast(lltype.Signed, attrptr[0])
             finally:
                 lltype.free(attrptr, flavor='raw')
         else:
@@ -850,7 +850,8 @@ class W_Cursor(Wrappable):
             self.environment.checkForError(
                 status, "Cursor_InternalFetch(): row count")
 
-            self.actualRows = attrptr[0] - self.rowCount
+            self.actualRows = (rffi.cast(lltype.Signed, attrptr[0])
+                               - self.rowCount)
             self.rowNum = 0
         finally:
             lltype.free(attrptr, flavor='raw')
@@ -932,10 +933,12 @@ class W_Cursor(Wrappable):
             names_w = []
             # process the bind information returned
             for i in range(foundElementsPtr[0]):
-                if duplicate[i]:
+                if rffi.cast(lltype.Signed, duplicate[i]):
                     continue
                 names_w.append(
-                    w_string(space, bindNames[i], bindNameLengths[i]))
+                    w_string(space,
+                             bindNames[i],
+                             rffi.cast(lltype.Signed, bindNameLengths[i])))
 
             return 0, names_w
         finally:

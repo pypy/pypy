@@ -56,7 +56,7 @@ def _defineHelper(cursor, param, position, numElements):
 
             cursor.environment.checkForError(
                 status, "Variable_Define(): data size")
-            sizeFromOracle = attrptr[0]
+            sizeFromOracle = rffi.cast(lltype.Signed, attrptr[0])
         finally:
             lltype.free(attrptr, flavor='raw')
 
@@ -293,7 +293,9 @@ class W_Variable(Wrappable):
             lltype.free(bindHandlePtr, flavor='raw')
 
     def isNull(self, pos):
-        return self.indicator[pos] == roci.OCI_IND_NULL
+        return (rffi.cast(lltype.Signed, self.indicator[pos])
+                ==
+                rffi.cast(lltype.Signed, roci.OCI_IND_NULL))
 
     def verifyFetch(self, space, pos):
         # Verifies that truncation or other problems did not take place on
@@ -305,7 +307,8 @@ class W_Variable(Wrappable):
                 error.code = self.returnCode[pos]
                 error.message = space.wrap(
                     "column at array pos %d fetched with error: %d" %
-                    (pos, self.returnCode[pos]))
+                    (pos,
+                     rffi.cast(lltype.Signed, self.returnCode[pos])))
                 w_error = get(space).w_DatabaseError
 
                 raise OperationError(get(space).w_DatabaseError,
@@ -423,7 +426,7 @@ class VT_String(W_Variable):
 
     def getValueProc(self, space, pos):
         offset = pos * self.bufferSize
-        length = self.actualLength[pos]
+        length = rffi.cast(lltype.Signed, self.actualLength[pos])
 
         l = []
         i = 0
@@ -574,7 +577,7 @@ class VT_Float(W_Variable):
                 environment.checkForError(
                     status,
                     "NumberVar_PreDefine(): scale")
-                scale = attrptr[0]
+                scale = rffi.cast(lltype.Signed, attrptr[0])
             finally:
                 lltype.free(attrptr, flavor='raw')
 
@@ -590,7 +593,7 @@ class VT_Float(W_Variable):
                 environment.checkForError(
                     status,
                     "NumberVar_PreDefine(): precision")
-                precision = attrptr[0]
+                precision = rffi.cast(lltype.Signed, attrptr[0])
             finally:
                 lltype.free(attrptr, flavor='raw')
 
@@ -885,7 +888,7 @@ def typeByOracleDescriptor(param, environment):
         environment.checkForError(
             status,
             "Variable_TypeByOracleDescriptor(): data type")
-        dataType = attrptr[0]
+        dataType = rffi.cast(lltype.Signed, attrptr[0])
     finally:
         lltype.free(attrptr, flavor='raw')
 
@@ -904,7 +907,7 @@ def typeByOracleDescriptor(param, environment):
             environment.checkForError(
                 status,
                 "Variable_TypeByOracleDescriptor(): charset form")
-            charsetForm = attrptr[0]
+            charsetForm = rffi.cast(lltype.Signed, attrptr[0])
         finally:
             lltype.free(attrptr, flavor='raw')
 
