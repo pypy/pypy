@@ -142,8 +142,8 @@ class ExecutionContext(object):
         #assert frame is self.gettopframe() --- slowish
         if self.some_frame is frame:
             self.some_frame = frame.f_back_some
-            if self.some_frame and self.some_frame.f_forward:
-                raise Exception()
+            #if self.some_frame and self.some_frame.f_forward:
+            #    raise Exception()
         else:
             f_back = frame.f_back()
             if f_back is not None:
