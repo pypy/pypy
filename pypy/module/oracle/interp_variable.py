@@ -835,6 +835,12 @@ class VT_Cursor(W_Variable):
                 i)
             dataptr[0] = tempCursor.handle
 
+    def getValueProc(self, space, pos):
+        from pypy.module.oracle import interp_cursor
+        w_cursor = self.cursors_w[pos]
+        space.interp_w(interp_cursor.W_Cursor, w_cursor).statementType = -1
+        return w_cursor
+
     def setValueProc(self, space, pos, w_value):
         from pypy.module.oracle import interp_cursor
         w_CursorType = space.gettypeobject(interp_cursor.W_Cursor.typedef)

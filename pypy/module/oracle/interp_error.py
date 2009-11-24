@@ -75,7 +75,7 @@ class W_Error(Wrappable):
                 pass
 
     def desc_str(self):
-        return self.message
+        return self.w_message
 
 W_Error.typedef = TypeDef(
     'Error',

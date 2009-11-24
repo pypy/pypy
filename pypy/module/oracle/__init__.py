@@ -14,6 +14,7 @@ class Module(MixedModule):
         'LONG_STRING': 'interp_variable.VT_LongString',
         'LONG_BINARY': 'interp_variable.VT_LongBinary',
         'FIXED_CHAR': 'interp_variable.VT_FixedChar',
+        'CURSOR': 'interp_variable.VT_Cursor',
         'Variable': 'interp_variable.W_Variable',
         'Timestamp': 'interp_error.get(space).w_DateTimeType',
         'Date': 'interp_error.get(space).w_DateType',
