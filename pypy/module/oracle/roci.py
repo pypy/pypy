@@ -46,13 +46,14 @@ class CConfig:
                                  ])
 
     OCIDateTime_p = platform.SimpleType('OCIDateTime*', rffi.VOIDP)
+    OCIInterval_p = platform.SimpleType('OCIInterval*', rffi.VOIDP)
 
     constants = '''
     OCI_DEFAULT OCI_OBJECT OCI_THREADED OCI_EVENTS
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
     OCI_HTYPE_ERROR OCI_HTYPE_SVCCTX OCI_HTYPE_SERVER OCI_HTYPE_SESSION
     OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV
-    OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP
+    OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP OCI_DTYPE_INTERVAL_DS
     OCI_CRED_RDBMS OCI_CRED_EXT OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
@@ -392,6 +393,30 @@ OCIDateTimeGetTime = external(
      Ptr(ub1),      # minute
      Ptr(ub1),      # second
      Ptr(ub4)],     # fsec
+    sword)
+
+OCIIntervalGetDaySecond = external(
+    'OCIIntervalGetDaySecond',
+    [dvoidp,         # hndl
+     OCIError,       # errhp
+     Ptr(sb4),       # dy
+     Ptr(sb4),       # hr
+     Ptr(sb4),       # mm
+     Ptr(sb4),       # ss
+     Ptr(sb4),       # fsec
+     OCIInterval_p], # result
+    sword)
+
+OCIIntervalSetDaySecond = external(
+    'OCIIntervalSetDaySecond',
+    [dvoidp,         # hndl
+     OCIError,       # errhp
+     sb4,            # dy
+     sb4,            # hr
+     sb4,            # mm
+     sb4,            # ss
+     sb4,            # fsec
+     OCIInterval_p], # result
     sword)
 
 # OCI Number Functions

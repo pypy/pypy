@@ -31,6 +31,7 @@ class State:
             [space.wrap('datetime')]))
         self.w_DateTimeType = space.getattr(w_datetime, space.wrap("datetime"))
         self.w_DateType = space.getattr(w_datetime, space.wrap("date"))
+        self.w_TimedeltaType = space.getattr(w_datetime, space.wrap("timedelta"))
 
         from pypy.module.oracle.interp_variable import all_variable_types
         self.variableTypeByPythonType = {}

@@ -99,6 +99,41 @@ def OracleTimestampToPythonDate(environment, valueptr):
         lltype.free(secondptr, flavor='raw')
         lltype.free(fsecondptr, flavor='raw')
 
+def OracleIntervalToPythonDelta(environment, valueptr):
+    daysptr = lltype.malloc(roci.Ptr(roci.sb4).TO, 1, flavor='raw')
+    hoursptr = lltype.malloc(roci.Ptr(roci.sb4).TO, 1, flavor='raw')
+    minutesptr = lltype.malloc(roci.Ptr(roci.sb4).TO, 1, flavor='raw')
+    secondsptr = lltype.malloc(roci.Ptr(roci.sb4).TO, 1, flavor='raw')
+    fsecondsptr = lltype.malloc(roci.Ptr(roci.sb4).TO, 1, flavor='raw')
+
+    try:
+        status = roci.OCIIntervalGetDaySecond(
+            environment.handle, environment.errorHandle,
+            daysptr, hoursptr, minutesptr, secondsptr, fsecondsptr,
+            valueptr[0])
+        environment.checkForError(
+            status, "OracleIntervalToPythonDelta()")
+
+        space = environment.space
+        w = space.wrap
+        w_timedelta = space.getattr(
+            space.getbuiltinmodule('datetime'),
+            w('timedelta'))
+
+        days = daysptr[0]
+        seconds = hoursptr[0] * 3600 + minutesptr[0] * 60 + secondsptr[0]
+        microseconds = fsecondsptr[0] / 1000
+
+        return space.call_function(
+            w_timedelta,
+            w(days), w(seconds), w(microseconds))
+    finally:
+        lltype.free(daysptr, flavor='raw')
+        lltype.free(hoursptr, flavor='raw')
+        lltype.free(minutesptr, flavor='raw')
+        lltype.free(secondsptr, flavor='raw')
+        lltype.free(fsecondsptr, flavor='raw')
+
 def DecimalToFormatAndText(environment, w_value):
     space = environment.space
     w_tuple_value = space.call_method(w_value, "as_tuple")

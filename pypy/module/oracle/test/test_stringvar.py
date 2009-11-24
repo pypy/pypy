@@ -130,3 +130,20 @@ class AppTestStringVar(OracleTestBase):
             bigString="X" * 10000, output=output)
         assert output.getvalue() == "X" * 10000
 
+class AppTestLongVar(OracleTestBase):
+
+    def test_long(self):
+        cur = self.cnx.cursor()
+        try:
+            cur.execute("drop table pypy_temp_table")
+        except oracle.DatabaseError:
+            pass
+        cur.execute("create table pypy_temp_table (longcol long)")
+
+        cur.setinputsizes(p=oracle.LONG_STRING)
+        cur.execute("insert into pypy_temp_table values (:p)",
+                    p="long string")
+        cur.execute("select * from pypy_temp_table")
+        data = cur.fetchall()
+        assert data == [("long string",)]
+

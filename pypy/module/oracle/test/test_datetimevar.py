@@ -49,3 +49,37 @@ class AppTestDatetime(OracleTestBase):
                   datetime.datetime(2003,  7, 22, 4, 24, 32)]
         var.setvalue(0, values)
         assert var.getvalue() == values
+
+class AppTestTimestamp(OracleTestBase):
+
+    def test_bind_timestamp(self):
+        import datetime
+        cur = self.cnx.cursor()
+
+        value = datetime.datetime(2002, 12, 13, 9, 36, 15, 123000)
+        var = cur.var(oracle.TIMESTAMP)
+        var.setvalue(0, value)
+        assert var.getvalue() == value
+
+        cur.setinputsizes(value=oracle.TIMESTAMP)
+        cur.execute("select :value from dual",
+                    value=value)
+        data = cur.fetchall()
+        assert data == [(value,)]
+
+class AppTestInterval(OracleTestBase):
+
+    def test_bind_interval(self):
+        import datetime
+        cur = self.cnx.cursor()
+
+        value = datetime.timedelta(days=5, hours=6, minutes=10, seconds=18)
+        var = cur.var(oracle.INTERVAL)
+        var.setvalue(0, value)
+        assert var.getvalue() == value
+
+        cur.setinputsizes(value=oracle.INTERVAL)
+        cur.execute("select :value from dual",
+                    value=value)
+        data = cur.fetchall()
+        assert data == [(value,)]

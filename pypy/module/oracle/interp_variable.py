@@ -880,7 +880,67 @@ class VT_Timestamp(W_Variable):
                 space.wrap("invalid date"))
 
 class VT_Interval(W_Variable):
-    pass
+    oracleType = roci.SQLT_INTERVAL_DS
+    size = rffi.sizeof(roci.OCIInterval_p)
+
+    def initialize(self, space, cursor):
+        # initialize the Timestamp descriptors
+        for i in range(self.allocatedElements):
+            dataptr = rffi.ptradd(
+                rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+                i)
+            status = roci.OCIDescriptorAlloc(
+                self.environment.handle,
+                dataptr,
+                roci.OCI_DTYPE_INTERVAL_DS,
+                0, None)
+            self.environment.checkForError(
+                status, "TimestampVar_Initialize()")
+
+    def finalize(self):
+        dataptr = rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data)
+        for i in range(self.allocatedElements):
+            if dataptr[i]:
+                roci.OCIDescriptorFree(
+                    dataptr[i], roci.OCI_DTYPE_INTERVAL_DS)
+
+    def getValueProc(self, space, pos):
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+            pos)
+
+        return transform.OracleIntervalToPythonDelta(
+            self.environment, dataptr)
+
+    def setValueProc(self, space, pos, w_value):
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+            pos)
+
+        if not space.is_true(space.isinstance(w_value,
+                                              get(space).w_TimedeltaType)):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("expecting timedelta data"))
+
+        days = space.int_w(space.getattr(w_value, space.wrap('days')))
+        seconds = space.int_w(space.getattr(w_value, space.wrap('seconds')))
+        hours = seconds / 3600
+        seconds -= hours * 3600
+        minutes = seconds / 60
+        seconds -= minutes * 60
+        microseconds = space.int_w(
+            space.getattr(w_value, space.wrap('microseconds')))
+
+        status = roci.OCIIntervalSetDaySecond(
+            self.environment.handle,
+            self.environment.errorHandle,
+            days, hours, minutes, seconds, microseconds,
+            dataptr[0])
+
+        self.environment.checkForError(
+            status, "IntervalVar_SetValue()")
+
 
 class VT_CLOB(W_Variable):
     pass
