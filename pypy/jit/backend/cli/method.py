@@ -459,7 +459,8 @@ class Method(object):
         # store the latest values
         i = 0
         for box in args:
-            self.store_inputarg(i, box.type, box.getCliType(self), box)
+            if box is not None:
+                self.store_inputarg(i, box.type, box.getCliType(self), box)
             i+=1
 
     def emit_guard_bool(self, op, opcode):
