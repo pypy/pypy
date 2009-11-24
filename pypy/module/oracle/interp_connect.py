@@ -21,8 +21,8 @@ class W_Connection(Wrappable):
         self.environment = None
         self.autocommit = False
 
-        self.inputTypeHandler = None
-        self.outputTypeHandler = None
+        self.w_inputTypeHandler = None
+        self.w_outputTypeHandler = None
 
         self.w_version = None
 
@@ -204,7 +204,7 @@ class W_Connection(Wrappable):
             self.environment.checkForError(
                 status, "Connection_Connect(): begin session")
         except:
-            self.sessionHandle = None
+            self.sessionHandle = lltype.nullptr(roci.OCISession.TO)
             raise
 
     def _checkConnected(self, space):
@@ -233,7 +233,7 @@ class W_Connection(Wrappable):
                 status, "Connection_Close(): end session")
             roci.OCIHandleFree(self.handle, roci.OCI_HTYPE_SVCCTX)
 
-        self.handle = None
+        self.handle = lltype.nullptr(roci.OCISvcCtx.TO)
     close.unwrap_spec = ['self', ObjSpace]
 
     def commit(self, space):
@@ -255,7 +255,7 @@ class W_Connection(Wrappable):
 
         status = roci.OCITransRollback(
             self.handle, self.environment.errorHandle,
-            self.OCI_DEFAULT)
+            roci.OCI_DEFAULT)
         self.environment.checkForError(
             status, "Connection_Rollback()")
     rollback.unwrap_spec = ['self', ObjSpace]

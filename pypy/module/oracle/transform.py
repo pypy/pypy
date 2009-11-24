@@ -16,7 +16,6 @@ def OracleNumberToPythonFloat(environment, valueptr):
         lltype.free(doubleptr, flavor='raw')
 
 def OracleDateToPythonDate(environment, valueptr):
-    print valueptr.OCIDateYYYY, valueptr.OCIDateMM, valueptr.OCIDateDD
     yearptr = lltype.malloc(roci.Ptr(roci.sb2).TO, 1, flavor='raw')
     monthptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
     dayptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
@@ -77,7 +76,7 @@ def DecimalToFormatAndText(environment, w_value):
         text += '-'
     for i in xrange(0, num_digits + scale):
         format += '9'
-        if i < numdigits:
+        if i < num_digits:
             digit = space.int_w(digits_w[i])
             text += "0123456789"[digit]
         else:

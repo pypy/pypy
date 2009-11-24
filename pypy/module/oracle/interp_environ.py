@@ -21,12 +21,15 @@ class Environment:
             status = roci.OCIEnvNlsCreate(
                 handleptr, mode,
                 None,
-                lltype.nullptr(lltype.FuncType(     # malocfp
-                    [roci.dvoidp, roci.size_t], roci.dvoidp)),
-                lltype.nullptr(lltype.FuncType(     # ralocfp
-                    [roci.dvoidp, roci.dvoidp, roci.size_t], roci.dvoidp)),
-                lltype.nullptr(lltype.FuncType(     # mfreefp
-                    [roci.dvoidp, roci.dvoidp], lltype.Void)),
+                rffi.cast(rffi.CCallback(     # malocfp
+                    (roci.dvoidp, roci.size_t), roci.dvoidp),
+                          0),
+                rffi.cast(rffi.CCallback(     # ralocfp
+                    (roci.dvoidp, roci.dvoidp, roci.size_t), roci.dvoidp),
+                          0),
+                rffi.cast(rffi.CCallback(     # mfreefp
+                    (roci.dvoidp, roci.dvoidp), lltype.Void),
+                          0),
                 0, lltype.nullptr(rffi.CArray(roci.dvoidp)),
                 config.CHARSETID, config.CHARSETID)
 

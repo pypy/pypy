@@ -1,7 +1,9 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError
 from pypy.module.oracle import roci, config
 
 class State: 
@@ -16,6 +18,7 @@ class State:
         self.w_ProgrammingError = get('ProgrammingError')
         self.w_NotSupportedError = get('NotSupportedError')
         self.w_IntegrityError = get('IntegrityError')
+        self.w_InternalError = get('InternalError')
         self.w_Variable = get('Variable')
 
         w_import = space.builtin.get('__import__')
@@ -52,14 +55,11 @@ class W_Error(Wrappable):
                     textbuf, BUFSIZE, handleType)
                 if status != roci.OCI_SUCCESS:
                     raise OperationError(
-                        w_InternalErrorException,
+                        get(space).w_InternalError,
                         space.wrap("No Oracle error?"))
 
                 self.code = codeptr[0]
-                self.message = config.w_string(
-                    space,
-                    rffi.str_from_buffer(textbuf, text,
-                                         BUFSIZE, BUFSIZE))
+                self.w_message = config.w_string(space, textbuf)
             finally:
                 lltype.free(codeptr, flavor='raw')
                 rffi.keep_buffer_alive_until_here(textbuf, text)
@@ -75,6 +75,6 @@ W_Error.typedef = TypeDef(
     'Error',
     __str__ = interp2app(W_Error.desc_str),
     code = interp_attrproperty('code', W_Error),
-    message = interp_attrproperty('message', W_Error))
+    message = interp_attrproperty_w('w_message', W_Error))
 
 

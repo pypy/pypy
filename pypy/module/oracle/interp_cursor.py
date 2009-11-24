@@ -12,6 +12,9 @@ from pypy.module.oracle.config import w_string, string_w, StringBuffer
 from pypy.module.oracle import interp_variable
 from pypy.module.oracle.interp_error import get
 
+# XXX are those "assert isinstance(xxx, interp_variable.W_Variable)" necessary?
+# the bindList should annotate to SomeList(SomeInstance(W_Variable))
+
 class W_Cursor(Wrappable):
     def __init__(self, space, connection):
         self.connection = connection
@@ -19,7 +22,7 @@ class W_Cursor(Wrappable):
 
         self.w_statement = None
         self.statementType = -1
-        self.handle = None
+        self.handle = lltype.nullptr(roci.OCIStmt.TO)
         self.isOpen = True
         self.isOwned = False
 
@@ -33,8 +36,8 @@ class W_Cursor(Wrappable):
         self.outputSize = -1
         self.outputSizeColumn = -1
 
-        self.inputTypeHandler = None
-        self.outputTypeHandler = None
+        self.w_inputTypeHandler = None
+        self.w_outputTypeHandler = None
         self.w_rowFactory = None
 
     def execute(self, space, w_stmt, __args__):
@@ -129,7 +132,7 @@ class W_Cursor(Wrappable):
         # queries are not supported as the result is undefined
         if self.statementType == roci.OCI_STMT_SELECT:
             raise OperationError(
-                get(space).w_NotSupportedErrorException,
+                get(space).w_NotSupportedError,
                 space.wrap("queries not supported: results undefined"))
 
         # perform binds
@@ -160,7 +163,7 @@ class W_Cursor(Wrappable):
         self.freeHandle(space, raiseError=True)
 
         self.isOpen = False
-        self.handle = None
+        self.handle = lltype.nullptr(roci.OCIStmt.TO)
     close.unwrap_spec = ['self', ObjSpace]
 
     def callfunc(self, space, name, w_returnType, w_parameters=None):
@@ -181,11 +184,12 @@ class W_Cursor(Wrappable):
         self._call(space, name, None, w_parameters)
 
         # create the return value
+        ret_w = []
         if self.bindList:
-            ret_w = [v.getValue(space, 0) for v in self.bindList]
-            return space.newlist(ret_w)
-        else:
-            return space.newlist([])
+            for v in self.bindList:
+                assert isinstance(v, interp_variable.W_Variable)
+                ret_w.append(v.getValue(space, 0))
+        return space.newlist(ret_w)
 
     callproc.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
@@ -557,8 +561,8 @@ class W_Cursor(Wrappable):
         "handle positional binds"
         # make sure positional and named binds are not being intermixed
         if self.bindDict is not None:
-            raise OperationalError(
-                get(space).w_ProgrammingErrorException,
+            raise OperationError(
+                get(space).w_ProgrammingError,
                 space.wrap("positional and named binds cannot be intermixed"))
 
         if self.bindList is None:
@@ -587,8 +591,8 @@ class W_Cursor(Wrappable):
         "handle named binds"
         # make sure positional and named binds are not being intermixed
         if self.bindList is not None:
-            raise OperationalError(
-                get(space).w_ProgrammingErrorException,
+            raise OperationError(
+                get(space).w_ProgrammingError,
                 space.wrap("positional and named binds cannot be intermixed"))
 
         if self.bindDict is None:
@@ -607,13 +611,16 @@ class W_Cursor(Wrappable):
                                numElements, arrayPos, defer):
 
         valueIsVariable = space.is_true(space.isinstance(w_value, get(space).w_Variable))
+        newVar = None
 
         # handle case where variable is already bound
         if origVar:
+            assert isinstance(origVar, interp_variable.W_Variable)
 
             # if the value is a variable object, rebind it if necessary
             if valueIsVariable:
                 newVar = space.interp_w(interp_variable.W_Variable, w_value)
+                assert isinstance(newVar, interp_variable.W_Variable)
                 if newVar == origVar:
                     newVar = None
 
@@ -621,12 +628,13 @@ class W_Cursor(Wrappable):
             # this is only necessary for executemany() since execute() always
             # passes a value of 1 for the number of elements
             elif numElements > origVar.allocatedElements:
-                newVar = type(origVar)(self, numElements, origVar.size)
+                newVar = origVar.clone(
+                    self, numElements, origVar.size)
+                assert isinstance(newVar, interp_variable.W_Variable)
                 newVar.setValue(space, arrayPos, w_value)
 
             # otherwise, attempt to set the value
             else:
-                newVar = None
                 try:
                     origVar.setValue(space, arrayPos, w_value)
                 except OperationError, e:
@@ -644,6 +652,7 @@ class W_Cursor(Wrappable):
             # if the value is a variable object, bind it directly
             if valueIsVariable:
                 newVar = space.interp_w(interp_variable.W_Variable, w_value)
+                assert isinstance(newVar, interp_variable.W_Variable)
                 newVar.boundPos = 0
                 newVar.boundName = None
 
@@ -653,8 +662,10 @@ class W_Cursor(Wrappable):
                 newVar = interp_variable.newVariableByValue(space, self,
                                                             w_value,
                                                             numElements)
+                assert isinstance(newVar, interp_variable.W_Variable)
                 newVar.setValue(space, arrayPos, w_value)
 
+        assert newVar is None or isinstance(newVar, interp_variable.W_Variable)
         return newVar
 
     def _performBind(self, space):
@@ -662,12 +673,14 @@ class W_Cursor(Wrappable):
         if self.bindList:
             for i in range(len(self.bindList)):
                 var = self.bindList[i]
+                assert isinstance(var, interp_variable.W_Variable)
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
             items_w = space.fixedview(
                 space.call_method(self.bindDict, "iteritems"))
             for w_item in items_w:
                 w_key, var = space.fixedview(w_item, 2)
+                assert isinstance(var, interp_variable.W_Variable)
                 var.bind(space, self, w_key, 0)
 
         # ensure that input sizes are reset
@@ -723,6 +736,7 @@ class W_Cursor(Wrappable):
         self.fetchArraySize = self.arraySize
         for i in range(numParams):
             var = interp_variable.define(self, i+1, self.fetchArraySize)
+            assert isinstance(var, interp_variable.W_Variable)
             self.fetchVariables.append(var)
 
     def _verifyFetch(self, space):
@@ -772,7 +786,7 @@ class W_Cursor(Wrappable):
         # verify fetch can be performed
         self._verifyFetch(space)
 
-        return self._multiFetch(space, limit=None)
+        return self._multiFetch(space, limit=0)
     fetchall.unwrap_spec = ['self', ObjSpace]
 
     def descr_iter(self, space):
@@ -820,6 +834,7 @@ class W_Cursor(Wrappable):
                 "Cursor_InternalFetch(): fetch")
 
         for var in self.fetchVariables:
+            assert isinstance(var, interp_variable.W_Variable)
             var.internalFetchNum += 1
 
         attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
@@ -840,12 +855,12 @@ class W_Cursor(Wrappable):
         finally:
             lltype.free(attrptr, flavor='raw')
 
-    def _multiFetch(self, space, limit=None):
+    def _multiFetch(self, space, limit=0):
         results_w = []
         rowNum = 0
 
         # fetch as many rows as possible
-        while limit is None or rowNum < limit:
+        while limit == 0 or rowNum < limit:
             rowNum += 1
             if not self._moreRows(space):
                 break
@@ -859,6 +874,7 @@ class W_Cursor(Wrappable):
 
         # acquire the value for each item
         for var in self.fetchVariables:
+            assert isinstance(var, interp_variable.W_Variable)
             w_item = var.getValue(space, self.rowNum)
             items_w.append(w_item)
 
@@ -979,7 +995,7 @@ class W_Cursor(Wrappable):
             numElements = space.int_w(w_value)
         else:
             raise OperationError(
-                get(space).w_NotSupportedErrorException,
+                get(space).w_NotSupportedError,
                 space.wrap("expecting integer or list of values"))
 
         # create the variable
@@ -1025,7 +1041,7 @@ class W_Cursor(Wrappable):
             for i in range(len(args_w)):
                 w_value = args_w[i]
                 if space.is_w(w_value, space.w_None):
-                    var = space.w_None
+                    var = None
                 else:
                     var = interp_variable.newVariableByType(
                         space, self, w_value, self.bindArraySize)

@@ -9,7 +9,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 import sys
 from pypy.module.oracle import roci, config, transform
-from pypy.module.oracle.interp_error import get
+from pypy.module.oracle.interp_error import W_Error, get
 from pypy.module.oracle.config import string_w, StringBuffer
 
 def define(cursor, position, numElements):
@@ -33,7 +33,7 @@ def define(cursor, position, numElements):
     roci.OCIDescriptorFree(param, roci.OCI_DTYPE_PARAM)
 
     return var
-    
+
 def _defineHelper(cursor, param, position, numElements):
     # determine data type
     varType = typeByOracleDescriptor(param, cursor.environment)
@@ -71,21 +71,23 @@ def _defineHelper(cursor, param, position, numElements):
                 size = cursor.outputSize
 
     # call the procedure to set values prior to define
-    varType = varType.preDefine(param, cursor.environment)
+    varType2 = varType.preDefine(varType, param, cursor.environment)
 
     # create a variable of the correct type
-    if cursor.outputTypeHandler:
-        var = _newByOutputTypeHandler(
+    if 0 and cursor.w_outputTypeHandler: # XXX
+        var = newByOutputTypeHandler(
             cursor, param,
-            cursor.outputTypeHandler,
-            varType, size, numElements)
-    elif cursor.connection.outputTypeHandler:
-        var = _newByOutputTypeHandler(
+            cursor.w_outputTypeHandler,
+            varType2, size, numElements)
+    elif 0 and cursor.connection.w_outputTypeHandler: # XXX
+        var = newByOutputTypeHandler(
             cursor, param,
-            cursor.connection.outputTypeHandler,
-            varType, size, numElements)
+            cursor.connection.w_outputTypeHandler,
+            varType2, size, numElements)
     else:
-        var = varType(cursor, numElements, size)
+        var = varType2(cursor, numElements, size)
+
+    assert isinstance(var, W_Variable)
 
     # perform the define
     handleptr = lltype.malloc(roci.Ptr(roci.OCIDefine).TO, 1, flavor='raw')
@@ -118,7 +120,7 @@ class W_Variable(Wrappable):
     charsetForm = roci.SQLCS_IMPLICIT
     isVariableLength = False
     canBeInArray = True
-    
+
     def __init__(self, cursor, numElements, size=0):
         self.environment = cursor.environment
         self.boundCursorHandle = lltype.nullptr(roci.OCIStmt.TO)
@@ -211,7 +213,7 @@ class W_Variable(Wrappable):
 
         # force rebinding
         if self.boundName or self.boundPos:
-            self._internalBind()
+            self._internalBind(space)
 
     def makeArray(self, space):
         if not self.canBeInArray:
@@ -227,7 +229,7 @@ class W_Variable(Wrappable):
     def finalize(self):
         pass
 
-    @classmethod
+    @staticmethod
     def preDefine(cls, param, environment):
         return cls
 
@@ -313,7 +315,7 @@ class W_Variable(Wrappable):
         # ensure we do not exceed the number of allocated elements
         if pos >= self.allocatedElements:
             raise OperationError(
-                space.w_PyExc_IndexError,
+                space.w_IndexError,
                 space.wrap("Variable_GetSingleValue: array size exceeded"))
 
         # check for a NULL value
@@ -465,6 +467,15 @@ class VT_String(W_Variable):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("expecting string or buffer data"))
+        else:
+            if space.is_true(space.isinstance(w_value, space.w_unicode)):
+                buf = config.StringBuffer()
+                buf.fill(space, w_value)
+                size = buf.size
+            else:
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("expecting unicode data"))
 
         try:
             if buf.size > self.environment.maxStringBytes:
@@ -545,7 +556,7 @@ class VT_Float(W_Variable):
     oracleType = roci.SQLT_VNU
     size = rffi.sizeof(roci.OCINumber)
 
-    @classmethod
+    @staticmethod
     def preDefine(cls, param, environment):
         # if the return type has not already been specified, check to
         # see if the number can fit inside an integer by looking at
@@ -608,12 +619,12 @@ class VT_Float(W_Variable):
                 self.environment.checkForError(
                     status, "NumberVar_GetValue(): as integer")
                 if isinstance(self, VT_Boolean):
-                    return space.newbool(integerValuePtr[0])
+                    return space.newbool(bool(integerValuePtr[0]))
                 else:
                     return space.wrap(integerValuePtr[0])
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
-        elif isinstance(self, (VT_NumberAsString, VT_LongInteger)):
+        elif isinstance(self, VT_NumberAsString) or isinstance(self, VT_LongInteger):
             format_buf = config.StringBuffer()
             format_buf.fill(space, space.wrap("TM9"))
             sizeptr = lltype.malloc(rffi.CArray(roci.ub4), 1, flavor='raw')
@@ -671,7 +682,7 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
             return
-        if space.is_true(space.isinstance(w_value, space.w_long)):
+        elif space.is_true(space.isinstance(w_value, space.w_long)):
             text_buf = config.StringBuffer()
             text_buf.fill(space, space.str(w_value))
             format_buf = config.StringBuffer()
@@ -685,8 +696,7 @@ class VT_Float(W_Variable):
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from long")
             return
-        elif space.is_true(space.isinstance(w_value, space.w_bool)):
-            XXX
+        # XXX The bool case was already processed above
         elif space.is_true(space.isinstance(w_value, space.w_float)):
             doubleValuePtr = lltype.malloc(roci.Ptr(lltype.Float).TO, 1,
                                            flavor='raw')
@@ -852,10 +862,15 @@ variableTypeByTypedef = {}
 for name, cls in globals().items():
     if not name.startswith('VT_') or not isinstance(cls, type):
         continue
-    cls.typedef = TypeDef(
-        cls.__name__, W_Variable.typedef,
-        )
-    variableTypeByTypedef[cls.typedef] = cls
+    def register_variable_class(cls):
+        def clone(self, cursor, numElements, size):
+            return cls(cursor, numElements, size)
+        cls.clone = clone
+        cls.typedef = TypeDef(
+            cls.__name__, W_Variable.typedef,
+            )
+        variableTypeByTypedef[cls.typedef] = cls
+    register_variable_class(cls)
 
 def typeByOracleDescriptor(param, environment):
     # retrieve datatype of the parameter
@@ -929,9 +944,9 @@ variableTypeNChar = {
 
 def _typeByOracleDataType(dataType, charsetForm):
     if charsetForm == roci.SQLCS_NCHAR:
-        varType = variableTypeNChar.get(dataType)
+        varType = variableTypeNChar.get(dataType, None)
     else:
-        varType = variableType.get(dataType)
+        varType = variableType.get(dataType, None)
 
     if varType is None:
         raise ValueError("Variable_TypeByOracleDataType: "
@@ -941,11 +956,14 @@ def _typeByOracleDataType(dataType, charsetForm):
 
 def typeByPythonType(space, cursor, w_type):
     """Return a variable type given a Python type object"""
+    from pypy.objspace.std.typeobject import W_TypeObject
+
     moduledict = get(space)
     if not space.is_true(space.isinstance(w_type, space.w_type)):
         raise OperationError(
             space.w_TypeError,
             space.wrap("Variable_TypeByPythonType(): type expected"))
+    assert isinstance(w_type, W_TypeObject)
     if w_type.instancetypedef in variableTypeByTypedef:
         return variableTypeByTypedef[w_type.instancetypedef]
     if space.is_w(w_type, space.w_int):
@@ -1017,21 +1035,38 @@ def typeByValue(space, w_value, numElements):
         space.wrap("Variable_TypeByValue(): unhandled data type %s" %
                    (space.type(w_value).getname(space, '?'),)))
 
+def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElements):
+    w_var = space.call(w_inputTypeHandler,
+                       space.wrap(cursor),
+                       w_value,
+                       space.wrap(numElements))
+    if not space.is_true(space.isinstance(w_var,
+                                          get(space).w_Variable)):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("expecting variable from input type handler"))
+    return space.interp_w(W_Variable, w_var)
+
 def newVariableByValue(space, cursor, w_value, numElements):
-    if cursor.inputTypeHandler:
-        return newByInputTypeHandler(
-            cursor, cursor.inputTypeHandler,
+    var = space.w_None
+
+    if cursor.w_inputTypeHandler:
+        var = newByInputTypeHandler(
+            space, cursor, cursor.w_inputTypeHandler,
             w_value, numElements)
-    elif cursor.connection.inputTypeHandler:
-        return newByInputTypeHandler(
-            cursor, cursor.connection.inputTypeHandler,
+    elif cursor.connection.w_inputTypeHandler:
+        var =  newByInputTypeHandler(
+            space, cursor, cursor.connection.w_inputTypeHandler,
             w_value, numElements)
-    else:
+
+    if space.is_w(var, space.w_None):
         varType, size, numElements = typeByValue(space, w_value, numElements)
         var = varType(cursor, numElements, size)
         if space.is_true(space.isinstance(w_value, space.w_list)):
             var.makeArray(space)
-        return var
+
+    assert isinstance(var, W_Variable)
+    return var
 
 def newArrayVariableByType(space, cursor, w_value):
     "Allocate a new PL/SQL array by looking at the Python data type."
