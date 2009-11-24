@@ -9,7 +9,11 @@ still useful routines.
 import ctypes
 from ctypes_support import standard_c_lib as _c
 
-open_osfhandle = _c._open_osfhandle
+try:
+    open_osfhandle = _c._open_osfhandle
+except AttributeError: # we are not on windows
+    raise ImportError
+
 open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]
 open_osfhandle.restype = ctypes.c_int
 
