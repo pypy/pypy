@@ -16,25 +16,21 @@ def OracleNumberToPythonFloat(environment, valueptr):
         lltype.free(doubleptr, flavor='raw')
 
 def OracleDateToPythonDate(environment, valueptr):
-    yearptr = lltype.malloc(roci.Ptr(roci.sb2).TO, 1, flavor='raw')
-    monthptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
-    dayptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    space = environment.space
+    w = space.wrap
 
-    try:
-        roci.OCIDateGetDate(
-            valueptr,
-            yearptr,
-            monthptr,
-            dayptr)
+    # XXX check that this does not copy the whole structure
+    date = valueptr[0]
 
-        space = environment.space
-        w = space.wrap
+    w_date = space.getattr(
+        space.getbuiltinmodule('datetime'),
+        w('date'))
 
-        return space.call_w(w_date, [w(yearptr[0]), w(monthptr[0]), w(dayptr[0])])
-    finally:
-        lltype.free(yearptr, flavor='raw')
-        lltype.free(monthptr, flavor='raw')
-        lltype.free(dayptr, flavor='raw')
+    return space.call_function(
+        w_date,
+        w(date.c_OCIDateYYYY),
+        w(date.c_OCIDateMM),
+        w(date.c_OCIDateDD))
 
 def OracleDateToPythonDateTime(environment, valueptr):
     space = environment.space

@@ -18,7 +18,7 @@ class AppTestDatetime(OracleTestBase):
         data = cur.fetchall()
         assert data == [('20021213-000000',)]
 
-    def test_variable(self):
+    def test_variable_datetime(self):
         import datetime
         cur = self.cnx.cursor()
         var = cur.var(oracle.DATETIME)
@@ -29,6 +29,17 @@ class AppTestDatetime(OracleTestBase):
         value = datetime.date(2002, 12, 13)
         var.setvalue(0, value)
         assert var.getvalue() == datetime.datetime(2002, 12, 13)
+
+    def test_variable_date(self):
+        import datetime
+        cur = self.cnx.cursor()
+        var = cur.var(oracle.DATE)
+        value = datetime.date(2002, 12, 13)
+        var.setvalue(0, value)
+        assert var.getvalue() == value
+
+        var.setvalue(0, datetime.datetime(2002, 12, 13, 9, 36, 15))
+        assert var.getvalue() == value
 
     def test_arrayvar(self):
         import datetime
