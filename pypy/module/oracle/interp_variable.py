@@ -798,44 +798,45 @@ class VT_Date(VT_DateTime):
             pos)
         return transform.OracleDateToPythonDate(self.environment, dataptr)
 
-class VT_Timestamp(W_Variable):
-    oracleType = roci.SQLT_TIMESTAMP
-    size = rffi.sizeof(roci.OCIDateTime_p)
+class W_VariableWithDescriptor(W_Variable):
+    size = rffi.sizeof(roci.dvoidp)
 
     def initialize(self, space, cursor):
-        # initialize the Timestamp descriptors
+        # initialize the descriptors
         for i in range(self.allocatedElements):
             dataptr = rffi.ptradd(
-                rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+                rffi.cast(roci.Ptr(roci.dvoidp), self.data),
                 i)
             status = roci.OCIDescriptorAlloc(
                 self.environment.handle,
                 dataptr,
-                roci.OCI_DTYPE_TIMESTAMP,
+                self.descriptorType,
                 0, None)
             self.environment.checkForError(
-                status, "TimestampVar_Initialize()")
+                status, self.descriptionText + "_Initialize()")
 
     def finalize(self):
-        dataptr = rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data)
+        dataptr = rffi.cast(roci.Ptr(roci.dvoidp), self.data)
         for i in range(self.allocatedElements):
             if dataptr[i]:
                 roci.OCIDescriptorFree(
-                    dataptr[i], roci.OCI_DTYPE_TIMESTAMP)
+                    dataptr[i], self.descriptorType)
+
+    def getDataptr(self, pos):
+        return rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.dvoidp), self.data),
+            pos)
+
+class VT_Timestamp(W_VariableWithDescriptor):
+    oracleType = roci.SQLT_TIMESTAMP
+    descriptorType = roci.OCI_DTYPE_TIMESTAMP
+    descriptionText = "TimestampVar"
 
     def getValueProc(self, space, pos):
-        dataptr = rffi.ptradd(
-            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
-            pos)
-
         return transform.OracleTimestampToPythonDate(
-            self.environment, dataptr)
+            self.environment, self.getDataptr(pos))
 
     def setValueProc(self, space, pos, w_value):
-        dataptr = rffi.ptradd(
-            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
-            pos)
-
         # make sure a timestamp is being bound
         if not space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
             raise OperationError(
@@ -853,7 +854,7 @@ class VT_Timestamp(W_Variable):
         status = roci.OCIDateTimeConstruct(
             self.environment.handle,
             self.environment.errorHandle,
-            dataptr[0],
+            self.getDataptr(pos)[0],
             year, month, day, hour, minute, second, microsecond * 1000,
             None, 0)
 
@@ -865,7 +866,7 @@ class VT_Timestamp(W_Variable):
             status = roci.OCIDateTimeCheck(
                 self.environment.handle,
                 self.environment.errorHandle,
-                dataptr[0],
+                self.getDataptr(pos)[0],
                 validptr);
             self.environment.checkForError(
                 status,
@@ -879,44 +880,16 @@ class VT_Timestamp(W_Variable):
                 get(space).w_DataError,
                 space.wrap("invalid date"))
 
-class VT_Interval(W_Variable):
+class VT_Interval(W_VariableWithDescriptor):
     oracleType = roci.SQLT_INTERVAL_DS
-    size = rffi.sizeof(roci.OCIInterval_p)
-
-    def initialize(self, space, cursor):
-        # initialize the Timestamp descriptors
-        for i in range(self.allocatedElements):
-            dataptr = rffi.ptradd(
-                rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
-                i)
-            status = roci.OCIDescriptorAlloc(
-                self.environment.handle,
-                dataptr,
-                roci.OCI_DTYPE_INTERVAL_DS,
-                0, None)
-            self.environment.checkForError(
-                status, "TimestampVar_Initialize()")
-
-    def finalize(self):
-        dataptr = rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data)
-        for i in range(self.allocatedElements):
-            if dataptr[i]:
-                roci.OCIDescriptorFree(
-                    dataptr[i], roci.OCI_DTYPE_INTERVAL_DS)
+    descriptorType = roci.OCI_DTYPE_INTERVAL_DS
+    descriptionText = "TimestampVar"
 
     def getValueProc(self, space, pos):
-        dataptr = rffi.ptradd(
-            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
-            pos)
-
         return transform.OracleIntervalToPythonDelta(
-            self.environment, dataptr)
+            self.environment, self.getDataptr(pos))
 
     def setValueProc(self, space, pos, w_value):
-        dataptr = rffi.ptradd(
-            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
-            pos)
-
         if not space.is_true(space.isinstance(w_value,
                                               get(space).w_TimedeltaType)):
             raise OperationError(
@@ -936,7 +909,7 @@ class VT_Interval(W_Variable):
             self.environment.handle,
             self.environment.errorHandle,
             days, hours, minutes, seconds, microseconds,
-            dataptr[0])
+            self.getDataptr(pos)[0])
 
         self.environment.checkForError(
             status, "IntervalVar_SetValue()")

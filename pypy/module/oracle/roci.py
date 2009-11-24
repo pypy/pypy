@@ -45,9 +45,6 @@ class CConfig:
                                  ('OCIDateTime', OCITime),
                                  ])
 
-    OCIDateTime_p = platform.SimpleType('OCIDateTime*', rffi.VOIDP)
-    OCIInterval_p = platform.SimpleType('OCIInterval*', rffi.VOIDP)
-
     constants = '''
     OCI_DEFAULT OCI_OBJECT OCI_THREADED OCI_EVENTS
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
@@ -94,6 +91,8 @@ OCIParam = rffi.VOIDP
 OCIBind = rffi.VOIDP
 OCIDefine = rffi.VOIDP
 OCISnapshot = rffi.VOIDP
+OCIDateTime = rffi.VOIDP
+OCIInterval = rffi.VOIDP
 
 void = lltype.Void
 dvoidp = rffi.VOIDP
@@ -354,7 +353,7 @@ OCIDateTimeCheck = external(
     'OCIDateTimeCheck',
     [dvoidp,        # hndl
      OCIError,      # err
-     OCIDateTime_p, # date
+     OCIDateTime,   # date
      Ptr(ub4)],     # valid
     sword)
 
@@ -362,7 +361,7 @@ OCIDateTimeConstruct = external(
     'OCIDateTimeConstruct',
     [dvoidp,        # hndl
      OCIError,      # errhp
-     OCIDateTime_p, # datetime
+     OCIDateTime,   # datetime
      sb2,           # year
      ub1,           # month
      ub1,           # day
@@ -378,7 +377,7 @@ OCIDateTimeGetDate = external(
     'OCIDateTimeGetDate',
     [dvoidp,        # hndl
      OCIError,      # errhp
-     OCIDateTime_p, # datetime
+     OCIDateTime,   # datetime
      Ptr(sb2),      # year
      Ptr(ub1),      # month
      Ptr(ub1)],     # day
@@ -388,7 +387,7 @@ OCIDateTimeGetTime = external(
     'OCIDateTimeGetTime',
     [dvoidp,        # hndl
      OCIError,      # errhp
-     OCIDateTime_p, # datetime
+     OCIDateTime,   # datetime
      Ptr(ub1),      # hour
      Ptr(ub1),      # minute
      Ptr(ub1),      # second
@@ -404,7 +403,7 @@ OCIIntervalGetDaySecond = external(
      Ptr(sb4),       # mm
      Ptr(sb4),       # ss
      Ptr(sb4),       # fsec
-     OCIInterval_p], # result
+     OCIInterval],   # result
     sword)
 
 OCIIntervalSetDaySecond = external(
@@ -416,7 +415,7 @@ OCIIntervalSetDaySecond = external(
      sb4,            # mm
      sb4,            # ss
      sb4,            # fsec
-     OCIInterval_p], # result
+     OCIInterval],   # result
     sword)
 
 # OCI Number Functions
