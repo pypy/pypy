@@ -399,3 +399,10 @@ class FlowSpaceFrame(pyframe.PyFrame):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
         return ArgumentsForTranslation(self.space, *args)
+
+    def handle_operation_error(self, ec, operr, *args, **kwds):
+        # see test_propagate_attribute_error for why this is here
+        if isinstance(operr, OperationThatShouldNotBePropagatedError):
+            raise operr
+        return pyframe.PyFrame.handle_operation_error(self, ec, operr,
+                                                      *args, **kwds)

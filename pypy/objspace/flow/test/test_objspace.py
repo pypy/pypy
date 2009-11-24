@@ -883,6 +883,15 @@ class TestFlowObjSpace(Base):
             return s[-3:]
         check(f3, 'llo')
 
+    def test_propagate_attribute_error(self):
+        def f(x):
+            try:
+                "".invalid
+            finally:
+                if x and 0:
+                    raise TypeError()
+        py.test.raises(Exception, self.codetest, f)
+
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
