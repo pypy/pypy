@@ -446,7 +446,7 @@ class W_Cursor(Wrappable):
                 self.environment.checkForError(
                     status,
                     "Cursor_ItemDescription(): internal size")
-                internalSize = attrptr[0]
+                internalSize = rffi.cast(lltype.Signed, attrptr[0])
             finally:
                 lltype.free(attrptr, flavor='raw')
 
@@ -471,7 +471,7 @@ class W_Cursor(Wrappable):
                 lltype.free(lenptr, flavor='raw')
 
             # lookup precision and scale
-            if varType == interp_variable.VT_Float:
+            if varType is interp_variable.VT_Float:
                 attrptr = lltype.malloc(rffi.CArrayPtr(roci.sb1).TO, 1,
                                         flavor='raw')
                 try:

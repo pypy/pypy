@@ -62,7 +62,7 @@ def _defineHelper(cursor, param, position, numElements):
 
         # use the length from Oracle directly if available
         if sizeFromOracle:
-            size = sizeFromOracle
+            size = rffi.cast(lltype.Signed, sizeFromOracle)
 
         # otherwise, use the value set with the setoutputsize() parameter
         elif cursor.outputSize >= 0:
@@ -299,7 +299,7 @@ class W_Variable(Wrappable):
         # Verifies that truncation or other problems did not take place on
         # retrieve.
         if self.isVariableLength:
-            if self.returnCode[pos] != 0:
+            if rffi.cast(lltype.Signed, self.returnCode[pos]) != 0:
                 error = W_Error(space, self.environment,
                                 "Variable_VerifyFetch()", 0)
                 error.code = self.returnCode[pos]
