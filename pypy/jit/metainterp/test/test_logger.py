@@ -6,6 +6,8 @@ from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
 from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
+from pypy.jit.backend.model import AbstractCPU
+
 
 class Descr(AbstractDescr):
     pass
@@ -36,8 +38,8 @@ class TestLogger(object):
 
     def make_metainterp_sd(self):
         class FakeMetaInterpSd:
-            class cpu:
-                ts = self.ts
+            cpu = AbstractCPU()
+            cpu.ts = self.ts
             def get_name_from_address(self, addr):
                 return 'Name'
         return FakeMetaInterpSd()
@@ -122,7 +124,7 @@ class TestLogger(object):
         pure_parse(output)
         
     def test_guard_descr(self):
-        namespace = {'fdescr': BasicFailDescr(4)}
+        namespace = {'fdescr': BasicFailDescr()}
         inp = '''
         [i0]
         guard_true(i0, descr=fdescr) [i0]
@@ -130,15 +132,14 @@ class TestLogger(object):
         loop = pure_parse(inp, namespace=namespace)
         logger = Logger(self.make_metainterp_sd(), guard_number=True)
         output = logger.log_loop(loop)
-        assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard4>) [i0]"
+        assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard0>) [i0]"
         pure_parse(output)
         
-        def boom():
-            raise Exception
-        namespace['fdescr'].get_index = boom
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
         output = logger.log_loop(loop)
-        assert output.splitlines()[-1].startswith("guard_true(i0, descr=<")
+        lastline = output.splitlines()[-1]
+        assert lastline.startswith("guard_true(i0, descr=<")
+        assert not lastline.startswith("guard_true(i0, descr=<Guard")
 
     def test_class_name(self):
         from pypy.rpython.lltypesystem import lltype

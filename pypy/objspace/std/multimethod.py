@@ -29,6 +29,9 @@ class FailedToImplement(Exception):
         self.w_type  = w_type
         self.w_value = w_value
 
+    def __str__(self):
+        return '<FailedToImplement(%s, %s)>' % (self.w_type, self.w_value)
+
 
 def raiseFailedToImplement():
     raise FailedToImplement

@@ -92,7 +92,7 @@ def modrm64_tests():
     return [pick1(i386.memSIB64) for i in range(COUNT2)]
 
 def xmm_tests():
-    return i386.xmm_registers
+    return i386.xmm_registers[:]
 
 def modrm8_tests():
     return i386.registers8 + [pick1(i386.memSIB8) for i in range(COUNT2)]

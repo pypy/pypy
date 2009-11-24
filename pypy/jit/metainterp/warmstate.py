@@ -244,10 +244,9 @@ class WarmEnterState(object):
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
                 debug_start("jit-running")
-                fail_index = metainterp_sd.cpu.execute_token(loop_token)
+                fail_descr = metainterp_sd.cpu.execute_token(loop_token)
                 debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
-                fail_descr = globaldata.get_fail_descr_from_number(fail_index)
                 loop_token = fail_descr.handle_fail(metainterp_sd)
 
         maybe_compile_and_run._dont_inline_ = True

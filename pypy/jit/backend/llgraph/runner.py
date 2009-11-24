@@ -88,6 +88,7 @@ class BaseCPU(model.AbstractCPU):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None, gcdescr=None):
+        model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
         self.translate_support_code = translate_support_code
         self.stats = stats or MiniStats()
@@ -167,7 +168,7 @@ class BaseCPU(model.AbstractCPU):
             if op.is_guard():
                 faildescr = op.descr
                 assert isinstance(faildescr, history.AbstractFailDescr)
-                fail_index = faildescr.get_index()
+                fail_index = self.get_fail_descr_number(faildescr)
                 index = llimpl.compile_add_fail(c, fail_index)
                 faildescr._compiled_fail = c, index
                 for box in op.fail_args:
@@ -195,8 +196,7 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add_jump_target(c, compiled_version)
         elif op.opnum == rop.FINISH:
             faildescr = op.descr
-            assert isinstance(faildescr, history.AbstractFailDescr)
-            index = faildescr.get_index()
+            index = self.get_fail_descr_number(faildescr)
             llimpl.compile_add_fail(c, index)
         else:
             assert False, "unknown operation"
@@ -213,7 +213,7 @@ class BaseCPU(model.AbstractCPU):
         fail_index = llimpl.frame_execute(frame)
         # we hit a FAIL operation.
         self.latest_frame = frame
-        return fail_index
+        return self.get_fail_descr_from_number(fail_index)
 
     def set_future_value_int(self, index, intvalue):
         llimpl.set_future_value_int(index, intvalue)

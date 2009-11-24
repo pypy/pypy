@@ -90,8 +90,8 @@ class Logger(object):
             if op.descr is not None:
                 descr = op.descr
                 if is_guard and self.guard_number:
-                    assert isinstance(descr, AbstractFailDescr)
-                    r = "<Guard%d>" % descr.get_index()
+                    index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
+                    r = "<Guard%d>" % index
                 else:
                     r = self.repr_of_descr(descr)
                 args += ', descr=' +  r

@@ -103,22 +103,3 @@ def test_compile_new_loop():
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
     assert staticdata.globaldata.loopnumbering == 2    
-
-def test_resumeguarddescr_get_index():
-    from pypy.jit.metainterp.pyjitpl import MetaInterpGlobalData
-
-    class FakeStaticData:
-        state = None
-        virtualizable_info = None
-    gd = MetaInterpGlobalData(FakeStaticData, [])
-    FakeStaticData.globaldata = gd
-
-    rgd = ResumeGuardDescr(FakeStaticData, ())
-
-    fail_index = rgd.get_index()
-    fail_index1 = rgd.get_index()
-
-    assert fail_index == fail_index1
-
-    assert gd.get_fail_descr_from_number(fail_index) is rgd
-

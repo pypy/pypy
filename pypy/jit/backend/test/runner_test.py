@@ -39,7 +39,7 @@ class Runner(object):
             else:
                 raise NotImplementedError(box)
         res = self.cpu.execute_token(looptoken)
-        if res == operations[-1].descr.index:
+        if res is operations[-1].descr:
             self.guard_failed = False
         else:
             self.guard_failed = True
@@ -102,7 +102,7 @@ class BaseBackendTest(Runner):
         fail = self.cpu.execute_token(looptoken)
         res = self.cpu.get_latest_value_int(0)
         assert res == 3        
-        assert fail == 1
+        assert fail.identifier == 1
 
     def test_compile_loop(self):
         i0 = BoxInt()
@@ -121,7 +121,7 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 2
+        assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 10
 
@@ -142,7 +142,7 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 2
+        assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(2)
         assert res == 10
 
@@ -200,7 +200,7 @@ class BaseBackendTest(Runner):
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 2
+        assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
@@ -234,7 +234,7 @@ class BaseBackendTest(Runner):
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 2
+        assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
@@ -242,9 +242,9 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             def __setattr__(self, name, value):
+                if name == 'index':
+                    return AbstractFailDescr.__setattr__(self, name, value)
                 py.test.fail("finish descrs should not be touched")
-            def get_index(self):
-                return 7
         faildescr = UntouchableFailDescr() # to check that is not touched
         looptoken = LoopToken()
         operations = [
@@ -253,7 +253,7 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop([i0], operations, looptoken)
         self.cpu.set_future_value_int(0, 99)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 7
+        assert fail is faildescr
         res = self.cpu.get_latest_value_int(0)
         assert res == 99
 
@@ -263,7 +263,7 @@ class BaseBackendTest(Runner):
             ]
         self.cpu.compile_loop([], operations, looptoken)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 7
+        assert fail is faildescr
         res = self.cpu.get_latest_value_int(0)
         assert res == 42
 
@@ -273,7 +273,7 @@ class BaseBackendTest(Runner):
             ]
         self.cpu.compile_loop([], operations, looptoken)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 7
+        assert fail is faildescr
 
     def test_execute_operations_in_env(self):
         cpu = self.cpu
@@ -357,9 +357,9 @@ class BaseBackendTest(Runner):
                 self.cpu.set_future_value_int(1, y)
                 fail = self.cpu.execute_token(looptoken)
                 if (z == boom) ^ reversed:
-                    assert fail == 1
+                    assert fail.identifier == 1
                 else:
-                    assert fail == 2
+                    assert fail.identifier == 2
                 if z != boom:
                     assert self.cpu.get_latest_value_int(0) == z
                 assert not self.cpu.get_exception()
@@ -832,7 +832,7 @@ class BaseBackendTest(Runner):
                     assert 0
             #
             fail = self.cpu.execute_token(looptoken)
-            assert fail == 15
+            assert fail.identifier == 15
             #
             dstvalues = values[:]
             for _ in range(11):
@@ -884,7 +884,7 @@ class BaseBackendTest(Runner):
         for i in range(len(fboxes)):
             self.cpu.set_future_value_float(i, 13.5 + 6.73 * i)
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 2
+        assert fail.identifier == 2
         res = self.cpu.get_latest_value_float(0)
         assert res == 8.5
         for i in range(1, len(fboxes)):
@@ -935,7 +935,7 @@ class BaseBackendTest(Runner):
                 assert 0
         #
         fail = self.cpu.execute_token(looptoken)
-        assert fail == 1
+        assert fail.identifier == 1
 
 
 class LLtypeBackendTest(BaseBackendTest):

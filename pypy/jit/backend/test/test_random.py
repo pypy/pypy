@@ -18,8 +18,6 @@ class DummyLoop(object):
         self.operations = subops
 
 class OperationBuilder(object):
-    failnumbering = 0
-    
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
         self.loop = loop
@@ -36,12 +34,6 @@ class OperationBuilder(object):
         self.counter = 0
         assert len(self.intvars) == len(dict.fromkeys(self.intvars))
 
-    @classmethod
-    def make_fail_descr(cls):
-        descr = BasicFailDescr(cls.failnumbering)
-        cls.failnumbering += 1
-        return descr
-        
     def fork(self, cpu, loop, vars):
         fork = self.__class__(cpu, loop, vars)
         fork.prebuilt_ptr_consts = self.prebuilt_ptr_consts
@@ -282,7 +274,7 @@ class AbstractOvfOperation(AbstractOperation):
             builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-        op.descr = builder.make_fail_descr()
+        op.descr = BasicFailDescr()
         op.fail_args = fail_subset
         builder.loop.operations.append(op)
 
@@ -343,7 +335,7 @@ class GuardOperation(AbstractOperation):
     def produce_into(self, builder, r):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
-        op.descr = builder.make_fail_descr()
+        op.descr = BasicFailDescr()
         op.fail_args = builder.subset_of_intvars(r)
         if not passing:
             builder.should_fail_by = op
@@ -559,7 +551,7 @@ class RandomLoop(object):
                 endvars.append(v)
         r.shuffle(endvars)
         loop.operations.append(ResOperation(rop.FINISH, endvars, None,
-                                            descr=BasicFailDescr(-2)))
+                                            descr=BasicFailDescr()))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
             self.guard_op = builder.guard_op
@@ -605,7 +597,7 @@ class RandomLoop(object):
             else:
                 raise NotImplementedError(box)
         fail = cpu.execute_token(self.loop.token)
-        assert fail == self.should_fail_by.descr.index
+        assert fail is self.should_fail_by.descr
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
                 value = cpu.get_latest_value_float(i)
@@ -634,7 +626,7 @@ class RandomLoop(object):
             else:
                 op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
                                   BoxPtr())
-            op.descr = self.builder.make_fail_descr()
+            op.descr = BasicFailDescr()
             op.fail_args = []
             return op
 

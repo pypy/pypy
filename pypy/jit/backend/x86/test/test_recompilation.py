@@ -21,7 +21,7 @@ class TestRecompilation(BaseTestRegalloc):
         bridge = self.attach_bridge(ops, loop, -2)
         self.cpu.set_future_value_int(0, 0)
         fail = self.run(loop)
-        assert fail == 2
+        assert fail.identifier == 2
         assert self.getint(0) == 21
     
     def test_compile_bridge_deeper(self):
@@ -52,7 +52,7 @@ class TestRecompilation(BaseTestRegalloc):
         assert new > previous
         self.cpu.set_future_value_int(0, 0)
         fail = self.run(loop)
-        assert fail == 2
+        assert fail.identifier == 2
         assert self.getint(0) == 21
         assert self.getint(1) == 22
         assert self.getint(2) == 23
@@ -78,7 +78,7 @@ class TestRecompilation(BaseTestRegalloc):
         bridge = self.attach_bridge(ops, other_loop, 0, looptoken=loop.token)
         self.cpu.set_future_value_int(0, 1)
         fail = self.run(other_loop)
-        assert fail == 1
+        assert fail.identifier == 1
 
     def test_bridge_jumps_to_self_deeper(self):
         loop = self.interpret('''

@@ -459,6 +459,13 @@ BREAKPOINT.as_alias = "INT3"
 SAHF = Instruction()
 SAHF.mode0(['\x9E'])
 
+LODSB = Instruction()
+LODSB.mode0(['\xAC'])
+
+LODSD = Instruction()
+LODSD.mode0(['\xAD'])
+LODSD.as_alias = "LODSL"
+
 # ------------------------- floating point instructions ------------------
 
 FLDL = Instruction()

@@ -1,5 +1,24 @@
+from pypy.jit.metainterp import history
+
+
 class AbstractCPU(object):
     supports_floats = False
+
+    def __init__(self):
+        self.fail_descr_list = []
+
+    def get_fail_descr_number(self, descr):
+        assert isinstance(descr, history.AbstractFailDescr)
+        n = descr.index
+        if n < 0:
+            lst = self.fail_descr_list
+            n = len(lst)
+            lst.append(descr)
+            descr.index = n
+        return n
+
+    def get_fail_descr_from_number(self, n):
+        return self.fail_descr_list[n]
 
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes

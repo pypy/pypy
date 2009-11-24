@@ -3,7 +3,8 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
 
-CHUNK_SIZE = 1000
+CHUNK_SIZE_BITS = 8
+CHUNK_SIZE = 1 << CHUNK_SIZE_BITS
 
 def new_nonmovable_growable_array(TP):
     ATP = lltype.GcArray(TP)
@@ -34,7 +35,7 @@ def new_nonmovable_growable_array(TP):
         def _no_of(self, i):
             while i >= len(self.chunks) * CHUNK_SIZE:
                 self._grow()
-            return i / CHUNK_SIZE, i % CHUNK_SIZE
+            return i >> CHUNK_SIZE_BITS, i & (CHUNK_SIZE-1)
         _no_of._always_inline_ = True
 
         def setitem(self, i, v):

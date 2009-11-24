@@ -63,7 +63,7 @@ class CPU386(AbstractLLCPU):
         addr = executable_token._x86_bootstrap_code
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
         fail_index = self._execute_call(func)
-        return fail_index
+        return self.get_fail_descr_from_number(fail_index)
 
     def _execute_call(self, func):
         # help flow objspace

@@ -135,9 +135,7 @@ class CliCPU(model.AbstractCPU):
         func = cliloop.funcbox.holder.GetFunc()
         func(self.get_inputargs())
         op = self.failing_ops[self.inputargs.get_failed_op()]
-        descr = op.descr
-        assert isinstance(descr, AbstractFailDescr)
-        return descr.get_index()
+        return op.descr
         
     def set_future_value_int(self, index, intvalue):
         self.get_inputargs().set_int(index, intvalue)

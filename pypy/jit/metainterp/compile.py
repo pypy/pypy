@@ -113,7 +113,7 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.log("compiled new " + type)
 
 def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
-    n = faildescr.get_index()
+    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n)
     if not we_are_translated():
         show_loop(metainterp_sd)
@@ -133,14 +133,7 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
 # ____________________________________________________________
 
 class _DoneWithThisFrameDescr(AbstractFailDescr):
-
-    def __init__(self, lst):
-        "NOT_RPYTHON"        
-        self.index = len(lst)
-        lst.append(self)
-
-    def get_index(self):
-        return self.index
+    pass
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, metainterp_sd):
@@ -173,18 +166,6 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
-done_with_this_frame_descrs = []
-done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid(
-                                           done_with_this_frame_descrs)
-done_with_this_frame_descr_int = DoneWithThisFrameDescrInt(
-                                           done_with_this_frame_descrs)
-done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef(
-                                           done_with_this_frame_descrs)
-done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat(
-                                           done_with_this_frame_descrs)
-exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef(
-                                           done_with_this_frame_descrs)
-
 prebuiltNotSpecNode = NotSpecNode()
 
 class TerminatingLoopToken(LoopToken):
@@ -194,22 +175,30 @@ class TerminatingLoopToken(LoopToken):
         self.specnodes = [prebuiltNotSpecNode]*nargs
         self.finishdescr = finishdescr
 
-# pseudo loop tokens to make the life of optimize.py easier
-loop_tokens_done_with_this_frame_int = [
-    TerminatingLoopToken(1, done_with_this_frame_descr_int)
-    ]
-loop_tokens_done_with_this_frame_ref = [
-    TerminatingLoopToken(1, done_with_this_frame_descr_ref)
-    ]
-loop_tokens_done_with_this_frame_float = [
-    TerminatingLoopToken(1, done_with_this_frame_descr_float)
-    ]
-loop_tokens_done_with_this_frame_void = [
-    TerminatingLoopToken(0, done_with_this_frame_descr_void)
-    ]
-loop_tokens_exit_frame_with_exception_ref = [
-    TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
-    ]
+def make_done_loop_tokens():
+    done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
+    done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
+    done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
+    done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat()
+    exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
+
+    # pseudo loop tokens to make the life of optimize.py easier
+    return {'loop_tokens_done_with_this_frame_int': [
+                TerminatingLoopToken(1, done_with_this_frame_descr_int)
+                ],
+            'loop_tokens_done_with_this_frame_ref': [
+                TerminatingLoopToken(1, done_with_this_frame_descr_ref)
+                ],
+            'loop_tokens_done_with_this_frame_float': [
+                TerminatingLoopToken(1, done_with_this_frame_descr_float)
+                ],
+            'loop_tokens_done_with_this_frame_void': [
+                TerminatingLoopToken(0, done_with_this_frame_descr_void)
+                ],
+            'loop_tokens_exit_frame_with_exception_ref': [
+                TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
+                ],
+            }
 
 class ResumeDescr(AbstractFailDescr):
     def __init__(self, original_greenkey):
@@ -222,13 +211,6 @@ class ResumeGuardDescr(ResumeDescr):
     def __init__(self, metainterp_sd, original_greenkey):
         ResumeDescr.__init__(self, original_greenkey)
         self.metainterp_sd = metainterp_sd
-        self.index = -1
-
-    def get_index(self):
-        if self.index == -1:
-            globaldata = self.metainterp_sd.globaldata
-            self.index = globaldata.get_fail_descr_number(self)
-        return self.index
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.fail_args = boxes

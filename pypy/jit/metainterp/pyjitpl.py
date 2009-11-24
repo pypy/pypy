@@ -1022,6 +1022,8 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = []
         self._addr2name_values = []
 
+        self.__dict__.update(compile.make_done_loop_tokens())
+
     def _freeze_(self):
         return True
 
@@ -1044,8 +1046,7 @@ class MetaInterpStaticData(object):
         else:
             self.num_green_args = 0
             self.state = None
-        self.globaldata = MetaInterpGlobalData(
-                               self, compile.done_with_this_frame_descrs)
+        self.globaldata = MetaInterpGlobalData(self)
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
@@ -1136,11 +1137,10 @@ class MetaInterpStaticData(object):
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
-    def __init__(self, staticdata, prebuilt_fail_descr_list):
+    def __init__(self, staticdata):
         self.initialized = False
         self.indirectcall_dict = None
         self.addr2name = None
-        self.fail_descr_list = prebuilt_fail_descr_list[:]
         self.loopnumbering = 0
         #
         state = staticdata.state
@@ -1163,16 +1163,6 @@ class MetaInterpGlobalData(object):
         if cell.compiled_merge_points is None:
             cell.compiled_merge_points = []
         return cell.compiled_merge_points
-
-    def get_fail_descr_number(self, descr):
-        assert isinstance(descr, history.AbstractFailDescr)
-        lst = self.fail_descr_list
-        n = len(lst)
-        lst.append(descr)
-        return n
-
-    def get_fail_descr_from_number(self, n):
-        return self.fail_descr_list[n]
 
 # ____________________________________________________________
 
@@ -1622,16 +1612,16 @@ class MetaInterp(object):
         if sd.result_type == 'void':
             assert exitbox is None
             exits = []
-            loop_tokens = compile.loop_tokens_done_with_this_frame_void
+            loop_tokens = sd.loop_tokens_done_with_this_frame_void
         elif sd.result_type == 'int':
             exits = [exitbox]
-            loop_tokens = compile.loop_tokens_done_with_this_frame_int
+            loop_tokens = sd.loop_tokens_done_with_this_frame_int
         elif sd.result_type == 'ref':
             exits = [exitbox]
-            loop_tokens = compile.loop_tokens_done_with_this_frame_ref
+            loop_tokens = sd.loop_tokens_done_with_this_frame_ref
         elif sd.result_type == 'float':
             exits = [exitbox]
-            loop_tokens = compile.loop_tokens_done_with_this_frame_float
+            loop_tokens = sd.loop_tokens_done_with_this_frame_float
         else:
             assert False
         self.history.record(rop.JUMP, exits, None)
@@ -1643,7 +1633,8 @@ class MetaInterp(object):
         self.gen_store_back_in_virtualizable()
         # temporarily put a JUMP to a pseudo-loop
         self.history.record(rop.JUMP, [valuebox], None)
-        loop_tokens = compile.loop_tokens_exit_frame_with_exception_ref
+        sd = self.staticdata
+        loop_tokens = sd.loop_tokens_exit_frame_with_exception_ref
         target_loop_token = compile.compile_new_bridge(self, loop_tokens,
                                                        self.resumekey)
         assert target_loop_token is loop_tokens[0]
