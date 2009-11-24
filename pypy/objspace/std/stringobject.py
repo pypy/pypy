@@ -360,8 +360,11 @@ def str_join__String_ANY(space, w_self, w_list):
             w_s = list_w[i]
             if not space.is_true(space.isinstance(w_s, space.w_str)):
                 if space.is_true(space.isinstance(w_s, space.w_unicode)):
+                    # we need to rebuild w_list here, because the original
+                    # w_list might be an iterable which we already consumed
+                    w_list = space.newlist(list_w)
                     w_u = space.call_function(space.w_unicode, w_self)
-                    return space.call_method(w_u, "join", space.newlist(list_w))
+                    return space.call_method(w_u, "join", w_list)
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("sequence item %d: expected string, %s "
