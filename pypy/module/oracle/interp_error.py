@@ -6,7 +6,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.module.oracle import roci, config
 
-class State: 
+class State:
+    # XXX move to another file
     def __init__(self, space):
         w_module = space.getbuiltinmodule('cx_Oracle')
         def get(name):
@@ -30,6 +31,11 @@ class State:
         self.w_DateTimeType = space.getattr(w_datetime, space.wrap("datetime"))
         self.w_DateType = space.getattr(w_datetime, space.wrap("date"))
 
+        from pypy.module.oracle.interp_variable import all_variable_types
+        self.variableTypeByPythonType = {}
+        for varType in all_variable_types:
+            w_type = space.gettypeobject(varType.typedef)
+            self.variableTypeByPythonType[w_type] = varType
 
 def get(space): 
     return space.fromcache(State) 

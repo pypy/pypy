@@ -484,7 +484,7 @@ class W_Cursor(Wrappable):
                     self.environment.checkForError(
                         status,
                         "Cursor_ItemDescription(): scale")
-                    scale = attrptr[0]
+                    scale = rffi.cast(lltype.Signed, attrptr[0])
                 finally:
                     lltype.free(attrptr, flavor='raw')
 
@@ -500,7 +500,7 @@ class W_Cursor(Wrappable):
                     self.environment.checkForError(
                         status,
                         "Cursor_ItemDescription(): precision")
-                    precision = attrptr[0]
+                    precision = rffi.cast(lltype.Signed, attrptr[0])
                 finally:
                     lltype.free(attrptr, flavor='raw')
             else:

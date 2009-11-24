@@ -858,7 +858,7 @@ class VT_Cursor(W_Variable):
 class VT_Object(W_Variable):
     canBeInArray = False
 
-variableTypeByTypedef = {}
+all_variable_types = []
 for name, cls in globals().items():
     if not name.startswith('VT_') or not isinstance(cls, type):
         continue
@@ -869,7 +869,7 @@ for name, cls in globals().items():
         cls.typedef = TypeDef(
             cls.__name__, W_Variable.typedef,
             )
-        variableTypeByTypedef[cls.typedef] = cls
+        all_variable_types.append(cls)
     register_variable_class(cls)
 
 def typeByOracleDescriptor(param, environment):
@@ -964,8 +964,8 @@ def typeByPythonType(space, cursor, w_type):
             space.w_TypeError,
             space.wrap("Variable_TypeByPythonType(): type expected"))
     assert isinstance(w_type, W_TypeObject)
-    if w_type.instancetypedef in variableTypeByTypedef:
-        return variableTypeByTypedef[w_type.instancetypedef]
+    if w_type in get(space).variableTypeByPythonType:
+        return get(space).variableTypeByPythonType[w_type]
     if space.is_w(w_type, space.w_int):
         return VT_Integer
     raise OperationError(
