@@ -1,3 +1,4 @@
+import py
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.inlinedict import make_inlinedict_mixin
 from pypy.objspace.std.dictmultiobject import StrDictImplementation
@@ -125,3 +126,21 @@ class TestInlineDict(object):
         assert self.space.int_w(w_a.content['x']) == 12
         assert self.space.int_w(w_a.content['y']) == 13
 
+class AppTestSharingDict(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(withsharingdict=True, withinlineddict=True)
+
+    @py.test.mark.xfail()
+    def test_bug(self):
+        class X(object):
+            __slots__ = 'a', 'b', 'c'
+
+        class Y(X):
+            def __setattr__(self, name, value):                
+                d = object.__getattribute__(self, '__dict__')
+                object.__setattr__(self, '__dict__', d)
+                return object.__setattr__(self, name, value)
+
+        x = Y()
+        x.number = 42
+        assert x.number == 42
