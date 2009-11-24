@@ -53,6 +53,52 @@ def OracleDateToPythonDateTime(environment, valueptr):
         w(time.c_OCITimeMI),
         w(time.c_OCITimeSS))
 
+def OracleTimestampToPythonDate(environment, valueptr):
+    yearptr = lltype.malloc(roci.Ptr(roci.sb2).TO, 1, flavor='raw')
+    monthptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    dayptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    hourptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    minuteptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    secondptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1, flavor='raw')
+    fsecondptr = lltype.malloc(roci.Ptr(roci.ub4).TO, 1, flavor='raw')
+
+    try:
+        status = roci.OCIDateTimeGetDate(
+            environment.handle, environment.errorHandle,
+            valueptr[0],
+            yearptr, monthptr, dayptr)
+
+        environment.checkForError(
+            status, "OracleTimestampToPythonDate(): date portion")
+
+        status = roci.OCIDateTimeGetTime(
+            environment.handle, environment.errorHandle,
+            valueptr[0],
+            hourptr, minuteptr, secondptr, fsecondptr)
+
+        environment.checkForError(
+            status, "OracleTimestampToPythonDate(): time portion")
+
+        space = environment.space
+        w = space.wrap
+        w_datetime = space.getattr(
+            space.getbuiltinmodule('datetime'),
+            w('datetime'))
+
+        return space.call_function(
+            w_datetime,
+            w(yearptr[0]), w(monthptr[0]), w(dayptr[0]),
+            w(hourptr[0]), w(minuteptr[0]), w(secondptr[0]),
+            w(fsecondptr[0] / 1000))
+    finally:
+        lltype.free(yearptr, flavor='raw')
+        lltype.free(monthptr, flavor='raw')
+        lltype.free(dayptr, flavor='raw')
+        lltype.free(hourptr, flavor='raw')
+        lltype.free(minuteptr, flavor='raw')
+        lltype.free(secondptr, flavor='raw')
+        lltype.free(fsecondptr, flavor='raw')
+
 def DecimalToFormatAndText(environment, w_value):
     space = environment.space
     w_tuple_value = space.call_method(w_value, "as_tuple")

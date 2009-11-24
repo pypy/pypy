@@ -82,6 +82,6 @@ class Environment:
 
         error = W_Error(self.space, self, context, 0)
         error.code = 0
-        error.message = self.space.wrap("Invalid handle!")
+        error.w_message = self.space.wrap("Invalid handle!")
         raise OperationError(get(self.space).w_DatabaseError,
                              self.space.wrap(error))

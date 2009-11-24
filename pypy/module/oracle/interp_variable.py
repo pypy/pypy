@@ -799,7 +799,85 @@ class VT_Date(VT_DateTime):
         return transform.OracleDateToPythonDate(self.environment, dataptr)
 
 class VT_Timestamp(W_Variable):
-    pass
+    oracleType = roci.SQLT_TIMESTAMP
+    size = rffi.sizeof(roci.OCIDateTime_p)
+
+    def initialize(self, space, cursor):
+        # initialize the Timestamp descriptors
+        for i in range(self.allocatedElements):
+            dataptr = rffi.ptradd(
+                rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+                i)
+            status = roci.OCIDescriptorAlloc(
+                self.environment.handle,
+                dataptr,
+                roci.OCI_DTYPE_TIMESTAMP,
+                0, None)
+            self.environment.checkForError(
+                status, "TimestampVar_Initialize()")
+
+    def finalize(self):
+        dataptr = rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data)
+        for i in range(self.allocatedElements):
+            if dataptr[i]:
+                roci.OCIDescriptorFree(
+                    dataptr[i], roci.OCI_DTYPE_TIMESTAMP)
+
+    def getValueProc(self, space, pos):
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+            pos)
+
+        return transform.OracleTimestampToPythonDate(
+            self.environment, dataptr)
+
+    def setValueProc(self, space, pos, w_value):
+        dataptr = rffi.ptradd(
+            rffi.cast(roci.Ptr(roci.OCIDateTime_p), self.data),
+            pos)
+
+        # make sure a timestamp is being bound
+        if not space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("expecting timestamp data"))
+
+        year = space.int_w(space.getattr(w_value, space.wrap('year')))
+        month = space.int_w(space.getattr(w_value, space.wrap('month')))
+        day = space.int_w(space.getattr(w_value, space.wrap('day')))
+        hour = space.int_w(space.getattr(w_value, space.wrap('hour')))
+        minute = space.int_w(space.getattr(w_value, space.wrap('minute')))
+        second = space.int_w(space.getattr(w_value, space.wrap('second')))
+        microsecond = space.int_w(space.getattr(w_value, space.wrap('microsecond')))
+
+        status = roci.OCIDateTimeConstruct(
+            self.environment.handle,
+            self.environment.errorHandle,
+            dataptr[0],
+            year, month, day, hour, minute, second, microsecond * 1000,
+            None, 0)
+
+        self.environment.checkForError(
+            status, "TimestampVar_SetValue(): create structure")
+
+        validptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1, flavor='raw')
+        try:
+            status = roci.OCIDateTimeCheck(
+                self.environment.handle,
+                self.environment.errorHandle,
+                dataptr[0],
+                validptr);
+            self.environment.checkForError(
+                status,
+                "TimestampVar_SetValue()")
+            valid = rffi.cast(lltype.Signed, validptr[0])
+        finally:
+            lltype.free(validptr, flavor='raw')
+
+        if valid != 0:
+            raise OperationError(
+                get(space).w_DataError,
+                space.wrap("invalid date"))
 
 class VT_Interval(W_Variable):
     pass

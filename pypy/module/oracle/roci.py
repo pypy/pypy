@@ -45,12 +45,14 @@ class CConfig:
                                  ('OCIDateTime', OCITime),
                                  ])
 
+    OCIDateTime_p = platform.SimpleType('OCIDateTime*', rffi.VOIDP)
+
     constants = '''
     OCI_DEFAULT OCI_OBJECT OCI_THREADED OCI_EVENTS
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
     OCI_HTYPE_ERROR OCI_HTYPE_SVCCTX OCI_HTYPE_SERVER OCI_HTYPE_SESSION
     OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV
-    OCI_DTYPE_PARAM
+    OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP
     OCI_CRED_RDBMS OCI_CRED_EXT OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
@@ -163,6 +165,15 @@ OCIAttrSet = external(
      ub4,       # size
      ub4,       # attrtype
      OCIError], # errhp
+    sword)
+
+OCIDescriptorAlloc = external(
+    'OCIDescriptorAlloc',
+    [dvoidp,    # parenth
+     dvoidpp,   # descpp
+     ub4,       # type
+     size_t,    # xtramem_sz
+     dvoidp],   # usrmempp
     sword)
 
 OCIDescriptorFree = external(
@@ -334,6 +345,53 @@ OCIErrorGet = external(
      oratext,     # bufp
      ub4,         # bufsize
      ub4],        # type
+    sword)
+
+# OCI Date, Datetime, and Interval Functions
+
+OCIDateTimeCheck = external(
+    'OCIDateTimeCheck',
+    [dvoidp,        # hndl
+     OCIError,      # err
+     OCIDateTime_p, # date
+     Ptr(ub4)],     # valid
+    sword)
+
+OCIDateTimeConstruct = external(
+    'OCIDateTimeConstruct',
+    [dvoidp,        # hndl
+     OCIError,      # errhp
+     OCIDateTime_p, # datetime
+     sb2,           # year
+     ub1,           # month
+     ub1,           # day
+     ub1,           # hour
+     ub1,           # min
+     ub1,           # src
+     ub4,           # fsec
+     oratext,       # timezone
+     size_t],       # timezone_length
+    sword)
+
+OCIDateTimeGetDate = external(
+    'OCIDateTimeGetDate',
+    [dvoidp,        # hndl
+     OCIError,      # errhp
+     OCIDateTime_p, # datetime
+     Ptr(sb2),      # year
+     Ptr(ub1),      # month
+     Ptr(ub1)],     # day
+    sword)
+
+OCIDateTimeGetTime = external(
+    'OCIDateTimeGetTime',
+    [dvoidp,        # hndl
+     OCIError,      # errhp
+     OCIDateTime_p, # datetime
+     Ptr(ub1),      # hour
+     Ptr(ub1),      # minute
+     Ptr(ub1),      # second
+     Ptr(ub4)],     # fsec
     sword)
 
 # OCI Number Functions

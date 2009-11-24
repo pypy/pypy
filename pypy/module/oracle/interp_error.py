@@ -20,6 +20,7 @@ class State:
         self.w_NotSupportedError = get('NotSupportedError')
         self.w_IntegrityError = get('IntegrityError')
         self.w_InternalError = get('InternalError')
+        self.w_DataError = get('DataError')
         self.w_Variable = get('Variable')
 
         w_import = space.builtin.get('__import__')
