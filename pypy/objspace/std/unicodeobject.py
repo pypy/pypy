@@ -174,7 +174,7 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
-    l = space.listview(w_list)
+    l = space.unpackiterable(w_list)
     delim = w_self._value
     totlen = 0
     if len(l) == 0:
