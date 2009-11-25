@@ -6,6 +6,11 @@ try:
 except ImportError:
     ctypes = None
 
+if sys.version >= (2, 6):
+    load_library_kwargs = {'use_errno': True}
+else:
+    load_library_kwargs = {}
+
 import os
 from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -808,7 +813,8 @@ if ctypes:
             return ctypes.util.find_library('c')
         
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
-    standard_c_lib = ctypes.cdll.LoadLibrary(get_libc_name())
+    standard_c_lib = ctypes.cdll.LoadLibrary(get_libc_name(),
+                                             **load_library_kwargs)
 
 # ____________________________________________
 
@@ -897,7 +903,7 @@ def get_ctypes_callable(funcptr, calling_conv):
                 # on ie slackware there was need for RTLD_GLOBAL here.
                 # this breaks a lot of things, since passing RTLD_GLOBAL
                 # creates symbol conflicts on C level.
-                clib = dllclass.LoadLibrary(libpath)
+                clib = dllclass.LoadLibrary(libpath, **load_library_kwargs)
                 cfunc = get_on_lib(clib, funcname)
                 if cfunc is not None:
                     break
@@ -1206,17 +1212,28 @@ TLS = tlsobject()
 
 # helpers to save/restore the C-level errno -- platform-specific because
 # ctypes doesn't just do the right thing and expose it directly :-(
-def _where_is_errno():
-    raise NotImplementedError("don't know how to get the C-level errno!")
 
-def _save_c_errno():
-    errno_p = _where_is_errno()
-    TLS.errno = errno_p.contents.value
-    errno_p.contents.value = 0
+# on 2.6 ctypes does it right, use it
 
-def _restore_c_errno():
-    if hasattr(TLS, 'errno'):
-        _where_is_errno().contents.value = TLS.errno
+if sys.version >= (2, 6):
+    def _save_c_errno():
+        TLS.errno = ctypes.get_errno()
+
+    def _restore_c_errno():
+        pass
+
+else:
+    def _where_is_errno():
+        raise NotImplementedError("don't know how to get the C-level errno!")
+
+    def _save_c_errno():
+        errno_p = _where_is_errno()
+        TLS.errno = errno_p.contents.value
+        errno_p.contents.value = 0
+
+    def _restore_c_errno():
+        if hasattr(TLS, 'errno'):
+            _where_is_errno().contents.value = TLS.errno
 
 if ctypes:
     if sys.platform == 'win32':
