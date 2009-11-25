@@ -1,4 +1,0 @@
-
-class ZipImportError(ImportError):
-    pass
-

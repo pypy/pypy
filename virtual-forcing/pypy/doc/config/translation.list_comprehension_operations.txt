@@ -1,2 +1,0 @@
-Experimental optimisation for list comprehensions in RPython.
-

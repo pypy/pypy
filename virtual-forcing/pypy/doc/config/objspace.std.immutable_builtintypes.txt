@@ -1,1 +1,0 @@
-Disallow modification of builtin types.  Enabled by default.
