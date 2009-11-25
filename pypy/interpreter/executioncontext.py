@@ -11,9 +11,6 @@ def app_profile_call(space, w_callable, frame, event, w_arg):
                         space.wrap(frame),
                         space.wrap(event), w_arg)
 
-class FrameChainMismatch(Exception):
-    pass
-
 class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
     in the Python interpreter."""
@@ -145,11 +142,6 @@ class ExecutionContext(object):
         #assert frame is self.gettopframe() --- slowish
         if self.some_frame is frame:
             self.some_frame = frame.f_back_some
-            if self.some_frame and self.some_frame.f_forward:
-                if self.some_frame.f_forward is frame:
-                    # and anything that actually goes forward from there,
-                    # but this is both inefficient and breaks tests
-                    raise FrameChainMismatch()
         else:
             f_back = frame.f_back()
             if f_back is not None:
