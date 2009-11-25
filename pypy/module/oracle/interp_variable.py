@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import ovfcheck
 
 import sys
-from pypy.module.oracle import roci, config, transform
+from pypy.module.oracle import roci, config, transform, interp_lob
 from pypy.module.oracle.interp_error import W_Error, get
 from pypy.module.oracle.config import string_w, StringBuffer
 
@@ -914,18 +914,165 @@ class VT_Interval(W_VariableWithDescriptor):
         self.environment.checkForError(
             status, "IntervalVar_SetValue()")
 
+class W_LobVariable(W_VariableWithDescriptor):
+    descriptorType = roci.OCI_DTYPE_LOB
+    descriptionText = "LobVar"
+    temporaryLobType = roci.OCI_TEMP_CLOB
 
-class VT_CLOB(W_Variable):
-    pass
+    def initialize(self, space, cursor):
+        super(W_LobVariable, self).initialize(space, cursor)
+        self.connection = cursor.connection
 
-class VT_NCLOB(W_Variable):
-    pass
+    def ensureTemporary(self, space, pos):
+        # make sure we have a temporary LOB set up
+        temporaryptr = lltype.malloc(rffi.CArrayPtr(roci.boolean).TO, 1, flavor='raw')
+        try:
+            status = roci.OCILobIsTemporary(
+                self.environment.handle,
+                self.environment.errorHandle,
+                self.getDataptr(pos)[0],
+                temporaryptr);
+            self.environment.checkForError(
+                status,
+                "LobVar_SetValue(): check temporary")
+            temporary = temporaryptr[0]
+        finally:
+            lltype.free(temporaryptr, flavor='raw')
 
-class VT_BLOB(W_Variable):
-    pass
+        if temporary:
+            return
 
-class VT_BFILE(W_Variable):
-    pass
+        status = roci.OCILobCreateTemporary(
+            self.connection.handle,
+            self.environment.errorHandle,
+            self.getDataptr(pos)[0],
+            roci.OCI_DEFAULT,
+            roci.OCI_DEFAULT,
+            self.temporaryLobType,
+            False,
+            roci.OCI_DURATION_SESSION)
+        self.environment.checkForError(
+            status,
+            "LobVar_SetValue(): create temporary")
+
+
+    def setValueProc(self, space, pos, w_value):
+        self.ensureTemporary(space, pos)
+
+        # trim the current value
+        status = roci.OCILobTrim(
+            self.connection.handle,
+            self.environment.errorHandle,
+            self.getDataptr(pos)[0],
+            0)
+        self.environment.checkForError(
+            status,
+            "LobVar_SetValue(): trim")
+
+        # set the value
+        self.write(space, pos, w_value, 1)
+
+    def getLength(self, space, pos):
+        "Return the size of the LOB variable for internal comsumption."
+        lengthptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1, flavor='raw')
+        try:
+            status = roci.OCILobGetLength(
+                self.connection.handle,
+                self.environment.errorHandle,
+                self.getDataptr(pos)[0],
+                lengthptr)
+            self.environment.checkForError(
+                status,
+                "LobVar_GetLength()")
+            return int(lengthptr[0]) # XXX test overflow
+        finally:
+            lltype.free(lengthptr, flavor='raw')
+
+    def read(self, space, pos, offset, amount):
+        # modify the arguments
+        if offset <= 0:
+            offset = 1
+        if amount < 0:
+            amount = self.getLength(space, pos) - offset + 1
+            if amount <= 0:
+                amount = 1
+
+        bufferSize = amount
+        raw_buffer, gc_buffer = rffi.alloc_buffer(bufferSize)
+        amountptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1, flavor='raw')
+        amountptr[0] = rffi.cast(roci.ub4, amount)
+        try:
+            status = roci.OCILobRead(
+                self.connection.handle,
+                self.environment.errorHandle,
+                self.getDataptr(pos)[0],
+                amountptr, offset,
+                raw_buffer, bufferSize,
+                None, None,
+                config.CHARSETID, self.charsetForm)
+            self.environment.checkForError(
+                status,
+                "LobVar_Read()")
+            amount = int(amountptr[0]) # XXX test overflow
+            value = rffi.str_from_buffer(raw_buffer, gc_buffer, bufferSize, amount)
+            return space.wrap(value)
+        finally:
+            lltype.free(amountptr, flavor='raw')
+            rffi.keep_buffer_alive_until_here(raw_buffer, gc_buffer)
+
+    def write(self, space, pos, w_value, offset):
+        databuf = config.StringBuffer()
+        databuf.fill(space, w_value)
+        amountptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1, flavor='raw')
+        amountptr[0] = rffi.cast(roci.ub4, databuf.size)
+
+        try:
+            status = roci.OCILobWrite(
+                self.connection.handle,
+                self.environment.errorHandle,
+                self.getDataptr(pos)[0],
+                amountptr, offset,
+                databuf.ptr, databuf.size,
+                roci.OCI_ONE_PIECE,
+                None, None,
+                config.CHARSETID, self.charsetForm)
+            self.environment.checkForError(
+                status,
+                "LobVar_Write()")
+            amount = amountptr[0]
+        finally:
+            lltype.free(amountptr, flavor='raw')
+            databuf.clear()
+
+        return amount
+
+    def getValueProc(self, space, pos):
+        return space.wrap(interp_lob.W_ExternalLob(self, pos))
+
+class VT_CLOB(W_LobVariable):
+    oracleType = roci.SQLT_CLOB
+
+class VT_NCLOB(W_LobVariable):
+    oracleType = roci.SQLT_CLOB
+
+class VT_BLOB(W_LobVariable):
+    oracleType = roci.SQLT_BLOB
+    temporaryLobType = roci.OCI_TEMP_BLOB
+
+class VT_BFILE(W_LobVariable):
+    oracleType = roci.SQLT_BFILE
+
+    def write(self, space, pos, w_value, offset):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("BFILEs are read only"))
+
+    def read(self, space, pos, offset, amount):
+        self.fileOpen()
+        try:
+            return W_LobVariable.read(self, space, pos, offset, amount)
+        finally:
+            self.fileClose()
 
 class VT_Cursor(W_Variable):
     oracleType = roci.SQLT_RSET

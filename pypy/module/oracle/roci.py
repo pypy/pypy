@@ -31,6 +31,8 @@ class CConfig:
     sb4 = platform.SimpleType('sb4', rffi.INT)
     sword = platform.SimpleType('sword', rffi.INT)
     uword = platform.SimpleType('uword', rffi.UINT)
+    boolean = platform.SimpleType('boolean', rffi.UINT)
+    OCIDuration = platform.SimpleType('OCIDuration', rffi.UINT)
 
     OCINumber = platform.Struct('OCINumber', [])
     OCITime   = platform.Struct('OCITime',
@@ -50,7 +52,7 @@ class CConfig:
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
     OCI_HTYPE_ERROR OCI_HTYPE_SVCCTX OCI_HTYPE_SERVER OCI_HTYPE_SESSION
     OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV
-    OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP OCI_DTYPE_INTERVAL_DS
+    OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP OCI_DTYPE_INTERVAL_DS OCI_DTYPE_LOB
     OCI_CRED_RDBMS OCI_CRED_EXT OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
@@ -69,6 +71,7 @@ class CConfig:
     SQLT_TIMESTAMP_TZ SQLT_TIMESTAMP_LTZ SQLT_INTERVAL_DS
     SQLT_CLOB SQLT_CLOB SQLT_BLOB SQLT_BFILE SQLT_RSET SQLT_NTY
     SQLCS_IMPLICIT SQLCS_NCHAR
+    OCI_TEMP_CLOB OCI_TEMP_BLOB OCI_DURATION_SESSION OCI_ONE_PIECE
     OCI_NUMBER_SIGNED
     OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
     '''.split()
@@ -93,13 +96,14 @@ OCIDefine = rffi.VOIDP
 OCISnapshot = rffi.VOIDP
 OCIDateTime = rffi.VOIDP
 OCIInterval = rffi.VOIDP
+OCILobLocator = rffi.VOIDP
 
+Ptr = rffi.CArrayPtr
 void = lltype.Void
 dvoidp = rffi.VOIDP
 dvoidpp = rffi.VOIDPP
 size_t = rffi.SIZE_T
 oratext = rffi.CCHARP
-Ptr = rffi.CArrayPtr
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)
@@ -316,6 +320,77 @@ OCIStmtRelease = external(
      oratext,      # key
      ub4,          # keylen
      ub4],         # mode
+    sword)
+
+# LOB Functions
+
+OCILobCreateTemporary = external(
+    'OCILobCreateTemporary',
+    [OCISvcCtx,     # svchp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     ub2,           # csid
+     ub1,           # csfrm
+     ub1,           # lobtype
+     boolean,       # cache
+     OCIDuration],  # duration
+    sword)
+
+OCILobGetLength = external(
+    'OCILobGetLength',
+    [OCIEnv,        # envhp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     Ptr(ub4)],     # lenp
+    sword)
+
+OCILobIsTemporary = external(
+    'OCILobIsTemporary',
+    [OCIEnv,        # envhp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     Ptr(boolean)], # is_temporary
+    sword)
+
+OCICallbackLobRead = dvoidp
+OCILobRead = external(
+    'OCILobRead',
+    [OCISvcCtx,     # svchp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     Ptr(ub4),      # amtp
+     ub4,           # offset
+     dvoidp,        # bufp
+     ub4,           # buflen
+     dvoidp,        # ctxp
+     OCICallbackLobRead, # cbfp
+     ub2,           # csid
+     ub1],          # csfrm
+    sword)
+
+OCILobTrim = external(
+    'OCILobTrim',
+    [OCISvcCtx,     # svchp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     ub4],          # newlen
+    sword)
+
+OCICallbackLobWrite = dvoidp
+OCILobWrite = external(
+    'OCILobWrite',
+    [OCISvcCtx,     # svchp
+     OCIError,      # errhp
+     OCILobLocator, # locp
+     Ptr(ub4),      # amtp
+     ub4,           # offset
+     dvoidp,        # bufp
+     ub4,           # buflen
+     ub1,           # piece
+     dvoidp,        # ctxp
+     OCICallbackLobWrite, # cbfp
+     ub2,           # csid
+     ub1],          # csfrm
     sword)
 
 # Transaction Functions
