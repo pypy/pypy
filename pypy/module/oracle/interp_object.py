@@ -2,7 +2,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.oracle import roci
+
+from pypy.module.oracle import roci, transform
 
 class W_ObjectType(Wrappable):
     def __init__(self, connection, param):
@@ -158,16 +159,59 @@ class W_ObjectType(Wrappable):
             self.isCollection = 1
 
             # determine type of collection
-            XXX
+            typecodeptr = lltype.malloc(roci.Ptr(roci.OCITypeCode).TO,
+                                        1, flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    toplevelParam, roci.OCI_DTYPE_PARAM,
+                    rffi.cast(roci.dvoidp, typecodeptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_TYPECODE,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status, "ObjectType_Describe(): get collection type code")
+                self.collectionTypeCode = typecodeptr[0]
+            finally:
+                lltype.free(typecodeptr, flavor='raw')
 
             # acquire collection parameter descriptor
-            XXX
+            paramptr = lltype.malloc(roci.Ptr(roci.OCIParam).TO,
+                                     1, flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    toplevelParam, roci.OCI_DTYPE_PARAM,
+                    rffi.cast(roci.dvoidp, paramptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_COLLECTION_ELEMENT,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status,
+                    "ObjectType_Describe(): get collection descriptor")
+                collectionParam = paramptr[0]
+            finally:
+                lltype.free(paramptr, flavor='raw')
 
             # determine type of element
-            XXX
+            typecodeptr = lltype.malloc(roci.Ptr(roci.OCITypeCode).TO,
+                                        1, flavor='raw')
+            try:
+                status = roci.OCIAttrGet(
+                    collectionParam, roci.OCI_DTYPE_PARAM,
+                    rffi.cast(roci.dvoidp, typecodeptr),
+                    lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                    roci.OCI_ATTR_TYPECODE,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status, "ObjectType_Describe(): get element type code")
+                self.elementTypeCode = typecodeptr[0]
+            finally:
+                lltype.free(typecodeptr, flavor='raw')
 
             # if element type is an object type get its type
-            XXX
+            if self.elementTypeCode == roci.OCI_TYPECODE_OBJECT:
+                self.elementType = W_ObjectType(connection, collectionParam)
+            else:
+                self.elementType = None
 
         # determine the number of attributes
         numptr = lltype.malloc(roci.Ptr(roci.ub2).TO,
@@ -296,3 +340,98 @@ W_ExternalObject.typedef = TypeDef(
     'ExternalObject',
     type = interp_attrproperty('type', W_ExternalObject),
     )
+
+def convertToPython(space, environment, typeCode,
+                    value, indicator, var, subtype):
+    # null values returned as None
+    if rffi.cast(roci.Ptr(roci.OCIInd), indicator)[0] == roci.OCI_IND_NULL:
+        return space.w_None
+
+    if typeCode in (roci.OCI_TYPECODE_CHAR,
+                    roci.OCI_TYPECODE_VARCHAR,
+                    roci.OCI_TYPECODE_VARCHAR2):
+        strValue = value
+        stringValue = roci.OCIStringPtr(environment.handle, strValue)
+        stringSize = roci.OCIStringPtr(environment.handle, strValue)
+        return config.w_string(space, stringValue, stringSize)
+    elif typeCode == roci.OCI_TYPECODE_NUMBER:
+        return transform.OracleNumberToPythonFloat(
+            environment,
+            rffi.cast(roci.Ptr(roci.OCINumber), value))
+    elif typeCode == roci.OCI_TYPECODE_DATE:
+        return transform.OracleDateToPythonDate(environment, value)
+    elif typeCode == roci.OCI_TYPECODE_TIMESTAMP:
+        return transform.OracleTimestampToPythonDate(environment, value)
+    elif typeCode == roci.OCI_TYPECODE_OBJECT:
+        return space.wrap(W_ExternalObject(var, subType, value, indicator,
+                                           isIndependent=False))
+    elif typeCode == roci.OCI_TYPECODE_NAMEDCOLLECTION:
+        return convertCollection(space, environment, value, var, subType)
+
+    raise OperationError(
+        get(space).w_NotSupportedError,
+        space.wrap(
+            "ExternalObjectVar_GetAttributeValue(): unhandled data type %d" % (
+                typeCode,)))
+
+
+def convertCollection(space, environment, value, var, objectType):
+    "Convert a collection to a Python list"
+
+    result_w = []
+
+    iterptr = lltype.malloc(rffi.CArrayPtr(roci.OCIIter).TO, 1, flavor='raw')
+    try:
+        # create the iterator
+        status = roci.OCIIterCreate(
+            environment.handle,
+            environment.errorHandle,
+            value,
+            iterptr)
+        environment.checkForError(
+            status, "ExternalObjectVar_ConvertCollection(): creating iterator")
+
+        try:
+            # create the result list
+            valueptr = lltype.malloc(rffi.CArrayPtr(roci.dvoidp).TO,
+                                     1, flavor='raw')
+            indicatorptr = lltype.malloc(rffi.CArrayPtr(roci.dvoidp).TO,
+                                         1, flavor='raw')
+            eofptr = lltype.malloc(rffi.CArrayPtr(roci.boolean).TO,
+                                   1, flavor='raw')
+            try:
+                while True:
+                    status = roci.OCIIterNext(
+                        environment.handle,
+                        environment.errorHandle,
+                        iterptr[0],
+                        valueptr,
+                        indicatorptr,
+                        eofptr)
+                    environment.checkForError(
+                        status,
+                        "ExternalObjectVar_ConvertCollection(): get next")
+
+                    if eofptr[0]:
+                        break
+                    element = convertToPython(
+                        space, environment,
+                        objectType.elementTypeCode,
+                        valueptr[0], indicatorptr[0],
+                        var, objectType.elementType)
+                    result_w.append(element)
+            finally:
+                lltype.free(valueptr, flavor='raw')
+                lltype.free(indicatorptr, flavor='raw')
+                lltype.free(eofptr, flavor='raw')
+
+        finally:
+            roci.OCIIterDelete(
+                environment.handle,
+                environment.errorHandle,
+                iterptr)
+    finally:
+        lltype.free(iterptr, flavor='raw')
+
+    return space.newlist(result_w)
+

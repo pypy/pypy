@@ -1190,7 +1190,7 @@ class VT_Object(W_Variable):
         # for collections, return the list rather than the object
         if self.objectType.isCollection:
             return interp_object.convertCollection(
-                self.environment, data[pos], self, self.objectType)
+                space, self.environment, data[pos], self, self.objectType)
 
         # for objects, return a representation of the object
         var = interp_object.W_ExternalObject(

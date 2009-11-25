@@ -64,6 +64,7 @@ class CConfig:
     OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_REF_TDO
     OCI_ATTR_SCHEMA_NAME OCI_ATTR_TYPE_NAME OCI_ATTR_TYPECODE
     OCI_ATTR_NUM_TYPE_ATTRS OCI_ATTR_LIST_TYPE_ATTRS
+    OCI_ATTR_COLLECTION_ELEMENT
     OCI_ATTR_CHARSET_FORM OCI_ATTR_ENV_CHARSET_ID
     OCI_ATTR_PARSE_ERROR_OFFSET
     OCI_NTV_SYNTAX OCI_COMMIT_ON_SUCCESS
@@ -81,6 +82,8 @@ class CConfig:
     SQLCS_IMPLICIT SQLCS_NCHAR
     OCI_TEMP_CLOB OCI_TEMP_BLOB OCI_DURATION_SESSION OCI_ONE_PIECE
     OCI_NUMBER_SIGNED
+    OCI_TYPECODE_CHAR OCI_TYPECODE_VARCHAR OCI_TYPECODE_VARCHAR2
+    OCI_TYPECODE_NUMBER OCI_TYPECODE_DATE OCI_TYPECODE_TIMESTAMP
     OCI_TYPECODE_NAMEDCOLLECTION OCI_TYPECODE_OBJECT
     OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
     '''.split()
@@ -111,6 +114,8 @@ OCILobLocator = rffi.VOIDP
 OCIRef = rffi.VOIDP
 OCIType = rffi.VOIDP
 OCIComplexObject = rffi.VOIDP
+OCIColl = rffi.VOIDP
+OCIIter = rffi.VOIDP
 
 Ptr = rffi.CArrayPtr
 void = lltype.Void
@@ -486,6 +491,32 @@ OCIObjectUnpin = external(
     [OCIEnv,           # env,
      OCIError,         # err
      dvoidp],          # object
+    sword)
+
+# OCI Collection and Iterator Functions
+OCIIterCreate = external(
+    'OCIIterCreate',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     OCIColl,          # coll
+     Ptr(OCIIter)],    # itr
+    sword)
+
+OCIIterDelete = external(
+    'OCIIterDelete',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     Ptr(OCIIter)],    # itr
+    sword)
+
+OCIIterNext = external(
+    'OCIIterNext',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     OCIIter,          # itr
+     dvoidpp,          # elem
+     dvoidpp,          # elemind
+     Ptr(boolean)],    # eoc
     sword)
 
 # OCI Date, Datetime, and Interval Functions
