@@ -1,0 +1,7 @@
+The PyPy standard interpreter compiled to C with the mysterious
+<a href="http://codespeak.net/pypy/dist/pypy/doc/jit.html">JIT</a>.
+The JIT can now speed up single functions performing some very simple
+arithmetic.
+Paste this example (<a href="javascript:execute_snippet('pypy-c-jit', 0)">paste</a>) for simple function:
+<pre>%s</pre>
+Try running it (<pre>test_f1()</pre>) and try running <pre>pypyjit.enable(f1.func_code)</pre> and watch the difference.

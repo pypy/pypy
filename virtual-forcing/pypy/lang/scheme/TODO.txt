@@ -1,0 +1,39 @@
+Do now
+------
+
+- continuations
+
+continuation frame must be saved for every non tail-call
+(for tail calls there is no cc)
+
+Do next
+-------
+
+- implement key procedures
+
+Do in some future
+-----------------
+
+Here starts the real fun!
+
+- lambda called with wrong number of arguments issue
+- macros *are* not first-class objects
+
+- input/output operations
+- missing datatypes: chars, vectors
+  + manipulation procedures
+
+- switch to byte-code generation + eval instead of evaluating AST
+- random code stress test
+
+Missing procedures
+------------------
+ #number:
+< > <= >= quotient reminder modulo numberator denominator floor ceiling truncate round exp log sin cos tan asin acos atan sqrt expt make-rectangular make-polar real-part imag-part magnitude angle exact->inexact inexact->exact
+
+dynamic-wind
+call-with-values
+values
+eval
+scheme-report-environment
+null-environment

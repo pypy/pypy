@@ -1,0 +1,19 @@
+The following files are from the website of The Unicode Consortium
+at http://www.unicode.org/. For the terms of use of these files, see
+http://www.unicode.org/terms_of_use.html
+
+    CompositionExclusions-3.2.0.txt
+    CompositionExclusions-4.1.0.txt
+    CompositionExclusions-5.0.0.txt
+    EastAsianWidth-3.2.0.txt
+    EastAsianWidth-4.1.0.txt
+    EastAsianWidth-5.0.0.txt
+    UnicodeData-3.2.0.txt
+    UnicodeData-4.1.0.txt
+    UnicodeData-5.0.0.txt
+    
+The following files are derived from files from the above website. The same
+terms of use apply.
+    UnihanNumeric-3.2.0.txt
+    UnihanNumeric-4.1.0.txt
+    UnihanNumeric-5.0.0.txt

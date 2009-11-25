@@ -1,0 +1,4 @@
+
+class ZipImportError(ImportError):
+    pass
+

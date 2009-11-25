@@ -1,0 +1,9 @@
+[
+    'architecture.html', 
+    'getting-started.html', 
+    'coding-guide.html', 
+    'objspace.html',
+    'translation.html',
+#    'misc.html', 
+    'theory.html', 
+]

@@ -1,0 +1,161 @@
+==========================
+   Refactoring SomePBCs
+==========================
+
+Motivation
+==========
+
+Some parts of the annotator, and especially specialization, are quite obscure
+and hackish.  One cause for this is the need to manipulate Python objects like
+functions directly.  This makes it hard to attach additional information directly
+to the objects.  It makes specialization messy because it has to create new dummy
+function objects just to represent the various specialized versions of the function.
+
+
+Plan
+====
+
+Let's introduce nice wrapper objects.  This refactoring is oriented towards
+the following goal: replacing the content of SomePBC() with a plain set of
+"description" wrapper objects.  We shall probably also remove the possibility
+for None to explicitly be in the set and add a can_be_None flag (this is
+closer to what the other SomeXxx classes do).
+
+
+XxxDesc classes
+===============
+
+To be declared in module pypy.annotator.desc, with a mapping
+annotator.bookkeeper.descs = {<python object>: <XxxDesc instance>}
+accessed with bookkeepeer.getdesc(<python object>).
+
+Maybe later the module should be moved out of pypy.annotation but for now I
+suppose that it's the best place.
+
+The goal is to have a single Desc wrapper even for functions and classes that
+are specialized.
+
+FunctionDesc
+
+    Describes (usually) a Python function object.  Contains flow graphs: one
+    in the common case, zero for external functions, more than one if there
+    are several specialized versions.  Also describes the signature of the
+    function in a nice format (i.e. not by relying on func_code inspection).
+
+ClassDesc
+
+    Describes a Python class object.  Generally just maps to a ClassDef, but
+    could map to more than one in the presence of specialization.  So we get
+    SomePBC({<ClassDesc>}) annotations for the class, and when it's
+    instantiated it becomes SomeInstance(classdef=...) for the particular
+    selected classdef.
+
+MethodDesc
+
+    Describes a bound method.  Just references a FunctionDesc and a ClassDef
+    (not a ClassDesc, because it's read out of a SomeInstance).
+
+FrozenDesc
+
+    Describes a frozen pre-built instance.  That's also a good place to store
+    some information currently in dictionaries of the bookkeeper.
+
+MethodOfFrozenDesc
+
+    Describes a method of a FrozenDesc.  Just references a FunctionDesc and a
+    FrozenDesc.
+
+NB: unbound method objects are the same as function for our purposes, so they
+become the same FunctionDesc as their im_func.
+
+These XxxDesc classes should share some common interface, as we'll see during
+the refactoring.  A common base class might be a good idea (at least I don't
+see why it would be a bad idea :-)
+
+
+Implementation plan
+===================
+
+* make a branch (/branch/somepbc-refactoring/)
+
+* change the definition of SomePBC, start pypy.annotation.desc
+
+* fix all places that use SomePBC :-)
+
+* turn Translator.flowgraphs into a plain list of flow graphs,
+  and make the FunctionDescs responsible for computing their own flow graphs
+
+* move external function functionality into the FunctionDescs too
+
+
+Status
+======
+
+Done, branch merged.
+
+
+RTyping PBCs of functions
+=========================
+
+The FuncDesc.specialize() method takes an args_s and return a
+corresponding graph.  The caller of specialize() parses the actual
+arguments provided by the simple_call or call_args operation, so that
+args_s is a flat parsed list.  The returned graph must have the same
+number and order of input variables.
+
+For each call family, we compute a table like this (after annotation
+finished)::
+
+          call_shape   FuncDesc1   FuncDesc2   FuncDesc3   ...
+  ----------------------------------------------------------
+   call0    shape1       graph1
+   call1    shape1       graph1      graph2
+   call2    shape1                   graph3     graph4            
+   call3    shape2                   graph5     graph6
+
+
+We then need to merge some of the lines if they look similar enough,
+e.g. call0 and call1.  Precisely, we can merge two lines if they only
+differ in having more or less holes.  In theory, the same graph could
+appear in two lines that are still not mergeable because of other
+graphs.  For sanity of implementation, we should check that at the end
+each graph only appears once in the table (unless there is only one
+*column*, in which case all problems can be dealt with at call sites).
+
+(Note that before this refactoring, the code was essentially requiring
+that the table ended up with either one single row or one single
+column.)
+
+The table is computed when the annotation is complete, in
+compute_at_fixpoint(), which calls the FuncDesc's consider_call_site()
+for each call site.  The latter merges lines as soon as possible.  The
+table is attached to the call family, grouped by call shape.
+
+During RTyping, compute_at_fixpoint() is called after each new ll
+helper is annotated.  Normally, this should not modify existing tables
+too much, but in some situations it will.  So the rule is that
+consider_call_site() should not add new (unmerged) rows to the table
+after the table is considered "finished" (again, unless there is only
+one column, in which case we should not discover new columns).
+
+XXX this is now out of date, in the details at least.
+
+RTyping other callable PBCs
+===========================
+
+The above picture attaches "calltable" information to the call
+families containing the function.  When it comes to rtyping a call of
+another kind of pbc (class, instance-method, frozenpbc-method) we have
+two basic choices:
+
+ - associate the calltable information with the funcdesc that
+   ultimately ends up getting called, or
+
+ - attach the calltable to the callfamily that contains the desc
+   that's actually being called.
+
+Neither is totally straightforward: the former is closer to what
+happens on the trunk but new families of funcdescs need to be created
+at the end of annotation or by normalisation.  The latter is more of a
+change.  The former is also perhaps a bit unnatural for ootyped
+backends.

@@ -1,0 +1,90 @@
+==================================
+PyPy - Getting Started 
+==================================
+
+.. contents::
+.. sectnum::
+
+.. _howtopypy: 
+
+What is PyPy ?
+==============
+
+PyPy is an implementation of the Python_ programming language written in
+Python itself, flexible and easy to experiment with.
+We target a large variety of platforms, small and large, by providing a
+compiler toolsuite that can produce custom Python versions.  Platform, memory
+and threading models are aspects of the translation process - as
+opposed to encoding low level details into the language implementation itself.
+Eventually, dynamic optimization techniques - implemented as another
+translation aspect - should become robust against language changes. `more...`_
+
+.. _Python: http://docs.python.org/ref
+.. _`more...`: architecture.html
+
+Just the facts 
+============== 
+
+.. _gettingpypy: 
+.. _`latest stable version via subversion`:   
+.. _`get via Subversion`:
+
+Svn-check out
+-------------
+
+Before you can play with PyPy, you will need to obtain a copy
+of the sources.  This can be done either by `downloading them
+from the download page`_ or by checking them out from the
+repository using subversion.  We suggest using subversion as it
+offers access to the most recent versions.
+
+.. _`downloading them from the download page`: download.html
+
+If you choose to use subversion, you must issue the following command on your
+command line, DOS box, or terminal::
+
+    svn co http://codespeak.net/svn/pypy/dist pypy-dist
+
+This will check out the most recent stable release from subversion and
+place it into a directory named ``pypy-dist``, and will get you the PyPy
+source in ``pypy-dist/pypy`` and documentation files in
+``pypy-dist/pypy/doc``.  If you would prefer to check out the "cutting edge"
+version of PyPy - which may not always be stable! - then check out
+from ``http://codespeak.net/svn/pypy/trunk`` intead.
+
+Where to go from here
+----------------------
+
+After you succesfully managed to get PyPy's source you can read more about:
+
+ - `Building and using PyPy's Python interpreter`_
+ - `Learning more about the translation toolchain and how to develop (with) PyPy`_
+
+.. _`Building and using PyPy's Python interpreter`: getting-started-python.html
+.. _`Learning more about the translation toolchain and how to develop (with) PyPy`: getting-started-dev.html
+
+
+Understanding PyPy's architecture
+---------------------------------
+
+For in-depth information about architecture and coding documentation 
+head over to the `documentation section`_ where you'll find lots of 
+interesting information.  Additionally, in true hacker spirit, you 
+may just `start reading sources`_ . 
+
+.. _`documentation section`: docindex.html 
+.. _`start reading sources`: getting-started-dev.html#start-reading-sources
+
+Filing bugs or feature requests 
+-------------------------------
+
+You may file `bug reports`_ on our issue tracker which is
+also accessible through the 'issues' top menu of 
+the PyPy website.  `Using the development tracker`_ has 
+more detailed information on specific features of the tracker. 
+
+.. _`Using the development tracker`: coding-guide.html#using-development-tracker
+.. _bug reports:            https://codespeak.net/issue/pypy-dev/
+
+
+.. include:: _ref.txt

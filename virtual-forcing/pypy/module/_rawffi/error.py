@@ -1,0 +1,2 @@
+class SegfaultException(Exception):
+    pass

@@ -1,0 +1,94 @@
+Content-Type: multipart/mixed; boundary="===============1988336873=="
+MIME-Version: 1.0
+cpu mhz: unknown
+cpu model: unknown
+execution-time: 12.6530230045
+exit status: 2
+fspath: /home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_global.py
+options: ['core']
+outcome: ERROUT
+platform: linux2
+pypy-revision: 16123
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Thu Aug 18 02:12:59 2005
+testreport-version: 1.1
+timeout: 3844.0
+userhost: xoraxax@tick
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============1988336873==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+should have raised SyntaxError: 
+def wrong1():
+    a = 1
+    b = 2
+    global a
+    global b
+
+should have raised SyntaxError: 
+def wrong2():
+    print x
+    global x
+
+should have raised SyntaxError: 
+def wrong3():
+    print x
+    x = 2
+    global x
+
+as expected, no SyntaxError
+
+--===============1988336873==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /home/contest/xoraxax/pypy-dist/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0xf7fa3068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0xf7fa30b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0xf7fa3020>
+faking <type '_sre.SRE_Pattern'>
+
+--===============1988336873==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="reportdiff"
+
+**********************************************************************
+*** mismatch between lines 2-4 of expected output and lines 2-19 of actual output:
+- got SyntaxError as expected
+- got SyntaxError as expected
+- got SyntaxError as expected
++ should have raised SyntaxError: 
++ def wrong1():
++     a = 1
++     b = 2
++     global a
++     global b
++ 
++ should have raised SyntaxError: 
++ def wrong2():
++     print x
++     global x
++ 
++ should have raised SyntaxError: 
++ def wrong3():
++     print x
++     x = 2
++     global x
++ 
+**********************************************************************
+
+--===============1988336873==--

@@ -1,0 +1,151 @@
+License for files in the pypy/ directory 
+==================================================
+
+Except when otherwise stated (look for LICENSE files in directories or
+information at the beginning of each file) all software and
+documentation in the 'pypy' directories is licensed as follows: 
+
+    The MIT License
+
+    Permission is hereby granted, free of charge, to any person 
+    obtaining a copy of this software and associated documentation 
+    files (the "Software"), to deal in the Software without 
+    restriction, including without limitation the rights to use, 
+    copy, modify, merge, publish, distribute, sublicense, and/or 
+    sell copies of the Software, and to permit persons to whom the 
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included 
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+    DEALINGS IN THE SOFTWARE.
+
+
+PyPy Copyright holders 2003-2009
+----------------------------------- 
+
+Except when otherwise stated (look for LICENSE files or information at
+the beginning of each file) the files in the 'pypy' directory are each
+copyrighted by one or more of the following people and organizations:    
+
+    Armin Rigo
+    Samuele Pedroni
+    Carl Friedrich Bolz
+    Maciek Fijalkowski
+    Michael Hudson
+    Antonio Cuni
+    Christian Tismer
+    Holger Krekel
+    Eric van Riet Paap
+    Richard Emslie
+    Anders Chrigstrom
+    Aurelien Campeas
+    Amaury Forgeot d Arc
+    Anders Lehmann
+    Niklaus Haldimann
+    Seo Sanghyeon
+    Leonardo Santagada
+    Lawrence Oluyede
+    Jakub Gustak
+    Guido Wesdorp
+    Niko Matsakis
+    Toon Verwaest
+    Alexander Schremmer
+    Ludovic Aubry
+    Alex Martelli
+    Stephan Diehl
+    Adrien Di Mascio
+    Stefan Schwarzer
+    Tomek Meka
+    Patrick Maupin
+    Jacob Hallen
+    Laura Creighton
+    Camillo Bruni
+    Bob Ippolito
+    Simon Burton
+    Bruno Gola
+    Alexandre Fayolle
+    Marius Gedminas
+    Guido van Rossum
+    Valentino Volonghi
+    Adrian Kuhn
+    Anders Hammarquist
+    Paul deGrandis
+    Gerald Klix
+    Wanja Saatkamp
+    Oscar Nierstrasz
+    Eugene Oden
+    Lukas Renggli
+    Bartosz SKOWRON
+    Guenter Jantzen
+    Dinu Gherman
+    Georg Brandl
+    Ben Young
+    Nicolas Chauvat
+    Jean-Paul Calderone
+    Rocco Moretti
+    Michael Twomey
+    Boris Feigin
+    Jared Grubb
+    Olivier Dormond
+    Stuart Williams
+    Jens-Uwe Mager
+    Justas Sadzevicius
+    Brian Dorsey
+    Jonathan David Riehl
+    Beatrice During
+    Elmo Mäntynen
+    Andreas Friedge
+    Anders Qvist
+    Alan McIntyre
+    Bert Freudenberg
+
+    Heinrich-Heine University, Germany 
+    Open End AB (formerly AB Strakt), Sweden
+    merlinux GmbH, Germany 
+    tismerysoft GmbH, Germany 
+    Logilab Paris, France 
+    DFKI GmbH, Germany 
+    Impara, Germany
+    Change Maker, Sweden 
+
+ 
+License for 'lib-python/2.5.2' and 'lib-python/2.5.2-modified'
+============================================================== 
+
+Except when otherwise stated (look for LICENSE files or
+copyright/license information at the beginning of each file) the files
+in the 'lib-python/2.5.2' and 'lib-python/2.5.2-modified' directories
+are all copyrighted by the Python Software Foundation and licensed under
+the Python Software License of which you can find a copy here:
+http://www.python.org/doc/Copyright.html 
+
+License for 'pypy/translator/jvm/src/jna.jar'
+=============================================
+
+The file 'pypy/translator/jvm/src/jna.jar' is licensed under the GNU
+Lesser General Public License of which you can find a copy here:
+http://www.gnu.org/licenses/lgpl.html
+
+License for 'pypy/translator/jvm/src/jasmin.jar'
+================================================
+
+The file 'pypy/translator/jvm/src/jasmin.jar' is copyright (c) 1996-2004 Jon Meyer
+and distributed with permission.  The use of Jasmin by PyPy does not imply
+that PyPy is endorsed by Jon Meyer nor any of Jasmin's contributors.  Furthermore,
+the following disclaimer applies to Jasmin:
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

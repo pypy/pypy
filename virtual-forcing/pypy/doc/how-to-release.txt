@@ -1,0 +1,49 @@
+Making a PyPy Release
+=======================
+
+Overview
+---------
+
+As a meta rule setting up issues in the tracker for items here may help not forgetting things.
+A set of todo files may also work.
+
+Check and prioritize all issues for the release, postpone some if necessary,
+create new  issues also as necessary. A meeting (or meetings) should be organized
+to decide what things are priorities, should go in and work for the release. 
+
+An important thing is to get the documentation into an up-to-date state!
+
+Release Steps
+----------------
+
+* at code freeze make a release branch under
+  http://codepeak.net/svn/pypy/release/x.y(.z). IMPORTANT: bump the
+  pypy version number in module/sys/version.py, notice that the branch
+  will capture the revision number of this change for the release;
+  some of the next updates may be done before or after branching; make
+  sure things are ported back to the trunk and to the branch as
+  necessary
+* update dist/pypy/doc/contributor.txt (and possibly dist/LICENSE)
+* update dist/README
+* write release announcement dist/pypy/doc/release-x.y(.z).txt
+  the release announcement should contain a direct link to the download page
+  (which is getting started).
+* update dist/pypy/doc/getting-started.txt links at the top
+  and release number references, make sure it is generally up-to-date
+* use, after the necessary updates, dist/pypy/tool/makerelease.py to
+  make the tarballs on codespeak; this generates html doc for the
+  tarballs too.  Use::
+     
+     makerelease -tag .z pypy-x.y.z
+
+  to tag and produce final tarballs. Without the '-tag' this can
+  be used to make pre-release testing tarballs.
+* nowadays we have an extensive set of nightly builds and test
+  runs. Is probably good to do some minimal testing of the tarballs,
+  especially to check that things work even outside a working copy or
+  if some stuff is missing. We have some support for running part of
+  our nightly tests on tarballs (see
+  http://codespeak.net/svn/user/pedronis/tarball-testing).
+* write a news item for the release in dist/pypy/doc/news.txt
+* send announcements to pypy-dev, pypy-funding, python-list,
+  python-announce, python-dev ...

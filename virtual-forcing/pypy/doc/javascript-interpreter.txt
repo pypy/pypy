@@ -1,0 +1,109 @@
+======================================
+JS-PyPy: PyPy's Javascript interpreter
+======================================
+
+JS-PyPy is a Javascript interpreter written in pyton by Leonardo Santagada
+with the help of most of the pypy team and is his summer of pypy project. It
+is a python program, so you can run it on top of the usual python interpreter
+and probably in the future even use it to support javascript in a python
+application (some apis and some more work is needed for that), but the most
+important stuff now is that it can be translated by pypy to a binary or to any
+other backend to make a stand-alone interpreter, with the flexibility that the
+pypy tools give you, like changing garbage collector. It aims to show how to
+implement a clear interpreter on the pypy plataform, and providing support for
+some facilities not common to javascript interpreters.
+
+To run the js interpreter you will need the spidermonkey binary in the path
+(or in the same directory in windows) as we currently don't have our own
+parser and we are using narcisus on top of spidermonkey . Also, it does have
+an interactive interpreter for you to play with, but it is made in pure python
+(not rpython) so it isn't present on the translated interpreter.
+
+If you want to play with it now, you will see that it works for some simple
+code and most of javascript statements but it is still missing much on the
+standard library, and right now we have some problems with prototypes (but
+they are being worked on)
+
+Translating the interpreter to C 
+================================
+
+Just as you can translate PyPy's Python interpreter, you can also translate the
+Javascript interpreter to C::
+
+    pypy$ cd translator/goal
+    pypy/translator/goal$ python translate.py targetjsstandalone.py
+
+The translated interpreter is not interactive, you can only pass a javascript
+file for execution.
+
+Examples
+========
+
+This examples are made using the interactive interpreter js_interactive.py,
+but you can save the code to a file and run it on the translated interpreter.
+
+To start the basics, open the interactive interpreter::
+
+	pypy/lang/js$ ./py_interactive.py
+	js-pypy> print("hello world") // the classic example
+	hello world
+	js-pypy> x = 3+5*2 // arithimetic expressions
+	1
+	js-pypy> x = "Hello" + " " + "World" // string manipulation
+	"Hello World"
+	js-pypy> function f(n) { // functions works
+	     ...   return n+1;
+	     ... }
+	[object Object]
+	js-pypy> f(13)
+	14
+	js-pypy> 
+
+some more complex examples::
+
+	js-pypy> function fact(n) { // recursive functions, this is a factorial
+	     ...   if (n==0) {
+	     ...     return 1;
+	     ...   }
+	     ...   else {
+	     ...     return n*fact(n-1);
+	     ...   }
+	     ... }
+	[object Object]
+	js-pypy> fact(3)
+	6
+	js-pypy> function fact(n) {
+	     ...   if (n==0) {
+	     ...     return 1;
+	     ...   }
+	     ...   else {
+	     ...     return n*fact(n-1);
+	     ...   }
+	     ... }
+	[object Object]
+	js-pypy> fact(3)
+	6
+
+	js-pypy> function sumclosure(number) { // closures are supported also
+	     ...   return function (n) { return number+n }
+	     ... }
+	[object Object]
+	js-pypy> sum5 = sumclosure(5)
+	[object Object]
+	js-pypy> sum5(4)
+	9
+	js-pypy> 
+
+Conclusions
+===========
+
+The interpreter is working but it is not complete, start playing with it and
+fixing bugs and adding features should be easy as the code is still very
+small, mostly it is defined in:
+
+* interpreter.py: main interpreter and builtins
+* operations.py: operations and all the nodes that can be interpreted (hint:
+  the place to implement the switch statement)
+* jsobj.py: primitive types and objects of javascript
+
+Please send comments and ideas (or any form of feedback) santagada at gmail dot com

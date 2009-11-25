@@ -1,0 +1,103 @@
+========================================================================
+                                 Loops
+========================================================================
+
+
+Basics
+-----------------
+
+*Loop Tree* = tree of operations.  Its root (i.e. start) corresponds to
+a ``can_enter_jit`` marker, so it is when an application-level loop was
+closed.  Its branches end in a JUMP going either back to the head of the
+same loop tree, or to the head of another one.
+
+
+Perfect Specialization
+-------------------------------
+
+In theory, Perfect Specialization of a sequence of operations forming a
+loop means the following:
+
+* find how much of the input arguments' structure is needed;
+* find how much structure the output arguments have;
+* do the intersection.
+
+The input arguments' structure is the most precise structure that works
+for all branches.  It describes how much information, at most, we would
+like to have at the root.
+
+The output arguments' structure is, similarly, the most precise
+structure that correctly describes the output of all branches.  It
+describes how much information, at most, we can pass to the next
+iteration.
+
+More precisely, we use the following *specnode* classes to represent
+the level of specialization::
+
+    .       VirtualSpec(cls, name1=spec1, ...)
+                    |
+         VirtualizableSpec(cls, name1=spec1, ...)
+                    |
+              FixedClassSpec(cls)
+                    |
+                 NotSpec
+
+For (a simplified) example, ``VirtualizableSpec(PyFrame, x =
+VirtualSpec(W_IntObject, value = NotSpec))`` describes the virtualizable
+frame for a loop in which the only used variable is ``x``, which is a
+virtual ``W_IntObject``.
+
+The intersection rules are:
+
+* the intersection of two ``VirtualSpec`` of the same ``cls`` is a
+  further ``VirtualSpec``, and we proceed with the intersection of
+  each field.
+
+* the intersection of two ``VirtualizableSpec`` of the same ``cls`` is
+  like the previous case, except that some names may be omitted
+  completely from a given ``VirtualizableSpec``; in the case a name is
+  present in only one of the ``VirtualizableSpec``, we just keep it
+  unmodified in the intersection.
+
+* in other cases, the result is ``FixedClassSpec`` if the two specnodes
+  have the same class, or ``NotSpec`` if any is a ``NotSpec`` or if the
+  two classes differ.
+
+
+Overall Approach
+-----------------------------
+
+Start tracing:
+
+1. when we interpret normally and see a ``can_enter_jit`` marker often
+   enough;
+
+2. or when a guard in the running machine code fails often enough.
+
+Stop tracing when we encounter the next ``can_enter_jit``.
+
+Call "the old ``can_enter_jit``" the ``can_enter_jit`` that we started
+with in case 1, or the one that is at the start of the existing loop
+before the guard failure in case 2.  If the old and the new
+``can_enter_jit`` are not at the same bytecode position, we are not
+seeing a loop at all; this is a corner case for now (let's see later).
+We will assume that the bytecode position is the same for the sequel.
+
+Call "the loop" the sequence of instructions from the old
+``can_enter_jit`` to the new one.  In the case 2 above, this means that
+we must insert into the loop all unoptimized operations that go before
+the guard failure; this is necessary to see a complete loop.
+
+Apply Perfect Specialization to the loop.
+
+Case A: We are seeing a new loop header (i.e. we did not see before this
+combination of specnodes at this bytecode position).  Compile the new
+loop completely, and jump to it.
+
+Case B: We get the same specnodes as a previously-compiled loop (which
+may be the same loop as the one we started with, or not).  Compile only
+a bridge, going from the guard failure to the new loop head.  If we were
+in case 1 above, the "guard failure" is actually the start from the
+interpreter; so this combination of cases means compile a bridge going
+efficiently from the interpreter (with no specialization) to the loop
+in machine code (with specialization).

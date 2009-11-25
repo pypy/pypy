@@ -1,0 +1,91 @@
+=====================================================
+Random implementation details of distribution attempt
+=====================================================
+
+.. contents::
+.. sectnum::
+
+This document attempts to broaden this `dist thoughts`_.
+
+.. _`dist thoughts`: distribution-newattempt.html
+
+Basic implementation:
+---------------------
+
+First we do split objects into value-only primitives (like int) and other.
+Basically immutable builtin types which cannot contain user-level objects
+(int, float, long, str, None, etc.) will be always transfered as value-only
+objects (having no states etc.). The every other object (user created classes,
+instances, modules, lists, tuples, etc. etc.) are always executed by reference.
+(Of course if somebody wants to ie. copy the instance, he can marshal/pickle
+this to string and send, but it's outside the scope of this attempt). Special
+case might be immutable data structure (tuple, frozenset) containing simple
+types (this becomes simple type).
+
+XXX: What to do with code types? Marshalling them and sending seems to have no
+sense. Remote execution? Local execution with remote f_locals and f_globals?
+
+Every remote object has got special class W_RemoteXXX where XXX is interp-level
+class implementing this object. W_RemoteXXX implements all the operations
+by using special app-level code that sends method name and arguments over the wire
+(arguments might be either simple objects which are simply send over the app-level
+code or references to local objects).
+
+So the basic scheme would look like::
+
+    remote_ref = remote("Object reference")
+    remote_ref.any_method()
+
+``remote_ref`` in above example looks like normal python object to user,
+but is implemented differently (W_RemoteXXX), and uses app-level proxy
+to forward each interp-level method call.
+
+Abstraction layers:
+-------------------
+
+In this section we define remote side as a side on which calls are
+executed and local side is the one on which calls are run.
+
+* Looking from the local side, first thing that we see is object
+  which looks like normal object (has got the same interp-level typedef)
+  but has got different implementation. Basically this is the shallow copy
+  of remote object (however you define shallow, it's up to the code which
+  makes the copy. Basically the copy which can be marshalled or send over
+  the wire or saved for future purpose). This is W_RemoteXXX where XXX is
+  real object name. Some operations on that object requires accessing remote
+  side of the object, some might not need such (for example remote int
+  is totally the same int as local one, it could not even be implemented
+  differently).
+
+* For every interp-level operation, which accesses internals that are not
+  accessible at the local side, (basically all attribute accesses which
+  are accessing things that are subclasses of W_Object) we provide special
+  W_Remote version, which downloads necessary object when needed
+  (if accessed). This is the same as normal W_RemoteXXX (we know the type!)
+  but not needed yet.
+
+* From the remote point of view, every exported object which needs such
+  has got a local apropriate storage W_LocalXXX where XXX is a type 
+  by which it could be accessed from a wire.
+
+The real pain:
+--------------
+
+For every attribute access when we get W_RemoteXXX, we need to check
+the download flag - which sucks a bit. (And we have to support it somehow
+in annotator, which sucks a lot). The (some) idea is to wrap all the methods
+with additional checks, but that's both unclear and probably not necessary.
+
+XXX If we can easily change underlaying implementation of an object, than
+this might become way easier. Right now I'll try to have it working and
+thing about RPython later.
+
+App-level remote tool:
+----------------------
+
+For purpose of app-level tool which can transfer the data (well, socket might
+be enough, but suppose I want to be more flexible), I would use `py.execnet`_,
+probably using some of the Armin's hacks to rewrite it using greenlets instead
+of threads.
+
+.. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html

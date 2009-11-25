@@ -1,0 +1,12 @@
+Enable a pair of bytecodes that speed up method calls.
+See ``pypy.interpreter.callmethod`` for a description.
+
+The goal is to avoid creating the bound method object in the common
+case.  So far, this only works for calls with no keyword, no ``*arg``
+and no ``**arg`` but it would be easy to extend.
+
+Gives the best results combined with :config:`objspace.std.withshadowtracking`.
+
+For more information, see the section in `Standard Interpreter Optimizations`_.
+
+.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html#lookup-method-call-method

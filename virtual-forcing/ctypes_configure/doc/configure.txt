@@ -1,0 +1,24 @@
+=================
+ctypes configure
+=================
+
+idea
+====
+
+One of ctypes problems is that ctypes programs are usually not very
+platform-independent. We created ctypes_configure, which invokes gcc
+for various platform-dependent details like
+exact sizes of types (for example size\_t), #defines, exact outline
+of structures etc. It replaces in this regard code generator (h2py).
+
+installation
+============
+
+``easy_install ctypes_configure``
+
+usage
+=====
+
+`sample.py`_ explains in details how to use it.
+
+.. _`sample.py`: http://codespeak.net/svn/pypy/dist/ctypes_configure/doc/sample.py

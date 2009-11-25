@@ -1,0 +1,76 @@
+PYBENCH - A Python Benchmark Suite
+==================================
+
+Micro-Manual
+------------
+
+Run 'pybench.py -h' to see the help screen.
+Run 'pybench.py' to just let the benchmark suite do its thing and
+'pybench.py -f <file>' to have it store the results in a file too.
+
+Change list
+-----------
+
+0.5 -> 0.6:
+	added more tests and fixed some others
+	added overhead output
+	switched from default warp 10 to warp 20
+0.5:
+	initial release
+0.4:
+	pre-release
+
+Sample comparism output
+---------------------------------
+
+projects/pybench> pybench.py -s mxp15-O-1 -c p151-O-1
+PYBENCH 0.6
+
+Benchmark: mxp15-O-1 (rounds=10, warp=20)
+
+Tests:                              per run    per oper.  diff *
+------------------------------------------------------------------------
+          BuiltinFunctionCalls:     496.55 ms    3.89 us  -25.77%
+           BuiltinMethodLookup:     634.70 ms    1.21 us  -28.20%
+                 ConcatStrings:     531.45 ms    3.54 us   -7.49%
+               CreateInstances:     687.15 ms   16.36 us  -21.10%
+       CreateStringsWithConcat:     531.15 ms    2.66 us  -15.74%
+                  DictCreation:     657.05 ms    4.38 us  -17.14%
+                      ForLoops:     684.10 ms   68.41 us  -41.58%
+                    IfThenElse:     720.75 ms    1.07 us  -24.18%
+                   ListSlicing:     547.90 ms  156.54 us   -1.92%
+                NestedForLoops:     448.55 ms    1.28 us  -35.98%
+          NormalClassAttribute:     790.20 ms    1.32 us   -7.80%
+       NormalInstanceAttribute:     572.10 ms    0.95 us  -35.66%
+           PythonFunctionCalls:     649.00 ms    3.93 us  -13.90%
+             PythonMethodCalls:     570.00 ms    7.60 us  -15.00%
+                     Recursion:     505.55 ms   40.44 us  -15.54%
+                  SecondImport:     469.00 ms   18.76 us   -3.82%
+           SecondPackageImport:     483.00 ms   19.32 us   -5.40%
+         SecondSubmoduleImport:     613.05 ms   24.52 us   -5.34%
+       SimpleComplexArithmetic:     540.10 ms    2.46 us  -18.32%
+        SimpleDictManipulation:     505.60 ms    1.69 us  -32.73%
+         SimpleFloatArithmetic:     552.05 ms    1.00 us  -29.24%
+      SimpleIntFloatArithmetic:     509.15 ms    0.77 us  -32.00%
+       SimpleIntegerArithmetic:     509.15 ms    0.77 us  -32.10%
+        SimpleListManipulation:     461.10 ms    1.71 us  -36.03%
+          SimpleLongArithmetic:     448.50 ms    2.72 us  -22.26%
+                    SmallLists:     730.55 ms    2.86 us  -27.39%
+                   SmallTuples:     668.10 ms    2.78 us  -23.16%
+         SpecialClassAttribute:     696.25 ms    1.16 us  -20.26%
+      SpecialInstanceAttribute:     682.20 ms    1.14 us  -37.42%
+                 StringSlicing:     481.60 ms    2.75 us  -14.29%
+                     TryExcept:     920.40 ms    0.61 us   -6.39%
+                TryRaiseExcept:     561.05 ms   37.40 us  -13.38%
+                  TupleSlicing:     594.65 ms    5.66 us   -6.38%
+------------------------------------------------------------------------
+            Average round time:   21895.00 ms             -22.49%
+
+*) measured against: p151-O-1 (rounds=10, warp=20)
+
+Note: if you're interested in receiving the patch that turns
+Python 1.5 into mxPython1.5 (mxp15 was done with it), drop me line
+and I'll send you the URL for the patch.
+
+Have fun,
+Marc-Andre Lemburg, mailto:mal@lemburg.com

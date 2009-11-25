@@ -1,0 +1,8 @@
+This directory contains the libffi package, copied from the 
+Modules/_ctypes/libffi_msvc directory of the CPython distribution,
+as of relase 2.6a3.
+
+It was slightly modify to suit pypy needs:
+- Py_FatalError was renamed to libffi_fatalerror, in ffi.c
+- The file pypy_ffi.c was added, to resolve undefined externals.
+  Its contents is inspired from the `ctypes.c` file of the CPython module.

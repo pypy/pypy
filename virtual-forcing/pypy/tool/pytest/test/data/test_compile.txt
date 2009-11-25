@@ -1,0 +1,111 @@
+Content-Type: multipart/mixed; boundary="===============2137793924=="
+MIME-Version: 1.0
+execution-time: 34.8464071751
+exit status: 1
+fspath: /Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py
+options: ['core', '_sre']
+outcome: ERR
+platform: darwin
+pypy-revision: 16114
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Thu Aug 18 03:08:18 2005
+testreport-version: 1.1
+timeout: 1521.0
+userhost: anderslehmann@anders-lehmanns-15-powerbook-g4.local
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============2137793924==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+test_argument_handling (__main__.TestSpecifics) ... FAIL
+test_argument_order (__main__.TestSpecifics) ... FAIL
+test_complex_args (__main__.TestSpecifics) ... ok
+test_debug_assignment (__main__.TestSpecifics) ... FAIL
+test_duplicate_global_local (__main__.TestSpecifics) ... ok
+test_exec_with_general_mapping_for_locals (__main__.TestSpecifics) ... ok
+test_float_literals (__main__.TestSpecifics) ... ok
+test_for_distinct_code_objects (__main__.TestSpecifics) ... ok
+test_import (__main__.TestSpecifics) ... FAIL
+test_indentation (__main__.TestSpecifics) ... ok
+test_literals_with_leading_zeroes (__main__.TestSpecifics) ... ok
+test_none_assignment (__main__.TestSpecifics) ... FAIL
+test_sequence_unpacking_error (__main__.TestSpecifics) ... ok
+test_syntax_error (__main__.TestSpecifics) ... ok
+test_unary_minus (__main__.TestSpecifics) ... ok
+
+======================================================================
+FAIL: test_argument_handling (__main__.TestSpecifics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 18, in test_argument_handling
+    self.assertRaises(SyntaxError, eval, 'lambda a,a:0')
+AssertionError: SyntaxError not raised
+
+======================================================================
+FAIL: test_argument_order (__main__.TestSpecifics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 127, in test_argument_order
+    self.fail("non-default args after default")
+AssertionError: non-default args after default
+
+======================================================================
+FAIL: test_debug_assignment (__main__.TestSpecifics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 10, in test_debug_assignment
+    self.assertRaises(SyntaxError, compile, '__debug__ = 1', '?', 'single')
+AssertionError: SyntaxError not raised
+
+======================================================================
+FAIL: test_import (__main__.TestSpecifics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 253, in test_import
+    self.assertRaises(SyntaxError, compile, stmt, 'tmp', 'exec')
+AssertionError: SyntaxError not raised
+
+======================================================================
+FAIL: test_none_assignment (__main__.TestSpecifics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 211, in test_none_assignment
+    self.assertRaises(SyntaxError, compile, stmt, 'tmp', 'single')
+AssertionError: SyntaxError not raised
+
+----------------------------------------------------------------------
+Ran 15 tests in 14.363s
+
+FAILED (failures=5)
+
+--===============2137793924==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /Users/anderslehmann/pypy/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0x12068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0x120b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0x12020>
+Traceback (application-level):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 268 in <module>
+    test_main()
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_compile.py", line 265 in test_main
+    test_support.run_unittest(TestSpecifics)
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_support.py", line 290 in run_unittest
+    run_suite(suite, testclass)
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_support.py", line 274 in run_suite
+    raise TestFailed(msg)
+TestFailed: errors occurred in __main__.TestSpecifics
+
+--===============2137793924==--

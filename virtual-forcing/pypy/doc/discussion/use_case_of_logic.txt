@@ -1,0 +1,75 @@
+Use cases for a combination of Logic and Object Oriented programming approach
+-------------------------------------------------------------------------------
+
+Workflows
+=========
+
+Defining the next state by solving certain constraints. The more
+general term might be State machines.
+
+Business Logic
+==============
+
+We define Business Logic as expressing consistency (as an example) on
+a set of objects in a business application.
+
+For exeample checking the consistency of a calculation before
+committing the changes.
+
+The domain is quite rich in example of uses of Busines Logic.
+
+Datamining
+===========
+
+An example is Genetic sequence matching.
+
+Databases
+=========
+
+Validity contraints for the data can be expressed as constraints.
+
+Constraints can be used to perform type inference when querying the
+database.
+
+Semantic web
+=============
+
+The use case is like the database case, except the ontology langauge
+it self is born out of Descriptive Logic
+
+
+User Interfaces
+===============
+
+We use rules to describe the layout and visibility constraints of
+elements that are to be displayed on screen. The rule can also help
+describing how an element is to be displayed depending on its state
+(for instance, out of bound values can be displayed in a different
+colour).
+
+Configuration
+==============
+
+User configuration can use information infered from : the current
+user, current plantform , version requirements, ...
+
+The validity of the configuration can be checked with the constraints.
+
+
+Scheduling and planning
+========================
+
+Timetables, process scheduling, task scheduling.
+
+Use rules to determin when to execute tasks (only start batch, if load
+is low, and previous batch is finished.
+
+Load sharing.
+
+Route optimisation. Planning the routes of a technitian based on tools
+needed and such
+
+An example is scheduling a confenre like Europython see:
+
+http://lists.logilab.org/pipermail/python-logic/2005-May/000107.html
+

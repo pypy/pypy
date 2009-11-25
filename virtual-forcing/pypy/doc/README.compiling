@@ -1,0 +1,104 @@
+
+Compiling approaches
+--------------------------
+
+PyPy includes four compiling approaches which are reflecting the
+states of different part of its compiling pipeline.
+
+You can select one of this approach by use of the --compiler option.
+The options are:
+- stable: use interpreter/stablecompiler at interp-level
+- _stable: use lib/_stablecompiler at applevel.
+- ast: use in-development translatable interplevel compiling.
+- cpython: use cpython builtin c-level compiler.
+
+The following is a more detailed explanation of each option.
+
+The compiling pipeline comprises three parts:
+- the tokenizer turns source code into tokens
+- the parser analyzes a sequence of tokens and if it's grammatically
+  correct it turns it into an internal representation called a parse
+  tree or a syntax tree
+- the compiler turns the internal representation into code objects containing
+  bytecode
+
+the --compiler option of pypy selects a full compiling pipeline
+including the tokenizer, parser, and actual compiler.
+
+The existence of those different parts is explained by several needs:
+to fully translate pypy, all code running at interpreter level needs to be
+translatable.
+If some part is not translatable we need to interpret it at application level
+The compiler module from c-python is entirely written in python which is good
+but it is far from being translatable
+We keep c-python implementations for testing purposes (because its much faster)
+For the same reasons we keep some code at interpreter level which is not translatable.
+
+tokenizer
+---------
+there is only two tokenizer in pypy. ones is c-python's own tokenizer
+and the other one is an automata based recognizer
+
+parser
+------
+as for the tokenizer there is two (three) parsers one from c-python and one home-made
+parser.
+The pypy parser can build different kinds of representations with the help
+of a 'builder' object and pypy can use two builders:
+- tuplebuilder produces a representation similar to that of the c-python parser module
+  the building of the internal representation is fully annotatable, unfortunately we
+  need to transform this representation into a tree of tuples which is an operation
+  that cannot be annotatable 
+- astbuilder is a builder that directly produces the Abstract Syntax Tree needed by
+  the pypy compiler to produce code objects. The astbuilder is fully annotatable and
+  so can run at interpreter level
+
+compiler
+--------
+again we have the choice between c-python's own compiler and pypy compiler
+The pypy compiler is based on the compiler package from c-python.
+It contains two main parts : the transformer living in transformer.py and
+the ast to bytecode compiler implemented mainly in pycodegen.py and pyassem.py
+
+The transformer turns tuple into an AST (Abstract Syntax Tree).
+The AST to bytecode transforms the AST into bytecode.
+To summarize:
+- when we use the tuplebuilder from the parser we feed its output to
+  the transformer first and then feed the AST to the AST to bytecode compiler
+- when we use the astbuilder from the parser we can feed its output directly to
+  the AST to bytecode compiler
+
+The compiler package has been modified and splitted into three different versions.
+
+interpreter/stablecompiler: this version mostly contains bug fixes and is the closer
+                            to the original c-python implementation
+
+lib/_stablecompiler: this version is very similar to stable but needs to run at
+                     application-level (that is interpreted by pypy itself)
+                     which means that it cannot use things like 'eval' which
+                     would recursively call itself.
+interpreter/astcompiler: this version intends to be run at interpreter level
+                         and be translatable. it is heavily modified and doesn't
+                         use the transformer since we provide directly the ast
+                         tree produced by the astbuilder
+
+So in summary the four options correspond to the following:
+
+stable: uses the pypy parser with the tuplebuilder feeding tuples to the transformer
+        and compiler from the interpreter/stablecompiler
+        this version is not translatable because the compiler and transformer are not.
+
+_stable: uses the pypy parser with the tuplebuilder feeding tuples to 
+         the application-level transformer and compiler from lib/_stablecompiler
+         this version is fully translatable at the cost of running the transformer
+         and compiler at application level
+
+ast: uses the pypy parser with the astbuilder feeding the AST tree to
+     the compiler from interpreter/astcompiler
+     this version is intended to be fully translatable. This is a work in progress.
+     it can be used instead of stable except some corner case compliance test won't
+     pass yet.
+
+cpython: uses the c-python builtin `compile` function to compile the source code
+         this version uses a c-builtin so it's not translatable but much faster
+         (note that the speed gain is only during compilation, exec and eval)

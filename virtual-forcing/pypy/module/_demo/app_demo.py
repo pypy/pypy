@@ -1,0 +1,3 @@
+
+class DemoError(Exception):
+    pass

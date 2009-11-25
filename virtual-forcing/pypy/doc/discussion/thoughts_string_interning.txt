@@ -1,0 +1,211 @@
+String Interning in PyPy
+===========================
+
+A few thoughts about string interning. CPython gets a remarkable
+speed-up by interning strings. Interned are all builtin string
+objects and all strings used as names. The effect is that when
+a string lookup is done during instance attribute access,
+the dict lookup method will find the string always by identity,
+saving the need to do a string comparison.
+
+Interned Srings in CPython
+--------------------------
+
+CPython keeps an internal dictionary named ``interned`` for all of these
+strings. It contains the string both as key and as value, which means
+there are two extra references in principle. Upto Version 2.2, interned
+strings were considered immortal. Once they entered the ``interned`` dict,
+nothing could revert this memory usage.
+
+Starting with Python 2.3, interned strings became mortal by default.
+The reason was less memory usage for strings that have no external
+reference any longer. This seems to be a worthwhile enhancement.
+Interned strings that are really needed always have a real reference.
+Strings which are interned for temporary reasons get a big speed up
+and can be freed after they are no longer in use.
+
+This was implemented by making the ``interned`` dictionary a weak dict,
+by lowering the refcount of interned strings by 2. The string deallocator
+got extra handling to look into the ``interned`` dict when a string is deallocated.
+This is supported by the state variable on string objects which tells
+whether the string is not interned, immortal or mortal.
+
+Implementation problems for PyPy
+--------------------------------
+
+- The CPython implementation makes explicit use of the refcount to handle
+  the weak-dict behavior of ``interned``. PyPy does not expose the implementation
+  of object aliveness. Special handling would be needed to simulate mortal
+  behavior. A possible but expensive solution would be to use a real
+  weak dictionary. Another way is to add a special interface to the backend
+  that allows either the two extra references to be reset, or for the
+  boehm collector to exclude the ``interned`` dict from reference tracking.
+
+- PyPy implements quite complete internal strings, as opposed to CPython
+  which always uses its "applevel" strings. It also supports low-level
+  dictionaries. This adds some complication to the issue of interning.
+  Additionally, the interpreter currently handles attribute access
+  by calling wrap(str) on the low-level attribute string when executing 
+  frames. This implies that we have to primarily intern low-level strings
+  and cache the created string objects on top of them.
+  A possible implementation would use a dict with ll string keys and the
+  string objects as values. In order to save the extra dict lookup, we also
+  could consider to cache the string object directly on a field of the rstr,
+  which of course adds some extra cost. Alternatively, a fast id-indexed
+  extra dictionary can provide the mapping from rstr to interned string object.
+  But for efficiency reasons, it is anyway necessary to put an extra flag about
+  interning on the strings. Flagging this by putting the string object itself
+  as the flag might be acceptable. A dummyobject can be used if the interned
+  rstr is not exposed as an interned string object.
+
+Update: a reasonably simple implementation
+-------------------------------------------
+
+Instead of the complications using the stringobject as a property of an rstr
+instance, I propose to special case this kind of dictionary (mapping rstr
+to stringobject) and to put an integer ``interned`` field into the rstr. The
+default is -1 for not interned. Non-negative values are the direct index
+of this string into the interning dict. That is, we grow an extra function
+that indexes the dict by slot number of the dict table and gives direct
+access to its value. The dictionary gets special handling on dict_resize,
+to recompute the slot numbers of the interned strings. ATM I'd say we leave
+the strings immortal and support mortality later when we have a cheap
+way to express this (less refcount, exclusion from Boehm, whatever).
+
+A prototype brute-force patch
+--------------------------------
+
+In order to get some idea how efficient string interning is at the moment,
+I implemented a quite crude version of interning. I patched space.wrap
+to call this intern_string instead of W_StringObject::
+
+ def intern_string(space, str):
+     if we_are_translated():
+         _intern_ids = W_StringObject._intern_ids
+         str_id = id(str)
+         w_ret = _intern_ids.get(str_id, None)
+         if w_ret is not None:
+             return w_ret
+         _intern = W_StringObject._intern
+         if str not in _intern:
+             _intern[str] = W_StringObject(space, str)
+         W_StringObject._intern_keep[str_id] = str
+         _intern_ids[str_id] = w_ret = _intern[str]
+         return w_ret
+     else:
+         return W_StringObject(space, str)
+
+This is no general solution at all, since it a) does not provide
+interning of rstr and b) interns every app-level string. The
+implementation is also by far not as efficient as it could be,
+because it utilizes an extra dict _intern_ids which maps the
+id of the rstr to the string object, and a dict _intern_keep to
+keep these ids alive.
+
+With just a single _intern dict from rstr to string object, the
+overall performance degraded slightly instead of an advantage.
+The triple dict patch accelerates richards by about 12 percent.
+Since it still has the overhead of handling the extra dicts,
+I guess we can expect twice the acceleration if we add proper
+interning support.
+
+The resulting estimated 24 % acceleration is still not enough
+to justify an implementation right now.
+
+Here the results of the richards benchmark::
+
+  D:\pypy\dist\pypy\translator\goal>pypy-c-17516.exe -c "from richards import *;Richards.iterations=1;main()"
+  debug: entry point starting
+  debug:  argv -> pypy-c-17516.exe
+  debug:  argv -> -c
+  debug:  argv -> from richards import *;Richards.iterations=1;main()
+  Richards benchmark (Python) starting... [<function entry_point at 0xeae060>]
+  finished.
+  Total time for 1 iterations: 38 secs
+  Average time for iterations: 38885 ms
+  
+  D:\pypy\dist\pypy\translator\goal>pypy-c.exe -c "from richards import *;Richards.iterations=1;main()"
+  debug: entry point starting
+  debug:  argv -> pypy-c.exe
+  debug:  argv -> -c
+  debug:  argv -> from richards import *;Richards.iterations=1;main()
+  Richards benchmark (Python) starting... [<function entry_point at 0xead810>]
+  finished.
+  Total time for 1 iterations: 34 secs
+  Average time for iterations: 34388 ms
+  
+  D:\pypy\dist\pypy\translator\goal>
+
+
+This was just an exercize to get an idea. For sure this is not to be checked in.
+Instead, I'm attaching the simple patch here for reference.
+::
+
+  Index: objspace/std/objspace.py
+  ===================================================================
+  --- objspace/std/objspace.py	(revision 17526)
+  +++ objspace/std/objspace.py	(working copy)
+  @@ -243,6 +243,9 @@
+                   return self.newbool(x)
+               return W_IntObject(self, x)
+           if isinstance(x, str):
+  +            # XXX quick speed testing hack
+  +            from pypy.objspace.std.stringobject import intern_string
+  +            return intern_string(self, x)
+               return W_StringObject(self, x)
+           if isinstance(x, unicode):
+               return W_UnicodeObject(self, [unichr(ord(u)) for u in x]) # xxx
+  Index: objspace/std/stringobject.py
+  ===================================================================
+  --- objspace/std/stringobject.py	(revision 17526)
+  +++ objspace/std/stringobject.py	(working copy)
+  @@ -18,6 +18,10 @@
+   class W_StringObject(W_Object):
+       from pypy.objspace.std.stringtype import str_typedef as typedef
+   
+  +    _intern_ids = {}
+  +    _intern_keep = {}
+  +    _intern = {}
+  +
+       def __init__(w_self, space, str):
+           W_Object.__init__(w_self, space)
+           w_self._value = str
+  @@ -32,6 +36,21 @@
+   
+   registerimplementation(W_StringObject)
+   
+  +def intern_string(space, str):
+  +    if we_are_translated():
+  +        _intern_ids = W_StringObject._intern_ids
+  +        str_id = id(str)
+  +        w_ret = _intern_ids.get(str_id, None)
+  +        if w_ret is not None:
+  +            return w_ret
+  +        _intern = W_StringObject._intern
+  +        if str not in _intern:
+  +            _intern[str] = W_StringObject(space, str)
+  +        W_StringObject._intern_keep[str_id] = str
+  +        _intern_ids[str_id] = w_ret = _intern[str]
+  +        return w_ret
+  +    else:
+  +        return W_StringObject(space, str)
+   
+   def _isspace(ch):
+       return ord(ch) in (9, 10, 11, 12, 13, 32)  
+  Index: objspace/std/stringtype.py
+  ===================================================================
+  --- objspace/std/stringtype.py	(revision 17526)
+  +++ objspace/std/stringtype.py	(working copy)
+  @@ -47,6 +47,10 @@
+       if space.is_true(space.is_(w_stringtype, space.w_str)):
+           return w_obj  # XXX might be reworked when space.str() typechecks
+       value = space.str_w(w_obj)
+  +    # XXX quick hack to check interning effect
+  +    w_obj = W_StringObject._intern.get(value, None)
+  +    if w_obj is not None:
+  +        return w_obj
+       w_obj = space.allocate_instance(W_StringObject, w_stringtype)
+       W_StringObject.__init__(w_obj, space, value)
+       return w_obj
+
+ciao - chris

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=latin1" />
+<meta name="generator" content="Docutils 0.4.1: http://docutils.sourceforge.net/" />
+<title>ctypes configure</title>
+</head>
+<body>
+<div class="document" id="ctypes-configure">
+<h1 class="title">ctypes configure</h1>
+<div class="section">
+<h1><a id="idea" name="idea">idea</a></h1>
+<p>One of ctypes problems is that ctypes programs are usually not very
+platform-independent. We created ctypes_configure, which invokes gcc
+for various platform-dependent details like
+exact sizes of types (for example size_t), #defines, exact outline
+of structures etc. It replaces in this regard code generator (h2py).</p>
+</div>
+<div class="section">
+<h1><a id="installation" name="installation">installation</a></h1>
+<p><tt class="docutils literal"><span class="pre">easy_install</span> <span class="pre">ctypes_configure</span></tt></p>
+</div>
+<div class="section">
+<h1><a id="usage" name="usage">usage</a></h1>
+<p><a class="reference" href="http://codespeak.net/svn/pypy/dist/ctypes_configure/doc/sample.py">sample.py</a> explains in details how to use it.</p>
+</div>
+</div>
+</body>
+</html>

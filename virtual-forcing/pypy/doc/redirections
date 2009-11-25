@@ -1,0 +1,10 @@
+# please make sure this is evaluable 
+{
+    'proxy.html': 'objspace-proxies.html#tproxy',
+    'news.html': 'index.html',
+    'contact.html': 'index.html',
+    'home.html': 'index.html',
+    'jit.html': 'jit/index.html',
+    'standalone-howto.html': 'faq.html#pypy-translation-tool-chain',
+    'dynamic-language-translation.html': 'http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf',
+}

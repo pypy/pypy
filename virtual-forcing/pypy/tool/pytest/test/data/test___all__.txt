@@ -1,0 +1,94 @@
+Content-Type: multipart/mixed; boundary="===============0790678169=="
+MIME-Version: 1.0
+execution-time: 1445.14346004
+exit status: 1
+fspath: /Users/anderslehmann/pypy/lib-python/2.4.1/test/test___all__.py
+options: ['core', '_sre']
+outcome: T/O
+platform: darwin
+pypy-revision: 16114
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Wed Aug 17 23:51:59 2005
+testreport-version: 1.1
+timeout: 1369.0
+userhost: anderslehmann@anders-lehmanns-15-powerbook-g4.local
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============0790678169==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+test_all (__main__.AllTest) ... ERROR
+
+======================================================================
+ERROR: test_all (__main__.AllTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test___all__.py", line 163, in test_all
+    self.check_all("tty")
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test___all__.py", line 26, in check_all
+    "%s has no __all__ attribute" % modname)
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_support.py", line 208, in verify
+    raise TestFailed(reason)
+TestFailed: tty has no __all__ attribute
+
+----------------------------------------------------------------------
+
+--===============0790678169==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /Users/anderslehmann/pypy/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0x12068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0x120b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0x12020>
+faking <type '_socket.socket'>
+faking <type 'classobj'>
+faking <type 'PyCObject'>
+faking <type 'time.struct_time'>
+==========================timedout==========================
+Traceback (application-level):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test___all__.py", line 192 in <module>
+    test_main()
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test___all__.py", line 189 in test_main
+    test_support.run_unittest(AllTest)
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_support.py", line 290 in run_unittest
+    run_suite(suite, testclass)
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/test/test_support.py", line 262 in run_suite
+    result = runner.run(suite)
+Traceback (application-level):
+  File "/Users/anderslehmann/pypy/lib-python/2.4.1/atexit.py", line 29 in _run_exitfuncs
+    print >> sys.stderr, "Error in atexit._run_exitfuncs:"
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "/Users/anderslehmann/pypy/pypy/tool/alarm.py", line 43, in ?
+    execfile(_main_with_alarm(finished))
+  File "/Users/anderslehmann/pypy/pypy/bin/py.py", line 206, in ?
+    sys.exit(main_(sys.argv))
+  File "/Users/anderslehmann/pypy/pypy/bin/py.py", line 115, in main_
+    if not main.run_toplevel(space, doit, verbose=Options.verbose):
+  File "/Users/anderslehmann/pypy/pypy/interpreter/main.py", line 150, in run_toplevel
+    operationerr.print_application_traceback(space)
+  File "/Users/anderslehmann/pypy/pypy/interpreter/error.py", line 83, in print_application_traceback
+    self.print_app_tb_only(file)
+  File "/Users/anderslehmann/pypy/pypy/interpreter/error.py", line 104, in print_app_tb_only
+    l = linecache.getline(fname, lineno)
+  File "/Library/Frameworks/Python.framework/Versions/2.4/lib/python2.4/linecache.py", line 14, in getline
+    lines = getlines(filename)
+  File "/Library/Frameworks/Python.framework/Versions/2.4/lib/python2.4/linecache.py", line 40, in getlines
+    return updatecache(filename)
+  File "/Library/Frameworks/Python.framework/Versions/2.4/lib/python2.4/linecache.py", line 101, in updatecache
+    lines = fp.readlines()
+KeyboardInterrupt
+
+--===============0790678169==--

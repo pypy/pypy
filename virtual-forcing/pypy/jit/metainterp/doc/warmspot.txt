@@ -1,0 +1,26 @@
+Warm spot - supporting hot path execution in RPyjitpl
+=====================================================
+
+We introduce two jit hints:
+
+jit_merge_point(**keys)
+
+and
+
+can_enter_jit(**keys)
+
+In case of python interpreter, can_enter_jit is invoked at a place where
+app-level jump takes place (JUMP_ABSOLUTE opcode) and jit_merge_point is
+invoked at the beginning of the main interpreter loop.
+
+The interpreter starts from running normally, without generating any
+assembler at all. When it encounters can_enter_jit with exactly the same
+key enough number of times, it starts tracing (the "slow" path of pyjitpl),
+until it finds a loop to compile.
+
+Next time we run the efficient loop (assembler code) and we encounter
+failing guard, we use JIT without tracing (ie compiling and executing one
+instruction at a time, but not doing anything more) for fast "get out of
+here" until we encounter jit_merge_point (end of the opcode usually), where
+we completely exit jit.
+
