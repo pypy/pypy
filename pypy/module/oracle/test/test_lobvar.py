@@ -19,16 +19,17 @@ class LobTests(object):
 
         longString = ""
         for i in range(2):
+            cur.execute("truncate table pypy_temp_lobtable")
             if i > 0:
                 longString += chr(65+i) * 25000
 
-        cur.setinputsizes(lob=inputType)
-        cur.execute("insert into pypy_temp_lobtable values (:lob)",
-                    lob=longString)
-        cur.execute("select lobcol from pypy_temp_lobtable")
-        lob, = cur.fetchone()
-        assert lob.size() == len(longString)
-        assert lob.read() == longString
+            cur.setinputsizes(lob=inputType)
+            cur.execute("insert into pypy_temp_lobtable values (:lob)",
+                        lob=longString)
+            cur.execute("select lobcol from pypy_temp_lobtable")
+            lob, = cur.fetchone()
+            assert lob.size() == len(longString)
+            assert lob.read() == longString
 
     def test_trim(self):
         inputType = getattr(oracle, self.lobType)

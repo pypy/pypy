@@ -1026,6 +1026,10 @@ class W_LobVariable(W_VariableWithDescriptor):
         amountptr[0] = rffi.cast(roci.ub4, databuf.size)
 
         try:
+            # nothing to do if no data to write
+            if databuf.size == 0:
+                return
+
             status = roci.OCILobWrite(
                 self.connection.handle,
                 self.environment.errorHandle,
