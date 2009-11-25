@@ -69,7 +69,7 @@ class CConfig:
     OCI_NTV_SYNTAX OCI_COMMIT_ON_SUCCESS
     OCI_FETCH_NEXT
     OCI_IND_NULL OCI_IND_NOTNULL
-    OCI_PIN_ANY OCI_LOCK_NONE
+    OCI_PIN_ANY OCI_LOCK_NONE OCI_OBJECTFREE_FORCE
     OCI_OTYPE_PTR OCI_PTYPE_TYPE
     OCI_STMT_SELECT OCI_STMT_CREATE OCI_STMT_DROP OCI_STMT_ALTER
     OCI_STMT_INSERT OCI_STMT_DELETE OCI_STMT_UPDATE
@@ -461,6 +461,14 @@ OCIErrorGet = external(
 
 # OCI Object Pin, Unpin, and Free Functions
 
+OCIObjectFree = external(
+    'OCIObjectFree',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     dvoidp,           # instance
+     ub2],             # flags
+    sword)
+
 OCIObjectPin = external(
     'OCIObjectPin',
     [OCIEnv,           # env,
@@ -471,6 +479,13 @@ OCIObjectPin = external(
      OCIDuration,      # pin_duration
      OCILockOpt,       # lock_option
      dvoidpp],         # object
+    sword)
+
+OCIObjectUnpin = external(
+    'OCIObjectUnpin',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     dvoidp],          # object
     sword)
 
 # OCI Date, Datetime, and Interval Functions

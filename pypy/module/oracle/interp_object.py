@@ -6,9 +6,17 @@ from pypy.module.oracle import roci
 
 class W_ObjectType(Wrappable):
     def __init__(self, connection, param):
+        self.tdo = None
         self.environment = connection.environment
         self.isCollection = False
         self.initialize(connection, param)
+
+    def __del__(self):
+        if self.tdo:
+            roci.OCIObjectUnpin(
+                self.environment.handle,
+                self.environment.errorHandle,
+                self.tdo)
 
     def initialize(self, connection, param):
         nameptr = lltype.malloc(rffi.CArrayPtr(roci.oratext).TO, 1,
