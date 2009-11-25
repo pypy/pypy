@@ -27,6 +27,7 @@ class LobTests(object):
                     lob=longString)
         cur.execute("select lobcol from pypy_temp_lobtable")
         lob, = cur.fetchone()
+        assert lob.size() == len(longString)
         assert lob.read() == longString
 
 class AppTestLob(LobTests, OracleTestBase):

@@ -21,6 +21,11 @@ class W_ExternalLob(Wrappable):
         return self.lobVar.read(space, self.pos, offset, amount)
     read.unwrap_spec=['self', ObjSpace, int, int]
 
+    def size(self, space):
+        self._verify(space)
+        return space.wrap(self.lobVar.getLength(space, self.pos))
+    size.unwrap_spec=['self', ObjSpace]
+
     def desc_str(self, space):
         return self.read(space, offset=1, amount=-1)
     desc_str.unwrap_spec=['self', ObjSpace]
@@ -29,6 +34,8 @@ W_ExternalLob.typedef = TypeDef(
     'ExternalLob',
     read = interp2app(W_ExternalLob.read,
                       unwrap_spec=W_ExternalLob.read.unwrap_spec),
+    size = interp2app(W_ExternalLob.size,
+                      unwrap_spec=W_ExternalLob.size.unwrap_spec),
     __str__ = interp2app(W_ExternalLob.desc_str,
                          unwrap_spec=W_ExternalLob.desc_str.unwrap_spec),
     )
