@@ -36,6 +36,7 @@ class CConfig:
     OCIInd = platform.SimpleType('OCIInd', rffi.INT)
     OCIPinOpt = platform.SimpleType('OCIPinOpt', rffi.INT)
     OCILockOpt = platform.SimpleType('OCILockOpt', rffi.INT)
+    OCITypeCode = platform.SimpleType('OCITypeCode', rffi.UINT)
 
     OCINumber = platform.Struct('OCINumber', [])
     OCITime   = platform.Struct('OCITime',
@@ -58,16 +59,18 @@ class CConfig:
     OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP OCI_DTYPE_INTERVAL_DS OCI_DTYPE_LOB
     OCI_CRED_RDBMS OCI_CRED_EXT OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
-    OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
+    OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
     OCI_ATTR_NAME OCI_ATTR_SCALE OCI_ATTR_PRECISION OCI_ATTR_IS_NULL
     OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_REF_TDO
-    OCI_ATTR_SCHEMA_NAME OCI_ATTR_TYPE_NAME
+    OCI_ATTR_SCHEMA_NAME OCI_ATTR_TYPE_NAME OCI_ATTR_TYPECODE
+    OCI_ATTR_NUM_TYPE_ATTRS OCI_ATTR_LIST_TYPE_ATTRS
     OCI_ATTR_CHARSET_FORM OCI_ATTR_ENV_CHARSET_ID
     OCI_ATTR_PARSE_ERROR_OFFSET
     OCI_NTV_SYNTAX OCI_COMMIT_ON_SUCCESS
     OCI_FETCH_NEXT
     OCI_IND_NULL OCI_IND_NOTNULL
     OCI_PIN_ANY OCI_LOCK_NONE
+    OCI_OTYPE_PTR OCI_PTYPE_TYPE
     OCI_STMT_SELECT OCI_STMT_CREATE OCI_STMT_DROP OCI_STMT_ALTER
     OCI_STMT_INSERT OCI_STMT_DELETE OCI_STMT_UPDATE
     SQLT_CHR SQLT_LNG SQLT_AFC SQLT_RDD SQLT_BIN SQLT_LBI SQLT_LVC SQLT_LVB
@@ -78,6 +81,7 @@ class CConfig:
     SQLCS_IMPLICIT SQLCS_NCHAR
     OCI_TEMP_CLOB OCI_TEMP_BLOB OCI_DURATION_SESSION OCI_ONE_PIECE
     OCI_NUMBER_SIGNED
+    OCI_TYPECODE_NAMEDCOLLECTION OCI_TYPECODE_OBJECT
     OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
     '''.split()
 
@@ -281,6 +285,18 @@ OCIDefineObject = external(
      ub4,            # pvszsp
      dvoidpp,        # indpp
      ub4],           # indszp
+    sword)
+
+OCIDescribeAny = external(
+    'OCIDescribeAny',
+    [OCISvcCtx,      # svchp
+     OCIError,       # errhp
+     dvoidp,         # objptr
+     ub4,            # objptr_len
+     ub1,            # objptr_typ
+     ub1,            # info_level
+     ub1,            # objtyp
+     OCIDescribe],   # dschp
     sword)
 
 OCIStmtGetBindInfo = external(

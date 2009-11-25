@@ -31,4 +31,4 @@ class AppTestObjectVar(OracleTestBase):
         objValue, = cur.fetchone()
         assert objValue.type.schema == self.cnx.username.upper()
         assert objValue.type.name == "PYPY_TEST_OBJTYPE"
-        #assert objValue.type.attributes[0].name == "NUMBERVALUE"
+        assert objValue.type.attributes[0].name == "NUMBERCOL"
