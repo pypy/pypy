@@ -464,6 +464,27 @@ OCIErrorGet = external(
      ub4],        # type
     sword)
 
+# OCI Miscellaneous Object Functions
+
+OCIObjectGetAttr = external(
+    'OCIObjectGetAttr',
+    [OCIEnv,             # env
+     OCIError,           # err
+     dvoidp,             # instance
+     dvoidp,             # null_struct
+     OCIType,            # tdo
+     Ptr(oratext),       # names
+     Ptr(ub4),           # lengths
+     ub4,                # name_count
+     Ptr(ub4),           # indexes
+     ub4,                # index_count
+     Ptr(OCIInd),        # attr_null_status
+     dvoidpp,            # attr_null_struct
+     dvoidpp,            # attr_value
+     dvoidpp],           # attr_tdo
+    sword)
+
+
 # OCI Object Pin, Unpin, and Free Functions
 
 OCIObjectFree = external(

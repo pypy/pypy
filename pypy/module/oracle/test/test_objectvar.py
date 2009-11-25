@@ -43,3 +43,5 @@ class AppTestObjectVar(OracleTestBase):
         assert objValue.type.attributes[0].name == "NUMBERCOL"
         assert isinstance(arrayValue, list)
         assert arrayValue == [5, 10, None, 20]
+        assert objValue.NUMBERCOL == 1
+        raises(AttributeError, getattr, objValue, 'OTHERCOL')

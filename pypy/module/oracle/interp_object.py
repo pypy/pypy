@@ -1,9 +1,12 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
+from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 
-from pypy.module.oracle import roci, transform
+from pypy.module.oracle import roci, config, transform
 
 class W_ObjectType(Wrappable):
     def __init__(self, connection, param):
@@ -323,6 +326,8 @@ class W_ObjectAttribute(Wrappable):
         if self.typeCode in (roci.OCI_TYPECODE_NAMEDCOLLECTION,
                              roci.OCI_TYPECODE_OBJECT):
             self.subType = W_ObjectType(connection, param)
+        else:
+            self.subType = None
 
 W_ObjectAttribute.typedef = TypeDef(
     'ObjectAttribute',
@@ -330,15 +335,79 @@ W_ObjectAttribute.typedef = TypeDef(
     )
 
 class W_ExternalObject(Wrappable):
-    def __init__(self, ref, type, instance, indicator, isIndependent=True):
+    def __init__(self, ref, objectType, instance, indicator, isIndependent=True):
         self.ref = ref
-        self.type = type
+        self.objectType = objectType
         self.instance = instance
         self.indicator = indicator
         self.isIndependent = isIndependent
+
+    def getattr(self, space, attr):
+        try:
+            attribute = self.objectType.attributesByName[attr]
+        except KeyError:
+            msg = "ExternalObject has no attribute '%s'" %(attr,)
+            raise OperationError(space.w_AttributeError, space.wrap(msg))
+
+        environment = self.objectType.environment
+
+        scalarvalueindicatorptr = lltype.malloc(rffi.CArrayPtr(roci.OCIInd).TO,
+                                                1, flavor='raw')
+        valueindicatorptr = lltype.malloc(rffi.CArrayPtr(roci.dvoidp).TO,
+                                          1, flavor='raw')
+        valueptr = lltype.malloc(rffi.CArrayPtr(roci.dvoidp).TO,
+                                 1, flavor='raw')
+        tdoptr = lltype.malloc(rffi.CArrayPtr(roci.OCIType).TO,
+                               1, flavor='raw')
+        nameptr = lltype.malloc(rffi.CArrayPtr(roci.oratext).TO,
+                               1, flavor='raw')
+        nameptr[0] = rffi.str2charp(attr)
+        namelenptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
+                                   1, flavor='raw')
+        namelenptr[0] = rffi.cast(roci.ub4, len(attr))
+
+        try:
+            status = roci.OCIObjectGetAttr(
+                environment.handle,
+                environment.errorHandle,
+                self.instance,
+                self.indicator,
+                self.objectType.tdo,
+                nameptr, namelenptr, 1,
+                lltype.nullptr(roci.Ptr(roci.ub4).TO), 0,
+                scalarvalueindicatorptr,
+                valueindicatorptr,
+                valueptr,
+                tdoptr)
+            environment.checkForError(
+                status, "ExternalObject_GetAttributeValue(): getting value")
+
+            # determine the proper null indicator
+            valueIndicator = valueindicatorptr[0]
+            if not valueIndicator:
+                valueIndicator = scalarvalueindicatorptr
+            value = valueptr[0]
+
+            return convertToPython(
+                space, environment,
+                attribute.typeCode,
+                value, valueIndicator,
+                self, attribute.subType)
+        finally:
+            lltype.free(scalarvalueindicatorptr, flavor='raw')
+            lltype.free(valueindicatorptr, flavor='raw')
+            lltype.free(valueptr, flavor='raw')
+            lltype.free(tdoptr, flavor='raw')
+            rffi.free_charp(nameptr[0])
+            lltype.free(nameptr, flavor='raw')
+            lltype.free(namelenptr, flavor='raw')
+
+    getattr.unwrap_spec = ['self', ObjSpace, str]
+
 W_ExternalObject.typedef = TypeDef(
     'ExternalObject',
-    type = interp_attrproperty('type', W_ExternalObject),
+    type = interp_attrproperty('objectType', W_ExternalObject),
+    __getattr__ = interp2app(W_ExternalObject.getattr),
     )
 
 def convertToPython(space, environment, typeCode,

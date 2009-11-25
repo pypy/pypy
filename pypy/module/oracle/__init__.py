@@ -19,6 +19,7 @@ class Module(MixedModule):
         'CURSOR': 'interp_variable.VT_Cursor',
         'BLOB': 'interp_variable.VT_BLOB',
         'CLOB': 'interp_variable.VT_CLOB',
+        'OBJECT': 'interp_variable.VT_Object',
         'Variable': 'interp_variable.W_Variable',
         'Timestamp': 'interp_error.get(space).w_DateTimeType',
         'Date': 'interp_error.get(space).w_DateType',
