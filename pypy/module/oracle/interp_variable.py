@@ -958,18 +958,7 @@ class W_LobVariable(W_VariableWithDescriptor):
 
     def setValueProc(self, space, pos, w_value):
         self.ensureTemporary(space, pos)
-
-        # trim the current value
-        status = roci.OCILobTrim(
-            self.connection.handle,
-            self.environment.errorHandle,
-            self.getDataptr(pos)[0],
-            0)
-        self.environment.checkForError(
-            status,
-            "LobVar_SetValue(): trim")
-
-        # set the value
+        self.trim(space, pos, 0)
         self.write(space, pos, w_value, 1)
 
     def getLength(self, space, pos):
@@ -987,6 +976,16 @@ class W_LobVariable(W_VariableWithDescriptor):
             return int(lengthptr[0]) # XXX test overflow
         finally:
             lltype.free(lengthptr, flavor='raw')
+
+    def trim(self, space, pos, newSize):
+        status = roci.OCILobTrim(
+            self.connection.handle,
+            self.environment.errorHandle,
+            self.getDataptr(pos)[0],
+            newSize)
+        self.environment.checkForError(
+            status,
+            "LobVar_Trim()")
 
     def read(self, space, pos, offset, amount):
         # modify the arguments

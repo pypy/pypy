@@ -2,6 +2,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError
+
+from pypy.module.oracle.interp_error import get
 
 class W_ExternalLob(Wrappable):
     def __init__(self, var, pos):
@@ -26,6 +29,11 @@ class W_ExternalLob(Wrappable):
         return space.wrap(self.lobVar.getLength(space, self.pos))
     size.unwrap_spec=['self', ObjSpace]
 
+    def trim(self, space, newSize=0):
+        self._verify(space)
+        self.lobVar.trim(space, self.pos, newSize)
+    trim.unwrap_spec=['self', ObjSpace, int]
+
     def desc_str(self, space):
         return self.read(space, offset=1, amount=-1)
     desc_str.unwrap_spec=['self', ObjSpace]
@@ -36,6 +44,8 @@ W_ExternalLob.typedef = TypeDef(
                       unwrap_spec=W_ExternalLob.read.unwrap_spec),
     size = interp2app(W_ExternalLob.size,
                       unwrap_spec=W_ExternalLob.size.unwrap_spec),
+    trim = interp2app(W_ExternalLob.trim,
+                      unwrap_spec=W_ExternalLob.trim.unwrap_spec),
     __str__ = interp2app(W_ExternalLob.desc_str,
                          unwrap_spec=W_ExternalLob.desc_str.unwrap_spec),
     )
