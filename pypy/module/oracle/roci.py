@@ -33,6 +33,9 @@ class CConfig:
     uword = platform.SimpleType('uword', rffi.UINT)
     boolean = platform.SimpleType('boolean', rffi.UINT)
     OCIDuration = platform.SimpleType('OCIDuration', rffi.UINT)
+    OCIInd = platform.SimpleType('OCIInd', rffi.INT)
+    OCIPinOpt = platform.SimpleType('OCIPinOpt', rffi.INT)
+    OCILockOpt = platform.SimpleType('OCILockOpt', rffi.INT)
 
     OCINumber = platform.Struct('OCINumber', [])
     OCITime   = platform.Struct('OCITime',
@@ -57,12 +60,14 @@ class CConfig:
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
     OCI_ATTR_STMT_TYPE OCI_ATTR_PARAM_COUNT OCI_ATTR_ROW_COUNT
     OCI_ATTR_NAME OCI_ATTR_SCALE OCI_ATTR_PRECISION OCI_ATTR_IS_NULL
-    OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_CHARSET_FORM
-    OCI_ATTR_ENV_CHARSET_ID
+    OCI_ATTR_DATA_SIZE OCI_ATTR_DATA_TYPE OCI_ATTR_REF_TDO
+    OCI_ATTR_SCHEMA_NAME OCI_ATTR_TYPE_NAME
+    OCI_ATTR_CHARSET_FORM OCI_ATTR_ENV_CHARSET_ID
     OCI_ATTR_PARSE_ERROR_OFFSET
     OCI_NTV_SYNTAX OCI_COMMIT_ON_SUCCESS
     OCI_FETCH_NEXT
     OCI_IND_NULL OCI_IND_NOTNULL
+    OCI_PIN_ANY OCI_LOCK_NONE
     OCI_STMT_SELECT OCI_STMT_CREATE OCI_STMT_DROP OCI_STMT_ALTER
     OCI_STMT_INSERT OCI_STMT_DELETE OCI_STMT_UPDATE
     SQLT_CHR SQLT_LNG SQLT_AFC SQLT_RDD SQLT_BIN SQLT_LBI SQLT_LVC SQLT_LVB
@@ -84,6 +89,7 @@ globals().update(platform.configure(CConfig))
 OCI_IND_NOTNULL = rffi.cast(rffi.SHORT, OCI_IND_NOTNULL)
 OCI_IND_NULL = rffi.cast(rffi.SHORT, OCI_IND_NULL)
 
+# Various pointers to incomplete structures
 OCISvcCtx = rffi.VOIDP
 OCIEnv = rffi.VOIDP
 OCIError = rffi.VOIDP
@@ -93,10 +99,14 @@ OCIStmt = rffi.VOIDP
 OCIParam = rffi.VOIDP
 OCIBind = rffi.VOIDP
 OCIDefine = rffi.VOIDP
+OCIDescribe = rffi.VOIDP
 OCISnapshot = rffi.VOIDP
 OCIDateTime = rffi.VOIDP
 OCIInterval = rffi.VOIDP
 OCILobLocator = rffi.VOIDP
+OCIRef = rffi.VOIDP
+OCIType = rffi.VOIDP
+OCIComplexObject = rffi.VOIDP
 
 Ptr = rffi.CArrayPtr
 void = lltype.Void
@@ -262,6 +272,17 @@ OCIDefineByPos = external(
      ub4],           # mode
     sword)
 
+OCIDefineObject = external(
+    'OCIDefineObject',
+    [OCIDefine,      # defnp
+     OCIError,       # errhp
+     OCIType,        # type
+     dvoidpp,        # pgvpp
+     ub4,            # pvszsp
+     dvoidpp,        # indpp
+     ub4],           # indszp
+    sword)
+
 OCIStmtGetBindInfo = external(
     'OCIStmtGetBindInfo',
     [OCIStmt,        # stmtp
@@ -420,6 +441,20 @@ OCIErrorGet = external(
      oratext,     # bufp
      ub4,         # bufsize
      ub4],        # type
+    sword)
+
+# OCI Object Pin, Unpin, and Free Functions
+
+OCIObjectPin = external(
+    'OCIObjectPin',
+    [OCIEnv,           # env,
+     OCIError,         # err
+     OCIRef,           # object_ref
+     OCIComplexObject, # corhdl
+     OCIPinOpt,        # pin_option
+     OCIDuration,      # pin_duration
+     OCILockOpt,       # lock_option
+     dvoidpp],         # object
     sword)
 
 # OCI Date, Datetime, and Interval Functions

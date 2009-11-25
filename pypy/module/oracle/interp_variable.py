@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import ovfcheck
 
 import sys
-from pypy.module.oracle import roci, config, transform, interp_lob
+from pypy.module.oracle import roci, config, transform
+from pypy.module.oracle import interp_lob, interp_object
 from pypy.module.oracle.interp_error import W_Error, get
 from pypy.module.oracle.config import string_w, StringBuffer
 
@@ -111,7 +112,7 @@ def _defineHelper(cursor, param, position, numElements):
         lltype.free(handleptr, flavor='raw')
 
     # call the procedure to set values after define
-    var.postDefine()
+    var.postDefine(param)
 
     return var
 
@@ -233,7 +234,7 @@ class W_Variable(Wrappable):
     def preDefine(cls, param, environment):
         return cls
 
-    def postDefine(self):
+    def postDefine(self, param):
         pass
 
     def bind(self, space, cursor, w_name, pos):
@@ -1126,7 +1127,78 @@ class VT_Cursor(W_Variable):
 
 
 class VT_Object(W_Variable):
+    oracleType = roci.SQLT_NTY
+    size = rffi.sizeof(roci.dvoidp)
     canBeInArray = False
+
+    objectIndicator = None
+
+    def initialize(self, space, cursor):
+        self.connection = cursor.connection
+        self.objectType = None
+        self.objectIndicator = lltype.malloc(
+            rffi.CArrayPtr(roci.dvoidp).TO,
+            self.allocatedElements,
+            flavor='raw', zero=True)
+
+    def finalize(self):
+        for i in range(self.allocatedElements):
+            data = rffi.cast(roci.Ptr(roci.dvoidp), self.data)
+            roci.OCIObjectFree(
+                self.environment.handle,
+                self.environment.errorHandle,
+                data[i],
+                roci.OCI_OBJECTFREE_FORCE)
+        if self.objectIndicator:
+            lltype.free(self.objectIndicator, flavor='raw')
+
+    def postDefine(self, param):
+        # XXX this used to be in preDefine
+        self.objectType = interp_object.W_ObjectType(self.connection, param)
+
+        data = rffi.cast(roci.Ptr(roci.dvoidp), self.data)
+
+        status = roci.OCIDefineObject(
+            self.defineHandle,
+            self.environment.errorHandle,
+            self.objectType.tdo,
+            data,
+            0,
+            self.objectIndicator,
+            0)
+        self.environment.checkForError(
+            status,
+            "ObjectVar_PostDefine(): define object")
+
+    def isNull(self, pos):
+        # look at our own indicator array
+        if not self.objectIndicator[pos]:
+            return True
+        return (rffi.cast(roci.Ptr(roci.OCIInd), self.objectIndicator[pos])[0]
+                ==
+                rffi.cast(lltype.Signed, roci.OCI_IND_NULL))
+
+    def getValueProc(self, space, pos):
+        data = rffi.cast(roci.Ptr(roci.dvoidp), self.data)
+        # only allowed to get the value once (for now)
+        if not data[pos]:
+            raise OperationError(
+                get(space).w_ProgrammingError,
+                space.wrap("variable value can only be acquired once"))
+
+
+        # for collections, return the list rather than the object
+        if self.objectType.isCollection:
+            return interp_object.convertCollection(
+                self.environment, data[pos], self, self.objectType)
+
+        # for objects, return a representation of the object
+        var = interp_object.W_ExternalObject(
+            self, self.objectType, data[pos], self.objectIndicator[pos])
+
+        data[pos] = lltype.nullptr(roci.dvoidp.TO)
+        self.objectIndicator[pos] = lltype.nullptr(roci.dvoidp.TO)
+        return space.wrap(var)
 
 all_variable_types = []
 for name, cls in globals().items():
