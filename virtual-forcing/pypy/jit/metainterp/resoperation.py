@@ -125,6 +125,7 @@ _oplist = [
     'GUARD_EXCEPTION',
     'GUARD_NO_OVERFLOW',
     'GUARD_OVERFLOW',
+    'GUARD_NOT_FORCED',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -220,9 +221,11 @@ _oplist = [
     'COND_CALL_GC_MALLOC',  # [a, b, if_(a<=b)_result, if_(a>b)_call, args...]
                             #        => result          (for mallocs)
     'DEBUG_MERGE_POINT/1',      # debugging only
+    'FORCE_TOKEN',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',
+    'CALL_MAY_FORCE',
     'OOSEND',                     # ootype operation
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
