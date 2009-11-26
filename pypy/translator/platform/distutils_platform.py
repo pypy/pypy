@@ -21,6 +21,7 @@ class DistutilsPlatform(Platform):
     point soon completely
     """
     name = "distutils"
+    so_ext = so_ext
     
     def __init__(self, cc=None):
         self.cc = cc
