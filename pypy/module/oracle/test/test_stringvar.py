@@ -147,3 +147,11 @@ class AppTestLongVar(OracleTestBase):
         data = cur.fetchall()
         assert data == [("long string",)]
 
+class AppTestUnicode(OracleTestBase):
+    def test_bind(self):
+        cur = self.cnx.cursor()
+        value = u"Unicode(\u3042)"
+        cur.execute("select :value from dual", value=value)
+        data, = cur.fetchone()
+        assert data == value
+

@@ -293,6 +293,52 @@ class W_Variable(Wrappable):
         finally:
             lltype.free(bindHandlePtr, flavor='raw')
 
+        # set the charset form and id if applicable
+        if self.charsetForm != roci.SQLCS_IMPLICIT:
+            charsetformptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1,
+                                           zero=True, flavor='raw')
+            charsetformptr[0] = rffi.cast(roci.ub1, self.charsetForm)
+            try:
+                status = roci.OCIAttrSet(
+                    self.bindHandle, roci.OCI_HTYPE_BIND,
+                    rffi.cast(roci.dvoidp, charsetformptr), 0,
+                    roci.OCI_ATTR_CHARSET_FORM,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status, "NumberVar_InternalBind(): set charset form")
+            finally:
+                lltype.free(charsetformptr, flavor='raw')
+
+            charsetidptr = lltype.malloc(roci.Ptr(roci.ub2).TO, 1,
+                                         zero=True, flavor='raw')
+            charsetidptr[0] = rffi.cast(roci.ub2, roci.OCI_UTF16ID)
+            try:
+                status = roci.OCIAttrSet(
+                    self.bindHandle, roci.OCI_HTYPE_BIND,
+                    rffi.cast(roci.dvoidp, charsetidptr), 0,
+                    roci.OCI_ATTR_CHARSET_ID,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status, "NumberVar_InternalBind(): set charset Id")
+            finally:
+                lltype.free(charsetidptr, flavor='raw')
+
+        # set the max data size for strings
+        buffersizeptr = lltype.malloc(roci.Ptr(roci.ub4).TO, 1,
+                                      zero=True, flavor='raw')
+        buffersizeptr[0] = rffi.cast(roci.ub4, self.size)
+        try:
+            status = roci.OCIAttrSet(
+                self.bindHandle, roci.OCI_HTYPE_BIND,
+                rffi.cast(roci.dvoidp, buffersizeptr), 0,
+                roci.OCI_ATTR_MAXDATA_SIZE,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "NumberVar_InternalBind(): set max data size")
+        finally:
+            lltype.free(buffersizeptr, flavor='raw')
+
+
     def isNull(self, pos):
         return (rffi.cast(lltype.Signed, self.indicator[pos])
                 ==
@@ -439,8 +485,8 @@ class VT_String(W_Variable):
                 return space.wrap(''.join(l))
             else:
                 while i < length:
-                    l.append(unichr((ord(self.data[offset + i]) << 8) +
-                                    ord(self.data[offset + i + 1])))
+                    l.append(unichr((ord(self.data[offset + i + 1]) << 8) +
+                                    ord(self.data[offset + i])))
                     i += 2
                 return space.wrap(u''.join(l))
         else:
@@ -451,8 +497,8 @@ class VT_String(W_Variable):
                 return space.wrap(''.join(l))
             else:
                 while i < length:
-                    l.append(unichr((ord(self.data[offset + i]) << 8) +
-                                    ord(self.data[offset + i + 1])))
+                    l.append(unichr((ord(self.data[offset + i + 1]) << 8) +
+                                    ord(self.data[offset + i])))
                     i += 2
                 return space.wrap(u''.join(l))
 
@@ -474,7 +520,7 @@ class VT_String(W_Variable):
         else:
             if space.is_true(space.isinstance(w_value, space.w_unicode)):
                 buf = config.StringBuffer()
-                buf.fill(space, w_value)
+                buf.fill_with_unicode(space, w_value)
                 size = buf.size
             else:
                 raise OperationError(
@@ -503,8 +549,42 @@ class VT_FixedChar(VT_String):
     oracleType = roci.SQLT_AFC
     size = 2000
 
-class VT_NationalCharString(W_Variable):
-    pass
+class VT_NationalCharString(VT_String):
+    charsetForm = roci.SQLCS_NCHAR
+
+    def postDefine(self, param):
+        charsetformptr = lltype.malloc(roci.Ptr(roci.ub1).TO, 1,
+                                       zero=True, flavor='raw')
+        charsetformptr[0] = rffi.cast(roci.ub1, self.charsetForm)
+        try:
+            status = roci.OCIAttrSet(
+                self.defineHandle, roci.OCI_HTYPE_DEFINE,
+                rffi.cast(roci.dvoidp, charsetformptr), 0,
+                roci.OCI_ATTR_CHARSET_FORM,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "StringVar_PostDefine(): set charset form")
+        finally:
+            lltype.free(charsetformptr, flavor='raw')
+
+        charsetidptr = lltype.malloc(roci.Ptr(roci.ub2).TO, 1,
+                                     zero=True, flavor='raw')
+        charsetidptr[0] = rffi.cast(roci.ub2, roci.OCI_UTF16ID)
+        try:
+            status = roci.OCIAttrSet(
+                self.defineHandle, roci.OCI_HTYPE_DEFINE,
+                rffi.cast(roci.dvoidp, charsetidptr), 0,
+                roci.OCI_ATTR_CHARSET_ID,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "StringVar_PostDefine(): set charset Id")
+        finally:
+            lltype.free(charsetidptr, flavor='raw')
+
+
+class VT_FixedNationalChar(VT_NationalCharString):
+    oracleType = roci.SQLT_AFC
+    size = 2000
 
 class VT_LongString(W_Variable):
     oracleType = roci.SQLT_LVC
@@ -537,9 +617,6 @@ class VT_LongString(W_Variable):
                 ptr[index + rffi.sizeof(roci.ub4)] = buf.ptr[index]
         finally:
             buf.clear()
-
-class VT_FixedNationalChar(W_Variable):
-    pass
 
 class VT_Rowid(VT_String):
     oracleType = roci.SQLT_CHR
@@ -1329,7 +1406,9 @@ def typeByValue(space, w_value, numElements):
         else:
             return VT_String, size, numElements
 
-    # XXX Unicode
+    if space.is_true(space.isinstance(w_value, space.w_unicode)):
+        size = space.int_w(space.len(w_value))
+        return VT_NationalCharString, size, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_int)):
         return VT_Integer, 0, numElements

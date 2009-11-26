@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.oracle import roci
 
 WITH_UNICODE = False
 
@@ -13,6 +14,7 @@ if WITH_UNICODE:
 else:
     def string_w(space, w_obj):
         return space.str_w(w_obj)
+
     def w_string(space, buf, len=-1):
         if len < 0:
             return space.wrap(rffi.charp2str(buf))
@@ -22,6 +24,7 @@ else:
     BYTES_PER_CHAR = 1
 
     class StringBuffer:
+        "Fill a char* buffer with data, suitable to pass to Oracle functions"
         def __init__(self):
             pass
 
@@ -31,6 +34,15 @@ else:
             else:
                 self.ptr = string_w(space, w_string)
                 self.size = len(self.ptr)
+
+        def fill_with_unicode(self, space, w_unicode):
+            if w_unicode is None or space.is_w(w_unicode, space.w_None):
+                self.clear()
+            else:
+                # XXX ucs2 only probably
+                unistr = space.unicode_w(w_unicode)
+                self.ptr = rffi.cast(roci.oratext, rffi.unicode2wcharp(unistr))
+                self.size = len(unistr) * 2
 
         def clear(self):
             self.ptr = None
