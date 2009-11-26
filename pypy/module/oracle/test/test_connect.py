@@ -116,3 +116,16 @@ class AppTestConnection(OracleNotConnectedTestBase):
         assert encoding != ""
 
 
+class AppTestPool(OracleNotConnectedTestBase):
+    def test_pool(self):
+        pool = oracle.SessionPool(self.username, self.password,
+                                  self.tnsentry,
+                                  2, 8, 3)
+        assert pool.username == self.username
+        assert pool.password == self.password
+        assert pool.tnsentry == self.tnsentry
+        assert pool.max == 8
+        assert pool.min == 2
+        assert pool.increment == 3
+        assert pool.opened == 2
+        assert pool.busy == 0

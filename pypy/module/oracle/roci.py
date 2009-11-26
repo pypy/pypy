@@ -55,7 +55,7 @@ class CConfig:
     OCI_DEFAULT OCI_OBJECT OCI_THREADED OCI_EVENTS
     OCI_SUCCESS OCI_SUCCESS_WITH_INFO OCI_INVALID_HANDLE OCI_NO_DATA
     OCI_HTYPE_ERROR OCI_HTYPE_SVCCTX OCI_HTYPE_SERVER OCI_HTYPE_SESSION
-    OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV
+    OCI_HTYPE_STMT OCI_HTYPE_DESCRIBE OCI_HTYPE_ENV OCI_HTYPE_SPOOL
     OCI_DTYPE_PARAM OCI_DTYPE_TIMESTAMP OCI_DTYPE_INTERVAL_DS OCI_DTYPE_LOB
     OCI_CRED_RDBMS OCI_CRED_EXT OCI_SPOOL_ATTRVAL_NOWAIT
     OCI_ATTR_SERVER OCI_ATTR_SESSION OCI_ATTR_USERNAME OCI_ATTR_PASSWORD
@@ -67,6 +67,8 @@ class CConfig:
     OCI_ATTR_COLLECTION_ELEMENT
     OCI_ATTR_CHARSET_FORM OCI_ATTR_ENV_CHARSET_ID
     OCI_ATTR_PARSE_ERROR_OFFSET
+    OCI_ATTR_SPOOL_OPEN_COUNT OCI_ATTR_SPOOL_BUSY_COUNT OCI_ATTR_SPOOL_TIMEOUT
+    OCI_ATTR_SPOOL_GETMODE
     OCI_NTV_SYNTAX OCI_COMMIT_ON_SUCCESS
     OCI_FETCH_NEXT
     OCI_IND_NULL OCI_IND_NOTNULL
@@ -86,6 +88,7 @@ class CConfig:
     OCI_TYPECODE_NUMBER OCI_TYPECODE_DATE OCI_TYPECODE_TIMESTAMP
     OCI_TYPECODE_NAMEDCOLLECTION OCI_TYPECODE_OBJECT
     OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
+    OCI_SPC_STMTCACHE OCI_SPC_HOMOGENEOUS
     '''.split()
 
     for c in constants:
@@ -102,6 +105,7 @@ OCIEnv = rffi.VOIDP
 OCIError = rffi.VOIDP
 OCIServer = rffi.VOIDP
 OCISession = rffi.VOIDP
+OCISPool = rffi.VOIDP
 OCIStmt = rffi.VOIDP
 OCIParam = rffi.VOIDP
 OCIBind = rffi.VOIDP
@@ -166,6 +170,25 @@ OCISessionEnd = external(
     [OCISvcCtx,    # svchp
      OCIError,     # errhp
      OCISession,   # usrhp
+     ub4],         # mode
+    sword)
+
+OCISessionPoolCreate = external(
+    'OCISessionPoolCreate',
+    [OCISvcCtx,    # svchp
+     OCIError,     # errhp
+     OCISPool,     # spoolhp
+     Ptr(oratext), # poolName
+     Ptr(ub4),     # poolNameLen
+     oratext,      # connStr
+     ub4,          # connStrLen
+     ub4,          # sessMin
+     ub4,          # sessMax
+     ub4,          # sessIncr
+     oratext,      # userid
+     ub4,          # useridLen
+     oratext,      # password
+     ub4,          # passwordLen
      ub4],         # mode
     sword)
 

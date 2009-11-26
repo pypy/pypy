@@ -23,6 +23,7 @@ class Module(MixedModule):
         'Variable': 'interp_variable.W_Variable',
         'Timestamp': 'interp_error.get(space).w_DateTimeType',
         'Date': 'interp_error.get(space).w_DateType',
+        'SessionPool': 'interp_pool.W_SessionPool',
     }
 
     appleveldefs = {
