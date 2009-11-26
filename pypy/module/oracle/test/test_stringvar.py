@@ -155,3 +155,11 @@ class AppTestUnicode(OracleTestBase):
         data, = cur.fetchone()
         assert data == value
 
+    def test_large_unicode(self):
+        cur = self.cnx.cursor()
+        var = cur.var(oracle.UNICODE)
+        value = u"1234567890" * 400
+        var.setvalue(0, value)
+        assert var.getvalue() == value
+        value += "X"
+        raises(ValueError, var.setvalue, 0, value)

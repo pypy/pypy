@@ -6,9 +6,9 @@ class Module(MixedModule):
     interpleveldefs = {
         'connect': 'interp_connect.W_Connection',
         'Connection': 'interp_connect.W_Connection',
-        'UNICODE': 'interp_variable.VT_NationalCharString',
         'NUMBER': 'interp_variable.VT_Float',
         'STRING': 'interp_variable.VT_String',
+        'UNICODE': 'interp_variable.VT_NationalCharString',
         'DATETIME': 'interp_variable.VT_DateTime',
         'DATE': 'interp_variable.VT_Date',
         'TIMESTAMP': 'interp_variable.VT_Timestamp',
@@ -17,6 +17,7 @@ class Module(MixedModule):
         'LONG_STRING': 'interp_variable.VT_LongString',
         'LONG_BINARY': 'interp_variable.VT_LongBinary',
         'FIXED_CHAR': 'interp_variable.VT_FixedChar',
+        'FIXED_UNICODE': 'interp_variable.VT_FixedNationalChar',
         'CURSOR': 'interp_variable.VT_Cursor',
         'BLOB': 'interp_variable.VT_BLOB',
         'CLOB': 'interp_variable.VT_CLOB',

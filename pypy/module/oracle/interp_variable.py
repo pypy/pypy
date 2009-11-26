@@ -528,10 +528,16 @@ class VT_String(W_Variable):
                     space.wrap("expecting unicode data"))
 
         try:
-            if buf.size > self.environment.maxStringBytes:
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("string data too large"))
+            if wantBytes:
+                if buf.size > self.environment.maxStringBytes:
+                    raise OperationError(
+                        space.w_ValueError,
+                        space.wrap("string data too large"))
+            else:
+                if buf.size > config.MAX_STRING_CHARS * 2:
+                    raise OperationError(
+                        space.w_ValueError,
+                        space.wrap("unicode data too large"))
 
             # ensure that the buffer is large enough
             if buf.size > self.bufferSize:
