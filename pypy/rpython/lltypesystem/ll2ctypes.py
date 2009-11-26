@@ -6,7 +6,7 @@ try:
 except ImportError:
     ctypes = None
 
-if sys.version >= (2, 6):
+if sys.version_info >= (2, 6):
     load_library_kwargs = {'use_errno': True}
 else:
     load_library_kwargs = {}
@@ -813,8 +813,8 @@ if ctypes:
             return ctypes.util.find_library('c')
         
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
-    standard_c_lib = ctypes.cdll.LoadLibrary(get_libc_name(),
-                                             **load_library_kwargs)
+    # XXX is this always correct???
+    standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
 
 # ____________________________________________
 
@@ -903,7 +903,7 @@ def get_ctypes_callable(funcptr, calling_conv):
                 # on ie slackware there was need for RTLD_GLOBAL here.
                 # this breaks a lot of things, since passing RTLD_GLOBAL
                 # creates symbol conflicts on C level.
-                clib = dllclass.LoadLibrary(libpath, **load_library_kwargs)
+                clib = dllclass._dlltype(libpath, **load_library_kwargs)
                 cfunc = get_on_lib(clib, funcname)
                 if cfunc is not None:
                     break
@@ -1215,7 +1215,7 @@ TLS = tlsobject()
 
 # on 2.6 ctypes does it right, use it
 
-if sys.version >= (2, 6):
+if sys.version_info >= (2, 6):
     def _save_c_errno():
         TLS.errno = ctypes.get_errno()
 
@@ -1235,18 +1235,18 @@ else:
         if hasattr(TLS, 'errno'):
             _where_is_errno().contents.value = TLS.errno
 
-if ctypes:
-    if sys.platform == 'win32':
-        standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
-        def _where_is_errno():
-            return standard_c_lib._errno()
+    if ctypes:
+        if sys.platform == 'win32':
+            standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
+            def _where_is_errno():
+                return standard_c_lib._errno()
 
-    elif sys.platform in ('linux2', 'freebsd6'):
-        standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
-        def _where_is_errno():
-            return standard_c_lib.__errno_location()
+        elif sys.platform in ('linux2', 'freebsd6'):
+            standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
+            def _where_is_errno():
+                return standard_c_lib.__errno_location()
 
-    elif sys.platform in ('darwin', 'freebsd7'):
-        standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
-        def _where_is_errno():
-            return standard_c_lib.__error()
+        elif sys.platform in ('darwin', 'freebsd7'):
+            standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
+            def _where_is_errno():
+                return standard_c_lib.__error()
