@@ -154,6 +154,10 @@ if osname == 'posix':
             raise Exception, e     # bare 'raise' does not work here :-(
 
     def wait():
+        """ wait() -> (pid, status)
+    
+        Wait for completion of a child process.
+        """
         return posix.waitpid(-1, 0)
 
 else:

@@ -500,6 +500,7 @@ def readlink(space, path):
 readlink.unwrap_spec = [ObjSpace, str]
 
 def fork(space):
+    
     try:
         pid = os.fork()
     except OSError, e: 
@@ -507,6 +508,10 @@ def fork(space):
     return space.wrap(pid)
 
 def waitpid(space, pid, options):
+    """ waitpid(pid, options) -> (pid, status)
+    
+    Wait for completion of a given child process.
+    """
     try:
         pid, status = os.waitpid(pid, options)
     except OSError, e: 
@@ -811,6 +816,7 @@ def declare_new_w_star(name):
     else:
         def WSTAR(space, status):
             return space.newbool(getattr(os, name)(status))
+    WSTAR.__doc__ = getattr(os, name).__doc__
     WSTAR.unwrap_spec = [ObjSpace, int]
     WSTAR.func_name = name
     return WSTAR
