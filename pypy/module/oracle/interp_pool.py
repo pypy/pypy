@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
+from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 
 Null = NoneNotWrapped
@@ -205,6 +206,7 @@ W_SessionPool.typedef = TypeDef(
     min = interp_attrproperty('minSessions', W_SessionPool),
     max = interp_attrproperty('maxSessions', W_SessionPool),
     increment = interp_attrproperty('sessionIncrement', W_SessionPool),
+    homogeneous = interp_attrproperty('homogeneous', W_SessionPool),
     opened = computedProperty(roci.OCI_ATTR_SPOOL_OPEN_COUNT, roci.ub4),
     busy = computedProperty(roci.OCI_ATTR_SPOOL_BUSY_COUNT, roci.ub4),
     timeout = computedProperty(roci.OCI_ATTR_SPOOL_TIMEOUT, roci.ub4),

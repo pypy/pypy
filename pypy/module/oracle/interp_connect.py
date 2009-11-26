@@ -22,6 +22,7 @@ class W_Connection(Wrappable):
         self.autocommit = False
 
         self.sessionHandle = None
+        self.serverHandle = None
 
         self.w_inputTypeHandler = None
         self.w_outputTypeHandler = None
@@ -70,7 +71,7 @@ class W_Connection(Wrappable):
                 space.call_method(self.w_password, 'split',
                                   space.wrap('@'), space.wrap(1)))
 
-        if pool or w_cclass:
+        if pool or w_cclass is not None:
             self.getConnection(space, pool, w_cclass, purity)
         else:
             self.connect(space, mode, twophase)
@@ -246,7 +247,7 @@ class W_Connection(Wrappable):
             w_dbname = pool.w_name
             mode = roci.OCI_SESSGET_SPOOL
             if not pool.homogeneous and pool.w_username and self.w_username:
-                proxyCredentials = space.ne(pool.w_username, self.w_username)
+                proxyCredentials = space.is_true(space.ne(pool.w_username, self.w_username))
                 mode |= roci.OCI_SESSGET_CREDPROXY
         else:
             w_dbname = self.w_tnsentry
@@ -257,13 +258,20 @@ class W_Connection(Wrappable):
         # set up authorization handle, if needed
         if not pool or w_cclass or proxyCredentials:
             # create authorization handle
-            status = roci.OCIHandleAlloc(
-                self.environment.handle,
-                handleptr,
-                roci.HTYPE_AUTHINFO,
-                0, None)
-            self.environment.checkForError(
-                status, "Connection_GetConnection(): allocate handle")
+            handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIServer).TO,
+                                      1, flavor='raw')
+            try:
+                status = roci.OCIHandleAlloc(
+                    self.environment.handle,
+                    handleptr,
+                    roci.OCI_HTYPE_AUTHINFO,
+                    0, lltype.nullptr(rffi.CArray(roci.dvoidp)))
+                self.environment.checkForError(
+                    status, "Connection_GetConnection(): allocate handle")
+
+                authInfo = handleptr[0]
+            finally:
+                lltype.free(handleptr, flavor='raw')
 
             externalCredentials = True
 
@@ -320,19 +328,21 @@ class W_Connection(Wrappable):
                 stringBuffer.clear()
 
             # set the purity, if applicable
-            purityptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
-                                      1, flavor='raw')
-            try:
-                status = roci.OCIAttrSet(
-                    authInfo,
-                    roci.OCI_HTYPE_AUTHINFO,
-                    purityptr, rffi.sizeof(roci.ub4),
-                    roci.OCI_ATTR_PURITY,
-                    self.environment.errorHandle)
-                self.environment.checkForError(
-                    status, "Connection_GetConnection(): set purity")
-            finally:
-                lltype.free(purityptr, flavor='raw')
+            if purity != roci.OCI_ATTR_PURITY_DEFAULT:
+                purityptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
+                                          1, flavor='raw')
+                purityptr[0] = purity
+                try:
+                    status = roci.OCIAttrSet(
+                        authInfo,
+                        roci.OCI_HTYPE_AUTHINFO,
+                        purityptr, rffi.sizeof(roci.ub4),
+                        roci.OCI_ATTR_PURITY,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status, "Connection_GetConnection(): set purity")
+                finally:
+                    lltype.free(purityptr, flavor='raw')
 
         # acquire the new session
         stringBuffer.fill(space, w_dbname)

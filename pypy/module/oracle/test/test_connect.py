@@ -146,3 +146,17 @@ class AppTestPool(OracleNotConnectedTestBase):
         del c2
         import gc; gc.collect()
         assert pool.busy == 1
+
+    def test_proxy_auth(self):
+        pool = oracle.SessionPool(self.username, self.password,
+                                  self.tnsentry,
+                                  2, 8, 3)
+        assert pool.homogeneous is True
+        raises(oracle.ProgrammingError, pool.acquire, user="proxyuser")
+        pool = oracle.SessionPool(self.username, self.password,
+                                  self.tnsentry,
+                                  2, 8, 3, homogeneous=False)
+        assert pool.homogeneous is False
+        e = raises(oracle.DatabaseError, pool.acquire, user="proxyuser")
+        # ORA-28150: proxy not authorized to connect as client
+        assert e.value[0].code == 28150
