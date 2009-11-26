@@ -26,6 +26,9 @@ corresponding Unix manual entries for more information on calls."""
                 'popen3' : 'app_posix.popen3',
                 'popen4' : 'app_posix.popen4',
                 })
+
+    if hasattr(os, 'wait'):
+        appleveldefs['wait'] = 'app_posix.wait'
         
     interpleveldefs = {
     'open'      : 'interp_posix.open',

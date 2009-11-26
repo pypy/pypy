@@ -290,6 +290,7 @@ class AppTestPosix:
         for i in range(5):
             stream = os.popen('echo 1')
             assert stream.read() == '1\n'
+            stream.close()
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -393,6 +394,22 @@ class AppTestPosix:
         def test_os_sysconf_error(self):
             os = self.posix
             raises(ValueError, os.sysconf, "!@#$%!#$!@#")
+    
+    if hasattr(os, 'wait'):
+        def test_os_wait(self):
+            os = self.posix
+            exit_status = 0x33
+
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test wait()")
+            child = os.fork()
+            if child == 0: # in child
+                os._exit(exit_status)
+            else:
+                pid, status = os.wait()
+                assert child == pid
+                assert os.WIFEXITED(status)
+                assert os.WEXITSTATUS(status) == exit_status
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):

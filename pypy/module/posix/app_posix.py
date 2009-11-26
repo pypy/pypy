@@ -153,6 +153,9 @@ if osname == 'posix':
             try_close(read_end)
             raise Exception, e     # bare 'raise' does not work here :-(
 
+    def wait():
+        return posix.waitpid(-1, 0)
+
 else:
     # Windows implementations
     
@@ -170,6 +173,7 @@ else:
         univ_nl = ('b' not in mode)
 
         import subprocess
+
         if mode.startswith('r'):
             proc = subprocess.Popen(cmd,
                                     shell=True,
@@ -194,7 +198,6 @@ else:
             raise ValueError("invalid mode %r" % (mode,))
 
         import subprocess
-        
         p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
@@ -210,7 +213,6 @@ else:
             raise ValueError("invalid mode %r" % (mode,))
 
         import subprocess
-        
         p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
@@ -228,7 +230,6 @@ else:
             raise ValueError("invalid mode %r" % (mode,))
 
         import subprocess
-        
         p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
