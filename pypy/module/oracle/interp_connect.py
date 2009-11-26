@@ -12,7 +12,7 @@ from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS
 from pypy.module.oracle.interp_environ import Environment
 from pypy.module.oracle.interp_cursor import W_Cursor
-from pypy.module.oracle.interp_pool import W_Pool
+from pypy.module.oracle.interp_pool import W_SessionPool
 from pypy.module.oracle.interp_variable import VT_String
 
 class W_Connection(Wrappable):
@@ -21,10 +21,13 @@ class W_Connection(Wrappable):
         self.environment = None
         self.autocommit = False
 
+        self.sessionHandle = None
+
         self.w_inputTypeHandler = None
         self.w_outputTypeHandler = None
 
         self.w_version = None
+        self.release = False
 
     def descr_new(space, w_subtype,
                   w_user=NoneNotWrapped,
@@ -44,10 +47,11 @@ class W_Connection(Wrappable):
 
         # set up the environment
         if w_pool:
-            pool = space.instance_w(W_Pool, w_pool)
+            pool = space.interp_w(W_SessionPool, w_pool)
             self.environment = pool.environment.clone()
         else:
-            self.environment = Environment(space, threaded, events)
+            pool = None
+            self.environment = Environment.create(space, threaded, events)
 
         self.w_username = w_user
         self.w_password = w_password
@@ -66,7 +70,10 @@ class W_Connection(Wrappable):
                 space.call_method(self.w_password, 'split',
                                   space.wrap('@'), space.wrap(1)))
 
-        self.connect(space, mode, twophase)
+        if pool or w_cclass:
+            self.getConnection(space, pool, w_cclass, purity)
+        else:
+            self.connect(space, mode, twophase)
         return space.wrap(self)
 
     descr_new.unwrap_spec = [ObjSpace, W_Root,
@@ -77,7 +84,28 @@ class W_Connection(Wrappable):
                              W_Root,
                              bool,
                              W_Root]
-                                       
+
+    def __del__(self):
+        if self.release:
+            roci.OCITransRollback(
+                self.handle, self.environment.errorHandle,
+                roci.OCI_DEFAULT)
+            roci.OCISessionRelease(
+                self.handle, self.environment.errorHandle,
+                None, 0, roci.OCI_DEFAULT)
+        else:
+            if self.sessionHandle:
+                roci.OCITransRollback(
+                    self.handle, self.environment.errorHandle,
+                    roci.OCI_DEFAULT)
+                roci.OCISessionEnd(
+                    self.handle, self.environment.errorHandle,
+                    self.sessionHandle, roci.OCI_DEFAULT)
+            if self.serverHandle:
+                roci.OCIServerDetach(
+                    self.serverHandle, self.environment.errorHandle,
+                    roci.OCI_DEFAULT)
+
     def connect(self, space, mode, twophase):
         stringBuffer = StringBuffer()
 
@@ -107,7 +135,7 @@ class W_Connection(Wrappable):
                 status, "Connection_Connect(): server attach")
         finally:
             stringBuffer.clear()
-        
+
         # allocate the service context handle
         handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCISvcCtx).TO,
                                   1, flavor='raw')
@@ -131,7 +159,7 @@ class W_Connection(Wrappable):
             self.environment.errorHandle)
         self.environment.checkForError(
             status, "Connection_Connect(): set server handle")
-        
+
         # set the internal and external names; these are needed for global
         # transactions but are limited in terms of the lengths of the strings
 
@@ -206,6 +234,145 @@ class W_Connection(Wrappable):
         except:
             self.sessionHandle = lltype.nullptr(roci.OCISession.TO)
             raise
+
+    def getConnection(self, space, pool, w_cclass, purity):
+        """Get a connection using the OCISessionGet() interface
+        rather than using the low level interface for connecting."""
+
+        proxyCredentials = False
+        authInfo = None
+
+        if pool:
+            w_dbname = pool.w_name
+            mode = roci.OCI_SESSGET_SPOOL
+            if not pool.homogeneous and pool.w_username and self.w_username:
+                proxyCredentials = space.ne(pool.w_username, self.w_username)
+                mode |= roci.OCI_SESSGET_CREDPROXY
+        else:
+            w_dbname = self.w_tnsentry
+            mode = roci.OCI_SESSGET_STMTCACHE
+
+        stringBuffer = StringBuffer()
+
+        # set up authorization handle, if needed
+        if not pool or w_cclass or proxyCredentials:
+            # create authorization handle
+            status = roci.OCIHandleAlloc(
+                self.environment.handle,
+                handleptr,
+                roci.HTYPE_AUTHINFO,
+                0, None)
+            self.environment.checkForError(
+                status, "Connection_GetConnection(): allocate handle")
+
+            externalCredentials = True
+
+            # set the user name, if applicable
+            stringBuffer.fill(space, self.w_username)
+            try:
+                if stringBuffer.size > 0:
+                    externalCredentials = False
+                    status = roci.OCIAttrSet(
+                        authInfo,
+                        roci.OCI_HTYPE_AUTHINFO,
+                        stringBuffer.ptr, stringBuffer.size,
+                        roci.OCI_ATTR_PASSWORD,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status, "Connection_GetConnection(): set user name")
+            finally:
+                stringBuffer.clear()
+
+            # set the password, if applicable
+            stringBuffer.fill(space, self.w_password)
+            try:
+                if stringBuffer.size > 0:
+                    externalCredentials = False
+                    status = roci.OCIAttrSet(
+                        authInfo,
+                        roci.OCI_HTYPE_AUTHINFO,
+                        stringBuffer.ptr, stringBuffer.size,
+                        roci.OCI_ATTR_USERNAME,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status, "Connection_GetConnection(): set password")
+            finally:
+                stringBuffer.clear()
+
+            # if no user name or password are set, using external credentials
+            if not pool and externalCredentials:
+                mode |= roci.OCI_SESSGET_CREDEXT
+
+            # set the connection class, if applicable
+            stringBuffer.fill(space, w_cclass)
+            try:
+                if stringBuffer.size > 0:
+                    externalCredentials = False
+                    status = roci.OCIAttrSet(
+                        authInfo,
+                        roci.OCI_HTYPE_AUTHINFO,
+                        stringBuffer.ptr, stringBuffer.size,
+                        roci.OCI_ATTR_CONNECTION_CLASS,
+                        self.environment.errorHandle)
+                    self.environment.checkForError(
+                        status, "Connection_GetConnection(): set connection class")
+            finally:
+                stringBuffer.clear()
+
+            # set the purity, if applicable
+            purityptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
+                                      1, flavor='raw')
+            try:
+                status = roci.OCIAttrSet(
+                    authInfo,
+                    roci.OCI_HTYPE_AUTHINFO,
+                    purityptr, rffi.sizeof(roci.ub4),
+                    roci.OCI_ATTR_PURITY,
+                    self.environment.errorHandle)
+                self.environment.checkForError(
+                    status, "Connection_GetConnection(): set purity")
+            finally:
+                lltype.free(purityptr, flavor='raw')
+
+        # acquire the new session
+        stringBuffer.fill(space, w_dbname)
+        foundptr = lltype.malloc(rffi.CArrayPtr(roci.boolean).TO,
+                                 1, flavor='raw')
+        handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCISvcCtx).TO,
+                                  1, flavor='raw')
+        try:
+            status = roci.OCISessionGet(
+                self.environment.handle,
+                self.environment.errorHandle,
+                handleptr,
+                authInfo,
+                stringBuffer.ptr, stringBuffer.size,
+                None, 0,
+                lltype.nullptr(roci.Ptr(roci.oratext).TO),
+                lltype.nullptr(roci.Ptr(roci.ub4).TO),
+                foundptr,
+                mode)
+            self.environment.checkForError(
+                status, "Connection_GetConnection(): get connection")
+
+            self.handle = handleptr[0]
+        finally:
+            stringBuffer.clear()
+            lltype.free(foundptr, flavor='raw')
+
+        # eliminate the authorization handle immediately, if applicable
+        if authInfo:
+            roci.OCIHandleFree(authInfo, roci.OCI_HTYPE_AUTHINFO)
+
+        # copy members in the case where a pool is being used
+        if pool:
+            if not proxyCredentials:
+                self.w_username = pool.w_username
+                self.w_password = pool.w_password
+            self.w_tnsentry = pool.w_tnsentry
+            self.sessionPool = pool
+
+        self.release = True
 
     def _checkConnected(self, space):
         if not self.handle:

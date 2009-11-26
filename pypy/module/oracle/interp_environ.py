@@ -4,9 +4,52 @@ from pypy.interpreter.error import OperationError
 
 from pypy.module.oracle.interp_error import W_Error, get
 
-class Environment:
-    def __init__(self, space, threaded, events):
+class Environment(object):
+    def __init__(self, space, handle):
         self.space = space
+        self.handle = handle
+
+        # create the error handle
+        handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIError).TO,
+                                  1, flavor='raw')
+        try:
+            status = roci.OCIHandleAlloc(
+                self.handle,
+                handleptr, roci.OCI_HTYPE_ERROR, 0,
+                lltype.nullptr(rffi.CArray(roci.dvoidp)))
+            self.checkForError(
+                status, "Environment_New(): create error handle")
+            self.errorHandle = handleptr[0]
+        finally:
+            lltype.free(handleptr, flavor='raw')
+
+
+    def checkForError(self, status, context):
+        if status in (roci.OCI_SUCCESS, roci.OCI_SUCCESS_WITH_INFO):
+            return
+
+        if status != roci.OCI_INVALID_HANDLE:
+            # At this point it is assumed that the Oracle
+            # environment is fully initialized
+            error = W_Error(self.space, self, context, 1)
+            if error.code in (1, 1400, 2290, 2291, 2292):
+                w_type = get(self.space).w_IntegrityError
+            elif error.code in (1012, 1033, 1034, 1089, 3113, 3114,
+                                12203, 12500, 12571):
+                w_type = get(self.space).w_OperationalError
+            else:
+                w_type = get(self.space).w_DatabaseError
+            raise OperationError(w_type, self.space.wrap(error))
+
+        error = W_Error(self.space, self, context, 0)
+        error.code = 0
+        error.w_message = self.space.wrap("Invalid handle!")
+        raise OperationError(get(self.space).w_DatabaseError,
+                             self.space.wrap(error))
+
+    @classmethod
+    def create(cls, space, threaded, events):
+        "Create a new environment object from scratch"
         mode = roci.OCI_OBJECT
         if threaded:
             mode |= roci.OCI_THREADED
@@ -40,48 +83,25 @@ class Environment:
                     self.space.wrap(
                         "Unable to acquire Oracle environment handle"))
 
-            self.handle = handleptr[0]
+            handle = handleptr[0]
         finally:
             lltype.free(handleptr, flavor='raw')
 
-
-        self.maxBytesPerCharacter = config.BYTES_PER_CHAR
-        self.maxStringBytes = config.BYTES_PER_CHAR * config.MAX_STRING_CHARS
-
-        # create the error handle
-        handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIError).TO,
-                                  1, flavor='raw')
         try:
-            status = roci.OCIHandleAlloc(
-                self.handle,
-                handleptr, roci.OCI_HTYPE_ERROR, 0,
-                lltype.nullptr(rffi.CArray(roci.dvoidp)))
-            self.checkForError(
-                status, "Environment_New(): create error handle")
-            self.errorHandle = handleptr[0]
-        finally:
-            lltype.free(handleptr, flavor='raw')
+            newenv = cls(space, handle)
+        except:
+            roci.OCIHandleFree(handle, roci.OCI_HTYPE_ENV)
+            raise
 
+        newenv.maxBytesPerCharacter = config.BYTES_PER_CHAR
+        newenv.maxStringBytes = config.BYTES_PER_CHAR * config.MAX_STRING_CHARS
+        return newenv
 
-    def checkForError(self, status, context):
-        if status in (roci.OCI_SUCCESS, roci.OCI_SUCCESS_WITH_INFO):
-            return
-        
-        if status != roci.OCI_INVALID_HANDLE:
-            # At this point it is assumed that the Oracle
-            # environment is fully initialized
-            error = W_Error(self.space, self, context, 1)
-            if error.code in (1, 1400, 2290, 2291, 2292):
-                w_type = get(self.space).w_IntegrityError
-            elif error.code in (1012, 1033, 1034, 1089, 3113, 3114,
-                                12203, 12500, 12571):
-                w_type = get(self.space).w_OperationalError
-            else:
-                w_type = get(self.space).w_DatabaseError
-            raise OperationError(w_type, self.space.wrap(error))
+    def clone(self):
+        """Clone an existing environment.
+        used when acquiring a connection from a session pool, for example."""
+        newenv = type(self)(self.space, self.handle)
+        newenv.maxBytesPerCharacter = self.maxBytesPerCharacter
+        newenv.maxStringBytes = self.maxStringBytes
+        return newenv
 
-        error = W_Error(self.space, self, context, 0)
-        error.code = 0
-        error.w_message = self.space.wrap("Invalid handle!")
-        raise OperationError(get(self.space).w_DatabaseError,
-                             self.space.wrap(error))

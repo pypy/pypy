@@ -89,6 +89,8 @@ class CConfig:
     OCI_TYPECODE_NAMEDCOLLECTION OCI_TYPECODE_OBJECT
     OCI_NLS_MAXBUFSZ OCI_NLS_CS_ORA_TO_IANA
     OCI_SPC_STMTCACHE OCI_SPC_HOMOGENEOUS
+    OCI_SESSGET_SPOOL OCI_SESSGET_CREDPROXY OCI_SESSGET_STMTCACHE
+    OCI_SESSRLS_DROPSESS
     '''.split()
 
     for c in constants:
@@ -105,6 +107,7 @@ OCIEnv = rffi.VOIDP
 OCIError = rffi.VOIDP
 OCIServer = rffi.VOIDP
 OCISession = rffi.VOIDP
+OCIAuthInfo = rffi.VOIDP
 OCISPool = rffi.VOIDP
 OCIStmt = rffi.VOIDP
 OCIParam = rffi.VOIDP
@@ -160,6 +163,11 @@ OCIServerAttach = external(
      ub4],               # mode
     sword)
 
+OCIServerDetach = external(
+    'OCIServerDetach',
+    [OCIServer, OCIError, ub4],
+    sword)
+
 OCISessionBegin = external(
     'OCISessionBegin',
     [OCISvcCtx, OCIError, OCISession, ub4, ub4],
@@ -171,6 +179,22 @@ OCISessionEnd = external(
      OCIError,     # errhp
      OCISession,   # usrhp
      ub4],         # mode
+    sword)
+
+OCISessionGet = external(
+    'OCISessionGet',
+    [OCIEnv,           # envhp
+     OCIError,         # errhp
+     Ptr(OCISvcCtx),   # svchp
+     OCIAuthInfo,      # authInfop,
+     oratext,          # dbName
+     ub4,              # dbName_len
+     oratext,          # tagInfo
+     ub4,              # tagInfo_len
+     Ptr(oratext),     # retTagInfo
+     Ptr(ub4),         # retTagInfo_len
+     Ptr(boolean),     # found
+     ub4],             # mode
     sword)
 
 OCISessionPoolCreate = external(
@@ -189,6 +213,15 @@ OCISessionPoolCreate = external(
      ub4,          # useridLen
      oratext,      # password
      ub4,          # passwordLen
+     ub4],         # mode
+    sword)
+
+OCISessionRelease = external(
+    'OCISessionRelease',
+    [OCISvcCtx,    # svchp
+     OCIError,     # errhp
+     oratext,      # tag
+     ub4,          # tag_len
      ub4],         # mode
     sword)
 

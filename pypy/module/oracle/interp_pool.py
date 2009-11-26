@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.argument import Arguments, Signature
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -7,8 +8,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 
 Null = NoneNotWrapped
 
-from pypy.module.oracle import roci, config, interp_error, interp_environ
-
+from pypy.module.oracle import roci, config
+from pypy.module.oracle import interp_error, interp_environ
+from pypy.module.oracle.interp_error import get
 
 class W_SessionPool(Wrappable):
     def __init__(self):
@@ -36,14 +38,16 @@ class W_SessionPool(Wrappable):
         self.w_password = w_password
         self.w_tnsentry = w_dsn
 
-        self.w_connectionType = w_connectiontype
+        from pypy.module.oracle.interp_connect import W_Connection
+        self.w_connectionType = w_connectiontype or get(space).w_Connection
         self.minSessions = min
         self.maxSessions = max
         self.sessionIncrement = increment
         self.homogeneous = homogeneous
 
         # set up the environment
-        self.environment = interp_environ.Environment(space, threaded, events)
+        self.environment = interp_environ.Environment.create(
+            space, threaded, events)
 
         # create the session pool handle
         handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIServer).TO,
@@ -110,6 +114,66 @@ class W_SessionPool(Wrappable):
                 get(space).w_InterfaceError,
                 space.wrap("not connected"))
 
+    def acquire(self, space, __args__):
+        (w_user, w_password, w_cclass, w_purity
+         ) = __args__.parse_obj(
+            None, "acquire",
+            Signature(["user", "password", "cclass", "purity"]),
+            defaults_w=[None, None, None, space.w_False])
+        if self.homogeneous and (w_user or w_password):
+            raise OperationError(
+                get(space).w_ProgrammingError,
+                space.wrap("pool is homogeneous. "
+                           "Proxy authentication is not possible."))
+
+        self.checkConnected(space)
+
+        newargs = Arguments(space,
+                            __args__.arguments_w,
+                            __args__.keywords + ["pool"],
+                            __args__.keywords_w + [space.wrap(self)])
+        return space.call_args(self.w_connectionType, newargs)
+    acquire.unwrap_spec = ['self', ObjSpace, Arguments]
+
+    def release(self, space, w_connection):
+        self._release(space, w_connection, roci.OCI_DEFAULT)
+    release.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def drop(self, space, w_connection):
+        self._release(space, w_connection, roci.OCI_SESSRLS_DROPSESS)
+    drop.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def _release(self, space, w_connection, mode):
+        from pypy.module.oracle.interp_connect import W_Connection
+        connection = space.interp_w(W_Connection, w_connection)
+
+        self.checkConnected(space)
+
+        if connection.sessionPool is not self:
+            raise OperationError(
+                get(space).w_ProgrammingError,
+                space.wrap("connection not acquired with this session pool"))
+
+        # attempt a rollback
+        status = roci.OCITransRollback(
+            connection.handle, connection.environment.errorHandle,
+            roci.OCI_DEFAULT)
+        # if dropping the connection from the pool, ignore the error
+        if mode != roci.OCI_SESSRLS_DROPSESS:
+            self.environment.checkForError(
+                status, "SessionPool_Release(): rollback")
+
+        # release the connection
+        status = roci.OCISessionRelease(
+            connection.handle, connection.environment.errorHandle,
+            None, 0, mode)
+        self.environment.checkForError(
+            status, "SessionPool_Release(): release session")
+
+        # ensure that the connection behaves as closed
+        connection.sessionPool = None
+        connection.handle = None
+
 def computedProperty(oci_attr_code, oci_value_type):
     def fget(space, self):
         self.checkConnected(space)
@@ -131,6 +195,10 @@ def computedProperty(oci_attr_code, oci_value_type):
 W_SessionPool.typedef = TypeDef(
     "SessionPool",
     __new__ = interp2app(W_SessionPool.descr_new.im_func),
+    acquire = interp2app(W_SessionPool.acquire),
+    release = interp2app(W_SessionPool.release),
+    drop = interp2app(W_SessionPool.drop),
+
     username = interp_attrproperty_w('w_username', W_SessionPool),
     password = interp_attrproperty_w('w_password', W_SessionPool),
     tnsentry = interp_attrproperty_w('w_tnsentry', W_SessionPool),

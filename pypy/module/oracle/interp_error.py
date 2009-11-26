@@ -22,6 +22,7 @@ class State:
         self.w_InternalError = get('InternalError')
         self.w_DataError = get('DataError')
         self.w_Variable = get('Variable')
+        self.w_Connection = get('Connection')
 
         w_import = space.builtin.get('__import__')
         w_decimal = space.call(w_import, space.newlist(

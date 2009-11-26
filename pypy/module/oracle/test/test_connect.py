@@ -117,7 +117,7 @@ class AppTestConnection(OracleNotConnectedTestBase):
 
 
 class AppTestPool(OracleNotConnectedTestBase):
-    def test_pool(self):
+    def test_pool_basicattributes(self):
         pool = oracle.SessionPool(self.username, self.password,
                                   self.tnsentry,
                                   2, 8, 3)
@@ -129,3 +129,20 @@ class AppTestPool(OracleNotConnectedTestBase):
         assert pool.increment == 3
         assert pool.opened == 2
         assert pool.busy == 0
+
+    def test_pool_acquire(self):
+        pool = oracle.SessionPool(self.username, self.password,
+                                  self.tnsentry,
+                                  2, 8, 3)
+        assert (pool.busy, pool.opened) == (0, 2)
+        c1 = pool.acquire()
+        assert (pool.busy, pool.opened) == (1, 2)
+        c2 = pool.acquire()
+        assert (pool.busy, pool.opened) == (2, 2)
+        c3 = pool.acquire()
+        assert (pool.busy, pool.opened) == (3, 5)
+        pool.release(c3)
+        assert pool.busy == 2
+        del c2
+        import gc; gc.collect()
+        assert pool.busy == 1

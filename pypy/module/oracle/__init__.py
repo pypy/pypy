@@ -5,6 +5,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'connect': 'interp_connect.W_Connection',
+        'Connection': 'interp_connect.W_Connection',
         'UNICODE': 'interp_variable.VT_NationalCharString',
         'NUMBER': 'interp_variable.VT_Float',
         'STRING': 'interp_variable.VT_String',
