@@ -108,6 +108,7 @@ OCIBind = rffi.VOIDP
 OCIDefine = rffi.VOIDP
 OCIDescribe = rffi.VOIDP
 OCISnapshot = rffi.VOIDP
+OCIString = rffi.VOIDP
 OCIDateTime = rffi.VOIDP
 OCIInterval = rffi.VOIDP
 OCILobLocator = rffi.VOIDP
@@ -670,6 +671,20 @@ OCINumberToText = external(
      Ptr(ub4),         # buf_size
      oratext],         # buf
     sword)
+
+# OCI String Functions
+
+OCIStringPtr = external(
+    'OCIStringPtr',
+    [OCIEnv,        # envhp
+     OCIString],    # vs
+    oratext)
+
+OCIStringSize = external(
+    'OCIStringSize',
+    [OCIEnv,        # envhp
+     OCIString],    # vs
+    ub4)
 
 # OCI Locale Functions
 

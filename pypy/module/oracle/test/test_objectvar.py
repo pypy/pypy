@@ -2,6 +2,7 @@ from pypy.module.oracle.test.test_connect import OracleTestBase
 
 class AppTestObjectVar(OracleTestBase):
     def test_fetch_object(self):
+        import datetime
         cur = self.cnx.cursor()
         try:
             cur.execute("drop table pypy_test_objtable")
@@ -44,4 +45,6 @@ class AppTestObjectVar(OracleTestBase):
         assert isinstance(arrayValue, list)
         assert arrayValue == [5, 10, None, 20]
         assert objValue.NUMBERCOL == 1
-        raises(AttributeError, getattr, objValue, 'OTHERCOL')
+        assert objValue.STRINGCOL == "someText"
+        assert objValue.DATECOL == datetime.datetime(2007, 03, 06)
+        raises(AttributeError, getattr, objValue, 'OTHER')

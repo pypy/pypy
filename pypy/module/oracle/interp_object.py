@@ -335,8 +335,9 @@ W_ObjectAttribute.typedef = TypeDef(
     )
 
 class W_ExternalObject(Wrappable):
-    def __init__(self, ref, objectType, instance, indicator, isIndependent=True):
-        self.ref = ref
+    def __init__(self, var, objectType, instance, indicator,
+                 isIndependent=True):
+        self.var = var # keepalive
         self.objectType = objectType
         self.instance = instance
         self.indicator = indicator
@@ -388,7 +389,7 @@ class W_ExternalObject(Wrappable):
                 valueIndicator = scalarvalueindicatorptr
             value = valueptr[0]
 
-            return convertToPython(
+            return convertObject(
                 space, environment,
                 attribute.typeCode,
                 value, valueIndicator,
@@ -410,8 +411,8 @@ W_ExternalObject.typedef = TypeDef(
     __getattr__ = interp2app(W_ExternalObject.getattr),
     )
 
-def convertToPython(space, environment, typeCode,
-                    value, indicator, var, subtype):
+def convertObject(space, environment, typeCode,
+                  value, indicator, var, subtype):
     # null values returned as None
     if rffi.cast(roci.Ptr(roci.OCIInd), indicator)[0] == roci.OCI_IND_NULL:
         return space.w_None
@@ -419,18 +420,20 @@ def convertToPython(space, environment, typeCode,
     if typeCode in (roci.OCI_TYPECODE_CHAR,
                     roci.OCI_TYPECODE_VARCHAR,
                     roci.OCI_TYPECODE_VARCHAR2):
-        strValue = value
-        stringValue = roci.OCIStringPtr(environment.handle, strValue)
-        stringSize = roci.OCIStringPtr(environment.handle, strValue)
-        return config.w_string(space, stringValue, stringSize)
+        strValue = rffi.cast(roci.Ptr(roci.OCIString), value)[0]
+        ptr = roci.OCIStringPtr(environment.handle, strValue)
+        size = roci.OCIStringSize(environment.handle, strValue)
+        return config.w_string(space, ptr, size)
     elif typeCode == roci.OCI_TYPECODE_NUMBER:
         return transform.OracleNumberToPythonFloat(
             environment,
             rffi.cast(roci.Ptr(roci.OCINumber), value))
     elif typeCode == roci.OCI_TYPECODE_DATE:
-        return transform.OracleDateToPythonDate(environment, value)
+        dateValue = rffi.cast(roci.Ptr(roci.OCIDate), value)
+        return transform.OracleDateToPythonDateTime(environment, dateValue)
     elif typeCode == roci.OCI_TYPECODE_TIMESTAMP:
-        return transform.OracleTimestampToPythonDate(environment, value)
+        dateValue = rffi.cast(roci.Ptr(roci.OCIDateTime), value)
+        return transform.OracleTimestampToPythonDate(environment, dateValue)
     elif typeCode == roci.OCI_TYPECODE_OBJECT:
         return space.wrap(W_ExternalObject(var, subType, value, indicator,
                                            isIndependent=False))
@@ -483,7 +486,7 @@ def convertCollection(space, environment, value, var, objectType):
 
                     if eofptr[0]:
                         break
-                    element = convertToPython(
+                    element = convertObject(
                         space, environment,
                         objectType.elementTypeCode,
                         valueptr[0], indicatorptr[0],
