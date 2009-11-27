@@ -190,6 +190,11 @@ class W_Variable(Wrappable):
         try:
             dataLength = ovfcheck(self.allocatedElements * self.bufferSize)
         except OverflowError:
+            too_large = True
+        else:
+            too_large = False
+
+        if too_large or dataLength >= roci.INT_MAX:
             raise OperationError(
                 space.w_ValueError,
                 space.wrap("array size too large"))
@@ -428,7 +433,7 @@ class W_Variable(Wrappable):
                 space.wrap("Variable_SetArrayValue: array size exceeded"))
 
         # set all of the values
-        self.actualElementsPtr[0] = rffi.cast(lltype.Unsigned, len(elements_w))
+        self.actualElementsPtr[0] = rffi.cast(roci.ub4, len(elements_w))
         for i in range(len(elements_w)):
             self.setSingleValue(space, i, elements_w[i])
 
@@ -714,7 +719,7 @@ class VT_Float(W_Variable):
             format_buf.fill(space, space.wrap("TM9"))
             sizeptr = lltype.malloc(rffi.CArray(roci.ub4), 1, flavor='raw')
             BUFSIZE = 200
-            sizeptr[0] = rffi.cast(lltype.Unsigned, BUFSIZE)
+            sizeptr[0] = rffi.cast(roci.ub4, BUFSIZE)
             textbuf, text = rffi.alloc_buffer(BUFSIZE)
             try:
                 status = roci.OCINumberToText(

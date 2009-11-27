@@ -64,23 +64,15 @@ class Environment(object):
             status = roci.OCIEnvNlsCreate(
                 handleptr, mode,
                 None,
-                rffi.cast(rffi.CCallback(     # malocfp
-                    (roci.dvoidp, roci.size_t), roci.dvoidp),
-                          0),
-                rffi.cast(rffi.CCallback(     # ralocfp
-                    (roci.dvoidp, roci.dvoidp, roci.size_t), roci.dvoidp),
-                          0),
-                rffi.cast(rffi.CCallback(     # mfreefp
-                    (roci.dvoidp, roci.dvoidp), lltype.Void),
-                          0),
+                None, None, None,
                 0, lltype.nullptr(rffi.CArray(roci.dvoidp)),
                 config.CHARSETID, config.CHARSETID)
 
             if not handleptr[0] or status not in (roci.OCI_SUCCESS,
                                                   roci.OCI_SUCCESS_WITH_INFO):
                 raise OperationError(
-                    get(self.space).w_InterfaceError,
-                    self.space.wrap(
+                    get(space).w_InterfaceError,
+                    space.wrap(
                         "Unable to acquire Oracle environment handle"))
 
             handle = handleptr[0]

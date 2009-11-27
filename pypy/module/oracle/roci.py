@@ -2,7 +2,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.conftest import option
-import os
+import sys, os
 import py
 
 oracle_home = getattr(option, 'oracle_home',
@@ -13,12 +13,20 @@ else:
     raise ImportError(
         "Please set ORACLE_HOME to the root of an Oracle client installation")
 
-eci = ExternalCompilationInfo(
-    includes = ['oci.h'],
-    include_dirs = [str(ORACLE_HOME.join('OCI', 'include'))],
-    libraries = ['oci'],
-    library_dirs = [str(ORACLE_HOME.join('OCI', 'lib', 'MSVC'))],
-    )
+if sys.platform == 'win32':
+    eci = ExternalCompilationInfo(
+        includes = ['oci.h'],
+        include_dirs = [str(ORACLE_HOME.join('OCI', 'include'))],
+        libraries = ['oci'],
+        library_dirs = [str(ORACLE_HOME.join('OCI', 'lib', 'MSVC'))],
+        )
+else:
+    eci = ExternalCompilationInfo(
+        includes = ['oci.h'],
+        include_dirs = [str(ORACLE_HOME.join('sdk', 'include'))],
+        libraries = ['clntsh'],
+        library_dirs = [str(ORACLE_HOME.join('lib'))],
+        )
 
 class CConfig:
     _compilation_info_ = eci
@@ -97,6 +105,9 @@ class CConfig:
     for c in constants:
         locals()[c] = platform.ConstantInteger(c)
 
+    INT_MAX = platform.ConstantInteger('INT_MAX')
+
+
 globals().update(platform.configure(CConfig))
 
 OCI_IND_NOTNULL = rffi.cast(rffi.SHORT, OCI_IND_NOTNULL)
@@ -143,12 +154,9 @@ OCIEnvNlsCreate = external(
     [rffi.CArrayPtr(OCIEnv), # envhpp
      ub4,                    # mode
      dvoidp,                 # ctxp
-     rffi.CCallback(         # malocfp
-         [dvoidp, size_t], dvoidp),
-     rffi.CCallback(         # ralocfp
-         [dvoidp, dvoidp, size_t], dvoidp),
-     rffi.CCallback(         # mfreefp
-         [dvoidp, dvoidp], lltype.Void),
+     dvoidp,                 # malocfp
+     dvoidp,                 # ralocfp
+     dvoidp,                 # mfreefp
      size_t,             # xtramemsz
      dvoidpp,            # usermempp
      ub2,                # charset
