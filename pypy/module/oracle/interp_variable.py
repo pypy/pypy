@@ -442,10 +442,8 @@ class W_Variable(Wrappable):
 
 W_Variable.typedef = TypeDef(
     'Variable',
-    getvalue = interp2app(W_Variable.getValue,
-                          unwrap_spec=W_Variable.getValue.unwrap_spec),
-    setvalue = interp2app(W_Variable.setValue,
-                          unwrap_spec=W_Variable.setValue.unwrap_spec),
+    getvalue = interp2app(W_Variable.getValue),
+    setvalue = interp2app(W_Variable.setValue),
 
     maxlength  = interp_attrproperty('bufferSize', W_Variable),
     bufferSize = interp_attrproperty('bufferSize', W_Variable),

@@ -526,16 +526,12 @@ W_Connection.typedef = TypeDef(
     username = interp_attrproperty_w('w_username', W_Connection),
     password = interp_attrproperty_w('w_password', W_Connection),
     tnsentry = interp_attrproperty_w('w_tnsentry', W_Connection),
-    
-    close = interp2app(W_Connection.close,
-                       unwrap_spec=W_Connection.close.unwrap_spec),
-    commit = interp2app(W_Connection.commit,
-                       unwrap_spec=W_Connection.commit.unwrap_spec),
-    rollback = interp2app(W_Connection.rollback,
-                       unwrap_spec=W_Connection.rollback.unwrap_spec),
 
-    cursor = interp2app(W_Connection.newCursor,
-                        unwrap_spec=W_Connection.newCursor.unwrap_spec),
+    close = interp2app(W_Connection.close),
+    commit = interp2app(W_Connection.commit),
+    rollback = interp2app(W_Connection.rollback),
+
+    cursor = interp2app(W_Connection.newCursor),
 
     encoding = GetSetProperty(W_Connection.get_encoding),
     nationalencoding = GetSetProperty(W_Connection.get_nationalencoding),
