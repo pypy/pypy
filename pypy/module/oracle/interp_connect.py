@@ -163,7 +163,10 @@ class W_Connection(Wrappable):
 
         # set the internal and external names; these are needed for global
         # transactions but are limited in terms of the lengths of the strings
-
+        if twophase:
+            raise OperationError(
+                interp_error.get(space).w_NotSupportedError
+                space.wrap("XXX write me"))
 
         # allocate the session handle
         handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCISession).TO,
