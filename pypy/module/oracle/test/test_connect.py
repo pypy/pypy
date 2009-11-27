@@ -158,5 +158,6 @@ class AppTestPool(OracleNotConnectedTestBase):
                                   2, 8, 3, homogeneous=False)
         assert pool.homogeneous is False
         e = raises(oracle.DatabaseError, pool.acquire, user="proxyuser")
+        # ORA-01017: invalid username/password; logon denied
         # ORA-28150: proxy not authorized to connect as client
-        assert e.value[0].code == 28150
+        assert e.value[0].code in (1017, 28150)

@@ -29,18 +29,20 @@ class W_SessionPool(Wrappable):
         W_SessionPool.__init__(self)
 
         if w_connectiontype is not None:
-            if not space.is_true(space.issubtype(w_value,
-                                                 interp_connect.W_Connection)):
+            if not space.is_true(space.issubtype(w_connectiontype,
+                                                 get(space).w_Connection)):
                 raise OperationError(
                     interp_error.get(space).w_ProgrammingError,
                     space.wrap(
                         "connectiontype must be a subclass of Connection"))
+            self.w_connectionType = w_connectiontype
+        else:
+            self.w_connectionType = get(space).w_Connection
+
         self.w_username = w_user
         self.w_password = w_password
         self.w_tnsentry = w_dsn
 
-        from pypy.module.oracle.interp_connect import W_Connection
-        self.w_connectionType = w_connectiontype or get(space).w_Connection
         self.minSessions = min
         self.maxSessions = max
         self.sessionIncrement = increment
@@ -173,7 +175,7 @@ class W_SessionPool(Wrappable):
 
         # ensure that the connection behaves as closed
         connection.sessionPool = None
-        connection.handle = None
+        connection.handle = lltype.nullptr(roci.OCISvcCtx.TO)
 
 def computedProperty(oci_attr_code, oci_value_type):
     def fget(space, self):
@@ -191,7 +193,7 @@ def computedProperty(oci_attr_code, oci_value_type):
             return space.wrap(valueptr[0])
         finally:
             lltype.free(valueptr, flavor='raw')
-    return GetSetProperty(fget)
+    return GetSetProperty(fget, cls=W_SessionPool)
 
 W_SessionPool.typedef = TypeDef(
     "SessionPool",

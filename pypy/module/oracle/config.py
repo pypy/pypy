@@ -26,24 +26,28 @@ else:
     class StringBuffer:
         "Fill a char* buffer with data, suitable to pass to Oracle functions"
         def __init__(self):
-            pass
+            self.ptr = lltype.nullptr(roci.oratext.TO)
+            self.size = 0
 
-        def fill(self, space, w_string):
-            if w_string is None or space.is_w(w_string, space.w_None):
+        def fill(self, space, w_value):
+            if w_value is None or space.is_w(w_value, space.w_None):
                 self.clear()
             else:
-                self.ptr = string_w(space, w_string)
-                self.size = len(self.ptr)
+                strvalue = space.str_w(w_value)
+                self.ptr = rffi.str2charp(strvalue)
+                self.size = len(strvalue)
 
-        def fill_with_unicode(self, space, w_unicode):
-            if w_unicode is None or space.is_w(w_unicode, space.w_None):
+        def fill_with_unicode(self, space, w_value):
+            if w_value is None or space.is_w(w_value, space.w_None):
                 self.clear()
             else:
                 # XXX ucs2 only probably
-                unistr = space.unicode_w(w_unicode)
-                self.ptr = rffi.cast(roci.oratext, rffi.unicode2wcharp(unistr))
-                self.size = len(unistr) * 2
+                univalue = space.unicode_w(w_value)
+                self.ptr = rffi.cast(roci.oratext, rffi.unicode2wcharp(univalue))
+                self.size = len(univalue) * 2
 
         def clear(self):
-            self.ptr = None
+            if self.ptr:
+                rffi.free_charp(self.ptr)
+                self.ptr = lltype.nullptr(roci.oratext.TO)
             self.size = 0

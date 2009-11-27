@@ -47,8 +47,8 @@ class Environment(object):
         raise OperationError(get(self.space).w_DatabaseError,
                              self.space.wrap(error))
 
-    @classmethod
-    def create(cls, space, threaded, events):
+    @staticmethod
+    def create(space, threaded, events):
         "Create a new environment object from scratch"
         mode = roci.OCI_OBJECT
         if threaded:
@@ -80,7 +80,7 @@ class Environment(object):
             lltype.free(handleptr, flavor='raw')
 
         try:
-            newenv = cls(space, handle)
+            newenv = Environment(space, handle)
         except:
             roci.OCIHandleFree(handle, roci.OCI_HTYPE_ENV)
             raise
@@ -92,7 +92,7 @@ class Environment(object):
     def clone(self):
         """Clone an existing environment.
         used when acquiring a connection from a session pool, for example."""
-        newenv = type(self)(self.space, self.handle)
+        newenv = Environment(self.space, self.handle)
         newenv.maxBytesPerCharacter = self.maxBytesPerCharacter
         newenv.maxStringBytes = self.maxStringBytes
         return newenv

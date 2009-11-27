@@ -21,8 +21,8 @@ class W_Connection(Wrappable):
         self.environment = None
         self.autocommit = False
 
-        self.sessionHandle = None
-        self.serverHandle = None
+        self.sessionHandle = lltype.nullptr(roci.OCISession.TO)
+        self.serverHandle = lltype.nullptr(roci.OCIServer.TO)
 
         self.w_inputTypeHandler = None
         self.w_outputTypeHandler = None
@@ -41,7 +41,7 @@ class W_Connection(Wrappable):
                   twophase=False,
                   events=False,
                   w_cclass=Null,
-                  purity=False,
+                  purity=0,
                   w_newpassword=Null):
         self = space.allocate_instance(W_Connection, w_subtype)
         W_Connection.__init__(self)
@@ -83,7 +83,7 @@ class W_Connection(Wrappable):
                              W_Root,
                              bool, bool, bool,
                              W_Root,
-                             bool,
+                             int,
                              W_Root]
 
     def __del__(self):
@@ -244,7 +244,7 @@ class W_Connection(Wrappable):
         rather than using the low level interface for connecting."""
 
         proxyCredentials = False
-        authInfo = None
+        authInfo = lltype.nullptr(roci.OCIAuthInfo.TO)
 
         if pool:
             w_dbname = pool.w_name
@@ -261,7 +261,7 @@ class W_Connection(Wrappable):
         # set up authorization handle, if needed
         if not pool or w_cclass or proxyCredentials:
             # create authorization handle
-            handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIServer).TO,
+            handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCIAuthInfo).TO,
                                       1, flavor='raw')
             try:
                 status = roci.OCIHandleAlloc(
@@ -287,7 +287,7 @@ class W_Connection(Wrappable):
                         authInfo,
                         roci.OCI_HTYPE_AUTHINFO,
                         stringBuffer.ptr, stringBuffer.size,
-                        roci.OCI_ATTR_PASSWORD,
+                        roci.OCI_ATTR_USERNAME,
                         self.environment.errorHandle)
                     self.environment.checkForError(
                         status, "Connection_GetConnection(): set user name")
@@ -303,7 +303,7 @@ class W_Connection(Wrappable):
                         authInfo,
                         roci.OCI_HTYPE_AUTHINFO,
                         stringBuffer.ptr, stringBuffer.size,
-                        roci.OCI_ATTR_USERNAME,
+                        roci.OCI_ATTR_PASSWORD,
                         self.environment.errorHandle)
                     self.environment.checkForError(
                         status, "Connection_GetConnection(): set password")
@@ -334,12 +334,13 @@ class W_Connection(Wrappable):
             if purity != roci.OCI_ATTR_PURITY_DEFAULT:
                 purityptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
                                           1, flavor='raw')
-                purityptr[0] = purity
+                purityptr[0] = rffi.cast(roci.ub4, purity)
                 try:
                     status = roci.OCIAttrSet(
                         authInfo,
                         roci.OCI_HTYPE_AUTHINFO,
-                        purityptr, rffi.sizeof(roci.ub4),
+                        rffi.cast(roci.dvoidp, purityptr),
+                        rffi.sizeof(roci.ub4),
                         roci.OCI_ATTR_PURITY,
                         self.environment.errorHandle)
                     self.environment.checkForError(

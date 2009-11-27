@@ -7,10 +7,11 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 
 from pypy.module.oracle import roci, config, transform
+from pypy.module.oracle.interp_error import get
 
 class W_ObjectType(Wrappable):
     def __init__(self, connection, param):
-        self.tdo = None
+        self.tdo = lltype.nullptr(roci.dvoidp.TO)
         self.environment = connection.environment
         self.isCollection = False
         self.initialize(connection, param)
@@ -153,7 +154,7 @@ class W_ObjectType(Wrappable):
                 self.environment.errorHandle)
             self.environment.checkForError(
                 status, "ObjectType_Describe(): get type code")
-            typeCode = typecodeptr[0]
+            typeCode = rffi.cast(lltype.Signed, typecodeptr[0])
         finally:
             lltype.free(typecodeptr, flavor='raw')
 
@@ -206,7 +207,7 @@ class W_ObjectType(Wrappable):
                     self.environment.errorHandle)
                 self.environment.checkForError(
                     status, "ObjectType_Describe(): get element type code")
-                self.elementTypeCode = typecodeptr[0]
+                self.elementTypeCode = rffi.cast(lltype.Signed, typecodeptr[0])
             finally:
                 lltype.free(typecodeptr, flavor='raw')
 
@@ -318,7 +319,7 @@ class W_ObjectAttribute(Wrappable):
                 connection.environment.errorHandle)
             connection.environment.checkForError(
                 status, "ObjectType_Describe(): get type code")
-            self.typeCode = typecodeptr[0]
+            self.typeCode = rffi.cast(lltype.Signed, typecodeptr[0])
         finally:
             lltype.free(typecodeptr, flavor='raw')
 
@@ -386,7 +387,8 @@ class W_ExternalObject(Wrappable):
             # determine the proper null indicator
             valueIndicator = valueindicatorptr[0]
             if not valueIndicator:
-                valueIndicator = scalarvalueindicatorptr
+                valueIndicator = rffi.cast(roci.dvoidp,
+                                           scalarvalueindicatorptr)
             value = valueptr[0]
 
             return convertObject(
@@ -413,8 +415,13 @@ W_ExternalObject.typedef = TypeDef(
 
 def convertObject(space, environment, typeCode,
                   value, indicator, var, subtype):
+
     # null values returned as None
-    if rffi.cast(roci.Ptr(roci.OCIInd), indicator)[0] == roci.OCI_IND_NULL:
+    if (rffi.cast(lltype.Signed,
+                  rffi.cast(roci.Ptr(roci.OCIInd),
+                            indicator)[0])
+        ==
+        rffi.cast(lltype.Signed, roci.OCI_IND_NULL)):
         return space.w_None
 
     if typeCode in (roci.OCI_TYPECODE_CHAR,
@@ -435,10 +442,10 @@ def convertObject(space, environment, typeCode,
         dateValue = rffi.cast(roci.Ptr(roci.OCIDateTime), value)
         return transform.OracleTimestampToPythonDate(environment, dateValue)
     elif typeCode == roci.OCI_TYPECODE_OBJECT:
-        return space.wrap(W_ExternalObject(var, subType, value, indicator,
+        return space.wrap(W_ExternalObject(var, subtype, value, indicator,
                                            isIndependent=False))
     elif typeCode == roci.OCI_TYPECODE_NAMEDCOLLECTION:
-        return convertCollection(space, environment, value, var, subType)
+        return convertCollection(space, environment, value, var, subtype)
 
     raise OperationError(
         get(space).w_NotSupportedError,

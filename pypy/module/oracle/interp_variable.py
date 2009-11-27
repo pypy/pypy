@@ -476,32 +476,28 @@ class VT_String(W_Variable):
 
     def getValueProc(self, space, pos):
         offset = pos * self.bufferSize
+        dataptr = rffi.ptradd(self.data, offset)
         length = rffi.cast(lltype.Signed, self.actualLength[pos])
 
-        l = []
         i = 0
         if config.WITH_UNICODE:
             if isinstance(self, VT_Binary):
-                while i < length:
-                    l.append(self.data[offset + i])
-                    i += 1
-                return space.wrap(''.join(l))
+                return space.wrap(rffi.charpsize2str(dataptr, length))
             else:
+                l = []
                 while i < length:
-                    l.append(unichr((ord(self.data[offset + i + 1]) << 8) +
-                                    ord(self.data[offset + i])))
+                    l.append(unichr((ord(dataptr[i + 1]) << 8) +
+                                    ord(dataptr[i])))
                     i += 2
                 return space.wrap(u''.join(l))
         else:
             if self.charsetForm == roci.SQLCS_IMPLICIT:
-                while i < length:
-                    l.append(self.data[offset + i])
-                    i += 1
-                return space.wrap(''.join(l))
+                return space.wrap(rffi.charpsize2str(dataptr, length))
             else:
+                l = []
                 while i < length:
-                    l.append(unichr((ord(self.data[offset + i + 1]) << 8) +
-                                    ord(self.data[offset + i])))
+                    l.append(unichr((ord(dataptr[i + 1]) << 8) +
+                                    ord(dataptr[i])))
                     i += 2
                 return space.wrap(u''.join(l))
 
@@ -1007,7 +1003,7 @@ class W_LobVariable(W_VariableWithDescriptor):
     temporaryLobType = roci.OCI_TEMP_CLOB
 
     def initialize(self, space, cursor):
-        super(W_LobVariable, self).initialize(space, cursor)
+        W_VariableWithDescriptor.initialize(self, space, cursor)
         self.connection = cursor.connection
 
     def ensureTemporary(self, space, pos):
@@ -1060,7 +1056,8 @@ class W_LobVariable(W_VariableWithDescriptor):
             self.environment.checkForError(
                 status,
                 "LobVar_GetLength()")
-            return int(lengthptr[0]) # XXX test overflow
+            return rffi.cast(lltype.Signed,
+                             lengthptr[0]) # XXX test overflow
         finally:
             lltype.free(lengthptr, flavor='raw')
 
@@ -1099,7 +1096,8 @@ class W_LobVariable(W_VariableWithDescriptor):
             self.environment.checkForError(
                 status,
                 "LobVar_Read()")
-            amount = int(amountptr[0]) # XXX test overflow
+            amount = rffi.cast(lltype.Signed,
+                               amountptr[0]) # XXX test overflow
             value = rffi.str_from_buffer(raw_buffer, gc_buffer, bufferSize, amount)
             return space.wrap(value)
         finally:
@@ -1115,7 +1113,7 @@ class W_LobVariable(W_VariableWithDescriptor):
         try:
             # nothing to do if no data to write
             if databuf.size == 0:
-                return
+                return 0
 
             status = roci.OCILobWrite(
                 self.connection.handle,
@@ -1158,11 +1156,17 @@ class VT_BFILE(W_LobVariable):
             space.wrap("BFILEs are read only"))
 
     def read(self, space, pos, offset, amount):
-        self.fileOpen()
+        self.openFile()
         try:
             return W_LobVariable.read(self, space, pos, offset, amount)
         finally:
-            self.fileClose()
+            self.closeFile()
+
+    def openFile(self):
+        pass # XXX
+
+    def closeFile(self):
+        pass # XXX
 
 class VT_Cursor(W_Variable):
     oracleType = roci.SQLT_RSET
@@ -1217,7 +1221,7 @@ class VT_Object(W_Variable):
     size = rffi.sizeof(roci.dvoidp)
     canBeInArray = False
 
-    objectIndicator = None
+    objectIndicator = lltype.nullptr(rffi.CArrayPtr(roci.dvoidp).TO)
 
     def initialize(self, space, cursor):
         self.connection = cursor.connection
@@ -1260,7 +1264,9 @@ class VT_Object(W_Variable):
         # look at our own indicator array
         if not self.objectIndicator[pos]:
             return True
-        return (rffi.cast(roci.Ptr(roci.OCIInd), self.objectIndicator[pos])[0]
+        return (rffi.cast(lltype.Signed,
+                          rffi.cast(roci.Ptr(roci.OCIInd),
+                                    self.objectIndicator[pos])[0])
                 ==
                 rffi.cast(lltype.Signed, roci.OCI_IND_NULL))
 
