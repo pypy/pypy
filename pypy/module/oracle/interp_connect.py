@@ -165,7 +165,7 @@ class W_Connection(Wrappable):
         # transactions but are limited in terms of the lengths of the strings
         if twophase:
             raise OperationError(
-                interp_error.get(space).w_NotSupportedError
+                interp_error.get(space).w_NotSupportedError,
                 space.wrap("XXX write me"))
 
         # allocate the session handle
