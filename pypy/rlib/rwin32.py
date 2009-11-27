@@ -3,6 +3,7 @@ Common types, functions from core win32 libraries, such as kernel32
 """
 
 from pypy.rpython.tool import rffi_platform
+from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
@@ -14,13 +15,8 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'errno.h'],
+        includes = ['windows.h'],
         libraries = ['kernel32'],
-        separate_module_sources = ["""
-        long WINAPI pypy_dosmaperr(long winerror)
-        { _dosmaperr(winerror); return errno; }
-        """],
-        export_symbols = ["pypy_dosmaperr"],
         )
 else:
     eci = ExternalCompilationInfo()
@@ -97,20 +93,40 @@ if WIN32:
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
-    dosmaperr = winexternal('pypy_dosmaperr', [rffi.LONG], rffi.LONG)
-
-
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
         The function returns the dict, and the default value for codes not
         in the dict."""
-        default = errno.EINVAL
-        errors = {}
-        for i in range(1, 65000):
-            error = dosmaperr(i)
-            if error != default:
-                errors[i] = error
-        return errors, default
+        # Prior to Visual Studio 8, the MSVCRT dll doesn't export the
+        # _dosmaperr() function, which is available only when compiled
+        # against the static CRT library.
+        from pypy.translator.platform import platform, Windows
+        static_platform = Windows()
+        if static_platform.name == 'msvc':
+            static_platform.cflags = ['/MT']  # static CRT
+            static_platform.version = 0       # no manifest
+        cfile = udir.join('dosmaperr.c')
+        cfile.write(r'''
+                #include <errno.h>
+                int main()
+                {
+                    int i;
+                    for(i=1; i < 65000; i++) {
+                        _dosmaperr(i);
+                        if (errno == EINVAL)
+                            continue;
+                        printf("%d\t%d\n", i, errno);
+                    }
+                    return 0;
+                }''')
+        exename = static_platform.compile(
+            [cfile], ExternalCompilationInfo(),
+            outputfilename = "dosmaperr",
+            standalone=True)
+        output = os.popen(str(exename))
+        errors = dict(map(int, line.split())
+                      for line in output)
+        return errors, errno.EINVAL
 
     # A bit like strerror...
     def FormatError(code):
