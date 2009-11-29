@@ -487,9 +487,9 @@ class CacheTests(unittest.TestCase):
         _strptime.strptime("10", "%d")
         _strptime.strptime("2005", "%Y")
         _strptime._TimeRE_cache.locale_time.lang = "Ni"
-        original_time_re = id(_strptime._TimeRE_cache)
+        original_time_re = _strptime._TimeRE_cache
         _strptime.strptime("10", "%d")
-        self.failIfEqual(original_time_re, id(_strptime._TimeRE_cache))
+        self.assert_(original_time_re is not _strptime._TimeRE_cache)
         self.failUnlessEqual(len(_strptime._regex_cache), 1)
 
     def test_regex_cleanup(self):
@@ -508,11 +508,11 @@ class CacheTests(unittest.TestCase):
     def test_new_localetime(self):
         # A new LocaleTime instance should be created when a new TimeRE object
         # is created.
-        locale_time_id = id(_strptime._TimeRE_cache.locale_time)
+        original_locale_time = _strptime._TimeRE_cache.locale_time
         _strptime._TimeRE_cache.locale_time.lang = "Ni"
         _strptime.strptime("10", "%d")
-        self.failIfEqual(locale_time_id,
-                         id(_strptime._TimeRE_cache.locale_time))
+        self.assert_(original_locale_time
+                     is not _strptime._TimeRE_cache.locale_time)
 
     def test_TimeRE_recreation(self):
         # The TimeRE instance should be recreated upon changing the locale.
