@@ -9,7 +9,7 @@ from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
-from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import av_newdict2, av_newdict_int, _findall
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
@@ -173,20 +173,60 @@ class AbstractVirtualValue(OptValue):
         raise NotImplementedError("abstract base")
 
 
+class FieldMap(object):
+    def __init__(self, prev, newfield):
+        if prev is not None:
+            assert newfield is not None
+            self.fieldindexes = prev.fieldindexes.copy()
+            self.fieldindexes[newfield] = len(self.fieldindexes)
+            self.fieldlist = prev.fieldlist + [newfield]
+        else:
+            assert newfield is None
+            self.fieldindexes = av_newdict_int()
+            self.fieldlist = []
+        self.nextmaps = av_newdict2()
+
+    def getindex(self, field):
+        return self.fieldindexes.get(field, -1)
+
+    def nextmap(self, field):
+        result = self.nextmaps.get(field, None)
+        if result is None:
+            result = FieldMap(self, field)
+            self.nextmaps[field] = result
+        return result
+
+def get_no_fields_map(cpu):
+    if hasattr(cpu, '_optimizeopt_fieldmap'):
+        return cpu._optimizeopt_fieldmap
+    res = FieldMap(None, None)
+    cpu._optimizeopt_fieldmap = res
+    return res
+get_no_fields_map._annspecialcase_ = 'specialize:memo'
+
 class AbstractVirtualStructValue(AbstractVirtualValue):
-    _attrs_ = ('_fields', '_cached_sorted_fields')
+    _attrs_ = ('_fieldmap', '_fieldvalues')
 
     def __init__(self, optimizer, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
-        self._fields = av_newdict2()
-        self._cached_sorted_fields = None
+        self._fieldmap = get_no_fields_map(optimizer.cpu)
+        self._fieldvalues = []
 
     def getfield(self, ofs, default):
-        return self._fields.get(ofs, default)
+        i = self._fieldmap.getindex(ofs)
+        if i == -1:
+            return default
+        return self._fieldvalues[i]
 
     def setfield(self, ofs, fieldvalue):
         assert isinstance(fieldvalue, OptValue)
-        self._fields[ofs] = fieldvalue
+        i = self._fieldmap.getindex(ofs)
+        if i != -1:
+            self._fieldvalues[i] = fieldvalue
+        else:
+            self._fieldmap = self._fieldmap.nextmap(ofs)
+            self._fieldvalues.append(fieldvalue)
+
 
     def _really_force(self):
         assert self.source_op is not None
@@ -194,39 +234,30 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         newoperations.append(self.source_op)
         self.box = box = self.source_op.result
         #
-        iteritems = self._fields.iteritems()
-        if not we_are_translated(): #random order is fine, except for tests
-            iteritems = list(iteritems)
-            iteritems.sort(key = lambda (x,y): x.sort_key())
-        for ofs, value in iteritems:
+        #if not we_are_translated(): #random order is fine, except for tests
+        #    iteritems = self._fields.iteritems()
+        #    iteritems = list(iteritems)
+        #    iteritems.sort(key = lambda (x,y): x.sort_key())
+        for i in range(len(self._fieldmap.fieldlist)):
+            ofs = self._fieldmap.fieldlist[i]
+            value = self._fieldvalues[i]
             subbox = value.force_box()
             op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                               descr=ofs)
             newoperations.append(op)
-        self._fields = None
+        self._fieldvalues = None
 
     def _get_field_descr_list(self):
-        # this shares only per instance and not per type, but better than nothing
-        _cached_sorted_fields = self._cached_sorted_fields
-        if (_cached_sorted_fields is not None and
-            len(self._fields) == len(_cached_sorted_fields)):
-            lst = self._cached_sorted_fields
-        else:
-            lst = self._fields.keys()
-            sort_descrs(lst)
-            self._cached_sorted_fields = lst
-        return lst
+        return self._fieldmap.fieldlist
 
     def get_args_for_fail(self, modifier):
+        # modifier.already_seen_virtual()
+        # checks for recursion: it is False unless
+        # we have already seen the very same keybox
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # modifier.already_seen_virtual()
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            lst = self._get_field_descr_list()
-            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
+            fieldboxes = [value.get_key_box() for value in self._fieldvalues]
             modifier.register_virtual_fields(self.keybox, fieldboxes)
-            for ofs in lst:
-                fieldvalue = self._fields[ofs]
+            for fieldvalue in self._fieldvalues:
                 fieldvalue.get_args_for_fail(modifier)
 
 

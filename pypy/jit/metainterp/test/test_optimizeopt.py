@@ -63,16 +63,28 @@ def test_store_final_boxes_in_guard():
     assert fdescr.rd_consts == []
 
 def test_sharing_field_lists_of_virtual():
-    virt1 = optimizeopt.AbstractVirtualStructValue(None, None)
+    class FakeOptimizer(object):
+        class cpu(object):
+            pass
+    opt = FakeOptimizer()
+    virt1 = optimizeopt.AbstractVirtualStructValue(opt, None)
     lst1 = virt1._get_field_descr_list()
     assert lst1 == []
     lst2 = virt1._get_field_descr_list()
     assert lst1 is lst2
     virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst1 = virt1._get_field_descr_list()
-    assert lst1 == [LLtypeMixin.valuedescr]
-    lst2 = virt1._get_field_descr_list()
-    assert lst1 is lst2
+    lst3 = virt1._get_field_descr_list()
+    assert lst3 == [LLtypeMixin.valuedescr]
+    lst4 = virt1._get_field_descr_list()
+    assert lst3 is lst4
+    
+    virt2 = optimizeopt.AbstractVirtualStructValue(opt, None)
+    lst5 = virt2._get_field_descr_list()
+    assert lst5 is lst1
+    virt2.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
+    lst6 = virt1._get_field_descr_list()
+    assert lst6 is lst3
+
 
 def test_reuse_vinfo():
     class FakeVInfo(object):
@@ -89,6 +101,15 @@ def test_reuse_vinfo():
     vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
     assert vinfo3 is vinfo4
     
+
+def test_fieldmap():
+    map = optimizeopt.FieldMap(None, None)
+    assert map.getindex(LLtypeMixin.valuedescr) == -1
+    map2 = map.nextmap(LLtypeMixin.valuedescr)
+    assert map2.getindex(LLtypeMixin.valuedescr) == 0
+    assert map2.fieldlist == [LLtypeMixin.valuedescr]
+    map3 = map.nextmap(LLtypeMixin.valuedescr)
+    assert map2 is map3
 
 # ____________________________________________________________
 

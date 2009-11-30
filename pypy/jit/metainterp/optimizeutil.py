@@ -24,6 +24,9 @@ def av_newdict2():
     # the values...
     return r_dict(av_eq, av_hash)
 
+def av_newdict_int():
+    return r_dict(av_eq, av_hash)
+
 def _findall(Class, name_prefix):
     result = []
     for value, name in resoperation.opname.items():
