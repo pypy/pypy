@@ -822,8 +822,9 @@ def declare_new_w_star(name):
     return WSTAR
 
 for name in RegisterOs.w_star:
-    func = declare_new_w_star(name)
-    globals()[name] = func
+    if hasattr(os, name):
+        func = declare_new_w_star(name)
+        globals()[name] = func
 
 def ttyname(space, fd):
     try:
