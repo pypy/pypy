@@ -56,6 +56,21 @@ class TestMixin(object):
         w_dict1 = obj1.getdict()
         obj2 = self.make_obj()
         w_dict2 = obj2.getdict()
+        obj2.setdict(self.space, w_dict1)
+        assert obj2.getdictvalue(self.fakespace, "hello") == 1
+        assert obj2.getdictvalue(self.fakespace, "world") == 2
+        obj1.setdictvalue(self.fakespace, "hello", 4)
+        obj1.setdictvalue(self.fakespace, "world", 5)
+        assert obj2.getdictvalue(self.fakespace, "hello") == 4
+        assert obj2.getdictvalue(self.fakespace, "world") == 5
+        assert w_dict2.getitem("hello") == 1
+        assert w_dict2.getitem("world") == 2
+
+    def test_setdict_devolves_existing_dict(self):
+        obj1 = self.make_obj()
+        w_dict1 = obj1.getdict()
+        obj2 = self.make_obj()
+        w_dict2 = obj2.getdict()
         w_dict2.setitem(4, 1) # devolve dict
         w_dict2.setitem(5, 2)
         obj2.setdict(self.space, w_dict1)
@@ -65,6 +80,7 @@ class TestMixin(object):
         obj1.setdictvalue(self.fakespace, "world", 5)
         assert obj2.getdictvalue(self.fakespace, "hello") == 4
         assert obj2.getdictvalue(self.fakespace, "world") == 5
+
 
 
     def test_dict_devolves_via_dict(self):
@@ -81,6 +97,7 @@ class TestMixin(object):
         assert obj.getdictvalue(self.fakespace, "world") is None
         obj.deldictvalue(self.fakespace, "hello")
         assert obj.getdictvalue(self.fakespace, "hello") is None
+
 
 class TestMixinShared(TestMixin):
     Mixin = make_inlinedict_mixin(SharedDictImplementation, "structure")
@@ -125,22 +142,3 @@ class TestInlineDict(object):
         assert w_a.w__dict__ is None
         assert self.space.int_w(w_a.content['x']) == 12
         assert self.space.int_w(w_a.content['y']) == 13
-
-class AppTestSharingDict(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(withsharingdict=True, withinlineddict=True)
-
-    @py.test.mark.xfail()
-    def test_bug(self):
-        class X(object):
-            __slots__ = 'a', 'b', 'c'
-
-        class Y(X):
-            def __setattr__(self, name, value):                
-                d = object.__getattribute__(self, '__dict__')
-                object.__setattr__(self, '__dict__', d)
-                return object.__setattr__(self, name, value)
-
-        x = Y()
-        x.number = 42
-        assert x.number == 42

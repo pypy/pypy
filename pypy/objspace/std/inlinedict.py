@@ -118,6 +118,10 @@ def make_inlinedict_mixin(dictimplclass, attrname):
             return True
 
         def setdict(self, space, w_dict):
+            # if somebody asked for the __dict__, and it did not devolve, it
+            # needs to stay valid even if we set a new __dict__ on this object
+            if self.w__dict__ is not None and self._inlined_dict_valid():
+                make_rdict(self)
             self._clear_fields() # invalidate attributes on self
             self.w__dict__ = check_new_dictionary(space, w_dict)
 
