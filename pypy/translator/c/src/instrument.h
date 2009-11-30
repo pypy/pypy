@@ -9,7 +9,7 @@ void instrument_count(long);
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,7 +26,7 @@ void instrument_setup() {
 	char *fname = getenv("_INSTRUMENT_COUNTERS");
 	if (fname) {
 		int fd;
-#ifdef WIN32
+#ifdef _WIN32
         HANDLE map_handle;
         HANDLE file_handle;
 #endif
@@ -36,7 +36,7 @@ void instrument_setup() {
 		if (sz > 0) {
 			lseek(fd, sz-1, SEEK_SET);
 			write(fd, "", 1);
-#ifndef WIN32
+#ifndef _WIN32
 			buf = mmap(NULL, sz, PROT_WRITE|PROT_READ, MAP_SHARED,
 				   fd, 0);
 			if (buf == MAP_FAILED) {
