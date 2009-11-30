@@ -66,7 +66,7 @@ class TestMixin(object):
         assert w_dict2.getitem("hello") == 1
         assert w_dict2.getitem("world") == 2
 
-    def test_setdict_devolves_existing_dict(self):
+    def test_setdict_keeps_previous_dict_working(self):
         obj1 = self.make_obj()
         w_dict1 = obj1.getdict()
         obj2 = self.make_obj()
@@ -81,7 +81,22 @@ class TestMixin(object):
         assert obj2.getdictvalue(self.fakespace, "hello") == 4
         assert obj2.getdictvalue(self.fakespace, "world") == 5
 
-
+    def test_setdict_devolves_existing_dict(self):
+        obj1 = self.make_obj()
+        w_dict1 = obj1.getdict()
+        obj2 = self.make_obj()
+        obj2.setdictvalue(self.fakespace, "hello", 6)
+        obj2.setdictvalue(self.fakespace, "world", 7)
+        w_dict2 = obj2.getdict()
+        obj2.setdict(self.space, w_dict1)
+        assert w_dict2.getitem("hello") == 6
+        assert w_dict2.getitem("world") == 7
+        assert obj2.getdictvalue(self.fakespace, "hello") == 1
+        assert obj2.getdictvalue(self.fakespace, "world") == 2
+        obj1.setdictvalue(self.fakespace, "hello", 4)
+        obj1.setdictvalue(self.fakespace, "world", 5)
+        assert obj2.getdictvalue(self.fakespace, "hello") == 4
+        assert obj2.getdictvalue(self.fakespace, "world") == 5
 
     def test_dict_devolves_via_dict(self):
         obj = self.make_obj()
