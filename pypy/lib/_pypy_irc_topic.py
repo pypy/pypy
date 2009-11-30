@@ -135,6 +135,50 @@ clcl vf gur ahpyrne shfvba bs cebtenzzvat ynathntr vzcyrzragngvba (crqebavf)
 Gur rkgen oynax yvarf gung clcl cevagf haqre jvaqbjf pbzr sebz qvfghgvyf gung qbrf abg svaq Ivfhny Fghqvb 6
 ClCl 1.1.0orgn eryrnfrq: uggc://pbqrfcrnx.arg/clcl/qvfg/clcl/qbp/eryrnfr-1.1.0.ugzy
 "gurer fubhyq or bar naq bayl bar boivbhf jnl gb qb vg". ClCl inevnag: "gurer pna or A unys-ohttl jnlf gb qb vg"
+1.1 svany eryrnfrq: uggc://pbqrfcrnx.arg/clcl/qvfg/clcl/qbp/eryrnfr-1.1.0.ugzy
+1.1 svany eryrnfrq | <svwny> nzq64 naq ccp ner bayl ninvynoyr va ragrecevfr irefvba
+Vf gurer n clcl gvzr? - vs lbh pna srry vg (?) gura gurer vf
+<nevtngb> ab, abezny jbex vf fhpu zhpu yrff gvevat guna inpngvbaf
+<nevtngb> ab, abezny jbex vf fb zhpu yrff gvevat guna inpngvbaf
+SVEFG gurl vtaber lbh, gura gurl ynhtu ng lbh, gura gurl svtug lbh, gura lbh jva.
+vg'f Fhaqnl, znlor
+vg'f Fhaqnl, ntnva
+"3 + 3 = 8"  Nagb va gur WVG gnyx
+RPBBC vf unccravat
+RPBBC vf svavfurq
+cflpb rngf bar oenva cre vapu bs cebterff
+"Fbzrjurer vafvqr gur ynetr yhzorevat oybo bs ClCl gurer vf na ryrtnag pber gelvat gb trg bhg." - psobym
+<nevtngb> gur NV fgngr vf vaqrrq pybfr
+gur yytencu onpxraq vf n PCH gbb
+jung ner n srj snyfr cbfvgvirf orgjrra sevraqf
+abg vaperqvoyl ryrtnag, ohg pbhyq jbex
+Jura lbhe unzzre vf P++, rirelguvat ortvaf gb ybbx yvxr n guhzo.
+Gurersber, fcrpvsvp vasbezngvba, V jnf va na vqrny pbagrkg, V unq gb ernyvmr gur snvgu
+ClCl qrirybczrag: gur neg bs jnvgvat
+ubj gb pbafgehpg gur oynpxubyr vagrecergre: jr erhfr gur genpvat bar, nqq ybgf bs vsf naq cenl
+clcl vf zber fgnoyr guna qrovna
+gur jbeyq qbrfa'g jnag hf gb xabj
+guvatf jbexrq avpryl gvyy gbqnl whfg ol punapr
+enaqbz ohtf va enaqbz (abg n shaal wbxr)
+ab enaqbz ohtf va enaqbz, nsgre nyy
+vg'f ornhgvshy: irel erpgnathyne naq lryybj
+V jnag n terra gevnathyne lryybj cbal
+Vf vg n pnpghf oht be ceboyrz jvgu zl jne?
+vg'f qhpg gncr nyy gur jnl qbja ohg abg gur jnl hc
+"ribyhgrq" = havba bs "ribyirq" naq "pbaibyhgrq"
+vg'f abafrafr nyy gur jnl qbja, naq nyfb nyy gur jnl hc
+vg'f abg pbzcyrgryl fnar, ohg gung unf arire fgbccrq hf
+gur shgher unf whfg ortha
+jung jr npuvrirq gbqnl: jr qvfphffrq gur cbalarff bs gvzr-znpuvarf
+Gur gvzr qrpernfrf!
+"Jul qb jr raq hc va n aba pbzzba pnfr va gur pbzzba pnfr?" (svwny)
+"nu, whfg va gvzr qbphzragngvba" (__nc__)
+ClCl vf abg n erny IZ: ab frtsnhyg unaqyref gb qb gur ener pnfrf
+lbh pna'g unir obgu pbairavrapr naq fcrrq
+gur WVG qbrfa'g jbex ba BF/K (abi'09)
+ab fhccbeg sbe BF/K evtug abj! (abi'09)
+fyvccref urvtug pna or zrnfherq va k86 ertvfgref
+clcl vf n enpr orgjrra gur vaqhfgel gelvat gb ohvyq znpuvarf jvgu zber naq zber erfbheprf, naq gur clcl qrirybcref gelvat gb rng nyy bs gurz. Fb sne, gur jvaare vf fgvyy hapyrne
 """
 
 def some_topic():
