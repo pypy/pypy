@@ -53,7 +53,8 @@ def repr__Int(space, w_int1):
 
 str__Int = repr__Int
 
-def declare_new_int_comparison(opname):
+def declare_new_int_comparison(opname, clsname):
+    # also used by smallintobject.py
     import operator
     from pypy.tool.sourcetools import func_with_new_name
     op = getattr(operator, opname)
@@ -61,11 +62,11 @@ def declare_new_int_comparison(opname):
         i = w_int1.intval
         j = w_int2.intval
         return space.newbool(op(i, j))
-    name = opname + "__Int_Int"
+    name = "%s__%s_%s" % (opname, clsname, clsname)
     return func_with_new_name(f, name), name
 
 for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
-    func, name = declare_new_int_comparison(op)
+    func, name = declare_new_int_comparison(op, "Int")
     globals()[name] = func
 
 def hash__Int(space, w_int1):

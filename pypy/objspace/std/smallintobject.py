@@ -6,7 +6,7 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.intobject import W_IntObject, declare_new_int_comparison
 from pypy.rlib.objectmodel import UnboxedValue
 
 # XXX this is a complete copy of intobject.py.  Find a better but still
@@ -37,14 +37,6 @@ def delegate_SmallInt2Complex(space, w_small):
     return space.newcomplex(float(w_small.intval), 0.0)
 
 
-"""
-XXX not implemented:
-free list
-FromString
-FromUnicode
-print
-"""
-
 def int_w__SmallInt(space, w_int1):
     return int(w_int1.intval)
 
@@ -63,20 +55,8 @@ def repr__SmallInt(space, w_int1):
 
 str__SmallInt = repr__SmallInt
 
-
-def declare_new_int_comparison(opname):
-    import operator
-    from pypy.tool.sourcetools import func_with_new_name
-    op = getattr(operator, opname)
-    def f(space, w_int1, w_int2):
-        i = w_int1.intval
-        j = w_int2.intval
-        return space.newbool(op(i, j))
-    name = opname + "__SmallInt_SmallInt"
-    return func_with_new_name(f, name), name
-
 for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
-    func, name = declare_new_int_comparison(op)
+    func, name = declare_new_int_comparison(op, "SmallInt")
     globals()[name] = func
 
 def hash__SmallInt(space, w_int1):
@@ -93,22 +73,17 @@ def coerce__SmallInt_SmallInt(space, w_int1, w_int2):
 def add__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
-    try:
-        z = ovfcheck(x + y)
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer addition"))
-    return wrapint(space, z)
+    # note that no overflow checking is necessary here: x and y fit into 31
+    # bits (or 63 bits respectively), so their sum fits into 32 (or 64) bits.
+    # wrapint then makes sure that either a tagged int or a normal int is
+    # created
+    return wrapint(space, x + y)
 
 def sub__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
-    try:
-        z = ovfcheck(x - y)
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer substraction"))
-    return wrapint(space, z)
+    # see comment in add__SmallInt_SmallInt
+    return wrapint(space, x - y)
 
 def mul__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
@@ -123,15 +98,11 @@ def mul__SmallInt_SmallInt(space, w_int1, w_int2):
 def div__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
-    try:
-        z = ovfcheck(x // y)
-    except ZeroDivisionError:
+    if y == 0:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer division"))
-    return wrapint(space, z)
+    # no overflow possible
+    return wrapint(space, x // y)
 
 floordiv__SmallInt_SmallInt = div__SmallInt_SmallInt
 
@@ -145,28 +116,20 @@ def truediv__SmallInt_SmallInt(space, w_int1, w_int2):
 def mod__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
-    try:
-        z = ovfcheck(x % y)
-    except ZeroDivisionError:
+    if y == 0:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer modulo by zero"))
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer modulo"))
-    return wrapint(space, z)
+    # no overflow possible
+    return wrapint(space, x % y)
 
 def divmod__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
-    try:
-        z = ovfcheck(x // y)
-    except ZeroDivisionError:
+    if y == 0:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer divmod by zero"))
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer modulo"))
     # no overflow possible
+    z = x // y
     m = x % y
     return space.newtuple([space.wrap(z), space.wrap(m)])
 
@@ -188,12 +151,8 @@ def pow__SmallInt_SmallInt_None(space, w_int1, w_int2, w_int3):
 
 def neg__SmallInt(space, w_int1):
     a = w_int1.intval
-    try:
-        x = ovfcheck(-a)
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer negation"))
-    return wrapint(space, x)
+    # no overflow possible since a fits into 31/63 bits
+    return wrapint(space, -a)
 
 
 def abs__SmallInt(space, w_int1):
@@ -221,20 +180,8 @@ def lshift__SmallInt_SmallInt(space, w_int1, w_int2):
     if b >= LONG_BIT:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
-    ##
-    ## XXX please! have a look into pyport.h and see how to implement
-    ## the overflow checking, using macro Py_ARITHMETIC_RIGHT_SHIFT
-    ## we *assume* that the overflow checking is done correctly
-    ## in the code generator, which is not trivial!
-    
-    ## XXX also note that Python 2.3 returns a long and never raises
-    ##     OverflowError.
     try:
         c = ovfcheck_lshift(a, b)
-        ## the test in C code is
-        ## if (a != Py_ARITHMETIC_RIGHT_SHIFT(long, c, b)) {
-        ##     if (PyErr_Warn(PyExc_FutureWarning,
-        # and so on
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
@@ -254,8 +201,6 @@ def rshift__SmallInt_SmallInt(space, w_int1, w_int2):
         else:
             a = 0
     else:
-        ## please look into pyport.h, how >> should be implemented!
-        ## a = Py_ARITHMETIC_RIGHT_SHIFT(long, a, b);
         a = a >> b
     return wrapint(space, a)
 
@@ -277,19 +222,6 @@ def or__SmallInt_SmallInt(space, w_int1, w_int2):
     res = a | b
     return wrapint(space, res)
 
-# coerce is not wanted
-##
-##static int
-##coerce__Int(PyObject **pv, PyObject **pw)
-##{
-##    if (PyInt_Check(*pw)) {
-##        Py_INCREF(*pv);
-##        Py_INCREF(*pw);
-##        return 0;
-##    }
-##    return 1; /* Can't do it */
-##}
-
 # int__SmallInt is supposed to do nothing, unless it has
 # a derived integer object, where it should return
 # an exact one.
@@ -297,16 +229,8 @@ def int__SmallInt(space, w_int1):
     if space.is_w(space.type(w_int1), space.w_int):
         return w_int1
     a = w_int1.intval
-    return wrapint(space, a)
+    return W_SmallIntObject(a)
 pos__SmallInt = int__SmallInt
-
-"""
-# Not registered
-def long__SmallInt(space, w_int1):
-    a = w_int1.intval
-    x = long(a)  ## XXX should this really be done so?
-    return space.newlong(x)
-"""
 
 def float__SmallInt(space, w_int1):
     a = w_int1.intval
