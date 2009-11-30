@@ -48,7 +48,12 @@ class TestBasic(CliJitMixin, test_basic.TestOOtype):
     test_oosend_look_inside_only_one = skip
     test_residual_external_call = skip
     test_merge_guardclass_guardvalue = skip
+    test_merge_guardnonnull_guardclass = skip
+    test_merge_guardnonnull_guardvalue = skip
+    test_merge_guardnonnull_guardvalue_2 = skip
+    test_merge_guardnonnull_guardclass_guardvalue = skip
     test_residual_call_doesnt_lose_info = skip
     test_oohash = skip
     test_identityhash = skip
     test_guard_isnull_nonnull = skip
+    test_r_dict = skip

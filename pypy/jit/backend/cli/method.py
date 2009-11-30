@@ -259,6 +259,7 @@ class Method(object):
             return v
 
     def match_var_fox_boxes(self, failargs, inputargs):
+        failargs = [arg for arg in failargs if arg is not None]
         assert len(failargs) == len(inputargs)
         for i in range(len(failargs)):
             v = self.boxes[failargs[i]]
