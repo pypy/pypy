@@ -138,6 +138,9 @@ class TinyObjSpace(object):
     def is_true(self, obj):
         return bool(obj)
 
+    def str_w(self, w_str):
+        return w_str
+
     def newdict(self):
         return {}
 
