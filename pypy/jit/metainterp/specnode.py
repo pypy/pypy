@@ -49,7 +49,7 @@ class AbstractVirtualStructSpecNode(SpecNode):
         for i in range(len(self.fields)):
             o1, s1 = self.fields[i]
             o2, s2 = other.fields[i]
-            if not (o1.sort_key() == o2.sort_key() and s1.equals(s2, ge)):
+            if not (o1 is o2 and s1.equals(s2, ge)):
                 return False
         return True
 

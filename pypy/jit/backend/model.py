@@ -108,6 +108,9 @@ class AbstractCPU(object):
 
     @staticmethod
     def fielddescrof(S, fieldname):
+        """Return the Descr corresponding to field 'fieldname' on the
+        structure 'S'.  It is important that this function (at least)
+        caches the results."""
         raise NotImplementedError
 
     @staticmethod
