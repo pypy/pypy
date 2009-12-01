@@ -731,8 +731,7 @@ class FuncNode(ContainerNode):
         else:
             self.name = (forcename or
                          db.namespace.uniquename('g_' + self.basename()))
-        self.compilation_info = getattr(obj, 'compilation_info',
-                                        ExternalCompilationInfo())
+        self.compilation_info = getattr(obj, 'compilation_info', None)
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
