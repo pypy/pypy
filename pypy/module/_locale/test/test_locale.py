@@ -309,3 +309,14 @@ class AppTestLocaleTrivia:
         assert _locale.bind_textdomain_codeset('/', None) == 'UTF-8'
 
         assert _locale.bind_textdomain_codeset('', '') is None
+
+    def test_getdefaultlocale(self):
+        import sys
+        if sys.platform != 'win32':
+            skip("No _getdefaultlocale() to test")
+
+        import _locale
+        lang, encoding = _locale._getdefaultlocale()
+        assert lang is None or isinstance(lang, str)
+        assert encoding.startswith('cp')
+
