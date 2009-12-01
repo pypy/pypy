@@ -361,13 +361,18 @@ def test_rebuild_from_resumedata_two_guards():
     assert metainterp.framestack == fs2
 
 
+class FakeOptimizer_VirtualValue(object):
+    class cpu:
+        pass
+fakeoptimizer = FakeOptimizer_VirtualValue()
+
 def virtual_value(keybox, value, next):
-    vv = VirtualValue(None, ConstAddr(LLtypeMixin.node_vtable_adr,
-                                      LLtypeMixin.cpu), keybox)
+    vv = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr,
+                                     LLtypeMixin.cpu), keybox)
     if not isinstance(next, OptValue):
         next = OptValue(next)
-    vv.setfield(LLtypeMixin.nextdescr, next)
     vv.setfield(LLtypeMixin.valuedescr, OptValue(value))
+    vv.setfield(LLtypeMixin.nextdescr, next)
     return vv
 
 def test_rebuild_from_resumedata_two_guards_w_virtuals():
@@ -800,18 +805,19 @@ def test_virtual_adder_make_virtual():
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v2 = VirtualValue(None, ConstAddr(LLtypeMixin.node_vtable_adr,
-                                                LLtypeMixin.cpu), b2s)
-    v2._fields = {LLtypeMixin.nextdescr: b4s,
-                  LLtypeMixin.valuedescr: c1s}
-    v2._cached_sorted_fields = [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr]
-    v4 = VirtualValue(None, ConstAddr(LLtypeMixin.node_vtable_adr2,
+    v4 = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr2,
                                                 LLtypeMixin.cpu), b4s)
-    v4._fields = {LLtypeMixin.nextdescr: b2s,
-                  LLtypeMixin.valuedescr: b3s,
-                  LLtypeMixin.otherdescr: b5s}
+    v4.setfield(LLtypeMixin.nextdescr, OptValue(b2s))
+    v4.setfield(LLtypeMixin.valuedescr, OptValue(b3s))
+    v4.setfield(LLtypeMixin.otherdescr, OptValue(b5s))
     v4._cached_sorted_fields = [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr,
                                 LLtypeMixin.otherdescr]
+    v2 = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr,
+                                                LLtypeMixin.cpu), b2s)
+    v2.setfield(LLtypeMixin.nextdescr, v4)
+    v2.setfield(LLtypeMixin.valuedescr, OptValue(c1s))
+    v2._cached_sorted_fields = [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr]
+
     modifier.register_virtual_fields(b2s, [b4s, c1s])
     modifier.register_virtual_fields(b4s, [b2s, b3s, b5s])
     values = {b2s: v2, b4s: v4}
@@ -873,6 +879,8 @@ def test_virtual_adder_make_varray():
     modifier.vfieldboxes = {}
 
     class FakeOptimizer(object):
+        class cpu:
+            pass
         def new_const_item(self, descr):
             return None
     v2 = VArrayValue(FakeOptimizer(), LLtypeMixin.arraydescr, 2, b2s)
@@ -921,9 +929,9 @@ def test_virtual_adder_make_vstruct():
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
-    v2 = VStructValue(None, LLtypeMixin.ssize, b2s)
-    v2._fields = {LLtypeMixin.adescr: c1s, LLtypeMixin.bdescr: b4s}
-    v2._cached_sorted_fields = [LLtypeMixin.adescr, LLtypeMixin.bdescr]
+    v2 = VStructValue(fakeoptimizer, LLtypeMixin.ssize, b2s)
+    v2.setfield(LLtypeMixin.adescr, OptValue(c1s))
+    v2.setfield(LLtypeMixin.bdescr, OptValue(b4s))
     modifier.register_virtual_fields(b2s, [c1s, b4s])
     liveboxes = []
     modifier._number_virtuals(liveboxes, {b2s: v2}, 0)

@@ -10,6 +10,7 @@ from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
@@ -172,6 +173,13 @@ class AbstractVirtualValue(OptValue):
     def _make_virtual(self, modifier):
         raise NotImplementedError("abstract base")
 
+def get_fielddescrlist_cache(cpu):
+    if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
+        result = descrlist_dict()
+        cpu._optimizeopt_fielddescrlist_cache = result
+        return result
+    return cpu._optimizeopt_fielddescrlist_cache
+get_fielddescrlist_cache._annspecialcase_ = "specialize:memo"
 
 class AbstractVirtualStructValue(AbstractVirtualValue):
     _attrs_ = ('_fields', '_cached_sorted_fields')
@@ -206,7 +214,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         self._fields = None
 
     def _get_field_descr_list(self):
-        # this shares only per instance and not per type, but better than nothing
         _cached_sorted_fields = self._cached_sorted_fields
         if (_cached_sorted_fields is not None and
             len(self._fields) == len(_cached_sorted_fields)):
@@ -214,6 +221,14 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         else:
             lst = self._fields.keys()
             sort_descrs(lst)
+            cache = get_fielddescrlist_cache(self.optimizer.cpu)
+            result = cache.get(lst, None)
+            if result is None:
+                cache[lst] = lst
+            else:
+                lst = result
+            # store on self, to not have to repeatedly get it from the global
+            # cache, which involves sorting
             self._cached_sorted_fields = lst
         return lst
 

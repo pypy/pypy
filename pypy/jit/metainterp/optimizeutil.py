@@ -54,3 +54,26 @@ def sort_descrs(lst):
     quicksort(lst, 0, len(lst)-1)
 
 
+def descrlist_hash(l):
+    res = 0x345678
+    mult = 1000003
+    z = len(l)
+    for descr in l:
+        y = descr.sort_key()
+        res = (res ^ y) * mult
+        z -= 1
+        mult += 82520 + z + z
+    res += 97531
+    return res
+
+def descrlist_eq(l1, l2):
+    if len(l1) != len(l2):
+        return False
+    for i in range(len(l1)):
+        if l1[i].sort_key() != l2[i].sort_key():
+            return False
+    return True
+
+def descrlist_dict():
+    return r_dict(descrlist_eq, descrlist_hash)
+
