@@ -1,4 +1,4 @@
-from pypy.rlib.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation
 
@@ -59,7 +59,7 @@ def descrlist_hash(l):
     mult = 1000003
     z = len(l)
     for descr in l:
-        y = descr.sort_key()
+        y = compute_identity_hash(descr)
         res = (res ^ y) * mult
         z -= 1
         mult += 82520 + z + z
@@ -70,7 +70,7 @@ def descrlist_eq(l1, l2):
     if len(l1) != len(l2):
         return False
     for i in range(len(l1)):
-        if l1[i].sort_key() != l2[i].sort_key():
+        if l1[i] is not l2[i]:
             return False
     return True
 

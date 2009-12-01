@@ -119,6 +119,14 @@ def test_descrlist_dict():
     assert not optimizeutil.descrlist_eq([LLtypeMixin.nextdescr, LLtypeMixin.valuedescr],
                                          [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
 
+    # descrlist_eq should compare by identity of the descrs, not by the result
+    # of sort_key
+    class FakeDescr(object):
+        def sort_key(self):
+            return 1
+
+    assert not optimizeutil.descrlist_eq([FakeDescr()], [FakeDescr()])
+
 
 # ____________________________________________________________
 
