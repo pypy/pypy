@@ -134,8 +134,8 @@ def test_initialize_state_from_guard_failure():
     class FakeCPU:
         ts = llhelper
 
-        def get_latest_value_int(self, index):
-            return index
+        def make_boxes_from_latest_values(self, faildescr):
+            return [BoxInt(0), None, BoxInt(2), None, BoxInt(4)]
         
     class FakeStaticData:
         cpu = FakeCPU()
@@ -150,10 +150,6 @@ def test_initialize_state_from_guard_failure():
     class FakeResumeDescr:
         pass
     resumedescr = FakeResumeDescr()
-    resumedescr.fail_arg_types = [history.INT, history.HOLE,
-                                  history.INT, history.HOLE,
-                                  history.INT]
-
     metainterp.initialize_state_from_guard_failure(resumedescr, True)
 
     inp = metainterp.history.inputargs

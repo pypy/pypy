@@ -1,8 +1,8 @@
 import sys, os
 import ctypes
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.metainterp.history import Const, Box, BoxPtr, INT, REF, FLOAT
-from pypy.jit.metainterp.history import AbstractFailDescr
+from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -798,9 +798,9 @@ class Assembler386(object):
     DESCR_INT       = 0x01
     DESCR_FLOAT     = 0x02
     DESCR_SPECIAL   = 0x03
-    DESCR_FROMSTACK = 8
-    DESCR_STOP      = 0 | DESCR_SPECIAL
-    DESCR_HOLE      = 4 | DESCR_SPECIAL
+    CODE_FROMSTACK  = 4*8
+    CODE_STOP       = 0 | DESCR_SPECIAL
+    CODE_HOLE       = 4 | DESCR_SPECIAL
 
     def write_failure_recovery_description(self, mc, failargs, locs):
         for i in range(len(failargs)):
@@ -816,7 +816,7 @@ class Assembler386(object):
                     raise AssertionError("bogus kind")
                 loc = locs[i]
                 if isinstance(loc, MODRM):
-                    n = self.DESCR_FROMSTACK + loc.position
+                    n = self.CODE_FROMSTACK//4 + loc.position
                 else:
                     assert isinstance(loc, REG)
                     n = loc.op
@@ -825,9 +825,9 @@ class Assembler386(object):
                     mc.writechr((n & 0x7F) | 0x80)
                     n >>= 7
             else:
-                n = self.DESCR_HOLE
+                n = self.CODE_HOLE
             mc.writechr(n)
-        mc.writechr(self.DESCR_STOP)
+        mc.writechr(self.CODE_STOP)
         # preallocate the fail_boxes
         i = len(failargs) - 1
         if i >= 0:
@@ -844,7 +844,7 @@ class Assembler386(object):
             # decode the next instruction from the bytecode
             code = rffi.cast(lltype.Signed, bytecode[0])
             bytecode = rffi.ptradd(bytecode, 1)
-            if code >= 4*self.DESCR_FROMSTACK:
+            if code >= self.CODE_FROMSTACK:
                 # 'code' identifies a stack location
                 if code > 0x7F:
                     shift = 7
@@ -857,15 +857,15 @@ class Assembler386(object):
                         if nextcode <= 0x7F:
                             break
                 kind = code & 3
-                code = (code >> 2) - self.DESCR_FROMSTACK
+                code = (code - self.CODE_FROMSTACK) >> 2
                 if kind == self.DESCR_FLOAT:
                     size = 2
                 else:
                     size = 1
                 loc = X86StackManager.stack_pos(code, size)
-            elif code == self.DESCR_STOP:
+            elif code == self.CODE_STOP:
                 break
-            elif code == self.DESCR_HOLE:
+            elif code == self.CODE_HOLE:
                 continue
             else:
                 # 'code' identifies a register
@@ -878,6 +878,39 @@ class Assembler386(object):
             arglocs.append(loc)
         return arglocs[:]
 
+    def make_boxes_from_latest_values(self, bytecode):
+        bytecode = rffi.cast(rffi.UCHARP, bytecode)
+        boxes = []
+        while 1:
+            # decode the next instruction from the bytecode
+            code = rffi.cast(lltype.Signed, bytecode[0])
+            bytecode = rffi.ptradd(bytecode, 1)
+            kind = code & 3
+            while code > 0x7F:
+                code = rffi.cast(lltype.Signed, bytecode[0])
+                bytecode = rffi.ptradd(bytecode, 1)
+            index = len(boxes)
+            if kind == self.DESCR_INT:
+                box = BoxInt(self.fail_boxes_int.getitem(index))
+            elif kind == self.DESCR_REF:
+                box = BoxPtr(self.fail_boxes_ptr.getitem(index))
+                # clear after reading (xxx duplicates
+                # get_latest_value_ref())
+                self.fail_boxes_ptr.setitem(index, lltype.nullptr(
+                    llmemory.GCREF.TO))
+            elif kind == self.DESCR_FLOAT:
+                box = BoxFloat(self.fail_boxes_float.getitem(index))
+            else:
+                assert kind == self.DESCR_SPECIAL
+                if code == self.CODE_STOP:
+                    break
+                elif code == self.CODE_HOLE:
+                    box = None
+                else:
+                    assert 0, "bad code"
+            boxes.append(box)
+        return boxes
+
     def grab_frame_values(self, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!
         self.fail_ebp = allregisters[16 + ebp.op]
@@ -887,7 +920,7 @@ class Assembler386(object):
             # decode the next instruction from the bytecode
             code = rffi.cast(lltype.Signed, bytecode[0])
             bytecode = rffi.ptradd(bytecode, 1)
-            if code >= 4*self.DESCR_FROMSTACK:
+            if code >= self.CODE_FROMSTACK:
                 if code > 0x7F:
                     shift = 7
                     code &= 0x7F
@@ -900,7 +933,7 @@ class Assembler386(object):
                             break
                 # load the value from the stack
                 kind = code & 3
-                code = (code >> 2) - self.DESCR_FROMSTACK
+                code = (code - self.CODE_FROMSTACK) >> 2
                 stackloc = frame_addr + get_ebp_ofs(code)
                 value = rffi.cast(rffi.LONGP, stackloc)[0]
                 if kind == self.DESCR_FLOAT:
@@ -910,10 +943,10 @@ class Assembler386(object):
                 # 'code' identifies a register: load its value
                 kind = code & 3
                 if kind == self.DESCR_SPECIAL:
-                    if code == self.DESCR_HOLE:
+                    if code == self.CODE_HOLE:
                         num += 1
                         continue
-                    assert code == self.DESCR_STOP
+                    assert code == self.CODE_STOP
                     break
                 code >>= 2
                 if kind == self.DESCR_FLOAT:

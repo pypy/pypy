@@ -42,8 +42,8 @@ def test_write_failure_recovery_description():
             Assembler386.DESCR_INT   + 4*(8+100),
             Assembler386.DESCR_REF   + 4*(8+101),
             Assembler386.DESCR_FLOAT + 4*(8+110),
-            Assembler386.DESCR_HOLE,
-            Assembler386.DESCR_HOLE,
+            Assembler386.CODE_HOLE,
+            Assembler386.CODE_HOLE,
             Assembler386.DESCR_INT   + 4*ebx.op,
             Assembler386.DESCR_REF   + 4*esi.op,
             Assembler386.DESCR_FLOAT + 4*xmm2.op]
@@ -52,7 +52,7 @@ def test_write_failure_recovery_description():
         double_byte_nums.append((num & 0x7F) | 0x80)
         double_byte_nums.append(num >> 7)
     assert mc.content == (nums[:3] + double_byte_nums + nums[6:] +
-                          [assembler.DESCR_STOP])
+                          [assembler.CODE_STOP])
 
     # also test rebuild_faillocs_from_descr(), which should not
     # reproduce the holes at all
@@ -64,6 +64,35 @@ def test_write_failure_recovery_description():
     newlocs = assembler.rebuild_faillocs_from_descr(bytecode_addr)
     assert ([loc.assembler() for loc in newlocs] ==
             [loc.assembler() for loc in locs if loc is not None])
+
+    # finally, test make_boxes_from_latest_values(), which should
+    # reproduce the holes
+    expected_classes = [BoxInt, BoxPtr, BoxFloat,
+                        BoxInt, BoxPtr, BoxFloat,
+                        type(None), type(None),
+                        BoxInt, BoxPtr, BoxFloat]
+    ptrvalues = {}
+    S = lltype.GcStruct('S')
+    for i, cls in enumerate(expected_classes):
+        if cls == BoxInt:
+            assembler.fail_boxes_int.setitem(i, 1000 + i)
+        elif cls == BoxPtr:
+            s = lltype.malloc(S)
+            s_ref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            ptrvalues[i] = s_ref
+            assembler.fail_boxes_ptr.setitem(i, s_ref)
+        elif cls == BoxFloat:
+            assembler.fail_boxes_float.setitem(i, 42.5 + i)
+    boxes = assembler.make_boxes_from_latest_values(bytecode_addr)
+    assert len(boxes) == len(locs) == len(expected_classes)
+    for i, (box, expected_class) in enumerate(zip(boxes, expected_classes)):
+        assert type(box) is expected_class
+        if expected_class == BoxInt:
+            assert box.value == 1000 + i
+        elif expected_class == BoxPtr:
+            assert box.value == ptrvalues[i]
+        elif expected_class == BoxFloat:
+            assert box.value == 42.5 + i
 
 # ____________________________________________________________
 
@@ -136,7 +165,7 @@ def do_failure_recovery_func(withfloats):
     descr_bytecode = []
     for i, (kind, loc) in enumerate(content):
         if kind == 'hole':
-            num = Assembler386.DESCR_HOLE
+            num = Assembler386.CODE_HOLE
         else:
             if kind == 'float':
                 value, lo, hi = get_random_float()
@@ -174,7 +203,7 @@ def do_failure_recovery_func(withfloats):
                 num >>= 7
         descr_bytecode.append(num)
 
-    descr_bytecode.append(Assembler386.DESCR_STOP)
+    descr_bytecode.append(Assembler386.CODE_STOP)
     descr_bytecode.append(0xC3)   # fail_index = 0x1C3
     descr_bytecode.append(0x01)
     descr_bytecode.append(0x00)

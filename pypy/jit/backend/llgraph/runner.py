@@ -166,6 +166,13 @@ class BaseCPU(model.AbstractCPU):
             if op.is_guard():
                 faildescr = op.descr
                 assert isinstance(faildescr, history.AbstractFailDescr)
+                faildescr._fail_args_types = []
+                for box in op.fail_args:
+                    if box is None:
+                        type = history.HOLE
+                    else:
+                        type = box.type
+                    faildescr._fail_args_types.append(type)
                 fail_index = self.get_fail_descr_number(faildescr)
                 index = llimpl.compile_add_fail(c, fail_index)
                 faildescr._compiled_fail = c, index
@@ -234,6 +241,23 @@ class BaseCPU(model.AbstractCPU):
     def get_latest_force_token(self):
         token = llimpl.get_frame_forced_token(self.latest_frame)
         return self.cast_adr_to_int(token)
+
+    def make_boxes_from_latest_values(self, faildescr):
+        inputargs_and_holes = []
+        for i in range(len(faildescr._fail_args_types)):
+            boxtype = faildescr._fail_args_types[i]
+            if boxtype == history.INT:
+                box = history.BoxInt(self.get_latest_value_int(i))
+            elif boxtype == history.REF:
+                box = self.ts.BoxRef(self.get_latest_value_ref(i))
+            elif boxtype == history.FLOAT:
+                box = history.BoxFloat(self.get_latest_value_float(i))
+            elif boxtype == history.HOLE:
+                box = None
+            else:
+                assert False, "bad box type: num=%d" % ord(boxtype)
+            inputargs_and_holes.append(box)
+        return inputargs_and_holes
 
     # ----------
 

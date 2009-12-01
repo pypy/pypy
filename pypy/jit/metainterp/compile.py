@@ -215,13 +215,6 @@ class ResumeGuardDescr(ResumeDescr):
     def store_final_boxes(self, guard_op, boxes):
         guard_op.fail_args = boxes
         self.guard_opnum = guard_op.opnum
-        fail_arg_types = [history.HOLE] * len(boxes)
-        for i in range(len(boxes)):
-            box = boxes[i]
-            if box:
-                fail_arg_types[i] = box.type
-        self.fail_arg_types = fail_arg_types
-        # XXX ^^^ kill this attribute
 
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
@@ -253,7 +246,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.resume import force_from_resumedata
         metainterp = MetaInterp(self.metainterp_sd)
         metainterp.history = None    # blackholing
-        liveboxes = metainterp.load_values_from_failure(self)
+        liveboxes = metainterp.cpu.make_boxes_from_latest_values(self)
         virtualizable_boxes, data = force_from_resumedata(metainterp,
                                                           liveboxes, self)
         vinfo.write_boxes(virtualizable, virtualizable_boxes)

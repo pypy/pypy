@@ -83,6 +83,12 @@ class AbstractCPU(object):
         same FORCE_TOKEN result as the one in the just-failed loop."""
         raise NotImplementedError
 
+    def make_boxes_from_latest_value(self, faildescr):
+        """Build a list of Boxes (and None for holes) that contains
+        the current values, as would be returned by calls to
+        get_latest_value_xxx()."""
+        raise NotImplementedError
+
     def get_exception(self):
         raise NotImplementedError
 

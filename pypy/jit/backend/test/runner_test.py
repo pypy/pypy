@@ -238,6 +238,32 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
+    def test_make_boxes_from_latest_values(self):
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        faildescr1 = BasicFailDescr(1)
+        looptoken = LoopToken()
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        operations[2].fail_args = [None, i1, None]
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr1
+        boxes = self.cpu.make_boxes_from_latest_values(faildescr1)
+        assert len(boxes) == 3
+        assert boxes[0] is None
+        assert isinstance(boxes[1], BoxInt)
+        assert boxes[1].value == 10
+        assert boxes[2] is None
+
     def test_finish(self):
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
