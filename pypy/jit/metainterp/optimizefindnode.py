@@ -371,6 +371,7 @@ class PerfectSpecializationFinder(NodeFinder):
                 d.setdefault(ofs, self.node_escaped)
         if d is not None:
             lst = d.keys()
+            # we always use the "standardized" order of fields
             sort_descrs(lst)
             for ofs in lst:
                 try:

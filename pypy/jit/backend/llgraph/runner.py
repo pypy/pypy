@@ -32,6 +32,10 @@ class Descr(history.AbstractDescr):
         return self.extrainfo
 
     def sort_key(self):
+        """Returns an integer that can be used as a key when sorting the
+        field descrs of a single structure.  The property that this
+        number has is simply that two different field descrs of the same
+        structure give different numbers."""
         return self.ofs
 
     def is_pointer_field(self):
@@ -45,11 +49,6 @@ class Descr(history.AbstractDescr):
 
     def is_array_of_floats(self):
         return self.typeinfo == FLOAT
-
-    def equals(self, other):
-        if not isinstance(other, Descr):
-            return False
-        return self.sort_key() == other.sort_key()
 
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
