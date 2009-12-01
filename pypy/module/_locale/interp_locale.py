@@ -86,6 +86,8 @@ constant_names = (
         'LC_TELEPHONE',
         'LC_MEASUREMENT',
         'LC_IDENTIFICATION',
+        'LC_MIN',
+        'LC_MAX',
         # from limits.h
         'CHAR_MAX',
         )
@@ -153,6 +155,10 @@ _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
 def setlocale(space, category, w_locale=None):
     "(integer,string=None) -> string. Activates/queries locale processing."
+
+    if cConfig.LC_MAX is not None:
+        if not cConfig.LC_MIN <= category <= cConfig.LC_MAX:
+            raise make_error(space, "invalid locale category")
 
     if space.is_w(w_locale, space.w_None) or w_locale is None:
         result = _setlocale(rffi.cast(rffi.INT, category), None)
