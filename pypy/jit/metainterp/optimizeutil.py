@@ -10,20 +10,6 @@ class InvalidLoop(Exception):
 # ____________________________________________________________
 # Misc. utilities
 
-def av_eq(self, other):
-    return self.sort_key() == other.sort_key()
-
-def av_hash(self):
-    return self.sort_key()
-
-def av_newdict():
-    return r_dict(av_eq, av_hash)
-
-def av_newdict2():
-    # another implementation of av_newdict(), allowing different types for
-    # the values...
-    return r_dict(av_eq, av_hash)
-
 def _findall(Class, name_prefix):
     result = []
     for value, name in resoperation.opname.items():
@@ -56,14 +42,9 @@ def sort_descrs(lst):
 
 def descrlist_hash(l):
     res = 0x345678
-    mult = 1000003
-    z = len(l)
     for descr in l:
         y = compute_identity_hash(descr)
-        res = (res ^ y) * mult
-        z -= 1
-        mult += 82520 + z + z
-    res += 97531
+        res = intmask((1000003 * res) ^ y)
     return res
 
 def descrlist_eq(l1, l2):

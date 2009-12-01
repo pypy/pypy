@@ -9,7 +9,7 @@ from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
-from pypy.jit.metainterp.optimizeutil import av_newdict2, _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp import resume, compile
@@ -186,7 +186,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def __init__(self, optimizer, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
-        self._fields = av_newdict2()
+        self._fields = {}
         self._cached_sorted_fields = None
 
     def getfield(self, ofs, default):
@@ -840,9 +840,6 @@ class HeapOpOptimizer(object):
     def __init__(self, optimizer):
         self.optimizer = optimizer
         # cached OptValues for each field descr
-        # NOTE: it is important that this is not a av_newdict2 dict!
-        # we want more precision to prevent mixing up of unrelated fields, just
-        # because they are at the same offset (but in a different struct type)
         self.cached_fields = {}
 
         # cached OptValues for each field descr

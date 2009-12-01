@@ -7,7 +7,7 @@ from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.history import AbstractValue, ConstInt, Const
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeutil import av_newdict, _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
 # ____________________________________________________________
@@ -225,7 +225,7 @@ class NodeFinder(object):
         field = op.descr
         assert isinstance(field, AbstractValue)
         if instnode.curfields is None:
-            instnode.curfields = av_newdict()
+            instnode.curfields = {}
         instnode.curfields[field] = fieldnode
         instnode.add_escape_dependency(fieldnode)
 
@@ -243,7 +243,7 @@ class NodeFinder(object):
             fieldnode = InstanceNode(fromstart=True)
             instnode.add_escape_dependency(fieldnode)
             if instnode.origfields is None:
-                instnode.origfields = av_newdict()
+                instnode.origfields = {}
             instnode.origfields[field] = fieldnode
         else:
             return    # nothing to be gained from tracking the field
@@ -366,7 +366,7 @@ class PerfectSpecializationFinder(NodeFinder):
             if d is not None:
                 d = d.copy()
             else:
-                d = av_newdict()
+                d = {}
             for ofs in orig:
                 d.setdefault(ofs, self.node_escaped)
         if d is not None:
@@ -448,7 +448,7 @@ class __extend__(VirtualInstanceSpecNode):
     def make_instance_node(self):
         instnode = InstanceNode()
         instnode.knownclsbox = self.known_class
-        instnode.curfields = av_newdict()
+        instnode.curfields = {}
         for ofs, subspecnode in self.fields:
             instnode.curfields[ofs] = subspecnode.make_instance_node()
         return instnode
