@@ -131,7 +131,7 @@ for name in constant_names:
 
 for name in langinfo_names:
     value = getattr(cConfig, name)
-    if value is not None:
+    if value is not None and sys.platform != 'win32':
         constants[name] = value
 
 locals().update(constants)
