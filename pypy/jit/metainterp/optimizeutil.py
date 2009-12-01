@@ -1,4 +1,5 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation
 
