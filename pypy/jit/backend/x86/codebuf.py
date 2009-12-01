@@ -1,6 +1,7 @@
 
-import os
+import os, sys
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86.ri386 import I386CodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
 from pypy.rlib.debug import make_sure_not_resized
@@ -142,3 +143,14 @@ class MachineCodeBlock(InMemoryCodeBuilder):
         size = self._size
         assert size >= 0
         free(self._data, size)
+
+
+# ____________________________________________________________
+
+if sys.platform == 'win32':
+    ensure_sse2_floats = lambda self: None
+else:
+    _sse2_eci = ExternalCompilationInfo(
+        compile_extra = ['-msse2', '-mfpmath=sse'])
+    ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
+                                         compilation_info=_sse2_eci)

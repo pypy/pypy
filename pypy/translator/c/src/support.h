@@ -19,6 +19,7 @@
 #define FAIL_VAL(msg) FAIL_EXCEPTION(PyExc_ValueError, msg)
 #define FAIL_ZER(msg) FAIL_EXCEPTION(PyExc_ZeroDivisionError, msg)
 #define CFAIL()       RPyConvertExceptionFromCPython()
+#define PYPY_NO_OP()  /* nothing */
 
 /* the following macros are used by rpython/lltypesystem/rstr.py */
 #define PyString_FromRPyString(rpystr) \
