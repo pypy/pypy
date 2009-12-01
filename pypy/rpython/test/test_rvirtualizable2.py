@@ -361,7 +361,7 @@ class TestLLtype(LLRtypeMixin, BaseTest):
         assert res.item1 == 42
         res = lltype.normalizeptr(res.item0)
         assert res.inst_v == 42
-        assert not res.vable_rti
+        assert res.vable_token == 0
 
 class TestOOtype(OORtypeMixin, BaseTest):
     prefix = 'o'

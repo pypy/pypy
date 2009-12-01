@@ -189,7 +189,8 @@ class TestLLType(LLRtypeMixin, BaseTestCanRaise):
         result = ra.can_raise(fgraph.startblock.operations[0])
         assert not result
 
-        z = llexternal('z', [lltype.Signed], lltype.Signed, canraise=True)
+        z = lltype.functionptr(lltype.FuncType([lltype.Signed], lltype.Signed),
+                               'foobar')
         def g(x):
             return z(x)
         t, ra = self.translate(g, [int])

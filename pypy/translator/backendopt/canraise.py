@@ -17,7 +17,7 @@ class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
             log.WARNING("Unknown operation: %s" % op.opname)
             return True
 
-    def analyze_external_call(self, op):
+    def analyze_external_call(self, op, seen=None):
         fnobj = get_funcobj(op.args[0].value)
         return getattr(fnobj, 'canraise', True)
 

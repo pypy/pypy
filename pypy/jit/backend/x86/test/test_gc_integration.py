@@ -9,7 +9,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import RegAlloc, WORD
+from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, FRAME_FIXED_SIZE
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -83,7 +83,8 @@ class TestRegallocDirectGcIntegration(object):
         #
         mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
         assert mark[0] == 'compressed'
-        expected = ['ebx', 'esi', 'edi', -16, -20, -24]
+        base = -WORD * FRAME_FIXED_SIZE
+        expected = ['ebx', 'esi', 'edi', base, base-4, base-8]
         assert dict.fromkeys(mark[1:]) == dict.fromkeys(expected)
 
 class TestRegallocGcIntegration(BaseTestRegalloc):

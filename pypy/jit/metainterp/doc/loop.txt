@@ -36,32 +36,11 @@ the level of specialization::
 
     .       VirtualSpec(cls, name1=spec1, ...)
                     |
-         VirtualizableSpec(cls, name1=spec1, ...)
-                    |
-              FixedClassSpec(cls)
-                    |
                  NotSpec
 
-For (a simplified) example, ``VirtualizableSpec(PyFrame, x =
-VirtualSpec(W_IntObject, value = NotSpec))`` describes the virtualizable
-frame for a loop in which the only used variable is ``x``, which is a
-virtual ``W_IntObject``.
-
-The intersection rules are:
-
-* the intersection of two ``VirtualSpec`` of the same ``cls`` is a
-  further ``VirtualSpec``, and we proceed with the intersection of
-  each field.
-
-* the intersection of two ``VirtualizableSpec`` of the same ``cls`` is
-  like the previous case, except that some names may be omitted
-  completely from a given ``VirtualizableSpec``; in the case a name is
-  present in only one of the ``VirtualizableSpec``, we just keep it
-  unmodified in the intersection.
-
-* in other cases, the result is ``FixedClassSpec`` if the two specnodes
-  have the same class, or ``NotSpec`` if any is a ``NotSpec`` or if the
-  two classes differ.
+For example, ``VirtualSpec(W_IntObject, value = NotSpec))`` describes a
+variable which is a virtual ``W_IntObject``, containing a value that is
+a real integer.
 
 
 Overall Approach

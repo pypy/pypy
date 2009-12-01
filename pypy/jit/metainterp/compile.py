@@ -221,6 +221,7 @@ class ResumeGuardDescr(ResumeDescr):
             if box:
                 fail_arg_types[i] = box.type
         self.fail_arg_types = fail_arg_types
+        # XXX ^^^ kill this attribute
 
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
@@ -235,6 +236,41 @@ class ResumeGuardDescr(ResumeDescr):
             self._debug_suboperations = new_loop.operations
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations)
+
+
+class ResumeGuardForcedDescr(ResumeGuardDescr):
+
+    def handle_fail(self, metainterp_sd):
+        from pypy.jit.metainterp.pyjitpl import MetaInterp
+        metainterp = MetaInterp(metainterp_sd)
+        token = metainterp_sd.cpu.get_latest_force_token()
+        metainterp._already_allocated_resume_virtuals = self.fetch_data(token)
+        self.counter = -2     # never compile
+        return metainterp.handle_guard_failure(self)
+
+    def force_virtualizable(self, vinfo, virtualizable, force_token):
+        from pypy.jit.metainterp.pyjitpl import MetaInterp
+        from pypy.jit.metainterp.resume import force_from_resumedata
+        metainterp = MetaInterp(self.metainterp_sd)
+        metainterp.history = None    # blackholing
+        liveboxes = metainterp.load_values_from_failure(self)
+        virtualizable_boxes, data = force_from_resumedata(metainterp,
+                                                          liveboxes, self)
+        vinfo.write_boxes(virtualizable, virtualizable_boxes)
+        self.save_data(force_token, data)
+
+    def save_data(self, key, value):
+        globaldata = self.metainterp_sd.globaldata
+        assert key not in globaldata.resume_virtuals
+        globaldata.resume_virtuals[key] = value
+
+    def fetch_data(self, key):
+        globaldata = self.metainterp_sd.globaldata
+        assert key in globaldata.resume_virtuals
+        data = globaldata.resume_virtuals[key]
+        del globaldata.resume_virtuals[key]
+        return data
+
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey, redkey):

@@ -2,21 +2,25 @@ from pypy.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
 class EffectInfo(object):
     _cache = {}
 
-    def __new__(cls, write_descrs_fields, write_descrs_arrays):
-        key = frozenset(write_descrs_fields), frozenset(write_descrs_arrays)
+    def __new__(cls, write_descrs_fields, write_descrs_arrays,
+                promotes_virtualizables=False):
+        key = (frozenset(write_descrs_fields), frozenset(write_descrs_arrays),
+               promotes_virtualizables)
         if key in cls._cache:
             return cls._cache[key]
         result = object.__new__(cls)
         result.write_descrs_fields = write_descrs_fields
         result.write_descrs_arrays = write_descrs_arrays
+        result.promotes_virtualizables = promotes_virtualizables
         cls._cache[key] = result
         return result
 
-def effectinfo_from_writeanalyze(effects, cpu):
+def effectinfo_from_writeanalyze(effects, cpu, promotes_virtualizables=False):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
@@ -39,7 +43,8 @@ def effectinfo_from_writeanalyze(effects, cpu):
             write_descrs_arrays.append(descr)
         else:
             assert 0
-    return EffectInfo(write_descrs_fields, write_descrs_arrays)
+    return EffectInfo(write_descrs_fields, write_descrs_arrays,
+                      promotes_virtualizables)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -55,7 +60,6 @@ def consider_struct(TYPE, fieldname):
         return False
     return True
 
-
 def consider_array(ARRAY):
     if arrayItem(ARRAY) is lltype.Void:
         return False
@@ -64,3 +68,9 @@ def consider_array(ARRAY):
     if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
         return False
     return True
+
+# ____________________________________________________________
+
+class VirtualizableAnalyzer(BoolGraphAnalyzer):
+    def analyze_simple_operation(self, op):
+        return op.opname == 'promote_virtualizable'

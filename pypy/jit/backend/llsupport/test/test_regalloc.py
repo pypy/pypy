@@ -278,6 +278,30 @@ class TestRegalloc(object):
         assert len(rm.reg_bindings) == 3
         rm._check_invariants()
 
+    def test_call_support_save_all_regs(self):
+        class XRegisterManager(RegisterManager):
+            save_around_call_regs = [r1, r2]
+
+            def call_result_location(self, v):
+                return r1
+
+        sm = TStackManager()
+        asm = MockAsm()
+        boxes, longevity = boxes_and_longevity(5)
+        rm = XRegisterManager(longevity, stack_manager=sm,
+                              assembler=asm)
+        for b in boxes[:-1]:
+            rm.force_allocate_reg(b)
+        rm.before_call(save_all_regs=True)
+        assert len(rm.reg_bindings) == 0
+        assert sm.stack_depth == 4
+        assert len(asm.moves) == 4
+        rm._check_invariants()
+        rm.after_call(boxes[-1])
+        assert len(rm.reg_bindings) == 1
+        rm._check_invariants()
+        
+
     def test_different_stack_width(self):
         class XRegisterManager(RegisterManager):
             reg_width = 2

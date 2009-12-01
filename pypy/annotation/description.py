@@ -202,6 +202,9 @@ class FunctionDesc(Desc):
             graph.name = alt_name
         return graph
 
+    def getgraphs(self):
+        return self._cache.values()
+
     def getuniquegraph(self):
         if len(self._cache) != 1:
             raise NoStandardGraph(self)

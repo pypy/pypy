@@ -632,6 +632,7 @@ class MIFrame(object):
                 varargs = [jitcode.cfnptr] + varargs
                 res = self.execute_varargs(rop.CALL, varargs,
                                              descr=jitcode.calldescr, exc=True)
+                self.metainterp.load_fields_from_virtualizable()
             else:
                 # for oosends (ootype only): calldescr is a MethDescr
                 res = self.execute_varargs(rop.OOSEND, varargs,
@@ -651,7 +652,7 @@ class MIFrame(object):
 
     @arguments("descr", "varargs")
     def opimpl_residual_call(self, calldescr, varargs):
-        return self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=True)
+        return self.do_residual_call(varargs, descr=calldescr, exc=True)
 
     @arguments("varargs")
     def opimpl_recursion_leave_prep(self, varargs):
@@ -675,11 +676,11 @@ class MIFrame(object):
             greenkey = varargs[1:num_green_args + 1]
             if warmrunnerstate.can_inline_callable(greenkey):
                 return self.perform_call(portal_code, varargs[1:], greenkey)
-        return self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=True)
+        return self.do_residual_call(varargs, descr=calldescr, exc=True)
 
     @arguments("descr", "varargs")
     def opimpl_residual_call_noexception(self, calldescr, varargs):
-        self.execute_varargs(rop.CALL, varargs, descr=calldescr, exc=False)
+        self.do_residual_call(varargs, descr=calldescr, exc=False)
 
     @arguments("descr", "varargs")
     def opimpl_residual_call_pure(self, calldescr, varargs):
@@ -696,8 +697,8 @@ class MIFrame(object):
             return self.perform_call(jitcode, varargs)
         else:
             # but we should not follow calls to that graph
-            return self.execute_varargs(rop.CALL, [box] + varargs,
-                                        descr=calldescr, exc=True)
+            return self.do_residual_call([box] + varargs,
+                                         descr=calldescr, exc=True)
 
     @arguments("orgpc", "methdescr", "varargs")
     def opimpl_oosend(self, pc, methdescr, varargs):
@@ -924,7 +925,6 @@ class MIFrame(object):
         if isinstance(box, Const):    # no need for a guard
             return
         metainterp = self.metainterp
-        metainterp_sd = metainterp.staticdata
         if metainterp.is_blackholing():
             return
         saved_pc = self.pc
@@ -933,8 +933,14 @@ class MIFrame(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
+        metainterp_sd = metainterp.staticdata
         original_greenkey = metainterp.resumekey.original_greenkey
-        resumedescr = compile.ResumeGuardDescr(metainterp_sd, original_greenkey)
+        if opnum == rop.GUARD_NOT_FORCED:
+            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
+                                                         original_greenkey)
+        else:
+            resumedescr = compile.ResumeGuardDescr(metainterp_sd,
+                                                   original_greenkey)
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)       
         virtualizable_boxes = None
@@ -979,6 +985,24 @@ class MIFrame(object):
         if exc:
             return self.metainterp.handle_exception()
         return False
+
+    def do_residual_call(self, argboxes, descr, exc):
+        effectinfo = descr.get_extra_info()
+        if effectinfo is None or effectinfo.promotes_virtualizables:
+            # residual calls require attention to keep virtualizables in-sync
+            self.metainterp.vable_before_residual_call()
+            # xxx do something about code duplication
+            resbox = self.metainterp.execute_and_record_varargs(
+                rop.CALL_MAY_FORCE, argboxes, descr=descr)
+            self.metainterp.vable_after_residual_call()
+            if resbox is not None:
+                self.make_result_box(resbox)
+            self.generate_guard(self.pc, rop.GUARD_NOT_FORCED, None, [])
+            if exc:
+                return self.metainterp.handle_exception()
+            return False
+        else:
+            return self.execute_varargs(rop.CALL, argboxes, descr, exc)
 
 # ____________________________________________________________
 
@@ -1142,6 +1166,7 @@ class MetaInterpGlobalData(object):
         self.indirectcall_dict = None
         self.addr2name = None
         self.loopnumbering = 0
+        self.resume_virtuals = {}
         #
         state = staticdata.state
         if state is not None:
@@ -1168,6 +1193,8 @@ class MetaInterpGlobalData(object):
 
 class MetaInterp(object):
     in_recursion = 0
+    _already_allocated_resume_virtuals = None
+
     def __init__(self, staticdata):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
@@ -1298,7 +1325,8 @@ class MetaInterp(object):
     @specialize.arg(1)
     def execute_and_record(self, opnum, descr, *argboxes):
         history.check_descr(descr)
-        assert opnum != rop.CALL and opnum != rop.OOSEND
+        assert (opnum != rop.CALL and opnum != rop.CALL_MAY_FORCE
+                and opnum != rop.OOSEND)
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
@@ -1315,12 +1343,6 @@ class MetaInterp(object):
     @specialize.arg(1)
     def execute_and_record_varargs(self, opnum, argboxes, descr=None):
         history.check_descr(descr)
-        # residual calls require attention to keep virtualizables in-sync.
-        # CALL_PURE doesn't need it because so far 'promote_virtualizable'
-        # as an operation is enough to make the called function non-pure.
-        require_attention = (opnum == rop.CALL or opnum == rop.OOSEND)
-        if require_attention and not self.is_blackholing():
-            self.before_residual_call()
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
@@ -1328,17 +1350,12 @@ class MetaInterp(object):
         if self.is_blackholing():
             profiler.count_ops(opnum, BLACKHOLED_OPS)
         else:
-            if require_attention:
-                require_attention = self.after_residual_call()
             # check if the operation can be constant-folded away
             argboxes = list(argboxes)
             if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
                 resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
             else:
                 resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
-        # if we are blackholing require_attention has the initial meaning
-        if require_attention:
-            self.after_generate_residual_call()
         return resbox
 
     def _record_helper_pure(self, opnum, resbox, descr, *argboxes): 
@@ -1572,7 +1589,8 @@ class MetaInterp(object):
             self.framestack[-1].follow_jump()
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping
             self.framestack[-1].dont_follow_jump()
-        elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
+        elif (opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION
+              or opnum == rop.GUARD_NOT_FORCED):
             self.handle_exception()
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
             self.raise_overflow_error()
@@ -1722,36 +1740,39 @@ class MetaInterp(object):
         vinfo = self.staticdata.virtualizable_info
         virtualizable_box = self.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-        vinfo.clear_vable_rti(virtualizable)
+        vinfo.clear_vable_token(virtualizable)
 
-    def before_residual_call(self):
+    def vable_before_residual_call(self):
+        if self.is_blackholing():
+            return
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             vinfo.tracing_before_residual_call(virtualizable)
+            #
+            force_token_box = history.BoxInt()
+            self.history.record(rop.FORCE_TOKEN, [], force_token_box)
+            self.history.record(rop.SETFIELD_GC, [virtualizable_box,
+                                                  force_token_box],
+                                None, descr=vinfo.vable_token_descr)
 
-    def after_residual_call(self):
-        vinfo = self.staticdata.virtualizable_info
-        if vinfo is not None:
-            virtualizable_box = self.virtualizable_boxes[-1]
-            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            if vinfo.tracing_after_residual_call(virtualizable):
-                # This is after the residual call is done, but before it
-                # is actually generated.  We first generate a store-
-                # everything-back, *without actually performing it now*
-                # as it contains the old values (before the call)!
-                self.gen_store_back_in_virtualizable_no_perform()
-                return True    # must call after_generate_residual_call()
-        # otherwise, don't call after_generate_residual_call()
-        return False
-
-    def after_generate_residual_call(self):
-        # Called after generating a residual call, and only if
-        # after_residual_call() returned True, i.e. if code in the residual
-        # call causes the virtualizable to escape.  Reload the modified
-        # fields of the virtualizable.
-        self.gen_load_fields_from_virtualizable()
+    def vable_after_residual_call(self):
+        if self.is_blackholing():
+            vable_escapes = True
+        else:
+            vable_escapes = False
+            vinfo = self.staticdata.virtualizable_info
+            if vinfo is not None:
+                virtualizable_box = self.virtualizable_boxes[-1]
+                virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+                if vinfo.tracing_after_residual_call(virtualizable):
+                    # We just did the residual call, and it shows that the
+                    # virtualizable escapes.
+                    self.switch_to_blackhole()
+                    vable_escapes = True
+        if vable_escapes:
+            self.load_fields_from_virtualizable()
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
@@ -1793,7 +1814,7 @@ class MetaInterp(object):
             # is and stays NULL.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not virtualizable.vable_rti
+            assert not virtualizable.vable_token
             self.synchronize_virtualizable()
 
     def check_synchronized_virtualizable(self):
@@ -1809,27 +1830,17 @@ class MetaInterp(object):
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         vinfo.write_boxes(virtualizable, self.virtualizable_boxes)
 
-    def gen_load_fields_from_virtualizable(self):
+    def load_fields_from_virtualizable(self):
+        # Force a reload of the virtualizable fields into the local
+        # boxes (called only in escaping cases)
+        assert self.is_blackholing()
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
-            vbox = self.virtualizable_boxes[-1]
-            for i in range(vinfo.num_static_extra_boxes):
-                descr = vinfo.static_field_descrs[i]
-                fieldbox = self.execute_and_record(rop.GETFIELD_GC, descr,
-                                                   vbox)
-                self.virtualizable_boxes[i] = fieldbox
-            i = vinfo.num_static_extra_boxes
-            virtualizable = vinfo.unwrap_virtualizable_box(vbox)
-            for k in range(vinfo.num_arrays):
-                descr = vinfo.array_field_descrs[k]
-                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
-                descr = vinfo.array_descrs[k]
-                for j in range(vinfo.get_array_length(virtualizable, k)):
-                    itembox = self.execute_and_record(rop.GETARRAYITEM_GC,
-                                                      descr, abox, ConstInt(j))
-                    self.virtualizable_boxes[i] = itembox
-                    i += 1
-            assert i + 1 == len(self.virtualizable_boxes)
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
+                                                        virtualizable)
+            self.virtualizable_boxes.append(virtualizable_box)
 
     def gen_store_back_in_virtualizable(self):
         vinfo = self.staticdata.virtualizable_info
@@ -1852,29 +1863,6 @@ class MetaInterp(object):
                     self.execute_and_record(rop.SETARRAYITEM_GC, descr,
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
-
-    def gen_store_back_in_virtualizable_no_perform(self):
-        vinfo = self.staticdata.virtualizable_info
-        # xxx only write back the fields really modified
-        vbox = self.virtualizable_boxes[-1]
-        for i in range(vinfo.num_static_extra_boxes):
-            fieldbox = self.virtualizable_boxes[i]
-            self.history.record(rop.SETFIELD_GC, [vbox, fieldbox], None,
-                                descr=vinfo.static_field_descrs[i])
-        i = vinfo.num_static_extra_boxes
-        virtualizable = vinfo.unwrap_virtualizable_box(vbox)
-        for k in range(vinfo.num_arrays):
-            abox = vinfo.BoxArray()
-            self.history.record(rop.GETFIELD_GC, [vbox], abox,
-                                descr=vinfo.array_field_descrs[k])
-            for j in range(vinfo.get_array_length(virtualizable, k)):
-                itembox = self.virtualizable_boxes[i]
-                i += 1
-                self.history.record(rop.SETARRAYITEM_GC,
-                                    [abox, ConstInt(j), itembox],
-                                    None,
-                                    descr=vinfo.array_descrs[k])
-        assert i + 1 == len(self.virtualizable_boxes)
 
     def replace_box(self, oldbox, newbox):
         for frame in self.framestack:

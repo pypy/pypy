@@ -35,8 +35,13 @@ def _from_opaque(opq):
 _TO_OPAQUE = {}
 
 def _to_opaque(value):
-    return lltype.opaqueptr(_TO_OPAQUE[value.__class__], 'opaque',
-                            externalobj=value)
+    try:
+        return value._the_opaque_pointer
+    except AttributeError:
+        op = lltype.opaqueptr(_TO_OPAQUE[value.__class__], 'opaque',
+                              externalobj=value)
+        value._the_opaque_pointer = op
+        return op
 
 def from_opaque_string(s):
     if isinstance(s, str):
@@ -145,6 +150,9 @@ TYPES = {
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
     'debug_merge_point': (('ref',), None),
+    'force_token'     : ((), 'int'),
+    'call_may_force'  : (('int', 'varargs'), 'intorptr'),
+    'guard_not_forced': ((), None)
     #'getitem'         : (('void', 'ref', 'int'), 'int'),
     #'setitem'         : (('void', 'ref', 'int', 'int'), None),
     #'newlist'         : (('void', 'varargs'), 'ref'),
@@ -384,12 +392,28 @@ class Frame(object):
     def __init__(self, memocast):
         self.verbose = False
         self.memocast = memocast
+        self.opindex = 1
+        self._forced = False
+        self._may_force = -1
 
     def getenv(self, v):
         if isinstance(v, Constant):
             return v.value
         else:
             return self.env[v]
+
+    def _populate_fail_args(self, op, skip=None):
+        fail_args = []
+        if op.fail_args:
+            for fail_arg in op.fail_args:
+                if fail_arg is None:
+                    fail_args.append(None)
+                elif fail_arg is skip:
+                    fail_args.append(fail_arg.concretetype._defl())
+                else:
+                    fail_args.append(self.getenv(fail_arg))
+        self.fail_args = fail_args
+        self.fail_index = op.fail_index
 
     def execute(self):
         """Execute all operations in a loop,
@@ -401,6 +425,7 @@ class Frame(object):
         operations = self.loop.operations
         opindex = 0
         while True:
+            self.opindex = opindex
             op = operations[opindex]
             args = [self.getenv(v) for v in op.args]
             if not op.is_final():
@@ -419,18 +444,11 @@ class Frame(object):
                         opindex = 0
                         continue
                     else:
-                        fail_args = []
-                        if op.fail_args:
-                            for fail_arg in op.fail_args:
-                                if fail_arg is None:
-                                    fail_args.append(None)
-                                else:
-                                    fail_args.append(self.getenv(fail_arg))
+                        self._populate_fail_args(op)
                         # a non-patched guard
                         if self.verbose:
                             log.trace('failed: %s' % (
                                 ', '.join(map(str, fail_args)),))
-                        self.fail_args = fail_args
                         return op.fail_index
                 #verbose = self.verbose
                 assert (result is None) == (op.result is None)
@@ -453,7 +471,8 @@ class Frame(object):
             if op.opnum == rop.JUMP:
                 assert len(op.jump_target.inputargs) == len(args)
                 self.env = dict(zip(op.jump_target.inputargs, args))
-                operations = op.jump_target.operations
+                self.loop = op.jump_target
+                operations = self.loop.operations
                 opindex = 0
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
@@ -484,7 +503,7 @@ class Frame(object):
         try:
             res = ophandler(self, descr, *values)
         finally:
-            if verbose:
+            if 0:     # if verbose:
                 argtypes, restype = TYPES[opname]
                 if res is None:
                     resdata = ''
@@ -493,9 +512,9 @@ class Frame(object):
                 else:
                     resdata = '-> ' + repr1(res, restype, self.memocast)
                 # fish the types
-                #log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
-                #                                          self.memocast),
-                #                        resdata))
+                log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
+                                                          self.memocast),
+                                        resdata))
         return res
 
     def as_int(self, x):
@@ -776,6 +795,24 @@ class Frame(object):
     def op_uint_xor(self, descr, arg1, arg2):
         return arg1 ^ arg2
 
+    def op_force_token(self, descr):
+        opaque_frame = _to_opaque(self)
+        return llmemory.cast_ptr_to_adr(opaque_frame)
+
+    def op_call_may_force(self, calldescr, func, *args):
+        assert not self._forced
+        self._may_force = self.opindex
+        try:
+            return self.op_call(calldescr, func, *args)
+        finally:
+            self._may_force = -1
+
+    def op_guard_not_forced(self, descr):
+        forced = self._forced
+        self._forced = False
+        if forced:
+            raise GuardFailed
+
 
 class OOFrame(Frame):
 
@@ -1041,6 +1078,25 @@ def get_zero_division_error():
 def get_zero_division_error_value():
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   _get_error(ZeroDivisionError).args[1])
+
+def force(opaque_frame):
+    frame = _from_opaque(opaque_frame)
+    assert not frame._forced
+    frame._forced = True
+    assert frame._may_force >= 0
+    call_op = frame.loop.operations[frame._may_force]
+    guard_op = frame.loop.operations[frame._may_force+1]
+    assert call_op.opnum == rop.CALL_MAY_FORCE
+    frame._populate_fail_args(guard_op, skip=call_op.result)
+    return frame.fail_index
+
+def get_forced_token_frame(force_token):
+    opaque_frame = llmemory.cast_adr_to_ptr(force_token,
+                                            lltype.Ptr(_TO_OPAQUE[Frame]))
+    return opaque_frame
+
+def get_frame_forced_token(opaque_frame):
+    return llmemory.cast_ptr_to_adr(opaque_frame)
 
 class MemoCast(object):
     def __init__(self):
@@ -1411,6 +1467,9 @@ setannotation(get_overflow_error, annmodel.SomeAddress())
 setannotation(get_overflow_error_value, annmodel.SomePtr(llmemory.GCREF))
 setannotation(get_zero_division_error, annmodel.SomeAddress())
 setannotation(get_zero_division_error_value, annmodel.SomePtr(llmemory.GCREF))
+setannotation(force, annmodel.SomeInteger())
+setannotation(get_forced_token_frame, s_Frame)
+setannotation(get_frame_forced_token, annmodel.SomeAddress())
 
 setannotation(new_memo_cast, s_MemoCast)
 setannotation(cast_adr_to_int, annmodel.SomeInteger())

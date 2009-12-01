@@ -14,6 +14,7 @@ from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.writeanalyze import WriteAnalyzer
 from pypy.jit.metainterp.typesystem import deref, arrayItem, fieldType
 from pypy.jit.metainterp.effectinfo import effectinfo_from_writeanalyze
+from pypy.jit.metainterp.effectinfo import VirtualizableAnalyzer
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -182,8 +183,10 @@ class CodeWriter(object):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.portal_runner_ptr = portal_runner_ptr
-        self.raise_analyzer = RaiseAnalyzer(self.rtyper.annotator.translator)
-        self.write_analyzer = WriteAnalyzer(self.rtyper.annotator.translator)
+        translator = self.rtyper.annotator.translator
+        self.raise_analyzer = RaiseAnalyzer(translator)
+        self.write_analyzer = WriteAnalyzer(translator)
+        self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
@@ -323,7 +326,9 @@ class CodeWriter(object):
         # ok
         if consider_effects_of is not None:
             effectinfo = effectinfo_from_writeanalyze(
-                    self.write_analyzer.analyze(consider_effects_of), self.cpu)
+                    self.write_analyzer.analyze(consider_effects_of),
+                    self.cpu,
+                    self.virtualizable_analyzer.analyze(consider_effects_of))
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT, effectinfo)
         else:
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
@@ -1203,12 +1208,19 @@ class BytecodeMaker(object):
         if op.opname == "direct_call":
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
             pure = getattr(func, "_pure_function_", False)
+            all_promoted_args = getattr(func,
+                               "_pure_function_with_all_promoted_args_", False)
+            if pure and not all_promoted_args:
+                effectinfo = calldescr.get_extra_info()
+                assert (effectinfo is not None and
+                        not effectinfo.promotes_virtualizables)
         try:
             canraise = self.codewriter.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
             canraise = True  # if we need to look into the delayed ptr that is
                              # the portal, then it's certainly going to raise
         if pure:
+            # XXX check what to do about exceptions (also MemoryError?)
             self.emit('residual_call_pure')
         elif canraise:
             self.emit('residual_call')
@@ -1236,9 +1248,8 @@ class BytecodeMaker(object):
     def handle_regular_indirect_call(self, op):
         self.codewriter.register_indirect_call_targets(op)
         args = op.args[1:-1]
-        calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
-                                                                args,
-                                                                op.result)
+        calldescr, non_void_args = self.codewriter.getcalldescr(
+            op.args[0], args, op.result, consider_effects_of=op)
         self.minimize_variables()
         self.emit('indirect_call')
         self.emit(self.get_position(calldescr))

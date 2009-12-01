@@ -1,4 +1,4 @@
-from pypy.translator.simplify import get_graph
+from pypy.translator.simplify import get_graph, get_funcobj
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.rpython.lltypesystem import lltype
 
@@ -38,8 +38,17 @@ class GraphAnalyzer(object):
     def analyze_startblock(self, block, seen=None):
         return self.bottom_result()
 
-    def analyze_external_call(self, op):
-        return self.top_result()
+    def analyze_external_call(self, op, seen=None):
+        funcobj = get_funcobj(op.args[0].value)
+        result = self.bottom_result()
+        if hasattr(funcobj, '_callbacks'):
+            bk = self.translator.annotator.bookkeeper
+            for function in funcobj._callbacks.callbacks:
+                desc = bk.getdesc(function)
+                for graph in desc.getgraphs():
+                    result = self.join_two_results(
+                        result, self.analyze_direct_call(graph, seen))
+        return result
 
     def analyze_external_method(self, op, TYPE, meth):
         return self.top_result()
@@ -59,7 +68,7 @@ class GraphAnalyzer(object):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
-                return self.analyze_external_call(op)
+                return self.analyze_external_call(op, seen)
             return self.analyze_direct_call(graph, seen)
         elif op.opname == "indirect_call":
             if op.args[-1].value is None:

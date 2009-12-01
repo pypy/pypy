@@ -460,7 +460,7 @@ LL_OPERATIONS = {
                                  # allocating non-GC structures only
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
-    'gc_assume_young_pointers': LLOp(),
+    'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),
 
     # ------- JIT & GC interaction, only for some GCs ----------

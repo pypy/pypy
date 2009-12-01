@@ -4,19 +4,24 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython import rvirtualizable2
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.warmstate import wrap, unwrap
 
 
 class VirtualizableInfo:
+    token_none    = 0
+    token_tracing = -1
+
     def __init__(self, warmrunnerdesc):
         self.warmrunnerdesc = warmrunnerdesc
         jitdriver = warmrunnerdesc.jitdriver
         cpu = warmrunnerdesc.cpu
+        if cpu.ts.name == 'ootype':
+            import py
+            py.test.skip("ootype: fix virtualizables")
         self.cpu = cpu
-        self.VABLERTI = cpu.ts.get_VABLERTI()
-        self.null_vable_rti = cpu.ts.nullptr(deref(self.VABLERTI))
         self.BoxArray = cpu.ts.BoxRef
         #
         assert len(jitdriver.virtualizables) == 1    # for now
@@ -29,6 +34,7 @@ class VirtualizableInfo:
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
         self.null_vable = cpu.ts.nullptr(VTYPE)
+        self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
         accessor = VTYPE._hints['virtualizable2_accessor']
         all_fields = accessor.fields
@@ -148,7 +154,7 @@ class VirtualizableInfo:
     def finish(self):
         #
         def force_if_necessary(virtualizable):
-            if virtualizable.vable_rti:
+            if virtualizable.vable_token:
                 self.force_now(virtualizable)
         force_if_necessary._always_inline_ = True
         #
@@ -169,72 +175,57 @@ class VirtualizableInfo:
     def is_vtypeptr(self, TYPE):
         return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
 
-    def cast_instance_to_base_ptr(self, vable_rti):
-        if we_are_translated():
-            return self.cpu.ts.cast_instance_to_base_ref(vable_rti)
-        else:
-            vable_rti._TYPE = self.VABLERTI   # hack for non-translated mode
-            return vable_rti
+    def reset_vable_token(self, virtualizable):
+        virtualizable.vable_token = self.token_none
 
-    def clear_vable_rti(self, virtualizable):
-        if virtualizable.vable_rti:
+    def clear_vable_token(self, virtualizable):
+        if virtualizable.vable_token:
             self.force_now(virtualizable)
-            assert not virtualizable.vable_rti
+            assert not virtualizable.vable_token
 
     def tracing_before_residual_call(self, virtualizable):
-        assert not virtualizable.vable_rti
-        ptr = self.cast_instance_to_base_ptr(tracing_vable_rti)
-        virtualizable.vable_rti = ptr
+        assert not virtualizable.vable_token
+        virtualizable.vable_token = self.token_tracing
 
     def tracing_after_residual_call(self, virtualizable):
-        if virtualizable.vable_rti:
+        if virtualizable.vable_token:
             # not modified by the residual call; assert that it is still
             # set to 'tracing_vable_rti' and clear it.
-            ptr = self.cast_instance_to_base_ptr(tracing_vable_rti)
-            assert virtualizable.vable_rti == ptr
-            virtualizable.vable_rti = self.null_vable_rti
+            assert virtualizable.vable_token == self.token_tracing
+            virtualizable.vable_token = self.token_none
             return False
         else:
             # marker "modified during residual call" set.
             return True
 
     def force_now(self, virtualizable):
-        rti = virtualizable.vable_rti
-        virtualizable.vable_rti = self.null_vable_rti
-        if we_are_translated():
-            rti = cast_base_ptr_to_instance(AbstractVableRti, rti)
-        rti.force_now(virtualizable)
+        token = virtualizable.vable_token
+        virtualizable.vable_token = self.token_none
+        if token == self.token_tracing:
+            # The values in the virtualizable are always correct during
+            # tracing.  We only need to reset vable_token to token_none
+            # as a marker for the tracing, to tell it that this
+            # virtualizable escapes.
+            pass
+        else:
+            from pypy.jit.metainterp.compile import ResumeGuardForcedDescr
+            faildescr = self.cpu.force(token)
+            assert isinstance(faildescr, ResumeGuardForcedDescr)
+            faildescr.force_virtualizable(self, virtualizable, token)
     force_now._dont_inline_ = True
 
 # ____________________________________________________________
 #
-# The 'vable_rti' field of a virtualizable is either NULL or points
-# to an instance of the following classes.  It is:
+# The 'vable_token' field of a virtualizable is either 0, -1, or points
+# into the CPU stack to a particular field in the current frame.  It is:
 #
-#   1. NULL if not in the JIT at all, except as described below.
+#   1. 0 (token_none) if not in the JIT at all, except as described below.
 #
-#   2. always NULL when tracing is in progress.
+#   2. equal to 0 when tracing is in progress; except:
 #
-#   3. 'tracing_vable_rti' during tracing when we do a residual call,
+#   3. equal to -1 (token_tracing) during tracing when we do a residual call,
 #      calling random unknown other parts of the interpreter; it is
-#      reset to NULL as soon as something occurs to the virtualizable.
+#      reset to 0 as soon as something occurs to the virtualizable.
 #
-#   4. NULL for now when running the machine code with a virtualizable;
-#      later it will be a RunningVableRti().
-
-
-class AbstractVableRti(object):
-
-    def force_now(self, virtualizable):
-        raise NotImplementedError
-
-
-class TracingVableRti(AbstractVableRti):
-
-    def force_now(self, virtualizable):
-        # The values if the virtualizable are always correct during tracing.
-        # We only need to set a marker to tell that forcing occurred.
-        # As the caller resets vable_rti to NULL, it plays the role of marker.
-        pass
-
-tracing_vable_rti = TracingVableRti()
+#   4. when running the machine code with a virtualizable, it is set
+#      to the address in the CPU stack by the FORCE_TOKEN operation.

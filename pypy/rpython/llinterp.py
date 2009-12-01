@@ -807,9 +807,6 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
-    def op_gc_assume_young_pointers(self, addr):
-        raise NotImplementedError
-
     def op_gc_heap_stats(self):
         raise NotImplementedError
 

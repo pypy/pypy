@@ -213,6 +213,8 @@ class WarmEnterState(object):
                 virtualizable = vinfo.cast_to_vtype(virtualizable)
                 assert virtualizable != globaldata.blackhole_virtualizable, (
                     "reentering same frame via blackhole")
+            else:
+                virtualizable = None
 
             # look for the cell corresponding to the current greenargs
             greenargs = args[:num_green_args]
@@ -247,6 +249,8 @@ class WarmEnterState(object):
                 fail_descr = metainterp_sd.cpu.execute_token(loop_token)
                 debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
+                if vinfo is not None:
+                    vinfo.reset_vable_token(virtualizable)
                 loop_token = fail_descr.handle_fail(metainterp_sd)
 
         maybe_compile_and_run._dont_inline_ = True

@@ -78,6 +78,11 @@ class AbstractCPU(object):
         or from 'args' if it was a FINISH).  Returns a ptr or an obj."""
         raise NotImplementedError
 
+    def get_latest_force_token(self):
+        """After a GUARD_NOT_FORCED fails, this function returns the
+        same FORCE_TOKEN result as the one in the just-failed loop."""
+        raise NotImplementedError
+
     def get_exception(self):
         raise NotImplementedError
 
@@ -203,6 +208,16 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def do_cast_ptr_to_int(self, ptrbox):
+        raise NotImplementedError
+
+    def do_force_token(self):
+        # this should not be implemented at all by the backends
+        raise NotImplementedError
+
+    def do_call_may_force(self, args, calldescr):
+        return self.do_call(args, calldescr)
+
+    def force(self, force_token):
         raise NotImplementedError
 
     # ootype specific operations

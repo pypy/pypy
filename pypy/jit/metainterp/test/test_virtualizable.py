@@ -7,7 +7,6 @@ from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history, heaptracker
@@ -41,8 +40,7 @@ class ExplicitVirtualizableTests:
     XY = lltype.GcStruct(
         'XY',
         ('parent', rclass.OBJECT),
-        ('vable_base', llmemory.Address),
-        ('vable_rti', VABLERTIPTR),
+        ('vable_token', lltype.Signed),
         ('inst_x', lltype.Signed),
         ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
         hints = {'virtualizable2_accessor': FieldListAccessor()})
@@ -57,7 +55,7 @@ class ExplicitVirtualizableTests:
 
     def setup(self):
         xy = lltype.malloc(self.XY)
-        xy.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        xy.vable_token = 0
         xy.parent.typeptr = self.xy_vtable
         return xy
 
@@ -200,79 +198,12 @@ class ExplicitVirtualizableTests:
         assert res == 134
         self.check_loops(getfield_gc=1, setfield_gc=1)
 
-    def test_external_read_while_tracing(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
-                                virtualizables = ['xy'])
-        class Outer:
-            pass
-        outer = Outer()
-        def ext():
-            xy = outer.xy
-            promote_virtualizable(xy, 'inst_x')
-            return xy.inst_x + 2
-        def f(n):
-            xy = self.setup()
-            xy.inst_x = 10
-            outer.xy = xy
-            m = 0
-            while n > 0:
-                myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
-                myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
-                promote_virtualizable(xy, 'inst_x')
-                xy.inst_x = n + 9998     # virtualized away
-                m += ext()               # 2x setfield_gc, 2x getfield_gc
-                promote_virtualizable(xy, 'inst_x')
-                xy.inst_x = 10           # virtualized away
-                n -= 1
-            return m
-        assert f(20) == 10000*20 + (20*21)/2
-        res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
-        assert res == 10000*20 + (20*21)/2
-        # there are no getfields because the optimizer gets rid of them
-        self.check_loops(call=1, getfield_gc=0, setfield_gc=2)
-        # xxx for now a call that forces the virtualizable during tracing
-        # is supposed to always force it later too.
-
-    def test_external_write_while_tracing(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'xy'],
-                                virtualizables = ['xy'])
-        class Outer:
-            pass
-        outer = Outer()
-        def ext():
-            xy = outer.xy
-            promote_virtualizable(xy, 'inst_x')
-            xy.inst_x += 2
-        def f(n):
-            xy = self.setup()
-            xy.inst_x = 10
-            outer.xy = xy
-            m = 0
-            while n > 0:
-                myjitdriver.can_enter_jit(xy=xy, n=n, m=m)
-                myjitdriver.jit_merge_point(xy=xy, n=n, m=m)
-                promote_virtualizable(xy, 'inst_x')
-                xy.inst_x = n + 9998     # virtualized away
-                ext()                    # 2x setfield_gc, 2x getfield_gc
-                promote_virtualizable(xy, 'inst_x')
-                m += xy.inst_x           # virtualized away
-                n -= 1
-            return m
-        res = self.meta_interp(f, [20], policy=StopAtXPolicy(ext))
-        assert res == f(20)
-        # the getfield_gc of inst_node is optimized away, because ext does not
-        # write to it
-        self.check_loops(call=1, getfield_gc=1, setfield_gc=2)
-        # xxx for now a call that forces the virtualizable during tracing
-        # is supposed to always force it later too.
-
     # ------------------------------
 
     XY2 = lltype.GcStruct(
         'XY2',
         ('parent', rclass.OBJECT),
-        ('vable_base', llmemory.Address),
-        ('vable_rti', VABLERTIPTR),
+        ('vable_token', lltype.Signed),
         ('inst_x', lltype.Signed),
         ('inst_l1', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
@@ -285,7 +216,7 @@ class ExplicitVirtualizableTests:
 
     def setup2(self):
         xy2 = lltype.malloc(self.XY2)
-        xy2.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        xy2.vable_token = 0
         xy2.parent.typeptr = self.xy2_vtable
         return xy2
 
@@ -458,7 +389,7 @@ class ExplicitVirtualizableTests:
 
     def setup2sub(self):
         xy2 = lltype.malloc(self.XY2SUB)
-        xy2.parent.vable_rti = lltype.nullptr(VABLERTIPTR.TO)
+        xy2.parent.vable_token = 0
         xy2.parent.parent.typeptr = self.xy2_vtable
         return xy2
 
@@ -649,7 +580,8 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
         assert res == f(123)
-
+        self.check_aborted_count(2)
+        self.check_tree_loop_count(0)
 
     def test_external_write(self):
         jitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -680,10 +612,10 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [240], policy=StopAtXPolicy(g))
         assert res == f(240)
+        self.check_aborted_count(3)
+        self.check_tree_loop_count(0)
 
     def test_external_read_sometimes(self):
-        py.test.skip("known bug: access the frame in a residual call but"
-                     " only sometimes, so that it's not seen during tracing")
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -718,6 +650,226 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
         assert res == f(123)
+
+    def test_external_read_sometimes_with_virtuals(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class Y:
+            pass
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                y = somewhere_else.top_frame.y     # external read
+                debug_print(lltype.Void, '-+-+-+-+- external read')
+            else:
+                y = None
+            return y
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                frame.y = y = Y()
+                result = g()
+                if frame.y is not y:
+                    return -660
+                if result:
+                    if result is not y:
+                        return -661
+                frame.y = None
+                frame.x -= 1
+            return frame.x
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+
+    def test_external_read_sometimes_changing_virtuals(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class Y:
+            pass
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                y = somewhere_else.top_frame.y     # external read
+                debug_print(lltype.Void, '-+-+-+-+- external virtual write')
+                assert y.num == 123
+                y.num += 2
+            else:
+                y = None
+            return y
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                frame.y = y = Y()
+                y.num = 123
+                result = g()
+                if frame.y is not y:
+                    return -660
+                if result:
+                    if result is not y:
+                        return -661
+                    if y.num != 125:
+                        return -662
+                frame.y = None
+                frame.x -= 1
+            return frame.x
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+
+    def test_external_read_sometimes_with_exception(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class FooBarError(Exception):
+            pass
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                result = somewhere_else.top_frame.y     # external read
+                debug_print(lltype.Void, '-+-+-+-+- external read:', result)
+                assert result == 79
+                raise FooBarError
+            else:
+                result = 1
+            return result
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            try:
+                while frame.x > 0:
+                    jitdriver.can_enter_jit(frame=frame)
+                    jitdriver.jit_merge_point(frame=frame)
+                    frame.x -= g()
+                    frame.y += 1
+            except FooBarError:
+                pass
+            return frame.x
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+
+    def test_external_read_sometimes_dont_compile_guard(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                result = somewhere_else.top_frame.y     # external read
+                debug_print(lltype.Void, '-+-+-+-+- external read:', result)
+                assert result == 79
+            else:
+                result = 1
+            return result
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                frame.x -= g()
+                frame.y += 1
+            return frame.x
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g), repeat=7)
+        assert res == f(123)
+
+    def test_external_read_sometimes_recursive(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame', 'rec'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g(rec):
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                frame = somewhere_else.top_frame
+                result1 = frame.y     # external read
+                result2 = frame.back.y     # external read
+                debug_print(lltype.Void, '-+-+-+-+- external read:',
+                            result1, result2)
+                assert result1 == 13
+                assert result2 == 1023
+                result = 2
+            elif rec:
+                res = f(4, False)
+                assert res == 0 or res == -1
+                result = 1
+            else:
+                result = 1
+            return result
+
+        def f(n, rec):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10 + 1000 * rec
+            frame.back = somewhere_else.top_frame
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame, rec=rec)
+                jitdriver.jit_merge_point(frame=frame, rec=rec)
+                frame.x -= g(rec)
+                frame.y += 1
+            somewhere_else.top_frame = frame.back
+            return frame.x
+
+        def main(n):
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = None
+            return f(n, True)
+
+        res = self.meta_interp(main, [123], policy=StopAtXPolicy(g))
+        assert res == main(123)
 
     def test_promote_index_in_virtualizable_list(self):
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
@@ -829,26 +981,26 @@ class ImplicitVirtualizableTests:
         assert res == 55
         self.check_loops(new_with_vtable=0)
 
-    def test_check_for_nonstandardness_only_once(self):                                          
-         myjitdriver = JitDriver(greens = [], reds = ['frame'],                                   
-                                 virtualizables = ['frame'])                                      
-                                                                                                  
-         class Frame(object):                                                                     
-             _virtualizable2_ = ['x', 'y', 'z']                                                   
-                                                                                                  
-             def __init__(self, x, y, z=1):                                                       
-                 self = hint(self, access_directly=True)                                          
-                 self.x = x                                                                       
-                 self.y = y                                                                       
-                 self.z = z                                                                       
-                                                                                                  
-         class SomewhereElse:                                                                     
-             pass                                                                                 
-         somewhere_else = SomewhereElse()                                                         
-                                                                                                  
-         def f(n):                                                                                
-             frame = Frame(n, 0)                                                                  
-             somewhere_else.top_frame = frame        # escapes                                    
+    def test_check_for_nonstandardness_only_once(self):
+         myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                 virtualizables = ['frame'])
+
+         class Frame(object):
+             _virtualizable2_ = ['x', 'y', 'z']
+
+             def __init__(self, x, y, z=1):
+                 self = hint(self, access_directly=True)
+                 self.x = x
+                 self.y = y
+                 self.z = z
+
+         class SomewhereElse:
+             pass
+         somewhere_else = SomewhereElse()
+
+         def f(n):
+             frame = Frame(n, 0)
+             somewhere_else.top_frame = frame        # escapes
              frame = hint(frame, access_directly=True)
              while frame.x > 0:
                  myjitdriver.can_enter_jit(frame=frame)

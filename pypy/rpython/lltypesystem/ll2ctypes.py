@@ -448,6 +448,9 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
         self._storage._setitem(index, value, boundscheck=False)
 
     def getitems(self):
+        if self._TYPE.OF != lltype.Char:
+            raise Exception("cannot get all items of an unknown-length "
+                            "array of %r" % self._TYPE.OF)
         _items = []
         i = 0
         while 1:

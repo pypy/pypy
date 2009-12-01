@@ -121,8 +121,8 @@ class TestCodeWriter:
             supports_floats = False
             def fielddescrof(self, STRUCT, fieldname):
                 return ('fielddescr', STRUCT, fieldname)
-            def calldescrof(self, FUNC, NON_VOID_ARGS, RESULT, stuff=None):
-                return ('calldescr', FUNC, NON_VOID_ARGS, RESULT)
+            def calldescrof(self, FUNC, NON_VOID_ARGS, RESULT, effectinfo=None):
+                return ('calldescr', FUNC, NON_VOID_ARGS, RESULT, effectinfo)
             def typedescrof(self, CLASS):
                 return ('typedescr', CLASS)
             def methdescrof(self, CLASS, methname):
@@ -273,9 +273,17 @@ class TestCodeWriter:
         cw._start(self.metainterp_sd, None)        
         jitcode = cw.make_one_bytecode((graphs[0], None), False)
         assert len(self.metainterp_sd.indirectcalls) == 1
-        names = [jitcode.name for (fnaddress, jitcode)
+        names = [jitcode1.name for (fnaddress, jitcode1)
                                in self.metainterp_sd.indirectcalls]
         assert dict.fromkeys(names) == {'g': None}
+        calldescrs = [calldescr for calldescr in jitcode.constants
+                                if isinstance(calldescr, tuple) and
+                                   calldescr[0] == 'calldescr']
+        assert len(calldescrs) == 1
+        assert calldescrs[0][4] is not None
+        assert not calldescrs[0][4].write_descrs_fields
+        assert not calldescrs[0][4].write_descrs_arrays
+        assert not calldescrs[0][4].promotes_virtualizables
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -385,6 +393,47 @@ class TestCodeWriter:
         assert len(cw.list_of_addr2name) == 2
         assert cw.list_of_addr2name[0][1].endswith('.A1')
         assert cw.list_of_addr2name[1][1] == 'A1.g'
+
+    def test_promote_virtualizable_effectinfo(self):
+        class Frame(object):
+            _virtualizable2_ = ['x']
+            
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        def g1(f):
+            f.x += 1
+
+        def g2(f):
+            return f.x
+
+        def h(f):
+            f.y -= 1
+
+        def f(n):
+            f_inst = Frame(n+1, n+2)
+            g1(f_inst)
+            r = g2(f_inst)
+            h(f_inst)
+            return r
+
+        graphs = self.make_graphs(f, [5])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = [graphs[0]]
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        calldescrs = [calldescr for calldescr in jitcode.constants
+                                if isinstance(calldescr, tuple) and
+                                   calldescr[0] == 'calldescr']
+        assert len(calldescrs) == 4    # for __init__, g1, g2, h.
+        effectinfo_g1 = calldescrs[1][4]
+        effectinfo_g2 = calldescrs[2][4]
+        effectinfo_h  = calldescrs[3][4]
+        assert effectinfo_g1.promotes_virtualizables
+        assert effectinfo_g2.promotes_virtualizables
+        assert not effectinfo_h.promotes_virtualizables
+
 
 class ImmutableFieldsTests:
 

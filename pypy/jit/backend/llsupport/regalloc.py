@@ -304,7 +304,7 @@ class RegisterManager(object):
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 
-    def before_call(self, force_store=[]):
+    def before_call(self, force_store=[], save_all_regs=False):
         """ Spill registers before a call, as described by
         'self.save_around_call_regs'.  Registers are not spilled if
         they don't survive past the current operation, unless they
@@ -316,8 +316,8 @@ class RegisterManager(object):
                 del self.reg_bindings[v]
                 self.free_regs.append(reg)
                 continue
-            if reg not in self.save_around_call_regs:
-                # we don't need to
+            if not save_all_regs and reg not in self.save_around_call_regs:
+                # we don't have to
                 continue
             self._sync_var(v)
             del self.reg_bindings[v]
@@ -327,12 +327,12 @@ class RegisterManager(object):
         """ Adjust registers according to the result of the call,
         which is in variable v.
         """
-        if v is not None:
-            self._check_type(v)
-            r = self.call_result_location(v)
-            self.reg_bindings[v] = r
-            self.free_regs = [fr for fr in self.free_regs if fr is not r]
-    
+        self._check_type(v)
+        r = self.call_result_location(v)
+        self.reg_bindings[v] = r
+        self.free_regs = [fr for fr in self.free_regs if fr is not r]
+        return r
+
     # abstract methods, override
 
     def convert_to_imm(self, c):

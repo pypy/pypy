@@ -29,12 +29,15 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
     def analyze_direct_call(self, graph, seen=None):
         try:
             func = graph.func
-            if func is rstack.stack_check:
-                return self.translator.config.translation.stackless
-            if func._gctransformer_hint_cannot_collect_:
-                return False
         except AttributeError:
             pass
+        else:
+            if func is rstack.stack_check:
+                return self.translator.config.translation.stackless
+            if getattr(func, '_gctransformer_hint_cannot_collect_', False):
+                return False
+            if getattr(func, '_gctransformer_hint_close_stack_', False):
+                return True
         return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
                                                               seen)
     

@@ -4,6 +4,7 @@ Minimal-API wrapper around the llinterpreter to run operations.
 
 import sys
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
@@ -20,30 +21,15 @@ class MiniStats:
 
 
 class Descr(history.AbstractDescr):
-    name = None
-    ofs = -1
-    typeinfo = '?'
-    
-    def __init__(self, ofs, typeinfo='?', extrainfo=None):
+
+    def __init__(self, ofs, typeinfo, extrainfo=None, name=None):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
+        self.name = name
 
     def get_extra_info(self):
         return self.extrainfo
-
-    def __hash__(self):
-        return hash((self.ofs, self.typeinfo))
-
-    def __eq__(self, other):
-        if not isinstance(other, Descr):
-            return NotImplemented
-        return self.ofs == other.ofs and self.typeinfo == other.typeinfo
-
-    def __ne__(self, other):
-        if not isinstance(other, Descr):
-            return NotImplemented
-        return self.ofs != other.ofs or self.typeinfo != other.typeinfo
 
     def sort_key(self):
         return self.ofs
@@ -75,9 +61,12 @@ class Descr(history.AbstractDescr):
         raise TypeError("cannot use comparison on Descrs")
 
     def __repr__(self):
+        args = [repr(self.ofs), repr(self.typeinfo)]
         if self.name is not None:
-            return '<Descr %r, %r, %r>' % (self.ofs, self.typeinfo, self.name)
-        return '<Descr %r, %r>' % (self.ofs, self.typeinfo)
+            args.append(repr(self.name))
+        if self.extrainfo is not None:
+            args.append('E')
+        return '<Descr %r>' % (', '.join(args),)
 
 
 history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
@@ -99,10 +88,20 @@ class BaseCPU(model.AbstractCPU):
         llimpl._stats = self.stats
         llimpl._llinterp = LLInterpreter(self.rtyper)
         self._future_values = []
+        self._descrs = {}
 
     def _freeze_(self):
         assert self.translate_support_code
         return False
+
+    def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None):
+        key = (ofs, typeinfo, extrainfo, name)
+        try:
+            return self._descrs[key]
+        except KeyError:
+            descr = Descr(ofs, typeinfo, extrainfo, name)
+            self._descrs[key] = descr
+            return descr
 
     def set_class_sizes(self, class_sizes):
         self.class_sizes = class_sizes
@@ -233,6 +232,10 @@ class BaseCPU(model.AbstractCPU):
     def get_latest_value_float(self, index):
         return llimpl.frame_float_getvalue(self.latest_frame, index)
 
+    def get_latest_force_token(self):
+        token = llimpl.get_frame_forced_token(self.latest_frame)
+        return self.cast_adr_to_int(token)
+
     # ----------
 
     def get_exception(self):
@@ -252,16 +255,9 @@ class BaseCPU(model.AbstractCPU):
         return (self.cast_adr_to_int(llimpl.get_zero_division_error()),
                 llimpl.get_zero_division_error_value())
 
-    @staticmethod
-    def sizeof(S):
+    def sizeof(self, S):
         assert not isinstance(S, lltype.Ptr)
-        return Descr(symbolic.get_size(S))
-
-    @staticmethod
-    def numof(S):
-        return 4
-
-    ##addresssuffix = '4'
+        return self.getdescr(symbolic.get_size(S))
 
     def cast_adr_to_int(self, adr):
         return llimpl.cast_adr_to_int(self.memo_cast, adr)
@@ -282,18 +278,14 @@ class LLtypeCPU(BaseCPU):
         BaseCPU.__init__(self, *args, **kwds)
         self.fielddescrof_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
         
-    @staticmethod
-    def fielddescrof(S, fieldname):
+    def fielddescrof(self, S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
-        res = Descr(ofs, token[0])
-        res.name = fieldname
-        return res
+        return self.getdescr(ofs, token[0], name=fieldname)
 
-    @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
         token = history.getkind(RESULT)
-        return Descr(0, token[0], extrainfo=extrainfo)
+        return self.getdescr(0, token[0], extrainfo=extrainfo)
 
     def get_exception(self):
         return self.cast_adr_to_int(llimpl.get_exception())
@@ -301,13 +293,12 @@ class LLtypeCPU(BaseCPU):
     def get_exc_value(self):
         return llimpl.get_exc_value()
 
-    @staticmethod
-    def arraydescrof(A):
+    def arraydescrof(self, A):
         assert isinstance(A, lltype.GcArray)
         assert A.OF != lltype.Void
         size = symbolic.get_size(A)
         token = history.getkind(A.OF)
-        return Descr(size, token[0])
+        return self.getdescr(size, token[0])
 
     # ---------- the backend-dependent operations ----------
 
@@ -497,6 +488,14 @@ class LLtypeCPU(BaseCPU):
     def do_cast_ptr_to_int(self, ptrbox):
         return history.BoxInt(llimpl.cast_to_int(ptrbox.getref_base(),
                                                         self.memo_cast))
+
+    def force(self, force_token):
+        token = self.cast_int_to_adr(force_token)
+        frame = llimpl.get_forced_token_frame(token)
+        fail_index = llimpl.force(frame)
+        self.latest_frame = frame
+        return self.get_fail_descr_from_number(fail_index)
+
 
 class OOtypeCPU(BaseCPU):
     is_oo = True

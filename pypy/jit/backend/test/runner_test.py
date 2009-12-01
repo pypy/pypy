@@ -1221,6 +1221,139 @@ class LLtypeBackendTest(BaseBackendTest):
             else:
                 assert record == []
 
+    def test_force_operations_returning_void(self):
+        values = []
+        def maybe_force(token, flag):
+            if flag:
+                descr = self.cpu.force(token)
+                values.append(descr)
+                values.append(self.cpu.get_latest_value_int(0))
+                values.append(self.cpu.get_latest_value_int(1))
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.CALL_MAY_FORCE, [funcbox, tok, i1], None,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(0))
+        ]
+        ops[2].fail_args = [i1, i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+        self.cpu.set_future_value_int(0, 20)
+        self.cpu.set_future_value_int(1, 0)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == 20
+        assert values == []
+
+        self.cpu.set_future_value_int(0, 10)
+        self.cpu.set_future_value_int(1, 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 1
+        assert self.cpu.get_latest_value_int(0) == 1
+        assert self.cpu.get_latest_value_int(1) == 10
+        assert values == [faildescr, 1, 10]
+
+    def test_force_operations_returning_int(self):
+        values = []
+        def maybe_force(token, flag):
+            if flag:
+               self.cpu.force(token)
+               values.append(self.cpu.get_latest_value_int(0))
+               values.append(self.cpu.get_latest_value_int(2))
+            return 42
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.CALL_MAY_FORCE, [funcbox, tok, i1], i2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(0))
+        ]
+        ops[2].fail_args = [i1, i2, i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+        self.cpu.set_future_value_int(0, 20)
+        self.cpu.set_future_value_int(1, 0)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == 42
+        assert values == []
+
+        self.cpu.set_future_value_int(0, 10)
+        self.cpu.set_future_value_int(1, 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 1
+        assert self.cpu.get_latest_value_int(0) == 1
+        assert self.cpu.get_latest_value_int(1) == 42
+        assert self.cpu.get_latest_value_int(2) == 10
+        assert values == [1, 10]
+
+    def test_force_operations_returning_float(self):
+        values = []
+        def maybe_force(token, flag):
+            if flag:
+               self.cpu.force(token)
+               values.append(self.cpu.get_latest_value_int(0))
+               values.append(self.cpu.get_latest_value_int(2))
+            return 42.5
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        f2 = BoxFloat()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.CALL_MAY_FORCE, [funcbox, tok, i1], f2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [f2], None, descr=BasicFailDescr(0))
+        ]
+        ops[2].fail_args = [i1, f2, i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+        self.cpu.set_future_value_int(0, 20)
+        self.cpu.set_future_value_int(1, 0)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_float(0) == 42.5
+        assert values == []
+
+        self.cpu.set_future_value_int(0, 10)
+        self.cpu.set_future_value_int(1, 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 1
+        assert self.cpu.get_latest_value_int(0) == 1
+        assert self.cpu.get_latest_value_float(1) == 42.5
+        assert self.cpu.get_latest_value_int(2) == 10
+        assert values == [1, 10]
+
     # pure do_ / descr features
 
     def test_do_operations(self):

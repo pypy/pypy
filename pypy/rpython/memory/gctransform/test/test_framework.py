@@ -6,7 +6,7 @@ from pypy.rpython.memory.gctransform.test.test_transform import rtype, \
 from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, \
     CollectAnalyzer, find_initializing_stores, find_clean_setarrayitems
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.translator.c.gc import FrameworkGcPolicy
 from pypy.translator.translator import TranslationContext, graphof
@@ -86,6 +86,33 @@ def test_cancollect_stack_check():
     t.config.translation.stackless = True
     can_collect = CollectAnalyzer(t).analyze_direct_call(with_check_graph)
     assert can_collect
+
+def test_cancollect_external():
+    fext1 = rffi.llexternal('fext1', [], lltype.Void, threadsafe=False)
+    def g():
+        fext1()
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert not CollectAnalyzer(t).analyze_direct_call(gg)
+
+    fext2 = rffi.llexternal('fext2', [], lltype.Void, threadsafe=True)
+    def g():
+        fext2()
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert CollectAnalyzer(t).analyze_direct_call(gg)
+
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+    fext3 = rffi.llexternal('fext3', [FUNC], lltype.Void, threadsafe=False)
+    def h(x):
+        lltype.malloc(S, zero=True)
+    def g():
+        fext3(h)
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert CollectAnalyzer(t).analyze_direct_call(gg)
+
 
 class WriteBarrierTransformer(FrameworkGCTransformer):
     clean_sets = {}

@@ -78,16 +78,11 @@ we already saw that loop; and if we did, if the specialization pattern
 matches the real data -- but this is delicate because of the
 non-escaping flag.
 
-Instead, this is done by doing tracing from the start of the loop again.
-At the end, we don't do perfect specialization (for now), but simply
-check that the already-computed specialization still applies, and then
-jump to the already-compiled loop.  (If it does not match, for now we
-just cancel everything.)
-
-If the loop is not only executed but *entered* often enough, then after
-this tracing, we generate a second copy of the loop (a "bridge") that
-starts with all variables unspecialized, and ends with a jump to the
-real loop.  From this point on, we can just jump directly to the bridge
+Instead, this is done by "entry bridges": we do tracing from
+the start of the loop again, and at the end, we try to compile
+the recorded trace as a "bridge" that comes from the
+interpreter (i.e. with no virtuals at all) and goes to the old
+loop.  Later on, we can just jump directly to the entry bridge
 from the JUMP_ABSOLUTE bytecode.
 
 
@@ -105,10 +100,7 @@ When we decide instead to compile more code for this guard failure, we
 take the set of live values and put them back into boxes, and proceed
 with tracing for the rest of the loop.
 
-For now, we just check at the end of the loop that it matches the
-already-computed specialization.  If not, we cancel creating the
-compiled version of it (and mark the guard so that future failures
-always fall back to interpretation).  To do this, when we created the
-original loop, at every guard, we needed to record the set of live
-values (mostly in which register or stack location they are) as well as
-an "escaped-so-far" flag for each pointer.
+At the end of the loop, we check that it matches an already-computed
+specialization.  If not, we go on tracing.  This might unroll the loop
+once.  (Note that there is a global limit on the length of the recorded
+trace, to avoid tracing forever.)

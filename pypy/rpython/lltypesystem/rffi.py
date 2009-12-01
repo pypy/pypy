@@ -57,7 +57,7 @@ class _IsLLPtrEntry(ExtRegistryEntry):
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
-               canraise=False, _nowrapper=False, calling_conv='c',
+               _nowrapper=False, calling_conv='c',
                oo_primitive=None, pure_function=False):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
@@ -67,6 +67,10 @@ def llexternal(name, args, result, _callable=None,
     CCHARP argument is expected, and the C function receives a 'const char*'
     pointing to a read-only null-terminated character of arrays, as usual
     for C.
+
+    The C function can have callbacks, but they must be specified explicitly
+    as constant RPython functions.  We don't support yet C functions that
+    invoke callbacks passed otherwise (e.g. set by a previous C call).
 
     threadsafe: whether it's ok to release the GIL around the call.
                 Default is yes, unless sandboxsafe is set, in which case
@@ -84,12 +88,22 @@ def llexternal(name, args, result, _callable=None,
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive
+
+    has_callback = False
+    for ARG in args:
+        if _isfunctype(ARG):
+            has_callback = True
+    if has_callback:
+        kwds['_callbacks'] = callbackholder = CallbackHolder()
+    else:
+        callbackholder = None
+
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp
-                                 canraise=canraise,
+                                 canraise=False,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -170,9 +184,11 @@ def llexternal(name, args, result, _callable=None,
                 # XXX pass additional arguments
                 if invoke_around_handlers:
                     arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
+                                                             callbackholder,
                                                              aroundstate))
                 else:
-                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg))
+                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
+                                                             callbackholder))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -202,7 +218,11 @@ def llexternal(name, args, result, _callable=None,
 
     return func_with_new_name(wrapper, name)
 
-def _make_wrapper_for(TP, callable, aroundstate=None):
+class CallbackHolder:
+    def __init__(self):
+        self.callbacks = {}
+
+def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -213,6 +233,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     else:
         errorcode = TP.TO.RESULT._example()
     callable_name = getattr(callable, '__name__', '?')
+    callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple

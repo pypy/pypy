@@ -178,6 +178,31 @@ class TestLLtype(BaseTestCanRaise):
         assert name == "length"
         assert S1 is S2
 
+    def test_llexternal_with_callback(self):
+        from pypy.rpython.lltypesystem.rffi import llexternal
+        from pypy.rpython.lltypesystem import lltype
+
+        class Abc:
+            pass
+        abc = Abc()
+
+        FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+        z = llexternal('z', [lltype.Ptr(FUNC)], lltype.Signed)
+        def g(n):
+            abc.foobar = n
+            return n + 1
+        def f(x):
+            return z(g)
+        t, wa = self.translate(f, [int])
+        fgraph = graphof(t, f)
+        backend_optimizations(t)
+        assert fgraph.startblock.operations[0].opname == 'direct_call'
+
+        result = wa.analyze(fgraph.startblock.operations[0])
+        assert len(result) == 1
+        (struct, T, name), = result
+        assert struct == "struct"
+        assert name.endswith("foobar")
 
 
 class TestOOtype(BaseTestCanRaise):

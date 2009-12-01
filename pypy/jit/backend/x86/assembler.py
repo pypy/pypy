@@ -9,7 +9,8 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, lower_byte,\
-     X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs
+     X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs, FRAME_FIXED_SIZE,\
+     FORCE_INDEX_OFS
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
@@ -21,8 +22,6 @@ from pypy.rlib.debug import debug_print
 
 # our calling convention - we pass first 6 args in registers
 # and the rest stays on the stack
-
-RET_BP = 5 # ret ip + bp + bx + esi + edi = 5 words
 
 if sys.platform == 'darwin':
     # darwin requires the stack to be 16 bytes aligned on calls
@@ -90,6 +89,7 @@ class Assembler386(object):
         self.fail_boxes_int = NonmovableGrowableArraySigned()
         self.fail_boxes_ptr = NonmovableGrowableArrayGCREF()
         self.fail_boxes_float = NonmovableGrowableArrayFloat()
+        self.fail_ebp = 0
         self.setup_failure_recovery()
 
     def leave_jitted_hook(self):
@@ -200,7 +200,11 @@ class Assembler386(object):
         # patch stack adjustment LEA
         # possibly align, e.g. for Mac OS X        
         mc = codebuf.InMemoryCodeBuilder(adr_lea, adr_lea + 4)
-        mc.write(packimm32(-(stack_depth + RET_BP - 2) * WORD))
+        # Compute the correct offset for the instruction LEA ESP, [EBP-4*words].
+        # Given that [EBP] is where we saved EBP, i.e. in the last word
+        # of our fixed frame, then the 'words' value is:
+        words = (FRAME_FIXED_SIZE - 1) + stack_depth
+        mc.write(packimm32(-WORD * words))
         mc.done()
 
     def _assemble_bootstrap_code(self, inputargs, arglocs):
@@ -210,8 +214,8 @@ class Assembler386(object):
         self.mc.PUSH(ebx)
         self.mc.PUSH(esi)
         self.mc.PUSH(edi)
-        # NB. exactly 4 pushes above; if this changes, fix stack_pos().
-        # You must also keep _get_callshape() in sync.
+        # NB. the shape of the frame is hard-coded in get_basic_shape() too.
+        # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         adr_stackadjust = self._patchable_stackadjust()
         tmp = X86RegisterManager.all_regs[0]
         xmmtmp = X86XMMRegisterManager.all_regs[0]
@@ -265,9 +269,6 @@ class Assembler386(object):
             self.mc.MOV(to_loc, from_loc)
 
     regalloc_mov = mov # legacy interface
-
-    def regalloc_fstp(self, loc):
-        self.mc.FSTP(loc)
 
     def regalloc_push(self, loc):
         if isinstance(loc, XMMREG):
@@ -758,7 +759,8 @@ class Assembler386(object):
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                                                fail_locs):
         exc = (guard_opnum == rop.GUARD_EXCEPTION or
-               guard_opnum == rop.GUARD_NO_EXCEPTION)
+               guard_opnum == rop.GUARD_NO_EXCEPTION or
+               guard_opnum == rop.GUARD_NOT_FORCED)
         return self.generate_quick_failure(faildescr, failargs, fail_locs, exc)
 
     def generate_quick_failure(self, faildescr, failargs, fail_locs, exc):
@@ -876,75 +878,79 @@ class Assembler386(object):
             arglocs.append(loc)
         return arglocs[:]
 
+    def grab_frame_values(self, bytecode, frame_addr, allregisters):
+        # no malloc allowed here!!
+        self.fail_ebp = allregisters[16 + ebp.op]
+        num = 0
+        value_hi = 0
+        while 1:
+            # decode the next instruction from the bytecode
+            code = rffi.cast(lltype.Signed, bytecode[0])
+            bytecode = rffi.ptradd(bytecode, 1)
+            if code >= 4*self.DESCR_FROMSTACK:
+                if code > 0x7F:
+                    shift = 7
+                    code &= 0x7F
+                    while True:
+                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
+                        bytecode = rffi.ptradd(bytecode, 1)
+                        code |= (nextcode & 0x7F) << shift
+                        shift += 7
+                        if nextcode <= 0x7F:
+                            break
+                # load the value from the stack
+                kind = code & 3
+                code = (code >> 2) - self.DESCR_FROMSTACK
+                stackloc = frame_addr + get_ebp_ofs(code)
+                value = rffi.cast(rffi.LONGP, stackloc)[0]
+                if kind == self.DESCR_FLOAT:
+                    value_hi = value
+                    value = rffi.cast(rffi.LONGP, stackloc - 4)[0]
+            else:
+                # 'code' identifies a register: load its value
+                kind = code & 3
+                if kind == self.DESCR_SPECIAL:
+                    if code == self.DESCR_HOLE:
+                        num += 1
+                        continue
+                    assert code == self.DESCR_STOP
+                    break
+                code >>= 2
+                if kind == self.DESCR_FLOAT:
+                    value = allregisters[2*code]
+                    value_hi = allregisters[2*code + 1]
+                else:
+                    value = allregisters[16 + code]
+
+            # store the loaded value into fail_boxes_<type>
+            if kind == self.DESCR_INT:
+                tgt = self.fail_boxes_int.get_addr_for_num(num)
+            elif kind == self.DESCR_REF:
+                tgt = self.fail_boxes_ptr.get_addr_for_num(num)
+            elif kind == self.DESCR_FLOAT:
+                tgt = self.fail_boxes_float.get_addr_for_num(num)
+                rffi.cast(rffi.LONGP, tgt)[1] = value_hi
+            else:
+                assert 0, "bogus kind"
+            rffi.cast(rffi.LONGP, tgt)[0] = value
+            num += 1
+        #
+        if not we_are_translated():
+            assert bytecode[4] == 0xCC
+        fail_index = rffi.cast(rffi.LONGP, bytecode)[0]
+        return fail_index
+
     def setup_failure_recovery(self):
 
         def failure_recovery_func(registers):
-            # no malloc allowed here!!
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original
             # value of XMM registers, and finally a reference to the
             # recovery bytecode.  See _build_failure_recovery() for details.
             stack_at_ebp = registers[ebp.op]
             bytecode = rffi.cast(rffi.UCHARP, registers[8])
-            num = 0
-            value_hi = 0
-            while 1:
-                # decode the next instruction from the bytecode
-                code = rffi.cast(lltype.Signed, bytecode[0])
-                bytecode = rffi.ptradd(bytecode, 1)
-                if code >= 4*self.DESCR_FROMSTACK:
-                    if code > 0x7F:
-                        shift = 7
-                        code &= 0x7F
-                        while True:
-                            nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                            bytecode = rffi.ptradd(bytecode, 1)
-                            code |= (nextcode & 0x7F) << shift
-                            shift += 7
-                            if nextcode <= 0x7F:
-                                break
-                    # load the value from the stack
-                    kind = code & 3
-                    code = (code >> 2) - self.DESCR_FROMSTACK
-                    stackloc = stack_at_ebp + get_ebp_ofs(code)
-                    value = rffi.cast(rffi.LONGP, stackloc)[0]
-                    if kind == self.DESCR_FLOAT:
-                        value_hi = value
-                        value = rffi.cast(rffi.LONGP, stackloc - 4)[0]
-                else:
-                    # 'code' identifies a register: load its value
-                    kind = code & 3
-                    if kind == self.DESCR_SPECIAL:
-                        if code == self.DESCR_HOLE:
-                            num += 1
-                            continue
-                        assert code == self.DESCR_STOP
-                        break
-                    code >>= 2
-                    if kind == self.DESCR_FLOAT:
-                        xmmregisters = rffi.ptradd(registers, -16)
-                        value = xmmregisters[2*code]
-                        value_hi = xmmregisters[2*code + 1]
-                    else:
-                        value = registers[code]
-
-                # store the loaded value into fail_boxes_<type>
-                if kind == self.DESCR_INT:
-                    tgt = self.fail_boxes_int.get_addr_for_num(num)
-                elif kind == self.DESCR_REF:
-                    tgt = self.fail_boxes_ptr.get_addr_for_num(num)
-                elif kind == self.DESCR_FLOAT:
-                    tgt = self.fail_boxes_float.get_addr_for_num(num)
-                    rffi.cast(rffi.LONGP, tgt)[1] = value_hi
-                else:
-                    assert 0, "bogus kind"
-                rffi.cast(rffi.LONGP, tgt)[0] = value
-                num += 1
-            #
-            if not we_are_translated():
-                assert bytecode[4] == 0xCC
-            fail_index = rffi.cast(rffi.LONGP, bytecode)[0]
-            return fail_index
+            allregisters = rffi.ptradd(registers, -16)
+            return self.grab_frame_values(bytecode, stack_at_ebp, allregisters)
 
         self.failure_recovery_func = failure_recovery_func
         self.failure_recovery_code = [0, 0, 0, 0]
@@ -997,11 +1003,11 @@ class Assembler386(object):
         # now we return from the complete frame, which starts from
         # _assemble_bootstrap_code().  The LEA below throws away most
         # of the frame, including all the PUSHes that we did just above.
-        mc.LEA(esp, addr_add(ebp, imm((-RET_BP + 2) * WORD)))
-        mc.POP(edi)
-        mc.POP(esi)
-        mc.POP(ebx)
-        mc.POP(ebp)
+        mc.LEA(esp, addr_add(ebp, imm(-3 * WORD)))
+        mc.POP(edi)    # [ebp-12]
+        mc.POP(esi)    # [ebp-8]
+        mc.POP(ebx)    # [ebp-4]
+        mc.POP(ebp)    # [ebp]
         mc.RET()
         self.mc2.done()
         self.failure_recovery_code[exc + 2 * withfloats] = recovery_addr
@@ -1042,14 +1048,14 @@ class Assembler386(object):
         addr = self.cpu.get_on_leave_jitted_int(save_exception=exc)
         mc.CALL(rel32(addr))
 
-        # don't break the following code sequence!
+        # don't break the following code sequence!   xxx no reason any more?
         mc = mc._mc
-        mc.LEA(esp, addr_add(ebp, imm((-RET_BP + 2) * WORD)))
+        mc.LEA(esp, addr_add(ebp, imm(-3 * WORD)))
         mc.MOV(eax, imm(fail_index))
-        mc.POP(edi)
-        mc.POP(esi)
-        mc.POP(ebx)
-        mc.POP(ebp)
+        mc.POP(edi)    # [ebp-12]
+        mc.POP(esi)    # [ebp-8]
+        mc.POP(ebx)    # [ebp-4]
+        mc.POP(ebp)    # [ebp]
         mc.RET()
 
     @specialize.arg(2)
@@ -1098,12 +1104,23 @@ class Assembler386(object):
         self.mc.CALL(x)
         self.mark_gc_roots()
         self.mc.ADD(esp, imm(extra_on_stack))
-        if size == 1:
+        if isinstance(resloc, MODRM64):
+            self.mc.FSTP(resloc)
+        elif size == 1:
             self.mc.AND(eax, imm(0xff))
         elif size == 2:
             self.mc.AND(eax, imm(0xffff))
 
     genop_call_pure = genop_call
+    
+    def genop_guard_call_may_force(self, op, guard_op, addr,
+                                   arglocs, result_loc):
+        faildescr = guard_op.descr
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self.mc.MOV(mem(ebp, FORCE_INDEX_OFS), imm(fail_index))
+        self.genop_call(op, arglocs, result_loc)
+        self.mc.CMP(mem(ebp, FORCE_INDEX_OFS), imm(0))
+        return self.implement_guard(addr, self.mc.JL)
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # use 'mc._mc' directly instead of 'mc', to avoid
@@ -1133,6 +1150,9 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
         mc.overwrite(jz_location-1, [chr(offset)])
+
+    def genop_force_token(self, op, arglocs, resloc):
+        self.mc.LEA(resloc, mem(ebp, FORCE_INDEX_OFS))
 
     def not_implemented_op_discard(self, op, arglocs):
         msg = "not implemented operation: %s" % op.getopname()

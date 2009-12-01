@@ -11,7 +11,7 @@ class Virtualizable2InstanceRepr(AbstractVirtualizable2InstanceRepr, InstanceRep
     def _setup_repr_llfields(self):
         llfields = []
         if self.top_of_virtualizable_hierarchy:
-            llfields.append(('vable_rti', VABLERTI))
+            llfields.append(('vable_token', VABLERTI))
         return llfields
 
     def set_vable(self, llops, vinst, force_cast=False):

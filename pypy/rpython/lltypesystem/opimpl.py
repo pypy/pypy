@@ -486,6 +486,9 @@ op_gc_gettypeptr_group.need_result_type = True
 def op_get_member_index(memberoffset):
     raise NotImplementedError
 
+def op_gc_assume_young_pointers(addr):
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

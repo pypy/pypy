@@ -41,6 +41,8 @@ def test_tagged_list_eq():
     assert not tagged_list_eq([tag(1, TAGBOX), tag(-2, TAGBOX)], [tag(1, TAGBOX)])
 
 class MyMetaInterp:
+    _already_allocated_resume_virtuals = None
+
     def __init__(self, cpu=None):
         if cpu is None:
             cpu = LLtypeMixin.cpu
@@ -124,6 +126,7 @@ def test_prepare_virtuals():
         rd_numb = []
         rd_consts = []
     class FakeMetainterp(object):
+        _already_allocated_resume_virtuals = None
         cpu = None
     reader = ResumeDataReader(FakeStorage(), [], FakeMetainterp())
     assert reader.virtuals == ["allocated", None]

@@ -10,6 +10,9 @@ from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 
 class TestLLTypeLLGraph(LLtypeBackendTest):
+    # for individual tests see:
+    # ====> ../../test/runner_test.py
+    
     from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
 
     def setup_method(self, _):
