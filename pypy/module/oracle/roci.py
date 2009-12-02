@@ -14,19 +14,27 @@ else:
         "Please set ORACLE_HOME to the root of an Oracle client installation")
 
 if sys.platform == 'win32':
-    eci = ExternalCompilationInfo(
-        includes = ['oci.h'],
-        include_dirs = [str(ORACLE_HOME.join('OCI', 'include'))],
-        libraries = ['oci'],
-        library_dirs = [str(ORACLE_HOME.join('OCI', 'lib', 'MSVC'))],
-        )
+    include_dirs = [str(ORACLE_HOME.join('OCI', 'include'))]
+    libraries = ['oci']
+    library_dirs = [str(ORACLE_HOME.join('OCI', 'lib', 'MSVC'))]
 else:
-    eci = ExternalCompilationInfo(
-        includes = ['oci.h'],
-        include_dirs = [str(ORACLE_HOME.join('sdk', 'include'))],
-        libraries = ['clntsh'],
-        library_dirs = [str(ORACLE_HOME.join('lib'))],
-        )
+    include_dirs = [str(ORACLE_HOME.join('sdk', 'include'))]
+    libraries = ['clntsh']
+    library_dirs = [str(ORACLE_HOME.join('lib'))]
+
+eci = ExternalCompilationInfo(
+    post_include_bits = [
+        # One single string, to be sure it will
+        # be rendered in this order
+        '#include <oci.h>\n' +
+        'typedef boolean oci_boolean;\n' +
+        '#undef boolean'
+        ],
+    include_dirs = include_dirs,
+    libraries = libraries,
+    library_dirs = library_dirs,
+    )
+
 
 class CConfig:
     _compilation_info_ = eci
@@ -39,7 +47,7 @@ class CConfig:
     sb4 = platform.SimpleType('sb4', rffi.INT)
     sword = platform.SimpleType('sword', rffi.INT)
     uword = platform.SimpleType('uword', rffi.UINT)
-    boolean = platform.SimpleType('boolean', rffi.UINT)
+    boolean = platform.SimpleType('oci_boolean', rffi.UINT)
     OCIDuration = platform.SimpleType('OCIDuration', rffi.UINT)
     OCIInd = platform.SimpleType('OCIInd', rffi.INT)
     OCIPinOpt = platform.SimpleType('OCIPinOpt', rffi.INT)
