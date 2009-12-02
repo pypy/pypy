@@ -6,7 +6,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86.ri386 import I386CodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
 from pypy.rlib.debug import make_sure_not_resized
-
+from pypy.translator.platform import CompilationError
 
 class InMemoryCodeBuilder(I386CodeBuilder):
     _last_dump_start = 0
@@ -149,9 +149,13 @@ class MachineCodeBlock(InMemoryCodeBuilder):
 # ____________________________________________________________
 
 if sys.platform == 'win32':
-    ensure_sse2_floats = lambda : None
+    sse2_floats = True
 else:
-    _sse2_eci = ExternalCompilationInfo(
-        compile_extra = ['-msse2', '-mfpmath=sse'])
-    ensure_sse2_floats = lambda : rffi_platform.verify_eci(_sse2_eci)
+    try:
+        _sse2_eci = ExternalCompilationInfo(
+            compile_extra = ['-msse2', '-mfpmath=sse'])
+        rffi_platform.verify_eci(_sse2_eci)
+        sse2_floats = True
+    except CompilationError:
+        sse2_floats = False
 
