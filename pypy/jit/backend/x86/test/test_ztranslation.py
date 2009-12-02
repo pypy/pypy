@@ -8,6 +8,12 @@ from pypy.jit.backend.test.support import CCompiledMixin
 class TestTranslationX86(CCompiledMixin):
     CPUClass = CPU386
 
+    def _check_cbuilder(self, cbuilder):
+        # We assume here that we have sse2.  If not, the CPUClass
+        # needs to be changed to CPU386_NO_SSE2, but well.
+        assert '-msse2' in cbuilder.eci.compile_extra
+        assert '-mfpmath=sse' in cbuilder.eci.compile_extra
+
     def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
         # translation:

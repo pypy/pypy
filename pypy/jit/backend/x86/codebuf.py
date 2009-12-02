@@ -148,11 +148,11 @@ class MachineCodeBlock(InMemoryCodeBuilder):
 # ____________________________________________________________
 
 if sys.platform == 'win32':
-    ensure_sse2_floats = lambda self: None
+    ensure_sse2_floats = lambda : None
 else:
     _sse2_eci = ExternalCompilationInfo(
         compile_extra = ['-msse2', '-mfpmath=sse'],
-        separate_module_sources = ['void PYPY_NO_OP() {}'],
+        separate_module_sources = ['void PYPY_NO_OP(void) {}'],
         )
     ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
                                          compilation_info=_sse2_eci)

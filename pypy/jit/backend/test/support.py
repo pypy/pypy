@@ -124,12 +124,16 @@ class CCompiledMixin(BaseCompiledMixin):
         # XXX patch exceptions
         cbuilder = CBuilder(t, entry_point, config=t.config)
         cbuilder.generate_source()
+        self._check_cbuilder(cbuilder)
         exe_name = cbuilder.compile()
         debug_print('---------- Test starting ----------')
         stdout = cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
         res = int(stdout)
         debug_print('---------- Test done (%d) ----------' % (res,))
         return res
+
+    def _check_cbuilder(self, cbuilder):
+        pass
 
 class CliCompiledMixin(BaseCompiledMixin):
     type_system = 'ootype'
