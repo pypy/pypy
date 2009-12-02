@@ -1,6 +1,7 @@
 
 import os, sys
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86.ri386 import I386CodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
@@ -148,9 +149,9 @@ class MachineCodeBlock(InMemoryCodeBuilder):
 # ____________________________________________________________
 
 if sys.platform == 'win32':
-    ensure_sse2_floats = lambda self: None
+    ensure_sse2_floats = lambda : None
 else:
     _sse2_eci = ExternalCompilationInfo(
         compile_extra = ['-msse2', '-mfpmath=sse'])
-    ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
-                                         compilation_info=_sse2_eci)
+    ensure_sse2_floats = lambda : rffi_platform.verify_eci(_sse2_eci)
+
