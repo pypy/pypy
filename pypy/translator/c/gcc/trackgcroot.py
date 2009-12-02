@@ -349,7 +349,8 @@ class FunctionGcRootTracker(object):
         'f',
         'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap',
         'movd', 'sqrtsd',
-        'mins', 'minp', 'maxs', 'maxp', # sse2
+        'mins', 'minp', 'maxs', 'maxp', 'unpcklps',
+        'unpcklpd', 'unpckhps', 'unpckhpd', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
