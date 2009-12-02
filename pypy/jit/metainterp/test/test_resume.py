@@ -1,5 +1,4 @@
 import py
-import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.optimizeopt import VirtualValue, OptValue, VArrayValue
 from pypy.jit.metainterp.optimizeopt import VStructValue
@@ -20,10 +19,10 @@ def test_tag():
     assert tag((1<<13)-1, 3) == rffi.r_short(((1<<15)-1)|3)
     assert tag(-1<<13, 3) == rffi.r_short((-1<<15)|3)
     py.test.raises(ValueError, tag, 3, 5)
-    py.test.raises(ValueError, tag, sys.maxint, 0)
-    py.test.raises(ValueError, tag, sys.maxint//2, 0)
-    py.test.raises(ValueError, tag, -sys.maxint-1, 0)
-    py.test.raises(ValueError, tag, -sys.maxint//2, 0)
+    py.test.raises(ValueError, tag, 1<<13, 0)
+    py.test.raises(ValueError, tag, (1<<13)+1, 0)
+    py.test.raises(ValueError, tag, (-1<<13)-1, 0)
+    py.test.raises(ValueError, tag, (-1<<13)-5, 0)
 
 def test_untag():
     assert untag(tag(3, 1)) == (3, 1)
@@ -31,20 +30,15 @@ def test_untag():
     assert untag(tag((1<<13)-1, 3)) == ((1<<13)-1, 3)
     assert untag(tag(-1<<13, 3)) == (-1<<13, 3)
 
-def test_compress_tagged_list():
-    assert compress_tagged_list([0, 1, 12, 1024]) == "\x00\x01\x0c\x80\x08"
-    assert compress_tagged_list([-1, 1, 12]) == "\x7f\x01\x0c"
-    for i in range(256):
-        assert uncompress_tagged_list(compress_tagged_list([i])) == [i]
-    l = range(-10000, 10000) + range(-100000000, 100000000, 10000)
-    compressed = compress_tagged_list(l)
-    assert uncompress_tagged_list(compressed) == l
-    assert compressed_length(compressed) == len(l)
-    for i in range(-64, 64):
-        assert len(compress_tagged_list([i])) == 1
-    for i in range(-8192, -64) + range(64, 8192):
-        assert len(compress_tagged_list([i])) == 2
+def test_tagged_eq():
+    assert tagged_eq(UNASSIGNED, UNASSIGNED)
+    assert not tagged_eq(tag(1, TAGBOX), UNASSIGNED)
 
+def test_tagged_list_eq():
+    assert tagged_list_eq([UNASSIGNED, tag(1, TAGBOX), tag(-2, TAGVIRTUAL)],
+                          [UNASSIGNED, tag(1, TAGBOX), tag(-2, TAGVIRTUAL)])
+    assert not tagged_list_eq([tag(1, TAGBOX)], [tag(-2, TAGBOX)])
+    assert not tagged_list_eq([tag(1, TAGBOX), tag(-2, TAGBOX)], [tag(1, TAGBOX)])
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
@@ -196,12 +190,12 @@ def test_Numbering_create():
     l = [1, 2]
     numb = Numbering(None, l)
     assert numb.prev is None
-    assert numb.nums_compressed == "\x01\x02"
+    assert numb.nums is l
 
-    l1 = [3]
+    l1 = ['b3']
     numb1 = Numbering(numb, l1)
     assert numb1.prev is numb
-    assert numb1.nums_compressed == "\x03"
+    assert numb1.nums is l1
 
 def test_capture_resumedata():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
@@ -400,8 +394,8 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish(values)
     assert len(storage.rd_virtuals) == 1
-    assert storage.rd_virtuals[0].fieldnums() == [tag(-1, TAGBOX),
-                                                  tag(0, TAGCONST)]
+    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
+                                                tag(0, TAGCONST)]
 
     b6 = BoxPtr()
     v6 = virtual_value(b6, c2, None)
@@ -411,10 +405,10 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     modifier = ResumeDataVirtualAdder(storage2, memo)
     liveboxes2 = modifier.finish(values)
     assert len(storage2.rd_virtuals) == 2    
-    assert storage2.rd_virtuals[0].fieldnums() == [tag(len(liveboxes2)-1, TAGBOX),
-                                                   tag(-1, TAGVIRTUAL)]
-    assert storage2.rd_virtuals[1].fieldnums() == [tag(2, TAGINT),
-                                                   tag(-1, TAGVIRTUAL)]
+    assert storage2.rd_virtuals[0].fieldnums == [tag(len(liveboxes2)-1, TAGBOX),
+                                                 tag(-1, TAGVIRTUAL)]
+    assert storage2.rd_virtuals[1].fieldnums == [tag(2, TAGINT),
+                                                 tag(-1, TAGVIRTUAL)]
 
     # now on to resuming
     metainterp = MyMetaInterp()
@@ -456,8 +450,8 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish(values)
     assert len(storage.rd_virtuals) == 1
-    assert storage.rd_virtuals[0].fieldnums() == [tag(-1, TAGBOX),
-                                                  tag(0, TAGCONST)]
+    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
+                                                tag(0, TAGCONST)]
 
     storage2 = Storage()
     fs = [FakeFrame("code0", 0, -1, b1, b4, b2)]
@@ -466,7 +460,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     modifier = ResumeDataVirtualAdder(storage2, memo)
     liveboxes = modifier.finish(values)
     assert len(storage2.rd_virtuals) == 2
-    assert storage2.rd_virtuals[1].fieldnums() == storage.rd_virtuals[0].fieldnums()
+    assert storage2.rd_virtuals[1].fieldnums == storage.rd_virtuals[0].fieldnums
     assert storage2.rd_virtuals[1] is storage.rd_virtuals[0]
     
 
@@ -485,10 +479,10 @@ def test_resumedata_top_recursive_virtuals():
     liveboxes = modifier.finish(values)
     assert liveboxes == [b3]
     assert len(storage.rd_virtuals) == 2
-    assert storage.rd_virtuals[0].fieldnums() == [tag(-1, TAGBOX),
-                                                  tag(1, TAGVIRTUAL)]
-    assert storage.rd_virtuals[1].fieldnums() == [tag(-1, TAGBOX),
-                                                  tag(0, TAGVIRTUAL)]    
+    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
+                                                tag(1, TAGVIRTUAL)]
+    assert storage.rd_virtuals[1].fieldnums == [tag(-1, TAGBOX),
+                                                tag(0, TAGVIRTUAL)]    
 
 
 # ____________________________________________________________
@@ -500,12 +494,12 @@ def test_ResumeDataLoopMemo_ints():
     assert untag(tagged) == (44, TAGINT)
     tagged = memo.getconst(ConstInt(-3))
     assert untag(tagged) == (-3, TAGINT)
-    const = ConstInt(sys.maxint)
+    const = ConstInt(50000)
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
     assert memo.consts[index] is const
-    tagged = memo.getconst(ConstInt(sys.maxint))
+    tagged = memo.getconst(ConstInt(50000))
     index2, tagbits = untag(tagged)
     assert tagbits == TAGCONST
     assert index2 == index
@@ -560,10 +554,10 @@ def test_ResumeDataLoopMemo_number():
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
-    assert numb.nums() == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                           tag(1, TAGINT)]
-    assert numb.prev.nums() == [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX),
-                                tag(0, TAGBOX), tag(2, TAGINT)]
+    assert numb.nums == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
+                         tag(1, TAGINT)]
+    assert numb.prev.nums == [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX),
+                              tag(0, TAGBOX), tag(2, TAGINT)]
     assert numb.prev.prev is None
 
     numb2, liveboxes2, v = memo.number({}, snap2)
@@ -572,8 +566,8 @@ def test_ResumeDataLoopMemo_number():
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
     assert liveboxes2 is not liveboxes
-    assert numb2.nums() == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                            tag(3, TAGINT)]
+    assert numb2.nums == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
+                         tag(3, TAGINT)]
     assert numb2.prev is numb.prev
 
     env3 = [c3, b3, b1, c3]
@@ -595,8 +589,8 @@ def test_ResumeDataLoopMemo_number():
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert numb3.nums() == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
-                            tag(3, TAGINT)]
+    assert numb3.nums == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
+                          tag(3, TAGINT)]
     assert numb3.prev is numb.prev
 
     # virtual
@@ -608,8 +602,8 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL)}
-    assert numb4.nums() == [tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX),
-                            tag(3, TAGINT)]
+    assert numb4.nums == [tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX),
+                          tag(3, TAGINT)]
     assert numb4.prev is numb.prev
 
     env5 = [b1, b4, b5]
@@ -621,8 +615,8 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert numb5.nums() == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
-                                            tag(1, TAGVIRTUAL)]
+    assert numb5.nums == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
+                                          tag(1, TAGVIRTUAL)]
     assert numb5.prev is numb4
 
 def test_ResumeDataLoopMemo_number_boxes():
@@ -738,14 +732,14 @@ def test_virtual_adder_memo_const_sharing():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
     modifier.finish({})
-    assert len(memo.consts) == 1
+    assert len(memo.consts) == 2
     assert storage.rd_consts is memo.consts
 
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(-sys.maxint), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**17), ConstInt(-65)]
     storage2 = make_storage(b1s, b2s, b3s)
     modifier2 = ResumeDataVirtualAdder(storage2, memo)
     modifier2.finish({})
-    assert len(memo.consts) == 2
+    assert len(memo.consts) == 3    
     assert storage2.rd_consts is memo.consts
 
 
