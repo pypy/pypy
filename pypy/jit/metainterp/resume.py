@@ -60,48 +60,97 @@ def capture_resumedata(framestack, virtualizable_boxes, storage):
     storage.rd_snapshot = snapshot
 
 class Numbering(object):
-    __slots__ = ('prev', 'nums')
+    __slots__ = ('prev', 'nums_compressed')
 
     def __init__(self, prev, nums):
         self.prev = prev
-        self.nums = nums
+        self.nums_compressed = compress_tagged_list(nums)
+
+    def nums(self):
+        return uncompress_tagged_list(self.nums_compressed)
+
+# _________________________________________________________
+# tagging helpers
 
 TAGMASK = 3
 
 def tag(value, tagbits):
     if tagbits >> 2:
         raise ValueError
-    sx = value >> 13
-    if sx != 0 and sx != -1:
+    if rarithmetic.intmask((value << 2)) >> 2 != value:
         raise ValueError
-    return rffi.r_short(value<<2|tagbits)
+    return value<<2|tagbits
 
 def untag(value):
-    value = rarithmetic.widen(value)
-    tagbits = value&TAGMASK
+    tagbits = value & TAGMASK
     return value>>2, tagbits
-
-def tagged_eq(x, y):
-    # please rpython :(
-    return rarithmetic.widen(x) == rarithmetic.widen(y)
-
-def tagged_list_eq(tl1, tl2):
-    if len(tl1) != len(tl2):
-        return False
-    for i in range(len(tl1)):
-        if not tagged_eq(tl1[i], tl2[i]):
-            return False
-    return True
 
 TAGCONST    = 0
 TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-UNASSIGNED = tag(-2 ** 12 - 1, TAGBOX)
-UNASSIGNEDVIRTUAL = tag(-2 ** 12 - 1, TAGVIRTUAL)
+MINIMUM_VALUE = -2 ** 12
+UNASSIGNED = tag(MINIMUM_VALUE, TAGBOX)
+UNASSIGNEDVIRTUAL = tag(MINIMUM_VALUE, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
 
+def compress_tagged_list(l):
+    res = ['\x00'] * (len(l) * 4) # maximum size
+    resindex = 0
+    for tagged in l:
+        while True:
+            rest = tagged >> 7
+            # tagged fits into 7 bits, if the remaining int is all zeroes or
+            # all ones
+            fits = (rest == 0) | (rest == -1)
+            # if the highest bit of tagged (which will corresponds to the sign
+            # bit on uncompressing) does not actually correspond with the sign
+            # of tagged, we need to output another byte
+            fits = fits & (bool(tagged & 0x40) == (tagged < 0))
+            res[resindex] = chr((tagged & 0x7f) | 0x80 * (not fits))
+            resindex += 1
+            if fits:
+                break
+            tagged = rest
+    return "".join(res[:resindex])
+
+def _decompress_next(s, i):
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(s[i])
+        i += 1
+        more = bool(byte & 0x80)
+        byte &= 0x7f
+        res += byte << shift
+        if not more:
+            # sign-extend
+            if byte & 0x40:
+                res |= -1 << (shift + 7)
+            break
+        shift += 7
+    return res, i
+
+def uncompress_tagged_list(s):
+    result = [-1] * len(s) # maximum size
+    i = 0
+    resindex = 0
+    while i < len(s):
+        res, i = _decompress_next(s, i)
+        result[resindex] = res
+        resindex += 1
+    return result[:resindex]
+
+def compressed_length(s):
+    res = 0
+    for char in s:
+        if ord(char) & 0x80 == 0:
+            res += 1
+    return res
+
+
+# ____________________________________________________________
 
 class ResumeDataLoopMemo(object):
 
@@ -130,7 +179,7 @@ class ResumeDataLoopMemo(object):
             except ValueError:
                 pass
             tagged = self.large_ints.get(val, UNASSIGNED)
-            if not tagged_eq(tagged, UNASSIGNED):
+            if not tagged == UNASSIGNED:
                 return tagged
             tagged = self._newconst(const)
             self.large_ints[val] = tagged
@@ -140,7 +189,7 @@ class ResumeDataLoopMemo(object):
             if not val:
                 return NULLREF
             tagged = self.refs.get(val, UNASSIGNED)
-            if not tagged_eq(tagged, UNASSIGNED):
+            if not tagged == UNASSIGNED:
                 return tagged
             tagged = self._newconst(const)
             self.refs[val] = tagged
@@ -310,13 +359,13 @@ class ResumeDataVirtualAdder(object):
             i, tagbits = untag(tagged)
             if tagbits == TAGBOX:
                 assert box not in self.liveboxes_from_env
-                assert tagged_eq(tagged, UNASSIGNED)
+                assert tagged == UNASSIGNED
                 index = memo.assign_number_to_box(box, new_liveboxes)
                 self.liveboxes[box] = tag(index, TAGBOX)
                 count += 1
             else:
                 assert tagbits == TAGVIRTUAL
-                if tagged_eq(tagged, UNASSIGNEDVIRTUAL):
+                if tagged == UNASSIGNEDVIRTUAL:
                     assert box not in self.liveboxes_from_env
                     index = memo.assign_number_to_virtual(box)
                     self.liveboxes[box] = tag(index, TAGVIRTUAL)
@@ -337,10 +386,11 @@ class ResumeDataVirtualAdder(object):
                 value = values[virtualbox]
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
-                vinfo = value.make_virtual_info(self, fieldnums)
-                # if a new vinfo instance is made, we get the fieldnums list we
+                fieldnums_compressed = compress_tagged_list(fieldnums)
+                vinfo = value.make_virtual_info(self, fieldnums_compressed)
+                # if a new vinfo instance is made, we get the string we
                 # pass in as an attribute. hackish.
-                if vinfo.fieldnums is not fieldnums:
+                if vinfo.fieldnums_compressed is not fieldnums_compressed:
                     memo.nvreused += 1
                 virtuals[num] = vinfo
 
@@ -370,25 +420,34 @@ class AbstractVirtualInfo(object):
     def setfields(self, metainterp, box, fn_decode_box):
         raise NotImplementedError
 
+    def fieldnums(self):
+        return uncompress_tagged_list(self.fieldnums_compressed)
+
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
-        #self.fieldnums = ...
+        #self.fieldnums_compressed = ...
 
     def setfields(self, metainterp, box, fn_decode_box):
-        for i in range(len(self.fielddescrs)):
-            fieldbox = fn_decode_box(self.fieldnums[i])
+        fieldnums_compressed = self.fieldnums_compressed
+        i = 0
+        j = 0
+        while i < len(fieldnums_compressed):
+            tagged, i = _decompress_next(fieldnums_compressed, i)
+            fieldbox = fn_decode_box(tagged)
             metainterp.execute_and_record(rop.SETFIELD_GC,
-                                          self.fielddescrs[i],
+                                          self.fielddescrs[j],
                                           box, fieldbox)
+            j += 1
 
     def debug_prints(self):
-        assert len(self.fielddescrs) == len(self.fieldnums)
+        fieldnums = self.fieldnums()
+        assert len(self.fielddescrs) == len(fieldnums)
         for i in range(len(self.fielddescrs)):
             debug_print("\t\t",
                         str(self.fielddescrs[i]),
-                        str(untag(self.fieldnums[i])))
+                        str(untag(fieldnums[i])))
 
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
@@ -418,24 +477,30 @@ class VStructInfo(AbstractVirtualStructInfo):
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
-        #self.fieldnums = ...
+        #self.fieldnums_compressed = ...
 
     def allocate(self, metainterp):
-        length = len(self.fieldnums)
+        length = compressed_length(self.fieldnums_compressed)
         return metainterp.execute_and_record(rop.NEW_ARRAY,
                                              self.arraydescr,
                                              ConstInt(length))
 
     def setfields(self, metainterp, box, fn_decode_box):
-        for i in range(len(self.fieldnums)):
-            itembox = fn_decode_box(self.fieldnums[i])
+        fieldnums_compressed = self.fieldnums_compressed
+        i = 0
+        j = 0
+        while i < len(fieldnums_compressed):
+            tagged, i = _decompress_next(fieldnums_compressed, i)
+            itembox = fn_decode_box(tagged)
             metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                           self.arraydescr,
-                                          box, ConstInt(i), itembox)
+                                          box, ConstInt(j), itembox)
+            j += 1
 
     def debug_prints(self):
         debug_print("\tvarrayinfo", self.arraydescr)
-        for i in self.fieldnums:
+        fieldnums = self.fieldnums()
+        for i in fieldnums:
             debug_print("\t\t", str(untag(i)))
 
 
@@ -490,18 +555,20 @@ class ResumeDataReader(object):
     def consume_boxes(self):
         numb = self.cur_numb
         assert numb is not None
-        nums = numb.nums
-        n = len(nums)
+        nums_compressed = numb.nums_compressed
+        n = compressed_length(nums_compressed)
         boxes = [None] * n
+        j = 0
         for i in range(n):
-            boxes[i] = self._decode_box(nums[i])
+            tagged, j = _decompress_next(nums_compressed, j)
+            boxes[i] = self._decode_box(tagged)
         self.cur_numb = numb.prev
         return boxes
 
     def _decode_box(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            if tagged_eq(tagged, NULLREF):
+            if tagged == NULLREF:
                 return self.cpu.ts.CONST_NULL
             return self.consts[num]
         elif tag == TAGVIRTUAL:
@@ -534,7 +601,7 @@ def dump_storage(storage, liveboxes):
             frameinfo = frameinfo.prev
         numb = storage.rd_numb
         while numb is not None:
-            debug_print('\tnumb', str([untag(i) for i in numb.nums]),
+            debug_print('\tnumb', str([untag(i) for i in numb.nums()]),
                         'at', compute_unique_id(numb))
             numb = numb.prev
         for const in storage.rd_consts:

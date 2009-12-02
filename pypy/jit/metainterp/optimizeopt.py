@@ -160,13 +160,13 @@ class AbstractVirtualValue(OptValue):
             self._really_force()
         return self.box
 
-    def make_virtual_info(self, modifier, fieldnums):
+    def make_virtual_info(self, modifier, fieldnums_compressed):
         vinfo = self._cached_vinfo 
-        if vinfo is not None and resume.tagged_list_eq(
-                vinfo.fieldnums, fieldnums):
+        if (vinfo is not None and
+                vinfo.fieldnums_compressed == fieldnums_compressed):
             return vinfo
         vinfo = self._make_virtual(modifier)
-        vinfo.fieldnums = fieldnums
+        vinfo.fieldnums_compressed = fieldnums_compressed
         self._cached_vinfo = vinfo
         return vinfo
 
