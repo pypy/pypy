@@ -1,12 +1,11 @@
 
 import os, sys
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86.ri386 import I386CodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.translator.platform import CompilationError
+
 
 class InMemoryCodeBuilder(I386CodeBuilder):
     _last_dump_start = 0
@@ -149,13 +148,11 @@ class MachineCodeBlock(InMemoryCodeBuilder):
 # ____________________________________________________________
 
 if sys.platform == 'win32':
-    sse2_floats = True
+    ensure_sse2_floats = lambda self: None
 else:
-    try:
-        _sse2_eci = ExternalCompilationInfo(
-            compile_extra = ['-msse2', '-mfpmath=sse'])
-        rffi_platform.verify_eci(_sse2_eci)
-        sse2_floats = True
-    except CompilationError:
-        sse2_floats = False
-
+    _sse2_eci = ExternalCompilationInfo(
+        compile_extra = ['-msse2', '-mfpmath=sse'],
+        separate_module_sources = ['void PYPY_NO_OP() {}'],
+        )
+    ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
+                                         compilation_info=_sse2_eci)

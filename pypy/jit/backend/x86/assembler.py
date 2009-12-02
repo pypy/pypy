@@ -129,7 +129,7 @@ class Assembler386(object):
             if self.cpu.supports_floats:
                 self._build_failure_recovery(False, withfloats=True)
                 self._build_failure_recovery(True, withfloats=True)
-                assert codebuf.sse2_floats
+                codebuf.ensure_sse2_floats()
 
     def assemble_loop(self, inputargs, operations, looptoken):
         """adds the following attributes to looptoken:
