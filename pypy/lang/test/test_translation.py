@@ -29,6 +29,3 @@ class TestTranslation:
 
     def test_js(self):
         self.translate('targetjsstandalone')
-
-    def test_prolog(self):
-        self.translate('targetprologstandalone')
