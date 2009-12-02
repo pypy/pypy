@@ -4,9 +4,14 @@ testing coroutines at interprepter level
 
 import os
 from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
-from pypy.rlib.rcoroutine import syncstate, Coroutine, AbstractThunk
+from pypy.rlib.rcoroutine import make_coroutine_classes
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
+
+d = make_coroutine_classes(object)
+syncstate = d['syncstate']
+Coroutine = d['Coroutine']
+AbstractThunk = d['AbstractThunk']
 
 def output(stuff):
     os.write(2, stuff + '\n')

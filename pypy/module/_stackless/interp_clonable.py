@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.module._stackless.interp_coroutine import AppCoroutine, AppCoState
 from pypy.module._stackless.interp_coroutine import makeStaticMethod
-from pypy.rlib.rcoroutine import AbstractThunk
+from pypy.module._stackless.rcoroutine import AbstractThunk
 from pypy.module._stackless.rclonable import InterpClonableMixin
 
 

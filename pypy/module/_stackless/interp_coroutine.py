@@ -24,7 +24,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod
 
 from pypy.module._stackless.stackless_flags import StacklessFlags
-from pypy.rlib.rcoroutine import Coroutine, BaseCoState, AbstractThunk
+from pypy.module._stackless.rcoroutine import Coroutine, BaseCoState, AbstractThunk
 
 from pypy.rlib import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode

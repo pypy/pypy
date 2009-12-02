@@ -4,8 +4,8 @@ from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.error import OperationError
 
-from pypy.rlib.rcoroutine import Coroutine, BaseCoState
-from pypy.rlib.rcoroutine import AbstractThunk, syncstate
+from pypy.module._stackless.rcoroutine import Coroutine, BaseCoState
+from pypy.module._stackless.rcoroutine import AbstractThunk, syncstate
 from pypy.module._stackless.interp_coroutine import makeStaticMethod
 
 
