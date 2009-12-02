@@ -24,16 +24,6 @@ class State:
         self.w_Variable = get('Variable')
         self.w_Connection = get('Connection')
 
-        w_import = space.builtin.get('__import__')
-        w_decimal = space.call(w_import, space.newlist(
-            [space.wrap('decimal')]))
-        self.w_DecimalType = space.getattr(w_decimal, space.wrap("Decimal"))
-        w_datetime = space.call(w_import, space.newlist(
-            [space.wrap('datetime')]))
-        self.w_DateTimeType = space.getattr(w_datetime, space.wrap("datetime"))
-        self.w_DateType = space.getattr(w_datetime, space.wrap("date"))
-        self.w_TimedeltaType = space.getattr(w_datetime, space.wrap("timedelta"))
-
         from pypy.module.oracle.interp_variable import all_variable_types
         self.variableTypeByPythonType = {}
         for varType in all_variable_types:

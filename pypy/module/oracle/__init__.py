@@ -23,8 +23,6 @@ class Module(MixedModule):
         'CLOB': 'interp_variable.VT_CLOB',
         'OBJECT': 'interp_variable.VT_Object',
         'Variable': 'interp_variable.W_Variable',
-        'Timestamp': 'interp_error.get(space).w_DateTimeType',
-        'Date': 'interp_error.get(space).w_DateType',
         'SessionPool': 'interp_pool.W_SessionPool',
     }
 
@@ -38,3 +36,17 @@ class Module(MixedModule):
                    ProgrammingError Warning""".split():
         appleveldefs[name] = "app_oracle.%s" % (name,)
 
+    def startup(self, space):
+        from pypy.module.oracle.interp_error import get
+        state = get(space)
+        (state.w_DecimalType,
+         state.w_DateTimeType, state.w_DateType, state.w_TimedeltaType,
+         ) = space.fixedview(space.appexec([], """():
+             import decimal, datetime
+             return (decimal.Decimal,
+                     datetime.datetime, datetime.date, datetime.timedelta)
+        """))
+        space.setattr(space.wrap(self),
+                      space.wrap("Timestamp"), state.w_DateTimeType)
+        space.setattr(space.wrap(self),
+                      space.wrap("Date"), state.w_DateType)
