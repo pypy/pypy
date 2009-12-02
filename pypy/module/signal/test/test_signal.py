@@ -144,7 +144,10 @@ class AppTestSignalSocket:
         cls.space = space
 
     def test_alarm_raise(self):
-        from signal import alarm, signal, SIG_DFL, SIGALRM
+        try:
+            from signal import alarm, signal, SIG_DFL, SIGALRM
+        except ImportError:
+            skip("no SIGALRM on this platform")
         import _socket
         class Alarm(Exception):
             pass

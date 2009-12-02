@@ -195,6 +195,8 @@ class _AppTestSelect:
 
     def test_select_bug(self):
         import select, os
+        if not hasattr(os, 'fork'):
+            skip("no fork() on this platform")
         read, write = os.pipe()
         pid = os.fork()
         if pid == 0:
