@@ -22,6 +22,7 @@ class TestTranslationX86(CCompiledMixin):
         # - set_param interface
         # - profiler
         # - full optimizer
+        # - floats neg and abs
 
         class Frame(object):
             _virtualizable2_ = ['i']
@@ -29,9 +30,14 @@ class TestTranslationX86(CCompiledMixin):
             def __init__(self, i):
                 self.i = i
 
-        jitdriver = JitDriver(greens = [], reds = ['frame', 'total'],
+        @dont_look_inside
+        def myabs(x):
+            return abs(x)
+
+        jitdriver = JitDriver(greens = [],
+                              reds = ['frame', 'total', 'j'],
                               virtualizables = ['frame'])
-        def f(i):
+        def f(i, j):
             for param in unroll_parameters:
                 defl = PARAMETERS[param]
                 jitdriver.set_param(param, defl)
@@ -40,15 +46,20 @@ class TestTranslationX86(CCompiledMixin):
             total = 0
             frame = Frame(i)
             while frame.i > 3:
-                jitdriver.can_enter_jit(frame=frame, total=total)
-                jitdriver.jit_merge_point(frame=frame, total=total)
+                jitdriver.can_enter_jit(frame=frame, total=total, j=j)
+                jitdriver.jit_merge_point(frame=frame, total=total, j=j)
                 total += frame.i
                 if frame.i >= 20:
                     frame.i -= 2
                 frame.i -= 1
+                j *= -0.712
+                if j + (-j):    raise ValueError
+                k = myabs(j)
+                if k - abs(j):  raise ValueError
+                if k - abs(-j): raise ValueError
             return total * 10
-        res = self.meta_interp(f, [40])
-        assert res == f(40)
+        res = self.meta_interp(f, [40, -49])
+        assert res == f(40, -49)
 
     def test_external_exception_handling_translates(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])

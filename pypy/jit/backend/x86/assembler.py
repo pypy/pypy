@@ -90,6 +90,8 @@ class Assembler386(object):
         self.fail_boxes_ptr = NonmovableGrowableArrayGCREF()
         self.fail_boxes_float = NonmovableGrowableArrayFloat()
         self.fail_ebp = 0
+        self.loc_float_const_neg = None
+        self.loc_float_const_abs = None
         self.setup_failure_recovery()
 
     def leave_jitted_hook(self):
@@ -130,6 +132,26 @@ class Assembler386(object):
                 self._build_failure_recovery(False, withfloats=True)
                 self._build_failure_recovery(True, withfloats=True)
                 codebuf.ensure_sse2_floats()
+                self._build_float_constants()
+
+    def _build_float_constants(self):
+        # 11 words: 8 words for the data, and up to 3 words for alignment
+        addr = lltype.malloc(rffi.CArray(lltype.Signed), 11, flavor='raw')
+        if not we_are_translated():
+            self._keepalive_malloced_float_consts = addr
+        float_constants = rffi.cast(lltype.Signed, addr)
+        float_constants = (float_constants + 15) & ~15    # align to 16 bytes
+        addr = rffi.cast(rffi.CArrayPtr(lltype.Signed), float_constants)
+        addr[0] = 0                # \
+        addr[1] = -2147483648      # / for neg
+        addr[2] = 0                #
+        addr[3] = 0                #
+        addr[4] = -1               # \
+        addr[5] = 2147483647       # / for abs
+        addr[6] = 0                #
+        addr[7] = 0                #
+        self.loc_float_const_neg = heap64(float_constants)
+        self.loc_float_const_abs = heap64(float_constants + 16)
 
     def assemble_loop(self, inputargs, operations, looptoken):
         """adds the following attributes to looptoken:
@@ -445,15 +467,13 @@ class Assembler386(object):
     genop_guard_uint_le = _cmpop_guard("BE", "AE", "A", "B")
     genop_guard_uint_ge = _cmpop_guard("AE", "BE", "B", "A")
 
-    # for now all chars are being considered ints, although we should make
-    # a difference at some point
-    xxx_genop_char_eq = genop_int_eq
-
     def genop_float_neg(self, op, arglocs, resloc):
-        self.mc.XORPD(arglocs[0], arglocs[1])
+        # Following what gcc does: res = x ^ 0x8000000000000000
+        self.mc.XORPD(arglocs[0], self.loc_float_const_neg)
 
     def genop_float_abs(self, op, arglocs, resloc):
-        self.mc.ANDPD(arglocs[0], arglocs[1])
+        # Following what gcc does: res = x & 0x7FFFFFFFFFFFFFFF
+        self.mc.ANDPD(arglocs[0], self.loc_float_const_abs)
 
     def genop_float_is_true(self, op, arglocs, resloc):
         loc0, loc1 = arglocs

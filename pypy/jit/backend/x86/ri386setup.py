@@ -541,13 +541,11 @@ DIVSD.mode2(XMMREG, MODRM64, ['\xF2\x0F\x5E', register(1, 8), modrm(2)])
 UCOMISD = Instruction()
 UCOMISD.mode2(XMMREG, MODRM64, ['\x66\x0F\x2E', register(1, 8), modrm(2)])
 
-XORPD = Instruction()
-XORPD.mode2(XMMREG, XMMREG, ['\x66\x0f\x57', register(1, 8), register(2),
-                            '\xC0'])
+XORPD = Instruction()  # warning: a memory argument must be aligned to 16 bytes
+XORPD.mode2(XMMREG, MODRM64, ['\x66\x0f\x57', register(1, 8), modrm(2)])
 
-ANDPD = Instruction()
-ANDPD.mode2(XMMREG, XMMREG, ['\x66\x0F\x54', register(1, 8), register(2),
-                             '\xC0'])
+ANDPD = Instruction()  # warning: a memory argument must be aligned to 16 bytes
+ANDPD.mode2(XMMREG, MODRM64, ['\x66\x0F\x54', register(1, 8), modrm(2)])
 
 CVTTSD2SI = Instruction()
 CVTTSD2SI.mode2(REG, XMMREG, ['\xF2\x0F\x2C', register(1, 8), register(2),
