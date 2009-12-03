@@ -4,10 +4,14 @@ from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rvirtualizable2 import replace_promote_virtualizable_with_call
 from pypy.rlib.jit import hint
 from pypy.objspace.flow.model import summary
+from pypy.rpython.llinterp import LLInterpreter
+from pypy import conftest
 
 
 class V(object):
     _virtualizable2_ = ['v']
+    v = -12
+    w = -62
 
     def __init__(self, v):
         self.v = v
@@ -137,7 +141,8 @@ class BaseTest(BaseRtypingTest):
                 break
             
         def mycall(vinst_ll):
-            pass
+            if vinst_ll.vable_token:
+                raise ValueError
         annhelper = MixLevelHelperAnnotator(rtyper)
         if self.type_system == 'lltype':
             s_vinst = annmodel.SomePtr(v_inst_ll_type)
@@ -158,12 +163,18 @@ class BaseTest(BaseRtypingTest):
         op_getfield = block.operations[-1]
         assert op_getfield.opname in ('getfield', 'oogetfield')
         funcptr = self.replace_promote_virtualizable(rtyper, [graph])
+        if getattr(conftest.option, 'view', False):
+            graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
         assert op_getfield.opname in ('getfield', 'oogetfield')
         assert op_promote.opname == 'direct_call'
         assert op_promote.args[0].value == funcptr
         assert op_promote.args[1] == op_getfield.args[0]
+        #
+        interp = LLInterpreter(rtyper)
+        res = interp.eval_graph(graph, [61])
+        assert res == 61
 
     def test_access_directly(self):
         def g(b):

@@ -499,7 +499,7 @@ class InstanceRepr(AbstractInstanceRepr):
                     cvalue = inputconst(r.lowleveltype,
                                         r.convert_desc_or_const(value))
                     self.setfield(vptr, fldname, cvalue, llops,
-                                  {'access_directly': True})
+                                  flags={'access_directly': True})
         return vptr
 
     def rtype_type(self, hop):
