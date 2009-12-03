@@ -1,3 +1,4 @@
+import math
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
@@ -16,6 +17,15 @@ class FloatTests:
         assert res == 0.0
         res = self.interp_operations(f, [12.0])
         assert res == 1.0
+
+    def test_abs(self):
+        def f(a):
+            return abs(a)
+        res = self.interp_operations(f, [-5.25])
+        assert res == 5.25
+        x = 281474976710656.31
+        res = self.interp_operations(f, [x])
+        assert res == x
 
 
 class TestOOtype(FloatTests, OOJitMixin):
