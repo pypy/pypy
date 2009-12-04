@@ -910,7 +910,9 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
                 stop = True
             elif self.r_gcroot_marker_var.search(line):
                 stop = True
-            elif line.startswith("\tmov\t%s," % (reg,)):
+            elif (line.startswith("\tmov\t%s," % (reg,)) or
+                  line.startswith("\tmovsx\t%s," % (reg,)) or
+                  line.startswith("\tmovzx\t%s," % (reg,))):
                 # mov reg, <arg>
                 stop = True
             elif line.startswith("\txor\t%s, %s" % (reg, reg)):
@@ -920,7 +922,8 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
                 imul = self.r_binaryinsn.match(line)
                 imul_arg1 = imul.group("target")
                 imul_arg2 = imul.group("source")
-                break
+                if imul_arg1 == reg or imul_arg2 == reg:
+                    break
             # the register may not appear in other instructions
             elif reg in line:
                 assert False, (line, lineno)
