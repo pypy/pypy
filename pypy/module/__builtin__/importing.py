@@ -291,9 +291,6 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 
             return w_mod
 
-        # check the builtin modules
-        if partname in space.builtin_modules:
-            return space.getbuiltinmodule(partname)
 
         if w_path is not None:
             for path in space.unpackiterable(w_path):

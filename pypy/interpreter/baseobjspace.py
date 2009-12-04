@@ -239,8 +239,6 @@ class ObjSpace(object):
             config = get_pypy_config(translating=False)
         self.config = config
 
-        self.builtin_modules = {}
-
         # import extra modules for side-effects
         import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
 
@@ -268,34 +266,28 @@ class ObjSpace(object):
     def startup(self):
         # To be called before using the space
 
-        # Initialize already imported builtin modules
+        # Initialize all builtin modules
         from pypy.interpreter.module import Module
-        w_modules = self.sys.get('modules')
         for w_modname in self.unpackiterable(
                                 self.sys.get('builtin_module_names')):
-            try:
-                w_mod = self.getitem(w_modules, w_modname)
-            except OperationError, e:
-                if e.match(self, self.w_KeyError):
-                    continue
-                raise
             modname = self.str_w(w_modname)
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module) and not mod.startup_called:
+            mod = self.interpclass_w(self.getbuiltinmodule(modname))
+            if isinstance(mod, Module):
+                import time
                 self.timer.start("startup " + modname)
                 mod.startup(self)
-                mod.startup_called = True
                 self.timer.stop("startup " + modname)
-
 
     def finish(self):
         w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
         from pypy.interpreter.module import Module
-        for w_mod in self.builtin_modules.values():
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module) and mod.startup_called:
+        for w_modname in self.unpackiterable(
+                                self.sys.get('builtin_module_names')):
+            modname = self.str_w(w_modname)
+            mod = self.interpclass_w(self.getbuiltinmodule(modname))
+            if isinstance(mod, Module):
                 mod.shutdown(self)
         if self.config.objspace.std.withdictmeasurement:
             from pypy.objspace.std.dictmultiobject import report
@@ -347,37 +339,14 @@ class ObjSpace(object):
 
         w_name = self.wrap(name)
         w_mod = self.wrap(Module(self, w_name))
-        self.builtin_modules[name] = w_mod
+        w_modules = self.sys.get('modules')
+        self.setitem(w_modules, w_name, w_mod)
         return name
 
     def getbuiltinmodule(self, name):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
-        try:
-            return self.getitem(w_modules, w_name)
-        except OperationError, e:
-            if not e.match(self, self.w_KeyError):
-                raise
-
-        # If the module is a builtin but not yet imported,
-        # retrieve it and initialize it
-        try:
-            w_mod = self.builtin_modules[name]
-        except KeyError:
-            raise e
-        else:
-            # Add the module to sys.modules
-            self.setitem(w_modules, w_name, w_mod)
-
-            # And initialize it
-            from pypy.interpreter.module import Module
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module) and not mod.startup_called:
-                self.timer.start("startup " + name)
-                mod.startup(self)
-                mod.startup_called = True
-                self.timer.stop("startup " + name)
-            return w_mod
+        return self.getitem(w_modules, w_name)
 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
@@ -428,15 +397,16 @@ class ObjSpace(object):
         w_name = self.wrap('sys')
         self.sys = Module(self, w_name)
         w_modules = self.sys.get('modules')
-        self.builtin_modules['sys'] = self.wrap(self.sys)
+        self.setitem(w_modules, w_name, self.wrap(self.sys))
 
-        self.builtin_modules['exceptions'] = self.wrap(self.exceptions_module)
+        self.setitem(w_modules, w_name_exceptions,
+                     self.wrap(self.exceptions_module))
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
-        self.builtin_modules['__builtin__'] = self.wrap(w_builtin)
+        self.setitem(w_modules, w_name, w_builtin)
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
         bootstrap_modules = ['sys', '__builtin__', 'exceptions']
@@ -510,9 +480,12 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
-        self.getbuiltinmodule('sys')
-        for mod in self.builtin_modules.values():
-            mod.setup_after_space_initialization()
+        from pypy.interpreter.module import Module
+        for w_modname in self.unpackiterable(self.sys.get('builtin_module_names')):
+            modname = self.unwrap(w_modname)
+            mod = self.getbuiltinmodule(modname)
+            if isinstance(mod, Module):
+                mod.setup_after_space_initialization()
 
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal
