@@ -871,6 +871,42 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(main, [123], policy=StopAtXPolicy(g))
         assert res == main(123)
 
+    def test_external_write_sometimes(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            somewhere_else.counter += 1
+            if somewhere_else.counter == 70:
+                debug_print(lltype.Void, '-+-+-+-+- external write: 7000')
+                somewhere_else.top_frame.y = 7000
+                result = 2
+            else:
+                result = 1
+            return result
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                frame.x -= g()
+                frame.y += 1
+            return frame.y
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+
     def test_promote_index_in_virtualizable_list(self):
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])

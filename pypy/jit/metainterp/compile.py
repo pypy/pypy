@@ -237,7 +237,10 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
         token = metainterp_sd.cpu.get_latest_force_token()
-        metainterp._already_allocated_resume_virtuals = self.fetch_data(token)
+        data = self.fetch_data(token)
+        if data is None:
+            data = []
+        metainterp._already_allocated_resume_virtuals = data
         self.counter = -2     # never compile
         return metainterp.handle_guard_failure(self)
 
