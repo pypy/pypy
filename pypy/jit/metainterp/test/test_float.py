@@ -27,6 +27,15 @@ class FloatTests:
         res = self.interp_operations(f, [x])
         assert res == x
 
+    def test_neg(self):
+        def f(a):
+            return -a
+        res = self.interp_operations(f, [-5.25])
+        assert res == 5.25
+        x = 281474976710656.31
+        res = self.interp_operations(f, [x])
+        assert res == -x
+
 
 class TestOOtype(FloatTests, OOJitMixin):
     pass
