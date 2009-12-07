@@ -41,7 +41,9 @@ def setup_directory_structure(space):
              relative_a = "import a",
              abs_b      = "import b",
              abs_x_y    = "import x.y",
+             abs_sys    = "import sys",
              string     = "inpackage = 1",
+             errno      = "",
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
@@ -250,6 +252,17 @@ class AppTestImport:
         def imp():
             import pkg_r.inpkg
         raises(ImportError,imp)
+
+    def test_import_builtin_inpackage(self):
+        def imp():
+            import pkg.sys
+        raises(ImportError,imp)
+
+        import sys, pkg.abs_sys
+        assert pkg.abs_sys.sys is sys
+
+        import errno, pkg.errno
+        assert pkg.errno is not errno
 
     def test_import_Globals_Are_None(self):
         import sys
