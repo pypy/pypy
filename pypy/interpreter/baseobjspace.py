@@ -511,6 +511,7 @@ class ObjSpace(object):
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
         self.getbuiltinmodule('sys')
+        self.getbuiltinmodule('__builtin__')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
