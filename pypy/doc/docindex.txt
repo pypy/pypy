@@ -27,9 +27,6 @@ Translation Framework:
   * `JIT Generation in PyPy`_ 
   * `Sandboxing Python code`_
 
-`PyPy Prolog Interpreter`_ describes an implementation of 
-Prolog that makes use of our Translation Tool chain. 
-
 Status_ of the project.
 
 
@@ -210,12 +207,6 @@ Directory                      explanation/links
 `interpreter/astcompiler/`_    interpreter-level bytecode compiler, via an AST
                                representation
 
-`lang/`_                       interpreters for non-Python languages, written in RPython_
-
-`lang/js/`_                    a JavaScript interpreter (in-progress)
-
-`lang/prolog/`_                a `Prolog interpreter`_
-
 `lib/`_                        PyPy's wholesale reimplementations of CPython modules_
                                and experimental new application-level modules
 
@@ -319,8 +310,6 @@ Directory                      explanation/links
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`garbage collector`: garbage_collection.html
 .. _`Stackless Transform`: translation.html#the-stackless-transform
-.. _`PyPy Prolog Interpreter`: prolog-interpreter.html
-.. _`Prolog Interpreter`: prolog-interpreter.html
 .. _`main PyPy-translation scripts`: getting-started-python.html#translating-the-pypy-python-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/

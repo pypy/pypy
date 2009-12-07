@@ -163,9 +163,9 @@ integers, etc.
 Currently, we have preliminary versions of a JavaScript interpreter
 (Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
 (Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
-(produced during a sprint).  All of them are unfinised at the moment.
+(produced during a sprint).  All of them are unfinished at the moment.
 
-.. _`Prolog interpreter`: prolog-interpreter.html
+.. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 
 Development
@@ -409,10 +409,7 @@ typing::
 You can have a look at intermediate C source code, which is (at the
 moment) put in ``/tmp/usession-*/testing_1/testing_1.c``.  Of course,
 all the functions and stuff used directly and indirectly by your
-``entry_point()`` function has to be RPython_. Another example you may
-want to look at is `pypy/translator/goal/targetprologstandalone.py`_,
-the target for the in-progress Prolog implementation; this target for
-example enables a stackless build programmatically.
+``entry_point()`` function has to be RPython_.
 
 
 .. _`RPython`: coding-guide.html#rpython
