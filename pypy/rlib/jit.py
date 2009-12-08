@@ -237,6 +237,23 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                "arguments: %s" % (self.instance,
                                                   expected))
 
+        try:
+            cache = self.bookkeeper._jit_annotation_cache[driver]
+        except AttributeError:
+            cache = {}
+            self.bookkeeper._jit_annotation_cache = {driver: cache}
+        except KeyError:
+            cache = {}
+            self.bookkeeper._jit_annotation_cache[driver] = cache
+        for key, s_value in kwds_s.items():
+            s_previous = cache.get(key, annmodel.s_ImpossibleValue)
+            s_value = annmodel.unionof(s_previous, s_value)
+            if annmodel.isdegenerated(s_value):
+                raise JitHintError("mixing incompatible types in argument %s"
+                                   " of jit_merge_point/can_enter_jit" %
+                                   key[2:])
+            cache[key] = s_value
+
         if self.instance.__name__ == 'jit_merge_point':
             self.annotate_hooks(**kwds_s)
             
