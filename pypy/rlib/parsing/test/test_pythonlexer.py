@@ -230,7 +230,10 @@ def test_complex_quoting():
         assert tokens[i * 3].name == 'String'
 
 def test_self():
-    s = py.path.local(__file__).read()
+    fname = __file__
+    if fname.endswith('.pyc'):
+        fname = fname[:-1]
+    s = py.path.local(fname).read()
     tokens = pythonlexer.tokenize(s)
     print tokens
 
