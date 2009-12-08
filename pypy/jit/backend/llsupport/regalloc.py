@@ -12,28 +12,28 @@ class TempBox(Box):
 class NoVariableToSpill(Exception):
     pass
 
-class StackManager(object):
-    """ Manage stack positions
+class FrameManager(object):
+    """ Manage frame positions
     """
     def __init__(self):
-        self.stack_bindings = {}
-        self.stack_depth    = 0
+        self.frame_bindings = {}
+        self.frame_depth    = 0
 
     def get(self, box):
-        return self.stack_bindings.get(box, None)
+        return self.frame_bindings.get(box, None)
 
     def loc(self, box, size):
         res = self.get(box)
         if res is not None:
             return res
-        newloc = self.stack_pos(self.stack_depth, size)
-        self.stack_bindings[box] = newloc
-        self.stack_depth += size
+        newloc = self.frame_pos(self.frame_depth, size)
+        self.frame_bindings[box] = newloc
+        self.frame_depth += size
         return newloc
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
-    def stack_pos(loc, size):
+    def frame_pos(loc, size):
         raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
@@ -45,12 +45,12 @@ class RegisterManager(object):
     save_around_call_regs = []
     reg_width             = 1 # in terms of stack space eaten
     
-    def __init__(self, longevity, stack_manager=None, assembler=None):
+    def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
         self.reg_bindings = {}
         self.position = -1
-        self.stack_manager = stack_manager
+        self.frame_manager = frame_manager
         self.assembler = assembler
 
     def stays_alive(self, v):
@@ -147,8 +147,8 @@ class RegisterManager(object):
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
-        if self.stack_manager.get(v_to_spill) is None:
-            newloc = self.stack_manager.loc(v_to_spill, self.reg_width)
+        if self.frame_manager.get(v_to_spill) is None:
+            newloc = self.frame_manager.loc(v_to_spill, self.reg_width)
             self.assembler.regalloc_mov(loc, newloc)
         return loc
 
@@ -204,7 +204,7 @@ class RegisterManager(object):
         try:
             return self.reg_bindings[box]
         except KeyError:
-            return self.stack_manager.loc(box, self.reg_width)
+            return self.frame_manager.loc(box, self.reg_width)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None,
                         imm_fine=True):
@@ -260,7 +260,7 @@ class RegisterManager(object):
             self.reg_bindings[v] = loc
             self.assembler.regalloc_mov(prev_loc, loc)
         else:
-            loc = self.stack_manager.loc(v, self.reg_width)
+            loc = self.frame_manager.loc(v, self.reg_width)
             self.assembler.regalloc_mov(prev_loc, loc)
 
     def force_result_in_reg(self, result_v, v, forbidden_vars=[]):
@@ -280,7 +280,7 @@ class RegisterManager(object):
             self.free_regs = [reg for reg in self.free_regs if reg is not loc]
             return loc
         if v not in self.reg_bindings:
-            prev_loc = self.stack_manager.loc(v, self.reg_width)
+            prev_loc = self.frame_manager.loc(v, self.reg_width)
             loc = self.force_allocate_reg(v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
         assert v in self.reg_bindings
@@ -289,7 +289,7 @@ class RegisterManager(object):
             # store result in the same place
             loc = self.reg_bindings[v]
             del self.reg_bindings[v]
-            if self.stack_manager.get(v) is None:
+            if self.frame_manager.get(v) is None:
                 self._move_variable_away(v, loc)
             self.reg_bindings[result_v] = loc
         else:
@@ -298,9 +298,9 @@ class RegisterManager(object):
         return loc
 
     def _sync_var(self, v):
-        if not self.stack_manager.get(v):
+        if not self.frame_manager.get(v):
             reg = self.reg_bindings[v]
-            to = self.stack_manager.loc(v, self.reg_width)
+            to = self.frame_manager.loc(v, self.reg_width)
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 

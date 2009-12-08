@@ -11,11 +11,11 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.x86.jump import remap_stack_layout
+from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
-from pypy.jit.backend.llsupport.regalloc import StackManager, RegisterManager,\
+from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 
 WORD = 4
@@ -67,8 +67,8 @@ class X86XMMRegisterManager(RegisterManager):
         return lltype.malloc(rffi.CArray(lltype.Float), BASE_CONSTANT_SIZE,
                              flavor='raw')
 
-    def __init__(self, longevity, stack_manager=None, assembler=None):
-        RegisterManager.__init__(self, longevity, stack_manager=stack_manager,
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
                                  assembler=assembler)
         self.constant_arrays = [self.new_const_array()]
         self.constant_array_counter = 0
@@ -89,14 +89,14 @@ class X86XMMRegisterManager(RegisterManager):
         
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
-        # so genop_call will move it to some stack location immediately
+        # so genop_call will move it to some frame location immediately
         # after the call
-        return self.stack_manager.loc(v, 2)
+        return self.frame_manager.loc(v, 2)
 
-class X86StackManager(StackManager):
+class X86FrameManager(FrameManager):
 
     @staticmethod
-    def stack_pos(i, size):
+    def frame_pos(i, size):
         if size == 1:
             res = mem(ebp, get_ebp_ofs(i))
         elif size == 2:
@@ -119,16 +119,17 @@ class RegAlloc(object):
         self.jump_target_descr = None
 
     def _prepare(self, inputargs, operations):
-        self.sm = X86StackManager()
+        self.fm = X86FrameManager()
+        self.param_depth = 0
         cpu = self.assembler.cpu
         cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.rm = X86RegisterManager(longevity,
-                                     stack_manager = self.sm,
+                                     frame_manager = self.fm,
                                      assembler = self.assembler)
-        self.xrm = X86XMMRegisterManager(longevity, stack_manager = self.sm,
+        self.xrm = X86XMMRegisterManager(longevity, frame_manager = self.fm,
                                          assembler = self.assembler)
 
     def prepare_loop(self, inputargs, operations, looptoken):
@@ -138,11 +139,15 @@ class RegAlloc(object):
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs)
 
-    def prepare_bridge(self, prev_stack_depth, inputargs, arglocs, operations):
+    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
         self._prepare(inputargs, operations)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
-        self.sm.stack_depth = prev_stack_depth
+        self.fm.frame_depth = prev_depths[0]
+        self.param_depth = prev_depths[1]
+
+    def reserve_param(self, n):
+        self.param_depth = max(self.param_depth, n)
 
     def _process_inputargs(self, inputargs):
         # XXX we can sort out here by longevity if we need something
@@ -170,7 +175,7 @@ class RegAlloc(object):
             if reg:
                 loc = reg
             else:
-                loc = self.sm.loc(arg, width_of_type[arg.type])
+                loc = self.fm.loc(arg, width_of_type[arg.type])
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
@@ -241,13 +246,13 @@ class RegAlloc(object):
                     self.xrm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
-                    self.sm.stack_bindings[arg] = loc
+                    self.fm.frame_bindings[arg] = loc
             else:
                 if isinstance(loc, REG):
                     self.rm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
-                    self.sm.stack_bindings[arg] = loc
+                    self.fm.frame_bindings[arg] = loc
         self.rm.free_regs = []
         for reg in X86RegisterManager.all_regs:
             if reg not in used:
@@ -274,9 +279,10 @@ class RegAlloc(object):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
+        current_depths = (self.fm.frame_depth, self.param_depth)
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc,
-                                                   self.sm.stack_depth)
+                                                   current_depths)
         if op.result is not None:
             self.possibly_free_var(op.result)
         self.possibly_free_vars(guard_op.fail_args)
@@ -289,9 +295,10 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
+        current_depths = (self.fm.frame_depth, self.param_depth)                
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
-                                              self.sm.stack_depth)
+                                              current_depths)
         self.possibly_free_vars(guard_op.fail_args)        
 
     def PerformDiscard(self, op, arglocs):
@@ -888,11 +895,11 @@ class RegAlloc(object):
         src_locations = [self.loc(arg) for arg in op.args if arg.type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations = [loc for loc in nonfloatlocs if loc is not None]
-        remap_stack_layout(assembler, src_locations, dst_locations, tmploc)
+        remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
         # Part about floats
         src_locations = [self.loc(arg) for arg in op.args if arg.type == FLOAT]
         dst_locations = [loc for loc in floatlocs if loc is not None]
-        remap_stack_layout(assembler, src_locations, dst_locations, xmmtmp)
+        remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
         self.rm.possibly_free_var(box)
         self.xrm.possibly_free_var(box1)
         self.possibly_free_vars(op.args)
@@ -903,7 +910,7 @@ class RegAlloc(object):
 
     def get_mark_gc_roots(self, gcrootmap):
         shape = gcrootmap.get_basic_shape()
-        for v, val in self.sm.stack_bindings.items():
+        for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, MODRM)
                 gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
@@ -937,7 +944,7 @@ for name, value in RegAlloc.__dict__.iteritems():
         oplist[num] = value
 
 def get_ebp_ofs(position):
-    # Argument is a stack position (0, 1, 2...).
+    # Argument is a frame position (0, 1, 2...).
     # Returns (ebp-20), (ebp-24), (ebp-28)...
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)

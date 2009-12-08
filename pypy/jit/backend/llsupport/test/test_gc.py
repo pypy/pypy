@@ -61,11 +61,11 @@ def test_GcRefList():
         assert addrs[i].address[0] == llmemory.cast_ptr_to_adr(allocs[i])
 
 def test_GcRootMap_asmgcc():
-    def stack_pos(n):
+    def frame_pos(n):
         return -4*(4+n)
     gcrootmap = GcRootMap_asmgcc()
-    num1 = stack_pos(1)
-    num2 = stack_pos(55)
+    num1 = frame_pos(1)
+    num2 = frame_pos(55)
     shape = gcrootmap.get_basic_shape()
     gcrootmap.add_ebp_offset(shape, num1)
     gcrootmap.add_ebp_offset(shape, num2)
@@ -99,7 +99,7 @@ def test_GcRootMap_asmgcc():
     expected_shapeaddr = {}
     for i in range(1, 600):
         shape = gcrootmap.get_basic_shape()
-        gcrootmap.add_ebp_offset(shape, stack_pos(i))
+        gcrootmap.add_ebp_offset(shape, frame_pos(i))
         shapeaddr = gcrootmap.compress_callshape(shape)
         expected_shapeaddr[i] = shapeaddr
         retaddr = rffi.cast(llmemory.Address, 123456789 + i)

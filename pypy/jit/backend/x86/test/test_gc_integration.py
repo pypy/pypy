@@ -19,7 +19,7 @@ from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrF
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86StackManager,\
+from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
      X86XMMRegisterManager
 from pypy.rpython.annlowlevel import llhelper
 
@@ -64,10 +64,10 @@ class TestRegallocDirectGcIntegration(object):
         longevity = {}
         for box in boxes:
             longevity[box] = (0, 1)
-        regalloc.sm = X86StackManager()
-        regalloc.rm = X86RegisterManager(longevity, regalloc.sm,
+        regalloc.fm = X86FrameManager()
+        regalloc.rm = X86RegisterManager(longevity, regalloc.fm,
                                          assembler=regalloc.assembler)
-        regalloc.xrm = X86XMMRegisterManager(longevity, regalloc.sm,
+        regalloc.xrm = X86XMMRegisterManager(longevity, regalloc.fm,
                                              assembler=regalloc.assembler)
         cpu = regalloc.assembler.cpu
         for box in boxes:

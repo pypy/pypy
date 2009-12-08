@@ -157,7 +157,8 @@ class Assembler386(object):
         """adds the following attributes to looptoken:
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
-               _x86_stack_depth
+               _x86_frame_depth
+               _x86_param_depth
                _x86_arglocs
         """
         self.make_sure_mc_exists()
@@ -167,10 +168,12 @@ class Assembler386(object):
         looptoken._x86_bootstrap_code = self.mc.tell()
         adr_stackadjust = self._assemble_bootstrap_code(inputargs, arglocs)
         looptoken._x86_loop_code = self.mc.tell()
-        looptoken._x86_stack_depth = -1     # temporarily
-        stack_depth = self._assemble(regalloc, operations)
-        self._patch_stackadjust(adr_stackadjust, stack_depth)
-        looptoken._x86_stack_depth = stack_depth
+        looptoken._x86_frame_depth = -1     # temporarily
+        looptoken._x86_param_depth = -1     # temporarily        
+        frame_depth, param_depth = self._assemble(regalloc, operations)
+        self._patch_stackadjust(adr_stackadjust, frame_depth+param_depth)
+        looptoken._x86_frame_depth = frame_depth
+        looptoken._x86_param_depth = param_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         self.make_sure_mc_exists()
@@ -180,16 +183,17 @@ class Assembler386(object):
             assert ([loc.assembler() for loc in arglocs] ==
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        fail_stack_depth = faildescr._x86_current_stack_depth
-        regalloc.prepare_bridge(fail_stack_depth, inputargs, arglocs,
+        fail_depths = faildescr._x86_current_depths
+        regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
                                 operations)
         adr_bridge = self.mc.tell()
         adr_stackadjust = self._patchable_stackadjust()
-        stack_depth = self._assemble(regalloc, operations)
-        self._patch_stackadjust(adr_stackadjust, stack_depth)
+        frame_depth, param_depth = self._assemble(regalloc, operations)
+        self._patch_stackadjust(adr_stackadjust, frame_depth+param_depth)
         if not we_are_translated():
             # for the benefit of tests
-            faildescr._x86_bridge_stack_depth = stack_depth
+            faildescr._x86_bridge_frame_depth = frame_depth
+            faildescr._x86_bridge_param_depth = param_depth
         # patch the jump from original guard
         self.patch_jump(faildescr, adr_bridge)
 
@@ -207,26 +211,29 @@ class Assembler386(object):
         self.mc2.done()
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
-        stack_depth = regalloc.sm.stack_depth
+        frame_depth = regalloc.fm.frame_depth
+        param_depth = regalloc.param_depth
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_stack_depth = jump_target_descr._x86_stack_depth
-            stack_depth = max(stack_depth, target_stack_depth)
-        return stack_depth
+            target_frame_depth = jump_target_descr._x86_frame_depth
+            target_param_depth = jump_target_descr._x86_param_depth
+            frame_depth = max(frame_depth, target_frame_depth)
+            param_depth = max(param_depth, target_param_depth)
+        return frame_depth, param_depth
 
     def _patchable_stackadjust(self):
         # stack adjustment LEA
         self.mc.LEA(esp, fixedsize_ebp_ofs(0))
         return self.mc.tell() - 4
 
-    def _patch_stackadjust(self, adr_lea, stack_depth):
+    def _patch_stackadjust(self, adr_lea, reserved_depth):
         # patch stack adjustment LEA
         # possibly align, e.g. for Mac OS X        
         mc = codebuf.InMemoryCodeBuilder(adr_lea, adr_lea + 4)
         # Compute the correct offset for the instruction LEA ESP, [EBP-4*words].
         # Given that [EBP] is where we saved EBP, i.e. in the last word
         # of our fixed frame, then the 'words' value is:
-        words = (FRAME_FIXED_SIZE - 1) + stack_depth
+        words = (FRAME_FIXED_SIZE - 1) + reserved_depth
         mc.write(packimm32(-WORD * words))
         mc.done()
 
@@ -322,10 +329,10 @@ class Assembler386(object):
         genop_discard_list[op.opnum](self, op, arglocs)
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
-                                    arglocs, resloc, current_stack_depth):
+                                    arglocs, resloc, current_depths):
         faildescr = guard_op.descr
         assert isinstance(faildescr, AbstractFailDescr)
-        faildescr._x86_current_stack_depth = current_stack_depth
+        faildescr._x86_current_depths = current_depths
         failargs = guard_op.fail_args
         guard_opnum = guard_op.opnum
         failaddr = self.implement_guard_recovery(guard_opnum,
@@ -342,9 +349,9 @@ class Assembler386(object):
         faildescr._x86_adr_jump_offset = adr_jump_offset
 
     def regalloc_perform_guard(self, guard_op, faillocs, arglocs, resloc,
-                               current_stack_depth):
+                               current_depths):
         self.regalloc_perform_with_guard(None, guard_op, faillocs, arglocs,
-                                         resloc, current_stack_depth)
+                                         resloc, current_depths)
 
     def load_effective_addr(self, sizereg, baseofs, scale, result):
         self.mc.LEA(result, addr_add(imm(0), sizereg, baseofs, scale))
@@ -407,14 +414,34 @@ class Assembler386(object):
 ##            self.mc.PUSH(imm(0))   --- or just use a single SUB(esp, imm)
 ##        return extra_on_stack
 
-    def call(self, addr, args, res):
-        nargs = len(args)
-        extra_on_stack = nargs #self.align_stack_for_call(nargs)
-        for i in range(nargs-1, -1, -1):
-            self.mc.PUSH(args[i])
-        self.mc.CALL(rel32(addr))
+    def _emit_call(self, x, arglocs, start=0, tmp=eax):
+        p = 0
+        n = len(arglocs)
+        for i in range(start, n):
+            loc = arglocs[i]
+            if isinstance(loc, REG):
+                if isinstance(loc, XMMREG):
+                    self.mc.MOVSD(mem64(esp, p), loc)
+                else:
+                    self.mc.MOV(mem(esp, p), loc)
+            p += round_up_to_4(loc.width)
+        p = 0
+        for i in range(start, n):
+            loc = arglocs[i]
+            if not isinstance(loc, REG):
+                if isinstance(loc, MODRM64):
+                    self.mc.MOVSD(xmm0, loc)
+                    self.mc.MOVSD(mem64(esp, p), xmm0)
+                else:
+                    self.mc.MOV(tmp, loc)
+                    self.mc.MOV(mem(esp, p), tmp)
+            p += round_up_to_4(loc.width)
+        self._regalloc.reserve_param(p//WORD)
+        self.mc.CALL(x)
         self.mark_gc_roots()
-        self.mc.ADD(esp, imm(extra_on_stack * WORD))
+        
+    def call(self, addr, args, res):
+        self._emit_call(rel32(addr), args)
         assert res is eax
 
     genop_int_neg = _unaryop("NEG")
@@ -858,7 +885,7 @@ class Assembler386(object):
                 self.fail_boxes_float.get_addr_for_num(i)
 
     def rebuild_faillocs_from_descr(self, bytecode):
-        from pypy.jit.backend.x86.regalloc import X86StackManager
+        from pypy.jit.backend.x86.regalloc import X86FrameManager
         bytecode = rffi.cast(rffi.UCHARP, bytecode)
         arglocs = []
         while 1:
@@ -883,7 +910,7 @@ class Assembler386(object):
                     size = 2
                 else:
                     size = 1
-                loc = X86StackManager.stack_pos(code, size)
+                loc = X86FrameManager.frame_pos(code, size)
             elif code == self.CODE_STOP:
                 break
             elif code == self.CODE_HOLE:
@@ -1121,12 +1148,7 @@ class Assembler386(object):
         sizeloc = arglocs[0]
         assert isinstance(sizeloc, IMM32)
         size = sizeloc.value
-        nargs = len(op.args)-1
-        extra_on_stack = 0
-        for arg in range(2, nargs + 2):
-            extra_on_stack += round_up_to_4(arglocs[arg].width)
-        #extra_on_stack = self.align_stack_for_call(extra_on_stack)
-        self.mc.SUB(esp, imm(extra_on_stack))
+
         if isinstance(op.args[0], Const):
             x = rel32(op.args[0].getint())
         else:
@@ -1135,29 +1157,9 @@ class Assembler386(object):
             tmp = ecx
         else:
             tmp = eax
-        p = 0
-        for i in range(2, nargs + 2):
-            loc = arglocs[i]
-            if isinstance(loc, REG):
-                if isinstance(loc, XMMREG):
-                    self.mc.MOVSD(mem64(esp, p), loc)
-                else:
-                    self.mc.MOV(mem(esp, p), loc)
-            p += round_up_to_4(loc.width)
-        p = 0
-        for i in range(2, nargs + 2):
-            loc = arglocs[i]
-            if not isinstance(loc, REG):
-                if isinstance(loc, MODRM64):
-                    self.mc.MOVSD(xmm0, loc)
-                    self.mc.MOVSD(mem64(esp, p), xmm0)
-                else:
-                    self.mc.MOV(tmp, loc)
-                    self.mc.MOV(mem(esp, p), tmp)
-            p += round_up_to_4(loc.width)
-        self.mc.CALL(x)
-        self.mark_gc_roots()
-        self.mc.ADD(esp, imm(extra_on_stack))
+            
+        self._emit_call(x, arglocs, 2, tmp=tmp)
+
         if isinstance(resloc, MODRM64):
             self.mc.FSTP(resloc)
         elif size == 1:
@@ -1245,14 +1247,13 @@ class Assembler386(object):
         mc.CMP(edx, heap(nursery_top_adr))
         mc.write(constlistofchars('\x76\x00')) # JNA after the block
         jmp_adr = mc.get_relative_pos()
-        mc.PUSH(imm(size))
-        mc.CALL(rel32(slowpath_addr))
-        self.mark_gc_roots()
+        self._emit_call(rel32(slowpath_addr), [imm(size)])
+
         # note that slowpath_addr returns a "long long", or more precisely
         # two results, which end up in eax and edx.
         # eax should contain the result of allocation, edx new value
         # of nursery_free_adr
-        mc.ADD(esp, imm(4))
+
         offset = mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         mc.overwrite(jmp_adr-1, [chr(offset)])

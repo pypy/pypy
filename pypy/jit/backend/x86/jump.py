@@ -5,7 +5,7 @@ from pypy.jit.backend.x86.ri386 import *
 class __extend__(OPERAND):
     __metaclass__ = extendabletype
     def _getregkey(self):
-        raise AssertionError("should only happen to registers and stack "
+        raise AssertionError("should only happen to registers and frame "
                              "positions")
 
 class __extend__(REG):
@@ -19,7 +19,7 @@ class __extend__(MODRM):
         return self.position
 
 
-def remap_stack_layout(assembler, src_locations, dst_locations, tmpreg):
+def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
     srccount = {}    # maps dst_locations to how many times the same
                      # location appears in src_locations

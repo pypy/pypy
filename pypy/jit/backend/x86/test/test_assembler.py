@@ -1,6 +1,6 @@
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.regalloc import X86StackManager, get_ebp_ofs
+from pypy.jit.backend.x86.regalloc import X86FrameManager, get_ebp_ofs
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -23,12 +23,12 @@ def test_write_failure_recovery_description():
     failargs = [BoxInt(), BoxPtr(), BoxFloat()] * 3
     failargs.insert(6, None)
     failargs.insert(7, None)
-    locs = [X86StackManager.stack_pos(0, 1),
-            X86StackManager.stack_pos(1, 1),
-            X86StackManager.stack_pos(10, 2),
-            X86StackManager.stack_pos(100, 1),
-            X86StackManager.stack_pos(101, 1),
-            X86StackManager.stack_pos(110, 2),
+    locs = [X86FrameManager.frame_pos(0, 1),
+            X86FrameManager.frame_pos(1, 1),
+            X86FrameManager.frame_pos(10, 2),
+            X86FrameManager.frame_pos(100, 1),
+            X86FrameManager.frame_pos(101, 1),
+            X86FrameManager.frame_pos(110, 2),
             None,
             None,
             ebx,
