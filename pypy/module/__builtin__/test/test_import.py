@@ -704,14 +704,39 @@ class AppTestImportHooks(object):
             def find_module(self, fullname, path=None):
                 tried_imports.append((fullname, path))
 
-        import sys
+        import sys, math
+        sys.meta_path.append(Importer())
         try:
-            sys.meta_path.append(Importer())
             import datetime
             assert len(tried_imports) == 1
-            tried_imports[0][0] == "datetime"
+            assert tried_imports[0][0] == "datetime"
         finally:
             sys.meta_path.pop()
+
+    def test_meta_path_block(self):
+        class ImportBlocker(object):
+            "Specified modules can't be imported, even if they are built-in"
+            def __init__(self, *namestoblock):
+                self.namestoblock = dict.fromkeys(namestoblock)
+            def find_module(self, fullname, path=None):
+                if fullname in self.namestoblock:
+                    return self
+            def load_module(self, fullname):
+                raise ImportError, "blocked"
+
+        import sys
+        modname = "errno" # an arbitrary harmless builtin module
+        mod = None
+        if modname in sys.modules:
+            mod = sys.modules
+            del sys.modules[modname]
+        sys.meta_path.append(ImportBlocker(modname))
+        try:
+            raises(ImportError, __import__, modname)
+        finally:
+            sys.meta_path.pop()
+            if mod:
+                sys.modules[modname] = mod
 
     def test_path_hooks_leaking(self):
         class Importer(object):
