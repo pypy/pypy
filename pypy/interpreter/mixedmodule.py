@@ -87,7 +87,6 @@ class MixedModule(Module):
 
     def _freeze_(self):
         self.getdict()
-        self.startup_called = False
         # hint for the annotator: Modules can hold state, so they are
         # not constant
         return False

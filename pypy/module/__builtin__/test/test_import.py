@@ -41,9 +41,7 @@ def setup_directory_structure(space):
              relative_a = "import a",
              abs_b      = "import b",
              abs_x_y    = "import x.y",
-             abs_sys    = "import sys",
              string     = "inpackage = 1",
-             errno      = "",
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
@@ -255,17 +253,6 @@ class AppTestImport:
         def imp():
             import pkg_r.inpkg
         raises(ImportError,imp)
-
-    def test_import_builtin_inpackage(self):
-        def imp():
-            import pkg.sys
-        raises(ImportError,imp)
-
-        import sys, pkg.abs_sys
-        assert pkg.abs_sys.sys is sys
-
-        import errno, pkg.errno
-        assert pkg.errno is not errno
 
     def test_import_Globals_Are_None(self):
         import sys
@@ -707,43 +694,14 @@ class AppTestImportHooks(object):
             def find_module(self, fullname, path=None):
                 tried_imports.append((fullname, path))
 
-        import sys, math
-        sys.meta_path.append(Importer())
+        import sys
         try:
+            sys.meta_path.append(Importer())
             import datetime
             assert len(tried_imports) == 1
-            package_name = '.'.join(__name__.split('.')[:-1])
-            if package_name:
-                assert tried_imports[0][0] == package_name + ".datetime"
-            else:
-                assert tried_imports[0][0] == "datetime"
+            tried_imports[0][0] == "datetime"
         finally:
             sys.meta_path.pop()
-
-    def test_meta_path_block(self):
-        class ImportBlocker(object):
-            "Specified modules can't be imported, even if they are built-in"
-            def __init__(self, *namestoblock):
-                self.namestoblock = dict.fromkeys(namestoblock)
-            def find_module(self, fullname, path=None):
-                if fullname in self.namestoblock:
-                    return self
-            def load_module(self, fullname):
-                raise ImportError, "blocked"
-
-        import sys
-        modname = "errno" # an arbitrary harmless builtin module
-        mod = None
-        if modname in sys.modules:
-            mod = sys.modules
-            del sys.modules[modname]
-        sys.meta_path.append(ImportBlocker(modname))
-        try:
-            raises(ImportError, __import__, modname)
-        finally:
-            sys.meta_path.pop()
-            if mod:
-                sys.modules[modname] = mod
 
     def test_path_hooks_leaking(self):
         class Importer(object):

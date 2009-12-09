@@ -4,46 +4,31 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-
 from pypy.module.oracle import roci, config
-from pypy.rlib.unroll import unrolling_iterable
-
-exported_names = unrolling_iterable("""
-    DatabaseError OperationalError InterfaceError ProgrammingError
-    NotSupportedError IntegrityError InternalError DataError
-    Variable Connection""".split())
 
 class State:
     # XXX move to another file
-
     def __init__(self, space):
-        "NOT_RPYTHON"
-        self.variableTypeByPythonType = {}
-        self.w_DecimalType = None
-        self.w_DateTimeType = None
-        self.w_DateType = None
-        self.w_TimedeltaType = None
-
-        for name in exported_names:
-            setattr(self, 'w_' + name, None)
-
-    def startup(self, space):
         w_module = space.getbuiltinmodule('cx_Oracle')
-        for name in exported_names:
-            setattr(self, 'w_' + name, space.getattr(w_module, space.wrap(name)))
+        def get(name):
+            return space.getattr(w_module, space.wrap(name))
+
+        self.w_DatabaseError = get('DatabaseError')
+        self.w_OperationalError = get('OperationalError')
+        self.w_InterfaceError = get('InterfaceError')
+        self.w_ProgrammingError = get('ProgrammingError')
+        self.w_NotSupportedError = get('NotSupportedError')
+        self.w_IntegrityError = get('IntegrityError')
+        self.w_InternalError = get('InternalError')
+        self.w_DataError = get('DataError')
+        self.w_Variable = get('Variable')
+        self.w_Connection = get('Connection')
 
         from pypy.module.oracle.interp_variable import all_variable_types
+        self.variableTypeByPythonType = {}
         for varType in all_variable_types:
             w_type = space.gettypeobject(varType.typedef)
             self.variableTypeByPythonType[w_type] = varType
-
-        (self.w_DecimalType,
-         self.w_DateTimeType, self.w_DateType, self.w_TimedeltaType,
-         ) = space.fixedview(space.appexec([], """():
-             import decimal, datetime
-             return (decimal.Decimal,
-                     datetime.datetime, datetime.date, datetime.timedelta)
-        """))
 
 def get(space): 
     return space.fromcache(State) 

@@ -228,7 +228,7 @@ def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
 
 def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     w = space.wrap
-
+    
     w_mod = None
     parts = modulename.split('.')
     prefix = []
@@ -291,9 +291,6 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 
             return w_mod
 
-        # check the builtin modules
-        if modulename in space.builtin_modules:
-            return space.getbuiltinmodule(modulename)
 
         if w_path is not None:
             for path in space.unpackiterable(w_path):
