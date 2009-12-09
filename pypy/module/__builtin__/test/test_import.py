@@ -712,7 +712,11 @@ class AppTestImportHooks(object):
         try:
             import datetime
             assert len(tried_imports) == 1
-            assert tried_imports[0][0] == "datetime"
+            package_name = '.'.join(__name__.split('.')[:-1])
+            if package_name:
+                assert tried_imports[0][0] == package_name + ".datetime"
+            else:
+                assert tried_imports[0][0] == "datetime"
         finally:
             sys.meta_path.pop()
 
