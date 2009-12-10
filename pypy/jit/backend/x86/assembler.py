@@ -15,9 +15,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.x86.support import NonmovableGrowableArrayFloat,\
-     NonmovableGrowableArraySigned, NonmovableGrowableArrayGCREF,\
-     CHUNK_SIZE
+from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import debug_print
 
 # our calling convention - we pass first 6 args in registers
@@ -78,7 +76,8 @@ class Assembler386(object):
     mc2 = None
     mc_size = MachineCodeBlockWrapper.MC_DEFAULT_SIZE
 
-    def __init__(self, cpu, translate_support_code=False):
+    def __init__(self, cpu, translate_support_code=False,
+                            failargs_limit=1000):
         self.cpu = cpu
         self.verbose = False
         self.rtyper = cpu.rtyper
@@ -86,21 +85,18 @@ class Assembler386(object):
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
-        self.fail_boxes_int = NonmovableGrowableArraySigned()
-        self.fail_boxes_ptr = NonmovableGrowableArrayGCREF()
-        self.fail_boxes_float = NonmovableGrowableArrayFloat()
+        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
+        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
         self.fail_ebp = 0
         self.loc_float_const_neg = None
         self.loc_float_const_abs = None
         self.setup_failure_recovery()
 
     def leave_jitted_hook(self):
-        i = 0
-        while i < self.fail_boxes_ptr.lgt:
-            chunk = self.fail_boxes_ptr.chunks[i]
-            llop.gc_assume_young_pointers(lltype.Void,
-                                      llmemory.cast_ptr_to_adr(chunk))
-            i += 1
+        ptrs = self.fail_boxes_ptr.ar
+        llop.gc_assume_young_pointers(lltype.Void,
+                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def make_sure_mc_exists(self):
         if self.mc is None:

@@ -16,14 +16,18 @@ class CPU386(AbstractLLCPU):
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
 
-    def __init__(self, rtyper, stats, translate_support_code=False,
+    def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        AbstractLLCPU.__init__(self, rtyper, stats, translate_support_code,
+        AbstractLLCPU.__init__(self, rtyper, stats, opts, translate_support_code,
                                gcdescr)
-        self._bootstrap_cache = {}
 
     def setup(self):
-        self.assembler = Assembler386(self, self.translate_support_code)
+        if self.opts is not None:
+            failargs_limit = self.opts.failargs_limit
+        else:
+            failargs_limit = 1000
+        self.assembler = Assembler386(self, self.translate_support_code,
+                                            failargs_limit)
 
     def get_on_leave_jitted_hook(self):
         return self.assembler.leave_jitted_hook

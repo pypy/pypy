@@ -17,8 +17,11 @@ from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
 
-    def __init__(self, rtyper, stats, translate_support_code=False,
+    def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
+        assert type(opts) is not bool
+        self.opts = opts
+
         from pypy.jit.backend.llsupport.gc import get_ll_description
         AbstractCPU.__init__(self)
         self.rtyper = rtyper

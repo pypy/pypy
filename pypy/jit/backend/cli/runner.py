@@ -43,7 +43,7 @@ class CliCPU(model.AbstractCPU):
     supports_floats = True
     ts = oohelper
 
-    def __init__(self, rtyper, stats, translate_support_code=False,
+    def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  mixlevelann=None, gcdescr=None):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
