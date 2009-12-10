@@ -118,12 +118,27 @@ class ItemOffset(AddressOffset):
             return
         if isinstance(self.TYPE, lltype.ContainerType):
             PTR = lltype.Ptr(self.TYPE)
+        elif self.TYPE == GCREF:
+            self._raw_memcopy_gcrefs(srcadr, dstadr)
+            return
         else:
             PTR = lltype.Ptr(lltype.FixedSizeArray(self.TYPE, 1))
         while True:
             src = cast_adr_to_ptr(srcadr, PTR)
             dst = cast_adr_to_ptr(dstadr, PTR)
             _reccopy(src, dst)
+            repeat -= 1
+            if repeat <= 0:
+                break
+            srcadr += ItemOffset(self.TYPE)
+            dstadr += ItemOffset(self.TYPE)
+
+    def _raw_memcopy_gcrefs(self, srcadr, dstadr):
+        # special case to handle arrays of any GC pointers
+        repeat = self.repeat
+        while True:
+            data = srcadr.address[0]
+            dstadr.address[0] = data
             repeat -= 1
             if repeat <= 0:
                 break

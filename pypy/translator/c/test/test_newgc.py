@@ -835,6 +835,48 @@ class TestUsingFramework(object):
         res = self.run('hash_varsized')
         assert res != 0
 
+
+    def define_arraycopy_writebarrier_int(cls):
+        TP = lltype.GcArray(lltype.Signed)
+        S = lltype.GcStruct('S')
+        def fn():
+            l = lltype.malloc(TP, 100)
+            for i in range(100):
+                l[i] = i * 3
+            l2 = lltype.malloc(TP, 50)
+            rgc.ll_arraycopy(l, l2, 40, 0, 50)
+            # force a nursery collect
+            x = []
+            for i in range(20):
+                x.append((1, lltype.malloc(S)))
+            for i in range(50):
+                assert l2[i] == (40 + i) * 3
+            return 0
+
+        return fn
+
+    def test_arraycopy_writebarrier_int(self):
+        self.run("arraycopy_writebarrier_int")
+
+    def define_arraycopy_writebarrier_ptr(cls):
+        TP = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
+        def fn():
+            l = lltype.malloc(TP, 100)
+            for i in range(100):
+                l[i] = lltype.malloc(TP.OF.TO, i)
+            l2 = lltype.malloc(TP, 50)
+            rgc.ll_arraycopy(l, l2, 40, 0, 50)
+            rgc.collect()
+            for i in range(50):
+                assert l2[i] == l[40 + i]
+            return 0
+
+        return fn
+
+    def test_arraycopy_writebarrier_ptr(self):
+        self.run("arraycopy_writebarrier_ptr")
+
+
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True

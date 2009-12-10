@@ -292,6 +292,13 @@ class FrameworkGCTransformer(GCTransformer):
                 [s_gc, annmodel.SomeInteger(knowntype=rffi.r_ushort)],
                 annmodel.SomeInteger())
 
+        if hasattr(GCClass, 'writebarrier_before_copy'):
+            self.wb_before_copy_ptr = \
+                    getfn(GCClass.writebarrier_before_copy.im_func,
+                    [s_gc] + [annmodel.SomeAddress()] * 2, annmodel.SomeBool())
+        elif GCClass.needs_write_barrier:
+            raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
+
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, True, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
@@ -775,6 +782,19 @@ class FrameworkGCTransformer(GCTransformer):
             v_ob = hop.spaceop.args[0]
             TYPE = v_ob.concretetype.TO
             gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
+
+    def gct_gc_writebarrier_before_copy(self, hop):
+        if not hasattr(self, 'wb_before_copy_ptr'):
+            # no write barrier needed in that case
+            return rmodel.inputconst(lltype.Bool, True)
+        op = hop.spaceop
+        source_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+                                resulttype=llmemory.Address)
+        dest_addr = hop.genop('cast_ptr_to_adr', [op.args[1]],
+                                resulttype=llmemory.Address)
+        hop.genop('direct_call', [self.wb_before_copy_ptr, self.c_const_gc,
+                                  source_addr, dest_addr],
+                  resultvar=op.result)
 
     def gct_weakref_create(self, hop):
         op = hop.spaceop

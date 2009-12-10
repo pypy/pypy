@@ -466,6 +466,13 @@ class GenerationGC(SemiSpaceGC):
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
 
+    def write_into_last_generation_obj(self, addr_struct, addr):
+        objhdr = self.header(addr_struct)
+        if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
+            if not self.is_last_generation(addr):
+                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.last_generation_root_objects.append(addr_struct)
+
     def assume_young_pointers(self, addr_struct):
         objhdr = self.header(addr_struct)
         if objhdr.tid & GCFLAG_NO_YOUNG_PTRS:
@@ -475,12 +482,28 @@ class GenerationGC(SemiSpaceGC):
             objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
             self.last_generation_root_objects.append(addr_struct)
 
-    def write_into_last_generation_obj(self, addr_struct, addr):
-        objhdr = self.header(addr_struct)
-        if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-            if not self.is_last_generation(addr):
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.last_generation_root_objects.append(addr_struct)
+    def writebarrier_before_copy(self, source_addr, dest_addr):
+        """ This has the same effect as calling writebarrier over
+        each element in dest copied from source, except it might reset
+        one of the following flags a bit too eagerly, which means we'll have
+        a bit more objects to track, but being on the safe side.
+        """
+        source_hdr = self.header(source_addr)
+        dest_hdr = self.header(dest_addr)
+        if dest_hdr.tid & GCFLAG_NO_YOUNG_PTRS == 0:
+            return True
+        # ^^^ a fast path of write-barrier
+        if source_hdr.tid & GCFLAG_NO_YOUNG_PTRS == 0:
+            # there might be an object in source that is in nursery
+            self.old_objects_pointing_to_young.append(dest_addr)
+            dest_hdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
+        if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
+            if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
+                # ^^^ equivalend of addr from source not being in last
+                #     gen
+                dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.last_generation_root_objects.append(dest_addr)
+        return True
 
     def is_last_generation(self, obj):
         # overridden by HybridGC

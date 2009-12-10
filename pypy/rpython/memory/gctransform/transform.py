@@ -12,7 +12,7 @@ from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy.annotation import model as annmodel
-from pypy.rpython import rmodel, annlowlevel
+from pypy.rpython import rmodel
 from pypy.rpython.memory import gc
 from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
@@ -379,6 +379,13 @@ class BaseGCTransformer(object):
 
     def gct_zero_gc_pointers_inside(self, hop):
         pass
+
+    def gct_gc_writebarrier_before_copy(self, hop):
+        # We take the conservative default and return False here, meaning
+        # that rgc.ll_arraycopy() will do the copy by hand (i.e. with a
+        # 'for' loop).  Subclasses that have their own logic, or that don't
+        # need any kind of write barrier, may return True.
+        return rmodel.inputconst(lltype.Bool, False)
 
     def gct_gc_identityhash(self, hop):
         # must be implemented in the various GCs

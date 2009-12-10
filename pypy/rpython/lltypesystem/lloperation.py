@@ -461,6 +461,7 @@ LL_OPERATIONS = {
     'gc_thread_run'       : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_assume_young_pointers': LLOp(canrun=True),
+    'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),
 
     # ------- JIT & GC interaction, only for some GCs ----------

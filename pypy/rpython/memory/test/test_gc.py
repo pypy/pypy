@@ -551,6 +551,26 @@ class GCTest(object):
         res = self.interpret(fn, [-1000], taggedpointers=True)
         assert res == 111
 
+    def test_writebarrier_before_copy(self):
+        S = lltype.GcStruct('S')
+        TP = lltype.GcArray(lltype.Ptr(S))
+        def fn():
+            l = lltype.malloc(TP, 100)
+            l2 = lltype.malloc(TP, 100)
+            for i in range(100):
+                l[i] = lltype.malloc(S)
+            rgc.ll_arraycopy(l, l2, 50, 0, 50)
+            x = []
+            # force minor collect
+            t = (1, lltype.malloc(S))
+            for i in range(20):
+                x.append(t)
+            for i in range(50):
+                assert l2[i] == l[50 + i]
+            return 0
+
+        self.interpret(fn, [])
+
 
 from pypy.rlib.objectmodel import UnboxedValue
 

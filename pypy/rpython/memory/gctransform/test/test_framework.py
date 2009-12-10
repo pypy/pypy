@@ -119,6 +119,8 @@ class WriteBarrierTransformer(FrameworkGCTransformer):
     GC_PARAMS = {}
     class GCClass(MarkSweepGC):
         needs_write_barrier = True
+        def writebarrier_before_copy(self, source, dest):
+            return True
 
 def write_barrier_check(spaceop, needs_write_barrier=True):
     t = TranslationContext()

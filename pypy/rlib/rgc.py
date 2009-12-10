@@ -328,3 +328,32 @@ class FinishBuildingBufferEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('finish_building_buffer', vlist,
                          resulttype=hop.r_result.lowleveltype)
+
+def ll_arraycopy(source, dest, source_start, dest_start, length):
+    from pypy.rpython.lltypesystem.lloperation import llop
+    from pypy.rpython.lltypesystem import lltype, llmemory
+    from pypy.rlib.objectmodel import keepalive_until_here
+
+    assert source != dest
+    TP = lltype.typeOf(source).TO
+    assert TP == lltype.typeOf(dest).TO
+    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+        # perform a write barrier that copies necessary flags from
+        # source to dest
+        if not llop.gc_writebarrier_before_copy(lltype.Void, source, dest):
+            # if the write barrier is not supported, copy by hand
+            for i in range(length):
+                dest[i + dest_start] = source[i + source_start]
+            return
+    source_addr = llmemory.cast_ptr_to_adr(source)
+    dest_addr   = llmemory.cast_ptr_to_adr(dest)
+    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
+                      llmemory.sizeof(TP.OF) * source_start)
+    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
+                    llmemory.sizeof(TP.OF) * dest_start)
+    
+    llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
+                         llmemory.sizeof(TP.OF) * length)
+    keepalive_until_here(source)
+    keepalive_until_here(dest)
+ll_arraycopy._annspecialcase_ = 'specialize:ll'
