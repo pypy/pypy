@@ -927,12 +927,13 @@ class W_Cursor(Wrappable):
                     status, "Cursor_GetBindNames()")
 
             # Too few elements allocated
-            if foundElementsPtr[0] < 0:
-                return -foundElementsPtr[0], None
+            foundElements = rffi.cast(lltype.Signed, foundElementsPtr[0])
+            if foundElements < 0:
+                return -foundElements, None
 
             names_w = []
             # process the bind information returned
-            for i in range(foundElementsPtr[0]):
+            for i in range(foundElements):
                 if rffi.cast(lltype.Signed, duplicate[i]):
                     continue
                 names_w.append(

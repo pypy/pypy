@@ -1018,7 +1018,7 @@ class W_LobVariable(W_VariableWithDescriptor):
             self.environment.checkForError(
                 status,
                 "LobVar_SetValue(): check temporary")
-            temporary = temporaryptr[0]
+            temporary = rffi.cast(lltype.Signed, temporaryptr[0])
         finally:
             lltype.free(temporaryptr, flavor='raw')
 
@@ -1373,8 +1373,17 @@ variableType = {
 variableTypeNChar = {
     roci.SQLT_AFC: VT_FixedNationalChar,
     roci.SQLT_CHR: VT_NationalCharString,
-    roci.SQLT_CLOB: VT_NCLOB,    
+    roci.SQLT_CLOB: VT_NCLOB,
     }
+# remove eventual undefined types
+try:
+    del variableType[None]
+except KeyError:
+    pass
+try:
+    del variableTypeNChar[None]
+except KeyError:
+    pass
 
 def _typeByOracleDataType(dataType, charsetForm):
     if charsetForm == roci.SQLCS_NCHAR:

@@ -315,23 +315,26 @@ class W_Connection(Wrappable):
                 mode |= roci.OCI_SESSGET_CREDEXT
 
             # set the connection class, if applicable
-            stringBuffer.fill(space, w_cclass)
-            try:
-                if stringBuffer.size > 0:
-                    externalCredentials = False
-                    status = roci.OCIAttrSet(
-                        authInfo,
-                        roci.OCI_HTYPE_AUTHINFO,
-                        stringBuffer.ptr, stringBuffer.size,
-                        roci.OCI_ATTR_CONNECTION_CLASS,
-                        self.environment.errorHandle)
-                    self.environment.checkForError(
-                        status, "Connection_GetConnection(): set connection class")
-            finally:
-                stringBuffer.clear()
+            if roci.OCI_ATTR_CONNECTION_CLASS is not None:
+                stringBuffer.fill(space, w_cclass)
+                try:
+                    if stringBuffer.size > 0:
+                        externalCredentials = False
+                        status = roci.OCIAttrSet(
+                            authInfo,
+                            roci.OCI_HTYPE_AUTHINFO,
+                            stringBuffer.ptr, stringBuffer.size,
+                            roci.OCI_ATTR_CONNECTION_CLASS,
+                            self.environment.errorHandle)
+                        self.environment.checkForError(
+                            status,
+                            "Connection_GetConnection(): set connection class")
+                finally:
+                    stringBuffer.clear()
 
             # set the purity, if applicable
-            if purity != roci.OCI_ATTR_PURITY_DEFAULT:
+            if (roci.OCI_ATTR_PURITY is not None
+                and purity != roci.OCI_ATTR_PURITY_DEFAULT):
                 purityptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO,
                                           1, flavor='raw')
                 purityptr[0] = rffi.cast(roci.ub4, purity)

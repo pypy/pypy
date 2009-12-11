@@ -491,7 +491,7 @@ def convertCollection(space, environment, value, var, objectType):
                         status,
                         "ExternalObjectVar_ConvertCollection(): get next")
 
-                    if eofptr[0]:
+                    if rffi.cast(lltype.Signed, eofptr[0]):
                         break
                     element = convertObject(
                         space, environment,

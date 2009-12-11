@@ -89,7 +89,7 @@ def OracleTimestampToPythonDate(environment, valueptr):
             w_datetime,
             w(yearptr[0]), w(monthptr[0]), w(dayptr[0]),
             w(hourptr[0]), w(minuteptr[0]), w(secondptr[0]),
-            w(fsecondptr[0] / 1000))
+            w(rffi.cast(lltype.Signed, fsecondptr[0]) / 1000))
     finally:
         lltype.free(yearptr, flavor='raw')
         lltype.free(monthptr, flavor='raw')
@@ -121,8 +121,10 @@ def OracleIntervalToPythonDelta(environment, valueptr):
             w('timedelta'))
 
         days = daysptr[0]
-        seconds = hoursptr[0] * 3600 + minutesptr[0] * 60 + secondsptr[0]
-        microseconds = fsecondsptr[0] / 1000
+        seconds = (rffi.cast(lltype.Signed, hoursptr[0]) * 3600 +
+                   rffi.cast(lltype.Signed, minutesptr[0]) * 60 +
+                   rffi.cast(lltype.Signed, secondsptr[0]))
+        microseconds = rffi.cast(lltype.Signed, fsecondsptr[0]) / 1000
 
         return space.call_function(
             w_timedelta,
