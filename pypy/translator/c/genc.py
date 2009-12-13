@@ -729,7 +729,16 @@ class SourceGenerator:
         print >> f
 
 
+def gen_size_check(f):
+    from pypy.rlib.rarithmetic import LONG_BIT
+    print >> f, '#if 8 * SIZEOF_LONG != %d' % (LONG_BIT,)
+    print >> f, '#  error "C files are generated for a %d-bit platform"' % (
+        LONG_BIT,)
+    print >> f, '#endif'
+    print >> f
+
 def gen_structdef(f, database):
+    gen_size_check(f)
     structdeflist = database.getstructdeflist()
     print >> f, '/***********************************************************/'
     print >> f, '/***  Structure definitions                              ***/'
