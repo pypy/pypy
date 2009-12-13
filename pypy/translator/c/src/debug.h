@@ -131,7 +131,7 @@ void pypy_debug_ensure_opened(void)
 #    else
        /* argh, we don't seem to have clock_gettime().  Bad OS. */
        struct timeval tv;
-       gettimeofday(tv, NULL);
+       gettimeofday(&tv, NULL);
        return ((long long)tv.tv_sec) * 1000000LL + tv.tv_usec;
 #    endif
      }
