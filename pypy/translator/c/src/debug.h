@@ -119,13 +119,21 @@ void pypy_debug_ensure_opened(void)
 #    define READ_TIMESTAMP(val)  QueryPerformanceCounter(&(val))
 #  else
 #    include <time.h>
+#    include <sys/time.h>
 #    define READ_TIMESTAMP(val)  (val) = pypy_read_timestamp()
 
      static long long pypy_read_timestamp(void)
      {
+#    ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;
        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tspec);
        return ((long long)tspec.tv_sec) * 1000000000LL + tspec.tv_nsec;
+#    else
+       /* argh, we don't seem to have clock_gettime().  Bad OS. */
+       struct timeval tv;
+       gettimeofday(tv, NULL);
+       return ((long long)tv.tv_sec) * 1000000LL + tv.tv_usec;
+#    endif
      }
 #  endif
 #endif
