@@ -45,7 +45,6 @@
 .. _`pypy/interpreter/astcompiler/asthelpers.py`: ../../pypy/interpreter/astcompiler/asthelpers.py
 .. _`pypy/interpreter/astcompiler/ast.py`: ../../pypy/interpreter/astcompiler/ast.py
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
-.. _`lang/`: ../../pypy/lang
 .. _`lib/`:
 .. _`pypy/lib/`: ../../pypy/lib
 .. _`lib/app_test/`: ../../pypy/lib/app_test
