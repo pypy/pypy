@@ -20,17 +20,30 @@ def get_result(txt, pattern):
     return float(line.split()[len(pattern.split())])
 
 class Benchmark(object):
-    def __init__(self, name, runner, asc_good, units, check=lambda:True):
-        self.name = name
+    def __init__(self, name, runner, asc_good, units,
+                 check=lambda:True, sizefactor=1):
+        if sizefactor > 1:
+            self.name = name + '*%d' % sizefactor
+        else:
+            self.name = name
+        self._basename = name
         self._run = runner
         self.asc_good = asc_good
         self.units = units
         self.check = check
+        self.sizefactor = sizefactor
+    def __mul__(self, n):
+        return Benchmark(self._basename, self._run, self.asc_good, self.units,
+                         self.check, self.sizefactor * n)
     def run(self, exe):
+        global latest_output
+        latest_output = ''
         try:
-            return self._run(exe)
-        except BenchmarkFailed:
-            return '-FAILED-'
+            result = self._run(exe, self.sizefactor)
+        except BenchmarkFailed, e:
+            result = '-FAILED-'
+        self.latest_output = latest_output
+        return result
 
 def external_dependency(dirname, svnurl, revision):
     """Check out (if necessary) a given fixed revision of a svn url."""
@@ -54,24 +67,26 @@ def external_dependency(dirname, svnurl, revision):
     return True
 
 def run_cmd(cmd):
+    global latest_output
     #print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
     r = pipe.read()
     status = pipe.close()
+    latest_output = r
     if status:
         raise BenchmarkFailed(status)
     return r
 
-def run_pystone(executable='/usr/local/bin/python', n=''):
+def run_pystone(executable='/usr/local/bin/python', sizefactor=1):
     from pypy.tool import autopath
     distdir = py.path.local(autopath.pypydir).dirpath()
     pystone = py.path.local(autopath.libpythondir).join('test', 'pystone.py')
-    txt = run_cmd('"%s" "%s" %s' % (executable, pystone, n))
+    txt = run_cmd('"%s" "%s" %d' % (executable, pystone, 50000 * sizefactor))
     return get_result(txt, PYSTONE_PATTERN)
 
-def run_richards(executable='/usr/local/bin/python', n=5):
+def run_richards(executable='/usr/local/bin/python', sizefactor=1):
     richards = py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py')
-    txt = run_cmd('"%s" %s %s' % (executable, richards, n))
+    txt = run_cmd('"%s" %s %d' % (executable, richards, 5 * sizefactor))
     return get_result(txt, RICHARDS_PATTERN)
 
 def run_translate(executable='/usr/local/bin/python'):
@@ -117,7 +132,7 @@ def check_docutils():
     #                           'svn://svn.berlios.de/docutils/trunk/docutils',
     #                           4821)
 
-def run_templess(executable='/usr/local/bin/python'):
+def run_templess(executable='/usr/local/bin/python', sizefactor=1):
     """ run some script in the templess package
 
         templess is some simple templating language, to check out use
@@ -127,66 +142,54 @@ def run_templess(executable='/usr/local/bin/python'):
     pypath = os.path.dirname(os.path.dirname(py.__file__))
     templessdir = here.join('templess')
     testscript = templessdir.join('test/oneshot.py')
-    command = 'PYTHONPATH="%s:%s" "%s" "%s" 100' % (here, pypath,
-                                                    executable, testscript)
+    command = 'PYTHONPATH="%s:%s" "%s" "%s" %d' % (here, pypath,
+                                                   executable, testscript,
+                                                   100 * sizefactor)
     txt = run_cmd(command)
-    try:
-        result = float([line for line in txt.split('\n') if line.strip()][-1])
-    except ValueError:
+    for line in txt.split('\n'):
+        if '.' in line:
+            try:
+                return float(line) / sizefactor
+            except ValueError:
+                pass
+    else:
         raise BenchmarkFailed
-    return result
 
 def check_templess():
     return external_dependency('templess',
                                'http://johnnydebris.net/templess/trunk',
                                100)
 
-def run_gadfly(executable='/usr/local/bin/python'):
+def run_gadfly(executable='/usr/local/bin/python', sizefactor=1):
     """ run some tests in the gadfly pure Python database """
     here = py.path.local(__file__).dirpath()
     gadfly = here.join('gadfly')
     testscript = gadfly.join('test', 'testsubset.py')
-    command = 'PYTHONPATH="%s" "%s" "%s"' % (gadfly, executable, testscript)
+    command = 'PYTHONPATH="%s" "%s" "%s" %d' % (gadfly, executable, testscript,
+                                                sizefactor)
     txt = run_cmd(command)
-    lines = [line for line in txt.split('\n') if line.strip()]
-    if lines[-1].strip() != 'OK':
-        raise BenchmarkFailed
-    lastword = lines[-2].split()[-1]
-    if not lastword.endswith('s'):
-        raise BenchmarkFailed
-    try:
-        result = float(lastword[:-1])
-    except ValueError:
-        raise BenchmarkFailed
-    return result
+    return get_result(txt, 'Total running time:') / sizefactor
 
 def check_gadfly():
     return external_dependency('gadfly',
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/gadflyZip',
-              54470)
+              70117)
 
-def run_mako(executable='/usr/local/bin/python'):
+def run_mako(executable='/usr/local/bin/python', sizefactor=1):
     """ run some tests in the mako templating system """
     here = py.path.local(__file__).dirpath()
     mako = here.join('mako')
     testscript = mako.join('examples', 'bench', 'basic.py')
-    command = 'PYTHONPATH="%s" "%s" "%s" mako' % (mako.join('lib'),
-                                                  executable, testscript)
+    command = 'PYTHONPATH="%s" "%s" "%s" -n%d mako' % (mako.join('lib'),
+                                                       executable, testscript,
+                                                       2000 * sizefactor)
     txt = run_cmd(command)
-    lines = [line for line in txt.split('\n') if line.strip()]
-    words = lines[-1].split()
-    if words[0] != 'Mako:':
-        raise BenchmarkFailed
-    try:
-        result = float(words[1])
-    except ValueError:
-        raise BenchmarkFailed
-    return result
+    return get_result(txt, 'Mako:')
 
 def check_mako():
     return external_dependency('mako',
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/mako',
-              40235)
+              70118)
 
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?

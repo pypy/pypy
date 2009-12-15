@@ -29,6 +29,8 @@ def main(options, args):
             if not b.check():
                 print "can't run %s benchmark for some reason"%(b.name,)
             else:
+                if int(options.sizefactor) > 1:
+                    b = b * int(options.sizefactor)
                 benchmarks.append(b)
 
     exes = get_executables(args)
@@ -46,11 +48,11 @@ def main(options, args):
     if not options.nocpython:
         exes = full_pythons + exes
 
-    for i in range(int(options.runcount)) + [None]:
+    for i in range(int(options.runcount)) or [None]:
         if i is not None:
             for exe in exes:
                 for b in benchmarks:
-                    benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=True)
+                    benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=options.verbose)
 
         pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
 
@@ -105,6 +107,10 @@ if __name__ == '__main__':
     parser.add_option(
         '--no-cpython', action='store_true', dest='nocpython',
         default=None,
+        )
+    parser.add_option(
+        '--size-factor', dest='sizefactor',
+        default='1',
         )
     options, args = parser.parse_args(sys.argv[1:])
     main(options, args)

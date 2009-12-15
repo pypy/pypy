@@ -89,12 +89,15 @@ class BenchmarkResult(object):
         self.asc_goods[benchmark.name] = benchmark.asc_good
         if self.run_counts.get(benchmark.name, 0) > self.max_results:
             return
-        if verbose:
-            print 'running', benchmark.name, 'for', self.exe_name,
-            sys.stdout.flush()
+        print 'running', benchmark.name, 'for', self.exe_name,
+        sys.stdout.flush()
         new_result = benchmark.run(self.exe_name)
+        print new_result
         if verbose:
-            print new_result
+            print '{'
+            for line in benchmark.latest_output.splitlines(False):
+                print '\t' + line
+            print '}'
         self.run_counts[benchmark.name] = self.run_counts.get(benchmark.name, 0) + 1
         if new_result == '-FAILED-':
             return
@@ -142,6 +145,8 @@ class BenchmarkResult(object):
         elif stat.startswith('bench:'):
             from pypy.translator.benchmark import benchmarks
             statkind, statdetail = stat.split(':', 1)
+            if '*' in statdetail:
+                statdetail = statdetail.split('*')[0]
             b = benchmarks.BENCHMARKS_BY_NAME[statdetail]
             return "%8.2f%s"%(statvalue, b.units), 1
         elif stat == 'pypy_rev':
