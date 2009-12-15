@@ -90,6 +90,8 @@ class BenchmarkResult(object):
         if self.run_counts.get(benchmark.name, 0) > self.max_results:
             return
         print 'running', benchmark.name, 'for', self.exe_name,
+        if verbose and self.pypy_rev > 0:
+            print '[rev %d]' % self.pypy_rev,
         sys.stdout.flush()
         new_result = benchmark.run(self.exe_name)
         print new_result
