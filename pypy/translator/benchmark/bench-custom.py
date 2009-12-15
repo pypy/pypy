@@ -54,6 +54,13 @@ def main(options, args):
                 for b in benchmarks:
                     benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=options.verbose)
 
+        if options.relto:
+            relto = options.relto
+        else:
+            relto = full_pythons[0]
+        if relto not in benchmark_result.benchmarks:
+            continue
+
         pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
 
         exe_stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
@@ -63,10 +70,6 @@ def main(options, args):
             stats = ['exe']
         for b in benchmarks:
             stats.append('bench:'+b.name)
-        if options.relto:
-            relto = options.relto
-        else:
-            relto = full_pythons[0]
         kwds = {'relto': relto,
                 'filteron' :lambda r: r.exe_name in exes,
                 }
