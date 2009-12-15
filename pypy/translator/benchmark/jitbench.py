@@ -1,31 +1,21 @@
+import sys, os
+from optparse import OptionParser
 
-import autopath
-import urllib, urllib2
-import subprocess
-import sys
-import py
+parser = OptionParser()
+parser.add_option(
+    '--size-factor-list', dest='sizefactorlist',
+    default='1,2,5,1,2,5,1,2,5',
+    )
+options, args = parser.parse_args(sys.argv[1:])
+args = args or [sys.executable]
+executables = [os.path.abspath(executable) for executable in args]
+sizefactors = [int(s) for s in options.sizefactorlist.split(',')]
 
-BASE = "http://pypybench.appspot.com/upload"
+os.chdir(os.path.dirname(sys.argv[0]) or '.')
 
-def upload_results(stderr, url=BASE):
-    data = urllib.urlencode({'content' : stderr})
-    req = urllib2.Request(url, data)
-    response = urllib2.urlopen(req)
-    response.read()
-
-def run_richards(executable='python'):
-    richards = str(py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py'))
-    pipe = subprocess.Popen([executable, richards], stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    return pipe.communicate()
-
-def main(executable):
-    stdout, stderr = run_richards(executable)
-    upload_results(stderr)
-
-if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        executable = sys.argv[1]
-    else:
-        executable = sys.executable
-    main(executable)
+for sizefactor in sizefactors:
+    for executable in executables:
+        sys.argv[1:] = [executable, '--pickle=jitbench.benchmark_result',
+                        '-v', '--no-cpython',
+                        '--size-factor=%d' % sizefactor]
+        execfile('bench-custom.py')
