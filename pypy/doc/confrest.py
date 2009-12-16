@@ -5,6 +5,17 @@ from confrest_oldpy import Project, Page, relpath
 html = py.xml.html
 
 class PyPyPage(Page): 
+    googlefragment = """
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+try {
+var pageTracker = _gat._getTracker("UA-7778406-2");
+pageTracker._trackPageview();
+} catch(err) {}</script>
+"""
     def fill_menubar(self):
         self.menubar = html.div(
             html.a("home", 
@@ -31,6 +42,14 @@ class PyPyPage(Page):
     def get_doclink(self, target):
         return relpath(self.targetpath.strpath,
                        self.project.docpath.join(target).strpath)
+
+    def unicode(self, doctype=True): 
+        page = self._root.unicode() 
+        page = page.replace("</body>", self.googlefragment + "</body>")
+        if doctype: 
+            return self.doctype + page 
+        else: 
+            return page 
         
 
 class Project(Project): 
