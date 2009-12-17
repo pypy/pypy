@@ -4,7 +4,7 @@ from optparse import OptionParser
 parser = OptionParser()
 parser.add_option(
     '--size-factor-list', dest='sizefactorlist',
-    default='1,2,5,1,2,5,1,2,5',
+    default='1,2,5,20,1,2,5,20,1,2,5,20',
     )
 options, args = parser.parse_args(sys.argv[1:])
 args = args or [sys.executable]
