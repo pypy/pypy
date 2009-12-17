@@ -30,6 +30,8 @@ def svn_info(url):
     else:
         return basename.split('/')[-2]
 
+PYPY_KEEP = int(os.environ.get('PYPY_USESSION_KEEP', '3'))
+
 def make_udir(dir=None, basename=None):
     if dir is not None:
         dir = local(dir)
@@ -45,7 +47,7 @@ def make_udir(dir=None, basename=None):
         basename = basename + '-'
     return local.make_numbered_dir(rootdir = dir,
                                    prefix = 'usession' + basename,
-                                   keep = 3)
+                                   keep = PYPY_KEEP)
 
 udir = make_udir(dir      = os.environ.get('PYPY_USESSION_DIR'),
                  basename = os.environ.get('PYPY_USESSION_BASENAME'))
