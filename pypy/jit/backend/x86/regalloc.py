@@ -52,7 +52,28 @@ class X86RegisterManager(RegisterManager):
             print "convert_to_imm: got a %s" % c
             raise AssertionError
 
-BASE_CONSTANT_SIZE = 1000
+
+class FloatConstants(object):
+    BASE_CONSTANT_SIZE = 1000
+
+    def __init__(self):
+        self.cur_array_free = 0
+
+    def _get_new_array(self):
+        n = self.BASE_CONSTANT_SIZE
+        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
+                                       flavor='raw')
+        self.cur_array_free = n
+    _get_new_array._dont_inline_ = True
+
+    def record_float(self, floatval):
+        if self.cur_array_free == 0:
+            self._get_new_array()
+        arr = self.cur_array
+        n = self.cur_array_free - 1
+        arr[n] = floatval
+        self.cur_array_free = n
+        return rffi.cast(lltype.Signed, arr) + n * 8
 
 
 class X86XMMRegisterManager(RegisterManager):
@@ -63,29 +84,19 @@ class X86XMMRegisterManager(RegisterManager):
     save_around_call_regs = all_regs
     reg_width = 2
 
-    def new_const_array(self):
-        return lltype.malloc(rffi.CArray(lltype.Float), BASE_CONSTANT_SIZE,
-                             flavor='raw')
-
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
                                  assembler=assembler)
-        self.constant_arrays = [self.new_const_array()]
-        self.constant_array_counter = 0
+        if assembler is None:
+            self.float_constants = FloatConstants()
+        else:
+            if assembler._float_constants is None:
+                assembler._float_constants = FloatConstants()
+            self.float_constants = assembler._float_constants
 
     def convert_to_imm(self, c):
-        if self.constant_array_counter >= BASE_CONSTANT_SIZE:
-            self.constant_arrays.append(self.new_const_array())
-            self.constant_array_counter = 0
-        res = self.constant_array_counter
-        self.constant_array_counter += 1
-        arr = self.constant_arrays[-1]
-        arr[res] = c.getfloat()
-        return self.get_addr_of_const_float(-1, res)
-
-    def get_addr_of_const_float(self, num_arr, num_pos):
-        arr = self.constant_arrays[num_arr]
-        return heap64(rffi.cast(lltype.Signed, arr) + num_pos * WORD * 2)
+        adr = self.float_constants.record_float(c.getfloat())
+        return heap64(adr)
         
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,

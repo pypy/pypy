@@ -75,6 +75,7 @@ class Assembler386(object):
     mc = None
     mc2 = None
     mc_size = MachineCodeBlockWrapper.MC_DEFAULT_SIZE
+    _float_constants = None
 
     def __init__(self, cpu, translate_support_code=False,
                             failargs_limit=1000):

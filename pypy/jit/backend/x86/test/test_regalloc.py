@@ -9,7 +9,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, X86RegisterManager,\
-     BASE_CONSTANT_SIZE
+     FloatConstants
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -503,6 +503,7 @@ class TestRegallocFloats(BaseTestRegalloc):
 
     def test_float_overflow_const_list(self):
         ops = ['[f0]']
+        BASE_CONSTANT_SIZE = FloatConstants.BASE_CONSTANT_SIZE
         for i in range(BASE_CONSTANT_SIZE * 2):
             ops.append('f%d = float_add(f%d, 3.5)' % (i + 1, i))
         ops.append('finish(f%d)' % (BASE_CONSTANT_SIZE * 2))
