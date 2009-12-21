@@ -175,7 +175,6 @@ def test_FrameInfo_create():
     assert fi.jitcode is jitcode
     assert fi.pc == 1
     assert fi.exception_target == 2
-    assert fi.level == 1
 
     jitcode1 = "JITCODE1"
     frame1 = FakeFrame(jitcode, 3, 4)
@@ -184,7 +183,6 @@ def test_FrameInfo_create():
     assert fi1.jitcode is jitcode
     assert fi1.pc == 3
     assert fi1.exception_target == 4
-    assert fi1.level == 2
 
 def test_Numbering_create():
     l = [1, 2]

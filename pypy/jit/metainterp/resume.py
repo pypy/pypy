@@ -21,15 +21,10 @@ class Snapshot(object):
         self.boxes = boxes
 
 class FrameInfo(object):
-    __slots__ = ('prev', 'jitcode', 'pc', 'exception_target', 'level')
+    __slots__ = ('prev', 'jitcode', 'pc', 'exception_target')
 
     def __init__(self, prev, frame):
         self.prev = prev
-        if prev is None:
-            level = 1
-        else:
-            level = prev.level + 1
-        self.level = level
         self.jitcode = frame.jitcode
         self.pc = frame.pc
         self.exception_target = frame.exception_target
