@@ -14,6 +14,8 @@ import fnmatch
 import tarfile
 from pypy.tool.udir import udir
 
+if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
