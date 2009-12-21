@@ -28,6 +28,7 @@ class MockGcDescr(GcCache):
 
 class MockAssembler(object):
     gcrefs = None
+    _float_constants = None
 
     def __init__(self, cpu=None, gc_ll_descr=None):
         self.movs = []
