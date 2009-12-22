@@ -17,6 +17,7 @@ from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import debug_print
+from pypy.rlib import rgc
 
 # our calling convention - we pass first 6 args in registers
 # and the rest stays on the stack
@@ -956,6 +957,7 @@ class Assembler386(object):
             boxes.append(box)
         return boxes
 
+    @rgc.no_collect
     def grab_frame_values(self, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!
         self.fail_ebp = allregisters[16 + ebp.op]
@@ -1020,6 +1022,7 @@ class Assembler386(object):
 
     def setup_failure_recovery(self):
 
+        @rgc.no_collect
         def failure_recovery_func(registers):
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original

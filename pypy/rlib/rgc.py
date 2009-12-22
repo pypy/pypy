@@ -357,3 +357,8 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 ll_arraycopy._annspecialcase_ = 'specialize:ll'
+
+def no_collect(func):
+    func._dont_inline_ = True
+    func._gc_no_collect_ = True
+    return func

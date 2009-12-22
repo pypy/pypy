@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import Constant, SpaceOperation
 from pypy.annotation.model import SomeInteger
+from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.memory.gc.marksweep import MarkSweepGC
 from pypy.rpython.memory.gctransform.test.test_transform import rtype, \
     rtype_and_transform
@@ -34,7 +35,6 @@ def test_framework_simple():
     from pypy.rpython.llinterp import LLInterpreter
     from pypy.translator.c.genc import CStandaloneBuilder
     from pypy.translator.c import gc
-    from pypy.annotation.listdef import s_list_of_strings
 
     t = rtype(entrypoint, [s_list_of_strings])
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
@@ -113,6 +113,50 @@ def test_cancollect_external():
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
 
+def test_no_collect():
+    from pypy.rlib import rgc
+    from pypy.translator.c.genc import CStandaloneBuilder
+    from pypy.translator.c import gc
+
+    @rgc.no_collect
+    def g():
+        return 1
+
+    assert g._dont_inline_
+    assert g._gc_no_collect_
+
+    def entrypoint(argv):
+        return g() + 2
+    
+    t = rtype(entrypoint, [s_list_of_strings])
+    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
+                                gcpolicy=FrameworkGcPolicy2)
+    db = cbuild.generate_graphs_for_llinterp()
+
+def test_no_collect_detection():
+    from pypy.rlib import rgc
+    from pypy.translator.c.genc import CStandaloneBuilder
+    from pypy.translator.c import gc
+
+    class A(object):
+        def __init__(self, x):
+            self.x = x
+
+    @rgc.no_collect
+    def g():
+        return A(1).x
+
+    assert g._dont_inline_
+    assert g._gc_no_collect_
+
+    def entrypoint(argv):
+        return g() + 2
+    
+    t = rtype(entrypoint, [s_list_of_strings])
+    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
+                                gcpolicy=FrameworkGcPolicy2)
+    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    assert str(f.value) == 'no_collect function can trigger collection'
 
 class WriteBarrierTransformer(FrameworkGCTransformer):
     clean_sets = {}
