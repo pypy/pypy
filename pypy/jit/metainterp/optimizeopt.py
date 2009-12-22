@@ -234,7 +234,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # modifier.already_seen_virtual()
             # checks for recursion: it is False unless
             # we have already seen the very same keybox
             lst = self._get_field_descr_list()
@@ -302,11 +301,9 @@ class VArrayValue(AbstractVirtualValue):
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # modifier.already_seen_virtual()
             # checks for recursion: it is False unless
             # we have already seen the very same keybox
             itemboxes = []
-            const = self.optimizer.new_const_item(self.arraydescr)
             for itemvalue in self._items:
                 itemboxes.append(itemvalue.get_key_box())
             modifier.register_virtual_fields(self.keybox, itemboxes)

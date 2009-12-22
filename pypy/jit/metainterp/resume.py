@@ -195,6 +195,7 @@ class ResumeDataLoopMemo(object):
         return len(self.cached_boxes)
 
     def assign_number_to_box(self, box, boxes):
+        # returns a negative number
         if box in self.cached_boxes:
             num = self.cached_boxes[box]
             boxes[-num-1] = box
@@ -208,6 +209,7 @@ class ResumeDataLoopMemo(object):
         return len(self.cached_virtuals)
 
     def assign_number_to_virtual(self, box):
+        # returns a negative number
         if box in self.cached_virtuals:
             num = self.cached_virtuals[box]
         else:
@@ -230,8 +232,6 @@ class ResumeDataVirtualAdder(object):
     def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
-        #self.virtuals = []
-        #self.vfieldboxes = []
 
     def make_virtual(self, known_class, fielddescrs):
         return VirtualInfo(known_class, fielddescrs)
