@@ -156,7 +156,7 @@ def test_no_collect_detection():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
-    assert str(f.value) == 'no_collect function can trigger collection'
+    assert str(f.value) == 'no_collect function can trigger collection: g'
 
 class WriteBarrierTransformer(FrameworkGCTransformer):
     clean_sets = {}
