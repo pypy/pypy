@@ -93,8 +93,8 @@ TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-UNASSIGNED = tag(-2 ** 12 - 1, TAGBOX)
-UNASSIGNEDVIRTUAL = tag(-2 ** 12 - 1, TAGVIRTUAL)
+UNASSIGNED = tag(-1<<13, TAGBOX)
+UNASSIGNEDVIRTUAL = tag(-1<<13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
 
 
@@ -301,6 +301,11 @@ class ResumeDataVirtualAdder(object):
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
         count = 0
+        # So far, self.liveboxes should contain 'tagged' values that are
+        # either UNASSIGNED, UNASSIGNEDVIRTUAL, or a *non-negative* value
+        # with the TAGVIRTUAL.  The following loop removes the UNASSIGNED
+        # and UNASSIGNEDVIRTUAL entries, and replaces them with real
+        # negative values.
         for box, tagged in self.liveboxes.iteritems():
             i, tagbits = untag(tagged)
             if tagbits == TAGBOX:
@@ -315,6 +320,8 @@ class ResumeDataVirtualAdder(object):
                     assert box not in self.liveboxes_from_env
                     index = memo.assign_number_to_virtual(box)
                     self.liveboxes[box] = tag(index, TAGVIRTUAL)
+                else:
+                    assert i >= 0
         new_liveboxes.reverse()
         liveboxes.extend(new_liveboxes)
         nholes = len(new_liveboxes) - count
