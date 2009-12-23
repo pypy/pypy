@@ -918,7 +918,8 @@ class HeapOpOptimizer(object):
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.DEBUG_MERGE_POINT):
             return
-        if opnum == rop.CALL:
+        if (opnum == rop.CALL or
+            opnum == rop.CALL_MAY_FORCE):
             effectinfo = op.descr.get_extra_info()
             if effectinfo is not None:
                 for fielddescr in effectinfo.write_descrs_fields:
