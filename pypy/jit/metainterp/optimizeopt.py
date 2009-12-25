@@ -905,8 +905,6 @@ class HeapOpOptimizer(object):
         return None
 
     def emitting_operation(self, op):
-        if op.is_always_pure():
-            return
         if op.has_no_side_effect():
             return
         if op.is_ovf():
