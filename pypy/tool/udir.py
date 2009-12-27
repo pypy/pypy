@@ -18,7 +18,7 @@
 #
 
 import autopath
-import os
+import os, sys
 import py
 
 from py.path import local 
@@ -39,6 +39,8 @@ def make_udir(dir=None, basename=None):
         try:
             p = py.path.local(__file__).dirpath()
             basename = svn_info(py.path.svnwc(p).info().url)
+            if isinstance(basename, unicode):
+                basename = basename.encode(sys.getdefaultencoding())
         except:
             basename = ''
     if not basename.startswith('-'):
