@@ -28,7 +28,6 @@ if sys.platform == 'darwin':
 else:
     CALL_ALIGN = 1
 
-
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
@@ -226,13 +225,14 @@ class Assembler386(object):
 
     def _patch_stackadjust(self, adr_lea, reserved_depth):
         # patch stack adjustment LEA
-        # possibly align, e.g. for Mac OS X        
         mc = codebuf.InMemoryCodeBuilder(adr_lea, adr_lea + 4)
         # Compute the correct offset for the instruction LEA ESP, [EBP-4*words].
         # Given that [EBP] is where we saved EBP, i.e. in the last word
         # of our fixed frame, then the 'words' value is:
         words = (FRAME_FIXED_SIZE - 1) + reserved_depth
-        mc.write(packimm32(-WORD * words))
+        # align, e.g. for Mac OS X        
+        aligned_words = align_stack_words(words+2)-2 # 2 = EIP+EBP
+        mc.write(packimm32(-WORD * aligned_words))
         mc.done()
 
     def _assemble_bootstrap_code(self, inputargs, arglocs):
@@ -403,14 +403,6 @@ class Assembler386(object):
                     name = 'J' + false_cond
                     return self.implement_guard(addr, getattr(self.mc, name))
         return genop_cmp_guard
-
-##    XXX redo me
-##    def align_stack_for_call(self, nargs):
-##        # xxx do something when we don't use push anymore for calls
-##        extra_on_stack = align_stack_words(nargs)
-##        for i in range(extra_on_stack-nargs):
-##            self.mc.PUSH(imm(0))   --- or just use a single SUB(esp, imm)
-##        return extra_on_stack
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax):
         p = 0
