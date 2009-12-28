@@ -644,7 +644,7 @@ def configure_external_library(name, eci, configurations,
         else:
             raise CompilationError("Library %s is not installed" % (name,))
 
-def check_boehm(platform=None):
+def configure_boehm(platform=None):
     if platform is None:
         from pypy.translator.platform import platform
     if sys.platform == 'win32':
@@ -658,13 +658,10 @@ def check_boehm(platform=None):
         includes=includes,
         libraries=['gc'],
         )
-    try:
-        return configure_external_library(
-            'gc', eci,
-            [dict(prefix='gc-', include_dir='include', library_dir=library_dir)],
-            symbol='GC_init')
-    except CompilationError:
-        return None
+    return configure_external_library(
+        'gc', eci,
+        [dict(prefix='gc-', include_dir='include', library_dir=library_dir)],
+        symbol='GC_init')
 
 if __name__ == '__main__':
     doc = """Example:

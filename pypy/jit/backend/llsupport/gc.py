@@ -41,7 +41,7 @@ class GcLLDescr_boehm(GcLLDescription):
         GcLLDescription.__init__(self, gcdescr, translator)
         # grab a pointer to the Boehm 'malloc' function
         from pypy.rpython.tool import rffi_platform
-        compilation_info = rffi_platform.check_boehm()
+        compilation_info = rffi_platform.configure_boehm()
 
         # Versions 6.x of libgc needs to use GC_local_malloc().
         # Versions 7.x of libgc removed this function; GC_malloc() has

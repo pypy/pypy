@@ -3,12 +3,15 @@ from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
-from pypy.rpython.tool.rffi_platform import check_boehm
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
 
 def setup_module(mod):
-    if not check_boehm():
+    from pypy.rpython.tool.rffi_platform import configure_boehm
+    from pypy.translator.platform import CompilationError
+    try:
+        configure_boehm()
+    except CompilationError:
         py.test.skip("Boehm GC not present")
 
 class AbstractGCTestClass(object):

@@ -428,10 +428,13 @@ class TranslationDriver(SimpleTaskEngine):
 
     def possibly_check_for_boehm(self):
         if self.config.translation.gc == "boehm":
-            from pypy.rpython.tool.rffi_platform import check_boehm
-            if not check_boehm(self.translator.platform):
+            from pypy.rpython.tool.rffi_platform import configure_boehm
+            from pypy.translator.platform import CompilationError
+            try:
+                configure_boehm(self.translator.platform)
+            except CompilationError, e:
                 i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
-                raise Exception(i)
+                raise Exception(str(e) + '\n' + i)
 
     def task_database_c(self):
         translator = self.translator

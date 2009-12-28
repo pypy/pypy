@@ -215,8 +215,8 @@ class BoehmGcPolicy(BasicGcPolicy):
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
 
-        from pypy.rpython.tool.rffi_platform import check_boehm
-        eci = eci.merge(check_boehm())
+        from pypy.rpython.tool.rffi_platform import configure_boehm
+        eci = eci.merge(configure_boehm())
 
         pre_include_bits = []
         if sys.platform == "linux2":
