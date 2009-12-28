@@ -1,5 +1,5 @@
 
-import py, sys, random
+import py, sys, random, os
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
@@ -464,6 +464,29 @@ class BaseBackendTest(Runner):
                                          [funcbox] + args,
                                          'float', descr=calldescr)
             assert abs(res.value - 4.6) < 0.0001
+
+    def test_call_stack_alignment(self):
+        # test stack alignment issues, notably for Mac OS/X
+
+        def func_ints(*ints):
+            s = str(ints) + '\n'
+            os.write(1, s)   # don't remove -- crash if the stack is misaligned
+            return sum(ints)
+
+        for nb_args in range(0, 35):
+            cpu = self.cpu
+            TP = lltype.Signed
+            #
+            FPTR = self.Ptr(self.FuncType([TP] * nb_args, TP))
+            func_ptr = llhelper(FPTR, func_ints)
+            FUNC = deref(FPTR)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            args = [280-24*i for i in range(nb_args)]
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + map(BoxInt, args),
+                                         'int', descr=calldescr)
+            assert res.value == sum(args)
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
