@@ -1,7 +1,7 @@
 
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.__builtin__.importing import get_pyc_magic
+from pypy.module.imp.importing import get_pyc_magic
 
 class Module(MixedModule):
     appleveldefs = {

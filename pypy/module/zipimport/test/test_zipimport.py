@@ -4,7 +4,7 @@ import marshal
 import py
 import time
 import struct
-from pypy.module.__builtin__.importing import get_pyc_magic, _w_long
+from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
 from pypy.tool.udir import udir
@@ -254,6 +254,11 @@ class AppTestZipimport:
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
         assert len(l)
+
+    def test_path_hooks(self):
+        import sys
+        import zipimport
+        assert sys.path_hooks.count(zipimport.zipimporter) == 1
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED

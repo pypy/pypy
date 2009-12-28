@@ -14,4 +14,12 @@ class Module(MixedModule):
     appleveldefs = {
         'ZipImportError'      : 'app_zipimport.ZipImportError',
     }
-    
+
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        space = self.space
+        # install zipimport hook
+        w_path_hooks = space.sys.get('path_hooks')
+        from pypy.module.zipimport.interp_zipimport import W_ZipImporter
+        w_zipimporter = space.gettypefor(W_ZipImporter)
+        space.call_method(w_path_hooks, 'append', w_zipimporter)

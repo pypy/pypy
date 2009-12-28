@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
-from pypy.module.__builtin__ import importing
+from pypy.module.imp import importing
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rzipfile import RZipFile, BadZipfile
 import os
@@ -149,9 +149,9 @@ class W_ZipImporter(Wrappable):
         real_name = self.name + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        result = importing.load_source_module(space, w(modname), w_mod,
-                                            filename, buf, write_pyc=False)
-        return result
+        code_w = importing.parse_source_module(space, filename, buf)
+        importing.exec_code_module(space, w_mod, code_w)
+        return w_mod
 
     def _parse_mtime(self, space, filename):
         w = space.wrap

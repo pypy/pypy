@@ -13,13 +13,21 @@ class MixedModule(Module):
 
     applevel_name = None
     expose__file__attribute = True
-    
+    w_initialdict = None
+
     def __init__(self, space, w_name): 
         """ NOT_RPYTHON """ 
         Module.__init__(self, space, w_name) 
         self.lazy = True 
         self.__class__.buildloaders()
         self.loaders = self.loaders.copy()    # copy from the class to the inst
+
+    def init(self, space):
+        """This is called each time the module is imported or reloaded
+        """
+        if self.w_initialdict is not None:
+            space.call_method(self.w_dict, 'update', self.w_initialdict)
+        Module.init(self, space)
 
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
@@ -82,7 +90,8 @@ class MixedModule(Module):
             for name in self.loaders: 
                 w_value = self.get(name)  
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value) 
-            self.lazy = False 
+            self.lazy = False
+            self.w_initialdict = space.call_method(self.w_dict, 'items')
         return self.w_dict 
 
     def _freeze_(self):

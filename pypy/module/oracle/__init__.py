@@ -39,6 +39,7 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.module.oracle.interp_error import get
         state = get(space)
+        state.startup(space)
         (state.w_DecimalType,
          state.w_DateTimeType, state.w_DateType, state.w_TimedeltaType,
          ) = space.fixedview(space.appexec([], """():

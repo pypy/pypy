@@ -9,7 +9,7 @@ from pypy.conftest import gettestobjspace
 import sys, os
 import tempfile, marshal
 
-from pypy.module.__builtin__ import importing
+from pypy.module.imp import importing
 
 from pypy import conftest
 
@@ -34,6 +34,8 @@ def setup_directory_structure(space):
                     a = "imamodule = 1\ninpackage = 0",
                     b = "imamodule = 1\ninpackage = 0",
                     ambig = "imamodule = 1",
+                    test_reload = "def test():\n    raise ValueError\n",
+                    infinite_reload = "import infinite_reload; reload(infinite_reload)",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
@@ -41,7 +43,9 @@ def setup_directory_structure(space):
              relative_a = "import a",
              abs_b      = "import b",
              abs_x_y    = "import x.y",
+             abs_sys    = "import sys",
              string     = "inpackage = 1",
+             errno      = "",
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
@@ -62,6 +66,7 @@ def setup_directory_structure(space):
              )
     setuppkg("pkg_substituting",
              __init__ = "import sys, pkg_substituted\n"
+                        "print 'TOTO', __name__\n"
                         "sys.modules[__name__] = pkg_substituted")
     setuppkg("pkg_substituted", mod='')
     p = setuppkg("readonly", x='')
@@ -254,6 +259,17 @@ class AppTestImport:
             import pkg_r.inpkg
         raises(ImportError,imp)
 
+    def test_import_builtin_inpackage(self):
+        def imp():
+            import pkg.sys
+        raises(ImportError,imp)
+
+        import sys, pkg.abs_sys
+        assert pkg.abs_sys.sys is sys
+
+        import errno, pkg.errno
+        assert pkg.errno is not errno
+
     def test_import_Globals_Are_None(self):
         import sys
         m = __import__('sys')
@@ -353,9 +369,9 @@ class AppTestImport:
     def test_relative_import_pkg(self):
         import sys
         import imp
-        pkg = imp.new_module('pkg')
-        sys.modules['pkg'] = pkg
-        mydict = {'__name__': 'pkg.foo', '__path__': '/some/path'}
+        pkg = imp.new_module('newpkg')
+        sys.modules['newpkg'] = pkg
+        mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
 
@@ -368,6 +384,65 @@ class AppTestImport:
         assert mod.a == 15
         assert mod.b == 16
         assert mod.c == "foo\nbar"
+
+    def test_reload(self):
+        import test_reload
+        try:
+            test_reload.test()
+        except ValueError:
+            pass
+
+        # If this test runs too quickly, test_reload.py's mtime
+        # attribute will remain unchanged even if the file is rewritten.
+        # Consequently, the file would not reload.  So, added a sleep()
+        # delay to assure that a new, distinct timestamp is written.
+        import time
+        time.sleep(1)
+
+        f = open(test_reload.__file__, "w")
+        f.write("def test():\n    raise NotImplementedError\n")
+        f.close()
+        reload(test_reload)
+        try:
+            test_reload.test()
+        except NotImplementedError:
+            pass
+
+        # Ensure that the file is closed
+        # (on windows at least)
+        import os
+        os.unlink(test_reload.__file__)
+
+    def test_reload_failing(self):
+        import test_reload
+        import time
+        time.sleep(1)
+        f = open(test_reload.__file__, "w")
+        f.write("a = 10 // 0\n")
+        f.close()
+
+        # A failing reload should leave the previous module in sys.modules
+        raises(ZeroDivisionError, reload, test_reload)
+        import os, sys
+        assert 'test_reload' in sys.modules
+        assert test_reload.test
+        os.unlink(test_reload.__file__)
+
+    def test_reload_submodule(self):
+        import pkg.a
+        reload(pkg.a)
+
+    def test_reload_builtin(self):
+        import sys
+        try:
+            del sys.setdefaultencoding
+        except AttributeError:
+            pass
+        reload(sys)
+        assert 'setdefaultencoding' in dir(sys)
+
+    def test_reload_infinite(self):
+        import infinite_reload
 
 def _getlong(data):
     x = marshal.dumps(data)
@@ -400,13 +475,14 @@ class TestPycStuff:
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
-        assert ret is True
+        assert ret is not None
+        ret.close()
 
         # check for wrong mtime
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime+1)
-        assert ret is False
+        assert ret is None
         os.remove(cpathname)
 
         # check for wrong version
@@ -414,7 +490,7 @@ class TestPycStuff:
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
-        assert ret is False
+        assert ret is None
 
         # check for empty .pyc file
         f = open(cpathname, 'wb')
@@ -422,7 +498,7 @@ class TestPycStuff:
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
-        assert ret is False
+        assert ret is None
         os.remove(cpathname)
 
     def test_read_compiled_module(self):
@@ -616,7 +692,8 @@ class TestPycStuff:
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
-        assert ret is True
+        assert ret is not None
+        ret.close()
 
         # read compiled module
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -694,14 +771,49 @@ class AppTestImportHooks(object):
             def find_module(self, fullname, path=None):
                 tried_imports.append((fullname, path))
 
-        import sys
+        import sys, datetime
+        del sys.modules["datetime"]
+
+        sys.meta_path.append(Importer())
         try:
-            sys.meta_path.append(Importer())
             import datetime
             assert len(tried_imports) == 1
-            tried_imports[0][0] == "datetime"
+            package_name = '.'.join(__name__.split('.')[:-1])
+            if package_name:
+                assert tried_imports[0][0] == package_name + ".datetime"
+            else:
+                assert tried_imports[0][0] == "datetime"
         finally:
             sys.meta_path.pop()
+
+    def test_meta_path_block(self):
+        class ImportBlocker(object):
+            "Specified modules can't be imported, even if they are built-in"
+            def __init__(self, *namestoblock):
+                self.namestoblock = dict.fromkeys(namestoblock)
+            def find_module(self, fullname, path=None):
+                if fullname in self.namestoblock:
+                    return self
+            def load_module(self, fullname):
+                raise ImportError, "blocked"
+
+        import sys, imp
+        modname = "errno" # an arbitrary harmless builtin module
+        mod = None
+        if modname in sys.modules:
+            mod = sys.modules
+            del sys.modules[modname]
+        sys.meta_path.append(ImportBlocker(modname))
+        try:
+            raises(ImportError, __import__, modname)
+            # the imp module doesn't use meta_path, and is not blocked
+            # (until imp.get_loader is implemented, see PEP302)
+            file, filename, stuff = imp.find_module(modname)
+            imp.load_module(modname, file, filename, stuff)
+        finally:
+            sys.meta_path.pop()
+            if mod:
+                sys.modules[modname] = mod
 
     def test_path_hooks_leaking(self):
         class Importer(object):
@@ -730,6 +842,61 @@ class AppTestImportHooks(object):
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
+            sys.path_hooks.pop()
+
+    def test_imp_wrapper(self):
+        import sys, os, imp
+        class ImpWrapper:
+
+            def __init__(self, path=None):
+                if path is not None and not os.path.isdir(path):
+                    raise ImportError
+                self.path = path
+
+            def find_module(self, fullname, path=None):
+                subname = fullname.split(".")[-1]
+                if subname != fullname and self.path is None:
+                    return None
+                if self.path is None:
+                    path = None
+                else:
+                    path = [self.path]
+                try:
+                    file, filename, stuff = imp.find_module(subname, path)
+                except ImportError, e:
+                    return None
+                return ImpLoader(file, filename, stuff)
+
+        class ImpLoader:
+
+            def __init__(self, file, filename, stuff):
+                self.file = file
+                self.filename = filename
+                self.stuff = stuff
+
+            def load_module(self, fullname):
+                mod = imp.load_module(fullname, self.file, self.filename, self.stuff)
+                if self.file:
+                    self.file.close()
+                mod.__loader__ = self  # for introspection
+                return mod
+
+        i = ImpWrapper()
+        sys.meta_path.append(i)
+        sys.path_hooks.append(ImpWrapper)
+        sys.path_importer_cache.clear()
+        try:
+            mnames = ("colorsys", "urlparse", "distutils.core", "compiler.misc")
+            for mname in mnames:
+                parent = mname.split(".")[0]
+                for n in sys.modules.keys():
+                    if n.startswith(parent):
+                        del sys.modules[n]
+            for mname in mnames:
+                m = __import__(mname, globals(), locals(), ["__dummy__"])
+                m.__loader__  # to make sure we actually handled the import
+        finally:
+            sys.meta_path.pop()
             sys.path_hooks.pop()
 
 class AppTestNoPycFile(object):

@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import module
 from pypy.interpreter.mixedmodule import MixedModule
+import pypy.module.imp.importing
 
 # put builtins here that should be optimized somehow
 
@@ -34,9 +35,6 @@ class Module(MixedModule):
         'sorted'        : 'app_functional.sorted',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
-
-        '_find_module'  : 'app_misc.find_module',
-        'reload'        : 'app_misc.reload',
 
         '__filestub'    : 'app_file_stub.file',
     }
@@ -88,7 +86,8 @@ class Module(MixedModule):
         'compile'       : 'compiling.compile',
         'eval'          : 'compiling.eval',
 
-        '__import__'    : 'importing.importhook',
+        '__import__'    : 'pypy.module.imp.importing.importhook',
+        'reload'        : 'pypy.module.imp.importing.reload',
 
         'range'         : 'functional.range_int',
         'xrange'        : 'functional.W_XRange',
@@ -152,16 +151,3 @@ class Module(MixedModule):
         space.exception_is_valid_obj_as_class_w = ab.exception_is_valid_obj_as_class_w.__get__(space)
         space.exception_getclass = ab.exception_getclass.__get__(space)
         space.exception_issubclass_w = ab.exception_issubclass_w.__get__(space)
-
-    def startup(self, space):
-        # install zipimport hook if --withmod-zipimport is used
-        if space.config.objspace.usemodules.zipimport:
-            w_import = space.builtin.get('__import__')
-            w_zipimport = space.call(w_import, space.newlist(
-                [space.wrap('zipimport')]))
-            w_sys = space.getbuiltinmodule('sys')
-            w_path_hooks = space.getattr(w_sys, space.wrap('path_hooks'))
-            w_append = space.getattr(w_path_hooks, space.wrap('append'))
-            w_zipimporter = space.getattr(w_zipimport,
-                                          space.wrap('zipimporter'))
-            space.call(w_append, space.newlist([w_zipimporter]))

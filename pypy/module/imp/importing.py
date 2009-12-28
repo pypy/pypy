@@ -14,41 +14,43 @@ from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated
 
-NOFILE = 0
-PYFILE = 1
-PYCFILE = 2
+SEARCH_ERROR = 0
+PY_SOURCE = 1
+PY_COMPILED = 2
+C_EXTENSION = 3
+# PY_RESOURCE = 4
+PKG_DIRECTORY = 5
+C_BUILTIN = 6
+PY_FROZEN = 7
+# PY_CODERESOURCE = 8
+IMP_HOOK = 9
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
-    which is a path without extension.  Returns PYFILE, PYCFILE or
-    NOFILE.
+    which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
+    SEARCH_ERROR.
     """
     # check the .py file
     pyfile = filepart + ".py"
     if os.path.exists(pyfile) and case_ok(pyfile):
-        pyfile_ts = os.stat(pyfile)[stat.ST_MTIME]
-        pyfile_exists = True
-    else:
-        # The .py file does not exist.  By default on PyPy, lonepycfiles
-        # is False: if a .py file does not exist, we don't even try to
-        # look for a lone .pyc file.
-        if not space.config.objspace.lonepycfiles:
-            return NOFILE
-        pyfile_ts = 0
-        pyfile_exists = False
+        return PY_SOURCE, ".py", "U"
+
+    # The .py file does not exist.  By default on PyPy, lonepycfiles
+    # is False: if a .py file does not exist, we don't even try to
+    # look for a lone .pyc file.
+    # The "imp" module does not respect this, and is allowed to find
+    # lone .pyc files.
+    if not space.config.objspace.lonepycfiles:
+        return SEARCH_ERROR, None, None
 
     # check the .pyc file
     if space.config.objspace.usepycfiles:
-        pycfile = filepart + ".pyc"    
-        if case_ok(pycfile):
-            if check_compiled_module(space, pycfile, pyfile_ts):
-                return PYCFILE     # existing and up-to-date .pyc file
+        pycfile = filepart + ".pyc"
+        if os.path.exists(pycfile) and case_ok(pycfile):
+            # existing .pyc file
+            return PY_COMPILED, ".pyc", "rb"
 
-    # no .pyc file, use the .py file if it exists
-    if pyfile_exists:
-        return PYFILE
-    else:
-        return NOFILE
+    return SEARCH_ERROR, None, None
 
 if sys.platform in ['linux2', 'freebsd']:
     def case_ok(filename):
@@ -66,61 +68,6 @@ else:
             return filename in os.listdir(directory)
         except OSError:
             return False
-
-def _prepare_module(space, w_mod, filename, pkgdir):
-    w = space.wrap
-    space.sys.setmodule(w_mod)
-    space.setattr(w_mod, w('__file__'), space.wrap(filename))
-    space.setattr(w_mod, w('__doc__'), space.w_None)
-    if pkgdir is not None:
-        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))    
-
-def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None):
-
-    # decide what type we want (pyc/py)
-    modtype = find_modtype(space, filepart)
-
-    if modtype == NOFILE:
-        return None
-
-    w = space.wrap
-    w_mod = w(Module(space, w_modulename))
-
-    try:
-        if modtype == PYFILE:
-            filename = filepart + ".py"
-            stream = streamio.open_file_as_stream(filename, "rU")
-        else:
-            assert modtype == PYCFILE
-            filename = filepart + ".pyc"
-            stream = streamio.open_file_as_stream(filename, "rb")
-
-        try:
-            _prepare_module(space, w_mod, filename, pkgdir)
-            try:
-                if modtype == PYFILE:
-                    load_source_module(space, w_modulename, w_mod, filename,
-                                       stream.readall())
-                else:
-                    magic = _r_long(stream)
-                    timestamp = _r_long(stream)
-                    load_compiled_module(space, w_modulename, w_mod, filename,
-                                         magic, timestamp, stream.readall())
-
-            except OperationError, e:
-                w_mods = space.sys.get('modules')
-                space.call_method(w_mods,'pop', w_modulename, space.w_None)
-                raise
-        finally:
-            stream.close()
-
-    except StreamErrors:
-        return None
-
-    w_mod = check_sys_modules(space, w_modulename)
-    if w_mod is not None and w_parent is not None:
-        space.setattr(w_parent, w_name, w_mod)
-    return w_mod
 
 def try_getattr(space, w_obj, w_name):
     try:
@@ -228,13 +175,11 @@ def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
 
 def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     w = space.wrap
-    
+
     w_mod = None
     parts = modulename.split('.')
     prefix = []
-    # it would be nice if we could do here: w_path = space.sys.w_path
-    # instead:
-    w_path = space.sys.get('path') 
+    w_path = None
 
     first = None
     level = 0
@@ -267,51 +212,191 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     else:
         return first
 
+def find_in_meta_path(space, w_modulename, w_path):
+    assert w_modulename is not None
+    if w_path is None:
+        w_path = space.w_None
+    for w_hook in space.unpackiterable(space.sys.get("meta_path")):
+        w_loader = space.call_method(w_hook, "find_module",
+                                     w_modulename, w_path)
+        if space.is_true(w_loader):
+            return w_loader
+
+def find_in_path_hooks(space, w_modulename, w_pathitem):
+    w_path_importer_cache = space.sys.get("path_importer_cache")
+    try:
+        w_importer = space.getitem(w_path_importer_cache, w_pathitem)
+    except OperationError, e:
+        if not e.match(space, space.w_KeyError):
+            raise
+        w_importer = space.w_None
+        space.setitem(w_path_importer_cache, w_pathitem, w_importer)
+        for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
+            try:
+                w_importer = space.call_function(w_hook, w_pathitem)
+            except OperationError, e:
+                if not e.match(space, space.w_ImportError):
+                    raise
+            else:
+                break
+        if space.is_true(w_importer):
+            space.setitem(w_path_importer_cache, w_pathitem, w_importer)
+    if space.is_true(w_importer):
+        w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        if space.is_true(w_loader):
+            return w_loader
+
+class FindInfo:
+    def __init__(self, modtype, filename, stream,
+                 suffix="", filemode="", w_loader=None):
+        self.modtype = modtype
+        self.filename = filename
+        self.stream = stream
+        self.suffix = suffix
+        self.filemode = filemode
+        self.w_loader = w_loader
+
+    @staticmethod
+    def fromLoader(w_loader):
+        return FindInfo(IMP_HOOK, '', None, w_loader=w_loader)
+
+def find_module(space, modulename, w_modulename, partname, w_path,
+                use_loader=True):
+    # Examin importhooks (PEP302) before doing the import
+    if use_loader:
+        w_loader  = find_in_meta_path(space, w_modulename, w_path)
+        if w_loader:
+            return FindInfo.fromLoader(w_loader)
+
+    # XXX Check for frozen modules?
+    #     when w_path is a string
+
+    if w_path is None:
+        # check the builtin modules
+        if modulename in space.builtin_modules:
+            return FindInfo(C_BUILTIN, modulename, None)
+        w_path = space.sys.get('path')
+
+    # XXX check frozen modules?
+    #     when w_path is null
+
+    if w_path is not None:
+        for w_pathitem in space.unpackiterable(w_path):
+            # sys.path_hooks import hook
+            if use_loader:
+                w_loader = find_in_path_hooks(space, w_modulename, w_pathitem)
+                if w_loader:
+                    return FindInfo.fromLoader(w_loader)
+
+            path = space.str_w(w_pathitem)
+            filepart = os.path.join(path, partname)
+            if os.path.isdir(filepart) and case_ok(filepart):
+                initfile = os.path.join(filepart, '__init__')
+                modtype, _, _ = find_modtype(space, initfile)
+                if modtype in (PY_SOURCE, PY_COMPILED):
+                    return FindInfo(PKG_DIRECTORY, filepart, None)
+                else:
+                    msg = "Not importing directory " +\
+                            "'%s' missing __init__.py" % (filepart,)
+                    space.warn(msg, space.w_ImportWarning)
+            modtype, suffix, filemode = find_modtype(space, filepart)
+            try:
+                if modtype in (PY_SOURCE, PY_COMPILED):
+                    filename = filepart + suffix
+                    stream = streamio.open_file_as_stream(filename, filemode)
+                    try:
+                        return FindInfo(modtype, filename, stream, suffix, filemode)
+                    except:
+                        stream.close()
+                        raise
+            except StreamErrors:
+                pass
+
+    # not found
+    return None
+
+def _prepare_module(space, w_mod, filename, pkgdir):
+    w = space.wrap
+    space.sys.setmodule(w_mod)
+    space.setattr(w_mod, w('__file__'), space.wrap(filename))
+    space.setattr(w_mod, w('__doc__'), space.w_None)
+    if pkgdir is not None:
+        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+
+def load_module(space, w_modulename, find_info, reuse=False):
+    if find_info is None:
+        return
+    if find_info.w_loader:
+        return space.call_method(find_info.w_loader, "load_module", w_modulename)
+
+    if find_info.modtype == C_BUILTIN:
+        return space.getbuiltinmodule(find_info.filename, force_init=True)
+
+    if find_info.modtype in (PY_SOURCE, PY_COMPILED, PKG_DIRECTORY):
+        if reuse:
+            w_mod = space.getitem(space.sys.get('modules'), w_modulename)
+        else:
+            w_mod = space.wrap(Module(space, w_modulename))
+        if find_info.modtype == PKG_DIRECTORY:
+            pkgdir = find_info.filename
+        else:
+            pkgdir = None
+        _prepare_module(space, w_mod, find_info.filename, pkgdir)
+
+        try:
+            if find_info.modtype == PY_SOURCE:
+                load_source_module(space, w_modulename, w_mod, find_info.filename,
+                                   find_info.stream.readall())
+                return w_mod
+            elif find_info.modtype == PY_COMPILED:
+                magic = _r_long(find_info.stream)
+                timestamp = _r_long(find_info.stream)
+                load_compiled_module(space, w_modulename, w_mod, find_info.filename,
+                                     magic, timestamp, find_info.stream.readall())
+                return w_mod
+            elif find_info.modtype == PKG_DIRECTORY:
+                w_path = space.newlist([space.wrap(find_info.filename)])
+                space.setattr(w_mod, space.wrap('__path__'), w_path)
+                find_info = find_module(space, "__init__", None, "__init__",
+                                        w_path, use_loader=False)
+                if find_info is None:
+                    return w_mod
+                try:
+                    load_module(space, w_modulename, find_info, reuse=True)
+                finally:
+                    find_info.stream.close()
+                # fetch the module again, in case of "substitution"
+                w_mod = check_sys_modules(space, w_modulename)
+                return w_mod
+        except OperationError:
+            w_mods = space.sys.get('modules')
+            space.call_method(w_mods, 'pop', w_modulename, space.w_None)
+            raise
+
 def load_part(space, w_path, prefix, partname, w_parent, tentative):
-    w_find_module = space.getattr(space.builtin, space.wrap("_find_module"))
     w = space.wrap
     modulename = '.'.join(prefix + [partname])
     w_modulename = w(modulename)
     w_mod = check_sys_modules(space, w_modulename)
+
     if w_mod is not None:
         if not space.is_w(w_mod, space.w_None):
             return w_mod
-    else:
-        # Examin importhooks (PEP302) before doing the import
-        if w_path is not None:
-            w_loader  = space.call_function(w_find_module, w_modulename, w_path)
-        else:
-            w_loader  = space.call_function(w_find_module, w_modulename,
-                                            space.w_None)
-        if not space.is_w(w_loader, space.w_None):
-            w_mod = space.call_method(w_loader, "load_module", w_modulename)
-            #w_mod_ = check_sys_modules(space, w_modulename)
-            if w_mod is not None and w_parent is not None:
-                space.setattr(w_parent, w(partname), w_mod)
+    elif not prefix or w_path is not None:
+        find_info = find_module(
+            space, modulename, w_modulename, partname, w_path)
 
-            return w_mod
-
-
-        if w_path is not None:
-            for path in space.unpackiterable(w_path):
-                path = space.str_w(path)
-                dir = os.path.join(path, partname)
-                if os.path.isdir(dir) and case_ok(dir):
-                    fn = os.path.join(dir, '__init__')
-                    w_mod = try_import_mod(space, w_modulename, fn,
-                                           w_parent, w(partname),
-                                           pkgdir=dir)
-                    if w_mod is not None:
-                        return w_mod
-                    else:
-                        msg = "Not importing directory " +\
-                                "'%s' missing __init__.py" % dir
-                        space.warn(msg, space.w_ImportWarning)
-                fn = dir
-                w_mod = try_import_mod(space, w_modulename, fn, w_parent,
-                                       w(partname))
-                if w_mod is not None:
-                    return w_mod
+        try:
+            if find_info:
+                w_mod = load_module(space, w_modulename, find_info)
+                if w_parent is not None:
+                    space.setattr(w_parent, space.wrap(partname), w_mod)
+                return w_mod
+        finally:
+            if find_info:
+                stream = find_info.stream
+                if stream:
+                    stream.close()
 
     if tentative:
         return None
@@ -319,6 +404,68 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         # ImportError
         msg = "No module named %s" % modulename
         raise OperationError(space.w_ImportError, w(msg))
+
+def reload(space, w_module):
+    """Reload the module.
+    The module must have been successfully imported before."""
+    if not space.is_w(space.type(w_module), space.type(space.sys)):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("reload() argument must be module"))
+
+    w_modulename = space.getattr(w_module, space.wrap("__name__"))
+    modulename = space.str_w(w_modulename)
+    if not space.is_w(check_sys_modules(space, w_modulename), w_module):
+        raise OperationError(
+            space.w_ImportError,
+            space.wrap("reload(): module %s not in sys.modules" % (modulename,)))
+
+    try:
+        w_mod = space.reloading_modules[modulename]
+        # Due to a recursive reload, this module is already being reloaded.
+        return w_mod
+    except KeyError:
+        pass
+
+    space.reloading_modules[modulename] = w_module
+    try:
+        namepath = modulename.split('.')
+        subname = namepath[-1]
+        parent_name = '.'.join(namepath[:-1])
+        parent = None
+        if parent_name:
+            w_parent = check_sys_modules(space, space.wrap(parent_name))
+            if w_parent is None:
+                raise OperationError(
+                    space.w_ImportError,
+                    space.wrap("reload(): parent %s not in sys.modules" % (
+                        parent_name,)))
+            w_path = space.getattr(w_parent, space.wrap("__path__"))
+        else:
+            w_path = None
+
+        find_info = find_module(
+            space, modulename, w_modulename, subname, w_path)
+
+        if not find_info:
+            # ImportError
+            msg = "No module named %s" % modulename
+            raise OperationError(space.w_ImportError, space.wrap(msg))
+
+        try:
+            try:
+                return load_module(space, w_modulename, find_info, reuse=True)
+            finally:
+                if find_info.stream:
+                    find_info.stream.close()
+        except:
+            # load_module probably removed name from modules because of
+            # the error.  Put back the original module object.
+            space.sys.setmodule(w_module)
+            raise
+    finally:
+        space.reloading_modules.clear()
+
 
 # __________________________________________________________________
 #
@@ -426,6 +573,13 @@ from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
+    # XXX CPython testing hack: delegate to the real imp.get_magic
+    if not we_are_translated():
+        if '__pypy__' not in space.builtin_modules:
+            import struct
+            magic = __import__('imp').get_magic()
+            return struct.unpack('<i', magic)[0]
+
     result = default_magic
     if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
         result += 1
@@ -440,25 +594,45 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
+def exec_code_module(space, w_mod, code_w):
+    w_dict = space.getattr(w_mod, space.wrap('__dict__'))
+    space.call_method(w_dict, 'setdefault',
+                      space.wrap('__builtins__'),
+                      space.wrap(space.builtin))
+    code_w.exec_code(space, w_dict, w_dict)
+
+
 def load_source_module(space, w_modulename, w_mod, pathname, source,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
     object.
     """
-    pycode = parse_source_module(space, pathname, source)
-
-    if space.config.objspace.usepycfiles and write_pyc:
-        mtime = int(os.stat(pathname)[stat.ST_MTIME])
-        cpathname = pathname + 'c'
-        write_compiled_module(space, pycode, cpathname, mtime)
-
     w = space.wrap
-    w_dict = space.getattr(w_mod, w('__dict__'))
-    space.call_method(w_dict, 'setdefault',
-                      w('__builtins__'),
-                      w(space.builtin))
-    pycode.exec_code(space, w_dict, w_dict)
+
+    if space.config.objspace.usepycfiles:
+        cpathname = pathname + 'c'
+        mtime = int(os.stat(pathname)[stat.ST_MTIME])
+        stream = check_compiled_module(space, cpathname, mtime)
+    else:
+        cpathname = None
+        mtime = 0
+        stream = None
+
+    if stream:
+        # existing and up-to-date .pyc file
+        try:
+            code_w = read_compiled_module(space, cpathname, stream.readall())
+        finally:
+            stream.close()
+        space.setattr(w_mod, w('__file__'), w(cpathname))
+    else:
+        code_w = parse_source_module(space, pathname, source)
+
+        if space.config.objspace.usepycfiles and write_pyc:
+            write_compiled_module(space, code_w, cpathname, mtime)
+
+    exec_code_module(space, w_mod, code_w)
 
     return w_mod
 
@@ -498,21 +672,23 @@ def check_compiled_module(space, pycfilename, expected_mtime=0):
     """
     Check if a pyc file's magic number and (optionally) mtime match.
     """
+    stream = None
     try:
         stream = streamio.open_file_as_stream(pycfilename, "rb")
-        try:
-            magic = _r_long(stream)
-            if magic != get_pyc_magic(space):
-                return False
-            if expected_mtime != 0:
-                pyc_mtime = _r_long(stream)
-                if pyc_mtime != expected_mtime:
-                    return False
-        finally:
+        magic = _r_long(stream)
+        if magic != get_pyc_magic(space):
             stream.close()
+            return None
+        if expected_mtime != 0:
+            pyc_mtime = _r_long(stream)
+            if pyc_mtime != expected_mtime:
+                stream.close()
+                return None
+        return stream
     except StreamErrors:
-        return False
-    return True
+        if stream:
+            stream.close()
+        return None
 
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
@@ -537,14 +713,8 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
             "Bad magic number in %s" % cpathname))
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    #if (Py_VerboseFlag)
-    #    PySys_WriteStderr("import %s # precompiled from %s\n",
-    #        name, cpathname);
-    w_dic = space.getattr(w_mod, w('__dict__'))
-    space.call_method(w_dic, 'setdefault', 
-                      w('__builtins__'), 
-                      w(space.builtin))
-    code_w.exec_code(space, w_dic, w_dic)
+    exec_code_module(space, w_mod, code_w)
+
     return w_mod
 
 

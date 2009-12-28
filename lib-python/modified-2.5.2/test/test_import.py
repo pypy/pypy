@@ -1,4 +1,4 @@
-from test.test_support import TESTFN, TestFailed, check_impl_detail
+from test.test_support import TESTFN, TestFailed
 
 import os
 import random
@@ -56,6 +56,11 @@ def test_with_extension(ext): # ext normally ".py"; perhaps ".pyw"
         os.unlink(source)
 
     try:
+        #--- the block below is to check that "reload" manages to import
+        #--- the .pyc file alone.  We don't support it in PyPy in the default
+        #--- configuration.
+        return
+
         try:
             reload(mod)
         except ImportError, err:
@@ -238,5 +243,4 @@ def test_infinite_reload():
     finally:
         sys.path.pop(0)
 
-if check_impl_detail():
-    test_infinite_reload()
+test_infinite_reload()
