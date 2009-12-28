@@ -520,6 +520,16 @@ class TestGateway:
         w_res = space.call_obj_args(w_g, w_self, args3)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 3))))
 
+    def test_unwrap_spec_decorator(self):
+        space = self.space
+        @gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root, int)
+        def g(space, w_thing, i):
+            return space.newtuple([w_thing, space.wrap(i)])
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [space.wrap(-1), space.wrap(0)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap((-1, 0)))
+
 
 class TestPassThroughArguments:
     

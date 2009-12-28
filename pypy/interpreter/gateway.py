@@ -386,6 +386,15 @@ def int_unwrapping_space_method(typ):
     else:
         return typ.__name__ + '_w'
 
+
+def unwrap_spec(*spec):
+    """A decorator which attaches the unwrap_spec attribute."""
+    def decorator(func):
+        func.unwrap_spec = spec
+        return func
+    return decorator
+
+
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
     _immutable_ = True
