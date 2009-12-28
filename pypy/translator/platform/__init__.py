@@ -52,6 +52,8 @@ class Platform(object):
     name = "abstract platform"
     c_environ = None
 
+    relevant_environ = []
+
     so_prefixes = ['']
 
     def __init__(self, cc):
@@ -97,6 +99,12 @@ class Platform(object):
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.__dict__ == other.__dict__)
+
+    def key(self):
+        bits = [self.__class__.__name__, 'cc=%s' % self.cc]
+        for varname in self.relevant_environ:
+            bits.append('%s=%s' % (varname, os.environ.get(varname)))
+        return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
 
@@ -171,8 +179,15 @@ if sys.platform == 'linux2':
     else:
         host_factory = Linux64
 elif sys.platform == 'darwin':
-    from pypy.translator.platform.darwin import Darwin
-    host_factory = Darwin
+    from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64
+    import platform
+    if platform.machine() == 'i386':
+        if sys.maxint <= 2147483647:
+            host_factory = Darwin_i386
+        else:
+            host_factory = Darwin_x86_64
+    else:
+        host_factory = Darwin
 elif sys.platform == 'freebsd7':
     from pypy.translator.platform.freebsd7 import Freebsd7, Freebsd7_64
     import platform

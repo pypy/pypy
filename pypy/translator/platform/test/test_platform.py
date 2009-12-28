@@ -115,6 +115,16 @@ class TestPlatform(object):
         finally:
             del os.environ['_SOME_VARIABLE_2']
 
+    def test_key(self):
+        class XPlatform(Platform):
+            relevant_environ = ['CPATH']
+            
+            def __init__(self):
+                self.cc = 'xcc'
+        x = XPlatform()
+        res = x.key()
+        assert res.startswith('XPlatform cc=xcc CPATH=')
+
 def test_equality():
     class X(Platform):
         def __init__(self):

@@ -4,7 +4,7 @@ from pypy.translator.platform import posix
 
 class Darwin(posix.BasePosix):
     name = "darwin"
-    
+
     link_flags = ['-mmacosx-version-min=10.4']
     cflags = ['-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
     standalone_only = ['-mdynamic-no-pic']
@@ -43,4 +43,14 @@ class Darwin(posix.BasePosix):
         frameworks = self._frameworks(eci.frameworks)
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
+
+class Darwin_i386(Darwin):
+    name = "darwin_i386"
+    link_flags = ['-arch', 'i386', '-mmacosx-version-min=10.4']
+    cflags = ['-arch', 'i386', '-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
+
+class Darwin_x86_64(Darwin):
+    name = "darwin_x86_64"
+    link_flags = ['-arch', 'x86_64', '-mmacosx-version-min=10.4']
+    cflags = ['-arch', 'x86_64', '-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
 

@@ -10,7 +10,7 @@ cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
 def cache_file_path(c_files, eci, cachename):
     cache_dir = cache_dir_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
-    key = repr((filecontents, eci))
+    key = repr((filecontents, eci, platform.key()))
     hash = md5(key).hexdigest()
     return cache_dir.join(hash)
 

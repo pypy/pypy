@@ -10,6 +10,8 @@ class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
 
+    relevant_environ=['CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH']
+
     def __init__(self, cc=None):
         if cc is None:
             cc = 'gcc'
