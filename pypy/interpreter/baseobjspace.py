@@ -292,11 +292,9 @@ class ObjSpace(object):
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
         from pypy.interpreter.module import Module
-        for w_modname in self.unpackiterable(
-                                self.sys.get('builtin_module_names')):
-            modname = self.str_w(w_modname)
-            mod = self.interpclass_w(self.getbuiltinmodule(modname))
-            if isinstance(mod, Module):
+        for w_mod in self.builtin_modules.values():
+            mod = self.interpclass_w(w_mod)
+            if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
         if self.config.objspace.std.withdictmeasurement:
             from pypy.objspace.std.dictmultiobject import report

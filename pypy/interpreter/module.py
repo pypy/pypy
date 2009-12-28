@@ -30,15 +30,15 @@ class Module(Wrappable):
             self.startup(space)
 
     def startup(self, space):
-        """This is called at runtime before the space gets uses to allow
-        the module to do initialization at runtime.
+        """This is called at runtime on import to allow the module to
+        do initialization when it is imported for the first time.
         """
 
     def shutdown(self, space):
         """This is called when the space is shut down, just after
-        sys.exitfunc().
+        sys.exitfunc(), if the module has been imported.
         """
-        
+
     def getdict(self):
         return self.w_dict
 
