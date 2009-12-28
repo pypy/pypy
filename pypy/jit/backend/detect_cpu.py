@@ -9,6 +9,8 @@ class ProcessorAutodetectError(Exception):
     pass
 
 def autodetect_main_model():
+    if sys.platform == 'darwin':
+        raise Exception("JIT not supported on Mac OS/X right now")
     mach = None
     try:
         import platform
