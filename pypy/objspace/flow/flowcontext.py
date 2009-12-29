@@ -384,6 +384,9 @@ class FlowExecutionContext(ExecutionContext):
             operr = OperationError(operr.w_type, operr.w_value)
         return operr
 
+    def exception_trace(self, frame, operationerr):
+        pass    # overridden for performance only
+
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
