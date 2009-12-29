@@ -35,8 +35,8 @@ Svn-check out
 Before you can play with PyPy, you will need to obtain a copy
 of the sources.  This can be done either by `downloading them
 from the download page`_ or by checking them out from the
-repository using subversion.  We suggest using subversion as it
-offers access to the most recent versions.
+repository using subversion.  We suggest using subversion if one
+wants to access the current development.
 
 .. _`downloading them from the download page`: download.html
 
