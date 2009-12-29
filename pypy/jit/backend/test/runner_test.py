@@ -466,12 +466,13 @@ class BaseBackendTest(Runner):
             assert abs(res.value - 4.6) < 0.0001
 
     def test_call_stack_alignment(self):
-        # test stack alignment issues, notably for Mac OS/X
+        # test stack alignment issues, notably for Mac OS/X.
+        # also test the ordering of the arguments.
 
         def func_ints(*ints):
             s = str(ints) + '\n'
             os.write(1, s)   # don't remove -- crash if the stack is misaligned
-            return sum(ints)
+            return sum([(10+i)*(5+j) for i, j in enumerate(ints)])
 
         for nb_args in range(0, 35):
             cpu = self.cpu
@@ -486,7 +487,7 @@ class BaseBackendTest(Runner):
             res = self.execute_operation(rop.CALL,
                                          [funcbox] + map(BoxInt, args),
                                          'int', descr=calldescr)
-            assert res.value == sum(args)
+            assert res.value == func_ints(*args)
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
