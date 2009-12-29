@@ -337,3 +337,13 @@ def test_isinstance_Ptr():
         return f([1])
     s, t = ll_rtype(lltest, [])
     assert s.is_constant() == False
+
+def test_staticadtmeths():
+    ll_func = staticAdtMethod(lambda x: x + 42)
+    S = GcStruct('S', adtmeths={'ll_func': ll_func})
+    def f():
+        return malloc(S).ll_func(5)
+    s, t = ll_rtype(f, [])
+    graphf = t.graphs[0]
+    for op in graphf.startblock.operations:
+        assert op.opname != 'getfield'

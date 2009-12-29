@@ -12,6 +12,8 @@ class Storage:
     rd_frame_info_list = None
     rd_numb = None
     rd_consts = []
+    rd_virtuals = None
+    rd_pendingfields = None
 
 def test_tag():
     assert tag(3, 1) == rffi.r_short(3<<2|1)
@@ -39,6 +41,12 @@ def test_tagged_list_eq():
                           [UNASSIGNED, tag(1, TAGBOX), tag(-2, TAGVIRTUAL)])
     assert not tagged_list_eq([tag(1, TAGBOX)], [tag(-2, TAGBOX)])
     assert not tagged_list_eq([tag(1, TAGBOX), tag(-2, TAGBOX)], [tag(1, TAGBOX)])
+
+def test_vinfo():
+    v1 = AbstractVirtualInfo()
+    v1.set_content([1, 2, 4])
+    assert v1.equals([1, 2, 4])
+    assert not v1.equals([1, 2, 6])
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
@@ -80,7 +88,6 @@ def test_simple_read():
                             tag(0, TAGBOX),
                             tag(1, TAGBOX)])
     storage.rd_numb = numb
-    storage.rd_virtuals = None
 
     b1s, b2s, b3s = [BoxInt(), BoxPtr(), BoxInt()]
     assert b1s != b3s
@@ -103,7 +110,6 @@ def test_simple_read_tagged_ints():
                             tag(0, TAGBOX),
                             tag(1, TAGBOX)])
     storage.rd_numb = numb
-    storage.rd_virtuals = None
     b1s, b2s, b3s = [BoxInt(), BoxPtr(), BoxInt()]
     assert b1s != b3s
     reader = ResumeDataReader(storage, [b1s, b2s, b3s], MyMetaInterp())
@@ -125,6 +131,7 @@ def test_prepare_virtuals():
         rd_virtuals = [FakeVinfo(), None]
         rd_numb = []
         rd_consts = []
+        rd_pendingfields = None
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
@@ -959,6 +966,46 @@ def test_virtual_adder_make_vstruct():
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.S)
     assert ptr.a == 111
     assert ptr.b == lltype.nullptr(LLtypeMixin.NODE)
+
+
+def test_virtual_adder_pending_fields():
+    b2s, b4s = [BoxPtr(), BoxPtr()]
+    storage = Storage()
+    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.liveboxes_from_env = {}
+    modifier.liveboxes = {}
+    modifier.vfieldboxes = {}
+
+    v2 = OptValue(b2s)
+    v4 = OptValue(b4s)
+    modifier.register_box(b2s)
+    modifier.register_box(b4s)
+
+    values = {b4s: v4, b2s: v2}
+    liveboxes = []
+    modifier._number_virtuals(liveboxes, values, 0)
+    assert liveboxes == [b2s, b4s]
+    modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s)])
+    storage.rd_consts = memo.consts[:]
+    storage.rd_numb = None
+    # resume
+    demo55.next = lltype.nullptr(LLtypeMixin.NODE)
+    b2t = BoxPtr(demo55o)
+    b4t = BoxPtr(demo66o)
+    newboxes = _resume_remap(liveboxes, [b2s, b4s], b2t, b4t)
+
+    metainterp = MyMetaInterp()
+    reader = ResumeDataReader(storage, newboxes, metainterp)
+    assert reader.virtuals is None
+    trace = metainterp.trace
+    b2set = (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.nextdescr)
+    expected = [b2set]
+
+    for x, y in zip(expected, trace):
+        assert x == y
+    assert demo55.next == demo66
+
 
 def test_invalidation_needed():
     class options:

@@ -45,3 +45,15 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             elif methname in ('ll_getitem_fast', 'll_length'):
                 return self.bottom_result()
         return graphanalyze.GraphAnalyzer.analyze_external_method(self, op, TYPE, meth)
+
+
+class ReadWriteAnalyzer(WriteAnalyzer):
+
+    def analyze_simple_operation(self, op):
+        if op.opname == "getfield":
+            return frozenset([
+                ("readstruct", op.args[0].concretetype, op.args[1].value)])
+        elif op.opname == "getarrayitem":
+            return frozenset([
+                ("readarray", op.args[0].concretetype)])
+        return WriteAnalyzer.analyze_simple_operation(self, op)

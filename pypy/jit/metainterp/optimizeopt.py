@@ -161,17 +161,17 @@ class AbstractVirtualValue(OptValue):
         return self.box
 
     def make_virtual_info(self, modifier, fieldnums):
-        vinfo = self._cached_vinfo 
-        if vinfo is not None and resume.tagged_list_eq(
-                vinfo.fieldnums, fieldnums):
+        vinfo = self._cached_vinfo
+        if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo
         vinfo = self._make_virtual(modifier)
-        vinfo.fieldnums = fieldnums
+        vinfo.set_content(fieldnums)
         self._cached_vinfo = vinfo
         return vinfo
 
     def _make_virtual(self, modifier):
         raise NotImplementedError("abstract base")
+
 
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
@@ -512,6 +512,9 @@ class Optimizer(object):
 
     def emit_operation(self, op, must_clone=True):
         self.heap_op_optimizer.emitting_operation(op)
+        self._emit_operation(op, must_clone)
+
+    def _emit_operation(self, op, must_clone=True):
         for i in range(len(op.args)):
             arg = op.args[i]
             if arg in self.values:
@@ -532,10 +535,11 @@ class Optimizer(object):
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
+        pendingfields = self.heap_op_optimizer.force_lazy_setfields_for_guard()
         descr = op.descr
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values)
+        newboxes = modifier.finish(self.values, pendingfields)
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             raise compile.GiveUp
         descr.store_final_boxes(op, newboxes)
@@ -836,11 +840,13 @@ class CachedArrayItems(object):
 class HeapOpOptimizer(object):
     def __init__(self, optimizer):
         self.optimizer = optimizer
-        # cached OptValues for each field descr
+        # cached fields:  {descr: {OptValue_instance: OptValue_fieldvalue}}
         self.cached_fields = {}
-
-        # cached OptValues for each field descr
+        # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
+        # lazily written setfields (at most one per descr):  {descr: op}
+        self.lazy_setfields = {}
+        self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
     def clean_caches(self):
         self.cached_fields.clear()
@@ -848,6 +854,9 @@ class HeapOpOptimizer(object):
 
     def cache_field_value(self, descr, value, fieldvalue, write=False):
         if write:
+            # when seeing a setfield, we have to clear the cache for the same
+            # field on any other structure, just in case they are aliasing
+            # each other
             d = self.cached_fields[descr] = {}
         else:
             d = self.cached_fields.setdefault(descr, {})
@@ -920,7 +929,12 @@ class HeapOpOptimizer(object):
             opnum == rop.CALL_MAY_FORCE):
             effectinfo = op.descr.get_extra_info()
             if effectinfo is not None:
+                # XXX we can get the wrong complexity here, if the lists
+                # XXX stored on effectinfo are large
+                for fielddescr in effectinfo.readonly_descrs_fields:
+                    self.force_lazy_setfield(fielddescr)
                 for fielddescr in effectinfo.write_descrs_fields:
+                    self.force_lazy_setfield(fielddescr)
                     try:
                         del self.cached_fields[fielddescr]
                     except KeyError:
@@ -931,9 +945,73 @@ class HeapOpOptimizer(object):
                     except KeyError:
                         pass
                 return
+            self.force_all_lazy_setfields()
+        elif op.is_final() or (not we_are_translated() and
+                               op.opnum < 0):   # escape() operations
+            self.force_all_lazy_setfields()
         self.clean_caches()
 
+    def force_lazy_setfield(self, descr, before_guard=False):
+        try:
+            op = self.lazy_setfields[descr]
+        except KeyError:
+            return
+        del self.lazy_setfields[descr]
+        self.optimizer._emit_operation(op)
+        #
+        # hackish: reverse the order of the last two operations if it makes
+        # sense to avoid a situation like "int_eq/setfield_gc/guard_true",
+        # which the backend (at least the x86 backend) does not handle well.
+        newoperations = self.optimizer.newoperations
+        if before_guard and len(newoperations) >= 2:
+            lastop = newoperations[-1]
+            prevop = newoperations[-2]
+            # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
+            # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
+            if ((prevop.is_comparison() or prevop.opnum == rop.CALL_MAY_FORCE)
+                and prevop.result not in lastop.args):
+                newoperations[-2] = lastop
+                newoperations[-1] = prevop
+
+    def force_all_lazy_setfields(self):
+        if len(self.lazy_setfields_descrs) > 0:
+            for descr in self.lazy_setfields_descrs:
+                self.force_lazy_setfield(descr)
+            del self.lazy_setfields_descrs[:]
+
+    def force_lazy_setfields_for_guard(self):
+        pendingfields = []
+        for descr in self.lazy_setfields_descrs:
+            try:
+                op = self.lazy_setfields[descr]
+            except KeyError:
+                continue
+            # the only really interesting case that we need to handle in the
+            # guards' resume data is that of a virtual object that is stored
+            # into a field of a non-virtual object.
+            value = self.optimizer.getvalue(op.args[0])
+            assert not value.is_virtual()      # it must be a non-virtual
+            fieldvalue = self.optimizer.getvalue(op.args[1])
+            if fieldvalue.is_virtual():
+                # this is the case that we leave to resume.py
+                pendingfields.append((descr, value.box,
+                                      fieldvalue.get_key_box()))
+            else:
+                self.force_lazy_setfield(descr, before_guard=True)
+        return pendingfields
+
+    def force_lazy_setfield_if_necessary(self, op, value, write=False):
+        try:
+            op1 = self.lazy_setfields[op.descr]
+        except KeyError:
+            if write:
+                self.lazy_setfields_descrs.append(op.descr)
+        else:
+            if self.optimizer.getvalue(op1.args[0]) is not value:
+                self.force_lazy_setfield(op.descr)
+
     def optimize_GETFIELD_GC(self, op, value):
+        self.force_lazy_setfield_if_necessary(op, value)
         # check if the field was read from another getfield_gc just before
         # or has been written to recently
         fieldvalue = self.read_cached_field(op.descr, value)
@@ -948,7 +1026,8 @@ class HeapOpOptimizer(object):
         self.cache_field_value(op.descr, value, fieldvalue)
 
     def optimize_SETFIELD_GC(self, op, value, fieldvalue):
-        self.optimizer.emit_operation(op)
+        self.force_lazy_setfield_if_necessary(op, value, write=True)
+        self.lazy_setfields[op.descr] = op
         # remember the result of future reads of the field
         self.cache_field_value(op.descr, value, fieldvalue, write=True)
 

@@ -95,9 +95,15 @@ class LLtypeMixin(object):
     onedescr = cpu.fielddescrof(U, 'one')
 
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
-    nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([], []))
-    writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([adescr], []))
-    writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo([adescr], [arraydescr]))
+    plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+    nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo([], [], []))
+    writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                  EffectInfo([], [adescr], []))
+    writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                      EffectInfo([], [adescr], [arraydescr]))
+    readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                 EffectInfo([adescr], [], []))
 
     cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
                       cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2),

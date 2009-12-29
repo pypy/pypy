@@ -11,7 +11,7 @@ from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
-from pypy.translator.backendopt.writeanalyze import WriteAnalyzer
+from pypy.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from pypy.jit.metainterp.typesystem import deref, arrayItem, fieldType
 from pypy.jit.metainterp.effectinfo import effectinfo_from_writeanalyze
 from pypy.jit.metainterp.effectinfo import VirtualizableAnalyzer
@@ -185,7 +185,7 @@ class CodeWriter(object):
         self.portal_runner_ptr = portal_runner_ptr
         translator = self.rtyper.annotator.translator
         self.raise_analyzer = RaiseAnalyzer(translator)
-        self.write_analyzer = WriteAnalyzer(translator)
+        self.readwrite_analyzer = ReadWriteAnalyzer(translator)
         self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
 
     def make_portal_bytecode(self, graph):
@@ -326,7 +326,7 @@ class CodeWriter(object):
         # ok
         if consider_effects_of is not None:
             effectinfo = effectinfo_from_writeanalyze(
-                    self.write_analyzer.analyze(consider_effects_of),
+                    self.readwrite_analyzer.analyze(consider_effects_of),
                     self.cpu,
                     self.virtualizable_analyzer.analyze(consider_effects_of))
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT, effectinfo)

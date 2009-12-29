@@ -252,8 +252,6 @@ class ResumeDataVirtualAdder(object):
         if (isinstance(box, Box) and box not in self.liveboxes_from_env
                                  and box not in self.liveboxes):
             self.liveboxes[box] = UNASSIGNED
-            return True
-        return False
 
     def _register_boxes(self, boxes):
         for box in boxes:
@@ -268,7 +266,7 @@ class ResumeDataVirtualAdder(object):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def finish(self, values):
+    def finish(self, values, pending_setfields=[]):
         # compute the numbering
         storage = self.storage
         numb, liveboxes_from_env, v = self.memo.number(values,
@@ -291,13 +289,21 @@ class ResumeDataVirtualAdder(object):
                 value = values[box]
                 value.get_args_for_fail(self)
 
+        for _, box, fieldbox in pending_setfields:
+            self.register_box(box)
+            self.register_box(fieldbox)
+            value = values[fieldbox]
+            value.get_args_for_fail(self)
+
         self._number_virtuals(liveboxes, values, v)
+        self._add_pending_fields(pending_setfields)
 
         storage.rd_consts = self.memo.consts
         dump_storage(storage, liveboxes)
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes, values, num_env_virtuals):
+        # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
         count = 0
@@ -358,6 +364,16 @@ class ResumeDataVirtualAdder(object):
                 return True
         return False
 
+    def _add_pending_fields(self, pending_setfields):
+        rd_pendingfields = None
+        if pending_setfields:
+            rd_pendingfields = []
+            for descr, box, fieldbox in pending_setfields:
+                num = self._gettagged(box)
+                fieldnum = self._gettagged(fieldbox)
+                rd_pendingfields.append((descr, num, fieldnum))
+        self.storage.rd_pendingfields = rd_pendingfields
+
     def _gettagged(self, box):
         if isinstance(box, Const):
             return self.memo.getconst(box)
@@ -366,11 +382,16 @@ class ResumeDataVirtualAdder(object):
                 return self.liveboxes_from_env[box]
             return self.liveboxes[box]
 
+
 class AbstractVirtualInfo(object):
     def allocate(self, metainterp):
         raise NotImplementedError
     def setfields(self, metainterp, box, fn_decode_box):
         raise NotImplementedError
+    def equals(self, fieldnums):
+        return tagged_list_eq(self.fieldnums, fieldnums)
+    def set_content(self, fieldnums):
+        self.fieldnums = fieldnums
 
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
@@ -471,6 +492,7 @@ class ResumeDataReader(object):
         self.liveboxes = liveboxes
         self.cpu = metainterp.cpu
         self._prepare_virtuals(metainterp, storage.rd_virtuals)
+        self._prepare_pendingfields(metainterp, storage.rd_pendingfields)
 
     def _prepare_virtuals(self, metainterp, virtuals):
         if virtuals:
@@ -488,6 +510,16 @@ class ResumeDataReader(object):
                 if vinfo is not None:
                     vinfo.setfields(metainterp, self.virtuals[i],
                                     self._decode_box)
+
+    def _prepare_pendingfields(self, metainterp, pendingfields):
+        if pendingfields:
+            if metainterp._already_allocated_resume_virtuals is not None:
+                return
+            for descr, num, fieldnum in pendingfields:
+                box = self._decode_box(num)
+                fieldbox = self._decode_box(fieldnum)
+                metainterp.execute_and_record(rop.SETFIELD_GC,
+                                              descr, box, fieldbox)
 
     def consume_boxes(self):
         numb = self.cur_numb

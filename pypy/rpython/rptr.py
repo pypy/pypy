@@ -39,6 +39,14 @@ class PtrRepr(Repr):
         attr = hop.args_s[1].const
         if isinstance(hop.s_result, annmodel.SomeLLADTMeth):
             return hop.inputarg(hop.r_result, arg=0)
+        try:
+            self.lowleveltype._example()._lookup_adtmeth(attr)
+        except AttributeError:
+            pass
+        else:
+            assert hop.s_result.is_constant()
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        assert attr in self.lowleveltype.TO._flds # check that the field exists
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         if isinstance(FIELD_TYPE, lltype.ContainerType):
             if (attr, FIELD_TYPE) == self.lowleveltype.TO._first_struct():
