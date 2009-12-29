@@ -44,6 +44,7 @@ def main(options, args):
     sys.stdout.flush()
 
     refs = {}
+    final_error_count = 0
 
     if not options.nocpython:
         exes = full_pythons + exes
@@ -52,7 +53,10 @@ def main(options, args):
         if i is not None:
             for exe in exes:
                 for b in benchmarks:
-                    benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=options.verbose)
+                    br = benchmark_result.result(exe, allowcreate=True)
+                    result = br.run_benchmark(b, verbose=options.verbose)
+                    if not result:
+                        final_error_count += 1
 
         if options.relto:
             relto = options.relto
@@ -82,6 +86,9 @@ def main(options, args):
                                                     **kwds):
                 print row
             print
+
+    if final_error_count:
+        raise SystemExit("%d benchmark run(s) failed" % final_error_count)
 
 if __name__ == '__main__':
     from optparse import OptionParser

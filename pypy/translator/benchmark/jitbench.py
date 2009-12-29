@@ -13,9 +13,17 @@ sizefactors = [int(s) for s in options.sizefactorlist.split(',')]
 
 os.chdir(os.path.dirname(sys.argv[0]) or '.')
 
+errors = []
+
 for sizefactor in sizefactors:
     for executable in executables:
         sys.argv[1:] = [executable, '--pickle=jitbench.benchmark_result',
                         '-v', '--no-cpython',
                         '--size-factor=%d' % sizefactor]
-        execfile('bench-custom.py')
+        try:
+            execfile('bench-custom.py')
+        except SystemExit, e:
+            errors.append(str(e))
+
+if errors:
+    raise SystemExit('\n'.join(errors))
