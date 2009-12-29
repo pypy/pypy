@@ -348,7 +348,7 @@ class AppTestImport:
     def test_future_relative_import_error_when_in_non_package(self):
         exec """def imp():
                     from .string import inpackage
-        """
+        """.rstrip()
         raises(ValueError, imp)
 
     def test_relative_import_with___name__(self):
