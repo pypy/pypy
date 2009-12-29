@@ -1369,6 +1369,28 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
 
+    def test_duplicate_setfield_5(self):
+        ops = """
+        [p0, i1]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_raw(i1, i1, descr=valuedescr)    # random op with side-effects
+        p2 = getfield_gc(p0, descr=nextdescr)
+        i2 = getfield_gc(p2, descr=valuedescr)
+        setfield_gc(p0, NULL, descr=nextdescr)
+        escape(i2)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i1]
+        setfield_raw(i1, i1, descr=valuedescr)
+        setfield_gc(p0, NULL, descr=nextdescr)
+        escape(i1)
+        jump(p0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
     def test_duplicate_setfield_sideeffects_1(self):
         ops = """
         [p1, i1, i2]

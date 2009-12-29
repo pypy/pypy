@@ -754,11 +754,11 @@ class Optimizer(object):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.args[0])
+        fieldvalue = self.getvalue(op.args[1])
         if value.is_virtual():
-            value.setfield(op.descr, self.getvalue(op.args[1]))
+            value.setfield(op.descr, fieldvalue)
         else:
             value.ensure_nonnull()
-            fieldvalue = self.getvalue(op.args[1])
             self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
 
     def optimize_NEW_WITH_VTABLE(self, op):
@@ -863,9 +863,14 @@ class HeapOpOptimizer(object):
         d[value] = fieldvalue
 
     def read_cached_field(self, descr, value):
+        # XXX self.cached_fields and self.lazy_setfields should probably
+        # be merged somehow
         d = self.cached_fields.get(descr, None)
         if d is None:
-            return None
+            op = self.lazy_setfields.get(descr, None)
+            if op is None:
+                return None
+            return self.optimizer.getvalue(op.args[1])
         return d.get(value, None)
 
     def cache_arrayitem_value(self, descr, value, indexvalue, fieldvalue, write=False):
