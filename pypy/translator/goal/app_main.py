@@ -228,7 +228,7 @@ def setup_initial_paths(executable, nanos):
     newpath.insert(0, '')
     # remove duplicates
     _seen = {}
-    sys.path = []
+    del sys.path[:]
     for dir in newpath:
         if dir not in _seen:
             sys.path.append(dir)

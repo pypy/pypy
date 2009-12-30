@@ -433,13 +433,16 @@ class AppTestImport:
         reload(pkg.a)
 
     def test_reload_builtin(self):
-        skip("XXX fixme")
         import sys
+        oldpath = sys.path
         try:
             del sys.setdefaultencoding
         except AttributeError:
             pass
+
         reload(sys)
+
+        assert sys.path is oldpath
         assert 'setdefaultencoding' in dir(sys)
 
     def test_reload_infinite(self):
