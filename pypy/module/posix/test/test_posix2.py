@@ -312,7 +312,7 @@ class AppTestPosix:
         fh.close()
         from time import time, sleep
         t0 = time()
-        sleep(1)
+        sleep(1.1)
         os.utime(path, None)
         assert os.stat(path).st_atime > t0
         os.utime(path, (int(t0), int(t0)))
