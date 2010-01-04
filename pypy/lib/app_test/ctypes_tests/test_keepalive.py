@@ -205,3 +205,20 @@ class TestKeepalive:
         s.r = r
         # obscure        
         assert s._objects == {'1': {}, '0:1': {'1': stuff}}
+
+    def test_c_char_p(self):
+        class datum(Structure):
+            _fields_ = [
+            ('dptr', c_char_p),
+            ('dsize', c_int),
+            ]
+        n = 2
+        xs = "hello" * n
+        dat = datum()
+        dat.dptr = c_char_p(xs)
+        dat.dsize = 15
+        import gc; gc.collect()
+        print 'dat.dptr =', repr(dat.dptr)
+        print 'dat._objects =', repr(dat._objects)
+        assert dat.dptr == "hellohello"
+        assert dat._objects == {'0': 'hellohello'}
