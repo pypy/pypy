@@ -417,7 +417,6 @@ class BytecodeMaker(object):
         """Generate a constant of the given value.
         Returns its index in the list self.positions[].
         """
-        if constvalue is _we_are_jitted: constvalue = True
         const = Const._new(constvalue, self.cpu)
         return self.get_position(const)
 
@@ -496,9 +495,22 @@ class BytecodeMaker(object):
             linkfalse, linktrue = block.exits
             if linkfalse.llexitcase == True:
                 linkfalse, linktrue = linktrue, linkfalse
+            vpos = self.var_position(block.exitswitch)
+            #
+            # constant-fold an exitswitch
+            cv = self.get_constant_value(vpos)
+            if cv is not None:
+                if cv.value:
+                    link = linktrue
+                else:
+                    link = linkfalse
+                self.emit(*self.insert_renaming(link))
+                self.make_bytecode_block(link.target)
+                return
+            #
             self.emit("goto_if_not",
                       tlabel(linkfalse),
-                      self.var_position(block.exitswitch))
+                      vpos)
             self.minimize_variables(argument_only=True, exitswitch=False)
             truerenaming = self.insert_renaming(linktrue)
             falserenaming = self.insert_renaming(linkfalse)
@@ -818,15 +830,21 @@ class BytecodeMaker(object):
             self.serialize_op_same_as(op)
 
     def serialize_op_int_is_true(self, op):
-        if isinstance(op.args[0], Constant):
-            if op.args[0].value is objectmodel.malloc_zero_filled:
+        vpos = self.var_position(op.args[0])
+        cv = self.get_constant_value(vpos)
+        if cv is not None:
+            if cv.value is objectmodel.malloc_zero_filled:
                 # always True for now
                 warmrunnerdesc = self.codewriter.metainterp_sd.warmrunnerdesc
                 if warmrunnerdesc is not None:
                     assert warmrunnerdesc.gcdescr.malloc_zero_filled
                 self.var_positions[op.result] = self.var_position(Constant(1))
                 return
-        self.emit('int_is_true', self.var_position(op.args[0]))
+            if cv.value is _we_are_jitted:
+                # always True
+                self.var_positions[op.result] = self.var_position(Constant(1))
+                return
+        self.emit('int_is_true', vpos)
         self.register_var(op.result)
 
     serialize_op_uint_is_true = serialize_op_int_is_true
@@ -1611,6 +1629,14 @@ class BytecodeMaker(object):
                 if v in self.vable_array_vars:
                     raise VirtualizableArrayField(self.graph)
                 raise
+
+    def get_constant_value(self, vpos):
+        """Reverse of var_position().  Returns either None or a Constant."""
+        if vpos & 1:
+            value = self.constants[vpos // 2].value
+            return Constant(value)
+        else:
+            return None
 
     def emit(self, *stuff):
         self.assembler.extend(stuff)

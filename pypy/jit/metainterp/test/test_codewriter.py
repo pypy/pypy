@@ -2,6 +2,7 @@ import py
 from pypy.rlib import jit
 from pypy.jit.metainterp import support, typesystem
 from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.codewriter import CodeWriter
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.translator.translator import graphof
@@ -475,6 +476,21 @@ class TestCodeWriter:
         # the call vref() becomes a residual call to a helper that contains
         # itself a copy of the call.
         assert 'residual_call' in jitcode._source
+
+    def test_we_are_jitted(self):
+        def f():
+            if jit.we_are_jitted():
+                return 55
+            else:
+                return 66
+        graphs = self.make_graphs(f, [])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = [graphs[0]]
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        assert 'goto_if_not' not in jitcode._source
+        assert ConstInt(55) in jitcode.constants
+        assert ConstInt(66) not in jitcode.constants
 
 
 class ImmutableFieldsTests:
