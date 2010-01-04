@@ -52,6 +52,8 @@ class JitMixin:
         assert get_stats().exec_jumps <= maxcount
     def check_aborted_count(self, count):
         assert get_stats().aborted_count == count
+    def check_aborted_count_at_least(self, count):
+        assert get_stats().aborted_count >= count
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
@@ -84,6 +86,10 @@ class JitMixin:
         metainterp, rtyper = _get_bare_metainterp(f, args, self.CPUClass,
                                                   self.type_system,
                                                   **kwds)
+        metainterp.staticdata.state = FakeWarmRunnerState()
+        metainterp.staticdata.state.cpu = metainterp.staticdata.cpu
+        if hasattr(self, 'finish_metainterp_for_interp_operations'):
+            self.finish_metainterp_for_interp_operations(metainterp)
         portal_graph = rtyper.annotator.translator.graphs[0]
         cw = codewriter.CodeWriter(rtyper)
         
@@ -95,7 +101,6 @@ class JitMixin:
         cw.finish_making_bytecodes()
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata._class_sizes = cw.class_sizes
-        metainterp.staticdata.state = FakeWarmRunnerState()
         metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
         metainterp.staticdata.DoneWithThisFrameRef = DoneWithThisFrameRef
         metainterp.staticdata.DoneWithThisFrameFloat = DoneWithThisFrame

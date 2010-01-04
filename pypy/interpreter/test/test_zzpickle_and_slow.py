@@ -2,6 +2,7 @@ import py
 from pypy import conftest
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
+from pypy.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
     def setup_class(cls):
@@ -30,21 +31,18 @@ def _attach_helpers(space):
     from pypy.interpreter import pytraceback
     def hide_top_frame(space, w_frame):
         w_last = None
-        while w_frame.f_back():
-            # should have been forced by traceback capturing
-            assert w_frame.f_back_forced
+        while w_frame.f_backref():
             w_last = w_frame
-            w_frame = w_frame.f_back()
+            w_frame = w_frame.f_backref()
         assert w_last
-        w_saved = w_last.f_back()
-        w_last.f_back_some = None
+        w_saved = w_last.f_backref()
+        w_last.f_backref = vref_None
         return w_saved
 
     def restore_top_frame(space, w_frame, w_saved):
-        while w_frame.f_back():
-            assert w_frame.f_back_forced
-            w_frame = w_frame.f_back()
-        w_frame.f_back_some = w_saved
+        while w_frame.f_backref():
+            w_frame = w_frame.f_backref()
+        w_frame.f_backref = non_virtual_ref(w_saved)
 
     def read_exc_type(space, w_frame):
         if w_frame.last_exception is None:

@@ -84,7 +84,8 @@ misc_ops = {
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Debug::DEBUG_FATALERROR(string)'],
     'keepalive':                Ignore,
     'jit_marker':               Ignore,
-    'promote_virtualizable':    Ignore,
+    'jit_force_virtualizable':  Ignore,
+    'jit_force_virtual':        DoNothing,
     }
 
 # __________ numeric operations __________

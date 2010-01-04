@@ -20,6 +20,7 @@ OPT_GUARDS
 OPT_FORCINGS
 ABORT_TOO_LONG
 ABORT_BRIDGE
+ABORT_ESCAPE
 NVIRTUALS
 NVHOLES
 NVREUSED
@@ -176,8 +177,9 @@ class Profiler(BaseProfiler):
         self._print_intline("opt ops", cnt[OPT_OPS])
         self._print_intline("opt guards", cnt[OPT_GUARDS])
         self._print_intline("forcings", cnt[OPT_FORCINGS])
-        self._print_intline("trace too long", cnt[ABORT_TOO_LONG])
-        self._print_intline("bridge abort", cnt[ABORT_BRIDGE])
+        self._print_intline("abort: trace too long", cnt[ABORT_TOO_LONG])
+        self._print_intline("abort: compiling", cnt[ABORT_BRIDGE])
+        self._print_intline("abort: vable escape", cnt[ABORT_ESCAPE])
         self._print_intline("nvirtuals", cnt[NVIRTUALS])
         self._print_intline("nvholes", cnt[NVHOLES])
         self._print_intline("nvreused", cnt[NVREUSED])

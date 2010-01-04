@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.unroll import unrolling_iterable
 
 def purefunction(func):
@@ -99,6 +100,66 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
 # ____________________________________________________________
+# VRefs
+
+def virtual_ref(x):
+    
+    """Creates a 'vref' object that contains a reference to 'x'.  Calls
+    to virtual_ref/virtual_ref_finish must be properly nested.  The idea
+    is that the object 'x' is supposed to be JITted as a virtual between
+    the calls to virtual_ref and virtual_ref_finish, but the 'vref'
+    object can escape at any point in time.  If at runtime it is
+    dereferenced (by the call syntax 'vref()'), it returns 'x', which is
+    then forced."""
+    return DirectJitVRef(x)
+virtual_ref.oopspec = 'virtual_ref(x)'
+
+def virtual_ref_finish(x):
+    """See docstring in virtual_ref(x).  Note that virtual_ref_finish
+    takes as argument the real object, not the vref."""
+    keepalive_until_here(x)   # otherwise the whole function call is removed
+virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
+
+def non_virtual_ref(x):
+    """Creates a 'vref' that just returns x when called; nothing more special.
+    Used for None or for frames outside JIT scope."""
+    return DirectVRef(x)
+
+# ---------- implementation-specific ----------
+
+class DirectVRef(object):
+    def __init__(self, x):
+        self._x = x
+    def __call__(self):
+        return self._x
+
+class DirectJitVRef(DirectVRef):
+    def __init__(self, x):
+        assert x is not None, "virtual_ref(None) is not allowed"
+        DirectVRef.__init__(self, x)
+
+class Entry(ExtRegistryEntry):
+    _about_ = (non_virtual_ref, DirectJitVRef)
+
+    def compute_result_annotation(self, s_obj):
+        from pypy.rlib import _jit_vref
+        return _jit_vref.SomeVRef(s_obj)
+
+    def specialize_call(self, hop):
+        return hop.r_result.specialize_call(hop)
+
+class Entry(ExtRegistryEntry):
+    _type_ = DirectVRef
+
+    def compute_annotation(self):
+        from pypy.rlib import _jit_vref
+        assert isinstance(self.instance, DirectVRef)
+        s_obj = self.bookkeeper.immutablevalue(self.instance())
+        return _jit_vref.SomeVRef(s_obj)
+
+vref_None = non_virtual_ref(None)
+
+# ____________________________________________________________
 # User interface for the hotpath JIT policy
 
 class JitHintError(Exception):
@@ -135,7 +196,7 @@ class JitDriver:
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  can_inline=None, get_printable_location=None,
-                 leave=None):
+                 leave=None):   # XXX 'leave' is deprecated
         if greens is not None:
             self.greens = greens
         if reds is not None:

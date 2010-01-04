@@ -249,7 +249,10 @@ class BaseTestOptimizeOpt(BaseTest):
             loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
-        optimize_loop_1(FakeMetaInterpStaticData(self.cpu), loop)
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        if hasattr(self, 'vrefinfo'):
+            metainterp_sd.virtualref_info = self.vrefinfo
+        optimize_loop_1(metainterp_sd, loop)
         #
         expected = self.parse(optops)
         self.assert_equal(loop, expected)
@@ -2352,6 +2355,171 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+
+    def test_vref_nonvirtual_nonescape(self):
+        ops = """
+        [p1]
+        p2 = virtual_ref(p1, 5)
+        virtual_ref_finish(p2, p1)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i0 = force_token()
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_vref_nonvirtual_escape(self):
+        ops = """
+        [p1]
+        p2 = virtual_ref(p1, 5)
+        escape(p2)
+        virtual_ref_finish(p2, p1)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i0 = force_token()
+        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, i0, descr=virtualtokendescr)
+        setfield_gc(p2, 5, descr=virtualrefindexdescr)
+        escape(p2)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
+        setfield_gc(p2, 0, descr=virtualtokendescr)
+        jump(p1)
+        """
+        # XXX we should optimize a bit more the case of a nonvirtual.
+        # in theory it is enough to just do 'p2 = p1'.
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_vref_virtual_1(self):
+        ops = """
+        [p0, i1]
+        #
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1b, 252, descr=valuedescr)
+        setfield_gc(p1, p1b, descr=nextdescr)
+        #
+        p2 = virtual_ref(p1, 3)
+        setfield_gc(p0, p2, descr=nextdescr)
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced() [i1]
+        virtual_ref_finish(p2, p1)
+        setfield_gc(p0, NULL, descr=nextdescr)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i1]
+        i3 = force_token()
+        #
+        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, 3, descr=virtualrefindexdescr)
+        setfield_gc(p0, p2, descr=nextdescr)
+        #
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced() [i1]
+        setfield_gc(p0, NULL, descr=nextdescr)
+        #
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1b, 252, descr=valuedescr)
+        setfield_gc(p1, p1b, descr=nextdescr)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
+        setfield_gc(p2, 0, descr=virtualtokendescr)
+        #
+        jump(p0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_vref_virtual_2(self):
+        self.make_fail_descr()
+        ops = """
+        [p0, i1]
+        #
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1b, i1, descr=valuedescr)
+        setfield_gc(p1, p1b, descr=nextdescr)
+        #
+        p2 = virtual_ref(p1, 2)
+        setfield_gc(p0, p2, descr=nextdescr)
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced(descr=fdescr) [p2, p1]
+        virtual_ref_finish(p2, p1)
+        setfield_gc(p0, NULL, descr=nextdescr)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i1]
+        i3 = force_token()
+        #
+        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, 2, descr=virtualrefindexdescr)
+        setfield_gc(p0, p2, descr=nextdescr)
+        #
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced(descr=fdescr) [p2, i1]
+        setfield_gc(p0, NULL, descr=nextdescr)
+        #
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1b, i1, descr=valuedescr)
+        setfield_gc(p1, p1b, descr=nextdescr)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
+        setfield_gc(p2, 0, descr=virtualtokendescr)
+        #
+        jump(p0, i1)
+        """
+        # the point of this test is that 'i1' should show up in the fail_args
+        # of 'guard_not_forced', because it was stored in the virtual 'p1b'.
+        self.optimize_loop(ops, 'Not, Not', expected)
+        self.check_expanded_fail_descr('''p2, p1
+            where p1 is a node_vtable, nextdescr=p1b
+            where p1b is a node_vtable, valuedescr=i1
+            ''')
+
+    def test_vref_virtual_and_lazy_setfield(self):
+        self.make_fail_descr()
+        ops = """
+        [p0, i1]
+        #
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1b = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1b, i1, descr=valuedescr)
+        setfield_gc(p1, p1b, descr=nextdescr)
+        #
+        p2 = virtual_ref(p1, 2)
+        setfield_gc(p0, p2, descr=refdescr)
+        call(i1, descr=nonwritedescr)
+        guard_no_exception(descr=fdescr) [p2, p1]
+        virtual_ref_finish(p2, p1)
+        setfield_gc(p0, NULL, descr=refdescr)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i1]
+        i3 = force_token()
+        call(i1, descr=nonwritedescr)
+        guard_no_exception(descr=fdescr) [i3, i1, p0]
+        setfield_gc(p0, NULL, descr=refdescr)
+        jump(p0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+        # the fail_args contain [i3, i1, p0]:
+        #  - i3 is from the virtual expansion of p2
+        #  - i1 is from the virtual expansion of p1
+        #  - p0 is from the extra pendingfields
+        self.loop.inputargs[0].value = self.nodeobjvalue
+        self.check_expanded_fail_descr('''p2, p1
+            p0.refdescr = p2
+            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3, virtualrefindexdescr=2
+            where p1 is a node_vtable, nextdescr=p1b
+            where p1b is a node_vtable, valuedescr=i1
+            ''')
 
 
 class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):

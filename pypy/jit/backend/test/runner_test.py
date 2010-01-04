@@ -803,6 +803,19 @@ class BaseBackendTest(Runner):
             r = self.execute_operation(rop.SAME_AS, [BoxFloat(5.5)], 'float')
             assert r.value == 5.5
 
+    def test_virtual_ref(self):
+        # if VIRTUAL_REF reaches the backend, it should just be a SAME_AS
+        u_box = self.alloc_unicode(u"hello\u1234")
+        r = self.execute_operation(rop.VIRTUAL_REF, [u_box, ConstInt(2)],
+                                   'ref')
+        assert r.value == u_box.value
+
+    def test_virtual_ref_finish(self):
+        # if VIRTUAL_REF_FINISH reaches the backend, it is a no-op
+        self.execute_operation(rop.VIRTUAL_REF_FINISH,
+                               [BoxInt(123), BoxInt(234)],
+                               'void')
+
     def test_jump(self):
         # this test generates small loops where the JUMP passes many
         # arguments of various types, shuffling them around.

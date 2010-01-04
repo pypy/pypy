@@ -793,8 +793,12 @@ class FunctionCodeGenerator(object):
     def OP_JIT_MARKER(self, op):
         return '/* JIT_MARKER %s */' % op
 
-    def OP_PROMOTE_VIRTUALIZABLE(self, op):
-        return '/* PROMOTE_VIRTUALIZABLE %s */' % op
+    def OP_JIT_FORCE_VIRTUALIZABLE(self, op):
+        return '/* JIT_FORCE_VIRTUALIZABLE %s */' % op
+
+    def OP_JIT_FORCE_VIRTUAL(self, op):
+        return '%s = %s; /* JIT_FORCE_VIRTUAL */' % (self.expr(op.result),
+                                                     self.expr(op.args[0]))
 
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)

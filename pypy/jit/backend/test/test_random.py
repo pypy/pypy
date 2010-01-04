@@ -431,9 +431,10 @@ for _op in [rop.FLOAT_ADD,
 
 for _op in [rop.FLOAT_NEG,
             rop.FLOAT_ABS,
-            rop.FLOAT_IS_TRUE,
             ]:
     OPERATIONS.append(UnaryFloatOperation(_op))
+
+OPERATIONS.append(UnaryFloatOperation(rop.FLOAT_IS_TRUE, boolres=True))
 
 OPERATIONS.append(CastFloatToIntOperation(rop.CAST_FLOAT_TO_INT))
 OPERATIONS.append(CastIntToFloatOperation(rop.CAST_INT_TO_FLOAT))

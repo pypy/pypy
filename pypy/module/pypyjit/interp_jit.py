@@ -21,7 +21,7 @@ from pypy.rlib.objectmodel import we_are_translated
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
-                            'fastlocals_w[*]', 'f_forward',
+                            'fastlocals_w[*]',
                             'last_exception',
                             ]
 
@@ -34,12 +34,6 @@ def get_printable_location(next_instr, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
-
-def leave(next_instr, pycode, frame, ec):
-    from pypy.interpreter.executioncontext import ExecutionContext
-    # can't use a method here, since this function is seen later than the main
-    # annotation       XXX no longer true, could be fixed
-    ExecutionContext._jit_rechain_frame(ec, frame)
 
 def get_jitcell_at(next_instr, bytecode):
     return bytecode.jit_cells.get(next_instr, None)
@@ -63,7 +57,6 @@ class PyPyJitDriver(JitDriver):
 
 pypyjitdriver = PyPyJitDriver(can_inline = can_inline,
                               get_printable_location = get_printable_location,
-                              leave = leave,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at)
 

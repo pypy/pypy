@@ -113,8 +113,8 @@ class PyPyCJITTests(object):
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
         self.parse_loops(logfilepath)
+        self.print_loops()
         if self.total_ops > expected_max_ops:
-            self.print_loops()
             assert 0, "too many operations: got %d, expected maximum %d" % (
                 self.total_ops, expected_max_ops)
 
@@ -205,7 +205,7 @@ class PyPyCJITTests(object):
 
             def main():
                 return richards.main(iterations = 1)
-        ''' % (sys.path,), 7000,
+        ''' % (sys.path,), 7200,
                    ([], 42))
 
     def test_simple_call(self):
@@ -267,7 +267,9 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("LOAD_ATTR")
         assert len(ops) == 2
         assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+                                        "setfield_gc",  #  (*)
                                         "guard_nonnull_class"]
+        # (*) delayed write of the frames depth
         assert not ops[1] # second LOAD_ATTR folded away
 
     def test_default_and_kw(self):
@@ -445,7 +447,27 @@ class TestJIT(PyPyCJITTests):
     def setup_class(cls):
         if option.pypy_c is None:
             py.test.skip("pass --pypy!")
+        if not has_info(option.pypy_c, 'translation.jit'):
+            py.test.skip("must give a pypy-c with the jit enabled")
+        if has_info(option.pypy_c, 'translation.thread'):
+            py.test.skip("for now, must give a pypy-c-jit without threads")
         cls.tmpdir = udir.join('pypy-jit')
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0
         cls.pypy_c = option.pypy_c
+
+def has_info(pypy_c, option):
+    g = os.popen('"%s" --info' % pypy_c, 'r')
+    lines = g.readlines()
+    g.close()
+    for line in lines:
+        line = line.strip()
+        if line.startswith(option + ':'):
+            line = line[len(option)+1:].strip()
+            if line == 'True':
+                return True
+            elif line == 'False':
+                return False
+            else:
+                return line
+    raise ValueError(option + ' not found in ' + pypy_c)

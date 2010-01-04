@@ -368,19 +368,18 @@ class Assembler386(object):
         def genop_cmp(self, op, arglocs, result_loc):
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
-                self.mc.MOV(result_loc, imm8(0))
                 getattr(self.mc, 'SET' + rev_cond)(lower_byte(result_loc))
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])
-                self.mc.MOV(result_loc, imm8(0))
                 getattr(self.mc, 'SET' + cond)(lower_byte(result_loc))
+            self.mc.MOVZX(result_loc, lower_byte(result_loc))
         return genop_cmp
 
     def _cmpop_float(cond):
         def genop_cmp(self, op, arglocs, result_loc):
             self.mc.UCOMISD(arglocs[0], arglocs[1])
-            self.mc.MOV(result_loc, imm8(0))
             getattr(self.mc, 'SET' + cond)(lower_byte(result_loc))
+            self.mc.MOVZX(result_loc, lower_byte(result_loc))
         return genop_cmp
 
     def _cmpop_guard(cond, rev_cond, false_cond, false_rev_cond):
@@ -403,6 +402,19 @@ class Assembler386(object):
                     name = 'J' + false_cond
                     return self.implement_guard(addr, getattr(self.mc, name))
         return genop_cmp_guard
+
+    def _cmpop_guard_float(cond, false_cond):
+        def genop_cmp_guard_float(self, op, guard_op, addr, arglocs,
+                                  result_loc):
+            guard_opnum = guard_op.opnum
+            self.mc.UCOMISD(arglocs[0], arglocs[1])
+            if guard_opnum == rop.GUARD_FALSE:
+                name = 'J' + cond
+                return self.implement_guard(addr, getattr(self.mc, name))
+            else:
+                name = 'J' + false_cond
+                return self.implement_guard(addr, getattr(self.mc, name))
+        return genop_cmp_guard_float
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax):
         p = 0
@@ -454,11 +466,11 @@ class Assembler386(object):
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
     genop_int_eq = _cmpop("E", "E")
-    genop_oois = genop_int_eq
     genop_int_ne = _cmpop("NE", "NE")
-    genop_ooisnot = genop_int_ne
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
+    genop_oois = genop_int_eq
+    genop_ooisnot = genop_int_ne
 
     genop_float_lt = _cmpop_float('B')
     genop_float_le = _cmpop_float('BE')
@@ -478,11 +490,20 @@ class Assembler386(object):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
+    genop_guard_oois = genop_guard_int_eq
+    genop_guard_ooisnot = genop_guard_int_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
     genop_guard_uint_le = _cmpop_guard("BE", "AE", "A", "B")
     genop_guard_uint_ge = _cmpop_guard("AE", "BE", "B", "A")
+
+    genop_guard_float_lt = _cmpop_guard_float("B", "AE")
+    genop_guard_float_le = _cmpop_guard_float("BE", "A")
+    genop_guard_float_eq = _cmpop_guard_float("E", "NE")
+    genop_guard_float_ne = _cmpop_guard_float("NE", "E")
+    genop_guard_float_gt = _cmpop_guard_float("A", "BE")
+    genop_guard_float_ge = _cmpop_guard_float("AE", "B")
 
     def genop_float_neg(self, op, arglocs, resloc):
         # Following what gcc does: res = x ^ 0x8000000000000000
@@ -491,6 +512,16 @@ class Assembler386(object):
     def genop_float_abs(self, op, arglocs, resloc):
         # Following what gcc does: res = x & 0x7FFFFFFFFFFFFFFF
         self.mc.ANDPD(arglocs[0], self.loc_float_const_abs)
+
+    def genop_guard_float_is_true(self, op, guard_op, addr, arglocs, resloc):
+        guard_opnum = guard_op.opnum
+        loc0, loc1 = arglocs
+        self.mc.XORPD(loc0, loc0)
+        self.mc.UCOMISD(loc0, loc1)
+        if guard_opnum == rop.GUARD_TRUE:
+            return self.implement_guard(addr, self.mc.JZ)
+        else:
+            return self.implement_guard(addr, self.mc.JNZ)
 
     def genop_float_is_true(self, op, arglocs, resloc):
         loc0, loc1 = arglocs
@@ -504,9 +535,6 @@ class Assembler386(object):
 
     def genop_cast_int_to_float(self, op, arglocs, resloc):
         self.mc.CVTSI2SD(resloc, arglocs[0])
-
-    def genop_bool_not(self, op, arglocs, resloc):
-        self.mc.XOR(arglocs[0], imm8(1))
 
     def genop_int_lshift(self, op, arglocs, resloc):
         loc, loc2 = arglocs
@@ -528,8 +556,7 @@ class Assembler386(object):
 
     def genop_guard_int_is_true(self, op, guard_op, addr, arglocs, resloc):
         guard_opnum = guard_op.opnum
-        loc = arglocs[0]
-        self.mc.TEST(loc, loc)
+        self.mc.CMP(arglocs[0], imm8(0))
         if guard_opnum == rop.GUARD_TRUE:
             return self.implement_guard(addr, self.mc.JZ)
         else:
@@ -537,12 +564,24 @@ class Assembler386(object):
 
     def genop_int_is_true(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))
-        self.mc.MOV(resloc, imm8(0))
         self.mc.SETNE(lower_byte(resloc))
+        self.mc.MOVZX(resloc, lower_byte(resloc))
+
+    def genop_guard_bool_not(self, op, guard_op, addr, arglocs, resloc):
+        guard_opnum = guard_op.opnum
+        self.mc.CMP(arglocs[0], imm8(0))
+        if guard_opnum == rop.GUARD_TRUE:
+            return self.implement_guard(addr, self.mc.JNZ)
+        else:
+            return self.implement_guard(addr, self.mc.JZ)
+
+    def genop_bool_not(self, op, arglocs, resloc):
+        self.mc.XOR(arglocs[0], imm8(1))
 
     def genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
     genop_cast_ptr_to_int = genop_same_as
+    genop_virtual_ref = genop_same_as
 
     def genop_int_mod(self, op, arglocs, resloc):
         self.mc.CDQ()

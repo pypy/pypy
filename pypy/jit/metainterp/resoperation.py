@@ -90,7 +90,7 @@ class ResOperation(object):
         return rop._OVF_FIRST <= self.opnum <= rop._OVF_LAST
 
     def is_comparison(self):
-        return rop._COMPARISON_FIRST <= self.opnum <= rop._COMPARISON_LAST
+        return self.is_always_pure() and self.returns_bool_result()
 
     def is_final(self):
         return rop._FINAL_FIRST <= self.opnum <= rop._FINAL_LAST
@@ -155,7 +155,6 @@ _oplist = [
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
     #
-    '_COMPARISON_FIRST',
     'INT_LT/2b',
     'INT_LE/2b',
     'INT_EQ/2b',
@@ -166,8 +165,7 @@ _oplist = [
     'UINT_LE/2b',
     'UINT_GT/2b',
     'UINT_GE/2b',
-    '_COMPARISON_LAST',
-    'FLOAT_LT/2b',          # maybe these ones should be comparisons too
+    'FLOAT_LT/2b',
     'FLOAT_LE/2b',
     'FLOAT_EQ/2b',
     'FLOAT_NE/2b',
@@ -205,6 +203,8 @@ _oplist = [
     'NEW/0d',
     'NEW_WITH_VTABLE/1',
     'NEW_ARRAY/1d',
+    'FORCE_TOKEN/0',
+    'VIRTUAL_REF/2',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
@@ -221,7 +221,7 @@ _oplist = [
     'COND_CALL_GC_MALLOC',  # [a, b, if_(a<=b)_result, if_(a>b)_call, args...]
                             #        => result          (for mallocs)
     'DEBUG_MERGE_POINT/1',      # debugging only
-    'FORCE_TOKEN/0',
+    'VIRTUAL_REF_FINISH/2',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',

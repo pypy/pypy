@@ -1,6 +1,5 @@
 
 import py
-py.test.skip("Widening to trash error")
 from pypy.jit.backend.x86.test.test_basic import Jit386Mixin
 from pypy.jit.metainterp.test.test_tlc import TLCTests
 from pypy.jit.tl import tlc
@@ -10,6 +9,7 @@ class TestTL(Jit386Mixin, TLCTests):
     # ====> ../../test/test_tlc.py
     
     def test_accumulator(self):
+        py.test.skip("investigate, maybe")
         path = py.path.local(tlc.__file__).dirpath('accumulator.tlc.src')
         code = path.read()
         res = self.exec_code(code, 20)
@@ -18,6 +18,7 @@ class TestTL(Jit386Mixin, TLCTests):
         assert res == 10
 
     def test_fib(self):
+        py.test.skip("investigate, maybe")
         path = py.path.local(tlc.__file__).dirpath('fibo.tlc.src')
         code = path.read()
         res = self.exec_code(code, 7)

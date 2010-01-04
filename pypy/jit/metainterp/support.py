@@ -3,6 +3,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
 from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -135,6 +136,9 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
+
+def _ll_1_jit_force_virtual(inst):
+    return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
 class LLtypeHelpers:

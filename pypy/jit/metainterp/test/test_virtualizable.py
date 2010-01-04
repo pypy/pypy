@@ -28,7 +28,7 @@ class Entry(ExtRegistryEntry):
                   hop.inputconst(lltype.Void, hop.args_v[1].value),
                   hop.inputconst(lltype.Void, {})]
         hop.exception_cannot_occur()
-        return hop.genop('promote_virtualizable',
+        return hop.genop('jit_force_virtualizable',
                          args_v, resulttype=lltype.Void)
 
 debug_print = lloperation.llop.debug_print
@@ -907,6 +907,39 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
         assert res == f(123)
 
+    def test_bridge_forces(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        def g():
+            n = somewhere_else.top_frame.y + 700
+            debug_print(lltype.Void, '-+-+-+-+- external write:', n)
+            somewhere_else.top_frame.y = n
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10
+            somewhere_else.counter = 0
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                if frame.y > 17:
+                    g()
+                frame.x -= 5
+                frame.y += 1
+            return frame.y
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+
     def test_promote_index_in_virtualizable_list(self):
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
@@ -980,9 +1013,11 @@ class ImplicitVirtualizableTests:
                     for block, op in graph.iterblockops()
                         if op.opname == 'direct_call']
 
-        assert direct_calls(f_graph) == ['__init__', 'force_if_necessary', 'll_portal_runner']
-        assert direct_calls(portal_graph) == ['force_if_necessary', 'maybe_enter_jit']
-
+        assert direct_calls(f_graph) == ['__init__',
+                                         'force_virtualizable_if_necessary',
+                                         'll_portal_runner']
+        assert direct_calls(portal_graph)==['force_virtualizable_if_necessary',
+                                            'maybe_enter_jit']
         assert direct_calls(init_graph) == []
 
     def test_virtual_child_frame(self):
@@ -1158,8 +1193,7 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_blackhole_should_not_reenter(self):
-        from pypy.jit.backend.test.support import BaseCompiledMixin
-        if isinstance(self, BaseCompiledMixin):
+        if not self.basic:
             py.test.skip("purely frontend test")
 
         myjitdriver = JitDriver(greens = [], reds = ['frame', 'fail'],

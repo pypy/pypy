@@ -152,7 +152,9 @@ TYPES = {
     'debug_merge_point': (('ref',), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
-    'guard_not_forced': ((), None)
+    'guard_not_forced': ((), None),
+    'virtual_ref'     : (('ref', 'int'), 'ref'),
+    'virtual_ref_finish': (('ref', 'ref'), None),
     #'getitem'         : (('void', 'ref', 'int'), 'int'),
     #'setitem'         : (('void', 'ref', 'int', 'int'), None),
     #'newlist'         : (('void', 'varargs'), 'ref'),
@@ -812,6 +814,12 @@ class Frame(object):
         self._forced = False
         if forced:
             raise GuardFailed
+
+    def op_virtual_ref(self, _, virtual, index):
+        return virtual
+
+    def op_virtual_ref_finish(self, _, vref, virtual):
+        pass
 
 
 class OOFrame(Frame):

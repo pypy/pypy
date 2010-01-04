@@ -737,6 +737,49 @@ class Optimizer(object):
     def optimize_OOIS(self, op):
         self._optimize_oois_ooisnot(op, False)
 
+    def optimize_VIRTUAL_REF(self, op):
+        indexbox = op.args[1]
+        #
+        # get some constants
+        vrefinfo = self.metainterp_sd.virtualref_info
+        c_cls = vrefinfo.jit_virtual_ref_const_class
+        descr_virtual_token = vrefinfo.descr_virtual_token
+        descr_virtualref_index = vrefinfo.descr_virtualref_index
+        #
+        # Replace the VIRTUAL_REF operation with a virtual structure of type
+        # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
+        # but the point is that doing so does not force the original structure.
+        op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op.result)
+        vrefvalue = self.make_virtual(c_cls, op.result, op)
+        tokenbox = BoxInt()
+        self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
+        vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
+        vrefvalue.setfield(descr_virtualref_index, self.getvalue(indexbox))
+
+    def optimize_VIRTUAL_REF_FINISH(self, op):
+        # Set the 'forced' field of the virtual_ref.
+        # In good cases, this is all virtual, so has no effect.
+        # Otherwise, this forces the real object -- but only now, as
+        # opposed to much earlier.  This is important because the object is
+        # typically a PyPy PyFrame, and now is the end of its execution, so
+        # forcing it now does not have catastrophic effects.
+        vrefinfo = self.metainterp_sd.virtualref_info
+        # - set 'forced' to point to the real object
+        op1 = ResOperation(rop.SETFIELD_GC, op.args, None,
+                          descr = vrefinfo.descr_forced)
+        self.optimize_SETFIELD_GC(op1)
+        # - set 'virtual_token' to TOKEN_NONE
+        args = [op.args[0], ConstInt(0)]
+        op1 = ResOperation(rop.SETFIELD_GC, args, None,
+                      descr = vrefinfo.descr_virtual_token)
+        self.optimize_SETFIELD_GC(op1)
+        # Note that in some cases the virtual in op.args[1] has been forced
+        # already.  This is fine.  In that case, and *if* a residual
+        # CALL_MAY_FORCE suddenly turns out to access it, then it will
+        # trigger a ResumeGuardForcedDescr.handle_async_forcing() which
+        # will work too (but just be a little pointless, as the structure
+        # was already forced).
+
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.args[0])
         if value.is_virtual():

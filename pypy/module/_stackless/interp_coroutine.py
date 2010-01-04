@@ -275,11 +275,10 @@ def w_descr__framestack(space, self):
         return space.newtuple([])
     items = [None] * index
     f = self.subctx.topframe
-    f.force_f_back()
     while index > 0:
         index -= 1
         items[index] = space.wrap(f)
-        f = f.f_back()
+        f = f.f_backref()
     assert f is None
     return space.newtuple(items)
 

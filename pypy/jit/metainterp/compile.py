@@ -237,23 +237,50 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
         token = metainterp_sd.cpu.get_latest_force_token()
-        data = self.fetch_data(token)
-        if data is None:
-            data = []
-        metainterp._already_allocated_resume_virtuals = data
+        all_virtuals = self.fetch_data(token)
+        if all_virtuals is None:
+            all_virtuals = []
+        metainterp._already_allocated_resume_virtuals = all_virtuals
         self.counter = -2     # never compile
         return metainterp.handle_guard_failure(self)
 
-    def force_virtualizable(self, vinfo, virtualizable, force_token):
+    @staticmethod
+    def force_now(cpu, token):
+        # Called during a residual call from the assembler, if the code
+        # actually needs to force one of the virtualrefs or the virtualizable.
+        # Implemented by forcing *all* virtualrefs and the virtualizable.
+        faildescr = cpu.force(token)
+        assert isinstance(faildescr, ResumeGuardForcedDescr)
+        faildescr.handle_async_forcing(token)
+
+    def handle_async_forcing(self, force_token):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         from pypy.jit.metainterp.resume import force_from_resumedata
-        metainterp = MetaInterp(self.metainterp_sd)
+        # To handle the forcing itself, we create a temporary MetaInterp
+        # as a convenience to move the various data to its proper place.
+        metainterp_sd = self.metainterp_sd
+        metainterp = MetaInterp(metainterp_sd)
         metainterp.history = None    # blackholing
-        liveboxes = metainterp.cpu.make_boxes_from_latest_values(self)
-        virtualizable_boxes, data = force_from_resumedata(metainterp,
-                                                          liveboxes, self)
-        vinfo.write_boxes(virtualizable, virtualizable_boxes)
-        self.save_data(force_token, data)
+        liveboxes = metainterp_sd.cpu.make_boxes_from_latest_values(self)
+        #
+        expect_virtualizable = metainterp_sd.virtualizable_info is not None
+        forced_data = force_from_resumedata(metainterp, liveboxes, self,
+                                            expect_virtualizable)
+        virtualizable_boxes, virtualref_boxes, all_virtuals = forced_data
+        #
+        # Handle virtualref_boxes: mark each JIT_VIRTUAL_REF as forced
+        vrefinfo = metainterp_sd.virtualref_info
+        for i in range(0, len(virtualref_boxes), 2):
+            virtualbox = virtualref_boxes[i]
+            vrefbox = virtualref_boxes[i+1]
+            vrefinfo.forced_single_vref(vrefbox.getref_base(),
+                                        virtualbox.getref_base())
+        # Handle virtualizable_boxes: store them on the real virtualizable now
+        if expect_virtualizable:
+            metainterp_sd.virtualizable_info.forced_vable(virtualizable_boxes)
+        # Handle all_virtuals: keep them for later blackholing from the
+        # future failure of the GUARD_NOT_FORCED
+        self.save_data(force_token, all_virtuals)
 
     def save_data(self, key, value):
         globaldata = self.metainterp_sd.globaldata

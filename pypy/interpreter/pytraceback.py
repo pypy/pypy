@@ -49,7 +49,6 @@ class PyTraceback(baseobjspace.Wrappable):
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
 
 def record_application_traceback(space, operror, frame, last_instruction):
-    frame.force_f_back()
     if frame.pycode.hidden_applevel:
         return
     tb = operror.application_traceback

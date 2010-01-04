@@ -78,7 +78,7 @@ class TestRegallocDirectGcIntegration(object):
         box = boxes[0]
         regalloc.position = 0
         regalloc.consider_call(ResOperation(rop.CALL, [box], BoxInt(),
-                                            calldescr), None)
+                                            calldescr))
         assert len(regalloc.assembler.movs) == 3
         #
         mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)

@@ -1,4 +1,4 @@
-import sys
+import sys, py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
@@ -162,9 +162,13 @@ class WarmRunnerDesc:
 
         self.build_meta_interp(CPUClass, **kwds)
         self.make_args_specification()
+        #
+        from pypy.jit.metainterp.virtualref import VirtualRefInfo
+        self.metainterp_sd.virtualref_info = VirtualRefInfo(self)
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
             self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
+        #
         self.make_exception_classes()
         self.make_driverhook_graphs()
         self.make_enter_function()
@@ -177,6 +181,7 @@ class WarmRunnerDesc:
                                           )
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
+        self.rewrite_force_virtual()
         self.add_profiler_finish()
         self.metainterp_sd.finish_setup(optimizer=optimizer)
 
@@ -598,6 +603,13 @@ class WarmRunnerDesc:
                 closures[funcname] = make_closure('set_param_' + funcname)
             op.opname = 'direct_call'
             op.args[:3] = [closures[funcname]]
+
+    def rewrite_force_virtual(self):
+        if self.cpu.ts.name != 'lltype':
+            py.test.skip("rewrite_force_virtual: port it to ootype")
+        all_graphs = self.translator.graphs
+        vrefinfo = self.metainterp_sd.virtualref_info
+        vrefinfo.replace_force_virtual_with_call(all_graphs)
 
 
 def decode_hp_hint_args(op):

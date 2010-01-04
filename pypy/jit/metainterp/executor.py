@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
+from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, check_descr
 from pypy.jit.metainterp.history import INT, REF, ConstFloat
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
@@ -219,6 +219,15 @@ def do_cast_int_to_float(cpu, box1):
     return ConstFloat(float(box1.getint()))
 
 # ____________________________________________________________
+
+def do_force_token(cpu):
+    raise NotImplementedError
+
+def do_virtual_ref(cpu, box1, box2):
+    raise NotImplementedError
+
+def do_virtual_ref_finish(cpu, box1, box2):
+    raise NotImplementedError
 
 def do_debug_merge_point(cpu, box1):
     from pypy.jit.metainterp.warmspot import get_stats

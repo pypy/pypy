@@ -26,14 +26,23 @@ REGEXES = [
     (('opt_ops',), '^opt ops:\s+(\d+)$'),
     (('opt_guards',), '^opt guards:\s+(\d+)$'),
     (('forcings',), '^forcings:\s+(\d+)$'),
-    (('trace_too_long',), '^trace too long:\s+(\d+)$'),
-    (('bridge_abort',), '^bridge abort:\s+(\d+)$'),    
+    (('abort.trace_too_long',), '^abort: trace too long:\s+(\d+)$'),
+    (('abort.compiling',), '^abort: compiling:\s+(\d+)$'),
+    (('abort.vable_escape',), '^abort: vable escape:\s+(\d+)$'),
+    (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
+    (('nvholes',), '^nvholes:\s+(\d+)$'),
+    (('nvreused',), '^nvreused:\s+(\d+)$'),
     ]
 
 class Ops(object):
     total = 0
     calls = 0
     pure_calls = 0
+
+class Aborts(object):
+    trace_too_long = 0
+    compiling = 0
+    vable_escape = 0
 
 class OutputInfo(object):
     tracing_no = 0
@@ -45,13 +54,16 @@ class OutputInfo(object):
     guards = 0
     opt_ops = 0
     opt_guards = 0
-    trace_too_long = 0
-    bridge_abort = 0
+    forcings = 0
+    nvirtuals = 0
+    nvholes = 0
+    nvreused = 0
 
     def __init__(self):
         self.ops = Ops()
         self.recorded_ops = Ops()
         self.blackholed_ops = Ops()
+        self.abort = Aborts()
 
 def parse_prof(output):
     lines = output.splitlines()

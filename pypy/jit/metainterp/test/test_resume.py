@@ -208,29 +208,32 @@ def test_capture_resumedata():
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2)]
 
     storage = Storage()
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
 
     assert fs[0].parent_resumedata_snapshot is None
     assert fs[0].parent_resumedata_frame_info_list is None
 
     assert storage.rd_frame_info_list.prev is None
     assert storage.rd_frame_info_list.jitcode == 'code0'
-    assert storage.rd_snapshot.prev is None
-    assert storage.rd_snapshot.boxes == fs[0].env
-    assert storage.rd_snapshot.boxes is not fs[0].env
+    assert storage.rd_snapshot.boxes == []    # for virtualrefs
+    snapshot = storage.rd_snapshot.prev
+    assert snapshot.prev is None
+    assert snapshot.boxes == fs[0].env
+    assert snapshot.boxes is not fs[0].env
 
     storage = Storage()
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
     assert frame_info_list.jitcode == 'code2'
     assert frame_info_list.pc == 9
 
-    snapshot = storage.rd_snapshot
+    assert storage.rd_snapshot.boxes == []    # for virtualrefs
+    snapshot = storage.rd_snapshot.prev
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
     assert snapshot.boxes == fs[2].env
     assert snapshot.boxes is not fs[2].env
@@ -254,8 +257,9 @@ def test_capture_resumedata():
     fs[2].env = [b2, b3]
     fs[2].pc = 15
     vbs = [b1, b2]
-    capture_resumedata(fs, vbs, storage)
-       
+    vrs = [b3]
+    capture_resumedata(fs, vbs, vrs, storage)
+
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
     assert frame_info_list.jitcode == 'code2'
@@ -264,6 +268,10 @@ def test_capture_resumedata():
     snapshot = storage.rd_snapshot
     assert snapshot.boxes == vbs
     assert snapshot.boxes is not vbs
+
+    snapshot = snapshot.prev
+    assert snapshot.boxes == vrs
+    assert snapshot.boxes is not vrs
 
     snapshot = snapshot.prev
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
@@ -283,7 +291,7 @@ def test_rebuild_from_resumedata():
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish({})
@@ -294,7 +302,7 @@ def test_rebuild_from_resumedata():
 
     result = rebuild_from_resumedata(metainterp, newboxes, storage,
                                      False)
-    assert result is None
+    assert result == (None, [])
     fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
            FakeFrame("code1", 3, 7, b3t, c2, b1t),
            FakeFrame("code2", 9, -1, c3, b2t)]
@@ -307,7 +315,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    capture_resumedata(fs, [b4], storage)
+    capture_resumedata(fs, [b4], [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish({})
@@ -318,7 +326,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
 
     result = rebuild_from_resumedata(metainterp, newboxes, storage,
                                      True)
-    assert result == [b4t]
+    assert result == ([b4t], [])
     fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
            FakeFrame("code1", 3, 7, b3t, c2, b1t),
            FakeFrame("code2", 9, -1, c3, b2t)]
@@ -331,10 +339,10 @@ def test_rebuild_from_resumedata_two_guards():
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, -1, c3, b2, b4)]
-    capture_resumedata(fs, None, storage2)
+    capture_resumedata(fs, None, [], storage2)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
@@ -350,7 +358,7 @@ def test_rebuild_from_resumedata_two_guards():
 
     result = rebuild_from_resumedata(metainterp, newboxes, storage,
                                      False)
-    assert result is None
+    assert result == (None, [])
     fs2 = [FakeFrame("code0", 0, -1, b1t, c1, b2t),
            FakeFrame("code1", 3, 7, b3t, c2, b1t),
            FakeFrame("code2", 9, -1, c3, b2t)]
@@ -361,7 +369,7 @@ def test_rebuild_from_resumedata_two_guards():
     metainterp.framestack = []
     result = rebuild_from_resumedata(metainterp, newboxes, storage2,
                                      False)
-    assert result is None
+    assert result == (None, [])
     fs2 = fs2[:-1] + [FakeFrame("code2", 10, -1, c3, b2t, b4t)]
     assert metainterp.framestack == fs2
 
@@ -389,10 +397,10 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     fs = [FakeFrame("code0", 0, -1, b1, c1, b2),
           FakeFrame("code1", 3, 7, b3, c2, b1),
           FakeFrame("code2", 9, -1, c3, b2)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, -1, c3, b2, b4)]
-    capture_resumedata(fs, None, storage2)
+    capture_resumedata(fs, None, [], storage2)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
@@ -448,7 +456,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
                       LLtypeMixin.nodebox.constbox()]
     storage = Storage()
     fs = [FakeFrame("code0", 0, -1, c1, b2, b3)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
@@ -460,7 +468,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
 
     storage2 = Storage()
     fs = [FakeFrame("code0", 0, -1, b1, b4, b2)]
-    capture_resumedata(fs, None, storage2)
+    capture_resumedata(fs, None, [], storage2)
     values[b4] = virtual_value(b4, b6, c4)
     modifier = ResumeDataVirtualAdder(storage2, memo)
     liveboxes = modifier.finish(values)
@@ -473,7 +481,7 @@ def test_resumedata_top_recursive_virtuals():
     b1, b2, b3 = [BoxPtr(), BoxPtr(), BoxInt()]
     storage = Storage()
     fs = [FakeFrame("code0", 0, -1, b1, b2)]
-    capture_resumedata(fs, None, storage)
+    capture_resumedata(fs, None, [], storage)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     v1 = virtual_value(b1, b3, None)

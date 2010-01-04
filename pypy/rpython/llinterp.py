@@ -546,9 +546,6 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
-    def op_promote_virtualizable(self, *args):
-        pass
-
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 

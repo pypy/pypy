@@ -52,10 +52,10 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
         #if not flags.get('access_directly'):
         if cname.value in self.my_redirected_fields:
             cflags = inputconst(lltype.Void, flags)
-            llops.genop('promote_virtualizable', [vinst, cname, cflags])
+            llops.genop('jit_force_virtualizable', [vinst, cname, cflags])
 
 
-def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
+def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
     # funcptr should be an ll or oo function pointer with a VTYPEPTR argument
     c_funcptr = inputconst(lltype.typeOf(funcptr), funcptr)
     count = 0
@@ -65,7 +65,7 @@ def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
                 continue
             newoplist = []
             for i, op in enumerate(block.operations):
-                if (op.opname == 'promote_virtualizable' and
+                if (op.opname == 'jit_force_virtualizable' and
                     match_virtualizable_type(op.args[0].concretetype,
                                              VTYPEPTR)):
                     if op.args[-1].value.get('access_directly', False):
@@ -75,7 +75,7 @@ def replace_promote_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
                     count += 1
                 newoplist.append(op)
             block.operations = newoplist
-    log("replaced %d 'promote_virtualizable' with %r" % (count, funcptr))
+    log("replaced %d 'jit_force_virtualizable' with %r" % (count, funcptr))
 
 def match_virtualizable_type(TYPE, VTYPEPTR):
     if isinstance(TYPE, ootype.Instance):

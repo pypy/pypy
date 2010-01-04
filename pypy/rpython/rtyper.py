@@ -133,15 +133,33 @@ class RPythonTyper(object):
         return result
 
     def get_type_for_typeptr(self, typeptr):
+        search = typeptr._obj
         try:
-            return self.type_for_typeptr[typeptr._obj]
+            return self.type_for_typeptr[search]
         except KeyError:
-            # rehash the dictionary
+            # rehash the dictionary, and perform a linear scan
+            # for the case of ll2ctypes typeptr
+            found = None
             type_for_typeptr = {}
             for key, value in self.type_for_typeptr.items():
                 type_for_typeptr[key] = value
+                if key == search:
+                    found = value
             self.type_for_typeptr = type_for_typeptr
-            return self.type_for_typeptr[typeptr._obj]
+            if found is None:
+                raise KeyError(search)
+            return found
+
+    def set_type_for_typeptr(self, typeptr, TYPE):
+        self.type_for_typeptr[typeptr._obj] = TYPE
+
+    def get_real_typeptr_for_typeptr(self, typeptr):
+        # perform a linear scan for the case of ll2ctypes typeptr
+        search = typeptr._obj
+        for key, value in self.type_for_typeptr.items():
+            if key == search:
+                return key._as_ptr()
+        raise KeyError(search)
 
     def makekey(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makekey(self)

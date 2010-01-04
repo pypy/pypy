@@ -21,8 +21,7 @@ from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
-from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.rpython.annlowlevel import base_ptr_lltype
+from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 
@@ -31,7 +30,6 @@ def uaddressof(obj):
 
 _ctypes_cache = {}
 _eci_cache = {}
-_parent_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
@@ -255,7 +253,6 @@ def convert_struct(container, cstruct=None):
                 convert_struct(field_value, csubstruct)
                 subcontainer = getattr(container, field_name)
                 substorage = subcontainer._storage
-                update_parent_cache(substorage, subcontainer)
             elif field_name == STRUCT._arrayfld:    # inlined var-sized part
                 csubarray = getattr(cstruct, field_name)
                 convert_array(field_value, csubarray)
@@ -314,7 +311,6 @@ def struct_use_ctypes_storage(container, ctypes_storage):
                 struct_storage = getattr(ctypes_storage, field_name)
                 struct_use_ctypes_storage(struct_container, struct_storage)
                 struct_container._setparentstructure(container, field_name)
-                update_parent_cache(ctypes_storage, struct_container)
             elif isinstance(FIELDTYPE, lltype.Array):
                 assert FIELDTYPE._hints.get('nolength', False) == False
                 arraycontainer = _array_of_known_length(FIELDTYPE)
@@ -500,25 +496,6 @@ _all_callbacks_results = []
 _callback2obj = {}
 _callback_exc_info = None
 
-# this is just another hack that passes around references to applevel types
-# disguised as base_ptr_lltype
-class Dummy(object):
-    pass
-
-_opaque_cache = {Dummy():0}
-_opaque_list = [Dummy()]
-
-def new_opaque_object(llobj):
-    try:
-        return _opaque_cache[llobj]
-    except KeyError:
-        assert len(_opaque_cache) == len(_opaque_list)
-        ctypes_type = get_ctypes_type(base_ptr_lltype())
-        val = ctypes.cast(len(_opaque_cache), ctypes_type)
-        _opaque_list.append(llobj)
-        _opaque_cache[llobj] = val
-        return val
-
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
     if llinterp is not None:
@@ -542,8 +519,6 @@ def lltype2ctypes(llobj, normalize=True):
                 return ctypes.c_void_p(0)
             return get_ctypes_type(T)()
 
-        if T is base_ptr_lltype():
-            return new_opaque_object(llobj)
         if T == llmemory.GCREF:
             if isinstance(llobj._obj, _llgcopaque):
                 return ctypes.c_void_p(llobj._obj.intval)
@@ -655,8 +630,6 @@ def lltype2ctypes(llobj, normalize=True):
                 raise NotImplementedError(T)
             container._ctypes_storage_was_allocated()
         storage = container._storage
-        if lltype.parentlink(container)[0] is not None:
-            update_parent_cache(storage, container)
         p = ctypes.pointer(storage)
         if index:
             p = ctypes.cast(p, ctypes.c_void_p)
@@ -694,29 +667,37 @@ def ctypes2lltype(T, cobj):
     if isinstance(T, lltype.Ptr):
         if not cobj:   # NULL pointer
             return lltype.nullptr(T.TO)
-        if T is base_ptr_lltype():
-            return _opaque_list[ctypes.cast(cobj, ctypes.c_void_p).value]
         if isinstance(T.TO, lltype.Struct):
+            REAL_TYPE = T.TO
             if T.TO._arrayfld is not None:
                 carray = getattr(cobj.contents, T.TO._arrayfld)
                 container = lltype._struct(T.TO, carray.length)
             else:
                 # special treatment of 'OBJECT' subclasses
-                if get_rtyper() and lltype._castdepth(T.TO, OBJECT) > 0:
-                    ctypes_object = get_ctypes_type(lltype.Ptr(OBJECT))
-                    as_obj = ctypes2lltype(lltype.Ptr(OBJECT),
-                                           ctypes.cast(cobj, ctypes_object))
-                    TObj = get_rtyper().get_type_for_typeptr(as_obj.typeptr)
-                    if TObj != T.TO:
-                        ctypes_instance = get_ctypes_type(lltype.Ptr(TObj))
-                        return lltype.cast_pointer(T,
-                            ctypes2lltype(lltype.Ptr(TObj),
-                                          ctypes.cast(cobj, ctypes_instance)))
-                container = lltype._struct(T.TO)
+                if get_rtyper() and lltype._castdepth(REAL_TYPE, OBJECT) >= 0:
+                    # figure out the real type of the object
+                    containerheader = lltype._struct(OBJECT)
+                    cobjheader = ctypes.cast(cobj,
+                                       get_ctypes_type(lltype.Ptr(OBJECT)))
+                    struct_use_ctypes_storage(containerheader,
+                                              cobjheader.contents)
+                    REAL_TYPE = get_rtyper().get_type_for_typeptr(
+                        containerheader.typeptr)
+                    REAL_T = lltype.Ptr(REAL_TYPE)
+                    cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
+                container = lltype._struct(REAL_TYPE)
             struct_use_ctypes_storage(container, cobj.contents)
-            addr = ctypes.addressof(cobj.contents)
-            if addr in _parent_cache:
-                setparentstructure(container, _parent_cache[addr])
+            if REAL_TYPE != T.TO:
+                p = container._as_ptr()
+                container = lltype.cast_pointer(T, p)._as_obj()
+            # special treatment of 'OBJECT_VTABLE' subclasses
+            if get_rtyper() and lltype._castdepth(REAL_TYPE,
+                                                  OBJECT_VTABLE) >= 0:
+                # figure out the real object that this vtable points to,
+                # and just return that
+                p = get_rtyper().get_real_typeptr_for_typeptr(
+                    container._as_ptr())
+                container = lltype.cast_pointer(T, p)._as_obj()
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
                 container = _array_of_unknown_length(T.TO)
@@ -1162,46 +1143,6 @@ class CastAdrToIntEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('cast_adr_to_int', [adr],
                          resulttype = lltype.Signed)
-
-# ------------------------------------------------------------
-
-def parentchain(container):
-    current = container
-    links = []
-    while True:
-        link = lltype.parentlink(current)
-        if link[0] is None:
-            try:
-                addr = ctypes.addressof(container._storage)
-                actual = _parent_cache[addr]
-                if len(links) < len(actual):
-                    return actual
-            except KeyError:
-                pass
-            return links
-        links.append(link)
-        current = link[0]
-
-def update_parent_cache(storage, container):
-    chain = parentchain(container)
-    addr = ctypes.addressof(storage)
-    try:
-        current = _parent_cache[addr]
-        if len(chain) > len(current):
-            _parent_cache[addr] = chain
-    except KeyError:
-        _parent_cache[addr] = chain
-
-def setparentstructure(container, chain):
-    TP = lltype.typeOf(container)
-    current = container
-    for i, elem in enumerate(chain):
-        if lltype.typeOf(elem[0]) == TP:
-            chain = chain[i + 1:]
-            break
-    for elem in chain:
-        current._setparentstructure(*elem)
-        current = elem[0]
 
 # ____________________________________________________________
 # errno

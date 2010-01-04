@@ -444,8 +444,11 @@ def op_have_debug_prints():
 def op_gc_stack_bottom():
     pass       # marker for trackgcroot.py
 
-def op_promote_virtualizable(object, fieldname, flags):
-    pass # XXX should do something
+def op_jit_force_virtualizable(*args):
+    pass
+
+def op_jit_force_virtual(x):
+    return x
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from pypy.rpython.lltypesystem import llgroup

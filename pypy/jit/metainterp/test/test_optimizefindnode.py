@@ -1,6 +1,6 @@
 import py, random
 
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 
@@ -38,12 +38,13 @@ class LLtypeMixin(object):
     type_system = 'lltype'
 
     def get_class_of_box(self, box):
-        from pypy.rpython.lltypesystem import rclass
         return box.getref(rclass.OBJECTPTR).typeptr
 
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    node_vtable.name = rclass.alloc_array_name('node')
     node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    node_vtable2.name = rclass.alloc_array_name('node2')
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     cpu = runner.LLtypeCPU(None)
 
@@ -66,6 +67,12 @@ class LLtypeMixin(object):
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
+
+    NODEOBJ = lltype.GcStruct('NODEOBJ', ('parent', OBJECT),
+                                         ('ref', lltype.Ptr(OBJECT)))
+    nodeobj = lltype.malloc(NODEOBJ)
+    nodeobjvalue = lltype.cast_opaque_ptr(llmemory.GCREF, nodeobj)
+    refdescr = cpu.fielddescrof(NODEOBJ, 'ref')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
@@ -104,10 +111,28 @@ class LLtypeMixin(object):
                                       EffectInfo([], [adescr], [arraydescr]))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], []))
+    mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([nextdescr], [], [],
+                            forces_virtual_or_virtualizable=True))
 
-    cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
-                      cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2),
-                       cpu.cast_adr_to_int(u_vtable_adr): cpu.sizeof(U)}
+    from pypy.jit.metainterp.virtualref import VirtualRefInfo
+    class FakeWarmRunnerDesc:
+        pass
+    FakeWarmRunnerDesc.cpu = cpu
+    vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
+    virtualtokendescr = vrefinfo.descr_virtual_token
+    virtualrefindexdescr = vrefinfo.descr_virtualref_index
+    virtualforceddescr = vrefinfo.descr_forced
+    jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
+    jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
+
+    cpu.class_sizes = {
+        cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE),
+        cpu.cast_adr_to_int(node_vtable_adr2): cpu.sizeof(NODE2),
+        cpu.cast_adr_to_int(u_vtable_adr): cpu.sizeof(U),
+        cpu.cast_adr_to_int(jvr_vtable_adr): cpu.sizeof(
+                                                   vrefinfo.JIT_VIRTUAL_REF),
+        }
     namespace = locals()
 
 class OOtypeMixin(object):

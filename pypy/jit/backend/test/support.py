@@ -100,6 +100,9 @@ class BaseCompiledMixin(object):
     def check_aborted_count(self, *args, **kwds):
         pass
 
+    def check_aborted_count_at_least(self, *args, **kwds):
+        pass
+
     def interp_operations(self, *args, **kwds):
         py.test.skip("interp_operations test skipped")
 

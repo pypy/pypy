@@ -46,8 +46,6 @@ def test_really_run():
     assert info.opt_ops == 6
     assert info.opt_guards == 1
     assert info.forcings == 0
-    assert info.trace_too_long == 0
-    assert info.bridge_abort == 0    
 
 DATA = '''Tracing:         1       0.006992
 Backend:        1       0.000525
@@ -66,8 +64,12 @@ blackholed ops:         5
 opt ops:                6
 opt guards:             1
 forcings:               1
-trace too long:         2
-bridge abort:           3
+abort: trace too long:  10
+abort: compiling:       11
+abort: vable escape:    12
+nvirtuals:              13
+nvholes:                14
+nvreused:               15
 '''
 
 def test_parse():
@@ -90,5 +92,9 @@ def test_parse():
     assert info.opt_ops == 6
     assert info.opt_guards == 1
     assert info.forcings == 1
-    assert info.trace_too_long == 2
-    assert info.bridge_abort == 3  
+    assert info.abort.trace_too_long == 10
+    assert info.abort.compiling == 11
+    assert info.abort.vable_escape == 12
+    assert info.nvirtuals == 13
+    assert info.nvholes == 14
+    assert info.nvreused == 15

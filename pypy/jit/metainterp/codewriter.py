@@ -1158,16 +1158,17 @@ class BytecodeMaker(object):
                   self.var_position(op.args[3]))
 
     def serialize_op_jit_marker(self, op):
-        if op.args[0].value == 'jit_merge_point':
-            assert self.portal, "jit_merge_point in non-main graph!"
-            self.emit('jit_merge_point')
-            assert ([self.var_position(i) for i in op.args[2:]] ==
-                    range(0, 2*(len(op.args) - 2), 2))
-            #for i in range(2, len(op.args)):
-            #    arg = op.args[i]
-            #    self._eventualy_builtin(arg)
-        elif op.args[0].value == 'can_enter_jit':
-            self.emit('can_enter_jit')
+        key = op.args[0].value
+        getattr(self, 'handle_jit_marker__%s' % key)(op)
+
+    def handle_jit_marker__jit_merge_point(self, op):
+        assert self.portal, "jit_merge_point in non-main graph!"
+        self.emit('jit_merge_point')
+        assert ([self.var_position(i) for i in op.args[2:]] ==
+                range(0, 2*(len(op.args) - 2), 2))
+
+    def handle_jit_marker__can_enter_jit(self, op):
+        self.emit('can_enter_jit')
 
     def serialize_op_direct_call(self, op):
         kind = self.codewriter.guess_call_kind(op)
@@ -1213,7 +1214,7 @@ class BytecodeMaker(object):
             if pure and not all_promoted_args:
                 effectinfo = calldescr.get_extra_info()
                 assert (effectinfo is not None and
-                        not effectinfo.promotes_virtualizables)
+                        not effectinfo.forces_virtual_or_virtualizable)
         try:
             canraise = self.codewriter.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
@@ -1279,6 +1280,9 @@ class BytecodeMaker(object):
         return self._do_builtin_call(op, oopspec_name, args)
 
     def _do_builtin_call(self, op, oopspec_name, args):
+        if oopspec_name.startswith('virtual_ref'):
+            self.handle_virtual_ref_call(op, oopspec_name, args)
+            return
         argtypes = [v.concretetype for v in args]
         resulttype = op.result.concretetype
         c_func, TP = support.builtin_func_for_spec(self.codewriter.rtyper,
@@ -1298,6 +1302,15 @@ class BytecodeMaker(object):
         self.emit(self.get_position(calldescr))
         self.emit_varargs([c_func] + non_void_args)
         self.register_var(op.result)
+
+    def handle_virtual_ref_call(self, op, oopspec_name, args):
+        self.emit(oopspec_name)     # 'virtual_ref' or 'virtual_ref_finish'
+        self.emit(self.var_position(args[0]))
+        self.register_var(op.result)
+        #
+        vrefinfo = self.codewriter.metainterp_sd.virtualref_info
+        self.codewriter.register_known_gctype(vrefinfo.jit_virtual_ref_vtable,
+                                              vrefinfo.JIT_VIRTUAL_REF)
 
     def _array_of_voids(self, ARRAY):
         if isinstance(ARRAY, ootype.Array):
@@ -1557,11 +1570,14 @@ class BytecodeMaker(object):
         log.WARNING("found debug_assert in %r; should have be removed" %
                     (self.graph,))
 
-    def serialize_op_promote_virtualizable(self, op):
+    def serialize_op_jit_force_virtualizable(self, op):
         vinfo = self.codewriter.metainterp_sd.virtualizable_info
         assert vinfo is not None
         assert vinfo.is_vtypeptr(op.args[0].concretetype)
         self.vable_flags[op.args[0]] = op.args[2].value
+
+    def serialize_op_jit_force_virtual(self, op):
+        self._do_builtin_call(op, 'jit_force_virtual', op.args)
 
     serialize_op_oostring  = handle_builtin_call
     serialize_op_oounicode = handle_builtin_call

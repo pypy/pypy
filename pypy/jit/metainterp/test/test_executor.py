@@ -273,4 +273,4 @@ def test_float_ops():
         elif rettype == 'int':
             assert box.getint() == retvalue
         else:
-            assert retvalue is None
+            assert 0, "rettype is %r" % (rettype,)
