@@ -334,6 +334,7 @@ def test_refcount_pyobj():
     f = compile(prob_with_pyobj, [object])
     from sys import getrefcount as g
     obj = None
+    import gc; gc.collect()
     before = g(obj)
     f(obj)
     after = g(obj)
