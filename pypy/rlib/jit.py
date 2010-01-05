@@ -99,6 +99,25 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
+
+##def force_virtualizable(virtualizable):
+##    pass
+
+##class Entry(ExtRegistryEntry):
+##    _about_ = force_virtualizable
+
+##    def compute_result_annotation(self):
+##        from pypy.annotation import model as annmodel
+##        return annmodel.s_None
+
+##    def specialize_call(self, hop):
+##        [vinst] = hop.inputargs(hop.args_r[0])
+##        cname = inputconst(lltype.Void, None)
+##        cflags = inputconst(lltype.Void, {})
+##        hop.exception_cannot_occur()
+##        return hop.genop('jit_force_virtualizable', [vinst, cname, cflags],
+##                         resulttype=lltype.Void)
+
 # ____________________________________________________________
 # VRefs
 
@@ -196,6 +215,7 @@ class JitDriver:
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  can_inline=None, get_printable_location=None,
+                 confirm_enter_jit=None,
                  leave=None):   # XXX 'leave' is deprecated
         if greens is not None:
             self.greens = greens
@@ -213,6 +233,7 @@ class JitDriver:
         self.set_jitcell_at = set_jitcell_at
         self.get_printable_location = get_printable_location
         self.can_inline = can_inline
+        self.confirm_enter_jit = confirm_enter_jit
         self.leave = leave
 
     def _freeze_(self):

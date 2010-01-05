@@ -9,7 +9,7 @@ from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
-from pypy.rlib.jit import we_are_jitted, dont_look_inside, unroll_safe
+from pypy.rlib.jit import we_are_jitted, unroll_safe
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -819,7 +819,6 @@ class ObjSpace(object):
         args = frame.make_arguments(nargs)
         return self.call_args(w_func, args)
 
-    @dont_look_inside 
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
         ec.c_call_trace(frame, w_func)

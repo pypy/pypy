@@ -385,6 +385,26 @@ class BasicTests:
         res = self.meta_interp(f, [55])
         assert res == -1
 
+    def test_confirm_enter_jit(self):
+        def confirm_enter_jit(x, y):
+            return x <= 5
+        myjitdriver = JitDriver(greens = ['x'], reds = ['y'],
+                                confirm_enter_jit = confirm_enter_jit)
+        def f(x, y):
+            while y >= 0:
+                myjitdriver.can_enter_jit(x=x, y=y)
+                myjitdriver.jit_merge_point(x=x, y=y)
+                y -= x
+            return y
+        #
+        res = self.meta_interp(f, [10, 84])
+        assert res == -6
+        self.check_loop_count(0)
+        #
+        res = self.meta_interp(f, [3, 19])
+        assert res == -2
+        self.check_loop_count(1)
+
     def test_format(self):
         def f(n):
             return len("<%d>" % n)

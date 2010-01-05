@@ -402,9 +402,13 @@ class WarmRunnerDesc:
             annhelper, self.jitdriver.can_inline, annmodel.s_Bool)
         self.get_printable_location_ptr = self._make_hook_graph(
             annhelper, self.jitdriver.get_printable_location, s_Str)
+        self.confirm_enter_jit_ptr = self._make_hook_graph(
+            annhelper, self.jitdriver.confirm_enter_jit, annmodel.s_Bool,
+            onlygreens=False)
         annhelper.finish()
 
-    def _make_hook_graph(self, annhelper, func, s_result, s_first_arg=None):
+    def _make_hook_graph(self, annhelper, func, s_result, s_first_arg=None,
+                         onlygreens=True):
         if func is None:
             return None
         #
@@ -412,7 +416,9 @@ class WarmRunnerDesc:
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)
         #
-        args_s = self.portal_args_s[:len(self.green_args_spec)]
+        args_s = self.portal_args_s
+        if onlygreens:
+            args_s = args_s[:len(self.green_args_spec)]
         graph = annhelper.getgraph(func, extra_args_s + args_s, s_result)
         funcptr = annhelper.graph2delayed(graph)
         return funcptr

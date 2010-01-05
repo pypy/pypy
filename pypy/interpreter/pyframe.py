@@ -391,6 +391,7 @@ class PyFrame(eval.Frame):
         new_frame.instr_prev = space.int_w(w_instr_prev)
 
         self._setcellvars(cellvars)
+        # XXX what if the frame is in another thread??
         space.frame_trace_action.fire()
 
     def hide(self):

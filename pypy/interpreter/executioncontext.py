@@ -3,7 +3,6 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import we_are_jitted
 from pypy.rlib import jit
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
@@ -22,10 +21,10 @@ class ExecutionContext(object):
         # tracing: space.frame_trace_action.fire() must be called to ensure
         # that tracing occurs whenever self.w_tracefunc or self.is_tracing
         # is modified.
-        self.w_tracefunc = None
+        self.w_tracefunc = None        # if not None, no JIT
         self.is_tracing = 0
         self.compiler = space.createcompiler()
-        self.profilefunc = None
+        self.profilefunc = None        # if not None, no JIT
         self.w_profilefuncarg = None
 
     def gettopframe(self):
@@ -54,15 +53,17 @@ class ExecutionContext(object):
 
     def leave(self, frame):
         try:
-            if self.profilefunc:
-                self._trace(frame, 'leaveframe', self.space.w_None)
+            if not jit.we_are_jitted():
+                if self.profilefunc:
+                    self._trace(frame, 'leaveframe', self.space.w_None)
         finally:
             self.topframeref = frame.f_backref
             self.framestackdepth -= 1
             jit.virtual_ref_finish(frame)
 
-        if self.w_tracefunc is not None and not frame.hide():
-            self.space.frame_trace_action.fire()
+        if not jit.we_are_jitted():
+            if self.w_tracefunc is not None and not frame.hide():
+                self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
 
@@ -144,7 +145,6 @@ class ExecutionContext(object):
         space.setitem(w_globals, w_key, w_value)
         return w_globals
 
-    @jit.dont_look_inside
     def c_call_trace(self, frame, w_func):
         "Profile the call of a builtin function"
         if self.profilefunc is None:
@@ -152,7 +152,6 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_call', w_func)
 
-    @jit.dont_look_inside
     def c_return_trace(self, frame, w_retval):
         "Profile the return from a builtin function"
         if self.profilefunc is None:
@@ -160,7 +159,6 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_return', w_retval)
 
-    @jit.dont_look_inside
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."
         if self.profilefunc is None:
@@ -168,7 +166,6 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_exception', w_exc)
 
-    @jit.dont_look_inside
     def call_trace(self, frame):
         "Trace the call of a function"
         if self.w_tracefunc is not None or self.profilefunc is not None:
@@ -176,7 +173,6 @@ class ExecutionContext(object):
             if self.profilefunc:
                 frame.is_being_profiled = True
 
-    @jit.dont_look_inside
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
         if self.w_tracefunc is not None:
@@ -195,7 +191,6 @@ class ExecutionContext(object):
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
-    @jit.dont_look_inside
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
@@ -218,6 +213,7 @@ class ExecutionContext(object):
         if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
         else:
+            self.force_all_frames()
             self.w_tracefunc = w_func
             self.space.frame_trace_action.fire()
 
@@ -230,15 +226,26 @@ class ExecutionContext(object):
             self.setllprofile(app_profile_call, w_func)
 
     def setllprofile(self, func, w_arg):
-        self.profilefunc = func
         if func is not None:
             if w_arg is None:
                 raise ValueError("Cannot call setllprofile with real None")
-            frame = self.gettopframe_nohidden()
-            while frame:
-                frame.is_being_profiled = True
-                frame = self.getnextframe_nohidden(frame)
+            self.force_all_frames(is_being_profiled=True)
+        self.profilefunc = func
         self.w_profilefuncarg = w_arg
+
+    def force_all_frames(self, is_being_profiled=False):
+        # "Force" all frames in the sense of the jit, and optionally
+        # set the flag 'is_being_profiled' on them.  A forced frame is
+        # one out of which the jit will exit: if it is running so far,
+        # in a piece of assembler currently running a CALL_MAY_FORCE,
+        # then being forced means that it will fail the following
+        # GUARD_NOT_FORCED operation, and so fall back to interpreted
+        # execution.
+        frame = self.gettopframe_nohidden()
+        while frame:
+            if is_being_profiled:
+                frame.is_being_profiled = True
+            frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):
         is_tracing = self.is_tracing
@@ -448,7 +455,7 @@ class AsyncAction(object):
 
     def fire_after_thread_switch(self):
         """Bit of a hack: fire() the action but only the next time the GIL
-        is released and re-acquired (i.e. after a portential thread switch).
+        is released and re-acquired (i.e. after a potential thread switch).
         Don't call this if threads are not enabled.
         """
         from pypy.module.thread.gil import spacestate

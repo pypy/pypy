@@ -165,6 +165,7 @@ def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         can_inline_ptr = None
         get_printable_location_ptr = None
+        confirm_enter_jit_ptr = None
         green_args_spec = [lltype.Signed, lltype.Float]
     class FakeCell:
         dont_trace_here = False
@@ -192,6 +193,7 @@ def test_make_jitdriver_callbacks_2():
         green_args_spec = [lltype.Signed, lltype.Float]
         can_inline_ptr = llhelper(CAN_INLINE, can_inline)
         get_printable_location_ptr = None
+        confirm_enter_jit_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc())
     def jit_getter(*args):
         return FakeCell()
@@ -212,7 +214,27 @@ def test_make_jitdriver_callbacks_3():
         green_args_spec = [lltype.Signed, lltype.Float]
         can_inline_ptr = None
         get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
+        confirm_enter_jit_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc())
     state.make_jitdriver_callbacks()
     res = state.get_location_str([BoxInt(5), BoxFloat(42.5)])
     assert res == "hi there"
+
+def test_make_jitdriver_callbacks_4():
+    def confirm_enter_jit(x, y, z):
+        assert x == 5
+        assert y == 42.5
+        assert z == 3
+        return True
+    ENTER_JIT = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Float,
+                                            lltype.Signed], lltype.Bool))
+    class FakeWarmRunnerDesc:
+        rtyper = None
+        green_args_spec = [lltype.Signed, lltype.Float]
+        can_inline_ptr = None
+        get_printable_location_ptr = None
+        confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
+    state = WarmEnterState(FakeWarmRunnerDesc())
+    state.make_jitdriver_callbacks()
+    res = state.confirm_enter_jit(5, 42.5, 3)
+    assert res is True
