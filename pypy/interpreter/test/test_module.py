@@ -58,7 +58,7 @@ class AppTest_ModuleObject:
         r = repr(_pypy_interact)
         assert (r.startswith("<module '_pypy_interact' from ") and
                 ('pypy/lib/_pypy_interact.py' in r or
-                 'pypy\\lib\\_pypy_interact.py' in r.lower()) and
+                 r'pypy\\lib\\_pypy_interact.py' in r.lower()) and
                 r.endswith('>'))
         nofile = type(_pypy_interact)('nofile', 'foo')
         assert repr(nofile) == "<module 'nofile' from ?>"
