@@ -136,15 +136,6 @@ class ExecutionContext(object):
         else:
             return self.space.builtin
 
-    # XXX this one should probably be dropped in favor of a module
-    def make_standard_w_globals(self):
-        "Create a new empty 'globals' dictionary."
-        w_key = self.space.wrap("__builtins__")
-        w_value = self.space.wrap(self.get_builtin())
-        w_globals = self.space.newdict()
-        space.setitem(w_globals, w_key, w_value)
-        return w_globals
-
     def c_call_trace(self, frame, w_func):
         "Profile the call of a builtin function"
         if self.profilefunc is None:
