@@ -1,2 +1,2 @@
-Enable cell-dicts. This makes global lookups nearly as fast as the lookup of a
-local.
+Enable cell-dicts. This optimization is not helpful without the JIT. In the
+presence of the JIT, it greatly helps looking up globals.

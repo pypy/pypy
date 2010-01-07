@@ -210,21 +210,31 @@ class PyPyCJITTests(object):
 
     def test_simple_call(self):
         self.run_source('''
+            OFFSET = 0
             def f(i):
-                return i + 1
+                return i + 1 + OFFSET
             def main(n):
                 i = 0
-                while i < n:
+                while i < n+OFFSET:
                     i = f(f(i))
                 return i
-        ''', 76,
+        ''', 96,
                    ([20], 20),
                     ([31], 32))
         ops = self.get_by_bytecode("LOAD_GLOBAL")
-        assert len(ops) == 2
-        assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+        assert len(ops) == 5
+        assert ops[0].get_opnames() == ["getfield_gc", "guard_value",
+                                        "getfield_gc", "guard_isnull",
                                         "getfield_gc", "guard_nonnull_class"]
-        assert not ops[1] # second LOAD_GLOBAL folded away
+        # the second getfield on the same globals is quicker
+        assert ops[1].get_opnames() == ["getfield_gc", "guard_nonnull_class"]
+        assert not ops[2] # second LOAD_GLOBAL of the same name folded away
+        # LOAD_GLOBAL of the same name but in different function partially
+        # folded away
+        # XXX could be improved
+        assert ops[3].get_opnames() == ["guard_value",
+                                        "getfield_gc", "guard_isnull"]
+        assert not ops[4]
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
         for bytecode in ops:
@@ -281,7 +291,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = f(f(i), j=1)
                 return i
-        ''', 98,
+        ''', 100,
                    ([20], 20),
                    ([31], 32))
         ops = self.get_by_bytecode("CALL_FUNCTION")
@@ -305,7 +315,7 @@ class PyPyCJITTests(object):
                     a.x = 2
                     i = i + a.x
                 return i
-        ''', 63,
+        ''', 65,
                    ([20], 20),
                    ([31], 32))
 

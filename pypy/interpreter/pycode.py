@@ -117,9 +117,6 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withcelldict:
-            from pypy.objspace.std.celldict import init_code
-            init_code(self)
 
     def _init_flags(self):
         co_code = self.co_code
