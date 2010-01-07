@@ -99,10 +99,11 @@ class Union(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        if ensure_objects(value) is not None:
+        cobj = fieldtype.from_param(value)
+        if ensure_objects(cobj) is not None:
             key = keepalive_key(getattr(self.__class__, name).num)
-            store_reference(self, key, value._objects)
-        arg = fieldtype._CData_value(value)
+            store_reference(self, key, cobj._objects)
+        arg = cobj._get_buffer_value()
         if fieldtype._fficompositesize is not None:
             from ctypes import memmove
             dest = self._buffer.buffer

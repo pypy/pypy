@@ -290,6 +290,8 @@ class _SimpleCData(_CData):
             self.value = value
 
     def _ensure_objects(self):
+        if self._type_ in 'zZ':
+            return self._objects
         return None
 
     def _getvalue(self):

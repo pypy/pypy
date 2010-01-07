@@ -90,7 +90,7 @@ class ArrayMeta(_CDataMeta):
     def _CData_retval(self, resbuffer):
         raise NotImplementedError
 
-    def _CData_value(self, value):
+    def from_param(self, value):
         # array accepts very strange parameters as part of structure
         # or function argument...
         from ctypes import c_char, c_wchar
@@ -104,7 +104,7 @@ class ArrayMeta(_CDataMeta):
                 if len(value) > self._length_:
                     raise RuntimeError("Invalid length")
                 value = self(*value)
-        return _CDataMeta._CData_value(self, value)
+        return _CDataMeta.from_param(self, value)
 
 def array_get_slice_params(self, index):
     if index.step is not None:
