@@ -1067,7 +1067,7 @@ def _get_error(Class):
     else:
         # for tests, a random emulated ll_inst will do
         if Class not in _pseudo_exceptions:
-            ll_inst = lltype.malloc(rclass.OBJECT)
+            ll_inst = lltype.malloc(rclass.OBJECT, zero=True)
             ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
                                             immortal=True)
             _pseudo_exceptions[Class] = LLException(ll_inst.typeptr, ll_inst)
@@ -1209,7 +1209,7 @@ def do_getfield_raw_ptr(struct, fieldnum, memocast):
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
-    x = lltype.malloc(TYPE)
+    x = lltype.malloc(TYPE, zero=True)
     return cast_to_ptr(x)
 
 def do_new_array(arraynum, count):

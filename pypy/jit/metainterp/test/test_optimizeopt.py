@@ -925,6 +925,26 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
+    def test_nonvirtual_dont_write_null_fields_on_force(self):
+        ops = """
+        [i]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i, descr=valuedescr)
+        i1 = getfield_gc(p1, descr=valuedescr)
+        setfield_gc(p1, 0, descr=valuedescr)
+        escape(p1)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        jump(i2)
+        """
+        expected = """
+        [i]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        escape(p1)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        jump(i2)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
     def test_getfield_gc_pure_1(self):
         ops = """
         [i]
@@ -1024,6 +1044,24 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1, p1)
         """
         self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_nonvirtual_array_dont_write_null_fields_on_force(self):
+        ops = """
+        [i1]
+        p1 = new_array(5, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
+        escape(p1)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        p1 = new_array(5, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        escape(p1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_varray_2(self):
         ops = """
