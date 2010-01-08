@@ -23,7 +23,8 @@ for sizefactor in sizefactors:
         try:
             execfile('bench-custom.py')
         except SystemExit, e:
-            errors.append(str(e))
+            errors.append('%s:*%s: %s' % (executable, sizefactor, e))
 
 if errors:
-    raise SystemExit('\n'.join(errors))
+    print '\n'.join(errors)
+    sys.exit(1)

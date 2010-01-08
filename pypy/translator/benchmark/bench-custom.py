@@ -88,7 +88,8 @@ def main(options, args):
             print
 
     if final_error_count:
-        raise SystemExit("%d benchmark run(s) failed" % final_error_count)
+        raise SystemExit("%d benchmark run(s) failed (see -FAILED- above)"
+                         % final_error_count)
 
 if __name__ == '__main__':
     from optparse import OptionParser
