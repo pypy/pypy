@@ -1,5 +1,7 @@
 import gc
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib.objectmodel import we_are_translated
+
 # ____________________________________________________________
 # General GC features
 
@@ -334,7 +336,12 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem import lltype, llmemory
     from pypy.rlib.objectmodel import keepalive_until_here
 
-    assert source != dest
+    # supports non-overlapping copies only
+    if not we_are_translated():
+        if source == dest:
+            assert (source_start + length <= dest_start or
+                    dest_start + length <= source_start)
+
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
     if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
@@ -357,6 +364,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 ll_arraycopy._annspecialcase_ = 'specialize:ll'
+ll_arraycopy._jit_look_inside_ = False
 
 def no_collect(func):
     func._dont_inline_ = True

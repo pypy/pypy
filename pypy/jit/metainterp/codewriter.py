@@ -86,12 +86,22 @@ class CodeWriter(object):
         if leave_graph is not None:
             todo.append(leave_graph)        
         self.candidate_graphs = seen = set(todo)
+
+        def callers():
+            graph = top_graph
+            print graph
+            while graph in coming_from:
+                graph = coming_from[graph]
+                print '<-', graph
+        coming_from = {}
+
         while todo:
             top_graph = todo.pop()
             for _, op in top_graph.iterblockops():
                 if op.opname not in ("direct_call", "indirect_call", "oosend"):
                     continue
                 kind = self.guess_call_kind(op, is_candidate)
+                # use callers() to view the calling chain in pdb
                 if kind != "regular":
                     continue
                 for graph in self.graphs_from(op, is_candidate):
@@ -100,6 +110,7 @@ class CodeWriter(object):
                     assert is_candidate(graph)
                     todo.append(graph)
                     seen.add(graph)
+                    coming_from[graph] = top_graph
         return self.candidate_graphs
 
     def graphs_from(self, op, is_candidate=None):

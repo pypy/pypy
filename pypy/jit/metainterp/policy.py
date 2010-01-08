@@ -49,8 +49,6 @@ class JitPolicy(object):
     def look_inside_graph(self, graph):
         from pypy.translator.backendopt.support import find_backedges
         contains_loop = bool(find_backedges(graph))
-        unsupported = contains_unsupported_variable_type(graph,
-                                                         self.supports_floats)
         try:
             func = graph.func
         except AttributeError:
@@ -61,7 +59,8 @@ class JitPolicy(object):
             contains_loop = contains_loop and not getattr(
                     func, '_jit_unroll_safe_', False)
 
-        res = see_function and not unsupported
+        res = see_function and not contains_unsupported_variable_type(graph,
+                                                         self.supports_floats)
         if res and contains_loop:
             self.unsafe_loopy_graphs.add(graph)
         return res and not contains_loop

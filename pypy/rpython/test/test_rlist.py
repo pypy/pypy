@@ -410,13 +410,18 @@ class BaseTestRlist(BaseRtypingTest):
         assert res.item2 == 9
 
     def test_bltn_list(self):
-        def dummyfn():
-            l1 = [42]
-            l2 = list(l1)
-            l2[0] = 0
-            return l1[0]
-        res = self.interpret(dummyfn, ())
-        assert res == 42
+        # test for ll_copy()
+        for resize1 in [False, True]:
+            for resize2 in [False, True]:
+                def dummyfn():
+                    l1 = [42]
+                    if resize1: l1.append(43)
+                    l2 = list(l1)
+                    if resize2: l2.append(44)
+                    l2[0] = 0
+                    return l1[0]
+                res = self.interpret(dummyfn, ())
+                assert res == 42
 
     def test_is_true(self):
         def is_true(lst):

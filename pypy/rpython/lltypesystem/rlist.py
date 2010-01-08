@@ -368,8 +368,7 @@ def ll_list2fixed(l):
     else:
         LIST = typeOf(l).TO
         newitems = malloc(LIST.items.TO, n)
-        for i in range(n):
-            newitems[i] = olditems[i]
+        rgc.ll_arraycopy(olditems, newitems, 0, 0, n)
         return newitems
 ll_list2fixed.oopspec = 'list.list2fixed(l)'
 
