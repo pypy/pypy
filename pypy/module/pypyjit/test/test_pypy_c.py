@@ -470,6 +470,8 @@ def has_info(pypy_c, option):
     g = os.popen('"%s" --info' % pypy_c, 'r')
     lines = g.readlines()
     g.close()
+    if not lines:
+        raise ValueError("cannot execute %r" % pypy_c)
     for line in lines:
         line = line.strip()
         if line.startswith(option + ':'):
