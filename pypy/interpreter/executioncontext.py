@@ -242,7 +242,8 @@ class ExecutionContext(object):
         # in a piece of assembler currently running a CALL_MAY_FORCE,
         # then being forced means that it will fail the following
         # GUARD_NOT_FORCED operation, and so fall back to interpreted
-        # execution.
+        # execution.  (We get this effect simply by reading the f_back
+        # field of all frames, during the loop below.)
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
