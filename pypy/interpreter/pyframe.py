@@ -9,7 +9,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
 import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
-from pypy.rlib.jit import we_are_jitted, hint
+from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
 
@@ -141,8 +141,7 @@ class PyFrame(eval.Frame):
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
         try:
-            if not we_are_jitted():
-                executioncontext.call_trace(self)
+            executioncontext.call_trace(self)
             # Execution starts just after the last_instr.  Initially,
             # last_instr is -1.  After a generator suspends it points to
             # the YIELD_VALUE instruction.
@@ -153,11 +152,9 @@ class PyFrame(eval.Frame):
                 rstack.resume_point("execute_frame", self, executioncontext,
                                     returns=w_exitvalue)
             except Exception:
-                if not we_are_jitted():
-                    executioncontext.return_trace(self, self.space.w_None)
+                executioncontext.return_trace(self, self.space.w_None)
                 raise
-            if not we_are_jitted():
-                executioncontext.return_trace(self, w_exitvalue)
+            executioncontext.return_trace(self, w_exitvalue)
         finally:
             executioncontext.leave(self)
         return w_exitvalue

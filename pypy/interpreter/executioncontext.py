@@ -14,6 +14,11 @@ class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
     in the Python interpreter."""
 
+    # XXX JIT: when tracing (but not when blackholing!), the following
+    # XXX fields should be known to a constant None or False:
+    # XXX   self.w_tracefunc, self.profilefunc
+    # XXX   frame.is_being_profiled
+
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
@@ -53,17 +58,15 @@ class ExecutionContext(object):
 
     def leave(self, frame):
         try:
-            if not jit.we_are_jitted():
-                if self.profilefunc:
-                    self._trace(frame, 'leaveframe', self.space.w_None)
+            if self.profilefunc:
+                self._trace(frame, 'leaveframe', self.space.w_None)
         finally:
             self.topframeref = frame.f_backref
             self.framestackdepth -= 1
             jit.virtual_ref_finish(frame)
 
-        if not jit.we_are_jitted():
-            if self.w_tracefunc is not None and not frame.hide():
-                self.space.frame_trace_action.fire()
+        if self.w_tracefunc is not None and not frame.hide():
+            self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
 
@@ -181,6 +184,14 @@ class ExecutionContext(object):
         if ticker & actionflag.interesting_bits:  # fast check
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
+
+    def bytecode_trace_after_exception(self, frame):
+        "Like bytecode_trace(), but without increasing the ticker."
+        actionflag = self.space.actionflag
+        ticker = actionflag.get()
+        if ticker & actionflag.interesting_bits:  # fast check
+            actionflag.action_dispatcher(self, frame)     # slow path
+    bytecode_trace_after_exception._always_inline_ = True
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."

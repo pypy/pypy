@@ -130,7 +130,7 @@ class __extend__(pyframe.PyFrame):
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
-            if not jit.we_are_jitted():
+            if 1:
                 # xxx this is a hack.  It allows bytecode_trace() to
                 # call a signal handler which raises, and catch the
                 # raised exception immediately.  See test_alarm_raise in
@@ -146,15 +146,14 @@ class __extend__(pyframe.PyFrame):
                     trace = self.w_f_trace
                     self.w_f_trace = None
                     try:
-                        ec.bytecode_trace(self)
+                        ec.bytecode_trace_after_exception(self)
                     finally:
                         self.w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
-            if not jit.we_are_jitted():
-                ec.exception_trace(self, operr)
+            ec.exception_trace(self, operr)
 
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
@@ -913,13 +912,10 @@ class __extend__(pyframe.PyFrame):
         arguments = f.popvalues(n_arguments)
         args = f.argument_factory(arguments, keywords, keywords_w, w_star, w_starstar)
         w_function  = f.popvalue()
-        if jit.we_are_jitted():
-            w_result = f.space.call_args(w_function, args)
+        if f.is_being_profiled and is_builtin_code(w_function):
+            w_result = f.space.call_args_and_c_profile(f, w_function, args)
         else:
-            if f.is_being_profiled and is_builtin_code(w_function):
-                w_result = f.space.call_args_and_c_profile(f, w_function, args)
-            else:
-                w_result = f.space.call_args(w_function, args)
+            w_result = f.space.call_args(w_function, args)
         rstack.resume_point("call_function", f, returns=w_result)
         f.pushvalue(w_result)
         
