@@ -174,6 +174,29 @@ class AppTest_Descroperation:
             (0,   slice_max),
             ]
 
+    def test_getslice_nolength(self):
+        class Sq(object):
+            def __getslice__(self, start, stop):
+                return (start, stop)
+            def __getitem__(self, key):
+                return "booh"
+
+        sq = Sq()
+
+        assert sq[1:3] == (1,3)
+        slice_min, slice_max = sq[:]
+        assert slice_min == 0
+        assert slice_max >= 2**31-1
+        assert sq[1:] == (1, slice_max)
+        assert sq[:3] == (0, 3)
+        assert sq[:] == (0, slice_max)
+        # negative indices, but no __len__
+        assert sq[-1:3] == (-1, 3)
+        assert sq[1:-3] == (1, -3)
+        assert sq[-1:-3] == (-1, -3)
+        # extended slice syntax always uses __getitem__()
+        assert sq[::] == "booh"
+
     def test_ipow(self):
         x = 2
         x **= 5

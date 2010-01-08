@@ -505,30 +505,42 @@ class Temp:
 slice_max = Temp()[:]
 del Temp
 
+def old_slice_range_getlength(space, w_obj):
+    # NB. the language ref is inconsistent with the new-style class
+    # behavior when w_obj doesn't implement __len__(), so we just
+    # follow cpython. Also note that CPython slots make it easier
+    # to check for object implementing it or not. We just catch errors
+    # so this behavior is slightly different
+    try:
+        return space.len(w_obj)
+    except OperationError, e:
+        if not ((e.match(space, space.w_AttributeError) or
+                 e.match(space, space.w_TypeError))):
+            raise
+    return None
+
 def old_slice_range(space, w_obj, w_start, w_stop):
     """Only for backward compatibility for __getslice__()&co methods."""
+    w_length = None
     if space.is_w(w_start, space.w_None):
         w_start = space.wrap(0)
     else:
-        w_start = space.wrap(space.getindex_w(w_start, None))
-        if space.is_true(space.lt(w_start, space.wrap(0))):
-            try:
-                w_start = space.add(w_start, space.len(w_obj))
-            except OperationError, e:
-                if not ((e.match(space, space.w_AttributeError) or
-                         e.match(space, space.w_TypeError))):
-                    raise
-            # NB. the language ref is inconsistent with the new-style class
-            # behavior when w_obj doesn't implement __len__(), so we just
-            # follow cpython. Also note that CPython slots make it easier
-            # to check for object implementing it or not. We just catch errors
-            # so this behavior is slightly different
+        start = space.getindex_w(w_start, None)
+        w_start = space.wrap(start)
+        if start < 0:
+            w_length = old_slice_range_getlength(space, w_obj)
+            if w_length is not None:
+                w_start = space.add(w_start, w_length)
     if space.is_w(w_stop, space.w_None):
         w_stop = space.wrap(slice_max)
     else:
-        w_stop = space.wrap(space.getindex_w(w_stop, None))
-        if space.is_true(space.lt(w_stop, space.wrap(0))):
-            w_stop = space.add(w_stop, space.len(w_obj))
+        stop = space.getindex_w(w_stop, None)
+        w_stop = space.wrap(stop)
+        if stop < 0:
+            if w_length is None:
+                w_length = old_slice_range_getlength(space, w_obj)
+            if w_length is not None:
+                w_stop = space.add(w_stop, w_length)
     return w_start, w_stop
 
 # regular methods def helpers
