@@ -69,6 +69,11 @@ def setup_directory_structure(space):
                         "print 'TOTO', __name__\n"
                         "sys.modules[__name__] = pkg_substituted")
     setuppkg("pkg_substituted", mod='')
+    setuppkg("evil_pkg",
+             evil = "import sys\n"
+                      "from evil_pkg import good\n"
+                      "sys.modules['evil_pkg.evil'] = good",
+             good = "a = 42")
     p = setuppkg("readonly", x='')
     p = setuppkg("pkg_univnewlines")
     p.join('__init__.py').write(
@@ -133,6 +138,10 @@ class AppTestImport:
         
     def teardown_class(cls): # interpreter-level
         _teardown(cls.space, cls.saved_modules)
+
+    def test_set_sys_modules_during_import(self):
+        from evil_pkg import evil
+        assert evil.a == 42
 
     def test_import_bare_dir_fails(self):
         def imp():
@@ -823,6 +832,7 @@ class AppTestImportHooks(object):
         class Importer(object):
             def find_module(self, fullname, path=None):
                 if fullname == "a":
+                    sys.modules["a"] = self
                     return self
 
             def load_module(self, name):
