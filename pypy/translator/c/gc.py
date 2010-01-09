@@ -253,6 +253,9 @@ class BoehmGcPolicy(BasicGcPolicy):
         nbytes = funcgen.expr(op.args[0])
         return 'GC_set_max_heap_size(%s);' % (nbytes,)
 
+    def GC_KEEPALIVE(self, funcgen, v):
+        return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
+
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'
     globalcontainer = True
