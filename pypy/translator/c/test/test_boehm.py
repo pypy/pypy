@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
 from pypy.translator.c.genc import CExtModuleBuilder
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy import conftest
 
 def setup_module(mod):
@@ -290,6 +291,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                     assert a.index == i & ~1
                 else:
                     count_free += 1
+            keepalive_until_here(keepalive)
             return count_free
         c_fn = self.getcompiled(fn, [int])
         res = c_fn(7000)
