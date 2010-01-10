@@ -77,26 +77,8 @@ def try_getattr(space, w_obj, w_name):
         # hasattr, which eats all exceptions.
         return None
 
-def try_getitem(space, w_obj, w_key):
-    try:
-        return space.getitem(w_obj, w_key)
-    except OperationError, e:
-        if not e.match(space, space.w_KeyError):
-            raise
-        return None
-
-
 def check_sys_modules(space, w_modulename):
-    w_modules = space.sys.get('modules')
-    try:
-        w_mod = space.getitem(w_modules, w_modulename) 
-    except OperationError, e:
-        pass
-    else:
-        return w_mod
-    if not e.match(space, space.w_KeyError):
-        raise
-    return None
+    return space.finditem(space.sys.get('modules'), w_modulename)
 
 def importhook(space, modulename, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
@@ -110,8 +92,8 @@ def importhook(space, modulename, w_globals=None,
 
     ctxt_name = None
     if w_globals is not None and not space.is_w(w_globals, space.w_None):
-        ctxt_w_name = try_getitem(space, w_globals, w('__name__'))
-        ctxt_w_path = try_getitem(space, w_globals, w('__path__'))
+        ctxt_w_name = space.finditem(w_globals, w('__name__'))
+        ctxt_w_path = space.finditem(w_globals, w('__path__'))
         if ctxt_w_name is not None:
             try:
                 ctxt_name = space.str_w(ctxt_w_name)
@@ -224,11 +206,8 @@ def find_in_meta_path(space, w_modulename, w_path):
 
 def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_path_importer_cache = space.sys.get("path_importer_cache")
-    try:
-        w_importer = space.getitem(w_path_importer_cache, w_pathitem)
-    except OperationError, e:
-        if not e.match(space, space.w_KeyError):
-            raise
+    w_importer = space.finditem(w_path_importer_cache, w_pathitem)
+    if w_importer is None:
         w_importer = space.w_None
         space.setitem(w_path_importer_cache, w_pathitem, w_importer)
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
