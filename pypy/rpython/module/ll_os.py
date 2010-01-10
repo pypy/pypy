@@ -1400,6 +1400,30 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], int, llimpl=fork_llimpl,
                       export_name="ll_os.ll_os_fork")
 
+    @registering_if(os, 'openpty')
+    def register_os_openpty(self):
+        os_openpty = self.llexternal(
+            'openpty',
+            [rffi.INTP, rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
+            rffi.INT,
+            compilation_info=ExternalCompilationInfo(libraries=['util']))
+        def openpty_llimpl():
+            master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            result = os_openpty(master_p, slave_p, None, None, None)
+            master_fd = master_p[0]
+            slave_fd = slave_p[0]
+            lltype.free(master_p, flavor='raw')
+            lltype.free(slave_p, flavor='raw')
+            if result == -1:
+                raise OSError(rposix.get_errno(), "os_openpty failed")
+            return (rffi.cast(lltype.Signed, master_fd),
+                    rffi.cast(lltype.Signed, slave_fd))
+
+        return extdef([], (int, int), "ll_os.ll_os_openpty",
+                      llimpl=openpty_llimpl)
+
+
     @registering(os._exit)
     def register_os__exit(self):
         os__exit = self.llexternal('_exit', [rffi.INT], lltype.Void)

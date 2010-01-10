@@ -93,6 +93,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
         interpleveldefs['fork'] = 'interp_posix.fork'
+    if hasattr(os, 'openpty'):
+        interpleveldefs['openpty'] = 'interp_posix.openpty'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
     if hasattr(os, 'execv'):

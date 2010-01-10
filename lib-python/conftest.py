@@ -311,7 +311,7 @@ testmap = [
     RegrTest('test_normalization.py'),
     RegrTest('test_ntpath.py'),
     RegrTest('test_opcodes.py', core=True),
-    RegrTest('test_openpty.py', skip="unsupported extension module"),
+    RegrTest('test_openpty.py'),
     RegrTest('test_operations.py', core=True),
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),

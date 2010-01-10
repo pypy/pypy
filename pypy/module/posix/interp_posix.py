@@ -507,6 +507,14 @@ def fork(space):
         raise wrap_oserror(space, e) 
     return space.wrap(pid)
 
+def openpty(space):
+    "Open a pseudo-terminal, returning open fd's for both master and slave end."
+    try:
+        master_fd, slave_fd = os.openpty()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
+
 def waitpid(space, pid, options):
     """ waitpid(pid, options) -> (pid, status)
     
