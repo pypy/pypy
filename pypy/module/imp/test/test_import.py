@@ -832,10 +832,10 @@ class AppTestImportHooks(object):
         class Importer(object):
             def find_module(self, fullname, path=None):
                 if fullname == "a":
-                    sys.modules["a"] = self
                     return self
 
             def load_module(self, name):
+                sys.modules[name] = sys
                 return sys
         
         def importer_for_path(path):
