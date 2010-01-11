@@ -2,7 +2,7 @@
  PyJitPl5
 ==========
 
-This document describes the fith generation of PyPy's JIT.
+This document describes the fifth generation of PyPy's JIT.
 
 
 Implementation of the JIT
