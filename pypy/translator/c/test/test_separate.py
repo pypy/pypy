@@ -4,7 +4,7 @@ from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder, gen_forwa
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.annotation import model
+from pypy.annotation import model, description
 import py
 import sys, os
 
@@ -26,25 +26,36 @@ class TestSeparation:
         # annotate functions with signatures
         for funcname, func in exports.items():
             if hasattr(func, 'argtypes'):
-                t.annotator.build_types(func, func.argtypes)
+                t.annotator.build_types(func, func.argtypes,
+                                        complete_now=False)
 
         # ensure that functions without signature are not constant-folded
         for funcname, func in exports.items():
             if not hasattr(func, 'argtypes'):
                 # build a list of arguments where constants are erased
                 newargs = []
-                graph = bk.getdesc(func).getuniquegraph()
-                for arg in graph.startblock.inputargs:
-                    newarg = model.not_const(t.annotator.binding(arg))
-                    newargs.append(newarg)
-                # and reflow
-                t.annotator.build_types(func, newargs)
+                desc = bk.getdesc(func)
+                if isinstance(desc, description.FunctionDesc):
+                    graph = desc.getuniquegraph()
+                    for arg in graph.startblock.inputargs:
+                        newarg = model.not_const(t.annotator.binding(arg))
+                        newargs.append(newarg)
+                    # and reflow
+                    t.annotator.build_types(func, newargs)
+                elif isinstance(desc, description.ClassDesc):
+                    s_init = desc.s_read_attribute('__init__')
+                    initfunc = s_init.const
+                    newargs = [func, float]
+                    t.annotator.build_types(initfunc, newargs)
 
         t.buildrtyper().specialize()
 
         exported_funcptr = {}
         for funcname, func in exports.items():
-            graph = bk.getdesc(func).getuniquegraph()
+            desc = bk.getdesc(func)
+            if not isinstance(desc, description.FunctionDesc):
+                continue
+            graph = desc.getuniquegraph()
             funcptr = getfunctionptr(graph)
 
             exported_funcptr[funcname] = funcptr
@@ -114,3 +125,23 @@ class TestSeparation:
         c_fn = self.compile_function(fn, [])
         assert c_fn() == 42.5
 
+    def test_pass_structure(self):
+        class S:
+            @export
+            def __init__(self, x):
+                self.x = x
+
+        # function exported from the 'first' module
+        @export(S)
+        def f(s):
+            return s.x + 1.5
+        firstmodule = self.compile_separated("first", f=f, S=S)
+
+        # call it from a function compiled in another module
+        def fn():
+            s = S(41.0)
+            return firstmodule.f(s)
+
+        #assert fn() == 42.5
+        c_fn = self.compile_function(fn, [])
+        assert c_fn() == 42.5
