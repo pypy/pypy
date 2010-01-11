@@ -1,8 +1,7 @@
 import py
-py.test.skip("it passes usually, but fails on buildbot, no clue why")
+#py.test.skip("it passes usually, but fails on buildbot, no clue why")
 
-import os
-import os.path
+import sys, os
 from pypy.tool import udir
 from pypy.translator.cli.rte import Target
 from pypy.translator.cli.carbonpython import DllDef, export, collect_entrypoints,\
@@ -24,9 +23,15 @@ class TestCarbonPython(CliTest):
     def _csharp(self, source, references=[], netmodules=[]):
         tmpfile = udir.udir.join('tmp.cs')
         tmpfile.write(TEMPLATE % source)
-        flags = ['/r:%s' % ref for ref in references]
-        flags += ['/addmodule:%s' % mod for mod in netmodules]
-        
+        if sys.platform == 'win32':
+            flags = ['/r:%s.dll' % ref for ref in references]
+        else:
+            flags = ['/r:%s'     % ref for ref in references]
+        if sys.platform == 'win32':
+            flags += ['/addmodule:%s.netmodule' % mod for mod in netmodules]
+        else:
+            flags += ['/addmodule:%s'           % mod for mod in netmodules]
+
         class MyTarget(Target):
             SOURCES = [str(tmpfile)]
             FLAGS = flags
