@@ -42,7 +42,7 @@ class TestSeparation:
 
     def test_simple_call(self):
         # function exported from the 'first' module
-        @export(args=[float])
+        @export(float)
         def f(x):
             return x + 1.5
         firstmodule = self.compile_separated("first", f=f)
@@ -57,13 +57,13 @@ class TestSeparation:
 
     def test_nested_call(self):
         # function exported from the 'first' module
-        @export(args=[float])
+        @export(float)
         def f(x):
             return x + 1.5
         firstmodule = self.compile_separated("first", f=f)
 
         # function exported from the 'second' module
-        @export(args=[float])
+        @export(float)
         def g(x):
             return firstmodule.f(x) / 2
         secondmodule = self.compile_separated("second", g=g)
@@ -85,7 +85,7 @@ class TestSeparation:
         @export
         def f(x):
             return x + 1.5
-        @export(args=[])
+        @export()
         def f2():
             f(1.0)
             f(2.0)
