@@ -7,7 +7,7 @@ from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.udir import udir
 from pypy.tool import isolate
 from pypy.translator.c.support import log, c_string_constant
@@ -300,27 +300,24 @@ class ModuleWithCleanup(object):
         except KeyError:
             pass
 
-
-class CExtModuleBuilder(CBuilder):
+class CSharedModuleBuilder(CBuilder):
+    "Builds a simple .so or .dll file"
     standalone = False
-    _module = None
-    _wrapper = None
 
-    def getentrypointptr(self): # xxx
-        if self._wrapper is None:
-            self._wrapper = new_wrapper(self.entrypoint, self.translator)
-        return self._wrapper
+    def getentrypointptr(self):
+        return self.entrypoint.values()
+
+    def getexportsymbols(self):
+        self.export_node_names = dict(
+            (funcname, self.db.get(funcptr))
+            for funcname, funcptr in self.entrypoint.items())
+        return self.export_node_names.values()
 
     def compile(self):
-        assert self.c_source_filename 
+        assert self.c_source_filename
         assert not self._compiled
-        export_symbols = [self.db.get(self.getentrypointptr()),
-                          'RPython_StartupCode',
-                          ]
-        if self.config.translation.countmallocs:
-            export_symbols.append('malloc_counters')
-        extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
-        self.eci = self.eci.merge(extsymeci)
+        self.eci = self.eci.merge(ExternalCompilationInfo(
+            export_symbols=self.getexportsymbols()))
 
         if sys.platform == 'win32':
             self.eci = self.eci.merge(ExternalCompilationInfo(
@@ -329,10 +326,61 @@ class CExtModuleBuilder(CBuilder):
                                 ],
                 ))
 
-
         files = [self.c_source_filename] + self.extrafiles
-        self.translator.platform.compile(files, self.eci, standalone=False)
+
+        self.so_name = str(self.targetdir.join(self.modulename))
+        self.translator.platform.compile(
+            files, self.eci, standalone=False,
+            outputfilename=str(self.so_name)
+            )
         self._compiled = True
+
+    def make_import_module(self):
+        class Module:
+            pass
+        mod = Module()
+        mod.__file__ = self.so_name
+
+        forwards = []
+        node_names = self.export_node_names.values()
+        for node in self.db.globalcontainers():
+            if node.nodekind == 'func' and node.name in node_names:
+                forwards.append('\n'.join(node.forward_declaration()))
+
+        import_eci = ExternalCompilationInfo(
+            libraries = [self.so_name],
+            post_include_bits = forwards
+            )
+
+        for funcname, import_name in self.export_node_names.items():
+            functype = lltype.typeOf(self.entrypoint[funcname])
+            setattr(mod, funcname,
+                    rffi.llexternal(
+                        import_name, functype.TO.ARGS, functype.TO.RESULT,
+                        compilation_info=import_eci,
+                        ))
+        return mod
+
+    def gen_makefile(self, targetdir):
+        pass
+
+class CExtModuleBuilder(CSharedModuleBuilder):
+    "Build a CPython extension module"
+    _module = None
+    _wrapper = None
+
+    def getentrypointptr(self): # xxx
+        if self._wrapper is None:
+            self._wrapper = new_wrapper(self.entrypoint, self.translator)
+        return self._wrapper
+
+    def getexportsymbols(self):
+        export_symbols = [self.db.get(self.getentrypointptr()),
+                          'RPython_StartupCode',
+                          ]
+        if self.config.translation.countmallocs:
+            export_symbols.append('malloc_counters')
+        return export_symbols
 
     def _make_wrapper_module(self):
         fname = 'wrap_' + self.c_source_filename.purebasename
@@ -398,9 +446,6 @@ _rpython_startup()
         #assert self._module
         if isinstance(self._module, isolate.Isolate):
             isolate.close_isolate(self._module)
-
-    def gen_makefile(self, targetdir):
-        pass
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
