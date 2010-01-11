@@ -152,7 +152,8 @@ class LanguageShootoutBenchmark(Benchmark):
                            self.check, sizefactor)
 
     def __mul__(self, i):
-        return LanguageShootoutBenchmark(self.name, self.sizefactor * i)
+        return LanguageShootoutBenchmark(self.name, self.sizefactor * i,
+                                         self.test)
 
     def runner(self, executable, sizefactor=1):
         shootout = py.path.local(__file__).dirpath().join(
