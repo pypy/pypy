@@ -1,7 +1,7 @@
 
 import sys
 from pypy.translator.benchmark.benchmarks import (run_richards, Benchmark,
-     run_mako, check_mako)
+     run_mako, check_mako, LanguageShootoutBenchmark)
 
 def test_run_richards():
     bm = Benchmark('richards', run_richards, False, 'ms')
@@ -12,6 +12,12 @@ def test_run_richards():
 def test_run_mako():
     bm = Benchmark('mako', run_mako, False,
                    's', check_mako)
+    assert bm.check()
+    res = bm.run(sys.executable)
+    assert isinstance(res, float)
+
+def test_run_binary_trees():
+    bm = LanguageShootoutBenchmark('binary-trees', test=True)
     assert bm.check()
     res = bm.run(sys.executable)
     assert isinstance(res, float)

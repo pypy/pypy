@@ -1,4 +1,5 @@
 import os, sys, time, pickle, re, py
+import yaml
 
 class BenchmarkFailed(Exception):
     pass
@@ -8,6 +9,8 @@ PYSTONE_PATTERN = 'This machine benchmarks at'
 
 RICHARDS_CMD = 'from richards import *;main(iterations=%d)'
 RICHARDS_PATTERN = 'Average time per iteration:'
+
+TIME_FMT = 'max mem used: %Mk\nelapsed time: %e\nsystem time:  %S\nuser time:    %U\nCPU use:      %P'
 
 def get_result(txt, pattern):
     for line in txt.split('\n'):
@@ -36,34 +39,19 @@ class Benchmark(object):
     def run(self, exe):
         try:
             result, latest_output = self._run(exe, self.sizefactor)
+            self.latest_output = latest_output
         except BenchmarkFailed, e:
             result = '-FAILED-'
-        self.latest_output = latest_output
         return result
 
-def external_dependency(dirname, svnurl, revision):
-    """Check out (if necessary) a given fixed revision of a svn url."""
-    dirpath = py.path.local(__file__).dirpath().join(dirname)
-    revtag = dirpath.join('-svn-rev-')
-    if dirpath.check():
-        if not revtag.check() or int(revtag.read()) != revision:
-            print >> sys.stderr, ("Out-of-date benchmark checkout!"
-                                  " I won't update it automatically.")
-            print >> sys.stderr, ("To continue, move away or remove the "
-                                  "%r directory." % (dirname,))
-            sys.exit(1)
-        return True
-    CMD = "svn co -r%d %s@%d %s" % (revision, svnurl, revision, dirpath)
-    print >> sys.stderr, CMD
-    err = os.system(CMD)
-    if err != 0:
-        print >> sys.stderr, "* checkout failed, skipping this benchmark"
-        return False
-    revtag.write(str(revision))
+def external_dependency(dirname, svnurl, revision=None):
+    directory = py.path.local(__file__).dirpath().join(dirname)
+    wc = py.path.svnwc(directory)
+    wc.checkout(svnurl, rev=revision)
     return True
 
 def run_cmd(cmd):
-    #print "running", cmd
+    print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
     r = pipe.read()
     status = pipe.close()
@@ -71,19 +59,19 @@ def run_cmd(cmd):
         raise BenchmarkFailed(status)
     return r
 
-def run_pystone(executable='/usr/local/bin/python', sizefactor=1):
+def run_pystone(executable, sizefactor=1):
     from pypy.tool import autopath
     distdir = py.path.local(autopath.pypydir).dirpath()
     pystone = py.path.local(autopath.libpythondir).join('test', 'pystone.py')
     txt = run_cmd('"%s" "%s" %d' % (executable, pystone, 50000 * sizefactor))
     return get_result(txt, PYSTONE_PATTERN), txt
 
-def run_richards(executable='/usr/local/bin/python', sizefactor=1):
+def run_richards(executable, sizefactor=1):
     richards = py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py')
     txt = run_cmd('"%s" %s %d' % (executable, richards, 5 * sizefactor))
     return get_result(txt, RICHARDS_PATTERN), txt
 
-def run_translate(executable='/usr/local/bin/python'):
+def run_translate(executable):
     translate = py.path.local(__file__).dirpath().dirpath().join('goal').join('translate.py')
     target = py.path.local(__file__).dirpath().dirpath().join('goal').join('targetrpystonedalone.py')
     argstr = '%s %s --batch --backendopt --no-compile %s > /dev/null 2> /dev/null'
@@ -94,7 +82,7 @@ def run_translate(executable='/usr/local/bin/python'):
         raise BenchmarkFailed(status)
     return r
 
-def run_templess(executable='/usr/local/bin/python', sizefactor=1):
+def run_templess(executable, sizefactor=1):
     """ run some script in the templess package
 
         templess is some simple templating language, to check out use
@@ -122,7 +110,7 @@ def check_templess():
                                'http://johnnydebris.net/templess/trunk',
                                100)
 
-def run_gadfly(executable='/usr/local/bin/python', sizefactor=1):
+def run_gadfly(executable, sizefactor=1):
     """ run some tests in the gadfly pure Python database """
     here = py.path.local(__file__).dirpath()
     gadfly = here.join('gadfly')
@@ -137,7 +125,7 @@ def check_gadfly():
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/gadflyZip',
               70117)
 
-def run_mako(executable='/usr/local/bin/python', sizefactor=1):
+def run_mako(executable, sizefactor=1):
     """ run some tests in the mako templating system """
     here = py.path.local(__file__).dirpath()
     mako = here.join('mako')
@@ -155,6 +143,34 @@ def check_mako():
 
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?
+
+class LanguageShootoutBenchmark(Benchmark):
+    def __init__(self, name, sizefactor=1, test=False):
+        self.test = test
+        Benchmark.__init__(self, name, self.runner, False, 'ms',
+                           self.check, sizefactor)
+
+    def __mul__(self, i):
+        return LookingGlassBenchmark(self.name, self.sizefactor * i)
+
+    def runner(self, executable, sizefactor=1):
+        shootout = py.path.local(__file__).dirpath().join(
+            'shootout_benchmarks')
+        argsfile = shootout.join('tests.yml')
+        if self.test:
+            kind = 'test'
+        else:
+            kind = 'run'
+        args = yaml.load(argsfile.read())[self.name][kind]['args']
+        progname = str(shootout.join(self.name)) + '.py'
+        cmd = 'time -f "%s" %s %s %s' % (TIME_FMT, executable, progname,
+                                         " ".join(args))
+        txt = run_cmd(cmd)
+        return get_result(txt, 'elapsed time:'), txt
+
+    def check(self):
+        return external_dependency('shootout_benchmarks',
+              'http://codespeak.net/svn/pypy/benchmarks/shootout')
 
 BENCHMARKS = [Benchmark('richards', run_richards, False, 'ms'),
               Benchmark('pystone', run_pystone, True, ''),
