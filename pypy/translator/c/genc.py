@@ -300,18 +300,22 @@ class ModuleWithCleanup(object):
         except KeyError:
             pass
 
-class CSharedModuleBuilder(CBuilder):
+class CLibraryBuilder(CBuilder):
     "Builds a simple .so or .dll file"
     standalone = False
+    split = True
 
     def getentrypointptr(self):
         return self.entrypoint.values()
+
+    def get_entry_point(self, isolated=False):
+        return None
 
     def getexportsymbols(self):
         self.export_node_names = dict(
             (funcname, self.db.get(funcptr))
             for funcname, funcptr in self.entrypoint.items())
-        return self.export_node_names.values()
+        return self.export_node_names.values() + ['RPython_StartupCode']
 
     def compile(self):
         assert self.c_source_filename
@@ -364,7 +368,7 @@ class CSharedModuleBuilder(CBuilder):
     def gen_makefile(self, targetdir):
         pass
 
-class CExtModuleBuilder(CSharedModuleBuilder):
+class CExtModuleBuilder(CLibraryBuilder):
     "Build a CPython extension module"
     _module = None
     _wrapper = None

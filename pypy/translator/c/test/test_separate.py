@@ -1,6 +1,6 @@
 from pypy.translator.c.separate import export
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c.genc import CExtModuleBuilder, CSharedModuleBuilder, gen_forwarddecl
+from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder, gen_forwarddecl
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -33,7 +33,7 @@ class TestSeparation:
 
             exported_funcptr[funcname] = funcptr
 
-        builder = CSharedModuleBuilder(t, exported_funcptr, config=t.config)
+        builder = CLibraryBuilder(t, exported_funcptr, config=t.config)
         builder.generate_source()
         builder.compile()
 
