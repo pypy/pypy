@@ -147,11 +147,12 @@ def check_translate():
 class LanguageShootoutBenchmark(Benchmark):
     def __init__(self, name, sizefactor=1, test=False):
         self.test = test
+        self.basename = name
         Benchmark.__init__(self, name, self.runner, False, 'ms',
                            self.check, sizefactor)
 
     def __mul__(self, i):
-        return LookingGlassBenchmark(self.name, self.sizefactor * i)
+        return LanguageShootoutBenchmark(self.name, self.sizefactor * i)
 
     def runner(self, executable, sizefactor=1):
         shootout = py.path.local(__file__).dirpath().join(
@@ -161,10 +162,10 @@ class LanguageShootoutBenchmark(Benchmark):
             kind = 'test'
         else:
             kind = 'run'
-        args = yaml.load(argsfile.read())[self.name][kind]['args']
-        progname = str(shootout.join(self.name)) + '.py'
-        cmd = 'time -f "%s" %s %s %s' % (TIME_FMT, executable, progname,
-                                         " ".join(args))
+        args = yaml.load(argsfile.read())[self.basename][kind]['args']
+        progname = str(shootout.join(self.basename)) + '.py'
+        cmd = 'time -f "%s" %s %s %s %d' % (TIME_FMT, executable, progname,
+                                         " ".join(args), sizefactor)
         txt = run_cmd(cmd)
         return get_result(txt, 'elapsed time:'), txt
 
@@ -184,8 +185,10 @@ BENCHMARKS = [Benchmark('richards', run_richards, False, 'ms'),
                         's', check_mako),
              ]
 
-for name in ['binary-trees', 'fannkuch', 'fasta', 'float', 'meteor-contest',
-             'nbody', 'spectral-norm']:
+SHOOTOUT_NAMES = ['binary-trees', 'fannkuch', 'fasta', 'float',
+                  'meteor-contest', 'nbody', 'spectral-norm']
+
+for name in SHOOTOUT_NAMES:
     BENCHMARKS.append(LanguageShootoutBenchmark(name))
 
 BENCHMARKS_BY_NAME = {}
