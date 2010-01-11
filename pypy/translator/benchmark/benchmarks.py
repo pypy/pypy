@@ -5,11 +5,9 @@ class BenchmarkFailed(Exception):
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
-PYSTONE_ASCENDING_GOOD = True
 
 RICHARDS_CMD = 'from richards import *;main(iterations=%d)'
 RICHARDS_PATTERN = 'Average time per iteration:'
-RICHARDS_ASCENDING_GOOD = False
 
 def get_result(txt, pattern):
     for line in txt.split('\n'):
@@ -36,10 +34,8 @@ class Benchmark(object):
         return Benchmark(self._basename, self._run, self.asc_good, self.units,
                          self.check, self.sizefactor * n)
     def run(self, exe):
-        global latest_output
-        latest_output = ''
         try:
-            result = self._run(exe, self.sizefactor)
+            result, latest_output = self._run(exe, self.sizefactor)
         except BenchmarkFailed, e:
             result = '-FAILED-'
         self.latest_output = latest_output
@@ -67,12 +63,10 @@ def external_dependency(dirname, svnurl, revision):
     return True
 
 def run_cmd(cmd):
-    global latest_output
     #print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
     r = pipe.read()
     status = pipe.close()
-    latest_output = r
     if status:
         raise BenchmarkFailed(status)
     return r
@@ -82,12 +76,12 @@ def run_pystone(executable='/usr/local/bin/python', sizefactor=1):
     distdir = py.path.local(autopath.pypydir).dirpath()
     pystone = py.path.local(autopath.libpythondir).join('test', 'pystone.py')
     txt = run_cmd('"%s" "%s" %d' % (executable, pystone, 50000 * sizefactor))
-    return get_result(txt, PYSTONE_PATTERN)
+    return get_result(txt, PYSTONE_PATTERN), txt
 
 def run_richards(executable='/usr/local/bin/python', sizefactor=1):
     richards = py.path.local(__file__).dirpath().dirpath().join('goal').join('richards.py')
     txt = run_cmd('"%s" %s %d' % (executable, richards, 5 * sizefactor))
-    return get_result(txt, RICHARDS_PATTERN)
+    return get_result(txt, RICHARDS_PATTERN), txt
 
 def run_translate(executable='/usr/local/bin/python'):
     translate = py.path.local(__file__).dirpath().dirpath().join('goal').join('translate.py')
@@ -117,7 +111,7 @@ def run_templess(executable='/usr/local/bin/python', sizefactor=1):
     for line in txt.split('\n'):
         if '.' in line:
             try:
-                return float(line) / sizefactor
+                return float(line) / sizefactor, txt
             except ValueError:
                 pass
     else:
@@ -136,7 +130,7 @@ def run_gadfly(executable='/usr/local/bin/python', sizefactor=1):
     command = 'PYTHONPATH="%s" "%s" "%s" %d' % (gadfly, executable, testscript,
                                                 sizefactor)
     txt = run_cmd(command)
-    return get_result(txt, 'Total running time:') / sizefactor
+    return get_result(txt, 'Total running time:') / sizefactor, txt
 
 def check_gadfly():
     return external_dependency('gadfly',
@@ -152,7 +146,7 @@ def run_mako(executable='/usr/local/bin/python', sizefactor=1):
                                                        executable, testscript,
                                                        2000 * sizefactor)
     txt = run_cmd(command)
-    return get_result(txt, 'Mako:')
+    return get_result(txt, 'Mako:'), txt
 
 def check_mako():
     return external_dependency('mako',
@@ -162,14 +156,15 @@ def check_mako():
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?
 
-BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
-              Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
-              Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms', check_translate),
-              Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
+BENCHMARKS = [Benchmark('richards', run_richards, False, 'ms'),
+              Benchmark('pystone', run_pystone, True, ''),
+              Benchmark('translate', run_translate, False, 'ms',
+                        check_translate),
+              Benchmark('templess', run_templess, False,
                         's', check_templess),
-              Benchmark('gadfly2', run_gadfly, RICHARDS_ASCENDING_GOOD,
+              Benchmark('gadfly2', run_gadfly, False,
                         's', check_gadfly),
-              Benchmark('mako', run_mako, RICHARDS_ASCENDING_GOOD,
+              Benchmark('mako', run_mako, False,
                         's', check_mako),
              ]
 
