@@ -34,7 +34,7 @@ def main(options, args):
                 benchmarks.append(b)
 
     exes = get_executables(args)
-    pythons = 'python2.5 python2.4 python2.3'.split()
+    pythons = 'python2.6 python2.5 python2.4'.split()
     full_pythons = []
     for python in pythons:
         full_python = py.path.local.sysfind(python)
