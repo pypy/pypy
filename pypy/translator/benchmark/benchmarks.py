@@ -100,38 +100,6 @@ def run_translate(executable='/usr/local/bin/python'):
         raise BenchmarkFailed(status)
     return r
 
-def run_docutils(executable='/usr/local/bin/python'):
-    docutilssvnpath = 'docutils'    # subdir of the local dir
-    translatetxt = py.path.local(__file__).dirpath().dirpath().dirpath().join('doc').join('translation.txt')
-    command = """import sys
-sys.modules['unicodedata'] = sys # docutils need 'import unicodedata' to work, but no more...
-sys.path[0:0] = ['%s', '%s/extras']
-from docutils.core import publish_cmdline
-publish_cmdline(writer_name='html')
-"""%(docutilssvnpath, docutilssvnpath)
-    T = time.time()
-    pid = os.fork()
-    if not pid:
-        davenull = os.open('/dev/null', os.O_RDWR)
-        os.dup2(davenull, 0)
-        os.dup2(davenull, 1)
-        os.dup2(davenull, 2)
-        status = os.spawnv(os.P_WAIT, executable, [executable, '-c', command, str(translatetxt)])
-        os._exit(status)
-    else:
-        status = os.waitpid(pid, 0)[1]
-    r = time.time() - T
-    if status:
-        raise BenchmarkFailed(status)
-    return r
-
-def check_docutils():
-    return False     # useless benchmark - I've seen 15% of difference
-                     # between two successive runs on the same machine!
-    #return external_dependency('docutils',
-    #                           'svn://svn.berlios.de/docutils/trunk/docutils',
-    #                           4821)
-
 def run_templess(executable='/usr/local/bin/python', sizefactor=1):
     """ run some script in the templess package
 
@@ -189,7 +157,7 @@ def run_mako(executable='/usr/local/bin/python', sizefactor=1):
 def check_mako():
     return external_dependency('mako',
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/mako',
-              70118)
+              70118)    
 
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?
@@ -197,8 +165,6 @@ def check_translate():
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
               Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms', check_translate),
-              Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD,
-                        's', check_docutils),
               Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
                         's', check_templess),
               Benchmark('gadfly2', run_gadfly, RICHARDS_ASCENDING_GOOD,
