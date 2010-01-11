@@ -4,6 +4,7 @@ from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder, gen_forwa
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.annotation import model
 import py
 import sys, os
 
@@ -20,14 +21,29 @@ class TestSeparation:
     def compile_separated(self, name, **exports):
         t = TranslationContext()
         t.buildannotator()
+        bk = t.annotator.bookkeeper
+
+        # annotate functions with signatures
         for funcname, func in exports.items():
             if hasattr(func, 'argtypes'):
                 t.annotator.build_types(func, func.argtypes)
+
+        # ensure that functions without signature are not constant-folded
+        for funcname, func in exports.items():
+            if not hasattr(func, 'argtypes'):
+                # build a list of arguments where constants are erased
+                newargs = []
+                graph = bk.getdesc(func).getuniquegraph()
+                for arg in graph.startblock.inputargs:
+                    newarg = model.not_const(t.annotator.binding(arg))
+                    newargs.append(newarg)
+                # and reflow
+                t.annotator.build_types(func, newargs)
+
         t.buildrtyper().specialize()
 
         exported_funcptr = {}
         for funcname, func in exports.items():
-            bk = t.annotator.bookkeeper
             graph = bk.getdesc(func).getuniquegraph()
             funcptr = getfunctionptr(graph)
 
@@ -88,7 +104,6 @@ class TestSeparation:
         @export()
         def f2():
             f(1.0)
-            f(2.0)
         firstmodule = self.compile_separated("first", f=f, f2=f2)
 
         # call it from a function compiled in another module
