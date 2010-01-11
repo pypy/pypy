@@ -1,4 +1,4 @@
-from pypy.translator.c.separate import export
+from pypy.translator.separate import export
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder, gen_forwarddecl
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
