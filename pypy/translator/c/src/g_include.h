@@ -17,11 +17,7 @@
 #include "src/mem.h"
 #include "src/exception.h"
 #include "src/support.h"
-#ifndef AVR
-#include "src/trace.h"
-#else
-    #define PY_LONG_LONG long long
-#endif
+#define PY_LONG_LONG long long
 
 #ifndef PYPY_STANDALONE
 #  include "src/pyobj.h"
