@@ -77,11 +77,12 @@ class TestCarbonPython(CliTest):
         def baz():
             pass
 
-        assert foo._inputtypes_ == (int, float)
+        assert foo.argtypes == (int, float)
         assert not hasattr(foo, '_namespace_')
-        assert bar._inputtypes_ == (int, float)
-        assert bar._namespace_ == 'test'
-        assert baz._inputtypes_ == ()
+        assert bar.argtypes == (int, float)
+        assert bar.namespace == 'test'
+        assert baz.exported
+        assert not hasattr(baz, 'argtypes')
 
     def test_collect_entrypoints(self):
         @export(int, float)
@@ -99,7 +100,7 @@ class TestCarbonPython(CliTest):
                 pass
             
         class MyClass:
-            @export
+            @export()
             def __init__(self):
                 pass
             @export(int)
@@ -134,7 +135,7 @@ class TestCarbonPython(CliTest):
         assert res == 42
 
     def test_export_cliclass(self):
-        py.test.skip('it fails every other day on builbot, no clue why')
+        #py.test.skip('it fails every other day on builbot, no clue why')
         from pypy.translator.cli.dotnet import CLR
         
         @export(CLR.System.Collections.ArrayList, int)
@@ -152,7 +153,7 @@ class TestCarbonPython(CliTest):
         assert res == 42
 
     def test_compile_dll(self):
-        py.test.skip('This test fails every other day. No clue why :-(')
+        #py.test.skip('This test fails every other day. No clue why :-(')
         cwd, _ = os.path.split(__file__)
         mylib_py = os.path.join(cwd, 'mylib.py')
         compile_dll(mylib_py, copy_dll=False)

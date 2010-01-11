@@ -24,7 +24,7 @@ class Function(OOFunction, Node, CLIBaseGenerator):
         if hasattr(self.db.genoo, 'exceptiontransformer'):
             self.auto_propagate_exceptions = False
         
-        namespace = getattr(self.graph.func, '_namespace_', None)
+        namespace = getattr(self.graph.func, 'namespace', None)
         if namespace:
             if '.' in namespace:
                 self.namespace, self.classname = namespace.rsplit('.', 1)

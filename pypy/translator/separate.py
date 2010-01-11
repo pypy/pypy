@@ -24,9 +24,11 @@ class export(object):
             return decorated
         return object.__new__(cls, *args, **kwds)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwds):
         self.argtypes = args
-        self.namespace = kwargs.get('namespace')
+        self.namespace = kwds.pop('namespace', None)
+        if kwds:
+            raise TypeError("unexpected keyword arguments: %s" % kwds.keys())
 
     def __call__(self, func):
         func.exported = True
@@ -35,3 +37,8 @@ class export(object):
         if self.namespace is not None:
             func.namespace = self.namespace
         return func
+
+def is_exported(obj):
+    return (isinstance(obj, (types.FunctionType, types.UnboundMethodType))
+            and getattr(obj, 'exported', False))
+

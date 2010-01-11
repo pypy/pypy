@@ -318,7 +318,7 @@ class CTS(object):
     def graph_to_signature(self, graph, is_method = False, func_name = None):
         func_name = func_name or graph.name
         func_name = self.escape_name(func_name)
-        namespace = getattr(graph.func, '_namespace_', None)
+        namespace = getattr(graph.func, 'namespace', None)
         if namespace:
             func_name = '%s::%s' % (namespace, func_name)
 

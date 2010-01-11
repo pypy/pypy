@@ -13,6 +13,7 @@ import inspect
 
 from pypy.translator.driver import TranslationDriver
 from pypy.translator.cli.entrypoint import DllEntryPoint
+from pypy.translator.separate import export, is_exported
 
 class DllDef:
     def __init__(self, name, namespace, functions=[], dontmangle=True, isnetmodule=False):
@@ -36,39 +37,15 @@ class DllDef:
         # add all functions to the appropriate namespace
         if self.namespace:
             for func, _ in self.functions:
-                if not hasattr(func, '_namespace_'):
-                    func._namespace_ = self.namespace
+                if not hasattr(func, 'namespace'):
+                    func.namespace = self.namespace
         self.driver.proceed(['compile_cli'])
-
-class export(object):
-    def __new__(self, *args, **kwds):
-        if len(args) == 1 and isinstance(args[0], types.FunctionType):
-            func = args[0]
-            func._inputtypes_ = ()
-            return func
-        return object.__new__(self, *args, **kwds)
-    
-    def __init__(self, *args, **kwds):
-        self.inputtypes = args
-        self.namespace = kwds.pop('namespace', None)
-        if len(kwds) > 0:
-            raise TypeError, "unexpected keyword argument: '%s'" % kwds.keys()[0]
-
-    def __call__(self, func):
-        func._inputtypes_ = self.inputtypes
-        if self.namespace is not None:
-            func._namespace_ = self.namespace
-        return func
-
-def is_exported(obj):
-    return isinstance(obj, (types.FunctionType, types.UnboundMethodType)) \
-           and hasattr(obj, '_inputtypes_')
 
 def collect_entrypoints(dic):
     entrypoints = []
     for item in dic.itervalues():
         if is_exported(item):
-            entrypoints.append((item, item._inputtypes_))
+            entrypoints.append((item, item.argtypes))
         elif isinstance(item, types.ClassType) or isinstance(item, type):
             entrypoints += collect_class_entrypoints(item)
     return entrypoints
@@ -81,10 +58,10 @@ def collect_class_entrypoints(cls):
     except AttributeError:
         return []
 
-    entrypoints = [(wrap_init(cls, __init__), __init__._inputtypes_)]
+    entrypoints = [(wrap_init(cls, __init__), __init__.argtypes)]
     for item in cls.__dict__.itervalues():
         if item is not __init__.im_func and is_exported(item):
-            inputtypes = (cls,) + item._inputtypes_
+            inputtypes = (cls,) + item.argtypes
             entrypoints.append((wrap_method(item), inputtypes))
     return entrypoints
 
@@ -126,7 +103,7 @@ def compile_dll(filename, dllname=None, copy_dll=True):
     elif dllname.endswith('.dll'):
         dllname, _ = os.path.splitext(dllname)
     module = new.module(dllname)
-    namespace = module.__dict__.get('_namespace_', dllname)
+    namespace = module.__dict__.get('namespace', dllname)
     sys.path.insert(0, dirname)
     execfile(filename, module.__dict__)
     sys.path.pop(0)
