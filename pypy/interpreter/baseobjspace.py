@@ -9,7 +9,7 @@ from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
-from pypy.rlib.jit import unroll_safe
+from pypy.rlib import jit
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -531,6 +531,7 @@ class ObjSpace(object):
     def leave_cache_building_mode(self, val):
         "hook for the flow object space"
 
+    @jit.loop_invariant
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
         # Important: the annotator must not see a prebuilt ExecutionContext:
@@ -735,7 +736,7 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
-    @unroll_safe
+    @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if self.is_w(w_exc_type, w_check_class):

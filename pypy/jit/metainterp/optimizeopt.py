@@ -388,6 +388,7 @@ class Optimizer(object):
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.heap_op_optimizer = HeapOpOptimizer(self)
         self.bool_boxes = {}
+        self.loop_invariant_results = {}
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)
@@ -873,6 +874,23 @@ class Optimizer(object):
 
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
+
+    def optimize_CALL_LOOPINVARIANT(self, op):
+        funcvalue = self.getvalue(op.args[0])
+        if not funcvalue.is_constant():
+            self.optimize_default(op)
+            return
+        resvalue = self.loop_invariant_results.get(op.args[0].getint(), None)
+        if resvalue is not None:
+            self.make_equal_to(op.result, resvalue)
+            return
+        # change the op to be a normal call, from the backend's point of view
+        # there is no reason to have a separate operation for this
+        op.opnum = rop.CALL
+        self.optimize_default(op)
+        resvalue = self.getvalue(op.result)
+        self.loop_invariant_results[op.args[0].getint()] = resvalue
+            
 
 optimize_ops = _findall(Optimizer, 'optimize_')
 

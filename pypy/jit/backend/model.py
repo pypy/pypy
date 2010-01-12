@@ -209,6 +209,9 @@ class AbstractCPU(object):
     def do_call(self, args, calldescr):
         raise NotImplementedError
 
+    def do_call_loopinvariant(self, args, calldescr):
+        return self.do_call(args, calldescr)
+
     def do_cond_call_gc_wb(self, args, calldescr):
         if args[0].getint() & args[1].getint():
             self.do_call(args[2:], calldescr)

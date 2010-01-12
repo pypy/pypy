@@ -20,6 +20,12 @@ def unroll_safe(func):
     func._jit_unroll_safe_ = True
     return func
 
+def loop_invariant(func):
+    dont_look_inside(func)
+    func._jit_loop_invariant_ = True
+    return func
+
+
 def purefunction_promote(func):
     import inspect
     purefunction(func)

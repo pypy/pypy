@@ -654,6 +654,10 @@ class MIFrame(object):
     def opimpl_residual_call(self, calldescr, varargs):
         return self.do_residual_call(varargs, descr=calldescr, exc=True)
 
+    @arguments("descr", "varargs")
+    def opimpl_residual_call_loopinvariant(self, calldescr, varargs):
+        return self.execute_varargs(rop.CALL_LOOPINVARIANT, varargs, calldescr, exc=True)
+
     @arguments("varargs")
     def opimpl_recursion_leave_prep(self, varargs):
         warmrunnerstate = self.metainterp.staticdata.state

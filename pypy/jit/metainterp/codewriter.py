@@ -1235,9 +1235,11 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(
             op.args[0], args, op.result, consider_effects_of=op)
         pure = False
+        loopinvariant = False
         if op.opname == "direct_call":
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
             pure = getattr(func, "_pure_function_", False)
+            loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             all_promoted_args = getattr(func,
                                "_pure_function_with_all_promoted_args_", False)
             if pure and not all_promoted_args:
@@ -1249,7 +1251,10 @@ class BytecodeMaker(object):
         except lltype.DelayedPointer:
             canraise = True  # if we need to look into the delayed ptr that is
                              # the portal, then it's certainly going to raise
-        if pure:
+        if loopinvariant:
+            self.emit("residual_call_loopinvariant")
+            assert not non_void_args, "arguments not supported for loop-invariant function!"
+        elif pure:
             # XXX check what to do about exceptions (also MemoryError?)
             self.emit('residual_call_pure')
         elif canraise:

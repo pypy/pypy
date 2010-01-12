@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import support, codewriter, pyjitpl, history
@@ -1221,6 +1221,34 @@ class BasicTests:
         res = self.meta_interp(f, [21])
         assert res == 42
         self.check_loops(guard_nonnull=1, guard_isnull=1)
+
+    def test_loop_invariant(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
+        class A(object):
+            pass
+        a = A()
+        a.current_a = A()
+        a.current_a.x = 1
+        @loop_invariant
+        def f():
+            return a.current_a
+
+        def g(x):
+            res = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, res=res)
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += f().x
+                res += f().x
+                res += f().x
+                x -= 1
+            a.current_a = A()
+            a.current_a.x = 2
+            return res
+        res = self.meta_interp(g, [21])
+        assert res == 3 * 21
+        self.check_loops(call=1)
+
         
 
 class TestOOtype(BasicTests, OOJitMixin):

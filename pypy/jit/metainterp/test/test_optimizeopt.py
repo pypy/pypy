@@ -648,6 +648,32 @@ class BaseTestOptimizeOpt(BaseTest):
 
     # ----------
 
+    def test_call_loopinvariant(self):
+        ops = """
+        [i1]
+        i2 = call_loopinvariant(1, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        guard_value(i2, 1) []
+        i3 = call_loopinvariant(1, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        guard_value(i2, 1) []
+        i4 = call_loopinvariant(1, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        guard_value(i2, 1) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i2 = call(1, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        guard_value(i2, 1) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+
+    # ----------
+
     def test_virtual_1(self):
         ops = """
         [i, p0]

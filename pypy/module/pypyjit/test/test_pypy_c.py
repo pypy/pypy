@@ -172,7 +172,7 @@ class PyPyCJITTests(object):
                         x = x + (i&j)
                     i = i + 1
                 return x
-        ''', 194,
+        ''', 220,
                    ([2117], 1083876708))
 
     def test_factorial(self):
@@ -183,7 +183,7 @@ class PyPyCJITTests(object):
                     r *= n
                     n -= 1
                 return r
-        ''', 26,
+        ''', 28,
                    ([5], 120),
                     ([20], 2432902008176640000L))
 
@@ -237,8 +237,11 @@ class PyPyCJITTests(object):
         assert not ops[4]
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
-        for bytecode in ops:
-            assert not bytecode.get_opnames("call")
+        for i, bytecode in enumerate(ops):
+            if i == 0:
+                assert "call(getexecutioncontext)" in str(bytecode)
+            else:
+                assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
             assert len(bytecode.get_opnames("guard")) <= 10
 
@@ -268,8 +271,11 @@ class PyPyCJITTests(object):
 
         ops = self.get_by_bytecode("CALL_METHOD")
         assert len(ops) == 2
-        for bytecode in ops:
-            assert not bytecode.get_opnames("call")
+        for i, bytecode in enumerate(ops):
+            if i == 0:
+                assert "call(getexecutioncontext)" in str(bytecode)
+            else:
+                assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
             assert len(bytecode.get_opnames("guard")) <= 9
         assert len(ops[1]) < len(ops[0])
@@ -296,8 +302,11 @@ class PyPyCJITTests(object):
                    ([31], 32))
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
-        for bytecode in ops:
-            assert not bytecode.get_opnames("call")
+        for i, bytecode in enumerate(ops):
+            if i == 0:
+                assert "call(getexecutioncontext)" in str(bytecode)
+            else:
+                assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
         assert len(ops[0].get_opnames("guard")) <= 14
         assert len(ops[1].get_opnames("guard")) <= 3
@@ -315,7 +324,7 @@ class PyPyCJITTests(object):
                     a.x = 2
                     i = i + a.x
                 return i
-        ''', 65,
+        ''', 67,
                    ([20], 20),
                    ([31], 32))
 
@@ -346,7 +355,7 @@ class PyPyCJITTests(object):
                 while i < n:
                     i = i + a.x
                 return i
-        ''', 39,
+        ''', 41,
                    ([20], 20),
                    ([31], 32))
 
@@ -459,8 +468,6 @@ class TestJIT(PyPyCJITTests):
             py.test.skip("pass --pypy!")
         if not has_info(option.pypy_c, 'translation.jit'):
             py.test.skip("must give a pypy-c with the jit enabled")
-        if has_info(option.pypy_c, 'translation.thread'):
-            py.test.skip("for now, must give a pypy-c-jit without threads")
         cls.tmpdir = udir.join('pypy-jit')
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0
