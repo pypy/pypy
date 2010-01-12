@@ -143,16 +143,17 @@ class TestSeparation:
                 self.x = x
 
         # function exported from the 'first' module
-        @export(S)
-        def f(s):
-            return s.x + 1.5
+        @export(S, S, int)
+        def f(s, t, v):
+            return s.x + t.x + v
         firstmodule = self.compile_separated("first", f=f, S=S)
 
         # call it from a function compiled in another module
         @export()
         def g():
             s = S(41.0)
-            return firstmodule.f(s)
+            t = S(25.5)
+            return firstmodule.f(s, t, 7)
         secondmodule = self.compile_separated("second", g=g)
 
         def fn():
@@ -162,6 +163,6 @@ class TestSeparation:
             filepath = os.path.dirname(firstmodule.__file__)
             os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
 
-        assert fn() == 42.5
+        assert fn() == 73.5
         c_fn = self.compile_function(fn, [])
-        assert c_fn() == 42.5
+        assert c_fn() == 73.5

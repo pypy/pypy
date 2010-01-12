@@ -1,3 +1,6 @@
+from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.extregistry import ExtRegistryEntry
 import types
 
 class export(object):
@@ -42,44 +45,46 @@ def is_exported(obj):
     return (isinstance(obj, (types.FunctionType, types.UnboundMethodType))
             and getattr(obj, 'exported', False))
 
+def make_ll_import_arg_converter(TARGET):
+    from pypy.annotation import model
+
+    def convert(x):
+        XXX
+
+    class Entry(ExtRegistryEntry):
+        _about_ = convert
+        s_result_annotation = model.lltype_to_annotation(TARGET)
+
+        def specialize_call(self, hop):
+            # TODO: input type check
+            [v_instance] = hop.inputargs(*hop.args_r)
+            return hop.genop('force_cast', [v_instance],
+                             resulttype=TARGET)
+
+    return convert
+make_ll_import_arg_converter._annspecialcase_ = 'specialize:memo'
+
 def make_ll_import_function(name, functype, eci):
     from pypy.rpython.lltypesystem import lltype, rffi
-    from pypy.annotation import model
 
     imported_func = rffi.llexternal(
         name, functype.TO.ARGS, functype.TO.RESULT,
         compilation_info=eci,
         )
 
-    if not functype.TO.ARGS:
-        func = imported_func
-    elif len(functype.TO.ARGS) == 1:
-        ARG = functype.TO.ARGS[0]
-        from pypy.rpython.lltypesystem import llmemory
-        from pypy.rpython.extregistry import ExtRegistryEntry
+    ARGS = functype.TO.ARGS
+    unrolling_ARGS = unrolling_iterable(enumerate(ARGS))
+    def wrapper(*args):
+        real_args = ()
+        for i, TARGET in unrolling_ARGS:
+            arg = args[i]
+            if isinstance(TARGET, lltype.Ptr): # XXX more precise check?
+                arg = make_ll_import_arg_converter(TARGET)(arg)
 
-        if isinstance(ARG, lltype.Ptr): # XXX more precise check?
-            def convert(x):
-                raiseNameError
-
-            class Entry(ExtRegistryEntry):
-                _about_ = convert
-                s_result_annotation = model.lltype_to_annotation(ARG)
-
-                def specialize_call(self, hop):
-                    # TODO: input type check
-                    [v_instance] = hop.inputargs(*hop.args_r)
-                    return hop.genop('force_cast', [v_instance],
-                                     resulttype = ARG)
-        else:
-            def convert(x):
-                return x
-
-        def func(arg0):
-            ll_arg0 = convert(arg0)
-            ll_res = imported_func(ll_arg0)
-            return ll_res
-    else:
-        raise NotImplementedError("Not supported")
-    return func
+            real_args = real_args + (arg,)
+        res = imported_func(*real_args)
+        return res
+    wrapper._annspecialcase_ = 'specialize:ll'
+    wrapper._always_inline_ = True
+    return func_with_new_name(wrapper, name)
 
