@@ -97,8 +97,11 @@ class BenchmarkResult(object):
         print new_result
         if verbose:
             print '{'
-            for line in benchmark.latest_output.splitlines(False):
+            lines = benchmark.latest_output.splitlines(False)
+            for line in lines[:80]:
                 print '\t' + line
+            if len(lines) > 80:
+                print '\t....'
             print '}'
         self.run_counts[benchmark.name] = self.run_counts.get(benchmark.name, 0) + 1
         if new_result == '-FAILED-':
