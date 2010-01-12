@@ -283,9 +283,7 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("LOAD_ATTR")
         assert len(ops) == 2
         assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
-                                        "setfield_gc",  #  (*)
                                         "guard_nonnull_class"]
-        # (*) delayed write of the frames depth
         assert not ops[1] # second LOAD_ATTR folded away
 
     def test_default_and_kw(self):
