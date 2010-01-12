@@ -300,9 +300,8 @@ class ExecutionContext(object):
                              'c_return', 'c_exception']:
                 return
 
-            last_exception = None
+            last_exception = frame.last_exception
             if event == 'leaveframe':
-                last_exception = frame.last_exception
                 event = 'return'
 
             assert self.is_tracing == 0 

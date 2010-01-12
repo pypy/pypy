@@ -219,3 +219,26 @@ class TestExecutionContext:
         """)
         events = space.unwrap(w_events)
         assert [i[0] for i in events] == ['c_call', 'c_return', 'c_call']
+
+    def test_profile_and_exception(self):
+        space = self.space
+        w_res = space.appexec([], """():
+        l = []
+        
+        def profile(*args):
+            l.append(sys.exc_info()[0])
+
+        import sys
+        try:
+            sys.setprofile(profile)
+            try:
+                x
+            except:
+                expected = sys.exc_info()[0]
+                assert expected is NameError
+                for i in l:
+                    assert expected is l[0]
+        finally:
+            sys.setprofile(None)
+        """)
+
