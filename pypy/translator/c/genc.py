@@ -7,7 +7,7 @@ from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.tool import isolate
 from pypy.translator.c.support import log, c_string_constant
@@ -356,45 +356,10 @@ class CLibraryBuilder(CBuilder):
             post_include_bits = forwards
             )
 
+        from pypy.translator.separate import make_ll_import_function
         for funcname, import_name in self.export_node_names.items():
             functype = lltype.typeOf(self.entrypoint[funcname])
-            from pypy.annotation import model
-
-            imported_func = rffi.llexternal(
-                import_name, functype.TO.ARGS, functype.TO.RESULT,
-                compilation_info=import_eci,
-                )
-
-            if not functype.TO.ARGS:
-                func = imported_func
-            elif len(functype.TO.ARGS) == 1:
-                ARG = functype.TO.ARGS[0]
-                from pypy.rpython.lltypesystem import llmemory
-                from pypy.rpython.extregistry import ExtRegistryEntry
-
-                if isinstance(ARG, lltype.Ptr): # XXX more precise check?
-                    def convert(x):
-                        raiseNameError
-
-                    class Entry(ExtRegistryEntry):
-                        _about_ = convert
-                        s_result_annotation = model.lltype_to_annotation(ARG)
-
-                        def specialize_call(self, hop):
-                            # TODO: input type check
-                            [v_instance] = hop.inputargs(*hop.args_r)
-                            return hop.genop('force_cast', [v_instance],
-                                             resulttype = ARG)
-                else:
-                    def convert(x):
-                        return x
-
-                def func(arg0):
-                    ll_arg0 = convert(arg0)
-                    ll_res = imported_func(ll_arg0)
-                    return ll_res
-            else:
-                raise NotImplementedError("Not supported")
+            func = make_ll_import_function(import_name, functype, import_eci)
             setattr(mod, funcname, func)
         return mod
 
