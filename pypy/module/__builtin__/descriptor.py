@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.objspace.descroperation import object_getattribute
+from pypy.objspace.descroperation import object_getattribute, object_setattr
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
      descr_set_dict, interp_attrproperty_w
@@ -153,8 +153,11 @@ class W_Property(Wrappable):
         # XXX kill me?  This is mostly to make tests happy, raising
         # a TypeError instead of an AttributeError and using "readonly"
         # instead of "read-only" in the error message :-/
-        raise OperationError(space.w_TypeError, space.wrap(
-            "Trying to set readonly attribute %s on property" % (attr,)))
+        if attr in ["__doc__", "fget", "fset", "fdel"]:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "Trying to set readonly attribute %s on property" % (attr,)))
+        return space.call_function(object_setattr(space),
+                                   space.wrap(self), space.wrap(attr), w_value)
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
 W_Property.typedef = TypeDef(

@@ -301,3 +301,13 @@ class AppTestBuiltinApp:
             pass
         else:
             raise Exception, "expected ZeroDivisionError from bad property"
+
+    def test_property_subclass(self):
+        class P(property):
+            pass
+
+        p = P()
+        p.name = 0
+        assert p.name == 0
+
+
