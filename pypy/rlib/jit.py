@@ -87,8 +87,9 @@ class Entry(ExtRegistryEntry):
 
 
 def we_are_jitted():
+    """ Considered as true during tracing and blackholing,
+    so its consquences are reflected into jitted code """
     return False
-# timeshifts to True
 
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
