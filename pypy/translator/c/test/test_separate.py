@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.annotation import model, description
 import py
 import sys, os
+import types
 
 class TestSeparation:
     def compile_function(self, func, argtypes):
@@ -28,6 +29,21 @@ class TestSeparation:
             if hasattr(func, 'argtypes'):
                 t.annotator.build_types(func, func.argtypes,
                                         complete_now=False)
+        # annotate classes
+        for funcname, cls in exports.items():
+            if not isinstance(cls, (type, types.ClassType)):
+                continue
+            desc = bk.getdesc(cls)
+            classdef = desc.getuniqueclassdef()
+            s_init = desc.s_read_attribute('__init__')
+            if isinstance(s_init, model.SomeImpossibleValue):
+                continue
+
+            argtypes = (model.SomeInstance(classdef),)
+            argtypes += tuple(cls.__init__.argtypes)
+            t.annotator.build_types(cls.__init__.im_func, argtypes,
+                                    complete_now=False)
+        t.annotator.complete()
 
         # ensure that functions without signature are not constant-folded
         for funcname, func in exports.items():
@@ -42,11 +58,6 @@ class TestSeparation:
                         newargs.append(newarg)
                     # and reflow
                     t.annotator.build_types(func, newargs)
-                elif isinstance(desc, description.ClassDesc):
-                    s_init = desc.s_read_attribute('__init__')
-                    initfunc = s_init.const
-                    newargs = [func, float]
-                    t.annotator.build_types(initfunc, newargs)
 
         t.buildrtyper().specialize()
 
@@ -127,7 +138,7 @@ class TestSeparation:
 
     def test_pass_structure(self):
         class S:
-            @export
+            @export(float)
             def __init__(self, x):
                 self.x = x
 
@@ -138,10 +149,19 @@ class TestSeparation:
         firstmodule = self.compile_separated("first", f=f, S=S)
 
         # call it from a function compiled in another module
-        def fn():
+        @export()
+        def g():
             s = S(41.0)
             return firstmodule.f(s)
+        secondmodule = self.compile_separated("second", g=g)
 
-        #assert fn() == 42.5
+        def fn():
+            return secondmodule.g()
+
+        if sys.platform == 'win32':
+            filepath = os.path.dirname(firstmodule.__file__)
+            os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
+
+        assert fn() == 42.5
         c_fn = self.compile_function(fn, [])
         assert c_fn() == 42.5

@@ -173,11 +173,10 @@ class BaseExceptionTransformer(object):
         Because of the added exitswitch we need an additional block.
         """
         if hasattr(graph, 'exceptiontransformed'):
-            assert self.same_obj(self.exc_data_ptr, graph.exceptiontransformed)
-            return
-        else:
-            self.raise_analyzer.analyze_direct_call(graph)
-            graph.exceptiontransformed = self.exc_data_ptr
+            if self.same_obj(self.exc_data_ptr, graph.exceptiontransformed):
+                return
+        self.raise_analyzer.analyze_direct_call(graph)
+        graph.exceptiontransformed = self.exc_data_ptr
 
         self.always_exc_clear = always_exc_clear
         join_blocks(graph)

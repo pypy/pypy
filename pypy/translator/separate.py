@@ -22,7 +22,7 @@ class export(object):
             decorated = export()(func)
             del decorated.argtypes
             return decorated
-        return object.__new__(cls, *args, **kwds)
+        return object.__new__(cls)
 
     def __init__(self, *args, **kwds):
         self.argtypes = args
