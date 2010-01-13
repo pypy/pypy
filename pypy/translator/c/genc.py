@@ -339,30 +339,6 @@ class CLibraryBuilder(CBuilder):
             )
         self._compiled = True
 
-    def make_import_module(self):
-        class Module:
-            pass
-        mod = Module()
-        mod.__file__ = self.so_name
-
-        forwards = []
-        node_names = self.export_node_names.values()
-        for node in self.db.globalcontainers():
-            if node.nodekind == 'func' and node.name in node_names:
-                forwards.append('\n'.join(node.forward_declaration()))
-
-        import_eci = ExternalCompilationInfo(
-            libraries = [self.so_name],
-            post_include_bits = forwards
-            )
-
-        from pypy.translator.separate import make_ll_import_function
-        for funcname, import_name in self.export_node_names.items():
-            functype = lltype.typeOf(self.entrypoint[funcname])
-            func = make_ll_import_function(import_name, functype, import_eci)
-            setattr(mod, funcname, func)
-        return mod
-
     def gen_makefile(self, targetdir):
         pass
 

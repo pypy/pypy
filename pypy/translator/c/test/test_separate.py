@@ -1,13 +1,10 @@
 from pypy.translator.separate import export
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder, gen_forwarddecl
+from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder
+from pypy.translator.c import separate
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.typesystem import getfunctionptr
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.annotation import model, description
 import py
 import sys, os
-import types
 
 class TestSeparation:
     def compile_function(self, func, argtypes):
@@ -22,60 +19,18 @@ class TestSeparation:
     def compile_separated(self, name, **exports):
         t = TranslationContext()
         t.buildannotator()
-        bk = t.annotator.bookkeeper
 
-        # annotate functions with signatures
-        for funcname, func in exports.items():
-            if hasattr(func, 'argtypes'):
-                t.annotator.build_types(func, func.argtypes,
-                                        complete_now=False)
-        # annotate classes
-        for funcname, cls in exports.items():
-            if not isinstance(cls, (type, types.ClassType)):
-                continue
-            desc = bk.getdesc(cls)
-            classdef = desc.getuniqueclassdef()
-            s_init = desc.s_read_attribute('__init__')
-            if isinstance(s_init, model.SomeImpossibleValue):
-                continue
-
-            argtypes = (model.SomeInstance(classdef),)
-            argtypes += tuple(cls.__init__.argtypes)
-            t.annotator.build_types(cls.__init__.im_func, argtypes,
-                                    complete_now=False)
-        t.annotator.complete()
-
-        # ensure that functions without signature are not constant-folded
-        for funcname, func in exports.items():
-            if not hasattr(func, 'argtypes'):
-                # build a list of arguments where constants are erased
-                newargs = []
-                desc = bk.getdesc(func)
-                if isinstance(desc, description.FunctionDesc):
-                    graph = desc.getuniquegraph()
-                    for arg in graph.startblock.inputargs:
-                        newarg = model.not_const(t.annotator.binding(arg))
-                        newargs.append(newarg)
-                    # and reflow
-                    t.annotator.build_types(func, newargs)
+        separate.annotate_exported_functions(t.annotator, exports)
 
         t.buildrtyper().specialize()
 
-        exported_funcptr = {}
-        for funcname, func in exports.items():
-            desc = bk.getdesc(func)
-            if not isinstance(desc, description.FunctionDesc):
-                continue
-            graph = desc.getuniquegraph()
-            funcptr = getfunctionptr(graph)
-
-            exported_funcptr[funcname] = funcptr
+        exported_funcptr = separate.get_exported_functions(t.annotator, exports)
 
         builder = CLibraryBuilder(t, exported_funcptr, config=t.config)
         builder.generate_source()
         builder.compile()
 
-        mod = builder.make_import_module()
+        mod = separate.make_import_module(builder)
         return mod
 
     def test_simple_call(self):
