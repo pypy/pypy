@@ -7,6 +7,25 @@ import py
 import sys, os
 
 class TestSeparation:
+    def setup_method(self, method):
+        class S:
+            @export(float)
+            def __init__(self, x):
+                self.x = x
+
+        # functions exported from the 'first' module
+        @export(float)
+        def newS(x):
+            return S(x)
+
+        @export(S, S, int)
+        def f2S(s, t, v):
+            return s.x + t.x + v
+
+        self.S = S
+        self.newS = newS
+        self.f2S = f2S
+
     def compile_function(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
@@ -92,16 +111,8 @@ class TestSeparation:
         assert c_fn() == 42.5
 
     def test_pass_structure(self):
-        class S:
-            @export(float)
-            def __init__(self, x):
-                self.x = x
-
-        # function exported from the 'first' module
-        @export(S, S, int)
-        def f(s, t, v):
-            return s.x + t.x + v
-        firstmodule = self.compile_separated("first", f=f, S=S)
+        firstmodule = self.compile_separated("first", f=self.f2S, S=self.S)
+        S = self.S
 
         # call it from a function compiled in another module
         @export()
@@ -123,26 +134,15 @@ class TestSeparation:
         assert c_fn() == 73.5
 
     def test_create_structure(self):
-        class S:
-            @export(float)
-            def __init__(self, x):
-                self.x = x
-
-        # functions exported from the 'first' module
-        @export(float)
-        def newS(x):
-            return S(x)
-
-        @export(S)
-        def f(s):
-            return s.x + 1.5
-        firstmodule = self.compile_separated("first", newS=newS, f=f)
+        firstmodule = self.compile_separated(
+            "first", newS=self.newS, S=self.S, f=self.f2S)
 
         # call them from a function compiled in another module
         @export()
         def g():
             s = firstmodule.newS(41.0)
-            return firstmodule.f(s)
+            t = firstmodule.S(25.5)
+            return firstmodule.f(s, t, 7)
         secondmodule = self.compile_separated("second", g=g)
 
         def fn():
@@ -152,7 +152,7 @@ class TestSeparation:
             filepath = os.path.dirname(firstmodule.__file__)
             os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
 
-        assert fn() == 42.5
+        assert fn() == 73.5
         c_fn = self.compile_function(fn, [])
-        assert c_fn() == 42.5
+        assert c_fn() == 73.5
 

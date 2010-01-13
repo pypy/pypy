@@ -1,23 +1,36 @@
 from pypy.annotation import model, description
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import instantiate
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.extregistry import ExtRegistryEntry
-
+import py
 import types
+
+def make_wrapper_for_constructor(cls, name):
+    nbargs = len(cls.__init__.argtypes)
+    args = ', '.join(['arg%d' % d for d in range(nbargs)])
+
+    source = py.code.Source(r"""
+        def wrapper(%s):
+            obj = instantiate(cls)
+            obj.__init__(%s)
+            return obj
+        """ % (args, args))
+    miniglobals = {'cls': cls, 'instantiate': instantiate}
+    exec source.compile() in miniglobals
+    wrapper = miniglobals['wrapper']
+    wrapper._annspecialcase_ = 'specialize:ll'
+    wrapper._always_inline_ = True
+    return func_with_new_name(wrapper, name)
 
 def annotate_exported_functions(annotator, exports):
     bk = annotator.bookkeeper
 
-    # annotate functions with signatures
-    for funcname, func in exports.items():
-        if hasattr(func, 'argtypes'):
-            annotator.build_types(func, func.argtypes,
-                                  complete_now=False)
     # annotate classes
-    for funcname, cls in exports.items():
+    for clsname, cls in exports.items():
         if not isinstance(cls, (type, types.ClassType)):
             continue
         desc = bk.getdesc(cls)
@@ -26,11 +39,17 @@ def annotate_exported_functions(annotator, exports):
         if isinstance(s_init, model.SomeImpossibleValue):
             continue
 
-        argtypes = (model.SomeInstance(classdef),)
-        argtypes += tuple(cls.__init__.argtypes)
-        annotator.build_types(cls.__init__.im_func, argtypes,
+        wrapper = make_wrapper_for_constructor(cls, clsname)
+        exports[clsname] = wrapper
+
+        annotator.build_types(wrapper, cls.__init__.argtypes,
                               complete_now=False)
 
+    # annotate functions with signatures
+    for funcname, func in exports.items():
+        if hasattr(func, 'argtypes'):
+            annotator.build_types(func, func.argtypes,
+                                  complete_now=False)
     annotator.complete()
 
     # ensure that functions without signature are not constant-folded
@@ -51,14 +70,15 @@ def get_exported_functions(annotator, exports):
     bk = annotator.bookkeeper
 
     exported_funcptr = {}
-    for funcname, func in exports.items():
-        desc = bk.getdesc(func)
-        if not isinstance(desc, description.FunctionDesc):
+    for itemname, item in exports.items():
+        desc = bk.getdesc(item)
+        if isinstance(desc, description.FunctionDesc):
+            graph = desc.getuniquegraph()
+            funcptr = getfunctionptr(graph)
+        elif isinstance(desc, description.ClassDesc):
             continue
-        graph = desc.getuniquegraph()
-        funcptr = getfunctionptr(graph)
 
-        exported_funcptr[funcname] = funcptr
+        exported_funcptr[itemname] = funcptr
     return exported_funcptr
 
 def make_import_module(builder):
