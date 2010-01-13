@@ -8,6 +8,8 @@ import sys, os
 
 class TestSeparation:
     def setup_method(self, method):
+        self.additional_PATH = []
+
         class S:
             @export(float)
             def __init__(self, x):
@@ -50,7 +52,22 @@ class TestSeparation:
         builder.compile()
 
         mod = separate.make_import_module(builder)
+
+        if sys.platform == 'win32':
+            filepath = os.path.dirname(builder.so_name)
+            self.additional_PATH.append(filepath)
+
         return mod
+
+    def call_exported(self, func):
+        if sys.platform == 'win32':
+            for path in self.additional_PATH:
+                os.environ['PATH'] = "%s;%s" % (path, os.environ['PATH'])
+
+        def fn():
+            return func()
+
+        return fn
 
     def test_simple_call(self):
         # function exported from the 'first' module
@@ -81,12 +98,7 @@ class TestSeparation:
         secondmodule = self.compile_separated("second", g=g)
 
         # call it from a function compiled in another module
-        def fn():
-            return secondmodule.g(41)
-
-        if sys.platform == 'win32':
-            filepath = os.path.dirname(firstmodule.__file__)
-            os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
+        fn = self.call_exported(lambda: secondmodule.g(41))
 
         assert fn() == 21.25
         c_fn = self.compile_function(fn, [])
@@ -114,7 +126,6 @@ class TestSeparation:
         firstmodule = self.compile_separated("first", f=self.f2S, S=self.S)
         S = self.S
 
-        # call it from a function compiled in another module
         @export()
         def g():
             s = S(41.0)
@@ -122,12 +133,7 @@ class TestSeparation:
             return firstmodule.f(s, t, 7)
         secondmodule = self.compile_separated("second", g=g)
 
-        def fn():
-            return secondmodule.g()
-
-        if sys.platform == 'win32':
-            filepath = os.path.dirname(firstmodule.__file__)
-            os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
+        fn = self.call_exported(secondmodule.g)
 
         assert fn() == 73.5
         c_fn = self.compile_function(fn, [])
@@ -137,7 +143,6 @@ class TestSeparation:
         firstmodule = self.compile_separated(
             "first", newS=self.newS, S=self.S, f=self.f2S)
 
-        # call them from a function compiled in another module
         @export()
         def g():
             s = firstmodule.newS(41.0)
@@ -145,14 +150,26 @@ class TestSeparation:
             return firstmodule.f(s, t, 7)
         secondmodule = self.compile_separated("second", g=g)
 
-        def fn():
-            return secondmodule.g()
-
-        if sys.platform == 'win32':
-            filepath = os.path.dirname(firstmodule.__file__)
-            os.environ['PATH'] = "%s;%s" % (filepath, os.environ['PATH'])
+        fn = self.call_exported(secondmodule.g)
 
         assert fn() == 73.5
         c_fn = self.compile_function(fn, [])
         assert c_fn() == 73.5
+
+    def test_structure_attributes(self):
+        firstmodule = self.compile_separated(
+            "first", S=self.S)
+
+        @export()
+        def g():
+            s = firstmodule.S(41.5)
+            s.x /= 2
+            return s.x
+        secondmodule = self.compile_separated("second", g=g)
+
+        fn = self.call_exported(secondmodule.g)
+
+        assert fn() == 20.25
+        c_fn = self.compile_function(fn, [])
+        assert c_fn() == 20.25
 
