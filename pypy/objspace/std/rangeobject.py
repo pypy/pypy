@@ -56,7 +56,9 @@ class W_RangeListObject(W_Object):
     def getitem(w_self, i):
         if i < 0:
             i += w_self.length
-        if i >= w_self.length or i < 0:
+            if i < 0:
+                raise IndexError
+        elif i >= w_self.length:
             raise IndexError
         return w_self.start + i * w_self.step
 
@@ -194,24 +196,24 @@ def next__RangeIter(space, w_rangeiter):
     if w_rangelist is None:
         raise OperationError(space.w_StopIteration, space.w_None)
     assert isinstance(w_rangelist, W_RangeListObject)
+    index = w_rangeiter.index
     if w_rangelist.w_list is not None:
         try:
             w_item = space.getitem(w_rangelist.w_list,
-                                   wrapint(space, w_rangeiter.index))
+                                   wrapint(space, index))
         except OperationError, e:
             w_rangeiter.w_seq = None
             if not e.match(space, space.w_IndexError):
                 raise
             raise OperationError(space.w_StopIteration, space.w_None)
     else:
-        try:
-            w_item = wrapint(
-                space,
-                w_rangelist.getitem(w_rangeiter.index))
-        except IndexError:
+        if index >= w_rangelist.length:
             w_rangeiter.w_seq = None
             raise OperationError(space.w_StopIteration, space.w_None)
-    w_rangeiter.index += 1
+        w_item = wrapint(
+            space,
+            w_rangelist.getitem_unchecked(index))
+    w_rangeiter.index = index + 1
     return w_item
 
 # XXX __length_hint__()
