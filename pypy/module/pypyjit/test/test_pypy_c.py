@@ -403,6 +403,29 @@ class PyPyCJITTests(object):
         assert len(bytecode.get_opnames("call")) == 1 # the call to append
         assert len(bytecode.get_opnames("guard")) == 1 # guard_no_exception after the call
 
+    def test_range_iter(self):
+        self.run_source('''
+            def g(n):
+                return range(n)
+
+            def main(n):
+                s = 0
+                for i in range(n):
+                    s += g(n)[i]
+                return s
+        ''', 143, ([1000], 1000 * 999 / 2))
+        bytecode, = self.get_by_bytecode("BINARY_SUBSCR")
+        assert bytecode.get_opnames("guard") == [
+            "guard_isnull",  # check that the range list is not forced
+            "guard_false",   # check that the index is lower than the current length
+            ]
+        bytecode, _ = self.get_by_bytecode("FOR_ITER") # second bytecode is the end of the loop
+        assert bytecode.get_opnames("guard") == [
+            "guard_nonnull", # check that the iterator is not finished
+            "guard_isnull",  # check that the range list is not forced
+            "guard_false",   # check that the index is lower than the current length
+            ]
+ 
     def test_exception_inside_loop_1(self):
         py.test.skip("exceptions: in-progress")
         self.run_source('''
