@@ -131,14 +131,6 @@ class ExecutionContext(object):
             return lst
         # coroutine: I think this is all, folks!
 
-
-    def get_builtin(self):
-        frame = self.gettopframe_nohidden()
-        if frame is not None:
-            return frame.builtin
-        else:
-            return self.space.builtin
-
     def c_call_trace(self, frame, w_func):
         "Profile the call of a builtin function"
         if self.profilefunc is None:
