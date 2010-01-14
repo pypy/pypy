@@ -171,6 +171,8 @@ class Assembler386(object):
         self._patch_stackadjust(adr_stackadjust, frame_depth+param_depth)
         looptoken._x86_frame_depth = frame_depth
         looptoken._x86_param_depth = param_depth
+        debug_print("Loop #", looptoken.number, "has address",
+                    looptoken._x86_loop_code, "to", self.mc.tell())
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         self.make_sure_mc_exists()
@@ -193,6 +195,9 @@ class Assembler386(object):
             faildescr._x86_bridge_param_depth = param_depth
         # patch the jump from original guard
         self.patch_jump(faildescr, adr_bridge)
+        debug_print("Bridge out of guard",
+                    self.cpu.get_fail_descr_number(faildescr),
+                    "has address", adr_bridge, "to", self.mc.tell())
 
     def patch_jump(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
