@@ -51,7 +51,6 @@ def external_dependency(dirname, svnurl, revision=None):
     return True
 
 def run_cmd(cmd):
-    print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
     r = pipe.read()
     status = pipe.close()
