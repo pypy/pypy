@@ -89,8 +89,12 @@ class PyPyCJITTests(object):
         print >> f, source
         # some support code...
         print >> f, py.code.Source("""
-            import sys, pypyjit
-            pypyjit.set_param(threshold=3)
+            import sys
+            try: # make the file runnable by CPython
+                import pypyjit
+                pypyjit.set_param(threshold=3)
+            except ImportError:
+                pass
 
             def check(args, expected):
                 print >> sys.stderr, 'trying:', args
@@ -308,6 +312,28 @@ class PyPyCJITTests(object):
             assert not bytecode.get_opnames("new")
         assert len(ops[0].get_opnames("guard")) <= 14
         assert len(ops[1].get_opnames("guard")) <= 3
+
+    def test_kwargs(self):
+        self.run_source('''
+            d = {}
+
+            def g(**args):
+                return len(args)
+
+            def main(x):
+                s = 0
+                d = {}
+                for i in range(x):
+                    s += g(**d)
+                    d[str(i)] = i
+                    if i % 100 == 99:
+                        d = {}
+                return s
+        ''', 100000, ([100], 4950),
+                    ([1000], 49500),
+                    ([10000], 495000),
+                    ([100000], 4950000))
+        assert len(self.loops) < 10
 
     def test_virtual_instance(self):
         self.run_source('''
