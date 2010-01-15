@@ -11,7 +11,7 @@ class Linux(BasePosix):
     link_flags = ['-pthread', '-lrt']
     cflags = ['-O3', '-pthread', '-fomit-frame-pointer']
     standalone_only = []
-    shared_only = []
+    shared_only = ['-fPIC']
     so_ext = 'so'
     so_prefixes = ['lib', '']
     
