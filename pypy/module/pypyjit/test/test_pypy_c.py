@@ -290,6 +290,35 @@ class PyPyCJITTests(object):
                                         "guard_nonnull_class"]
         assert not ops[1] # second LOAD_ATTR folded away
 
+    def test_static_classmethod_call(self):
+        self.run_source('''
+            class A(object):
+                @classmethod
+                def f(cls, i):
+                    return i + (cls is A) + 1
+
+                @staticmethod
+                def g(i):
+                    return i - 1
+
+            def main(n):
+                i = 0
+                a = A()
+                while i < n:
+                    x = a.f(i)
+                    i = a.g(x)
+                return i
+        ''', 105,
+                   ([20], 20),
+                   ([31], 31))
+        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        assert len(ops) == 2
+        assert not ops[0].get_opnames("call")
+        assert not ops[0].get_opnames("new")
+        assert len(ops[0].get_opnames("guard")) <= 7
+        assert len(ops[0].get_opnames("getfield")) < 6
+        assert not ops[1] # second LOOKUP_METHOD folded away
+
     def test_default_and_kw(self):
         self.run_source('''
             def f(i, j=1):
