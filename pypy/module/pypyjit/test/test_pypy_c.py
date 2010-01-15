@@ -333,7 +333,10 @@ class PyPyCJITTests(object):
                     ([1000], 49500),
                     ([10000], 495000),
                     ([100000], 4950000))
-        assert len(self.loops) < 10
+        assert len(self.loops) == 2
+        op, = self.get_by_bytecode("CALL_FUNCTION_KW")
+        # XXX a bit too many guards, but better than before
+        assert len(op.get_opnames("guard")) <= 10
 
     def test_virtual_instance(self):
         self.run_source('''
@@ -420,14 +423,14 @@ class PyPyCJITTests(object):
                     i += 1
                     l.append(i)
                 return i, len(l)
-        ''', 37,
+        ''', 39,
                    ([20], (20, 18)),
                    ([31], (31, 29)))
 
         bytecode, = self.get_by_bytecode("CALL_METHOD")
         assert len(bytecode.get_opnames("new_with_vtable")) == 1 # the forcing of the int
         assert len(bytecode.get_opnames("call")) == 1 # the call to append
-        assert len(bytecode.get_opnames("guard")) == 1 # guard_no_exception after the call
+        assert len(bytecode.get_opnames("guard")) == 2 # guard for profiling disabledness + guard_no_exception after the call
 
     def test_range_iter(self):
         self.run_source('''
@@ -448,6 +451,7 @@ class PyPyCJITTests(object):
             ]
         bytecode, _ = self.get_by_bytecode("FOR_ITER") # second bytecode is the end of the loop
         assert bytecode.get_opnames("guard") == [
+            "guard_class",   # check the class of the iterator
             "guard_nonnull", # check that the iterator is not finished
             "guard_isnull",  # check that the range list is not forced
             "guard_false",   # check that the index is lower than the current length
