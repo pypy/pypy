@@ -7,102 +7,107 @@ from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.extregistry import ExtRegistryEntry
 import py
-import types
 
-def make_wrapper_for_constructor(cls, name):
-    nbargs = len(cls.__init__.argtypes)
-    args = ', '.join(['arg%d' % d for d in range(nbargs)])
+class ExportTable(object):
+    """A table with information about the exported symbols of a module
+    compiled by pypy."""
 
-    source = py.code.Source(r"""
-        def wrapper(%s):
-            obj = instantiate(cls)
-            obj.__init__(%s)
-            return obj
-        """ % (args, args))
-    miniglobals = {'cls': cls, 'instantiate': instantiate}
-    exec source.compile() in miniglobals
-    wrapper = miniglobals['wrapper']
-    wrapper._annspecialcase_ = 'specialize:ll'
-    wrapper._always_inline_ = True
-    return func_with_new_name(wrapper, name)
+    def __init__(self):
+        self.exported_function = {}
+        self.exported_class = {}
 
-def annotate_exported_functions(annotator, exports):
-    bk = annotator.bookkeeper
+    def make_wrapper_for_constructor(self, cls, name):
+        nbargs = len(cls.__init__.argtypes)
+        args = ', '.join(['arg%d' % d for d in range(nbargs)])
 
-    # annotate classes
-    for clsname, cls in exports.items():
-        if not isinstance(cls, (type, types.ClassType)):
-            continue
-        desc = bk.getdesc(cls)
-        classdef = desc.getuniqueclassdef()
-        s_init = desc.s_read_attribute('__init__')
-        if isinstance(s_init, model.SomeImpossibleValue):
-            continue
+        source = py.code.Source(r"""
+            def wrapper(%s):
+                obj = instantiate(cls)
+                obj.__init__(%s)
+                return obj
+            """ % (args, args))
+        miniglobals = {'cls': cls, 'instantiate': instantiate}
+        exec source.compile() in miniglobals
+        wrapper = miniglobals['wrapper']
+        wrapper._annspecialcase_ = 'specialize:ll'
+        wrapper._always_inline_ = True
+        return func_with_new_name(wrapper, name)
 
-        wrapper = make_wrapper_for_constructor(cls, clsname)
-        exports[clsname] = wrapper
+    def annotate_exported_functions(self, annotator):
+        bk = annotator.bookkeeper
 
-        annotator.build_types(wrapper, cls.__init__.argtypes,
-                              complete_now=False)
+        # annotate classes
+        for clsname, cls in self.exported_class.items():
+            desc = bk.getdesc(cls)
+            classdef = desc.getuniqueclassdef()
+            s_init = desc.s_read_attribute('__init__')
+            if isinstance(s_init, model.SomeImpossibleValue):
+                continue
 
-    # annotate functions with signatures
-    for funcname, func in exports.items():
-        if hasattr(func, 'argtypes'):
-            annotator.build_types(func, func.argtypes,
+            # Replace class with its constructor
+            wrapper = self.make_wrapper_for_constructor(cls, clsname)
+            self.exported_function[clsname] = wrapper
+
+            annotator.build_types(wrapper, cls.__init__.argtypes,
                                   complete_now=False)
-    annotator.complete()
 
-    # ensure that functions without signature are not constant-folded
-    for funcname, func in exports.items():
-        if not hasattr(func, 'argtypes'):
-            # build a list of arguments where constants are erased
-            newargs = []
-            desc = bk.getdesc(func)
+        # annotate functions with signatures
+        for funcname, func in self.exported_function.items():
+            if hasattr(func, 'argtypes'):
+                annotator.build_types(func, func.argtypes,
+                                      complete_now=False)
+        annotator.complete()
+
+        # ensure that functions without signature are not constant-folded
+        for funcname, func in self.exported_function.items():
+            if not hasattr(func, 'argtypes'):
+                # build a list of arguments where constants are erased
+                newargs = []
+                desc = bk.getdesc(func)
+                if isinstance(desc, description.FunctionDesc):
+                    graph = desc.getuniquegraph()
+                    for arg in graph.startblock.inputargs:
+                        newarg = model.not_const(annotator.binding(arg))
+                        newargs.append(newarg)
+                    # and reflow
+                    annotator.build_types(func, newargs)
+
+    def get_exported_functions(self, annotator):
+        bk = annotator.bookkeeper
+
+        exported_funcptr = {}
+        for itemname, item in self.exported_function.items():
+            desc = bk.getdesc(item)
             if isinstance(desc, description.FunctionDesc):
                 graph = desc.getuniquegraph()
-                for arg in graph.startblock.inputargs:
-                    newarg = model.not_const(annotator.binding(arg))
-                    newargs.append(newarg)
-                # and reflow
-                annotator.build_types(func, newargs)
+                funcptr = getfunctionptr(graph)
+            elif isinstance(desc, description.ClassDesc):
+                continue
 
-def get_exported_functions(annotator, exports):
-    bk = annotator.bookkeeper
+            exported_funcptr[itemname] = funcptr
+        return exported_funcptr
 
-    exported_funcptr = {}
-    for itemname, item in exports.items():
-        desc = bk.getdesc(item)
-        if isinstance(desc, description.FunctionDesc):
-            graph = desc.getuniquegraph()
-            funcptr = getfunctionptr(graph)
-        elif isinstance(desc, description.ClassDesc):
-            continue
+    def make_import_module(self, builder, node_names):
+        class Module:
+            pass
+        mod = Module()
+        mod.__file__ = builder.so_name
 
-        exported_funcptr[itemname] = funcptr
-    return exported_funcptr
+        forwards = []
+        for node in builder.db.globalcontainers():
+            if node.nodekind == 'func' and node.name in node_names.values():
+                forwards.append('\n'.join(node.forward_declaration()))
 
-def make_import_module(builder):
-    class Module:
-        pass
-    mod = Module()
-    mod.__file__ = builder.so_name
+        import_eci = ExternalCompilationInfo(
+            libraries = [builder.so_name],
+            post_include_bits = forwards
+            )
 
-    forwards = []
-    node_names = builder.export_node_names.values()
-    for node in builder.db.globalcontainers():
-        if node.nodekind == 'func' and node.name in node_names:
-            forwards.append('\n'.join(node.forward_declaration()))
-
-    import_eci = ExternalCompilationInfo(
-        libraries = [builder.so_name],
-        post_include_bits = forwards
-        )
-
-    for funcname, import_name in builder.export_node_names.items():
-        functype = lltype.typeOf(builder.entrypoint[funcname])
-        func = make_ll_import_function(import_name, functype, import_eci)
-        setattr(mod, funcname, func)
-    return mod
+        for funcname, import_name in builder.export_node_names.items():
+            functype = lltype.typeOf(builder.entrypoint[funcname])
+            func = make_ll_import_function(import_name, functype, import_eci)
+            setattr(mod, funcname, func)
+        return mod
 
 def make_ll_import_arg_converter(TARGET):
     from pypy.annotation import model

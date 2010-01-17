@@ -4,7 +4,7 @@ from pypy.translator.c.genc import CExtModuleBuilder, CLibraryBuilder
 from pypy.translator.c import separate
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
-import sys, os
+import sys, os, types
 
 class TestSeparation:
     def setup_method(self, method):
@@ -41,17 +41,26 @@ class TestSeparation:
         t = TranslationContext()
         t.buildannotator()
 
-        separate.annotate_exported_functions(t.annotator, exports)
+        table = separate.ExportTable()
+        for name, obj in exports.items():
+            if isinstance(obj, (type, types.ClassType)):
+                table.exported_class[name] = obj
+            else:
+                table.exported_function[name] = obj
+        table.annotate_exported_functions(t.annotator)
 
         t.buildrtyper().specialize()
 
-        exported_funcptr = separate.get_exported_functions(t.annotator, exports)
+        exported_funcptr = table.get_exported_functions(t.annotator)
 
         builder = CLibraryBuilder(t, exported_funcptr, config=t.config)
         builder.generate_source()
+        node_names = dict(
+            (funcname, builder.db.get(funcptr))
+            for funcname, funcptr in builder.entrypoint.items())
         builder.compile()
 
-        mod = separate.make_import_module(builder)
+        mod = table.make_import_module(builder, node_names)
 
         if sys.platform == 'win32':
             filepath = os.path.dirname(builder.so_name)

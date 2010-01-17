@@ -312,9 +312,6 @@ class CLibraryBuilder(CBuilder):
         return None
 
     def getexportsymbols(self):
-        self.export_node_names = dict(
-            (funcname, self.db.get(funcptr))
-            for funcname, funcptr in self.entrypoint.items())
         return self.export_node_names.values() + ['RPython_StartupCode']
 
     def compile(self):
