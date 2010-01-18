@@ -12,6 +12,24 @@ class AppTest_Descriptor:
         del x.f
         assert x.f() == 42
 
+    def test_set_without_get(self):
+        class Descr(object):
+
+            def __init__(self, name):
+                self.name = name
+
+            def __set__(self, obj, value):
+                obj.__dict__[self.name] = value
+        descr = Descr("a")
+
+        class X(object):
+            a = descr
+
+        x = X()
+        assert x.a is descr
+        x.a = 42
+        assert x.a == 42
+
     def test_member(self):
         class X(object):
             def __init__(self):

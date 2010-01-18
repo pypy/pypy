@@ -35,7 +35,13 @@ class Object:
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
-                return space.get(w_descr, w_obj)
+                # Only override if __get__ is defined, too, for compatibility
+                # with CPython.
+                w_get = space.lookup(w_descr, "__get__")
+                if w_get is not None:
+                    w_type = space.type(w_obj)
+                    return space.get_and_call_function(w_get, w_descr, w_obj,
+                                                       w_type)
             w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
         else:
             w_value = w_obj.getdictvalue(space, name)
