@@ -188,8 +188,8 @@ BENCHMARKS = [Benchmark('richards', run_richards, False, 'ms'),
 SHOOTOUT_NAMES = ['binary-trees', 'fannkuch', 'fasta', 'float',
                   'meteor-contest', 'nbody', 'spectral-norm']
 
-for name in SHOOTOUT_NAMES:
-    BENCHMARKS.append(LanguageShootoutBenchmark(name))
+#for name in SHOOTOUT_NAMES:
+#    BENCHMARKS.append(LanguageShootoutBenchmark(name))
 
 BENCHMARKS_BY_NAME = {}
 for _b in BENCHMARKS:
