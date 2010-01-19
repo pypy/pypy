@@ -1268,7 +1268,7 @@ class BasicTests:
             while x > 0:
                 myjitdriver.can_enter_jit(x=x, res=res, a=a, const=const)
                 myjitdriver.jit_merge_point(x=x, res=res, a=a, const=const)
-                if glob.a is not None and type(glob.a) is B:
+                if type(glob.a) is B:
                     res += 1
                 if a is None:
                     a = A()
