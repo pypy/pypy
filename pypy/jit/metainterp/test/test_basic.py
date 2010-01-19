@@ -1249,6 +1249,42 @@ class BasicTests:
         assert res == 3 * 21
         self.check_loops(call=1)
 
+    @py.test.mark.xfail
+    def test_bug_optimizeopt_mutates_ops(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'a', 'const'])
+        class A(object):
+            pass
+        class B(A):
+            pass
+
+        glob = A()
+        glob.a = None
+        def f(x):
+            res = 0
+            a = A()
+            a.x = 0
+            glob.a = A()
+            const = 2
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, res=res, a=a, const=const)
+                myjitdriver.jit_merge_point(x=x, res=res, a=a, const=const)
+                if glob.a is not None and type(glob.a) is B:
+                    res += 1
+                if a is None:
+                    a = A()
+                    a.x = x
+                    glob.a = B()
+                    const = 2
+                else:
+                    const = hint(const, promote=True)
+                    x -= const
+                    res += a.x
+                    a = None
+                    glob.a = A()
+                    const = 1
+            return res
+        res = self.meta_interp(f, [21])
+        assert res == 120
         
 
 class TestOOtype(BasicTests, OOJitMixin):
