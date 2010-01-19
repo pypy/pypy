@@ -1613,17 +1613,9 @@ class MetaInterp(object):
                     # we cannot reconstruct the beginning of the proper loop
                     raise GiveUp
 
-                oldops = self.history.operations[:]
                 # raises in case it works -- which is the common case
                 self.compile(original_boxes, live_arg_boxes, start)
-                # creation of the loop was cancelled!  Patch
-                # history.operations so that it contains again
-                # exactly its old list of operations...
-                # xxx maybe we could patch history.operations with
-                # Nones after calling self.compile() instead of
-                # before...  xxx maybe we should just raise GiveUp
-                del self.history.operations[:]
-                self.history.operations.extend(oldops)
+                # creation of the loop was cancelled!
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -1661,6 +1653,7 @@ class MetaInterp(object):
                                               greenkey, start)
         if loop_token is not None: # raise if it *worked* correctly
             raise GenerateMergePoint(live_arg_boxes, loop_token)
+        self.history.operations.pop()     # remove the JUMP
 
     def compile_bridge(self, live_arg_boxes):
         num_green_args = self.staticdata.num_green_args

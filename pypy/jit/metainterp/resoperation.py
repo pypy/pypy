@@ -31,7 +31,11 @@ class ResOperation(object):
         self.descr = descr
 
     def clone(self):
-        op = ResOperation(self.opnum, self.args, self.result, self.descr)
+        descr = self.descr
+        if descr is not None:
+            descr = descr._clone_if_mutable()
+        op = ResOperation(self.opnum, self.args, self.result, descr)
+        op.fail_args = self.fail_args
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc

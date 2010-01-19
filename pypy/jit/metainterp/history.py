@@ -122,6 +122,9 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
+    def _clone_if_mutable(self):
+        return self
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
 

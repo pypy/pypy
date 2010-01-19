@@ -69,7 +69,8 @@ class VRefTests:
         assert res == 5
         self.check_operations_history(virtual_ref=1, guard_not_forced=1)
         #
-        [guard_op] = [op for op in self.metainterp.history.operations
+        ops = self.metainterp.staticdata.stats.loops[0].operations
+        [guard_op] = [op for op in ops
                          if op.opnum == rop.GUARD_NOT_FORCED]
         bxs1 = [box for box in guard_op.fail_args
                   if str(box._getrepr_()).endswith('.X')]

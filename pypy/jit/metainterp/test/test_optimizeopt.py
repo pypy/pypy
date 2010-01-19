@@ -207,8 +207,9 @@ def test_equaloplists_fail_args():
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
-    def __init__(self):
-        pass
+    def __init__(self, metainterp_sd=None, original_greenkey=None):
+        self.metainterp_sd = metainterp_sd
+        self.original_greenkey = original_greenkey
     def store_final_boxes(self, op, boxes):
         op.fail_args = boxes
     def __eq__(self, other):

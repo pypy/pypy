@@ -515,20 +515,16 @@ class Optimizer(object):
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 
-    def emit_operation(self, op, must_clone=True):
+    def emit_operation(self, op):
         self.heap_op_optimizer.emitting_operation(op)
-        self._emit_operation(op, must_clone)
+        self._emit_operation(op)
 
-    def _emit_operation(self, op, must_clone=True):
+    def _emit_operation(self, op):
         for i in range(len(op.args)):
             arg = op.args[i]
             if arg in self.values:
                 box = self.values[arg].force_box()
-                if box is not arg:
-                    if must_clone:
-                        op = op.clone()
-                        must_clone = False
-                    op.args[i] = box
+                op.args[i] = box
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
@@ -588,9 +584,8 @@ class Optimizer(object):
         for i in range(len(specnodes)):
             value = self.getvalue(op.args[i])
             specnodes[i].teardown_virtual_node(self, value, exitargs)
-        op2 = op.clone()
-        op2.args = exitargs[:]
-        self.emit_operation(op2, must_clone=False)
+        op.args = exitargs[:]
+        self.emit_operation(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.args[0])

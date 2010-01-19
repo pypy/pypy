@@ -1249,7 +1249,6 @@ class BasicTests:
         assert res == 3 * 21
         self.check_loops(call=1)
 
-    @py.test.mark.xfail
     def test_bug_optimizeopt_mutates_ops(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'a', 'const'])
         class A(object):
@@ -1284,7 +1283,7 @@ class BasicTests:
                     const = 1
             return res
         res = self.meta_interp(f, [21])
-        assert res == 120
+        assert res == f(21)
         
 
 class TestOOtype(BasicTests, OOJitMixin):

@@ -54,9 +54,11 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     for box in loop.inputargs:
         assert isinstance(box, Box)
     if start > 0:
-        loop.operations = history.operations[start:]
+        ops = history.operations[start:]
     else:
-        loop.operations = history.operations
+        ops = history.operations
+    # make a copy, because optimize_loop can mutate the ops and descrs
+    loop.operations = [op.clone() for op in ops]
     metainterp_sd = metainterp.staticdata
     loop_token = make_loop_token(len(loop.inputargs))
     loop.token = loop_token
@@ -203,11 +205,18 @@ def make_done_loop_tokens():
 class ResumeDescr(AbstractFailDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
+    def _clone_if_mutable(self):
+        raise NotImplementedError
 
 class ResumeGuardDescr(ResumeDescr):
     counter = 0
-    # this class also gets attributes stored by resume.py code
+    # this class also gets the following attributes stored by resume.py code
+    rd_snapshot = None
+    rd_frame_info_list = None
     rd_numb = None
+    rd_consts = None
+    rd_virtuals = None
+    rd_pendingfields = None
 
     def __init__(self, metainterp_sd, original_greenkey):
         ResumeDescr.__init__(self, original_greenkey)
@@ -231,6 +240,17 @@ class ResumeGuardDescr(ResumeDescr):
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations)
 
+
+    def _clone_if_mutable(self):
+        res = self.__class__(self.metainterp_sd, self.original_greenkey)
+        # XXX a bit ugly to have to list them all here
+        res.rd_snapshot = self.rd_snapshot
+        res.rd_frame_info_list = self.rd_frame_info_list
+        res.rd_numb = self.rd_numb
+        res.rd_consts = self.rd_consts
+        res.rd_virtuals = self.rd_virtuals
+        res.rd_pendingfields = self.rd_pendingfields
+        return res
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
@@ -337,13 +357,15 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_loop = create_empty_loop(metainterp)
     new_loop.inputargs = metainterp.history.inputargs
-    new_loop.operations = metainterp.history.operations
+    # clone ops, as optimize_bridge can mutate the ops
+    new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     try:
         target_loop_token = metainterp_sd.state.optimize_bridge(metainterp_sd,
                                                                 old_loop_tokens,
                                                                 new_loop)
     except InvalidLoop:
+        assert 0
         return None
     # Did it work?
     if target_loop_token is not None:
