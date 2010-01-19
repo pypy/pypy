@@ -166,6 +166,7 @@ class TestSeparation:
         assert c_fn() == 73.5
 
     def test_structure_attributes(self):
+        py.test.skip("WIP")
         firstmodule = self.compile_separated(
             "first", S=self.S)
 

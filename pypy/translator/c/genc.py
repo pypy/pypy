@@ -312,7 +312,12 @@ class CLibraryBuilder(CBuilder):
         return None
 
     def getexportsymbols(self):
-        return self.export_node_names.values() + ['RPython_StartupCode']
+        entrypoint = self.getentrypointptr()
+        if isinstance(entrypoint, (list, tuple)):
+            export_symbols = [self.db.get(fn) for fn in entrypoint]
+        else:
+            export_symbols = [self.db.get(entrypoint)]
+        return export_symbols + ['RPython_StartupCode']
 
     def compile(self):
         assert self.c_source_filename

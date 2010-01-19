@@ -31,6 +31,7 @@ class ExportTable(object):
         wrapper = miniglobals['wrapper']
         wrapper._annspecialcase_ = 'specialize:ll'
         wrapper._always_inline_ = True
+        wrapper._about = cls
         return func_with_new_name(wrapper, name)
 
     def annotate_exported_functions(self, annotator):
@@ -88,8 +89,10 @@ class ExportTable(object):
         return exported_funcptr
 
     def make_import_module(self, builder, node_names):
-        class Module:
-            pass
+        class Module(object):
+            _annotated = False
+
+            _exported_classes = self.exported_class.values()
         mod = Module()
         mod.__file__ = builder.so_name
 
@@ -103,7 +106,7 @@ class ExportTable(object):
             post_include_bits = forwards
             )
 
-        for funcname, import_name in builder.export_node_names.items():
+        for funcname, import_name in node_names.items():
             functype = lltype.typeOf(builder.entrypoint[funcname])
             func = make_ll_import_function(import_name, functype, import_eci)
             setattr(mod, funcname, func)
