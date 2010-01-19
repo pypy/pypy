@@ -6,6 +6,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.controllerentry import Controller, ControllerEntry
+from pypy.annotation.bookkeeper import getbookkeeper
 import py
 
 class ExportTable(object):
@@ -15,24 +17,7 @@ class ExportTable(object):
     def __init__(self):
         self.exported_function = {}
         self.exported_class = {}
-
-    def make_wrapper_for_constructor(self, cls, name):
-        nbargs = len(cls.__init__.argtypes)
-        args = ', '.join(['arg%d' % d for d in range(nbargs)])
-
-        source = py.code.Source(r"""
-            def wrapper(%s):
-                obj = instantiate(cls)
-                obj.__init__(%s)
-                return obj
-            """ % (args, args))
-        miniglobals = {'cls': cls, 'instantiate': instantiate}
-        exec source.compile() in miniglobals
-        wrapper = miniglobals['wrapper']
-        wrapper._annspecialcase_ = 'specialize:ll'
-        wrapper._always_inline_ = True
-        wrapper._about = cls
-        return func_with_new_name(wrapper, name)
+        self.class_repr = {}
 
     def annotate_exported_functions(self, annotator):
         bk = annotator.bookkeeper
@@ -45,18 +30,21 @@ class ExportTable(object):
             if isinstance(s_init, model.SomeImpossibleValue):
                 continue
 
-            # Replace class with its constructor
-            wrapper = self.make_wrapper_for_constructor(cls, clsname)
-            self.exported_function[clsname] = wrapper
+            # Annotate constructor
+            constructor_name = "%s__init__" % (clsname,)
+            wrapper = func_with_new_name(cls.__init__, constructor_name)
+            wrapper.argtypes = (cls,) + cls.__init__.argtypes
+            self.exported_function[constructor_name] = wrapper
 
-            annotator.build_types(wrapper, cls.__init__.argtypes,
-                                  complete_now=False)
-
-        # annotate functions with signatures
-        for funcname, func in self.exported_function.items():
-            if hasattr(func, 'argtypes'):
-                annotator.build_types(func, func.argtypes,
-                                      complete_now=False)
+        bk.enter(None)
+        try:
+            # annotate functions with signatures
+            for funcname, func in self.exported_function.items():
+                if hasattr(func, 'argtypes'):
+                    annotator.build_types(func, func.argtypes,
+                                          complete_now=False)
+        finally:
+            bk.leave()
         annotator.complete()
 
         # ensure that functions without signature are not constant-folded
@@ -73,6 +61,13 @@ class ExportTable(object):
                     # and reflow
                     annotator.build_types(func, newargs)
 
+    def compute_exported_repr(self, rtyper):
+        bookkeeper = rtyper.annotator.bookkeeper
+        for clsname, cls in self.exported_class.items():
+            classdef = bookkeeper.getuniqueclassdef(cls)
+            classrepr = rtyper.getrepr(model.SomeInstance(classdef)).lowleveltype
+            self.class_repr[clsname] = classrepr
+
     def get_exported_functions(self, annotator):
         bk = annotator.bookkeeper
 
@@ -88,14 +83,29 @@ class ExportTable(object):
             exported_funcptr[itemname] = funcptr
         return exported_funcptr
 
+    def make_wrapper_for_class(self, name, cls, init_func):
+        structptr = self.class_repr[name]
+        assert structptr is not object
+
+        class C_Controller(Controller):
+            knowntype = structptr
+
+            def new(self_, *args):
+                obj = instantiate(cls)
+                init_func(obj, *args)
+                return obj
+
+        class Entry(ControllerEntry):
+            _about_ = structptr
+            _controller_ = C_Controller
+
+        bookkeeper = getbookkeeper()
+        classdef = bookkeeper.getuniqueclassdef(cls)
+        #bookkeeper.classdefs.append(classdef)
+
+        return structptr
+
     def make_import_module(self, builder, node_names):
-        class Module(object):
-            _annotated = False
-
-            _exported_classes = self.exported_class.values()
-        mod = Module()
-        mod.__file__ = builder.so_name
-
         forwards = []
         for node in builder.db.globalcontainers():
             if node.nodekind == 'func' and node.name in node_names.values():
@@ -105,6 +115,25 @@ class ExportTable(object):
             libraries = [builder.so_name],
             post_include_bits = forwards
             )
+
+        class Module(object):
+            _annotated = False
+            def _freeze_(self):
+                return True
+
+            __exported_class = self.exported_class
+
+            def __getattr__(self_, name):
+                if name in self_.__exported_class:
+                    cls = self_.__exported_class[name]
+                    constructor_name = "%s__init__" % (name,)
+                    init_func = getattr(self_, constructor_name)
+                    structptr = self.make_wrapper_for_class(name, cls, init_func)
+                    return structptr
+                raise AttributeError(name)
+
+        mod = Module()
+        mod.__file__ = builder.so_name
 
         for funcname, import_name in node_names.items():
             functype = lltype.typeOf(builder.entrypoint[funcname])

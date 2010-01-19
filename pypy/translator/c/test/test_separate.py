@@ -51,6 +51,8 @@ class TestSeparation:
 
         t.buildrtyper().specialize()
 
+        table.compute_exported_repr(t.rtyper)
+
         exported_funcptr = table.get_exported_functions(t.annotator)
 
         builder = CLibraryBuilder(t, exported_funcptr, config=t.config)
