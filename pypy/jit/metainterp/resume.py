@@ -271,6 +271,8 @@ class ResumeDataVirtualAdder(object):
     def finish(self, values, pending_setfields=[]):
         # compute the numbering
         storage = self.storage
+        # make sure that nobody attached resume data to this guard yet
+        assert storage.rd_numb is None
         numb, liveboxes_from_env, v = self.memo.number(values,
                                                        storage.rd_snapshot)
         self.liveboxes_from_env = liveboxes_from_env

@@ -207,6 +207,7 @@ class ResumeDescr(AbstractFailDescr):
 class ResumeGuardDescr(ResumeDescr):
     counter = 0
     # this class also gets attributes stored by resume.py code
+    rd_numb = None
 
     def __init__(self, metainterp_sd, original_greenkey):
         ResumeDescr.__init__(self, original_greenkey)
