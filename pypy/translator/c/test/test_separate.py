@@ -48,7 +48,7 @@ class TestSeparation:
         table = separate.ExportTable()
         for name, obj in exports.items():
             if isinstance(obj, (type, types.ClassType)):
-                table.exported_class[name] = obj
+                table.exported_class[name] = separate.ClassInfo(name, obj)
             else:
                 table.exported_function[name] = obj
         table.annotate_exported_functions(t.annotator)
