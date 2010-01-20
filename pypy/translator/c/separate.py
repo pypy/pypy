@@ -18,6 +18,7 @@ class ExportTable(object):
         self.exported_function = {}
         self.exported_class = {}
         self.class_repr = {}
+        self.classdef = {}
 
     def make_wrapper_for_constructor(self, cls, name):
         nbargs = len(cls.__init__.argtypes)
@@ -95,6 +96,8 @@ class ExportTable(object):
         return exported_funcptr
 
     def make_wrapper_for_class(self, name, cls, new_func):
+        classdef = self.classdef[name]
+        attributes = classdef.attrs
         STRUCTPTR = self.class_repr[name]
 
         class C_Controller(Controller):
@@ -103,12 +106,20 @@ class ExportTable(object):
             def new(self_, *args):
                 return new_func(*args)
 
+            def __getattr__(self_, name):
+                if name.startswith('get_') and name[4:] in classdef.attrs:
+                    def getter(obj):
+                        return getattr(obj, 'inst_' + name[4:])
+                    return getter
+                if name.startswith('set_') and name[4:] in classdef.attrs:
+                    def setter(obj, value):
+                        setattr(obj, 'inst_' + name[4:], value)
+                    return setter
+                raise AttributeError(name)
+
         class Entry(ControllerEntry):
             _about_ = STRUCTPTR
             _controller_ = C_Controller
-
-        bookkeeper = getbookkeeper()
-        classdef = bookkeeper.getuniqueclassdef(cls)
 
         return STRUCTPTR
 
@@ -118,6 +129,7 @@ class ExportTable(object):
         for clsname, cls in self.exported_class.items():
             classdef = bookkeeper.getuniqueclassdef(cls)
             classrepr = rtyper.getrepr(model.SomeInstance(classdef)).lowleveltype
+            self.classdef[clsname] = classdef
             self.class_repr[clsname] = classrepr
 
         forwards = []

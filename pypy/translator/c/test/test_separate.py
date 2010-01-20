@@ -15,6 +15,10 @@ class TestSeparation:
             def __init__(self, x):
                 self.x = x
 
+            @export
+            def invert(self):
+                self.x = 1 / self.x
+
         # functions exported from the 'first' module
         @export(float)
         def newS(x):
@@ -166,7 +170,6 @@ class TestSeparation:
         assert c_fn() == 73.5
 
     def test_structure_attributes(self):
-        py.test.skip("WIP")
         firstmodule = self.compile_separated(
             "first", S=self.S)
 
@@ -179,7 +182,25 @@ class TestSeparation:
 
         fn = self.call_exported(secondmodule.g)
 
-        assert fn() == 20.25
+        assert fn() == 20.75
         c_fn = self.compile_function(fn, [])
-        assert c_fn() == 20.25
+        assert c_fn() == 20.75
+
+    def test_method_call(self):
+        firstmodule = self.compile_separated(
+            "first", S=self.S)
+
+        @export()
+        def g():
+            s = firstmodule.S(8.0)
+            s.invert()
+            return s.x
+
+        secondmodule = self.compile_separated("second", g=g)
+
+        fn = self.call_exported(secondmodule.g)
+
+        assert fn() == 0.125
+        c_fn = self.compile_function(fn, [])
+        assert c_fn() == 0.125
 
