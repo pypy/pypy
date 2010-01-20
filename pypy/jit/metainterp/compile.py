@@ -365,7 +365,8 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
                                                                 old_loop_tokens,
                                                                 new_loop)
     except InvalidLoop:
-        assert 0
+        # XXX I am fairly convinced that optimize_bridge cannot actually raise
+        # InvalidLoop
         return None
     # Did it work?
     if target_loop_token is not None:
