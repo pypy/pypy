@@ -10,18 +10,18 @@ from pypy.rpython.controllerentry import Controller, ControllerEntry
 from pypy.annotation.bookkeeper import getbookkeeper
 import py
 
-class ExportTable(object):
-    """A table with information about the exported symbols of a module
-    compiled by pypy."""
+class ClassInfo:
+    def __init__(self, name, cls):
+        self.name = name
+        self.cls = cls
 
-    def __init__(self):
-        self.exported_function = {}
-        self.exported_class = {}
-        self.class_repr = {}
-        self.classdef = {}
+    def get_classdesc(self, bookkeeper):
+        return bookkeeper.getdesc(self.cls)
 
-    def make_wrapper_for_constructor(self, cls, name):
-        nbargs = len(cls.__init__.argtypes)
+    def wrap_constructor(self):
+        self.constructor_name = "__new__%s" % (self.name,)
+
+        nbargs = len(self.cls.__init__.argtypes)
         args = ', '.join(['arg%d' % d for d in range(nbargs)])
 
         source = py.code.Source(r"""
@@ -30,30 +30,79 @@ class ExportTable(object):
                 obj.__init__(%s)
                 return obj
             """ % (args, args))
-        miniglobals = {'cls': cls, 'instantiate': instantiate}
+        miniglobals = {'cls': self.cls, 'instantiate': instantiate}
         exec source.compile() in miniglobals
         wrapper = miniglobals['wrapper']
         wrapper._annspecialcase_ = 'specialize:ll'
         wrapper._always_inline_ = True
-        wrapper.argtypes = cls.__init__.argtypes
-        return func_with_new_name(wrapper, name)
+        wrapper.argtypes = self.cls.__init__.argtypes
 
+        return func_with_new_name(wrapper, self.constructor_name)
+
+    def save_repr(self, rtyper):
+        bookkeeper = rtyper.annotator.bookkeeper
+        classdef = bookkeeper.getuniqueclassdef(self.cls)
+        classrepr = rtyper.getrepr(model.SomeInstance(classdef)).lowleveltype
+        self.classdef = classdef
+        self.classrepr = classrepr
+
+    def freeze(self):
+        """Remove data invalid for the second compilation.
+        Probably suitable for pickling"""
+        del self.cls
+
+    def make_repr(self, module):
+        classdef = self.classdef
+        attributes = classdef.attrs
+        STRUCTPTR = self.classrepr
+
+        constructor = getattr(module, self.constructor_name)
+
+        class C_Controller(Controller):
+            knowntype = STRUCTPTR
+
+            def new(self_, *args):
+                return constructor(*args)
+
+            def __getattr__(self_, name):
+                if name.startswith('get_') and name[4:] in classdef.attrs:
+                    def getter(obj):
+                        return getattr(obj, 'inst_' + name[4:])
+                    return getter
+                if name.startswith('set_') and name[4:] in classdef.attrs:
+                    def setter(obj, value):
+                        setattr(obj, 'inst_' + name[4:], value)
+                    return setter
+                raise AttributeError(name)
+
+        class Entry(ControllerEntry):
+            _about_ = STRUCTPTR
+            _controller_ = C_Controller
+
+        return STRUCTPTR
+
+class ExportTable(object):
+    """A table with information about the exported symbols of a module
+    compiled by pypy."""
+
+    def __init__(self):
+        self.exported_function = {}
+        self.exported_class = {}
 
     def annotate_exported_functions(self, annotator):
         bk = annotator.bookkeeper
 
         # annotate classes
-        for clsname, cls in self.exported_class.items():
-            desc = bk.getdesc(cls)
+        for clsname, class_info in self.exported_class.items():
+            desc = class_info.get_classdesc(bk)
             classdef = desc.getuniqueclassdef()
             s_init = desc.s_read_attribute('__init__')
             if isinstance(s_init, model.SomeImpossibleValue):
                 continue
 
             # Annotate constructor
-            constructor_name = "__new__%s" % (clsname,)
-            wrapper = self.make_wrapper_for_constructor(cls, constructor_name)
-            self.exported_function[constructor_name] = wrapper
+            wrapper = class_info.wrap_constructor()
+            self.exported_function[wrapper.func_name] = wrapper
 
         bk.enter(None)
         try:
@@ -95,42 +144,10 @@ class ExportTable(object):
             exported_funcptr[itemname] = funcptr
         return exported_funcptr
 
-    def make_wrapper_for_class(self, name, cls, new_func):
-        classdef = self.classdef[name]
-        attributes = classdef.attrs
-        STRUCTPTR = self.class_repr[name]
-
-        class C_Controller(Controller):
-            knowntype = STRUCTPTR
-
-            def new(self_, *args):
-                return new_func(*args)
-
-            def __getattr__(self_, name):
-                if name.startswith('get_') and name[4:] in classdef.attrs:
-                    def getter(obj):
-                        return getattr(obj, 'inst_' + name[4:])
-                    return getter
-                if name.startswith('set_') and name[4:] in classdef.attrs:
-                    def setter(obj, value):
-                        setattr(obj, 'inst_' + name[4:], value)
-                    return setter
-                raise AttributeError(name)
-
-        class Entry(ControllerEntry):
-            _about_ = STRUCTPTR
-            _controller_ = C_Controller
-
-        return STRUCTPTR
-
     def make_import_module(self, builder, node_names):
         rtyper = builder.db.translator.rtyper
-        bookkeeper = rtyper.annotator.bookkeeper
-        for clsname, cls in self.exported_class.items():
-            classdef = bookkeeper.getuniqueclassdef(cls)
-            classrepr = rtyper.getrepr(model.SomeInstance(classdef)).lowleveltype
-            self.classdef[clsname] = classdef
-            self.class_repr[clsname] = classrepr
+        for clsname, class_info in self.exported_class.items():
+            class_info.save_repr(rtyper)
 
         forwards = []
         for node in builder.db.globalcontainers():
@@ -147,14 +164,9 @@ class ExportTable(object):
             def _freeze_(self):
                 return True
 
-            __exported_class = self.exported_class
-
             def __getattr__(self_, name):
-                if name in self_.__exported_class:
-                    cls = self_.__exported_class[name]
-                    constructor_name = "__new__%s" % (clsname,)
-                    new_func = getattr(self_, constructor_name)
-                    structptr = self.make_wrapper_for_class(name, cls, new_func)
+                if name in self.exported_class:
+                    structptr = self.exported_class[name].make_repr(self_)
                     return structptr
                 raise AttributeError(name)
 
