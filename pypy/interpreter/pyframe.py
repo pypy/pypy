@@ -155,6 +155,9 @@ class PyFrame(eval.Frame):
                 executioncontext.return_trace(self, self.space.w_None)
                 raise
             executioncontext.return_trace(self, w_exitvalue)
+            # clean up the exception, might be useful for not
+            # allocating exception objects in some cases
+            self.last_exception = None
         finally:
             executioncontext.leave(self)
         return w_exitvalue
