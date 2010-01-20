@@ -1,5 +1,6 @@
 import py
 from pypy.interpreter import gateway
+from pypy.objspace.test import test_descriptor
 
 
 class AppTestUserObject:
@@ -294,6 +295,19 @@ class AppTestWithMultiMethodVersion2(AppTestUserObject):
         multimethod.Installer = cls.prev_installer
 
 
-class AppTestWithGetAttributeShortcut(AppTestUserObject):
-    OPTIONS = {"objspace.std.getattributeshortcut": True}
+class GetAttributeShortcutTest:
 
+    def setup_class(cls):
+        from pypy import conftest
+        options = {"objspace.std.getattributeshortcut" : True}
+        cls.space = conftest.gettestobjspace(**options)
+
+
+class AppTestWithGetAttributeShortcut(AppTestUserObject,
+                                      GetAttributeShortcutTest):
+    pass
+
+
+class AppTestDescriptorWithGetAttributeShortcut(
+    test_descriptor.AppTest_Descriptor, GetAttributeShortcutTest):
+    pass

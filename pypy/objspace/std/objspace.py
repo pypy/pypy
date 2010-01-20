@@ -654,15 +654,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 w_value = w_obj.getdictvalue_attr_is_in_class(self, name)
                 if w_value is not None:
                     return w_value
-            try:
-                return self.get(w_descr, w_obj)
-            except OperationError, e:
-                if not e.match(self, self.w_AttributeError):
-                    raise
-        else:
-            w_value = w_obj.getdictvalue(self, name)
-            if w_value is not None:
-                return w_value
+            w_get = self.lookup(w_descr, "__get__")
+            if w_get is not None:
+                return self.get_and_call_function(w_get, w_descr, w_obj, w_type)
+        w_value = w_obj.getdictvalue(self, name)
+        if w_value is not None:
+            return w_value
+        # No value in __dict__. Fallback to the descriptor if we have it.
+        if w_descr is not None:
+            return w_descr
 
         w_descr = self.lookup(w_obj, '__getattr__')
         if w_descr is not None:
