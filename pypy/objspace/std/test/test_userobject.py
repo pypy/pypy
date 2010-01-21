@@ -295,19 +295,13 @@ class AppTestWithMultiMethodVersion2(AppTestUserObject):
         multimethod.Installer = cls.prev_installer
 
 
-class GetAttributeShortcutTest:
-
-    def setup_class(cls):
-        from pypy import conftest
-        options = {"objspace.std.getattributeshortcut" : True}
-        cls.space = conftest.gettestobjspace(**options)
-
-
-class AppTestWithGetAttributeShortcut(AppTestUserObject,
-                                      GetAttributeShortcutTest):
-    pass
+class AppTestWithGetAttributeShortcut(AppTestUserObject):
+    OPTIONS = {"objspace.std.getattributeshortcut": True}
 
 
 class AppTestDescriptorWithGetAttributeShortcut(
-    test_descriptor.AppTest_Descriptor, GetAttributeShortcutTest):
-    pass
+    test_descriptor.AppTest_Descriptor):
+    # for the individual tests see
+    # ====> ../../test/test_descriptor.py
+
+    OPTIONS = {"objspace.std.getattributeshortcut": True}

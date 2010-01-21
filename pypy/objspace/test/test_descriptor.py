@@ -1,5 +1,11 @@
+from pypy.conftest import gettestobjspace
 
 class AppTest_Descriptor:
+
+    OPTIONS = {}
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**cls.OPTIONS)
 
     def test_non_data_descr(self):
         class X(object):
@@ -29,6 +35,31 @@ class AppTest_Descriptor:
         assert x.a is descr
         x.a = 42
         assert x.a == 42
+
+    def test_failing_get(self):
+        # when __get__() raises AttributeError,
+        # __getattr__ is called...
+        class X(object):
+            def get_v(self):
+                raise AttributeError
+            v = property(get_v)
+
+            def __getattr__(self, name):
+                if name == 'v':
+                    return 42
+        x = X()
+        assert x.v == 42
+
+        # ... but the __dict__ is not searched
+        class Y(object):
+            def get_w(self):
+                raise AttributeError
+            def set_w(self, value):
+                raise AttributeError
+            w = property(get_w, set_w)
+        y = Y()
+        y.__dict__['w'] = 42
+        raises(AttributeError, getattr, y, 'w')
 
     def test_member(self):
         class X(object):
