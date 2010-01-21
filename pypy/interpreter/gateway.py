@@ -1084,6 +1084,11 @@ def appdef(source, applevel=ApplevelClass):
     """ 
     if not isinstance(source, str): 
         source = str(py.code.Source(source).strip())
+        while source.startswith('@py.test.mark.'):
+            # these decorators are known to return the same function
+            # object, we may ignore them
+            assert '\n' in source
+            source = source[source.find('\n') + 1:]
         assert source.startswith("def "), "can only transform functions" 
         source = source[4:]
     p = source.find('(')
