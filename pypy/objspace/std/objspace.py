@@ -656,7 +656,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return w_value
             w_get = self.lookup(w_descr, "__get__")
             if w_get is not None:
-                return self.get_and_call_function(w_get, w_descr, w_obj, w_type)
+                # __get__ is allowed to raise an AttributeError to trigger use
+                # of __getattr__.
+                try:
+                    return self.get_and_call_function(w_get, w_descr, w_obj,
+                                                      w_type)
+                except OperationError, e:
+                    if not e.match(self, self.w_AttributeError):
+                        raise
         w_value = w_obj.getdictvalue(self, name)
         if w_value is not None:
             return w_value

@@ -37,7 +37,6 @@ class AppTest_Descriptor:
         x.a = 42
         assert x.a == 42
 
-    @py.test.mark.xfail
     def test_failing_get(self):
         # when __get__() raises AttributeError,
         # __getattr__ is called...
