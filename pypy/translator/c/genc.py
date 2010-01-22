@@ -430,12 +430,16 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def cmdexec(self, args='', env=None, err=False):
+    def cmdexec(self, args='', env=None, err=False, expect_crash=False):
         assert self._compiled
         res = self.translator.platform.execute(self.executable_name, args,
                                                env=env)
         if res.returncode != 0:
+            if expect_crash:
+                return res.out, res.err
             raise Exception("Returned %d" % (res.returncode,))
+        if expect_crash:
+            raise Exception("Program did not crash!")
         if err:
             return res.out, res.err
         return res.out
@@ -711,6 +715,7 @@ class SourceGenerator:
             print >> fc, '/***  Implementations                                    ***/'
             print >> fc
             print >> fc, '#define PYPY_NOT_MAIN_FILE'
+            print >> fc, '#define PYPY_FILE_NAME "%s"' % name
             print >> fc, '#include "common_header.h"'
             print >> fc, '#include "structdef.h"'
             print >> fc, '#include "forwarddecl.h"'
@@ -783,6 +788,7 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Implementations                                    ***/'
     print >> f
+    print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
     for line in preimplementationlines:
         print >> f, line
     print >> f, '#include "src/g_include.h"'

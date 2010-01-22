@@ -10,6 +10,7 @@ from pypy.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
+from pypy.conftest import option
 
 
 class StandaloneTests(object):
@@ -21,8 +22,10 @@ class StandaloneTests(object):
         t.buildrtyper().specialize()
 
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
+        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
         cbuilder.compile()
+        if option.view:
+            t.view()
         return t, cbuilder
 
 
@@ -377,6 +380,186 @@ class TestStandalone(StandaloneTests):
         assert not err
         assert path.check(file=0)
 
+    def test_fatal_error(self):
+        def g(x):
+            if x == 1:
+                raise ValueError
+            else:
+                raise KeyError
+        def entry_point(argv):
+            if len(argv) < 3:
+                g(len(argv))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        #
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'Fatal RPython error: ValueError'
+        assert len(lines) >= 4
+        l0, l1, l2 = lines[-4:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l2)
+        #
+        out2, err2 = cbuilder.cmdexec("x", expect_crash=True)
+        assert out2.strip() == ''
+        lines2 = err2.strip().splitlines()
+        assert lines2[-1] == 'Fatal RPython error: KeyError'
+        l0, l1, l2 = lines2[-4:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l2)
+        assert lines2[-2] != lines[-2]    # different line number
+        assert lines2[-3] == lines[-3]    # same line number
+
+    def test_fatal_error_finally_1(self):
+        # a simple case of try:finally:
+        def g(x):
+            if x == 1:
+                raise KeyError
+        def h(x):
+            try:
+                g(x)
+            finally:
+                os.write(1, 'done.\n')
+        def entry_point(argv):
+            if len(argv) < 3:
+                h(len(argv))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        #
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == 'done.'
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'Fatal RPython error: KeyError'
+        assert len(lines) >= 5
+        l0, l1, l2, l3 = lines[-5:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in h', l2)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l3)
+
+    def test_fatal_error_finally_2(self):
+        # a try:finally: in which we raise and catch another exception
+        def raiseme(x):
+            if x == 1:
+                raise ValueError
+        def raise_and_catch(x):
+            try:
+                raiseme(x)
+            except ValueError:
+                pass
+        def g(x):
+            if x == 1:
+                raise KeyError
+        def h(x):
+            try:
+                g(x)
+            finally:
+                raise_and_catch(x)
+                os.write(1, 'done.\n')
+        def entry_point(argv):
+            if len(argv) < 3:
+                h(len(argv))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        #
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == 'done.'
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'Fatal RPython error: KeyError'
+        assert len(lines) >= 5
+        l0, l1, l2, l3 = lines[-5:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in h', l2)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l3)
+
+    def test_fatal_error_finally_3(self):
+        py.test.skip("not implemented: "
+                     "a try:finally: in which we raise the *same* exception")
+
+    def test_fatal_error_finally_4(self):
+        # a try:finally: in which we raise (and don't catch) an exception
+        def raiseme(x):
+            if x == 1:
+                raise ValueError
+        def g(x):
+            if x == 1:
+                raise KeyError
+        def h(x):
+            try:
+                g(x)
+            finally:
+                raiseme(x)
+                os.write(1, 'done.\n')
+        def entry_point(argv):
+            if len(argv) < 3:
+                h(len(argv))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        #
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'Fatal RPython error: ValueError'
+        assert len(lines) >= 5
+        l0, l1, l2, l3 = lines[-5:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in h', l2)
+        assert re.match(r'  File "\w+.c", line \d+, in raiseme', l3)
+
+    def test_assertion_error(self):
+        def g(x):
+            assert x != 1
+        def f(argv):
+            try:
+                g(len(argv))
+            finally:
+                print 'done'
+        def entry_point(argv):
+            f(argv)
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'Fatal RPython error: AssertionError'
+        assert len(lines) >= 4
+        l0, l1, l2 = lines[-4:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in f', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l2)
+        # The traceback stops at f() because it's the first function that
+        # captures the AssertionError, which makes the program abort.
+
+    def test_ll_assert_error(self):
+        py.test.skip("implement later, maybe: tracebacks even with ll_assert")
+        def g(x):
+            ll_assert(x != 1, "foobar")
+        def f(argv):
+            try:
+                g(len(argv))
+            finally:
+                print 'done'
+        def entry_point(argv):
+            f(argv)
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'PyPy assertion failed: foobar'
+        assert len(lines) >= 4
+        l0, l1, l2 = lines[-4:-1]
+        assert l0 == 'RPython traceback:'
+        assert re.match(r'  File "\w+.c", line \d+, in f', l1)
+        assert re.match(r'  File "\w+.c", line \d+, in g', l2)
+        # The traceback stops at f() because it's the first function that
+        # captures the AssertionError, which makes the program abort.
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):
@@ -407,7 +590,7 @@ class TestThread(object):
         t.buildrtyper().specialize()
         #
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source()
+        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
         cbuilder.compile()
         #
         return t, cbuilder

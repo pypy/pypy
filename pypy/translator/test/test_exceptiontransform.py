@@ -95,7 +95,7 @@ class BaseTestExceptionTransform:
                 return 3 + x
             return 4 + x
         t, g = self.transform_func(foo, [int])
-        assert len(list(g.iterblocks())) == 9
+        assert len(list(g.iterblocks())) == 10
         f = self.compile(foo, [int])
         result = interpret(foo, [6])
         assert result == 2
@@ -126,7 +126,7 @@ class BaseTestExceptionTransform:
                 return 1 + x
             return 4 + x
         t, g = self.transform_func(foo, [int])
-        assert len(list(g.iterblocks())) == 5
+        assert len(list(g.iterblocks())) == 6
         f = self.compile(foo, [int])
         result = interpret(foo, [6])
         assert result == 2
@@ -174,6 +174,34 @@ class BaseTestExceptionTransform:
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)    
         assert etrafo.raise_analyzer.analyze_direct_call(g)
+
+    def test_reraise_is_not_raise(self):
+        def one(x):
+            if x == 1:
+                raise ValueError()
+            elif x == 2:
+                raise TypeError()
+            return x - 5
+        def foo(x):
+            try:
+                return one(x)
+            except ValueError:
+                return -42
+        t, g = self.transform_func(foo, [int])
+        for block in g.iterblocks():
+            for op in block.operations:
+                # the operation 'debug_record_traceback' should only show up
+                # in a normal raise, not in a reraise
+                assert op.opname != 'debug_record_traceback'
+        f = self.compile(foo, [int])
+        result = interpret(foo, [7])
+        assert result == 2
+        result = f(7)
+        assert result == 2
+        result = interpret(foo, [1])
+        assert result == -42
+        result = f(1)
+        assert result == -42
 
 
 class TestLLType(BaseTestExceptionTransform):

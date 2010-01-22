@@ -543,6 +543,21 @@ class LLFrame(object):
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
         return pythonfunction(*args_ll)
 
+    def op_debug_start_traceback(self, *args):
+        pass    # xxx write debugging code here?
+
+    def op_debug_reraise_traceback(self, *args):
+        pass    # xxx write debugging code here?
+
+    def op_debug_record_traceback(self, *args):
+        pass    # xxx write debugging code here?
+
+    def op_debug_print_traceback(self, *args):
+        pass    # xxx write debugging code here?
+
+    def op_debug_catch_exception(self, *args):
+        pass    # xxx write debugging code here?
+
     def op_jit_marker(self, *args):
         pass
 

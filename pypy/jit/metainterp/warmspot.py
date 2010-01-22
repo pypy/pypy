@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_print, fatalerror
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
@@ -344,9 +344,7 @@ class WarmRunnerDesc:
                 if sys.stdout == sys.__stdout__:
                     import pdb; pdb.post_mortem(sys.exc_info()[2])
                 raise
-            debug_print('~~~ Crash in JIT!')
-            debug_print('~~~ %s' % (e,))
-            raise history.CrashInJIT("crash in JIT")
+            fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':

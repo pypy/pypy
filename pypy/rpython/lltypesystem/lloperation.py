@@ -536,6 +536,11 @@ LL_OPERATIONS = {
     'debug_fatalerror':     LLOp(),
     'debug_llinterpcall':   LLOp(), # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
+    'debug_start_traceback':   LLOp(),
+    'debug_record_traceback':  LLOp(),
+    'debug_catch_exception':   LLOp(),
+    'debug_reraise_traceback': LLOp(),
+    'debug_print_traceback':   LLOp(),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),

@@ -36,12 +36,8 @@ int main(int argc, char *argv[])
 
     exitcode = STANDALONE_ENTRY_POINT(list);
     if (RPyExceptionOccurred()) {
-        /* fish for the exception type, at least */
-#ifndef AVR
-        fprintf(stderr, "Fatal RPython error: %s\n",
-                RPyFetchExceptionType()->ov_name->items);
-#endif
-        abort();
+        /* print the RPython traceback */
+        pypy_debug_catch_fatal_exception();
     }
     return exitcode;
 
