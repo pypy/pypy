@@ -664,12 +664,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 except OperationError, e:
                     if not e.match(self, self.w_AttributeError):
                         raise
-        w_value = w_obj.getdictvalue(self, name)
-        if w_value is not None:
-            return w_value
-        # No value in __dict__. Fallback to the descriptor if we have it.
-        if w_descr is not None:
-            return w_descr
+        if e is None:
+            w_value = w_obj.getdictvalue(self, name)
+            if w_value is not None:
+                return w_value
+            # No value in __dict__. Fallback to the descriptor if we have it.
+            if w_descr is not None:
+                return w_descr
 
         w_descr = self.lookup(w_obj, '__getattr__')
         if w_descr is not None:
