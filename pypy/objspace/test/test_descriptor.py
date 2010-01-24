@@ -49,7 +49,6 @@ class AppTest_Descriptor:
                 if name == 'v':
                     return 42
         x = X()
-        print(x.v)
         assert x.v == 42
 
         # ... but the __dict__ is not searched
