@@ -1861,6 +1861,36 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, "Not", expected)
 
+    def test_remove_duplicate_pure_op(self):
+        ops = """
+        [p1, p2]
+        i1 = oois(p1, p2)
+        i2 = oois(p1, p2)
+        i3 = int_add(i1, 1)
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        i4 = int_add(i2, 1)
+        i4b = int_is_true(i4)
+        guard_true(i4b) []
+        escape(i3)
+        escape(i4)
+        guard_true(i1) []
+        guard_true(i2) []
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        i1 = oois(p1, p2)
+        i3 = int_add(i1, 1)
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        escape(i3)
+        escape(i3)
+        guard_true(i1) []
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, "Not, Not", expected)
+
     # ----------
 
     def make_fail_descr(self):

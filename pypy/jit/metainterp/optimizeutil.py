@@ -1,7 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.jit.metainterp import resoperation
+from pypy.jit.metainterp import resoperation, history
 
 class InvalidLoop(Exception):
     """Raised when the optimize*.py detect that the loop that
@@ -58,4 +58,36 @@ def descrlist_eq(l1, l2):
 
 def descrlist_dict():
     return r_dict(descrlist_eq, descrlist_hash)
+
+# ____________________________________________________________
+
+def args_eq(args1, args2):
+    if len(args1) != len(args2):
+        return False
+    for i in range(len(args1)):
+        arg1 = args1[i]
+        arg2 = args2[i]
+        if isinstance(arg1, history.Const):
+            if arg1.__class__ is not arg2.__class__:
+                return False
+            if not arg1.same_constant(arg2):
+                return False
+        else:
+            if not arg1 is arg2:
+                return False
+    return True
+
+def args_hash(args):
+    res = 0x345678
+    for arg in args:
+        if isinstance(arg, history.Const):
+            y = arg._get_hash_()
+        else:
+            y = compute_identity_hash(arg)
+        res = intmask((1000003 * res) ^ y)
+    return res
+
+def args_dict():
+    return r_dict(args_eq, args_hash)
+
 
