@@ -1009,8 +1009,12 @@ class HeapOpOptimizer(object):
             opnum == rop.DEBUG_MERGE_POINT):
             return
         if (opnum == rop.CALL or
-            opnum == rop.CALL_MAY_FORCE):
-            effectinfo = op.descr.get_extra_info()
+            opnum == rop.CALL_MAY_FORCE or
+            opnum == rop.CALL_ASSEMBLER):
+            if opnum == rop.CALL_ASSEMBLER:
+                effectinfo = None
+            else:
+                effectinfo = op.descr.get_extra_info()
             if effectinfo is not None:
                 # XXX we can get the wrong complexity here, if the lists
                 # XXX stored on effectinfo are large

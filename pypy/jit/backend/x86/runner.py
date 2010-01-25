@@ -18,8 +18,8 @@ class CPU386(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        AbstractLLCPU.__init__(self, rtyper, stats, opts, translate_support_code,
-                               gcdescr)
+        AbstractLLCPU.__init__(self, rtyper, stats, opts,
+                               translate_support_code, gcdescr)
 
     def setup(self):
         if self.opts is not None:

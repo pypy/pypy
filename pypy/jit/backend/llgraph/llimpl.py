@@ -125,6 +125,7 @@ TYPES = {
     'getarrayitem_gc_pure' : (('ref', 'int'), 'intorptr'),
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
+    'call_assembler'  : (('ref', 'varargs'), 'intorptr'),
     'call_pure'       : (('ref', 'varargs'), 'intorptr'),
     'cond_call_gc_wb' : (('int', 'int', 'ptr', 'varargs'), None),
     'oosend'          : (('varargs',), 'intorptr'),
@@ -316,6 +317,11 @@ def compile_add_descr(loop, ofs, type):
     assert isinstance(type, str) and len(type) == 1
     op.descr = Descr(ofs, type)
 
+def compile_add_loop_token(loop, descr):
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    op.descr = descr
+
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
@@ -391,8 +397,9 @@ def compile_redirect_fail(old_loop, old_index, new_loop):
 class Frame(object):
     OPHANDLERS = [None] * (rop._LAST+1)
 
-    def __init__(self, memocast):
+    def __init__(self, memocast, cpu):
         self.verbose = False
+        self.cpu = cpu
         self.memocast = memocast
         self.opindex = 1
         self._forced = False
@@ -809,6 +816,41 @@ class Frame(object):
         finally:
             self._may_force = -1
 
+    def op_call_assembler(self, loop_token, *args):
+        global _last_exception
+        assert not self._forced
+        self._may_force = self.opindex
+        try:
+            inpargs = _from_opaque(loop_token._llgraph_compiled_version).inputargs
+            for i, inparg in enumerate(inpargs):
+                TYPE = inparg.concretetype
+                if TYPE is lltype.Signed:
+                    set_future_value_int(i, args[i])
+                elif isinstance(TYPE, lltype.Ptr):
+                    set_future_value_ref(i, args[i])
+                elif TYPE is lltype.Float:
+                    set_future_value_float(i, args[i])
+                else:
+                    raise Exception("Nonsense type %s" % TYPE)
+
+            failindex = self.cpu._execute_token(loop_token)
+            try:
+                if self.cpu.index_of_virtualizable != -1:
+                    return self.cpu.assembler_helper_ptr(failindex,
+                        args[self.cpu.index_of_virtualizable])
+                else:
+                    return self.cpu.assembler_helper_ptr(failindex,
+                        lltype.nullptr(llmemory.GCREF.TO))
+            except LLException, lle:
+                assert _last_exception is None, "exception left behind"
+                _last_exception = lle
+                # fish op
+                op = self.loop.operations[self.opindex]
+                if op.result is not None:
+                    return 0
+        finally:
+            self._may_force = -1
+
     def op_guard_not_forced(self, descr):
         forced = self._forced
         self._forced = False
@@ -969,11 +1011,11 @@ def cast_from_float(TYPE, x):   # not really a cast, just a type check
     return x
 
 
-def new_frame(memocast, is_oo):
+def new_frame(memocast, is_oo, cpu):
     if is_oo:
-        frame = OOFrame(memocast)
+        frame = OOFrame(memocast, cpu)
     else:
-        frame = Frame(memocast)
+        frame = Frame(memocast, cpu)
     return _to_opaque(frame)
 
 _future_values = []
@@ -1094,7 +1136,8 @@ def force(opaque_frame):
     assert frame._may_force >= 0
     call_op = frame.loop.operations[frame._may_force]
     guard_op = frame.loop.operations[frame._may_force+1]
-    assert call_op.opnum == rop.CALL_MAY_FORCE
+    opnum = call_op.opnum
+    assert opnum == rop.CALL_MAY_FORCE or opnum == rop.CALL_ASSEMBLER
     frame._populate_fail_args(guard_op, skip=call_op.result)
     return frame.fail_index
 

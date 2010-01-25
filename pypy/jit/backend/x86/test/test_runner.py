@@ -25,8 +25,8 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
     
-    def setup_class(cls):
-        cls.cpu = CPU(rtyper=None, stats=FakeStats())
+    def setup_method(self, meth):
+        self.cpu = CPU(rtyper=None, stats=FakeStats())
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu
@@ -72,45 +72,41 @@ class TestX86(LLtypeBackendTest):
         func = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(f)
         addr = ctypes.cast(func, ctypes.c_void_p).value
         
-        try:
-            saved_addr = self.cpu.assembler.malloc_func_addr
-            self.cpu.assembler.malloc_func_addr = addr
-            ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
+        self.cpu.assembler.make_sure_mc_exists()
+        self.cpu.assembler.malloc_func_addr = addr
+        ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
-            res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')
-            assert allocs[0] == 7 + ofs + WORD
-            resbuf = self._resbuf(res)
-            assert resbuf[ofs/WORD] == 7
-            
-            # ------------------------------------------------------------
+        res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')
+        assert allocs[0] == 7 + ofs + WORD
+        resbuf = self._resbuf(res)
+        assert resbuf[ofs/WORD] == 7
 
-            res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ref')
-            assert allocs[0] == 7 + ofs + WORD
-            resbuf = self._resbuf(res)
-            assert resbuf[ofs/WORD] == 7
+        # ------------------------------------------------------------
 
-            # ------------------------------------------------------------
+        res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ref')
+        assert allocs[0] == 7 + ofs + WORD
+        resbuf = self._resbuf(res)
+        assert resbuf[ofs/WORD] == 7
 
-            TP = lltype.GcArray(lltype.Signed)
-            ofs = symbolic.get_field_token(TP, 'length', False)[0]
-            descr = self.cpu.arraydescrof(TP)
+        # ------------------------------------------------------------
 
-            res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
-                                             'ref', descr)
-            assert allocs[0] == 10*WORD + ofs + WORD
-            resbuf = self._resbuf(res)            
-            assert resbuf[ofs/WORD] == 10
+        TP = lltype.GcArray(lltype.Signed)
+        ofs = symbolic.get_field_token(TP, 'length', False)[0]
+        descr = self.cpu.arraydescrof(TP)
 
-            # ------------------------------------------------------------
+        res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
+                                         'ref', descr)
+        assert allocs[0] == 10*WORD + ofs + WORD
+        resbuf = self._resbuf(res)            
+        assert resbuf[ofs/WORD] == 10
 
-            res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
-                                             'ref', descr)
-            assert allocs[0] == 10*WORD + ofs + WORD
-            resbuf = self._resbuf(res)                        
-            assert resbuf[ofs/WORD] == 10
-            
-        finally:
-            self.cpu.assembler.malloc_func_addr = saved_addr
+        # ------------------------------------------------------------
+
+        res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
+                                         'ref', descr)
+        assert allocs[0] == 10*WORD + ofs + WORD
+        resbuf = self._resbuf(res)                        
+        assert resbuf[ofs/WORD] == 10
 
     def test_stringitems(self):
         from pypy.rpython.lltypesystem.rstr import STR
@@ -317,9 +313,9 @@ class TestX86(LLtypeBackendTest):
 
 class TestX86OverflowMC(TestX86):
 
-    def setup_class(cls):
-        cls.cpu = CPU(rtyper=None, stats=FakeStats())
-        cls.cpu.assembler.mc_size = 1024
+    def setup_method(self, meth):
+        self.cpu = CPU(rtyper=None, stats=FakeStats())
+        self.cpu.assembler.mc_size = 1024
 
     def test_overflow_mc(self):
         ops = []
@@ -332,6 +328,7 @@ class TestX86OverflowMC(TestX86):
         ops.append(ResOperation(rop.FINISH, [v], None,
                                 descr=BasicFailDescr()))
         looptoken = LoopToken()
+        self.cpu.assembler.make_sure_mc_exists()
         old_mc_mc = self.cpu.assembler.mc._mc
         self.cpu.compile_loop([base_v], ops, looptoken)
         assert self.cpu.assembler.mc._mc != old_mc_mc   # overflowed

@@ -1193,6 +1193,8 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_blackhole_should_not_reenter(self):
+        # Armin thinks this can occur and does not make interpreters slower
+        # so we don't check for assertionerror, to be discussed
         if not self.basic:
             py.test.skip("purely frontend test")
 
@@ -1234,8 +1236,9 @@ class ImplicitVirtualizableTests:
             f(10, True)
             return f(10, False)
 
-        einfo = py.test.raises(AssertionError, self.meta_interp, main, [])
-        assert einfo.value.args[0] == "reentering same frame via blackhole"
+        self.meta_interp(main, [])
+        #einfo = py.test.raises(AssertionError, self.meta_interp, main, [])
+        #assert einfo.value.args[0] == "reentering same frame via blackhole"
 
     def test_inlining(self):
         class Frame(object):

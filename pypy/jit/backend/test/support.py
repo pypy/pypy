@@ -120,6 +120,7 @@ class CCompiledMixin(BaseCompiledMixin):
     def _get_TranslationContext(self):
         t = TranslationContext()
         t.config.translation.gc = 'boehm'
+        t.config.translation.list_comprehension_operations = True
         return t
 
     def _compile_and_run(self, t, entry_point, entry_point_graph, args):

@@ -215,6 +215,7 @@ def test_make_jitdriver_callbacks_3():
         can_inline_ptr = None
         get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         confirm_enter_jit_ptr = None
+        get_jitcell_at_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc())
     state.make_jitdriver_callbacks()
     res = state.get_location_str([BoxInt(5), BoxFloat(42.5)])
@@ -234,6 +235,8 @@ def test_make_jitdriver_callbacks_4():
         can_inline_ptr = None
         get_printable_location_ptr = None
         confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
+        get_jitcell_at_ptr = None
+
     state = WarmEnterState(FakeWarmRunnerDesc())
     state.make_jitdriver_callbacks()
     res = state.confirm_enter_jit(5, 42.5, 3)

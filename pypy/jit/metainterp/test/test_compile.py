@@ -77,7 +77,7 @@ def test_compile_new_loop():
     metainterp = FakeMetaInterp()
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
-    metainterp.history = History(metainterp.cpu)
+    metainterp.history = History()
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
     #
@@ -94,7 +94,7 @@ def test_compile_new_loop():
     metainterp = FakeMetaInterp()
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
-    metainterp.history = History(metainterp.cpu)
+    metainterp.history = History()
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
     #

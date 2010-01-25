@@ -2,7 +2,8 @@ import sys, os
 import ctypes
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
-from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT,\
+     LoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -86,6 +87,7 @@ class Assembler386(object):
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
+        self.assembler_helper_adr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
@@ -118,6 +120,14 @@ class Assembler386(object):
                 ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
                 self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
                                                           ll_new_unicode)
+            if we_are_translated():
+                self.assembler_helper_adr = self.cpu.cast_ptr_to_int(
+                    self.cpu.assembler_helper_ptr)
+            else:
+                if getattr(self.cpu, 'assembler_helper_ptr', None):
+                    self.assembler_helper_adr = self.cpu.cast_ptr_to_int(
+                        self.cpu.assembler_helper_ptr)
+        
             # done
             # we generate the loop body in 'mc'
             # 'mc2' is for guard recovery code
@@ -154,6 +164,7 @@ class Assembler386(object):
         """adds the following attributes to looptoken:
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
+               _x86_direct_bootstrap_code
                _x86_frame_depth
                _x86_param_depth
                _x86_arglocs
@@ -162,15 +173,27 @@ class Assembler386(object):
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
+        needed_mem = len(arglocs[0]) * 16 + 16
+        if needed_mem >= self.mc.bytes_free():
+            self.mc.make_new_mc()
         looptoken._x86_bootstrap_code = self.mc.tell()
         adr_stackadjust = self._assemble_bootstrap_code(inputargs, arglocs)
-        looptoken._x86_loop_code = self.mc.tell()
+        curadr = self.mc.tell()
+        looptoken._x86_loop_code = curadr
         looptoken._x86_frame_depth = -1     # temporarily
         looptoken._x86_param_depth = -1     # temporarily        
         frame_depth, param_depth = self._assemble(regalloc, operations)
         self._patch_stackadjust(adr_stackadjust, frame_depth+param_depth)
         looptoken._x86_frame_depth = frame_depth
         looptoken._x86_param_depth = param_depth
+        # we need to make sure here that we don't overload an mc badly.
+        # a safe estimate is that we need at most 16 bytes per arg
+        needed_mem = len(arglocs[0]) * 16 + 16
+        if needed_mem >= self.mc.bytes_free():
+            self.mc.make_new_mc()
+        looptoken._x86_direct_bootstrap_code = self.mc.tell()
+        self._assemble_bootstrap_direct_call(arglocs, curadr,
+                                             frame_depth+param_depth)
         debug_print("Loop #", looptoken.number, "has address",
                     looptoken._x86_loop_code, "to", self.mc.tell())
 
@@ -240,8 +263,7 @@ class Assembler386(object):
         mc.write(packimm32(-WORD * aligned_words))
         mc.done()
 
-    def _assemble_bootstrap_code(self, inputargs, arglocs):
-        nonfloatlocs, floatlocs = arglocs
+    def _call_header(self):
         self.mc.PUSH(ebp)
         self.mc.MOV(ebp, esp)
         self.mc.PUSH(ebx)
@@ -249,7 +271,41 @@ class Assembler386(object):
         self.mc.PUSH(edi)
         # NB. the shape of the frame is hard-coded in get_basic_shape() too.
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
-        adr_stackadjust = self._patchable_stackadjust()
+        return self._patchable_stackadjust()
+
+    def _assemble_bootstrap_direct_call(self, arglocs, jmpadr, stackdepth):
+        # XXX pushing ebx esi and edi is a bit pointless, since we store
+        #     all regsiters anyway, for the case of guard_not_forced
+        # XXX this can be improved greatly. Right now it'll behave like
+        #     a normal call
+        nonfloatlocs, floatlocs = arglocs
+        # XXX not to repeat the logic, a bit around
+        adr_stackadjust = self._call_header()
+        self._patch_stackadjust(adr_stackadjust, stackdepth)
+        for i in range(len(nonfloatlocs)):
+            loc = nonfloatlocs[i]
+            if isinstance(loc, REG):
+                self.mc.MOV(loc, mem(ebp, (2 + i) * WORD))
+            loc = floatlocs[i]
+            if isinstance(loc, XMMREG):
+                self.mc.MOVSD(loc, mem64(ebp, (1 + i) * 2 * WORD))
+        tmp = eax
+        xmmtmp = xmm0
+        for i in range(len(nonfloatlocs)):
+            loc = nonfloatlocs[i]
+            if loc is not None and not isinstance(loc, REG):
+                self.mc.MOV(tmp, mem(ebp, (2 + i) * WORD))
+                self.mc.MOV(loc, tmp)
+            loc = floatlocs[i]
+            if loc is not None and not isinstance(loc, XMMREG):
+                self.mc.MOVSD(xmmtmp, mem64(ebp, (1 + i) * 2 * WORD))
+                self.mc.MOVSD(loc, xmmtmp)
+        self.mc.JMP(rel32(jmpadr))
+        return adr_stackadjust
+
+    def _assemble_bootstrap_code(self, inputargs, arglocs):
+        nonfloatlocs, floatlocs = arglocs
+        adr_stackadjust = self._call_header()
         tmp = X86RegisterManager.all_regs[0]
         xmmtmp = X86XMMRegisterManager.all_regs[0]
         for i in range(len(nonfloatlocs)):
@@ -421,30 +477,34 @@ class Assembler386(object):
                 return self.implement_guard(addr, getattr(self.mc, name))
         return genop_cmp_guard_float
 
-    def _emit_call(self, x, arglocs, start=0, tmp=eax):
+    @specialize.arg(5)
+    def _emit_call(self, x, arglocs, start=0, tmp=eax, force_mc=False,
+                   mc=None):
+        if not force_mc:
+            mc = self.mc
         p = 0
         n = len(arglocs)
         for i in range(start, n):
             loc = arglocs[i]
             if isinstance(loc, REG):
                 if isinstance(loc, XMMREG):
-                    self.mc.MOVSD(mem64(esp, p), loc)
+                    mc.MOVSD(mem64(esp, p), loc)
                 else:
-                    self.mc.MOV(mem(esp, p), loc)
+                    mc.MOV(mem(esp, p), loc)
             p += round_up_to_4(loc.width)
         p = 0
         for i in range(start, n):
             loc = arglocs[i]
             if not isinstance(loc, REG):
                 if isinstance(loc, MODRM64):
-                    self.mc.MOVSD(xmm0, loc)
-                    self.mc.MOVSD(mem64(esp, p), xmm0)
+                    mc.MOVSD(xmm0, loc)
+                    mc.MOVSD(mem64(esp, p), xmm0)
                 else:
-                    self.mc.MOV(tmp, loc)
-                    self.mc.MOV(mem(esp, p), tmp)
+                    mc.MOV(tmp, loc)
+                    mc.MOV(mem(esp, p), tmp)
             p += round_up_to_4(loc.width)
         self._regalloc.reserve_param(p//WORD)
-        self.mc.CALL(x)
+        mc.CALL(x)
         self.mark_gc_roots()
         
     def call(self, addr, args, res):
@@ -1193,7 +1253,7 @@ class Assembler386(object):
             tmp = ecx
         else:
             tmp = eax
-            
+        
         self._emit_call(x, arglocs, 2, tmp=tmp)
 
         if isinstance(resloc, MODRM64):
@@ -1213,6 +1273,38 @@ class Assembler386(object):
         self.genop_call(op, arglocs, result_loc)
         self.mc.CMP(mem(ebp, FORCE_INDEX_OFS), imm(0))
         return self.implement_guard(addr, self.mc.JL)
+
+    def genop_guard_call_assembler(self, op, guard_op, addr,
+                                   arglocs, result_loc):
+        faildescr = guard_op.descr
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self.mc.MOV(mem(ebp, FORCE_INDEX_OFS), imm(fail_index))
+        descr = op.descr
+        assert isinstance(descr, LoopToken)
+        assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
+        self._emit_call(rel32(descr._x86_direct_bootstrap_code), arglocs, 2,
+                        tmp=eax)
+        mc = self.mc._mc
+        mc.CMP(eax, imm(self.cpu.done_with_this_frame_int_v))
+        mc.write(constlistofchars('\x74\x00')) # JE below
+        je_location = mc.get_relative_pos()
+        self._emit_call(rel32(self.assembler_helper_adr), [eax, arglocs[1]], 0,
+                        tmp=ecx, force_mc=True, mc=mc)
+        mc.write(constlistofchars('\xEB\x00')) # JMP below
+        jmp_location = mc.get_relative_pos()
+        offset = jmp_location - je_location
+        assert 0 < offset <= 127
+        mc.overwrite(je_location - 1, [chr(offset)])
+        mc.MOV(eax, heap(self.fail_boxes_int.get_addr_for_num(0)))
+        offset = mc.get_relative_pos() - jmp_location
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_location - 1, [chr(offset)])
+        if isinstance(result_loc, MODRM64):
+            self.mc.FSTP(result_loc)
+        else:
+            assert result_loc is eax or result_loc is None
+        self.mc.CMP(mem(ebp, FORCE_INDEX_OFS), imm(0))
+        return self.implement_guard(addr, self.mc.JL)        
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # use 'mc._mc' directly instead of 'mc', to avoid
@@ -1258,7 +1350,7 @@ class Assembler386(object):
 
     def not_implemented_op_guard(self, op, guard_op,
                                  failaddr, arglocs, resloc):
-        msg = "not implemented operation (guard): %s" % guard_op.getopname()
+        msg = "not implemented operation (guard): %s" % op.getopname()
         print msg
         raise NotImplementedError(msg)
 

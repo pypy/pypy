@@ -42,16 +42,10 @@ class arguments(object):
         argtypes = unrolling_iterable(self.argtypes)
         def wrapped(self, orgpc):
             args = (self, )
-            #if DEBUG >= DEBUG_DETAILED:
-            #    s = '%s:%d\t%s' % (self.jitcode.name, orgpc, name)
-            #else:
-            s = ''
             for argspec in argtypes:
                 if argspec == "box":
                     box = self.load_arg()
                     args += (box, )
-                    #if DEBUG >= DEBUG_DETAILED:
-                    #    s += '\t' + box.repr_rpython()
                 elif argspec == "constbox":
                     args += (self.load_const_arg(), )
                 elif argspec == "int":
@@ -82,12 +76,7 @@ class arguments(object):
                     args += (methdescr, )
                 else:
                     assert 0, "unknown argtype declaration: %r" % (argspec,)
-            #if DEBUG >= DEBUG_DETAILED:
-            #    debug_print(s)
             val = func(*args)
-            #if DEBUG >= DEBUG_DETAILED:
-            #    reprboxes = ' '.join([box.repr_rpython() for box in self.env])
-            #    debug_print('  \x1b[34menv=[%s]\x1b[0m' % (reprboxes,))
             if val is None:
                 val = False
             return val
@@ -671,16 +660,40 @@ class MIFrame(object):
             return False
         return self.perform_call(leave_code, varargs)
         
-    @arguments("descr", "varargs")
-    def opimpl_recursive_call(self, calldescr, varargs):
+    @arguments("orgpc", "descr", "varargs")
+    def opimpl_recursive_call(self, pc, calldescr, varargs):
         warmrunnerstate = self.metainterp.staticdata.state
-        if warmrunnerstate.inlining:
+        token = None
+        if not self.metainterp.is_blackholing() and warmrunnerstate.inlining:
             num_green_args = self.metainterp.staticdata.num_green_args
             portal_code = self.metainterp.staticdata.portal_code
             greenkey = varargs[1:num_green_args + 1]
             if warmrunnerstate.can_inline_callable(greenkey):
                 return self.perform_call(portal_code, varargs[1:], greenkey)
-        return self.do_residual_call(varargs, descr=calldescr, exc=True)
+            token = warmrunnerstate.get_assembler_token(greenkey)
+        call_position = 0
+        if token is not None:
+            call_position = len(self.metainterp.history.operations)
+            # guard value for all green args, needed to make sure
+            # that assembler that we call is still correct
+            greenargs = varargs[1:num_green_args + 1]
+            self.generate_guard_value_for_green_args(pc, greenargs)
+        res = self.do_residual_call(varargs, descr=calldescr, exc=True)
+        if not self.metainterp.is_blackholing() and token is not None:
+            # XXX fix the call position, <UGLY!>
+            found = False
+            while True:
+                op = self.metainterp.history.operations[call_position]
+                if op.opnum == rop.CALL or op.opnum == rop.CALL_MAY_FORCE:
+                    found = True
+                    break
+                call_position += 1
+            assert found
+            # </UGLY!>
+            # this will substitute the residual call with assembler call
+            self.metainterp.direct_assembler_call(pc, varargs, token,
+                                                  call_position)
+        return res
 
     @arguments("descr", "varargs")
     def opimpl_residual_call_noexception(self, calldescr, varargs):
@@ -790,7 +803,7 @@ class MIFrame(object):
     def opimpl_keepalive(self, box):
         pass     # xxx?
 
-    def generate_merge_point(self, pc, varargs):
+    def generate_guard_value_for_green_args(self, pc, varargs):
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
             varargs[i] = self.implement_guard_value(pc, varargs[i])
@@ -830,7 +843,7 @@ class MIFrame(object):
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
         if not self.metainterp.is_blackholing():
-            self.generate_merge_point(pc, self.env)
+            self.generate_guard_value_for_green_args(pc, self.env)
             # xxx we may disable the following line in some context later
             self.debug_merge_point()
             if self.metainterp.seen_can_enter_jit:
@@ -862,9 +875,13 @@ class MIFrame(object):
     def opimpl_teardown_exception_block(self):
         self.exception_target = -1
 
-    @arguments("constbox", "jumptarget")
-    def opimpl_goto_if_exception_mismatch(self, vtableref, next_exc_target):
-        assert isinstance(self.exception_box, Const)    # XXX
+    @arguments("constbox", "jumptarget", "orgpc")
+    def opimpl_goto_if_exception_mismatch(self, vtableref, next_exc_target, pc):
+        # XXX used to be:
+        # assert isinstance(self.exception_box, Const)    # XXX
+        # seems this can happen that self.exception_box is not a Const,
+        # but I failed to write a test so far :-(
+        self.exception_box = self.implement_guard_value(pc, self.exception_box)
         cpu = self.metainterp.cpu
         ts = self.metainterp.cpu.ts
         if not ts.subclassOf(cpu, self.exception_box, vtableref):
@@ -1100,6 +1117,9 @@ class MetaInterpStaticData(object):
         self._addr2name_values = []
 
         self.__dict__.update(compile.make_done_loop_tokens())
+        # store this information for fastpath of call_assembler
+        d = self.loop_tokens_done_with_this_frame_int[0].finishdescr
+        self.cpu.done_with_this_frame_int_v = self.cpu.get_fail_descr_number(d)
 
     def _freeze_(self):
         return True
@@ -1359,7 +1379,7 @@ class MetaInterp(object):
 
     def create_empty_history(self):
         warmrunnerstate = self.staticdata.state
-        self.history = history.History(self.cpu)
+        self.history = history.History()
         self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
@@ -1741,7 +1761,7 @@ class MetaInterp(object):
         self.in_recursion = -1 # always one portal around
         inputargs_and_holes = self.cpu.make_boxes_from_latest_values(resumedescr)
         if must_compile:
-            self.history = history.History(self.cpu)
+            self.history = history.History()
             self.history.inputargs = [box for box in inputargs_and_holes if box]
             self.staticdata.profiler.start_tracing()
         else:
@@ -1953,6 +1973,23 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
 
+    def gen_load_from_other_virtualizable(self, vbox):
+        vinfo = self.staticdata.virtualizable_info
+        boxes = []
+        assert vinfo is not None
+        for i in range(vinfo.num_static_extra_boxes):
+            descr = vinfo.static_field_descrs[i]
+            boxes.append(self.execute_and_record(rop.GETFIELD_GC, descr, vbox))
+        virtualizable = vinfo.unwrap_virtualizable_box(vbox)
+        for k in range(vinfo.num_arrays):
+            descr = vinfo.array_field_descrs[k]
+            abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
+            descr = vinfo.array_descrs[k]
+            for j in range(vinfo.get_array_length(virtualizable, k)):
+                boxes.append(self.execute_and_record(rop.GETARRAYITEM_GC, descr,
+                                                     abox, ConstInt(j)))
+        return boxes
+
     def replace_box(self, oldbox, newbox):
         for frame in self.framestack:
             boxes = frame.env
@@ -1993,6 +2030,20 @@ class MetaInterp(object):
                 max_key = key
         return max_key
 
+    def direct_assembler_call(self, pc, varargs, token, call_position):
+        """ Generate a direct call to assembler for portal entry point.
+        """
+        assert not self.is_blackholing() # XXX
+        num_green_args = self.staticdata.num_green_args
+        args = varargs[num_green_args + 1:]
+        resbox = self.history.operations[call_position].result
+        rest = self.history.slice_history_at(call_position)
+        if self.staticdata.virtualizable_info is not None:
+            vindex = self.staticdata.virtualizable_info.index_of_virtualizable
+            vbox = args[vindex - num_green_args]
+            args += self.gen_load_from_other_virtualizable(vbox)
+        self.history.record(rop.CALL_ASSEMBLER, args[:], resbox, descr=token)
+        self.history.operations += rest
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop_token):

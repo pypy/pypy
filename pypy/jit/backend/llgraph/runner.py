@@ -74,7 +74,8 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
 
-    def __init__(self, rtyper, stats=None, opts=None, translate_support_code=False,
+    def __init__(self, rtyper, stats=None, opts=None,
+                 translate_support_code=False,
                  annmixlevel=None, gcdescr=None):
         assert type(opts) is not bool
         model.AbstractCPU.__init__(self)
@@ -147,6 +148,8 @@ class BaseCPU(model.AbstractCPU):
             descr = op.descr
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo)
+            if isinstance(descr, history.LoopToken):
+                llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].descr = descr
@@ -207,18 +210,22 @@ class BaseCPU(model.AbstractCPU):
         else:
             assert False, "unknown operation"
 
-    def execute_token(self, loop_token):
-        """Calls the assembler generated for the given loop.
-        Returns the ResOperation that failed, of type rop.FAIL.
-        """
+    def _execute_token(self, loop_token):
         compiled_version = loop_token._llgraph_compiled_version
-        frame = llimpl.new_frame(self.memo_cast, self.is_oo)
+        frame = llimpl.new_frame(self.memo_cast, self.is_oo, self)
         # setup the frame
         llimpl.frame_clear(frame, compiled_version)
         # run the loop
         fail_index = llimpl.frame_execute(frame)
         # we hit a FAIL operation.
         self.latest_frame = frame
+        return fail_index
+
+    def execute_token(self, loop_token):
+        """Calls the assembler generated for the given loop.
+        Returns the ResOperation that failed, of type rop.FAIL.
+        """
+        fail_index = self._execute_token(loop_token)
         return self.get_fail_descr_from_number(fail_index)
 
     def set_future_value_int(self, index, intvalue):

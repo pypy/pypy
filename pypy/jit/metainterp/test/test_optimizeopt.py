@@ -2451,6 +2451,16 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
 
+    def test_call_assembler_invalidates_caches(self):
+        ops = '''
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_assembler(i1, descr=asmdescr)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3)
+        '''
+        self.optimize_loop(ops, 'Not, Not', ops)
+
     def test_vref_nonvirtual_nonescape(self):
         ops = """
         [p1]

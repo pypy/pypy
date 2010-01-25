@@ -79,7 +79,27 @@ def test_find_all_graphs_loops():
                              supports_floats=True)
     funcs = set([graph.func for graph in res])
     assert funcs == set([f, h])
-    
+
+def test_unroll_safe_and_inline():
+    @jit.unroll_safe
+    def h(x):
+        i = 0
+        while i < x:
+            i += 1
+        return i
+    h._always_inline_ = True
+
+    def g(x):
+        return h(x)
+
+    rtyper = support.annotate(g, [7])
+    cw = CodeWriter(rtyper)
+    jitpolicy = JitPolicy()
+    translator = rtyper.annotator.translator
+    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+                             supports_floats=True)
+    funcs = set([graph.func for graph in res])
+    assert funcs == set([g, h])
 
 def test_find_all_graphs_str_join():
     def i(x, y):

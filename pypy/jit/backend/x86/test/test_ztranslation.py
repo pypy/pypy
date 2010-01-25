@@ -4,6 +4,7 @@ from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.test.support import CCompiledMixin
+from pypy.jit.metainterp.policy import StopAtXPolicy
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = CPU386
@@ -94,3 +95,52 @@ class TestTranslationX86(CCompiledMixin):
             return total * 10
         res = self.meta_interp(main, [40])
         assert res == main(40)
+
+    def test_direct_assembler_call_translates(self):
+        class Thing(object):
+            def __init__(self, val):
+                self.val = val
+        
+        class Frame(object):
+            _virtualizable2_ = ['thing']
+        
+        driver = JitDriver(greens = ['codeno'], reds = ['frame', 'i'],
+                           virtualizables = ['frame'],
+                           get_printable_location = lambda codeno : str(codeno),
+                           can_inline = lambda codeno : False)
+        class SomewhereElse(object):
+            pass
+
+        somewhere_else = SomewhereElse()
+
+        def change(newthing):
+            somewhere_else.frame.thing = newthing
+
+        def main(codeno):
+            frame = Frame()
+            somewhere_else.frame = frame
+            frame.thing = Thing(0)
+            portal(codeno, frame)
+            return frame.thing.val
+
+        def portal(codeno, frame):
+            i = 0
+            while i < 10:
+                driver.can_enter_jit(frame=frame, codeno=codeno, i=i)
+                driver.jit_merge_point(frame=frame, codeno=codeno, i=i)
+                nextval = frame.thing.val
+                if codeno == 0:
+                    subframe = Frame()
+                    subframe.thing = Thing(nextval)
+                    nextval = portal(1, subframe)
+                elif frame.thing.val > 40:
+                    change(Thing(13))
+                    nextval = 13
+                frame.thing = Thing(nextval + 1)
+                i += 1
+            return frame.thing.val
+
+        res = self.meta_interp(main, [0], inline=True,
+                               policy=StopAtXPolicy(change))
+        assert res == main(0)
+

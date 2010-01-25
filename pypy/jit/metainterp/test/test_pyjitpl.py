@@ -89,7 +89,7 @@ def test_remove_consts_and_duplicates():
         assert box.value == referencebox.value
         return True
     metainterp = pyjitpl.MetaInterp(FakeStaticData())
-    metainterp.history = History(None)
+    metainterp.history = History()
     b1 = BoxInt(1)
     b2 = BoxInt(2)
     c3 = ConstInt(3)

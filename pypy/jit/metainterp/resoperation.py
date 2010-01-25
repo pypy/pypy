@@ -229,6 +229,7 @@ _oplist = [
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',
+    'CALL_ASSEMBLER',
     'CALL_MAY_FORCE',
     'CALL_LOOPINVARIANT',
     'OOSEND',                     # ootype operation

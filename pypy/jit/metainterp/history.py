@@ -805,14 +805,29 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 
 class History(object):
-    def __init__(self, cpu):
-        self.cpu = cpu
+    def __init__(self):
         self.inputargs = None
         self.operations = []
+
     def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
         self.operations.append(op)
         return op
+
+    def substitute_operation(self, position, opnum, argboxes, descr=None):
+        resbox = self.operations[position].result
+        op = ResOperation(opnum, argboxes, resbox, descr)
+        self.operations[position] = op
+
+    def slice_history_at(self, position):
+        """ a strange function that does this:
+        history : operation_at_position : rest
+        it'll kill operation_at_position, store everything before that
+        in history.operations and return rest
+        """
+        rest = self.operations[position + 1:]
+        del self.operations[position:]
+        return rest
 
 # ____________________________________________________________
 
