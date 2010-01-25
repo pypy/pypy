@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import division
+
 import autopath
 import sys, py
 from pypy.tool import logparser
@@ -9,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 def main(argv):
     log = logparser.parse_log_file(argv[0])
     parts = logparser.extract_category(log, "jit-log-opt-")
-    for oplist in parts:
+    for i, oplist in enumerate(parts):
         loop = parse(oplist, no_namespace=True)
         num_ops = 0
         num_dmp = 0
@@ -21,7 +23,7 @@ def main(argv):
                 num_ops += 1
             if op.is_guard():
                 num_guards += 1
-        print "Loop, length: %d, opcodes: %d, guards: %d" % (num_ops, num_dmp, num_guards)
+        print "Loop #%d, length: %d, opcodes: %d, guards: %d, %f" % (i, num_ops, num_dmp, num_guards, num_ops/num_dmp)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
