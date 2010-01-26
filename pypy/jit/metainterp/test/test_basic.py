@@ -1284,7 +1284,24 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [21])
         assert res == f(21)
-        
+
+    def test_getitem_indexerror(self):
+        py.test.skip("failing test!")
+        lst = [10, 4, 9, 16]
+        def f(n):
+            try:
+                return lst[n]
+            except IndexError:
+                return -2
+        res = self.interp_operations(f, [2])
+        assert res == 9
+        res = self.interp_operations(f, [4])
+        assert res == -2
+        res = self.interp_operations(f, [-4])
+        assert res == 10
+        res = self.interp_operations(f, [-5])
+        assert res == -2
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
