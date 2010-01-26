@@ -28,7 +28,7 @@ class GreenletThunk(AbstractThunk):
             except OperationError, operror:
                 if not operror.match(space, greenlet.costate.w_GreenletExit):
                     raise
-                w_result = operror.w_value
+                w_result = operror.get_w_value(space)
         finally:
             greenlet.active = False
         greenlet.costate.args_w = [w_result]
@@ -127,7 +127,7 @@ class AppGreenlet(Coroutine):
             operror.application_traceback = tb
         # Dead greenlet: turn GreenletExit into a regular return
         if self.isdead() and operror.match(space, self.costate.w_GreenletExit):
-            args_w = [operror.w_value]
+            args_w = [operror.get_w_value(space)]
         else:
             syncstate.push_exception(operror)
             args_w = None

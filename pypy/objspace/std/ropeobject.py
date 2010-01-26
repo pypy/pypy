@@ -1,4 +1,7 @@
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.objspace import registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
@@ -281,10 +284,10 @@ def str_join__Rope_ANY(space, w_self, w_list):
                 if space.is_true(space.isinstance(w_s, space.w_unicode)):
                     w_u = space.call_function(space.w_unicode, w_self)
                     return space.call_method(w_u, "join", space.newlist(list_w))
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_TypeError,
-                    space.wrap("sequence item %d: expected string, %s "
-                               "found" % (i, space.type(w_s).name)))
+                    "sequence item %d: expected string, %s "
+                    "found", i, space.type(w_s).getname(space, "?"))
             assert isinstance(w_s, W_RopeObject)
             node = w_s._node
             l.append(node)
@@ -689,9 +692,8 @@ def getitem__Rope_ANY(space, w_str, w_index):
     if ival < 0:
         ival += slen
     if ival < 0 or ival >= slen:
-        exc = space.call_function(space.w_IndexError,
-                                  space.wrap("string index out of range"))
-        raise OperationError(space.w_IndexError, exc)
+        raise OperationError(space.w_IndexError,
+                             space.wrap("string index out of range"))
     return wrapchar(space, node.getchar(ival))
 
 def getitem__Rope_Slice(space, w_str, w_slice):
@@ -756,10 +758,10 @@ def iter__Rope(space, w_str):
 def ord__Rope(space, w_str):
     node = w_str._node
     if node.length() != 1:
-        raise OperationError(
+        raise operationerrfmt(
             space.w_TypeError,
-            space.wrap("ord() expected a character, but string "
-                       "of length %d found"% (w_str._node.length(),)))
+            "ord() expected a character, but string "
+            "of length %d found", node.length())
     return space.wrap(node.getint(0))
 
 def getnewargs__Rope(space, w_str):

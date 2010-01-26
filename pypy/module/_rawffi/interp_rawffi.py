@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
@@ -85,15 +85,15 @@ def letter2tp(space, key):
     try:
         return UNPACKED_TYPECODES[key]
     except KeyError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Unknown type letter %s" % (key,)))
+        raise operationerrfmt(space.w_ValueError,
+                              "Unknown type letter %s", key)
 
 def _get_type_(space, key):
     try:
         return TYPEMAP[key]
     except KeyError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Unknown type letter %s" % (key,)))
+        raise operationerrfmt(space.w_ValueError,
+                              "Unknown type letter %s", key)
     
 def unpack_to_ffi_type(space, w_shape, shape=False):
     resshape = None
@@ -174,8 +174,8 @@ class W_CDLL(Wrappable):
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
                                               flags)
             except KeyError:
-                raise OperationError(space.w_AttributeError, space.wrap(
-                    "No symbol %s found in library %s" % (name, self.name)))
+                raise operationerrfmt(space.w_AttributeError,
+                    "No symbol %s found in library %s", name, self.name)
         
         elif (_MS_WINDOWS and
               space.is_true(space.isinstance(w_name, space.w_int))):
@@ -184,8 +184,8 @@ class W_CDLL(Wrappable):
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
                                                         ffi_restype, flags)
             except KeyError:
-                raise OperationError(space.w_AttributeError, space.wrap(
-                    "No symbol %d found in library %s" % (ordinal, self.name)))
+                raise operationerrfmt(space.w_AttributeError,
+                    "No symbol %d found in library %s", ordinal, self.name)
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                 "function name must be string or integer"))
@@ -200,8 +200,8 @@ class W_CDLL(Wrappable):
             address_as_uint = rffi.cast(lltype.Unsigned,
                                         self.cdll.getaddressindll(name))
         except KeyError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Cannot find symbol %s" % (name,)))
+            raise operationerrfmt(space.w_ValueError,
+                                  "Cannot find symbol %s", name)
         return space.wrap(address_as_uint)
     getaddressindll.unwrap_spec = ['self', ObjSpace, str]
 
@@ -391,9 +391,9 @@ class W_FuncPtr(Wrappable):
         from pypy.module._rawffi.structure import W_StructureInstance
         argnum = len(args_w)
         if argnum != len(self.argletters):
-            msg = "Wrong number of arguments: expected %d, got %d" % (
-                len(self.argletters), argnum)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            msg = "Wrong number of arguments: expected %d, got %d"
+            raise operationerrfmt(space.w_TypeError, msg,
+                                  len(self.argletters), argnum)
         args_ll = []
         for i in range(argnum):
             argletter = self.argletters[i]
@@ -405,23 +405,24 @@ class W_FuncPtr(Wrappable):
                     arg.shape.alignment != xalignment):
                     msg = ("Argument %d should be a structure of size %d and "
                            "alignment %d, "
-                           "got instead size %d and alignment %d" %
-                           (i+1, xsize, xalignment,
-                            arg.shape.size, arg.shape.alignment))
-                    raise OperationError(space.w_TypeError, space.wrap(msg))
+                           "got instead size %d and alignment %d")
+                    raise operationerrfmt(space.w_TypeError, msg, i+1,
+                            xsize, xalignment, arg.shape.size,
+                            arg.shape.alignment)
             else:
                 arg = space.interp_w(W_ArrayInstance, w_arg)
                 if arg.length != 1:
                     msg = ("Argument %d should be an array of length 1, "
-                           "got length %d" % (i+1, arg.length))
-                    raise OperationError(space.w_TypeError, space.wrap(msg))
+                           "got length %d")
+                    raise operationerrfmt(space.w_TypeError, msg,
+                                          i+1, arg.length)
                 letter = arg.shape.itemtp[0]
                 if letter != argletter:
                     if not (argletter in TYPEMAP_PTR_LETTERS and
                             letter in TYPEMAP_PTR_LETTERS):
-                        msg = "Argument %d should be typecode %s, got %s" % (
-                            i+1, argletter, letter)
-                        raise OperationError(space.w_TypeError, space.wrap(msg))
+                        msg = "Argument %d should be typecode %s, got %s"
+                        raise operationerrfmt(space.w_TypeError, msg, 
+                                              i+1, argletter, letter)
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
 
@@ -463,8 +464,8 @@ def _create_new_accessor(func_name, name):
         try:
             return space.wrap(intmask(getattr(TYPEMAP[tp_letter], name)))
         except KeyError:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Unknown type specification %s" % tp_letter))
+            raise operationerrfmt(space.w_ValueError,
+                        "Unknown type specification %s", tp_letter)
     accessor.unwrap_spec = [ObjSpace, str]
     return func_with_new_name(accessor, func_name)
 

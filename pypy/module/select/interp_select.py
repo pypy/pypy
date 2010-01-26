@@ -2,7 +2,7 @@ import math
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import W_Root, ObjSpace, interp2app
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import rpoll
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
@@ -28,8 +28,8 @@ def as_fd_w(space, w_fd):
         
     fd = space.int_w(w_fd)
     if fd < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("file descriptor cannot be a negative integer (%d)"%fd))
+        raise operationerrfmt(space.w_ValueError,
+            "file descriptor cannot be a negative integer (%d)", fd)
     return fd
 
 class Poll(Wrappable):
@@ -47,7 +47,7 @@ class Poll(Wrappable):
             del self.fddict[fd]
         except KeyError:
             raise OperationError(space.w_KeyError,
-                                 space.wrap(fd))
+                                 space.wrap(fd)) # XXX should this maybe be w_fd?
     unregister.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def poll(self, space, w_timeout=None):

@@ -5,7 +5,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
 from pypy.interpreter import gateway, function, eval
 from pypy.interpreter import pyframe, pytraceback
@@ -323,8 +323,8 @@ class __extend__(pyframe.PyFrame):
 
     def _load_fast_failed(f, varindex):
         varname = f.getlocalvarname(varindex)
-        message = "local variable '%s' referenced before assignment" % varname
-        raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
+        message = "local variable '%s' referenced before assignment"
+        raise operationerrfmt(f.space.w_UnboundLocalError, message, varname)
     _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(f, constindex, *ignored):
@@ -627,8 +627,9 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(f.space, f.space.w_KeyError):
                 raise
-            message = "name '%s' is not defined" % f.space.str_w(w_varname)
-            raise OperationError(f.space.w_NameError, f.space.wrap(message))
+            message = "name '%s' is not defined"
+            raise operationerrfmt(f.space.w_NameError, message,
+                                  f.space.str_w(w_varname))
 
     def UNPACK_SEQUENCE(f, itemcount, *ignored):
         w_iterable = f.popvalue()
@@ -680,9 +681,8 @@ class __extend__(pyframe.PyFrame):
     _load_global._always_inline_ = True
 
     def _load_global_failed(f, varname):
-        message = "global name '%s' is not defined" % varname
-        raise OperationError(f.space.w_NameError,
-                             f.space.wrap(message))
+        message = "global name '%s' is not defined"
+        raise operationerrfmt(f.space.w_NameError, message, varname)
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(f, nameindex, *ignored):
@@ -692,8 +692,8 @@ class __extend__(pyframe.PyFrame):
     def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
             varname = f.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment" % varname
-            raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
+            message = "local variable '%s' referenced before assignment"
+            raise operationerrfmt(f.space.w_UnboundLocalError, message, varname)
         f.fastlocals_w[varindex] = None
         
 
@@ -809,8 +809,9 @@ class __extend__(pyframe.PyFrame):
         except OperationError, e:
             if not e.match(f.space, f.space.w_AttributeError):
                 raise
-            raise OperationError(f.space.w_ImportError,
-                             f.space.wrap("cannot import name '%s'" % f.space.str_w(w_name) ))
+            raise operationerrfmt(f.space.w_ImportError,
+                                  "cannot import name '%s'",
+                                  f.space.str_w(w_name))
         f.pushvalue(w_obj)
 
     def JUMP_FORWARD(f, jumpby, next_instr, *ignored):
@@ -875,7 +876,7 @@ class __extend__(pyframe.PyFrame):
             operr = unroller.operr
             w_result = f.space.call_function(w_exitfunc,
                                              operr.w_type,
-                                             operr.w_value,
+                                             operr.get_w_value(f.space),
                                              operr.application_traceback)
             if f.space.is_true(w_result):
                 # __exit__() returned True -> Swallow the exception.
@@ -1098,7 +1099,7 @@ class SApplicationException(SuspendedUnroller):
         raise RaiseWithExplicitTraceback(self.operr)
 
     def state_unpack_variables(self, space):
-        return [self.operr.w_type, self.operr.w_value]
+        return [self.operr.w_type, self.operr.get_w_value(space)]
     def state_pack_variables(space, w_type, w_value):
         return SApplicationException(OperationError(w_type, w_value))
     state_pack_variables = staticmethod(state_pack_variables)
@@ -1209,7 +1210,7 @@ class ExceptBlock(FrameBlock):
         # instead of the traceback, we store the unroller object,
         # wrapped.
         frame.pushvalue(frame.space.wrap(unroller))
-        frame.pushvalue(operationerr.w_value)
+        frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
         return self.handlerposition   # jump to the handler

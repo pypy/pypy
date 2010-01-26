@@ -2,7 +2,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 
 def gethostname(space):
     """gethostname() -> string
@@ -170,9 +170,9 @@ def ntohl(space, w_x):
     elif space.is_true(space.isinstance(w_x, space.w_long)):
         x = space.uint_w(w_x)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected int/long, %s found" %
-                                        (space.type(w_x).getname(space, "?"))))
+        raise operationerrfmt(space.w_TypeError,
+                              "expected int/long, %s found",
+                              space.type(w_x).getname(space, "?"))
 
     return space.wrap(rsocket.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
@@ -195,9 +195,9 @@ def htonl(space, w_x):
     elif space.is_true(space.isinstance(w_x, space.w_long)):
         x = space.uint_w(w_x)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected int/long, %s found" %
-                                        (space.type(w_x).getname(space, "?"))))
+        raise operationerrfmt(space.w_TypeError,
+                              "expected int/long, %s found",
+                              space.type(w_x).getname(space, "?"))
 
     return space.wrap(rsocket.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
@@ -249,7 +249,7 @@ def inet_ntop(space, family, packed):
         ip = rsocket.inet_ntop(family, packed)
     except SocketError, e:
         raise converted_error(space, e)
-    except ValueError, e:
+    except ValueError, e:     # XXX the message is lost in RPython
         raise OperationError(space.w_ValueError,
                   space.wrap(str(e)))
     return space.wrap(ip)

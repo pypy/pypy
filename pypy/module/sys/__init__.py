@@ -116,7 +116,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return operror.w_value
+                return operror.get_w_value(space)
         elif attr == 'exc_traceback':
             operror = space.getexecutioncontext().sys_exc_info()
             if operror is None:

@@ -1,6 +1,7 @@
-# -*- coding: latin-1 -*-
-
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.objspace import registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import we_are_translated, compute_hash
@@ -365,11 +366,10 @@ def str_join__String_ANY(space, w_self, w_list):
                     w_list = space.newlist(list_w)
                     w_u = space.call_function(space.w_unicode, w_self)
                     return space.call_method(w_u, "join", w_list)
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_TypeError,
-                    space.wrap("sequence item %d: expected string, %s "
-                               "found" % (i,
-                                          space.type(w_s).getname(space, '?'))))
+                    "sequence item %d: expected string, %s "
+                    "found", i, space.type(w_s).getname(space, '?'))
             l[i] = space.str_w(w_s)
         return space.wrap(self.join(l))
     else:
@@ -816,9 +816,8 @@ def getitem__String_ANY(space, w_str, w_index):
     if ival < 0:
         ival += slen
     if ival < 0 or ival >= slen:
-        exc = space.call_function(space.w_IndexError,
-                                  space.wrap("string index out of range"))
-        raise OperationError(space.w_IndexError, exc)
+        raise OperationError(space.w_IndexError,
+                             space.wrap("string index out of range"))
     return wrapchar(space, str[ival])
 
 def getitem__String_Slice(space, w_str, w_slice):
@@ -857,9 +856,10 @@ def mul_string_times(space, w_str, w_times):
     try:
         buflen = ovfcheck(mul * input_len)
     except OverflowError:
-        raise OperationError(
+        raise operationerrfmt(
             space.w_OverflowError, 
-            space.wrap("repeated string is too long: %d %d" % (input_len, mul)))
+            "repeated string is too long: %d times %d characters",
+            mul, input_len)
     # XXX maybe only do this when input has a big length
     return joined(space, [input] * mul)
 
@@ -889,10 +889,10 @@ def iter__String(space, w_list):
 def ord__String(space, w_str):
     u_str = w_str._value
     if len(u_str) != 1:
-        raise OperationError(
+        raise operationerrfmt(
             space.w_TypeError,
-            space.wrap("ord() expected a character, but string "
-                       "of length %d found"%(len(w_str._value),)))
+            "ord() expected a character, but string "
+            "of length %d found", len(u_str))
     return space.wrap(ord(u_str))
 
 def getnewargs__String(space, w_str):

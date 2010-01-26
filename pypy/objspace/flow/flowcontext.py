@@ -276,7 +276,7 @@ class FlowExecutionContext(ExecutionContext):
                 raise Exception(
                     'found an operation that always raises %s: %s' % (
                         self.space.unwrap(e.w_type).__name__,
-                        self.space.unwrap(e.w_value)))
+                        self.space.unwrap(e.get_w_value(self.space))))
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -290,12 +290,13 @@ class FlowExecutionContext(ExecutionContext):
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
-                #print "OE", e.w_type, e.w_value
+                #print "OE", e.w_type, e.get_w_value(self.space)
                 if (self.space.do_imports_immediately and
                     e.w_type is self.space.w_ImportError):
                     raise ImportError('import statement always raises %s' % (
                         e,))
-                link = self.make_link([e.w_type, e.w_value], self.graph.exceptblock)
+                w_value = e.get_w_value(self.space)
+                link = self.make_link([e.w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -382,7 +383,8 @@ class FlowExecutionContext(ExecutionContext):
         operr = ExecutionContext.sys_exc_info(self)
         if isinstance(operr, ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
-            operr = OperationError(operr.w_type, operr.w_value)
+            w_value = operr.get_w_value(self.space)
+            operr = OperationError(operr.w_type, w_value)
         return operr
 
     def exception_trace(self, frame, operationerr):

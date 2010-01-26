@@ -16,7 +16,7 @@ class FrameState:
                 data.append(Constant(None))
             else:
                 data.append(state.last_exception.w_type)
-                data.append(state.last_exception.w_value)
+                data.append(state.last_exception.get_w_value(state.space))
             recursively_flatten(state.space, data)
             self.mergeable = data
             self.nonmergeable = (

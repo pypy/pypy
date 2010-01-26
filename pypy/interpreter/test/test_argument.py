@@ -292,11 +292,11 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.w_value is not None
+        assert excinfo.value._w_value is not None
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={valuedummy: 1})
         assert excinfo.value.w_type is ValueError
-        assert excinfo.value.w_value is None
+        assert excinfo.value._w_value is None
 
 
     def test_blindargs(self):
@@ -374,7 +374,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, args.parse_obj, "obj", "foo",
                        Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.w_value == "msg foo"
+        assert excinfo.value._w_value == "msg foo"
 
 
     def test_args_parsing_into_scope(self):
@@ -429,7 +429,7 @@ class TestArgumentsNormal(object):
                                  "obj", [None, None], "foo",
                                  Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.w_value == "msg foo"
+        assert excinfo.value._w_value == "msg foo"
 
     def test_topacked_frompacked(self):
         space = DummySpace()

@@ -1,6 +1,7 @@
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import register_all, W_Object
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
@@ -283,17 +284,17 @@ class W_TypeObject(W_Object):
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
         if not isinstance(w_subtype, W_TypeObject):
-            raise OperationError(space.w_TypeError,
-                space.wrap("X is not a type object (%s)" % (
-                    space.type(w_subtype).getname(space, '?'))))
+            raise operationerrfmt(space.w_TypeError,
+                "X is not a type object ('%s')",
+                space.type(w_subtype).getname(space, '?'))
         if not space.is_true(space.issubtype(w_subtype, w_self)):
-            raise OperationError(space.w_TypeError,
-                space.wrap("%s.__new__(%s): %s is not a subtype of %s" % (
-                    w_self.name, w_subtype.name, w_subtype.name, w_self.name)))
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__new__(%s): %s is not a subtype of %s",
+                w_self.name, w_subtype.name, w_subtype.name, w_self.name)
         if w_self.instancetypedef is not w_subtype.instancetypedef:
-            raise OperationError(space.w_TypeError,
-                space.wrap("%s.__new__(%s) is not safe, use %s.__new__()" % (
-                    w_self.name, w_subtype.name, w_subtype.name)))
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__new__(%s) is not safe, use %s.__new__()",
+                w_self.name, w_subtype.name, w_subtype.name)
         return w_subtype
 
     def _freeze_(w_self):
@@ -444,10 +445,10 @@ def check_and_find_best_base(space, bases_w):
                              space.wrap("a new-style class can't have "
                                         "only classic bases"))
     if not w_bestbase.instancetypedef.acceptable_as_base_class:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("type '%s' is not an "
-                                        "acceptable base class" %
-                                        w_bestbase.instancetypedef.name))
+        raise operationerrfmt(space.w_TypeError,
+                              "type '%s' is not an "
+                              "acceptable base class",
+                              w_bestbase.instancetypedef.name)
 
     # check that all other bases' layouts are superclasses of the bestbase
     w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
@@ -703,8 +704,9 @@ def getattr__Type_ANY(space, w_type, w_name):
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
         return space.get(w_descr,w_type)
-    msg = "type object '%s' has no attribute '%s'" %(w_type.name, name)
-    raise OperationError(space.w_AttributeError, space.wrap(msg))
+    raise operationerrfmt(space.w_AttributeError,
+                          "type object '%s' has no attribute '%s'",
+                          w_type.name, name)
 
 def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     # Note. This is exactly the same thing as descroperation.descr__setattr__,
@@ -719,8 +721,8 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     
     if (space.config.objspace.std.immutable_builtintypes
             and not w_type.is_heaptype()):
-        msg = "can't set attributes on type object '%s'" %(w_type.name,)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = "can't set attributes on type object '%s'"
+        raise operationerrfmt(space.w_TypeError, msg, w_type.name)
     if name == "__del__" and name not in w_type.dict_w:
         msg = "a __del__ method added to an existing type will not be called"
         space.warn(msg, space.w_RuntimeWarning)
@@ -738,8 +740,8 @@ def delattr__Type_ANY(space, w_type, w_name):
             return
     if (space.config.objspace.std.immutable_builtintypes
             and not w_type.is_heaptype()):
-        msg = "can't delete attributes on type object '%s'" %(w_type.name,)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = "can't delete attributes on type object '%s'"
+        raise operationerrfmt(space.w_TypeError, msg, w_type.name)
     try:
         del w_type.dict_w[name]
     except KeyError:
@@ -806,8 +808,9 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise OperationError(space.w_TypeError,
-            space.wrap("duplicate base class " + candidate.getname(space,"?")))
+        raise operationerrfmt(space.w_TypeError,
+                              "duplicate base class '%s'",
+                              candidate.getname(space,"?"))
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)

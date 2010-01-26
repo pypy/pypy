@@ -1,5 +1,8 @@
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.objspace import registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_delim
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -42,8 +45,9 @@ registerimplementation(W_UnicodeObject)
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected unicode"))
+        raise operationerrfmt(space.w_TypeError,
+                              "expected unicode, got '%s'",
+                              space.type(w_unistr).getname(space, '?'))
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = [ '0', '1', '2', '3', '4',
@@ -63,7 +67,7 @@ def unicode_to_decimal_w(space, w_unistr):
                 w_start = space.wrap(i)
                 w_end = space.wrap(i+1)
                 w_reason = space.wrap('invalid decimal Unicode string')
-                raise OperationError(space.w_UnicodeEncodeError,space.newtuple ([w_encoding, w_unistr, w_start, w_end, w_reason]))
+                raise OperationError(space.w_UnicodeEncodeError, space.newtuple([w_encoding, w_unistr, w_start, w_end, w_reason]))
     return ''.join(result)
 
 # string-to-unicode delegation
@@ -80,11 +84,11 @@ def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
     except OperationError, e:
         if e.match(space, space.w_UnicodeDecodeError):
             if inverse:
-                word = "unequal" 
+                msg = "Unicode unequal comparison failed to convert both "  \
+                      "arguments to Unicode - interpreting them as being unequal"
             else :
-                word = "equal"
-            msg = "Unicode %s comparison failed to convert both arguments\
-                    to Unicode - interpreting them as being unequal" % word
+                msg = "Unicode equal comparison failed to convert both "    \
+                      "arguments to Unicode - interpreting them as being unequal"
             space.warn(msg, space.w_UnicodeWarning)
             return space.newbool(inverse)
         raise
@@ -127,7 +131,9 @@ def lt__Unicode_Unicode(space, w_left, w_right):
 
 def ord__Unicode(space, w_uni):
     if len(w_uni._value) != 1:
-        raise OperationError(space.w_TypeError, space.wrap('ord() expected a character'))
+        raise operationerrfmt(space.w_TypeError,
+            "ord() expected a character, got a unicode of length %d",
+            len(w_uni._value))
     return space.wrap(ord(w_uni._value[0]))
 
 def getnewargs__Unicode(space, w_uni):
@@ -192,9 +198,8 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
         elif space.is_true(space.isinstance(item, space.w_str)):
             item = space.unicode_w(item)
         else:
-            w_msg = space.mod(space.wrap('sequence item %d: expected string or Unicode'),
-                              space.wrap(i))
-            raise OperationError(space.w_TypeError, w_msg)
+            raise operationerrfmt(space.w_TypeError,
+                "sequence item %d: expected string or Unicode", i)
         values_list[i] = item
     return W_UnicodeObject(w_self._value.join(values_list))
 

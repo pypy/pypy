@@ -70,7 +70,7 @@ class AbstractCompiler(object):
             if not err2.match(space, space.w_SyntaxError):
                 raise
 
-        if space.eq_w(err1.w_value, err2.w_value):
+        if space.eq_w(err1.get_w_value(space), err2.get_w_value(space)):
             raise     # twice the same error, re-raise
 
         return None   # two different errors, expect more

@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, \
     DescrMismatch
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash
 from pypy.rlib.jit import hint
@@ -52,8 +52,8 @@ def default_identity_hash(space, w_obj):
 
 def descr__hash__unhashable(space, w_obj):
     typename = space.type(w_obj).getname(space, '?')
-    msg = "%s objects are unhashable" % (typename,)
-    raise OperationError(space.w_TypeError,space.wrap(msg))
+    raise operationerrfmt(space.w_TypeError,
+                          "'%s' objects are unhashable", typename)
 
 no_hash_descr = interp2app(descr__hash__unhashable)
 
@@ -482,12 +482,12 @@ class Member(Wrappable):
     
     def typecheck(self, space, w_obj):
         if not space.is_true(space.isinstance(w_obj, self.w_cls)):
-            raise OperationError(space.w_TypeError,
-                              space.wrap("descriptor '%s' for '%s'"
-                              " objects doesn't apply to '%s' object" %
-                                   (self.name,
-                                    self.w_cls.name,
-                                    space.type(w_obj).getname(space, '?'))))
+            raise operationerrfmt(space.w_TypeError,
+                                  "descriptor '%s' for '%s'"
+                                  " objects doesn't apply to '%s' object",
+                                  self.name,
+                                  self.w_cls.name,
+                                  space.type(w_obj).getname(space, '?'))
     
     def descr_member_get(space, member, w_obj, w_w_cls=None):
         """member.__get__(obj[, type]) -> value
@@ -554,9 +554,9 @@ def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict()
     if w_dict is None:
         typename = space.type(w_obj).getname(space, '?')
-        raise OperationError(space.w_TypeError,
-                             space.wrap("descriptor '__dict__' doesn't apply to"
-                                        " '%s' objects" % typename))
+        raise operationerrfmt(space.w_TypeError,
+                              "descriptor '__dict__' doesn't apply to"
+                              " '%s' objects", typename)
     return w_dict
 
 def descr_set_dict(space, w_obj, w_dict):

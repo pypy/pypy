@@ -8,7 +8,7 @@ from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted
 import pypy.interpreter.pyopcode   # for side-effects
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, Arguments
 from pypy.interpreter.eval import Frame
 from pypy.interpreter.pycode import PyCode, CO_CONTAINSLOOP
@@ -116,9 +116,8 @@ def set_param(space, args):
     # XXXXXXXXX
     args_w, kwds_w = args.unpack()
     if len(args_w) > 1:
-        msg = ("set_param() takes at most 1 non-keyword argument, %d given"
-               % len(args_w))
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = "set_param() takes at most 1 non-keyword argument, %d given"
+        raise operationerrfmt(space.w_TypeError, msg, len(args_w))
     if len(args_w) == 1:
         text = space.str_w(args_w[0])
         try:
@@ -131,7 +130,7 @@ def set_param(space, args):
         try:
             pypyjitdriver.set_param(key, intval)
         except ValueError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("no JIT parameter '%s'" % (key,)))
+            raise operationerrfmt(space.w_TypeError,
+                                  "no JIT parameter '%s'", key)
 
 set_param.unwrap_spec = [ObjSpace, Arguments]

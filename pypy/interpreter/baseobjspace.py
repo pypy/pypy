@@ -1,6 +1,6 @@
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
@@ -54,9 +54,9 @@ class W_Root(object):
 
     def setdict(self, space, w_dict):
         typename = space.type(self).getname(space, '?')
-        raise OperationError(space.w_TypeError,
-                             space.wrap("attribute '__dict__' of %s objects "
-                                        "is not writable" % typename))
+        raise operationerrfmt(space.w_TypeError,
+                              "attribute '__dict__' of %s objects "
+                              "is not writable", typename)
 
     # to be used directly only by space.type implementations
     def getclass(self, space):
@@ -112,9 +112,9 @@ class W_Root(object):
             classname = '?'
         else:
             classname = wrappable_class_name(RequiredClass)
-        msg = "'%s' object expected, got '%s' instead" % (
+        msg = "'%s' object expected, got '%s' instead"
+        raise operationerrfmt(space.w_TypeError, msg,
             classname, self.getclass(space).getname(space, '?'))
-        raise OperationError(space.w_TypeError, space.wrap(msg))
 
     # used by _weakref implemenation
 
@@ -123,8 +123,8 @@ class W_Root(object):
 
     def setweakref(self, space, weakreflifeline):
         typename = space.type(self).getname(space, '?')
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot create weak reference to '%s' object" % typename))
+        raise operationerrfmt(space.w_TypeError,
+            "cannot create weak reference to '%s' object", typename)
 
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
@@ -366,10 +366,10 @@ class ObjSpace(object):
         try:
             w_mod = self.builtin_modules[name]
         except KeyError:
-            raise OperationError(
+            raise operationerrfmt(
                 self.w_SystemError,
-                self.wrap("getbuiltinmodule() called "
-                          "with non-builtin module %s" % name))
+                "getbuiltinmodule() called "
+                "with non-builtin module %s", name)
         else:
             # Add the module to sys.modules
             self.setitem(w_modules, w_name, w_mod)
@@ -693,10 +693,10 @@ class ObjSpace(object):
             return None
         obj = self.interpclass_w(w_obj)
         if not isinstance(obj, RequiredClass):   # or obj is None
-            msg = "'%s' object expected, got '%s' instead" % (
+            msg = "'%s' object expected, got '%s' instead"
+            raise operationerrfmt(self.w_TypeError, msg,
                 wrappable_class_name(RequiredClass),
                 w_obj.getclass(self).getname(self, '?'))
-            raise OperationError(self.w_TypeError, self.wrap(msg))
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -825,7 +825,8 @@ class ObjSpace(object):
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
-            ec.c_exception_trace(frame, e.w_value)
+            w_value = e.get_w_value(self)
+            ec.c_exception_trace(frame, w_value)
             raise
         ec.c_return_trace(frame, w_func)
         return w_res
@@ -997,9 +998,9 @@ class ObjSpace(object):
         except OperationError, err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            msg = "%s must be an integer, not %s" % (
+            msg = "%s must be an integer, not %s"
+            raise operationerrfmt(self.w_TypeError, msg,
                 objdescr, self.type(w_obj).getname(self, '?'))
-            raise OperationError(self.w_TypeError, self.wrap(msg))
         try:
             index = self.int_w(w_index)
         except OperationError, err:
@@ -1012,10 +1013,10 @@ class ObjSpace(object):
                 else:
                     return sys.maxint
             else:
-                raise OperationError(
-                    w_exception, self.wrap(
+                raise operationerrfmt(
+                    w_exception,
                     "cannot fit '%s' into an index-sized "
-                    "integer" % self.type(w_obj).getname(self, '?')))
+                    "integer", self.type(w_obj).getname(self, '?'))
         else:
             return index
 

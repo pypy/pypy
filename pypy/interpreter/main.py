@@ -117,7 +117,7 @@ def run_toplevel(space, f, verbose=False):
     except OperationError, operationerr:
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type
-        w_value = operationerr.w_value
+        w_value = operationerr.get_w_value(space)
         w_traceback = space.wrap(operationerr.application_traceback)
 
         # for debugging convenience we also insert the exception into
@@ -128,7 +128,7 @@ def run_toplevel(space, f, verbose=False):
         try:
             # exit if we catch a w_SystemExit
             if operationerr.match(space, space.w_SystemExit):
-                w_exitcode = space.getattr(operationerr.w_value,
+                w_exitcode = space.getattr(w_value,
                                            space.wrap('code'))
                 if space.is_w(w_exitcode, space.w_None):
                     exitcode = 0

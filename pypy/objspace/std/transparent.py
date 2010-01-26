@@ -4,7 +4,7 @@
 
 from pypy.interpreter import gateway
 from pypy.interpreter.function import Function
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import r_dict
@@ -52,8 +52,9 @@ completely controlled by the controller."""
     for k, v in type_cache.cache:
         if w_lookup == k:
             return v(space, w_type, w_controller)
-    raise OperationError(space.w_TypeError, space.wrap("Object type %s could not "\
-                                                       "be wrapped (YET)" % w_type.getname(space, "?")))
+    raise operationerrfmt(space.w_TypeError, 
+        "'%s' object could not be wrapped (YET)",
+        w_type.getname(space, "?"))
 
 def register_proxyable(space, cls):
     tpdef = cls.typedef

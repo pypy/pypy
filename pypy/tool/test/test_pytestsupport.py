@@ -41,7 +41,7 @@ def test_myexception(space):
         f.call_args(Arguments(None, []))
     except OperationError, e:
         assert e.match(space, space.w_AssertionError)
-        assert space.unwrap(space.str(e.w_value)) == 'assert 42 == 43'
+        assert space.unwrap(space.str(e.get_w_value(space))) == 'assert 42 == 43'
     else:
         assert False, "got no exception!"
 

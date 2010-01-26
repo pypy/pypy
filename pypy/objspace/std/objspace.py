@@ -1,6 +1,6 @@
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, UnpackValueError
-from pypy.interpreter.error import OperationError, debug_print
+from pypy.interpreter.error import OperationError, operationerrfmt, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter import pyframe
 from pypy.interpreter import function
@@ -143,9 +143,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ##                     print "CALL_LIKELY_BUILTIN fast"
                     if w_value is None:
                         varname = OPTIMIZED_BUILTINS[num]
-                        message = "global name '%s' is not defined" % varname
-                        raise OperationError(f.space.w_NameError,
-                                             f.space.wrap(message))
+                        message = "global name '%s' is not defined"
+                        raise operationerrfmt(f.space.w_NameError,
+                                              message, varname)
                     nargs = oparg & 0xff
                     w_function = w_value
                     try:
@@ -559,9 +559,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
         else:
-            raise OperationError(self.w_TypeError,
-                self.wrap("%s.__new__(%s): only for the type %s" % (
-                    w_type.name, w_subtype.getname(self, '?'), w_type.name)))
+            raise operationerrfmt(self.w_TypeError,
+                "%s.__new__(%s): only for the type %s",
+                w_type.name, w_subtype.getname(self, '?'), w_type.name)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 

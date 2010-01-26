@@ -20,7 +20,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import StaticMethod
 
 from pypy.module._stackless.stackless_flags import StacklessFlags
@@ -35,10 +35,10 @@ class _AppThunk(AbstractThunk):
         self.space = space
         self.costate = costate
         if not space.is_true(space.callable(w_obj)):
-            raise OperationError(
+            raise operationerrfmt(
                 space.w_TypeError, 
-                space.mod(space.wrap('object %r is not callable'),
-                          space.newtuple([w_obj])))
+                "'%s' object is not callable",
+                space.type(w_obj).getname(space, '?'))
         self.w_func = w_obj
         self.args = args
 
@@ -99,7 +99,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         space = self.space
         if isinstance(operror, OperationError):
             w_exctype = operror.w_type
-            w_excvalue = operror.w_value
+            w_excvalue = operror.get_w_value(space)
             w_exctraceback = operror.application_traceback
             w_excinfo = space.newtuple([w_exctype, w_excvalue, w_exctraceback])
         else:

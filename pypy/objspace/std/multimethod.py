@@ -29,6 +29,10 @@ class FailedToImplement(Exception):
         self.w_type  = w_type
         self.w_value = w_value
 
+    def get_w_value(self, space):
+        # convenience: same semantics as with OperationError
+        return self.w_value
+
     def __str__(self):
         return '<FailedToImplement(%s, %s)>' % (self.w_type, self.w_value)
 

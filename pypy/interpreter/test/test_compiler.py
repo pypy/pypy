@@ -634,7 +634,7 @@ def test():
         ex = e.value
         space = self.space
         assert ex.match(space, space.w_SyntaxError)
-        assert 'hello_world' in space.str_w(space.str(ex.w_value))
+        assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
 
 class TestPyCCompiler(BaseTestCompiler):

@@ -1,6 +1,8 @@
-import py
-from pypy.objspace.std.objspace import *
+import py, sys
+from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.objspace import registerimplementation
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Signature
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
@@ -796,7 +798,9 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
     defaults = space.listview(w_defaults)
     len_defaults = len(defaults)
     if len_defaults > 1:
-        raise OperationError(space.w_TypeError, space.wrap("pop expected at most 2 arguments, got %d" % (1 + len_defaults, )))
+        raise operationerrfmt(space.w_TypeError,
+                              "pop expected at most 2 arguments, got %d",
+                              1 + len_defaults)
     w_item = w_dict.getitem(w_key)
     if w_item is None:
         if len_defaults > 0:

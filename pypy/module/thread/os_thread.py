@@ -4,7 +4,7 @@ Thread support based on OS-level threads.
 
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.rlib.objectmodel import free_non_gc_object
@@ -198,8 +198,8 @@ the suggested approach in the absence of more specific information)."""
     old_size = thread.get_stacksize()
     error = thread.set_stacksize(size)
     if error == -1:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("size not valid: %d bytes" % size))
+        raise operationerrfmt(space.w_ValueError,
+                              "size not valid: %d bytes", size)
     if error == -2:
         raise wrap_thread_error(space, "setting stack size not supported")
     return space.wrap(old_size)

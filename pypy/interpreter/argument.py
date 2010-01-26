@@ -2,7 +2,7 @@
 Arguments objects.
 """
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
 
@@ -160,10 +160,10 @@ class Arguments(object):
                     raise OperationError(space.w_TypeError,
                                          space.wrap("keywords must be strings"))
                 if self.keywords and key in self.keywords:
-                    raise OperationError(self.space.w_TypeError,
-                                         self.space.wrap("got multiple values "
-                                                         "for keyword argument "
-                                                         "'%s'" % key))
+                    raise operationerrfmt(self.space.w_TypeError,
+                                          "got multiple values "
+                                          "for keyword argument "
+                                          "'%s'", key)
                 keywords[i] = key
                 keywords_w[i] = space.getitem(w_starstararg, w_key)
                 i += 1

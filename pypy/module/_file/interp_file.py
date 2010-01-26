@@ -4,7 +4,7 @@ from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, make_weakref_descr
@@ -52,8 +52,8 @@ class W_File(W_AbstractStream):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
             ('U' in mode and ('w' in mode or 'a' in mode))):
             space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('invalid mode : "%s"' % mode))
+            raise operationerrfmt(space.w_ValueError,
+                                  "invalid mode: '%s'", mode)
 
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing

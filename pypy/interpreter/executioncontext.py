@@ -265,7 +265,8 @@ class ExecutionContext(object):
 
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
-                w_arg =  space.newtuple([operr.w_type, operr.w_value,
+                w_value = operr.get_w_value(space)
+                w_arg = space.newtuple([operr.w_type, w_value,
                                      space.wrap(operr.application_traceback)])
 
             frame.fast2locals()

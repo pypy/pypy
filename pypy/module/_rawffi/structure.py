@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
@@ -53,8 +53,8 @@ class W_Structure(W_DataShape):
             for i in range(len(fields)):
                 name, tp = fields[i]
                 if name in name_to_index:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "duplicate field name %s" % (name, )))
+                    raise operationerrfmt(space.w_ValueError,
+                        "duplicate field name %s", name)
                 name_to_index[name] = i
             size, alignment, pos = size_alignment_pos(fields)
         else: # opaque case
@@ -76,8 +76,8 @@ class W_Structure(W_DataShape):
         try:
             return self.name_to_index[attr]
         except KeyError:
-            raise OperationError(space.w_AttributeError, space.wrap(
-                "C Structure has no attribute %s" % attr))
+            raise operationerrfmt(space.w_AttributeError,
+                "C Structure has no attribute %s", attr)
 
     def descr_call(self, space, autofree=False):
         return space.wrap(self.allocate(space, 1, autofree))

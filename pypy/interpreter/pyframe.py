@@ -4,7 +4,7 @@
 from pypy.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
 import opcode
@@ -303,7 +303,7 @@ class PyFrame(eval.Frame):
             w_exc_value = space.w_None
             w_tb = space.w_None
         else:
-            w_exc_value = self.last_exception.w_value
+            w_exc_value = self.last_exception.get_w_value(space)
             w_tb = w(self.last_exception.application_traceback)
         
         tup_state = [
@@ -455,8 +455,8 @@ class PyFrame(eval.Frame):
                   space.wrap("f_lineno can only be set by a trace function."))
 
         if new_lineno < self.pycode.co_firstlineno:
-            raise OperationError(space.w_ValueError,
-                  space.wrap("line %d comes before the current code." % new_lineno))
+            raise operationerrfmt(space.w_ValueError,
+                  "line %d comes before the current code.", new_lineno)
         code = self.pycode.co_code
         addr = 0
         line = self.pycode.co_firstlineno
@@ -472,8 +472,8 @@ class PyFrame(eval.Frame):
                 break
 
         if new_lasti == -1:
-            raise OperationError(space.w_ValueError,
-                  space.wrap("line %d comes after the current code." % new_lineno))
+            raise operationerrfmt(space.w_ValueError,
+                  "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
@@ -519,9 +519,9 @@ class PyFrame(eval.Frame):
         assert len(blockstack) == 0
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
-            raise OperationError(space.w_ValueError,
-                  space.wrap("can't jump into or out of a 'finally' block %d -> %d" %
-                             (f_lasti_setup_addr, new_lasti_setup_addr)))
+            raise operationerrfmt(space.w_ValueError,
+                  "can't jump into or out of a 'finally' block %d -> %d",
+                  f_lasti_setup_addr, new_lasti_setup_addr)
 
         if new_lasti < self.last_instr:
             min_addr = new_lasti
@@ -612,7 +612,7 @@ class PyFrame(eval.Frame):
             while f is not None and f.last_exception is None:
                 f = f.f_backref()
             if f is not None:
-                return f.last_exception.w_value
+                return f.last_exception.get_w_value(space)
         return space.w_None
 
     def fget_f_exc_traceback(space, self):

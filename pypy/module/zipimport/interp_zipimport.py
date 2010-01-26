@@ -1,7 +1,7 @@
 
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
@@ -257,7 +257,7 @@ class W_ZipImporter(Wrappable):
                     w_mods = space.sys.get('modules')
                 space.call_method(w_mods, 'pop', w(fullname), space.w_None)
         if last_exc:
-            raise OperationError(self.w_ZipImportError, last_exc.w_value)
+            raise OperationError(self.w_ZipImportError, last_exc.get_w_value(space))
         # should never happen I think
         return space.w_None
     load_module.unwrap_spec = ['self', ObjSpace, str]
@@ -288,8 +288,8 @@ class W_ZipImporter(Wrappable):
                     w_code = space.builtin.call('compile', w_source,
                                                 w(filename + ext), w('exec'))
                     return w_code
-        raise OperationError(self.w_ZipImportError, space.wrap(
-            "Cannot find source or code for %s in %s" % (filename, self.name)))
+        raise operationerrfmt(self.w_ZipImportError,
+            "Cannot find source or code for %s in %s", filename, self.name)
     get_code.unwrap_spec = ['self', ObjSpace, str]
 
     def get_source(self, space, fullname):
@@ -304,8 +304,8 @@ class W_ZipImporter(Wrappable):
                     found = True
         if found:
             return space.w_None
-        raise OperationError(self.w_ZipImportError, space.wrap(
-            "Cannot find source for %s in %s" % (filename, self.name)))
+        raise operationerrfmt(self.w_ZipImportError,
+            "Cannot find source for %s in %s", filename, self.name)
     get_source.unwrap_spec = ['self', ObjSpace, str]
 
     def is_package(self, space, fullname):
@@ -313,8 +313,8 @@ class W_ZipImporter(Wrappable):
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
-        raise OperationError(self.w_ZipImportError, space.wrap(
-            "Cannot find module %s in %s" % (filename, self.name)))
+        raise operationerrfmt(self.w_ZipImportError,
+            "Cannot find module %s in %s", filename, self.name)
     is_package.unwrap_spec = ['self', ObjSpace, str]
 
     def getarchive(space, self):
@@ -335,28 +335,28 @@ def descr_new_zipimporter(space, w_type, name):
         try:
             s = os.stat(filename)
         except OSError:
-            raise OperationError(w_ZipImportError, space.wrap(
-                "Cannot find name %s" % (filename,)))
+            raise operationerrfmt(w_ZipImportError,
+                "Cannot find name %s", filename)
         if not stat.S_ISDIR(s.st_mode):
             ok = True
             break
     if not ok:
-        raise OperationError(w_ZipImportError, space.wrap(
-            "Did not find %s to be a valid zippath" % (name,)))
+        raise operationerrfmt(w_ZipImportError,
+            "Did not find %s to be a valid zippath", name)
     try:
         w_result = zip_cache.get(filename)
         if w_result is None:
-            raise OperationError(w_ZipImportError, space.wrap(
+            raise operationerrfmt(w_ZipImportError,
                 "Cannot import %s from zipfile, recursion detected or"
-                "already tried and failed" % (name,)))
+                "already tried and failed", name)
         return w_result
     except KeyError:
         zip_cache.cache[filename] = None
     try:
         zip_file = RZipFile(filename, 'r')
     except (BadZipfile, OSError):
-        raise OperationError(w_ZipImportError, space.wrap(
-            "%s seems not to be a zipfile" % (filename,)))
+        raise operationerrfmt(w_ZipImportError,
+            "%s seems not to be a zipfile", filename)
     zip_file.close()
     prefix = name[len(filename):]
     if prefix.startswith(os.sep):

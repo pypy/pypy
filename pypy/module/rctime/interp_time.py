@@ -1,6 +1,6 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
@@ -224,9 +224,9 @@ def _gettmarg(space, w_tup, allowNone=True):
 
     tup_w = space.fixedview(w_tup)
     if len(tup_w) != 9:
-        raise OperationError(space.w_TypeError, 
-                             space.wrap("argument must be sequence of "
-                                        "length 9, not %d" % len(tup_w)))
+        raise operationerrfmt(space.w_TypeError, 
+                              "argument must be sequence of "
+                              "length 9, not %d", len(tup_w))
 
     y = space.int_w(tup_w[0])
     tm_mon = space.int_w(tup_w[1])

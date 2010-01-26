@@ -276,8 +276,8 @@ class TerminalReporter:
                 if len(repr_plugin)+26 > fullwidth:
                     repr_plugin = repr_plugin[:(fullwidth-30)] + '...'
                 self.write_line("    %-20s: %s" %(name, repr_plugin))
-        for i, testarg in enumerate(self.config.args):
-            self.write_line("test object %d: %s" %(i+1, testarg))
+        #for i, testarg in enumerate(self.config.args):
+        #    self.write_line("test object %d: %s" %(i+1, testarg))
 
     def pytest_sessionfinish(self, exitstatus, __multicall__):
         __multicall__.execute() 

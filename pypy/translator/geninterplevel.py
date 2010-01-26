@@ -1366,7 +1366,7 @@ else:
                     q = "elif"
                     for op in self.gen_link(link, localscope, blocknum, block, {
                                 link.last_exception: 'e.w_type',
-                                link.last_exc_value: 'e.w_value'}):
+                                link.last_exc_value: 'e.get_w_value(space)'}):
                         yield "        %s" % op
                 yield "    else:raise # unhandled case, should not happen"
             else:

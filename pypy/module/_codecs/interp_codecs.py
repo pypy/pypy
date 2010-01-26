@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, NoneNotWrapped
 from pypy.interpreter.baseobjspace import W_Root
 
@@ -30,20 +30,19 @@ class CodecState(object):
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.is_true(space.isinstance(w_res, space.w_tuple))
                 or space.int_w(space.len(w_res)) != 2):
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_TypeError,
-                    space.wrap("encoding error handler must return "
-                               "(unicode, int) tuple, not %s" % (
-                                   space.str_w(space.repr(w_res)))))
+                    "encoding error handler must return "
+                    "(unicode, int) tuple, not %s",
+                    space.str_w(space.repr(w_res)))
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if (newpos < 0):
                 newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_IndexError,
-                    space.wrap("position %d from error handler "
-                               "out of bounds" % newpos))
+                    "position %d from error handler out of bounds", newpos)
             if decode:
                 replace = space.unicode_w(w_replace)
                 return replace, newpos
@@ -103,9 +102,9 @@ def lookup_codec(space, encoding):
             else:
                 state.codec_search_cache[normalized_encoding] = w_result 
                 return w_result
-    raise OperationError(
+    raise operationerrfmt(
         space.w_LookupError,
-        space.wrap("unknown encoding: %s" % encoding))
+        "unknown encoding: %s", encoding)
 lookup_codec.unwrap_spec = [ObjSpace, str]
     
 
@@ -120,9 +119,9 @@ def lookup_error(space, errors):
     try:
         w_err_handler = state.codec_error_registry[errors]
     except KeyError:
-        raise OperationError(
+        raise operationerrfmt(
             space.w_LookupError,
-            space.wrap("unknown error handler name %s" % errors))
+            "unknown error handler name %s", errors)
     return w_err_handler
 lookup_error.unwrap_spec = [ObjSpace, str]
 

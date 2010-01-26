@@ -273,7 +273,7 @@ def repr_value_complex(space, obj):
     # Special case - operation error
     if isinstance(obj, OperationError):
         return "OpError(%s, %s)" % (repr_value(space, obj.w_type),
-                                    repr_value(space, obj.w_value))
+                                    repr_value(space, obj.get_w_value(space)))
 
     # Try object repr
     try:

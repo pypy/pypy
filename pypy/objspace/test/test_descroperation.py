@@ -371,5 +371,14 @@ class AppTest_Descroperation:
         A() < B()
         assert l == [B, A, A, B]
 
+    def test_mod_failure(self):
+        try:
+            [] % 3
+        except TypeError, e:
+            assert '%' in str(e)
+        else:
+            assert False, "did not raise"
+
+
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}

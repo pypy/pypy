@@ -39,7 +39,7 @@ def main(argv):
         except OperationError, e:
             print "OperationError:"
             print " operror-type: " + e.w_type.getname(space, '?')
-            print " operror-value: " + space.str_w(space.str(e.w_value))
+            print " operror-value: " + space.str_w(space.str(e.get_w_value(space)))
             return 1
         return 0
 

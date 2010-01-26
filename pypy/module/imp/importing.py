@@ -6,7 +6,7 @@ import sys, os, stat
 
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio
@@ -382,8 +382,8 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         return None
     else:
         # ImportError
-        msg = "No module named %s" % modulename
-        raise OperationError(space.w_ImportError, w(msg))
+        msg = "No module named %s"
+        raise operationerrfmt(space.w_ImportError, msg, modulename)
 
 def reload(space, w_module):
     """Reload the module.
@@ -396,9 +396,9 @@ def reload(space, w_module):
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
     modulename = space.str_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
-        raise OperationError(
+        raise operationerrfmt(
             space.w_ImportError,
-            space.wrap("reload(): module %s not in sys.modules" % (modulename,)))
+            "reload(): module %s not in sys.modules", modulename)
 
     try:
         w_mod = space.reloading_modules[modulename]
@@ -416,10 +416,10 @@ def reload(space, w_module):
         if parent_name:
             w_parent = check_sys_modules(space, space.wrap(parent_name))
             if w_parent is None:
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_ImportError,
-                    space.wrap("reload(): parent %s not in sys.modules" % (
-                        parent_name,)))
+                    "reload(): parent %s not in sys.modules",
+                    parent_name)
             w_path = space.getattr(w_parent, space.wrap("__path__"))
         else:
             w_path = None
@@ -429,8 +429,8 @@ def reload(space, w_module):
 
         if not find_info:
             # ImportError
-            msg = "No module named %s" % modulename
-            raise OperationError(space.w_ImportError, space.wrap(msg))
+            msg = "No module named %s"
+            raise operationerrfmt(space.w_ImportError, msg, modulename)
 
         try:
             try:
@@ -677,8 +677,8 @@ def read_compiled_module(space, cpathname, strbuf):
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     pycode = space.interpclass_w(w_code)
     if pycode is None or not isinstance(pycode, Code):
-        raise OperationError(space.w_ImportError, space.wrap(
-            "Non-code object in %s" % cpathname))
+        raise operationerrfmt(space.w_ImportError,
+                              "Non-code object in %s", cpathname)
     return pycode
 
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
@@ -689,8 +689,8 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     """
     w = space.wrap
     if magic != get_pyc_magic(space):
-        raise OperationError(space.w_ImportError, w(
-            "Bad magic number in %s" % cpathname))
+        raise operationerrfmt(space.w_ImportError,
+                              "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
     exec_code_module(space, w_mod, code_w)

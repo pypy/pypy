@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.descroperation import Object
 from pypy.interpreter import gateway
 from pypy.interpreter.typedef import default_identity_hash
@@ -31,9 +31,9 @@ def descr__class__(space, w_obj):
 def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_newcls, W_TypeObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__class__ must be set to new-style class, not '%s' object" % 
-                                        space.type(w_newcls).getname(space, '?')))
+        raise operationerrfmt(space.w_TypeError,
+                              "__class__ must be set to new-style class, not '%s' object",
+                              space.type(w_newcls).getname(space, '?'))
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -43,9 +43,9 @@ def descr_set___class__(space, w_obj, w_newcls):
     if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
         w_obj.setclass(space, w_newcls)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__class__ assignment: '%s' object layout differs from '%s'" %
-                                        (w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))))
+        raise operationerrfmt(space.w_TypeError,
+                              "__class__ assignment: '%s' object layout differs from '%s'",
+                              w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))
     
 
 def descr__new__(space, w_type, __args__):

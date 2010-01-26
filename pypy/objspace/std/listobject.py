@@ -1,4 +1,7 @@
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.objspace import registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -282,9 +285,9 @@ def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
         else:
             assert delta==0
     elif len2 != slicelength:  # No resize for extended slices
-        raise OperationError(space.w_ValueError, space.wrap("attempt to "
-              "assign sequence of size %d to extended slice of size %d" %
-              (len2,slicelength)))
+        raise operationerrfmt(space.w_ValueError, "attempt to "
+              "assign sequence of size %d to extended slice of size %d",
+              len2, slicelength)
 
     if sequence2 is items:
         if step > 0:

@@ -90,7 +90,7 @@ frame."""
     if operror is None:
         return space.newtuple([space.w_None,space.w_None,space.w_None])
     else:
-        return space.newtuple([operror.w_type, operror.w_value,
+        return space.newtuple([operror.w_type, operror.get_w_value(space),
                                space.wrap(operror.application_traceback)])
 
 def exc_clear(space):

@@ -7,7 +7,7 @@ attribute.
 """
 
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
@@ -388,7 +388,9 @@ class Function(Wrappable):
         if self.closure:
             closure_len = len(self.closure)
         if isinstance(code, PyCode) and closure_len != len(code.co_freevars):
-            raise OperationError(space.w_ValueError, space.wrap("%s() requires a code object with %s free vars, not %s " % (self.name, closure_len, len(code.co_freevars))))
+            raise operationerrfmt(space.w_ValueError,
+                "%s() requires a code object with %d free vars, not %d",
+                self.name, closure_len, len(code.co_freevars))
         self.code = code
 
     def fget_func_closure(space, self):
@@ -458,9 +460,9 @@ class Method(Wrappable):
                     instname += " "
                 instdescr = "%sinstance" %instname
             msg = ("unbound method %s() must be called with %s"
-                   "instance as first argument (got %s instead)")  % (myname, clsdescr, instdescr)
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(msg))
+                   "instance as first argument (got %s instead)")
+            raise operationerrfmt(space.w_TypeError, msg,
+                                  myname, clsdescr, instdescr)
         return space.call_args(self.w_function, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
@@ -580,8 +582,8 @@ class ClassMethod(Wrappable):
     def descr_classmethod__new__(space, w_type, w_function):
         if not space.is_true(space.callable(w_function)):
             typename = space.type(w_function).getname(space, '?')
-            raise OperationError(space.w_TypeError, space.wrap(
-                                 "'%s' object is not callable" % typename))
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' object is not callable", typename)
         return space.wrap(ClassMethod(w_function))
 
 class FunctionWithFixedCode(Function):

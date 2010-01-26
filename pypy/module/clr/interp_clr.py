@@ -1,7 +1,7 @@
 import os.path
 from pypy.module.clr import assemblyname
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, ApplevelClass
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.ootypesystem import ootype
@@ -17,11 +17,11 @@ def get_method(space, b_type, name, b_paramtypes):
     try:
         method = b_type.GetMethod(name, b_paramtypes)
     except AmbiguousMatchException:
-        msg = 'Multiple overloads for %s could match' % name
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = 'Multiple overloads for %s could match'
+        raise operationerrfmt(space.w_TypeError, msg, name)
     if method is None:
-        msg = 'No overloads for %s could match' % name
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = 'No overloads for %s could match'
+        raise operationerrfmt(space.w_TypeError, msg, name)
     return method
 
 def get_constructor(space, b_type, b_paramtypes):
@@ -301,7 +301,8 @@ def build_cli_class(space, namespace, classname, fullname, assemblyname):
     assembly_qualified_name = '%s, %s' % (fullname, assemblyname)
     b_type = System.Type.GetType(assembly_qualified_name)
     if b_type is None:
-        raise OperationError(space.w_ImportError, space.wrap("Cannot load .NET type: %s" % fullname))
+        raise operationerrfmt(space.w_ImportError,
+                              "Cannot load .NET type: %s", fullname)
 
     # this is where we locate the interfaces inherited by the class
     # set the flag hasIEnumerable if IEnumerable interface has been by the class

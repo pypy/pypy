@@ -1,7 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
@@ -193,8 +193,8 @@ class W_BZ2File(W_File):
     def check_mode_ok(self, mode):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U']):
             space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('invalid mode : "%s"' % mode))
+            raise operationerrfmt(space.w_ValueError,
+                                  "invalid mode: '%s'", mode)
 
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
