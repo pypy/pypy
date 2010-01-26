@@ -32,7 +32,7 @@ class W_DictMultiObject(W_Object):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, classofinstance=None,
-                                   from_strdict_shared=None):
+                                   from_strdict_shared=None, strdict=False):
         if from_strdict_shared is not None:
             assert w_type is None
             assert not module and not instance and classofinstance is None
@@ -57,7 +57,7 @@ class W_DictMultiObject(W_Object):
                 classofinstance is not None):
             assert w_type is None
             return ShadowDetectingDictImplementation(space, classofinstance)
-        elif instance:
+        elif instance or strdict:
             assert w_type is None
             return StrDictImplementation(space)
         else:

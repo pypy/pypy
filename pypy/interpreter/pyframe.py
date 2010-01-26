@@ -110,7 +110,7 @@ class PyFrame(eval.Frame):
         if flags & pycode.CO_OPTIMIZED: 
             return 
         if flags & pycode.CO_NEWLOCALS:
-            self.w_locals = self.space.newdict()
+            self.w_locals = self.space.newdict(strdict=True)
         else:
             assert self.w_globals is not None
             self.w_locals = self.w_globals

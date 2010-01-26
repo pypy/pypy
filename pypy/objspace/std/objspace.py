@@ -506,12 +506,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ListObject(list_w)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
-                from_strdict_shared=None):
+                from_strdict_shared=None, strdict=False):
         from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
                 classofinstance=classofinstance,
-                from_strdict_shared=from_strdict_shared)
+                from_strdict_shared=from_strdict_shared,
+                strdict=strdict)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
