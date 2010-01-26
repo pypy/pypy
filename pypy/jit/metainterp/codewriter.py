@@ -1326,7 +1326,7 @@ class BytecodeMaker(object):
             if self.handle_list_call(op, oopspec_name, args, TP):
                 return
         if oopspec_name.endswith('_foldable'):
-            opname = 'residual_call_pure'  # XXX not for possibly-raising calls
+            opname = 'residual_call_pure'   # should not raise, either
         else:
             opname = 'residual_call'
 

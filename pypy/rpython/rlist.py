@@ -247,12 +247,14 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
             spec = dum_nocheck
         v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if hop.args_s[0].listdef.listitem.mutated:
+        if hop.args_s[0].listdef.listitem.mutated or checkidx:
             if hop.args_s[1].nonneg:
                 llfn = ll_getitem_nonneg
             else:
                 llfn = ll_getitem
         else:
+            # this is the 'foldable' version, which is not used when
+            # we check for IndexError
             if hop.args_s[1].nonneg:
                 llfn = ll_getitem_foldable_nonneg
             else:

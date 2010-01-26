@@ -1286,7 +1286,6 @@ class BasicTests:
         assert res == f(21)
 
     def test_getitem_indexerror(self):
-        py.test.skip("failing test!")
         lst = [10, 4, 9, 16]
         def f(n):
             try:
