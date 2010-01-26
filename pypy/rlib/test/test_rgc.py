@@ -56,19 +56,6 @@ def test_can_move():
     
     assert res == True
     
-def test_resizable_buffer():
-    from pypy.rpython.lltypesystem.rstr import STR
-    from pypy.rpython.annlowlevel import hlstr
-    
-    def f():
-        ptr = rgc.resizable_buffer_of_shape(STR, 1)
-        ptr.chars[0] = 'a'
-        ptr = rgc.resize_buffer(ptr, 1, 2)
-        ptr.chars[1] = 'b'
-        return hlstr(rgc.finish_building_buffer(ptr, 2))
-
-    assert f() == 'ab'
-
 def test_ll_arraycopy_1():
     TYPE = lltype.GcArray(lltype.Signed)
     a1 = lltype.malloc(TYPE, 10)
@@ -126,3 +113,21 @@ def test_ll_arraycopy_4():
             assert a2[i] == a1[i+2]
         else:
             assert a2[i] == org2[i]
+
+def test_ll_shrink_array_1():
+    py.test.skip("implement ll_shrink_array for GcStructs or GcArrays that "
+                 "don't have the shape of STR or UNICODE")
+
+def test_ll_shrink_array_2():
+    S = lltype.GcStruct('S', ('x', lltype.Signed),
+                             ('vars', lltype.Array(lltype.Signed)))
+    s1 = lltype.malloc(S, 5)
+    s1.x = 1234
+    for i in range(5):
+        s1.vars[i] = 50 + i
+    s2 = rgc.ll_shrink_array(s1, 3)
+    assert lltype.typeOf(s2) == lltype.Ptr(S)
+    assert s2.x == 1234
+    assert len(s2.vars) == 3
+    for i in range(3):
+        assert s2.vars[i] == 50 + i

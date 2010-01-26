@@ -20,20 +20,9 @@ def weakref_create_getlazy(objgetter):
 
 malloc_nonmovable = malloc
 
-def malloc_resizable_buffer(TP, size):
-    return malloc(TP, size)
+def shrink_array(p, smallersize):
+    return False
 
-def resize_buffer(buf, old_size, new_size):
-    ll_str = malloc(typeOf(buf).TO, new_size)
-    for i in range(old_size):
-        ll_str.chars[i] = buf.chars[i]
-    return ll_str
-
-def finish_building_buffer(buf, final_size):
-    ll_str = malloc(typeOf(buf).TO, final_size)
-    for i in range(final_size):
-        ll_str.chars[i] = buf.chars[i]
-    return ll_str
 
 def thread_prepare():
     pass

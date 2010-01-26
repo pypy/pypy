@@ -736,32 +736,26 @@ class LLFrame(object):
         except MemoryError:
             self.make_llexception()
             
-    def op_malloc_nonmovable(self, obj, flags):
+    def op_malloc_nonmovable(self, TYPE, flags):
         flavor = flags['flavor']
         assert flavor == 'gc'
         zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(obj, zero=zero)
+        return self.heap.malloc_nonmovable(TYPE, zero=zero)
         
-    def op_malloc_nonmovable_varsize(self, obj, flags, size):
+    def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
         flavor = flags['flavor']
         assert flavor == 'gc'
         zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(obj, size, zero=zero)
-
-    def op_malloc_resizable_buffer(self, obj, flags, size):
-        return self.heap.malloc_resizable_buffer(obj, size)
-
-    def op_resize_buffer(self, obj, old_size, new_size):
-        return self.heap.resize_buffer(obj, old_size, new_size)
-
-    def op_finish_building_buffer(self, obj, size):
-        return self.heap.finish_building_buffer(obj, size)
+        return self.heap.malloc_nonmovable(TYPE, size, zero=zero)
 
     def op_free(self, obj, flavor):
         assert isinstance(flavor, str)
         if flavor == 'raw' and self.llinterpreter.malloc_check:
             self.llinterpreter.remember_free(obj)
         self.heap.free(obj, flavor=flavor)
+
+    def op_shrink_array(self, obj, smallersize):
+        return self.heap.shrink_array(obj, smallersize)
 
     def op_zero_gc_pointers_inside(self, obj):
         raise NotImplementedError("zero_gc_pointers_inside")
@@ -969,14 +963,6 @@ class LLFrame(object):
     def op_raw_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
         return llmemory.raw_malloc(size)
-
-    def op_raw_realloc_grow(self, addr, old_size, size):
-        assert lltype.typeOf(size) == lltype.Signed
-        return llmemory.raw_realloc_grow(addr, old_size, size)
-
-    def op_raw_realloc_shrink(self, addr, old_size, size):
-        assert lltype.typeOf(size) == lltype.Signed
-        return llmemory.raw_realloc_shrink(addr, old_size, size)
 
     op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
 

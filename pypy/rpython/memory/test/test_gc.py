@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from pypy.rlib import rgc
-
+from pypy.rlib.rstring import StringBuilder
 
 def stdout_ignore_ll_functions(msg):
     strmsg = str(msg)
@@ -24,6 +24,7 @@ class GCTest(object):
     GC_PARAMS = {}
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
+    GC_CAN_SHRINK_ARRAY = False
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
@@ -468,18 +469,30 @@ class GCTest(object):
 
         assert self.interpret(func, []) == int(self.GC_CANNOT_MALLOC_NONMOVABLE)
 
-    def test_resizable_buffer(self):
+    def test_shrink_array(self):
         from pypy.rpython.lltypesystem.rstr import STR
-        from pypy.rpython.annlowlevel import hlstr
+        GC_CAN_SHRINK_ARRAY = self.GC_CAN_SHRINK_ARRAY
 
-        def f():
-            ptr = rgc.resizable_buffer_of_shape(STR, 1)
-            ptr.chars[0] = 'a'
-            ptr = rgc.resize_buffer(ptr, 1, 2)
-            ptr.chars[1] = 'b'
-            return len(hlstr(rgc.finish_building_buffer(ptr, 2)))
+        def f(n, m):
+            ptr = lltype.malloc(STR, n)
+            ptr.hash = 0x62
+            ptr.chars[0] = 'A'
+            ptr.chars[1] = 'B'
+            ptr.chars[2] = 'C'
+            ptr2 = rgc.ll_shrink_array(ptr, 2)
+            assert (ptr == ptr2) == GC_CAN_SHRINK_ARRAY
+            rgc.collect()
+            return ( ord(ptr2.chars[0])       +
+                    (ord(ptr2.chars[1]) << 8) +
+                    (len(ptr2.chars)   << 16) +
+                    (ptr2.hash         << 24))
 
-        assert self.interpret(f, []) == 2
+        assert self.interpret(f, [3, 0]) == 0x62024241
+        # don't test with larger numbers of top of the Hybrid GC, because
+        # the default settings make it a too-large varsized object that
+        # gets allocated outside the semispace
+        if not isinstance(self, TestHybridGC):
+            assert self.interpret(f, [12, 0]) == 0x62024241
 
     def test_tagged_simple(self):
         from pypy.rlib.objectmodel import UnboxedValue
@@ -571,6 +584,20 @@ class GCTest(object):
 
         self.interpret(fn, [])
 
+    def test_stringbuilder(self):
+        def fn():
+            s = StringBuilder(4)
+            s.append("abcd")
+            s.append("defg")
+            s.append("rty")
+            s.append_multiple_char('y', 1000)
+            rgc.collect()
+            s.append_multiple_char('y', 1000)
+            res = s.build()[1000]
+            rgc.collect()
+            return ord(res)
+        res = self.interpret(fn, [])
+        assert res == ord('y')
 
 from pypy.rlib.objectmodel import UnboxedValue
 
@@ -599,6 +626,7 @@ class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
     GC_CAN_MOVE = True
     GC_CANNOT_MALLOC_NONMOVABLE = True
+    GC_CAN_SHRINK_ARRAY = True
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}

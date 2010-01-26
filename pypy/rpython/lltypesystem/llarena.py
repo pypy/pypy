@@ -103,6 +103,21 @@ class Arena(object):
         Arena.object_arena_location[container] = self, offset
         Arena.old_object_arena_location[container] = self, offset
 
+    def shrink_obj(self, offset, newsize):
+        oldbytes = self.objectsizes[offset]
+        newbytes = llmemory.raw_malloc_usage(newsize)
+        assert newbytes <= oldbytes
+        # fix self.objectsizes
+        for i in range(newbytes):
+            adr = offset + i
+            if adr in self.objectsizes:
+                assert self.objectsizes[adr] == oldbytes - i
+                self.objectsizes[adr] = newbytes - i
+        # fix self.usagemap
+        for i in range(offset + newbytes, offset + oldbytes):
+            assert self.usagemap[i] == 'x'
+            self.usagemap[i] = '#'
+
 class fakearenaaddress(llmemory.fakeaddress):
 
     def __init__(self, arena, offset):
@@ -306,6 +321,12 @@ def arena_reserve(addr, size, check_alignment=True):
                          % (addr.offset,))
     addr.arena.allocate_object(addr.offset, size)
 
+def arena_shrink_obj(addr, newsize):
+    """ Mark object as shorter than it was
+    """
+    addr = _getfakearenaaddress(addr)
+    addr.arena.shrink_obj(addr.offset, newsize)
+
 def round_up_for_allocation(size, minsize=0):
     """Round up the size in order to preserve alignment of objects
     following an object.  For arenas containing heterogenous objects.
@@ -458,6 +479,14 @@ register_external(arena_reserve, [llmemory.Address, int], None,
                   'll_arena.arena_reserve',
                   llimpl=llimpl_arena_reserve,
                   llfakeimpl=arena_reserve,
+                  sandboxsafe=True)
+
+def llimpl_arena_shrink_obj(addr, newsize):
+    pass
+register_external(arena_shrink_obj, [llmemory.Address, int], None,
+                  'll_arena.arena_shrink_obj',
+                  llimpl=llimpl_arena_shrink_obj,
+                  llfakeimpl=arena_shrink_obj,
                   sandboxsafe=True)
 
 llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',

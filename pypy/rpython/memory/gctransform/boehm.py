@@ -22,18 +22,11 @@ class BoehmGCTransformer(GCTransformer):
 
         mh = mallocHelpers()
         mh.allocate = lambda size: llop.boehm_malloc(llmemory.Address, size)
-        c_realloc = rffi.llexternal('GC_REALLOC', [rffi.VOIDP, rffi.INT],
-                                    rffi.VOIDP, sandboxsafe=True)
-        def _realloc(ptr, size):
-            return llmemory.cast_ptr_to_adr(c_realloc(rffi.cast(rffi.VOIDP, ptr), size))
-        mh.realloc = _realloc
         ll_malloc_fixedsize = mh._ll_malloc_fixedsize
 
         # XXX, do we need/want an atomic version of this function?
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
-
-        ll_realloc = mh.ll_realloc
 
         HDRPTR = lltype.Ptr(self.HDR)
 
@@ -58,9 +51,6 @@ class BoehmGCTransformer(GCTransformer):
                 inline=False)
             self.weakref_deref_ptr = self.inittime_helper(
                 ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
-            self.realloc_ptr = self.inittime_helper(
-                ll_realloc, [llmemory.Address] + [lltype.Signed] * 4,
-                llmemory.Address)
             self.identityhash_ptr = self.inittime_helper(
                 ll_identityhash, [llmemory.Address], lltype.Signed,
                 inline=False)
@@ -72,15 +62,6 @@ class BoehmGCTransformer(GCTransformer):
 
     def pop_alive_nopyobj(self, var, llops):
         pass
-
-    def _can_realloc(self):
-        return True
-
-    def perform_realloc(self, hop, v_ptr, v_newlgt, c_const_size, c_item_size,
-                        c_lengthofs, c_grow):
-        args = [self.realloc_ptr, v_ptr, v_newlgt, c_const_size,
-                c_item_size, c_lengthofs]
-        return hop.genop('direct_call', args, resulttype=llmemory.Address)
 
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         # XXX same behavior for zero=True: in theory that's wrong

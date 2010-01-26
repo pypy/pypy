@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.llarena import arena_malloc, arena_reset
 from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
 from pypy.rpython.lltypesystem.llarena import round_up_for_allocation
 from pypy.rpython.lltypesystem.llarena import ArenaError, arena_new_view
+from pypy.rpython.lltypesystem.llarena import arena_shrink_obj
 
 def test_arena():
     S = lltype.Struct('S', ('x',lltype.Signed))
@@ -268,3 +269,16 @@ def test_compiled():
     fn = compile(test_look_inside_object, [])
     res = fn()
     assert res == 42
+
+def test_shrink_obj():
+    from pypy.rpython.memory.gcheader import GCHeaderBuilder
+    HDR = lltype.Struct('HDR', ('h', lltype.Signed))
+    gcheaderbuilder = GCHeaderBuilder(HDR)
+    size_gc_header = gcheaderbuilder.size_gc_header
+    S = lltype.GcStruct('S', ('x', lltype.Signed),
+                             ('a', lltype.Array(lltype.Signed)))
+    myarenasize = 200
+    a = arena_malloc(myarenasize, False)
+    arena_reserve(a, size_gc_header + llmemory.sizeof(S, 10))
+    arena_shrink_obj(a, size_gc_header + llmemory.sizeof(S, 5))
+    arena_reset(a, size_gc_header + llmemory.sizeof(S, 5), False)

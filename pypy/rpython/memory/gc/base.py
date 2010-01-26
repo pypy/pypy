@@ -17,7 +17,6 @@ class GCBase(object):
     needs_write_barrier = False
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
-    can_realloc = False
     object_minimal_size = 0
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE):

@@ -1,6 +1,24 @@
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.lltypesystem.rbuilder import *
+from pypy.rpython.annlowlevel import llstr, hlstr
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+
+
+class TestStringBuilderDirect(object):
+    def test_simple(self):
+        sb = StringBuilderRepr.ll_new(3)
+        StringBuilderRepr.ll_append_char(sb, 'x')
+        StringBuilderRepr.ll_append(sb, llstr("abc"))
+        StringBuilderRepr.ll_append_slice(sb, llstr("foobar"), 2, 5)
+        StringBuilderRepr.ll_append_multiple_char(sb, 'y', 3)
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "xabcobayyy"
+
+    def test_nooveralloc(self):
+        sb = StringBuilderRepr.ll_new(3)
+        StringBuilderRepr.ll_append(sb, llstr("abc"))
+        assert StringBuilderRepr.ll_build(sb) == sb.buf
 
 class BaseTestStringBuilder(BaseRtypingTest):
     def test_simple(self):
@@ -36,7 +54,6 @@ class BaseTestStringBuilder(BaseRtypingTest):
         res = self.ll_to_unicode(self.interpret(func, []))
         assert res == 'aabcabcdefbuuuu'
         assert isinstance(res, unicode)
-
 
 class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass

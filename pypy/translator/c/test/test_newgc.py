@@ -20,6 +20,7 @@ class TestUsingFramework(object):
     taggedpointers = False
     GC_CAN_MOVE = False
     GC_CANNOT_MALLOC_NONMOVABLE = False
+    GC_CAN_SHRINK_ARRAY = False
 
     _isolated_func = None
 
@@ -697,19 +698,28 @@ class TestUsingFramework(object):
 
     def define_resizable_buffer(cls):
         from pypy.rpython.lltypesystem.rstr import STR
-        from pypy.rpython.annlowlevel import hlstr
 
         def f():
-            ptr = rgc.resizable_buffer_of_shape(STR, 2)
-            ptr.chars[0] = 'a'
-            ptr = rgc.resize_buffer(ptr, 1, 200)
-            ptr.chars[1] = 'b'
-            return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
-
+            ptr = lltype.malloc(STR, 3)
+            ptr.hash = 0x62
+            ptr.chars[0] = '0'
+            ptr.chars[1] = 'B'
+            ptr.chars[2] = 'C'
+            ptr2 = rgc.ll_shrink_array(ptr, 2)
+            return ((ptr == ptr2)             +
+                     ord(ptr2.chars[0])       +
+                    (ord(ptr2.chars[1]) << 8) +
+                    (len(ptr2.chars)   << 16) +
+                    (ptr2.hash         << 24))
         return f
 
     def test_resizable_buffer(self):
-        assert self.run('resizable_buffer')
+        res = self.run('resizable_buffer')
+        if self.GC_CAN_SHRINK_ARRAY:
+            expected = 0x62024231
+        else:
+            expected = 0x62024230
+        assert res == expected
 
     def define_hash_preservation(cls):
         from pypy.rlib.objectmodel import compute_hash
@@ -882,6 +892,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     should_be_moving = True
     GC_CAN_MOVE = True
     GC_CANNOT_MALLOC_NONMOVABLE = True
+    GC_CAN_SHRINK_ARRAY = True
 
     # for snippets
     large_tests_ok = True
@@ -1029,6 +1040,7 @@ class TestHybridGCRemoveTypePtr(TestHybridGC):
 class TestMarkCompactGC(TestSemiSpaceGC):
     gcpolicy = "markcompact"
     should_be_moving = True
+    GC_CAN_SHRINK_ARRAY = False
 
     def setup_class(cls):
         py.test.skip("Disabled for now")

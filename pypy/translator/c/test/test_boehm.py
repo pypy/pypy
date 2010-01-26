@@ -411,20 +411,25 @@ class TestUsingBoehm(AbstractGCTestClass):
         run = self.getcompiled(func)
         assert run() == 0
 
-    def test_resizable_buffer(self):
+    def test_shrink_array(self):
         from pypy.rpython.lltypesystem.rstr import STR
-        from pypy.rpython.annlowlevel import hlstr
         from pypy.rlib import rgc
 
         def f():
-            ptr = rgc.resizable_buffer_of_shape(STR, 2)
-            ptr.chars[0] = 'a'
-            ptr = rgc.resize_buffer(ptr, 1, 200)
-            ptr.chars[1] = 'b'
-            return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
+            ptr = lltype.malloc(STR, 3)
+            ptr.hash = 0x62
+            ptr.chars[0] = '0'
+            ptr.chars[1] = 'B'
+            ptr.chars[2] = 'C'
+            ptr2 = rgc.ll_shrink_array(ptr, 2)
+            return ((ptr == ptr2)             +
+                     ord(ptr2.chars[0])       +
+                    (ord(ptr2.chars[1]) << 8) +
+                    (len(ptr2.chars)   << 16) +
+                    (ptr2.hash         << 24))
 
         run = self.getcompiled(f)
-        assert run() == True
+        assert run() == 0x62024230
 
     def test_assume_young_pointers_nop(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))

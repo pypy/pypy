@@ -268,6 +268,22 @@ class DirectGCTest(object):
 class TestSemiSpaceGC(DirectGCTest):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
 
+    def test_shrink_array(self):
+        S1 = lltype.GcStruct('S1', ('h', lltype.Char),
+                                   ('v', lltype.Array(lltype.Char)))
+        p1 = self.malloc(S1, 2)
+        p1.h = '?'
+        for i in range(2):
+            p1.v[i] = chr(50 + i)
+        addr = llmemory.cast_ptr_to_adr(p1)
+        ok = self.gc.shrink_array(addr, 1)
+        assert ok
+        assert p1.h == '?'
+        assert len(p1.v) == 1
+        for i in range(1):
+            assert p1.v[i] == chr(50 + i)
+
+
 class TestGenerationGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
 
@@ -358,7 +374,7 @@ class TestHybridGC(TestGenerationGC):
 
         gc.collect(9)
         assert calls == [('semispace_collect', True)]
-        calls = []                        
+        calls = []
 
 
 class TestMarkCompactGC(DirectGCTest):

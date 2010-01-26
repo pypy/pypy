@@ -1528,6 +1528,9 @@ class _array(_parentable):
     def getlength(self):
         return len(self.items)
 
+    def shrinklength(self, newlength):
+        del self.items[newlength:]
+
     def getbounds(self):
         stop = len(self.items)
         return 0, stop
@@ -1658,7 +1661,9 @@ class _arraylenref(_parentable):
     def setitem(self, index, value):
         assert index == 0
         if value != self.array.getlength():
-            raise Exception("can't change the length of an array")
+            if value > self.array.getlength():
+                raise Exception("can't grow an array in-place")
+            self.array.shrinklength(value)
 
     def _makeptr(array, solid=False):
         try:

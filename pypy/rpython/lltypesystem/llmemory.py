@@ -716,18 +716,6 @@ def raw_malloc(size):
         raise NotImplementedError(size)
     return size._raw_malloc([], zero=False)
 
-def raw_realloc_grow(addr, old_size, size):
-    new_area = size._raw_malloc([], zero=False)
-    raw_memcopy(addr, new_area, old_size)
-    raw_free(addr)
-    return new_area
-
-def raw_realloc_shrink(addr, old_size, size):
-    new_area = size._raw_malloc([], zero=False)
-    raw_memcopy(addr, new_area, size)
-    raw_free(addr)
-    return new_area
-
 def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
     from pypy.rpython.memory.gcheader import GCHeaderBuilder

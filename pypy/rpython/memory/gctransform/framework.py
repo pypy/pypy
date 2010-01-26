@@ -276,6 +276,14 @@ class FrameworkGCTransformer(GCTransformer):
                                   [s_gc, annmodel.SomeAddress()],
                                   annmodel.SomeBool())
 
+        if hasattr(GCClass, 'shrink_array'):
+            self.shrink_array_ptr = getfn(
+                GCClass.shrink_array.im_func,
+                [s_gc, annmodel.SomeAddress(),
+                 annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
+        else:
+            self.shrink_array_ptr = None
+
         if hasattr(GCClass, 'assume_young_pointers'):
             # xxx should really be a noop for gcs without generations
             self.assume_young_pointers_ptr = getfn(
@@ -357,25 +365,6 @@ class FrameworkGCTransformer(GCTransformer):
                  annmodel.SomeInteger(nonneg=True)], s_gcref)
         else:
             self.malloc_varsize_nonmovable_ptr = None
-
-        if getattr(GCClass, 'malloc_varsize_resizable', False):
-            malloc_resizable = func_with_new_name(
-                GCClass.malloc_varsize_resizable.im_func,
-                "malloc_varsize_resizable")
-            self.malloc_varsize_resizable_ptr = getfn(
-                malloc_resizable,
-                [s_gc, s_typeid16,
-                 annmodel.SomeInteger(nonneg=True)], s_gcref)
-        else:
-            self.malloc_varsize_resizable_ptr = None
-
-        if getattr(GCClass, 'realloc', False):
-            self.realloc_ptr = getfn(
-                GCClass.realloc.im_func,
-                [s_gc, s_gcref] +
-                [annmodel.SomeInteger(nonneg=True)] * 4 +
-                [annmodel.SomeBool()],
-                s_gcref)
 
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
@@ -627,11 +616,7 @@ class FrameworkGCTransformer(GCTransformer):
                                               info_varsize.ofstolength)
             c_varitemsize = rmodel.inputconst(lltype.Signed,
                                               info_varsize.varitemsize)
-            if flags.get('resizable') and self.malloc_varsize_resizable_ptr:
-                assert c_can_collect.value
-                malloc_ptr = self.malloc_varsize_resizable_ptr
-                args = [self.c_const_gc, c_type_id, v_length]                
-            elif flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
+            if flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
                 # we don't have tests for such cases, let's fail
                 # explicitely
                 assert c_can_collect.value
@@ -671,6 +656,17 @@ class FrameworkGCTransformer(GCTransformer):
         v_addr = hop.genop('cast_ptr_to_adr',
                            [op.args[0]], resulttype=llmemory.Address)
         hop.genop("direct_call", [self.can_move_ptr, self.c_const_gc, v_addr],
+                  resultvar=op.result)
+
+    def gct_shrink_array(self, hop):
+        if self.shrink_array_ptr is None:
+            return GCTransformer.gct_shrink_array(self, hop)
+        op = hop.spaceop
+        v_addr = hop.genop('cast_ptr_to_adr',
+                           [op.args[0]], resulttype=llmemory.Address)
+        v_length = op.args[1]
+        hop.genop("direct_call", [self.shrink_array_ptr, self.c_const_gc,
+                                  v_addr, v_length],
                   resultvar=op.result)
 
     def gct_gc_assume_young_pointers(self, hop):
@@ -715,19 +711,6 @@ class FrameworkGCTransformer(GCTransformer):
         v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
                              resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
-
-    def _can_realloc(self):
-        return self.gcdata.gc.can_realloc
-
-    def perform_realloc(self, hop, v_ptr, v_newsize, c_const_size,
-                        c_itemsize, c_lengthofs, c_grow):
-        vlist = [self.realloc_ptr, self.c_const_gc, v_ptr, v_newsize,
-                 c_const_size, c_itemsize, c_lengthofs, c_grow]
-        livevars = self.push_roots(hop)
-        v_result = hop.genop('direct_call', vlist,
-                             resulttype=llmemory.GCREF)
-        self.pop_roots(hop, livevars)
-        return v_result
 
     def gct_gc_x_swap_pool(self, hop):
         op = hop.spaceop
