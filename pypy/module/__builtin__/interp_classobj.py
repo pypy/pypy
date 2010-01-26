@@ -7,6 +7,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import compute_identity_hash
+from pypy.rlib.debug import make_sure_not_resized
 
 
 def raise_type_err(space, argument, expected, w_obj):
@@ -51,6 +52,7 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 class W_ClassObject(Wrappable):
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
+        make_sure_not_resized(bases)
         self.bases_w = bases
         self.w_dict = w_dict
  
