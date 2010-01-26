@@ -317,6 +317,9 @@ class TestWarmspotDirect(object):
             supports_floats = False
             ts = llhelper
             translate_support_code = False
+            
+            def get_fail_descr_number(self, d):
+                return -1
 
             def __init__(self, *args, **kwds):
                 pass
