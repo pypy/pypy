@@ -12,7 +12,7 @@ class Module(MixedModule):
         'disable_finalizers': 'interp_gc.disable_finalizers',
         'estimate_heap_size': 'interp_gc.estimate_heap_size',
         'garbage' : 'space.newlist([])',
-        'dump_heap_stats': 'interp_gc.dump_heap_stats',
+        #'dump_heap_stats': 'interp_gc.dump_heap_stats',
     }
 
     def __init__(self, space, w_name):

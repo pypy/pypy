@@ -77,6 +77,8 @@ class AppTestGC(object):
 
 class AppTestGcDumpHeap(object):
     def setup_class(cls):
+        import py
+        py.test.skip("Disabled")
         from pypy.tool.udir import udir
         from pypy.rlib import rgc
         class X(object):
