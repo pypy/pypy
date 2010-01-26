@@ -71,7 +71,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.2.6'  # bump this for substantial changes
+GI_VERSION = '1.2.7'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
