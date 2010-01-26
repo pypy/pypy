@@ -7,8 +7,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, Const, ConstInt,\
      TreeLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
-from pypy.jit.backend.test.runner_test import LLtypeBackendTest, \
-     BaseAssemblerCallTests
+from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 
 class TestLLTypeLLGraph(LLtypeBackendTest):
     # for individual tests see:
