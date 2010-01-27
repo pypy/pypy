@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
@@ -98,6 +99,7 @@ class W_ClassObject(Wrappable):
                 return True
         return False
 
+    @jit.unroll_safe
     def lookup(self, space, w_attr):
         # returns w_value or interplevel None
         w_result = space.finditem(self.w_dict, w_attr)
@@ -167,24 +169,6 @@ class W_ClassObject(Wrappable):
                 "class %s has no attribute '%s'",
                 self.name, name)
 
-    def descr_call(self, space, __args__):
-        if self.lookup(space, space.wrap('__del__')) is not None:
-            w_inst = W_InstanceObjectWithDel(space, self)
-        else:
-            w_inst = W_InstanceObject(space, self)
-        w_init = w_inst.getattr(space, space.wrap('__init__'), False)
-        if w_init is not None:
-            w_result = space.call_args(w_init, __args__)
-            if not space.is_w(w_result, space.w_None):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("__init__() should return None"))
-        elif __args__.arguments_w or __args__.keywords:
-            raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("this constructor takes no arguments"))
-        return w_inst
-
     def descr_repr(self, space):
         mod = self.get_module_string(space)
         return self.getrepr(space, "class %s.%s" % (mod, self.name))
@@ -207,14 +191,33 @@ class W_ClassObject(Wrappable):
             return space.str_w(w_mod)
         return "?"
 
+def class_descr_call(space, w_self, __args__):
+    self = space.interp_w(W_ClassObject, w_self)
+    if self.lookup(space, space.wrap('__del__')) is not None:
+        w_inst = W_InstanceObjectWithDel(space, self)
+    else:
+        w_inst = W_InstanceObject(space, self)
+    w_init = w_inst.getattr(space, space.wrap('__init__'), False)
+    if w_init is not None:
+        w_result = space.call_args(w_init, __args__)
+        if not space.is_w(w_result, space.w_None):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("__init__() should return None"))
+    elif __args__.arguments_w or __args__.keywords:
+        raise OperationError(
+                space.w_TypeError,
+                space.wrap("this constructor takes no arguments"))
+    return w_inst
+
 W_ClassObject.typedef = TypeDef("classobj",
     __new__ = interp2app(descr_classobj_new),
     __repr__ = interp2app(W_ClassObject.descr_repr,
                           unwrap_spec=['self', ObjSpace]),
     __str__ = interp2app(W_ClassObject.descr_str,
                          unwrap_spec=['self', ObjSpace]),
-    __call__ = interp2app(W_ClassObject.descr_call,
-                          unwrap_spec=['self', ObjSpace, Arguments]),
+    __call__ = interp2app(class_descr_call,
+                          unwrap_spec=[ObjSpace, W_Root, Arguments]),
     __getattribute__ = interp2app(W_ClassObject.descr_getattribute,
                              unwrap_spec=['self', ObjSpace, W_Root]),
     __setattr__ = interp2app(W_ClassObject.descr_setattr,
