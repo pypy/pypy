@@ -897,7 +897,6 @@ class __extend__(pyframe.PyFrame):
         if n_keywords:
             keywords = [None] * n_keywords
             keywords_w = [None] * n_keywords
-            dic_w = {}
             while True:
                 n_keywords -= 1
                 if n_keywords < 0:
