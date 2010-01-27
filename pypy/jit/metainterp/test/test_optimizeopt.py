@@ -1861,6 +1861,24 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, "Not", expected)
 
+    def test_oois_of_itself(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        p2 = getfield_gc(p0, descr=nextdescr)
+        i1 = oois(p1, p2)
+        guard_true(i1) []
+        i2 = ooisnot(p1, p2)
+        guard_false(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
     def test_remove_duplicate_pure_op(self):
         ops = """
         [p1, p2]

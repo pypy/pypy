@@ -737,6 +737,8 @@ class Optimizer(object):
             self._optimize_nullness(op, op.args[0], expect_isnot)
         elif value0.is_null():
             self._optimize_nullness(op, op.args[1], expect_isnot)
+        elif value0 is value1:
+            self.make_constant_int(op.result, not expect_isnot)
         else:
             cls0 = value0.get_constant_class(self.cpu)
             if cls0 is not None:
