@@ -788,9 +788,8 @@ class AppTestOldStyleSharing(AppTestOldstyle):
         assert self.is_sharing(A2)
         assert self.is_sharing(A1)
 
-class AppTestOldStyleStrDict(object):
+class AppTestOldStyleModDict(object):
     def setup_class(cls):
-        cls.space = gettestobjspace()
         if option.runappdirect:
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
