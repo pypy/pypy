@@ -1891,6 +1891,26 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, "Not, Not", expected)
 
+    def test_remove_duplicate_pure_op_with_descr(self):
+        ops = """
+        [p1]
+        i0 = arraylen_gc(p1, descr=arraydescr)
+        i1 = int_gt(i0, 0)
+        guard_true(i1) []
+        i2 = arraylen_gc(p1, descr=arraydescr)
+        i3 = int_gt(i0, 0)
+        guard_true(i3) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i0 = arraylen_gc(p1, descr=arraydescr)
+        i1 = int_gt(i0, 0)
+        guard_true(i1) []
+        jump(p1)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
     # ----------
 
     def make_fail_descr(self):

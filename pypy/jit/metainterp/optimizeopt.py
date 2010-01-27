@@ -573,21 +573,20 @@ class Optimizer(object):
                 self.make_constant(op.result, resbox.constbox())
                 return
 
-            if op.descr is None:
-                # did we do the exact same operation already?
-                args = op.args[:]
-                for i in range(len(args)):
-                    arg = args[i]
-                    if arg in self.values:
-                        args[i] = self.values[arg].get_key_box()
-                args.append(ConstInt(op.opnum))
-                oldop = self.pure_operations.get(args, None)
-                if oldop is not None:
-                    assert oldop.opnum == op.opnum
-                    self.make_equal_to(op.result, self.getvalue(oldop.result))
-                    return
-                else:
-                    self.pure_operations[args] = op
+            # did we do the exact same operation already?
+            args = op.args[:]
+            for i in range(len(args)):
+                arg = args[i]
+                if arg in self.values:
+                    args[i] = self.values[arg].get_key_box()
+            args.append(ConstInt(op.opnum))
+            oldop = self.pure_operations.get(args, None)
+            if oldop is not None and oldop.descr is op.descr:
+                assert oldop.opnum == op.opnum
+                self.make_equal_to(op.result, self.getvalue(oldop.result))
+                return
+            else:
+                self.pure_operations[args] = op
 
         # otherwise, the operation remains
         self.emit_operation(op)
