@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.rpython.lltypesystem.llmemory import *
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
@@ -154,6 +154,8 @@ def test_flavored_malloc_stack():
     assert fn(1) == 2
 
 def test_gcref():
+    if sys.platform == 'darwin':
+        py.test.skip("'boehm' may crash")
     S = lltype.GcStruct("S", ("x", lltype.Signed))
     s = lltype.malloc(S)
     s.x = 123
