@@ -57,7 +57,7 @@ class W_DictMultiObject(W_Object):
                 classofinstance is not None):
             assert w_type is None
             return ShadowDetectingDictImplementation(space, classofinstance)
-        elif instance or strdict:
+        elif instance or strdict or module:
             assert w_type is None
             return StrDictImplementation(space)
         else:

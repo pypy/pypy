@@ -771,3 +771,8 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
 class TestDevolvedSharedDictImplementation(BaseTestDevolvedDictImplementation):
     ImplementionClass = SharedDictImplementation
 
+def test_module_uses_strdict():
+    fakespace = FakeSpace()
+    d = fakespace.newdict(module=True)
+    assert isinstance(d, StrDictImplementation)
+
