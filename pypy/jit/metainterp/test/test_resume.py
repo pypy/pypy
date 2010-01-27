@@ -993,7 +993,7 @@ def test_virtual_adder_pending_fields():
     values = {b4s: v4, b2s: v2}
     liveboxes = []
     modifier._number_virtuals(liveboxes, values, 0)
-    assert liveboxes == [b2s, b4s]
+    assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
     modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s)])
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
@@ -1012,6 +1012,7 @@ def test_virtual_adder_pending_fields():
 
     for x, y in zip(expected, trace):
         assert x == y
+    assert len(expected) == len(trace)
     assert demo55.next == demo66
 
 
