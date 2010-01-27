@@ -3,7 +3,9 @@ from pypy.jit.metainterp.policy import JitPolicy
 class PyPyJitPolicy(JitPolicy):
 
     def look_inside_pypy_module(self, modname):
-        if modname == '__builtin__.operation' or modname == '__builtin__.abstractinst':
+        if (modname == '__builtin__.operation' or
+                modname == '__builtin__.abstractinst' or
+                modname == '__builtin__.interp_classobj'):
             return True
 
         if '.' in modname:
