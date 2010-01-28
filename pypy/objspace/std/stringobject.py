@@ -861,6 +861,10 @@ def mul_string_times(space, w_str, w_times):
             "repeated string is too long: %d times %d characters",
             mul, input_len)
     # XXX maybe only do this when input has a big length
+    # XXX CPython tricks:
+    #       - if input has length 1, use memset
+    #       - otherwise, use memcpy to repeatedly double the size of the
+    #         string (i.e. compute the "square" of the string)
     return joined(space, [input] * mul)
 
 def mul__String_ANY(space, w_str, w_times):
