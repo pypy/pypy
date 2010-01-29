@@ -258,7 +258,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
         # perform a write barrier that copies necessary flags from
         # source to dest
-        if not llop.gc_writebarrier_before_copy(lltype.Void, source, dest):
+        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest):
             # if the write barrier is not supported, copy by hand
             for i in range(length):
                 dest[i + dest_start] = source[i + source_start]

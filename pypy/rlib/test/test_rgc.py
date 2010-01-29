@@ -1,5 +1,5 @@
 from pypy.rpython.test.test_llinterp import gengraph, interpret
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib import rgc # Force registration of gc.collect
 import gc
 import py, sys
@@ -113,6 +113,28 @@ def test_ll_arraycopy_4():
             assert a2[i] == a1[i+2]
         else:
             assert a2[i] == org2[i]
+
+def test_ll_arraycopy_5(monkeypatch):
+    S = lltype.GcStruct('S')
+    TYPE = lltype.GcArray(lltype.Ptr(S))
+    def f():
+        a1 = lltype.malloc(TYPE, 10)
+        a2 = lltype.malloc(TYPE, 6)
+        rgc.ll_arraycopy(a2, a1, 0, 1, 5)
+
+    CHK = lltype.Struct('CHK', ('called', lltype.Bool))
+    check = lltype.malloc(CHK, immortal=True)
+
+    def raw_memcopy(*args):
+        check.called = True
+
+    monkeypatch.setattr(llmemory, "raw_memcopy", raw_memcopy)
+
+    interpret(f, [])
+
+    assert check.called
+
+
 
 def test_ll_shrink_array_1():
     py.test.skip("implement ll_shrink_array for GcStructs or GcArrays that "
