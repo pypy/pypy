@@ -86,7 +86,6 @@ class VirtualRefInfo:
             return
         vref = lltype.cast_opaque_ptr(lltype.Ptr(self.JIT_VIRTUAL_REF), gcref)
         assert not vref.virtual_token
-        assert vref.forced
         vref.virtual_token = self.TOKEN_TRACING_RESCALL
 
     def tracing_after_residual_call(self, gcref):
@@ -101,7 +100,6 @@ class VirtualRefInfo:
             return False
         else:
             # marker "modified during residual call" set.
-            XXX
             return True
 
     def forced_single_vref(self, gcref, real_object):
