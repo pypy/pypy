@@ -14,7 +14,7 @@ from pypy.rlib.rarithmetic import intmask
 # * THREE_VERSIONS_OF_CORE=False: there is only one copy of the code,
 #   at the cost of an indirect method call to fetch each character.
 
-THREE_VERSIONS_OF_CORE = False
+THREE_VERSIONS_OF_CORE = True
 
 
 #### Constants and exposed functions
