@@ -262,7 +262,7 @@ def mul__Unicode_ANY(space, w_uni, w_times):
             raise FailedToImplement
         raise
     if times <= 0:
-        return W_StringObject.EMPTY
+        return W_UnicodeObject.EMPTY
     input = w_uni._value
     if len(input) == 1:
         result = input[0] * times

@@ -562,6 +562,23 @@ class AppTestUnicodeString:
         raises(TypeError, S.rpartition, None)
 
 
+    def test_mul(self):
+        zero = 0
+        assert type(u'' * zero) == type(zero * u'') == unicode
+        assert u'' * zero == zero * u'' == u''
+        assert u'x' * zero == zero * u'x' == u''
+        assert type(u'x' * zero) == type(zero * u'x') == unicode
+        assert u'123' * zero == zero * u'123' == u''
+        assert type(u'123' * zero) == type(zero * u'123') == unicode
+        for i in range(10):
+            u = u'123' * i
+            assert len(u) == 3*i
+            for j in range(0, i, 3):
+                assert u[j+0] == u'1'
+                assert u[j+1] == u'2'
+                assert u[j+2] == u'3'
+            assert u'123' * i == i * u'123'
+
     def test_rindex(self):
         from sys import maxint
         assert u'abcdefghiabc'.rindex(u'') == 12
