@@ -11,6 +11,7 @@ from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
+from pypy.rlib.rstring import string_repeat
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -260,15 +261,13 @@ def mul__Unicode_ANY(space, w_uni, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    uni = w_uni._value
-    length = len(uni)
-    if times <= 0 or length == 0:
-        return W_UnicodeObject.EMPTY
-    try:
-        result_size = ovfcheck(length * times)
-        result = u''.join([uni] * times)
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap('repeated string is too long'))
+    if times <= 0:
+        return W_StringObject.EMPTY
+    input = w_uni._value
+    if len(input) == 1:
+        result = input[0] * times
+    else:
+        result = string_repeat(input, times)
     return W_UnicodeObject(result)
 
 def mul__ANY_Unicode(space, w_times, w_uni):
