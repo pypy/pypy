@@ -31,6 +31,26 @@ class UnicodeBuilder(AbstractStringBuilder):
     def build(self):
         return u''.join(self.l)
 
+
+def string_repeat(s, mul):
+    """Repeat a string or unicode.  Note that this assumes that 'mul' > 0."""
+    result = None
+    factor = 1
+    assert mul > 0
+    limit = mul >> 1
+    while True:
+        if mul & factor:
+            if result is None:
+                result = s
+            else:
+                result = s + result
+            if factor > limit:
+                break
+        s += s
+        factor *= 2
+    return result
+string_repeat._annspecialcase_ = 'specialize:argtype(0)'
+
 # ------------------------------------------------------------
 # ----------------- implementation details -------------------
 # ------------------------------------------------------------
