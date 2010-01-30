@@ -149,7 +149,11 @@ class BoehmGCTransformer(GCTransformer):
         hop.cast_result(v_addr)
 
     def gct_gc_writebarrier_before_copy(self, hop):
-        return rmodel.inputconst(lltype.Bool, True)   # no write barrier needed
+        # no write barrier needed
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [rmodel.inputconst(lltype.Bool, True)],
+                  resultvar=op.result)
 
     def gct_gc_identityhash(self, hop):
         v_obj = hop.spaceop.args[0]
