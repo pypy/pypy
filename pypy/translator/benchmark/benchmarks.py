@@ -37,6 +37,7 @@ class Benchmark(object):
         return Benchmark(self._basename, self._run, self.asc_good, self.units,
                          self.check, self.sizefactor * n)
     def run(self, exe):
+        self.latest_output = ''
         try:
             result, latest_output = self._run(exe, self.sizefactor)
             self.latest_output = latest_output
