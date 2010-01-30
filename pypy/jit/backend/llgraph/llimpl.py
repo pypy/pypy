@@ -20,7 +20,7 @@ from pypy.jit.metainterp import resoperation, executor
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 
-from pypy.rlib.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 
 import py
@@ -318,6 +318,8 @@ def compile_add_descr(loop, ofs, type):
     op.descr = Descr(ofs, type)
 
 def compile_add_loop_token(loop, descr):
+    if we_are_translated():
+        raise ValueError("CALL_ASSEMBLER not supported")
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     op.descr = descr

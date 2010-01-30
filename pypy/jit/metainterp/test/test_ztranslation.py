@@ -7,8 +7,6 @@ from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
-py.test.skip("Broken")
-
 class TranslationTest:
 
     CPUClass = None
