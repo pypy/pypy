@@ -773,10 +773,13 @@ class FrameworkGCTransformer(GCTransformer):
             gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
 
     def gct_gc_writebarrier_before_copy(self, hop):
+        op = hop.spaceop
         if not hasattr(self, 'wb_before_copy_ptr'):
             # no write barrier needed in that case
-            return rmodel.inputconst(lltype.Bool, True)
-        op = hop.spaceop
+            hop.genop("same_as",
+                      [rmodel.inputconst(lltype.Bool, True)],
+                      resultvar=op.result)
+            return
         source_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
                                 resulttype=llmemory.Address)
         dest_addr = hop.genop('cast_ptr_to_adr', [op.args[1]],

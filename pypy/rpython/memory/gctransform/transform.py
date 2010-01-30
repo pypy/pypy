@@ -385,7 +385,10 @@ class BaseGCTransformer(object):
         # that rgc.ll_arraycopy() will do the copy by hand (i.e. with a
         # 'for' loop).  Subclasses that have their own logic, or that don't
         # need any kind of write barrier, may return True.
-        return rmodel.inputconst(lltype.Bool, False)
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [rmodel.inputconst(lltype.Bool, False)],
+                  resultvar=op.result)
 
     def gct_gc_identityhash(self, hop):
         # must be implemented in the various GCs
