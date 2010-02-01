@@ -40,6 +40,8 @@ else:
     UNICHR = unichr
     ORD = ord
 
+# XXX review the functions below and think about using stringbuilders for them
+
 
 def raise_unicode_exception_decode(errors, encoding, msg, s,
                                    startingpos, endingpos):
