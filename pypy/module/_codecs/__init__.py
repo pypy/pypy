@@ -5,7 +5,6 @@ class Module(MixedModule):
     appleveldefs = {
          '__doc__' :  'app_codecs.__doc__',
          '__name__' :  'app_codecs.__name__',
-         'charmap_decode' :  'app_codecs.charmap_decode',
          'charmap_encode' :  'app_codecs.charmap_encode',
          'escape_decode' :  'app_codecs.escape_decode',
          'escape_encode' :  'app_codecs.escape_encode',
@@ -44,6 +43,7 @@ class Module(MixedModule):
          'utf_16_ex_decode' : 'interp_codecs.utf_16_ex_decode',
          'charbuffer_encode': 'interp_codecs.buffer_encode',
          'readbuffer_encode': 'interp_codecs.buffer_encode',
+         'charmap_decode'   : 'interp_codecs.charmap_decode',
     }
 
     def __init__(self, space, *args):

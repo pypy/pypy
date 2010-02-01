@@ -39,7 +39,9 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 Copyright (c) Corporation for National Research Initiatives.
 
 """
-#from unicodecodec import *
+
+# XXX move some of these functions to RPython (like charmap_encode,
+# charmap_build) to make them faster
 
 import sys
 
@@ -199,13 +201,6 @@ def escape_decode(data, errors='strict'):
             res += data[i]
         i += 1
     res = ''.join(res)    
-    return res, len(data)
-
-def charmap_decode( data, errors='strict', mapping=None):
-    """None
-    """
-    res = PyUnicode_DecodeCharmap(data, mapping, errors)
-    res = u''.join(res)
     return res, len(data)
 
 
@@ -841,44 +836,6 @@ def PyUnicode_EncodeCharmap(p, mapping='latin-1', errors='strict'):
         inpos += 1
     return res
 
-def PyUnicode_DecodeCharmap(s, mapping, errors):
-
-    size = len(s)
-##    /* Default to Latin-1 */
-    if mapping is None:
-        import _codecs
-        return _codecs.latin_1_decode(s, errors)[0]
-
-    if (size == 0):
-        return u''
-    p = []
-    inpos = 0
-    while (inpos< len(s)):
-        
-        #/* Get mapping (char ordinal -> integer, Unicode char or None) */
-        ch = s[inpos]
-        try:
-            x = mapping[ord(ch)]
-            if isinstance(x, int):
-                if x < 65536:
-                    p += unichr(x)
-                else:
-                    raise TypeError("character mapping must be in range(65536)")
-            elif isinstance(x, unicode):
-                if x == u"\ufffe":
-                    raise KeyError
-                p += x
-            elif not x:
-                raise KeyError
-            else:
-                raise TypeError
-            inpos += 1
-        except (KeyError, IndexError):
-            next, inpos = unicode_call_errorhandler(errors, "charmap",
-                       "character maps to <undefined>", s, inpos, inpos+1)
-            p += next
-            inpos
-    return p
 
 def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
 

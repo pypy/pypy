@@ -1,7 +1,7 @@
 import autopath
 from pypy.conftest import gettestobjspace
 from pypy.module._codecs.app_codecs import unicode_escape_encode,\
-     charmap_encode, charmap_decode, unicode_escape_decode
+     charmap_encode, unicode_escape_decode
 
 
 class AppTestCodecs:
@@ -115,6 +115,14 @@ class AppTestCodecs:
         test =   "\\"     # trailing backslash
              
         raises (ValueError, test.decode,'string-escape')
+
+    def test_charmap_decode(self):
+        from _codecs import charmap_decode
+        assert charmap_decode('xxx') == ('xxx', 3)
+        assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
+        map = tuple([unichr(i) for i in range(256)])
+        assert charmap_decode('xxx\xff', 'strict', map) == (u'xxx\xff', 4)
+
 
 class AppTestPartialEvaluation:
 
@@ -550,10 +558,6 @@ class TestDirect:
     def test_charmap_encode(self):
         assert charmap_encode(u'xxx') == ('xxx', 3)
         assert charmap_encode(u'xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
-
-    def test_charmap_decode(self):
-        assert charmap_decode('xxx') == ('xxx', 3)
-        assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
 
     def test_unicode_escape(self):
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
