@@ -44,7 +44,7 @@ def abstract_getclass(space, w_obj):
             raise       # propagate other errors
         return space.type(w_obj)
 
-
+@jit.unroll_safe
 def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
     """Implementation for the full 'isinstance(obj, klass_or_tuple)'."""
 
@@ -78,16 +78,17 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
         oldstyleinst = space.interpclass_w(w_obj)
         if isinstance(oldstyleinst, W_InstanceObject):
             return oldstyleinst.w_class.is_subclass_of(oldstyleclass)
-    return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
-
-@jit.dont_look_inside
-def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
     # -- case (anything, tuple)
+    # XXX it might be risky that the JIT sees this
     if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
         for w_klass in space.fixedview(w_klass_or_tuple):
             if abstract_isinstance_w(space, w_obj, w_klass):
                 return True
         return False
+    return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
+
+@jit.dont_look_inside
+def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
 
     # -- case (anything, abstract-class)
     check_class(space, w_klass_or_tuple,
