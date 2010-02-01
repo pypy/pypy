@@ -656,7 +656,7 @@ class FunctionGcRootTracker(object):
 
         target = match.group(1)
 
-        if self.format in ('msvc'):
+        if self.format in ('msvc',):
             # On win32, the address of a foreign function must be
             # computed, the optimizer may store it in a register.  We
             # could ignore this, except when the function need special
