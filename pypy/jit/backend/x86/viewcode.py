@@ -171,7 +171,7 @@ class World(object):
         self.symbols = {}
         self.logentries = {}
 
-    def parse(self, f):
+    def parse(self, f, textonly=True):
         for line in f:
             if line.startswith('CODE_DUMP '):
                 pieces = line.split()
@@ -205,6 +205,8 @@ class World(object):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 self.symbols.update(load_symbols(filename))
         # find cross-references between blocks
+        if textonly:
+            return
         fnext = 0.1
         for i, r in enumerate(self.ranges):
             for lineno, targetaddr, _ in r.findjumps():
@@ -215,7 +217,7 @@ class World(object):
                     sys.stderr.write("%d%%" % int(f*100.0))
                     fnext += 0.1
                 sys.stderr.write(".")
-        sys.stderr.write("100%\n")
+        sys.stderr.write("100%")
         # split blocks at labeltargets
         t = self.labeltargets
         #print t
@@ -234,6 +236,7 @@ class World(object):
                         pass
                     break
         # hack hack hacked
+        sys.stderr.write("\n")
 
     def show(self, showtext=True, showgraph=True):
         if showgraph:
@@ -359,5 +362,5 @@ if __name__ == '__main__':
     else:
         f = open(sys.argv[1], 'r')
     world = World()
-    world.parse(f)
+    world.parse(f, textonly=not showgraph)
     world.show(showtext=True, showgraph=showgraph)
