@@ -277,7 +277,9 @@ class WarmEnterState(object):
             greenargs = ()
             i = 0
             for TYPE in green_args_spec:
-                value = unwrap(TYPE, greenkey[i])
+                greenbox = greenkey[i]
+                assert isinstance(greenbox, history.Const)
+                value = unwrap(TYPE, greenbox)
                 greenargs += (value,)
                 i = i + 1
             return greenargs

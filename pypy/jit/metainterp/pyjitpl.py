@@ -674,10 +674,10 @@ class MIFrame(object):
         call_position = 0
         if token is not None:
             call_position = len(self.metainterp.history.operations)
-            # guard value for all green args, needed to make sure
+            # verify that we have all green args, needed to make sure
             # that assembler that we call is still correct
             greenargs = varargs[1:num_green_args + 1]
-            self.generate_guard_value_for_green_args(pc, greenargs)
+            self.verify_green_args(greenargs)
         res = self.do_residual_call(varargs, descr=calldescr, exc=True)
         if not self.metainterp.is_blackholing() and token is not None:
             # XXX fix the call position, <UGLY!>
@@ -782,6 +782,17 @@ class MIFrame(object):
         constbox = self.implement_guard_value(pc, box)
         self.make_result_box(constbox)
 
+    @arguments("orgpc", "int")
+    def opimpl_guard_green(self, pc, boxindex):
+        """Like guard_value, but overwrites the original box with the const.
+        Used to prevent Boxes from showing up in the greenkey of some
+        operations, like jit_merge_point.  The in-place overwriting is
+        convenient for jit_merge_point, which expects self.env to contain
+        not more than the greens+reds described in the jitdriver."""
+        box = self.env[boxindex]
+        constbox = self.implement_guard_value(pc, box)
+        self.env[boxindex] = constbox
+
     @arguments("orgpc", "box")
     def opimpl_guard_class(self, pc, box):
         clsbox = self.cls_of_box(box)
@@ -803,10 +814,10 @@ class MIFrame(object):
     def opimpl_keepalive(self, box):
         pass     # xxx?
 
-    def generate_guard_value_for_green_args(self, pc, varargs):
+    def verify_green_args(self, varargs):
         num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
-            varargs[i] = self.implement_guard_value(pc, varargs[i])
+            assert isinstance(varargs[i], Const)
 
     def blackhole_reached_merge_point(self, varargs):
         if self.metainterp.in_recursion:
@@ -829,8 +840,8 @@ class MIFrame(object):
         else:
             raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
 
-    @arguments("orgpc")
-    def opimpl_can_enter_jit(self, pc):
+    @arguments()
+    def opimpl_can_enter_jit(self):
         # Note: when running with a BlackHole history, this 'can_enter_jit'
         # may be completely skipped by the logic that replaces perform_call
         # with rop.CALL.  But in that case, no-one will check the flag anyway,
@@ -840,10 +851,10 @@ class MIFrame(object):
             raise CannotInlineCanEnterJit()
         self.metainterp.seen_can_enter_jit = True
 
-    @arguments("orgpc")
-    def opimpl_jit_merge_point(self, pc):
+    @arguments()
+    def opimpl_jit_merge_point(self):
         if not self.metainterp.is_blackholing():
-            self.generate_guard_value_for_green_args(pc, self.env)
+            self.verify_green_args(self.env)
             # xxx we may disable the following line in some context later
             self.debug_merge_point()
             if self.metainterp.seen_can_enter_jit:
@@ -1025,6 +1036,9 @@ class MIFrame(object):
         return guard_op
 
     def implement_guard_value(self, pc, box):
+        """Promote the given Box into a Const.  Note: be careful, it's a
+        bit unclear what occurs if a single opcode needs to generate
+        several ones and/or ones not near the beginning."""
         if isinstance(box, Const):
             return box     # no promotion needed, already a Const
         else:

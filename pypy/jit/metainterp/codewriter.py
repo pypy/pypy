@@ -74,6 +74,7 @@ class CodeWriter(object):
         self.cpu = None
         self.portal_runner_ptr = None
         self.raise_analyzer = None
+        self.jitdriver = None
 
     def find_all_graphs(self, portal_graph, leave_graph,
                         policy, supports_floats):
@@ -1187,16 +1188,30 @@ class BytecodeMaker(object):
                   self.var_position(op.args[3]))
 
     def serialize_op_jit_marker(self, op):
+        jitdriver = op.args[1].value
+        if self.codewriter.jitdriver is None:
+            self.codewriter.jitdriver = jitdriver
+        assert jitdriver is self.codewriter.jitdriver
         key = op.args[0].value
         getattr(self, 'handle_jit_marker__%s' % key)(op)
 
+    def promote_greens(self, args):
+        self.minimize_variables()
+        num_green_args = len(self.codewriter.jitdriver.greens)
+        for i in range(num_green_args):
+            pos = self.var_position(args[i])
+            if (pos % 2) == 0:
+                self.emit('guard_green', pos//2)
+
     def handle_jit_marker__jit_merge_point(self, op):
         assert self.portal, "jit_merge_point in non-main graph!"
+        self.promote_greens(op.args[2:])
         self.emit('jit_merge_point')
         assert ([self.var_position(i) for i in op.args[2:]] ==
                 range(0, 2*(len(op.args) - 2), 2))
 
     def handle_jit_marker__can_enter_jit(self, op):
+        self.promote_greens(op.args[2:])
         self.emit('can_enter_jit')
 
     def serialize_op_direct_call(self, op):
@@ -1266,6 +1281,7 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def handle_recursive_call(self, op):
+        self.promote_greens(op.args[1:])
         self.minimize_variables()
         args = op.args[1:]
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
