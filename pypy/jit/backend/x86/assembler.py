@@ -354,14 +354,16 @@ class Assembler386(object):
         # i.e. one that will not contain any JMP.
         mc = self.mc._mc
         if not we_are_translated():
-            self._block_started_mc = self.mc
+            self._block_started_mc = (self.mc, mc.tell())
             self.mc = "block started"
         return mc
 
     def _stop_block(self):
         if not we_are_translated():
             assert self.mc == "block started"
-            self.mc = self._block_started_mc
+            self.mc, orgpos = self._block_started_mc
+            assert 0 <= self.mc._mc.tell() - orgpos <= 58, (
+                "too many bytes in _start_block/_stop_block pair")
             del self._block_started_mc
 
     # ------------------------------------------------------------
