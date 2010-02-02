@@ -204,9 +204,9 @@ class World(object):
             elif line.startswith('SYS_EXECUTABLE '):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 self.symbols.update(load_symbols(filename))
+
+    def find_cross_references(self):
         # find cross-references between blocks
-        if textonly:
-            return
         fnext = 0.1
         for i, r in enumerate(self.ranges):
             for lineno, targetaddr, _ in r.findjumps():
@@ -362,5 +362,7 @@ if __name__ == '__main__':
     else:
         f = open(sys.argv[1], 'r')
     world = World()
-    world.parse(f, textonly=not showgraph)
+    world.parse(f)
+    if showgraph:
+        world.find_cross_references()
     world.show(showtext=True, showgraph=showgraph)

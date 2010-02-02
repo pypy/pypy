@@ -411,8 +411,8 @@ class RegAlloc(object):
         locs = [self.loc(v) for v in op.args]
         locs_are_ref = [v.type == REF for v in op.args]
         fail_index = self.assembler.cpu.get_fail_descr_number(op.descr)
-        self.assembler.generate_failure(self.assembler.mc, fail_index, locs,
-                                        self.exc, locs_are_ref)
+        self.assembler.generate_failure(fail_index, locs, self.exc,
+                                        locs_are_ref)
         self.possibly_free_vars(op.args)
 
     def consider_guard_no_exception(self, op):

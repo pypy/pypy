@@ -349,6 +349,21 @@ class Assembler386(object):
         finally:
             Box._extended_display = _prev
 
+    def _start_block(self):
+        # Return a 'mc' that can be used to write an "atomic" block,
+        # i.e. one that will not contain any JMP.
+        mc = self.mc._mc
+        if not we_are_translated():
+            self._block_started_mc = self.mc
+            self.mc = "block started"
+        return mc
+
+    def _stop_block(self):
+        if not we_are_translated():
+            assert self.mc == "block started"
+            self.mc = self._block_started_mc
+            del self._block_started_mc
+
     # ------------------------------------------------------------
 
     def mov(self, from_loc, to_loc):
@@ -881,12 +896,14 @@ class Assembler386(object):
             mc.CMP16(mem(locs[0], 0), imm32(expected_typeid))
 
     def genop_guard_guard_class(self, ign_1, guard_op, addr, locs, ign_2):
-        self._cmp_guard_class(self.mc._mc, locs)
+        mc = self._start_block()
+        self._cmp_guard_class(mc, locs)
+        self._stop_block()
         return self.implement_guard(addr, self.mc.JNE)
 
     def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
                                         addr, locs, ign_2):
-        mc = self.mc._mc
+        mc = self._start_block()
         mc.CMP(locs[0], imm8(1))
         mc.write(constlistofchars('\x72\x00'))             # JB later
         jb_location = mc.get_relative_pos()
@@ -895,6 +912,7 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jb_location
         assert 0 < offset <= 127
         mc.overwrite(jb_location-1, [chr(offset)])
+        self._stop_block()
         #
         return self.implement_guard(addr, self.mc.JNE)
 
@@ -1189,7 +1207,8 @@ class Assembler386(object):
         self.mc2.done()
         self.failure_recovery_code[exc + 2 * withfloats] = recovery_addr
 
-    def generate_failure(self, mc, fail_index, locs, exc, locs_are_ref):
+    def generate_failure(self, fail_index, locs, exc, locs_are_ref):
+        mc = self.mc
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
@@ -1225,8 +1244,6 @@ class Assembler386(object):
         addr = self.cpu.get_on_leave_jitted_int(save_exception=exc)
         mc.CALL(rel32(addr))
 
-        # don't break the following code sequence!   xxx no reason any more?
-        mc = mc._mc
         mc.LEA(esp, addr_add(ebp, imm(-3 * WORD)))
         mc.MOV(eax, imm(fail_index))
         mc.POP(edi)    # [ebp-12]
@@ -1284,7 +1301,7 @@ class Assembler386(object):
         assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
         self._emit_call(rel32(descr._x86_direct_bootstrap_code), arglocs, 2,
                         tmp=eax)
-        mc = self.mc._mc
+        mc = self._start_block()
         mc.CMP(eax, imm(self.cpu.done_with_this_frame_int_v))
         mc.write(constlistofchars('\x74\x00')) # JE below
         je_location = mc.get_relative_pos()
@@ -1299,6 +1316,7 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jmp_location
         assert 0 < offset <= 127
         mc.overwrite(jmp_location - 1, [chr(offset)])
+        self._stop_block()
         if isinstance(result_loc, MODRM64):
             self.mc.FSTP(result_loc)
         else:
@@ -1311,7 +1329,7 @@ class Assembler386(object):
         # bad surprizes if the code buffer is mostly full
         loc_cond = arglocs[0]
         loc_mask = arglocs[1]
-        mc = self.mc._mc
+        mc = self._start_block()
         mc.TEST(loc_cond, loc_mask)
         mc.write(constlistofchars('\x74\x00'))             # JZ after_the_call
         jz_location = mc.get_relative_pos()
@@ -1334,6 +1352,7 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
         mc.overwrite(jz_location-1, [chr(offset)])
+        self._stop_block()
 
     def genop_force_token(self, op, arglocs, resloc):
         self.mc.LEA(resloc, mem(ebp, FORCE_INDEX_OFS))
@@ -1369,13 +1388,14 @@ class Assembler386(object):
     def malloc_cond_fixedsize(self, nursery_free_adr, nursery_top_adr,
                               size, tid, slowpath_addr):
         # don't use self.mc
-        mc = self.mc._mc
+        mc = self._start_block()
         mc.MOV(eax, heap(nursery_free_adr))
         mc.LEA(edx, addr_add(eax, imm(size)))
         mc.CMP(edx, heap(nursery_top_adr))
         mc.write(constlistofchars('\x76\x00')) # JNA after the block
         jmp_adr = mc.get_relative_pos()
-        self._emit_call(rel32(slowpath_addr), [imm(size)])
+        self._emit_call(rel32(slowpath_addr), [imm(size)],
+                        force_mc=True, mc=mc)
 
         # note that slowpath_addr returns a "long long", or more precisely
         # two results, which end up in eax and edx.
@@ -1387,6 +1407,7 @@ class Assembler386(object):
         mc.overwrite(jmp_adr-1, [chr(offset)])
         mc.MOV(addr_add(eax, imm(0)), imm(tid))
         mc.MOV(heap(nursery_free_adr), edx)
+        self._stop_block()
         
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
