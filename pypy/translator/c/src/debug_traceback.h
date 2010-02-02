@@ -109,6 +109,8 @@ void pypy_debug_traceback_print(void)
           else
             {
               /* line "NULL, &KeyError" or "RERAISE, &KeyError" */
+              if (!my_etype)
+                my_etype = etype;
               if (etype != my_etype)
                 {
                   fprintf(stderr, "  Note: this traceback is "
