@@ -216,8 +216,9 @@ class RegAlloc(object):
                              selected_reg=None, imm_fine=True,
                              need_lower_byte=False):
         if var.type == FLOAT:
+            # always pass imm_fine=False for now in this case
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
-                                                 selected_reg, imm_fine,
+                                                 selected_reg, False,
                                                  need_lower_byte)
         else:
             return self.rm.make_sure_var_in_reg(var, forbidden_vars,

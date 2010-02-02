@@ -546,6 +546,12 @@ class BaseBackendTest(Runner):
             res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                          'float', descr=floatdescr)
             assert res.value == 3.4
+            #
+            self.execute_operation(rop.SETFIELD_GC, [t_box, ConstFloat(-3.6)],
+                                   'void', descr=floatdescr)
+            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                         'float', descr=floatdescr)
+            assert res.value == -3.6
 
 
     def test_passing_guards(self):
@@ -553,7 +559,7 @@ class BaseBackendTest(Runner):
         nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [BoxInt(1)]),
                (rop.GUARD_FALSE, [BoxInt(0)]),
-               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
+               (rop.GUARD_VALUE, [BoxInt(42), ConstInt(42)]),
                ]
         if not self.avoid_instances:
             all.extend([
@@ -561,7 +567,7 @@ class BaseBackendTest(Runner):
                (rop.GUARD_ISNULL, [nullbox])
                ])
         if self.cpu.supports_floats:
-            all.append((rop.GUARD_VALUE, [BoxFloat(3.5), BoxFloat(3.5)]))
+            all.append((rop.GUARD_VALUE, [BoxFloat(3.5), ConstFloat(3.5)]))
         for (opname, args) in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
@@ -580,14 +586,14 @@ class BaseBackendTest(Runner):
         nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [BoxInt(0)]),
                (rop.GUARD_FALSE, [BoxInt(1)]),
-               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
+               (rop.GUARD_VALUE, [BoxInt(42), ConstInt(41)]),
                ]
         if not self.avoid_instances:
             all.extend([
                (rop.GUARD_NONNULL, [nullbox]),
                (rop.GUARD_ISNULL, [t_box])])
         if self.cpu.supports_floats:
-            all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), BoxFloat(1.0)]))
+            all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), ConstFloat(1.0)]))
         for opname, args in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
@@ -740,7 +746,7 @@ class BaseBackendTest(Runner):
                                                          BoxFloat(3.5)],
                                    'void', descr=arraydescr)
             self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(2),
-                                                         BoxFloat(4.5)],
+                                                         ConstFloat(4.5)],
                                    'void', descr=arraydescr)
             r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(1)],
                                        'float', descr=arraydescr)
