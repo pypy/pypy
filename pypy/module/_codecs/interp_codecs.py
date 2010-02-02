@@ -318,12 +318,12 @@ def _append_unicode(space, builder, w_x):
 
 def charmap_decode(space, s, errors="strict", w_mapping=None):
     size = len(s)
-##    /* Default to Latin-1 */
+    # Default to Latin-1
     if space.is_true(space.is_(w_mapping, space.w_None)):
         return latin_1_decode(space, s, errors, space.w_False)
 
     if (size == 0):
-        return space.wrap(u'')
+        return space.newtuple([space.wrap(u''), space.wrap(0)])
     
     # fast path for all the stuff in the encodings module
     if space.is_true(space.isinstance(w_mapping, space.w_tuple)):

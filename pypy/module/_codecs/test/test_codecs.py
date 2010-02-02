@@ -118,6 +118,7 @@ class AppTestCodecs:
 
     def test_charmap_decode(self):
         from _codecs import charmap_decode
+        assert charmap_decode('', 'strict', 'blablabla') == ('', 0)
         assert charmap_decode('xxx') == ('xxx', 3)
         assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
         map = tuple([unichr(i) for i in range(256)])
