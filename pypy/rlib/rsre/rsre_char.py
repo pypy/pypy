@@ -3,6 +3,7 @@ Character categories and charsets.
 """
 import sys
 from pypy.rlib.rsre._rsre_platform import tolower, isalnum
+from pypy.rlib.unroll import unrolling_iterable
 
 # Note: the unicode parts of this module require you to call
 # rsre.set_unicode_db() first, to select one of the modules
@@ -47,6 +48,7 @@ MAXREPEAT = 65535
 
 def getlower(char_ord, flags):
     if flags & SRE_FLAG_UNICODE:
+        assert unicodedb is not None
         char_ord = unicodedb.tolower(char_ord)
     elif flags & SRE_FLAG_LOCALE:
         return tolower(char_ord)
@@ -89,18 +91,21 @@ def is_digit(code):
     return code < 128 and (ascii_char_info[code] & 1 != 0)
 
 def is_uni_digit(code):
+    assert unicodedb is not None
     return unicodedb.isdigit(code)
 
 def is_space(code):
     return code < 128 and (ascii_char_info[code] & 2 != 0)
 
 def is_uni_space(code):
+    assert unicodedb is not None
     return unicodedb.isspace(code)
 
 def is_word(code):
     return code < 128 and (ascii_char_info[code] & 16 != 0)
 
 def is_uni_word(code):
+    assert unicodedb is not None
     return unicodedb.isalnum(code) or code == underline
 
 def is_loc_alnum(code):
@@ -113,21 +118,22 @@ def is_linebreak(code):
     return code == linebreak
 
 def is_uni_linebreak(code):
+    assert unicodedb is not None
     return unicodedb.islinebreak(code)
 
 
 #### Category dispatch
 
 def category_dispatch(category_code, char_code):
-    try:
-        function, negate = category_dispatch_table[category_code]
-    except IndexError:
-        return False
-    result = function(char_code)
-    if negate:
-        return not result
+    for i, (function, negate) in category_dispatch_unroll:
+        if category_code == i:
+            result = function(char_code)
+            if negate:
+                return not result
+            else:
+                return result
     else:
-        return result
+        return False
 
 # Maps opcodes by indices to (function, negate) tuples.
 category_dispatch_table = [
@@ -139,98 +145,93 @@ category_dispatch_table = [
     (is_uni_word, True), (is_uni_linebreak, False),
     (is_uni_linebreak, True)
 ]
+category_dispatch_unroll = unrolling_iterable(
+    enumerate(category_dispatch_table))
 
 ##### Charset evaluation
 
-SET_OK = 1
-SET_NOT_OK = -1
-SET_NOT_FINISHED = 0
+SET_OK = -1
+SET_NOT_OK = -2
 
 def check_charset(char_code, context):
     """Checks whether a character matches set of arbitrary length. Currently
     assumes the set starts at the first member of pattern_codes."""
-    result = SET_NOT_FINISHED
-    context.set_ok = SET_OK
-    backup_code_position = context.code_position
-    while result == SET_NOT_FINISHED:
-        opcode = context.peek_code()
-        try:
-            function = set_dispatch_table[opcode]
-        except IndexError:
-            return False
-        result = function(context, char_code)
-    context.code_position = backup_code_position
-    return result == SET_OK
+    pattern_codes = context.pattern_codes
+    index = context.code_position
+    negated = SET_OK
+    while index >= 0:
+        opcode = pattern_codes[index]
+        for i, function in set_dispatch_unroll:
+            if function is not None and opcode == i:
+                index = function(pattern_codes, index, char_code)
+                break
+        else:
+            if opcode == 26:   # NEGATE
+                negated ^= (SET_OK ^ SET_NOT_OK)
+                index += 1
+            else:
+                return False
+    return index == negated
 
-def set_failure(ctx, char_code):
-    return -ctx.set_ok
+def set_failure(pat, index, char_code):
+    return SET_NOT_OK
 
-def set_literal(ctx, char_code):
+def set_literal(pat, index, char_code):
     # <LITERAL> <code>
-    if ctx.peek_code(1) == char_code:
-        return ctx.set_ok
+    if pat[index+1] == char_code:
+        return SET_OK
     else:
-        ctx.skip_code(2)
-        return SET_NOT_FINISHED
+        return index + 2
 
-def set_category(ctx, char_code):
+def set_category(pat, index, char_code):
     # <CATEGORY> <code>
-    if category_dispatch(ctx.peek_code(1), char_code):
-        return ctx.set_ok
+    if category_dispatch(pat[index+1], char_code):
+        return SET_OK
     else:
-        ctx.skip_code(2)
-        return SET_NOT_FINISHED
+        return index + 2
 
-def set_charset(ctx, char_code):
+def set_charset(pat, index, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
-    ctx.skip_code(1) # point to beginning of bitmap
     if CODESIZE == 2:
-        if char_code < 256 and ctx.peek_code(char_code >> 4) \
+        if char_code < 256 and pat[index+1+(char_code >> 4)] \
                                         & (1 << (char_code & 15)):
-            return ctx.set_ok
-        ctx.skip_code(16) # skip bitmap
+            return SET_OK
+        return index + 17  # skip bitmap
     else:
-        if char_code < 256 and ctx.peek_code(char_code >> 5) \
+        if char_code < 256 and pat[index+1+(char_code >> 5)] \
                                         & (1 << (char_code & 31)):
-            return ctx.set_ok
-        ctx.skip_code(8) # skip bitmap
-    return SET_NOT_FINISHED
+            return SET_OK
+        return index + 9   # skip bitmap
 
-def set_range(ctx, char_code):
+def set_range(pat, index, char_code):
     # <RANGE> <lower> <upper>
-    if ctx.peek_code(1) <= char_code <= ctx.peek_code(2):
-        return ctx.set_ok
-    ctx.skip_code(3)
-    return SET_NOT_FINISHED
+    if pat[index+1] <= char_code <= pat[index+2]:
+        return SET_OK
+    return index + 3
 
-def set_negate(ctx, char_code):
-    ctx.set_ok = -ctx.set_ok
-    ctx.skip_code(1)
-    return SET_NOT_FINISHED
-
-def set_bigcharset(ctx, char_code):
+def set_bigcharset(pat, index, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
     # XXX this function probably needs a makeover
-    count = ctx.peek_code(1)
-    ctx.skip_code(2)
+    count = pat[index+1]
+    index += 2
     if char_code < 65536:
         block_index = char_code >> 8
         # NB: there are CODESIZE block indices per bytecode
-        a = to_byte_array(ctx.peek_code(block_index / CODESIZE))
+        a = to_byte_array(pat[index+(block_index / CODESIZE)])
         block = a[block_index % CODESIZE]
-        ctx.skip_code(256 / CODESIZE) # skip block indices
+        index += 256 / CODESIZE  # skip block indices
         if CODESIZE == 2:
             shift = 4
         else:
             shift = 5
-        block_value = ctx.peek_code(block * (32 / CODESIZE)
-                                                + ((char_code & 255) >> shift))
+        block_value = pat[index+(block * (32 / CODESIZE)
+                                 + ((char_code & 255) >> shift))]
         if block_value & (1 << (char_code & ((8 * CODESIZE) - 1))):
-            return ctx.set_ok
+            return SET_OK
     else:
-        ctx.skip_code(256 / CODESIZE) # skip block indices
-    ctx.skip_code(count * (32 / CODESIZE)) # skip blocks
-    return SET_NOT_FINISHED
+        index += 256 / CODESIZE  # skip block indices
+    index += count * (32 / CODESIZE)  # skip blocks
+    return index
 
 def to_byte_array(int_value):
     """Creates a list of bytes out of an integer representing data that is
@@ -247,5 +248,8 @@ set_dispatch_table = [
     set_failure, None, None, None, None, None, None, None, None,
     set_category, set_charset, set_bigcharset, None, None, None,
     None, None, None, None, set_literal, None, None, None, None,
-    None, None, set_negate, set_range
+    None, None,
+    None,  # NEGATE
+    set_range
 ]
+set_dispatch_unroll = unrolling_iterable(enumerate(set_dispatch_table))

@@ -12,6 +12,7 @@ Core routines for regular expression matching and searching.
 from pypy.rlib.rsre import rsre_char
 from pypy.rlib.rsre.rsre_char import SRE_INFO_PREFIX, SRE_INFO_LITERAL
 from pypy.rlib.rsre.rsre_char import OPCODE_INFO, MAXREPEAT
+from pypy.rlib.unroll import unrolling_iterable
 
 #### Core classes
 
@@ -19,9 +20,16 @@ class StateMixin(object):
 
     def reset(self):
         self.string_position = self.start
-        self.marks = []
+        self.marks = [0, 0, 0, 0]
         self.lastindex = -1
-        self.marks_stack = []
+        self.marks_count = 0
+        # self.saved_marks is a list of ints that stores saved marks.
+        # For example, if s1..sn, t1..tn are two sets of saved marks:
+        #       [s1,..,sn,lastindex,x, t1,..,tn,lastindex,y, extra_unused...]
+        #        ^------------------'  ^------------------'
+        # with x and y saved indices to allow pops.
+        self.saved_marks = []
+        self.saved_marks_top = 0
         self.context_stack = []
         self.repeat = None
 
@@ -38,7 +46,7 @@ class StateMixin(object):
         for group in range(group_count):
             mark_index = 2 * group
             start = end = -1
-            if mark_index + 1 < len(self.marks):
+            if mark_index + 1 < self.marks_count:
                 start1 = self.marks[mark_index]
                 end1   = self.marks[mark_index + 1]
                 if start1 >= 0 and end1 >= 0:
@@ -48,32 +56,62 @@ class StateMixin(object):
         return regs
 
     def set_mark(self, mark_nr, position):
+        assert mark_nr >= 0
         if mark_nr & 1:
             # This id marks the end of a group.
             self.lastindex = mark_nr / 2 + 1
-        if mark_nr >= len(self.marks):
-            self.marks.extend([-1] * (mark_nr - len(self.marks) + 1))
+        if mark_nr >= self.marks_count:
+            count = self.marks_count
+            self.marks_count = mark_nr + 1
+            while mark_nr >= len(self.marks):
+                self.marks = self.marks + [0] * len(self.marks)
+            for i in range(count, mark_nr):
+                self.marks[i] = -1
         self.marks[mark_nr] = position
 
     def get_marks(self, group_index):
         marks_index = 2 * group_index
-        if len(self.marks) > marks_index + 1:
+        if self.marks_count > marks_index + 1:
             return self.marks[marks_index], self.marks[marks_index + 1]
         else:
             return -1, -1
 
     def marks_push(self):
-        self.marks_stack.append((self.marks[:], self.lastindex))
+        # Create in saved_marks: [......, m1,..,mn,lastindex,p, ...........]
+        #                                 ^p                    ^newsize
+        p = self.saved_marks_top
+        n = self.marks_count
+        assert p >= 0
+        newsize = p + n + 2
+        while len(self.saved_marks) < newsize:
+            self.saved_marks.append(-1)
+        for i in range(n):
+            self.saved_marks[p+i] = self.marks[i]
+        self.saved_marks[p+n] = self.lastindex
+        self.saved_marks[p+n+1] = p
+        self.saved_marks_top = newsize
 
     def marks_pop(self):
-        self.marks, self.lastindex = self.marks_stack.pop()
+        p0 = self.marks_pop_keep()
+        self.saved_marks_top = p0
 
     def marks_pop_keep(self):
-        marks, self.lastindex = self.marks_stack[-1]
-        self.marks = marks[:]
+        # Restore from saved_marks: [......, m1,..,mn,lastindex,p, .........]
+        #                                    ^p0      ^p1
+        p1 = self.saved_marks_top - 2
+        assert p1 >= 0
+        p0 = self.saved_marks[p1+1]
+        n = p1 - p0
+        assert p0 >= 0 and n >= 0
+        self.lastindex = self.saved_marks[p1]
+        for i in range(n):
+            self.marks[i] = self.saved_marks[p0+i]
+        self.marks_count = n
+        return p0
 
     def marks_pop_discard(self):
-        self.marks_stack.pop()
+        p0 = self.saved_marks[self.saved_marks_top-1]
+        self.saved_marks_top = p0
 
 
 class MatchContext(rsre_char.MatchContextBase):
@@ -190,7 +228,8 @@ def fast_search(state, pattern_codes):
     assert pattern_offset >= 0
     i = 0
     string_position = state.string_position
-    while string_position < state.end:
+    end = state.end
+    while string_position < end:
         while True:
             char_ord = state.get_char_ord(string_position)
             if char_ord != prefix[i]:
@@ -208,20 +247,22 @@ def fast_search(state, pattern_codes):
                     if flags & SRE_INFO_LITERAL:
                         return True # matched all of pure literal pattern
                     start = pattern_offset + 2 * prefix_skip
-                    if match(state, pattern_codes[start:]):
+                    if match(state, pattern_codes, start):
                         return True
                     i = pattern_codes[overlap_offset + i]
                 break
         string_position += 1
     return False
 
-def match(state, pattern_codes):
+def match(state, pattern_codes, pstart=0):
     # Optimization: Check string length. pattern_codes[3] contains the
     # minimum length for a string to possibly match.
-    if pattern_codes[0] == OPCODE_INFO and pattern_codes[3] > 0:
-        if state.end - state.string_position < pattern_codes[3]:
+    if pattern_codes[pstart] == OPCODE_INFO and pattern_codes[pstart+3] > 0:
+        # <INFO> <1=skip> <2=flags> <3=min>
+        if state.end - state.string_position < pattern_codes[pstart+3]:
             return False
-    state.context_stack.append(MatchContext(state, pattern_codes))
+        pstart += pattern_codes[pstart+1] + 1
+    state.context_stack.append(MatchContext(state, pattern_codes, pstart))
     has_matched = MatchContext.UNDECIDED
     while len(state.context_stack) > 0:
         context = state.context_stack[-1]
@@ -242,9 +283,11 @@ def dispatch_loop(context):
             opcode = context.resume_at_opcode
         else:
             opcode = context.peek_code()
-        try:
-            has_finished = opcode_dispatch_table[opcode](context)
-        except IndexError:
+        for i, function in opcode_dispatch_unroll:
+            if function is not None and i == opcode:
+                has_finished = function(context)
+                break
+        else:
             raise RuntimeError("Internal re error. Unknown opcode: %s" % opcode)
         if not has_finished:
             context.resume_at_opcode = opcode
@@ -419,7 +462,6 @@ def op_repeat_one(ctx):
             ctx.has_matched = ctx.MATCHED
             return True
         ctx.state.marks_push()
-        # XXX literal optimization missing here
 
     # Case 2: Repetition is resumed (aka backtracked)
     else:
@@ -432,14 +474,34 @@ def op_repeat_one(ctx):
         ctx.skip_char(-1)
         count -= 1
         ctx.state.marks_pop_keep()
-        
+
     # Initialize the actual backtracking
     if count >= mincount:
-        ctx.state.string_position = ctx.string_position
-        ctx.push_new_context(ctx.peek_code(1) + 1)
-        ctx.backup_value(mincount)
-        ctx.backup_value(count)
-        return False
+        # <optimization_only>
+        ok = True
+        nextidx = ctx.peek_code(1)
+        if ctx.peek_code(nextidx + 1) == 19: # 19 == OPCODES["literal"]
+            # tail starts with a literal. skip positions where
+            # the rest of the pattern cannot possibly match
+            chr = ctx.peek_code(nextidx + 2)
+            if ctx.at_end():
+                ctx.skip_char(-1)
+                count -= 1
+                ok = count >= mincount
+            while ok:
+                if ctx.peek_char() == chr:
+                    break
+                ctx.skip_char(-1)
+                count -= 1
+                ok = count >= mincount
+        # </optimization_only>
+
+        if ok:
+            ctx.state.string_position = ctx.string_position
+            ctx.push_new_context(ctx.peek_code(1) + 1)
+            ctx.backup_value(mincount)
+            ctx.backup_value(count)
+            return False
 
     # Backtracking failed
     ctx.state.marks_pop_discard()
@@ -785,27 +847,32 @@ def count_repetitions(ctx, maxcount):
     """Returns the number of repetitions of a single item, starting from the
     current string position. The code pointer is expected to point to a
     REPEAT_ONE operation (with the repeated 4 ahead)."""
-    count = 0
     real_maxcount = ctx.state.end - ctx.string_position
     if maxcount < real_maxcount and maxcount != MAXREPEAT:
         real_maxcount = maxcount
-    # XXX could special case every single character pattern here, as in C.
-    # This is a general solution, a bit hackisch, but works and should be
-    # efficient.
-    code_position = ctx.code_position
+    # First, special-cases for common single character patterns
     string_position = ctx.string_position
-    ctx.skip_code(4)
-    reset_position = ctx.code_position
-    while count < real_maxcount:
-        # this works because the single character pattern is followed by
-        # a success opcode
-        ctx.code_position = reset_position
-        opcode_dispatch_table[ctx.peek_code()](ctx)
-        if ctx.has_matched == ctx.NOT_MATCHED:
+    code = ctx.peek_code(4)
+    for i, function in count_repetitions_unroll:
+        if function is not None and code == i:
+            count = function(ctx, real_maxcount)
             break
-        count += 1
-    ctx.has_matched = ctx.UNDECIDED
-    ctx.code_position = code_position
+    else:
+        # This is a general solution, a bit hackisch, but works
+        code_position = ctx.code_position
+        count = 0
+        ctx.skip_code(4)
+        reset_position = ctx.code_position
+        while count < real_maxcount:
+            # this works because the single character pattern is followed by
+            # a success opcode
+            ctx.code_position = reset_position
+            opcode_dispatch_table[code](ctx)
+            if ctx.has_matched == ctx.NOT_MATCHED:
+                break
+            count += 1
+        ctx.has_matched = ctx.UNDECIDED
+        ctx.code_position = code_position
     ctx.string_position = string_position
     return count
 
@@ -833,19 +900,100 @@ opcode_dispatch_table = [
     None, #SUBPATTERN,
     op_min_repeat_one,
 ]
+opcode_dispatch_unroll = unrolling_iterable(enumerate(opcode_dispatch_table))
+
+##### count_repetitions dispatch
+
+def general_cr_in(ctx, maxcount, ignore):
+    code_position = ctx.code_position
+    count = 0
+    while count < maxcount:
+        ctx.code_position = code_position
+        ctx.skip_code(6) # set op pointer to the set code
+        char_code = ctx.peek_char(count)
+        if ignore:
+            char_code = ctx.state.lower(char_code)
+        if not rsre_char.check_charset(char_code, ctx):
+            break
+        count += 1
+    ctx.code_position = code_position
+    return count
+general_cr_in._annspecialcase_ = 'specialize:arg(2)'
+
+def cr_in(ctx, maxcount):
+    return general_cr_in(ctx, maxcount, False)
+
+def cr_in_ignore(ctx, maxcount):
+    return general_cr_in(ctx, maxcount, True)
+
+def cr_any(ctx, maxcount):
+    count = 0
+    while count < maxcount:
+        if ctx.peek_char(count) == rsre_char.linebreak:
+            break
+        count += 1
+    return count
+
+def cr_any_all(ctx, maxcount):
+    return maxcount
+
+def general_cr_literal(ctx, maxcount, ignore, negate):
+    chr = ctx.peek_code(5)
+    count = 0
+    while count < maxcount:
+        char_code = ctx.peek_char(count)
+        if ignore:
+            char_code = ctx.state.lower(char_code)
+        if negate:
+            if char_code == chr:
+                break
+        else:
+            if char_code != chr:
+                break
+        count += 1
+    return count
+general_cr_literal._annspecialcase_ = 'specialize:arg(2,3)'
+
+def cr_literal(ctx, maxcount):
+    return general_cr_literal(ctx, maxcount, False, False)
+
+def cr_literal_ignore(ctx, maxcount):
+    return general_cr_literal(ctx, maxcount, True, False)
+
+def cr_not_literal(ctx, maxcount):
+    return general_cr_literal(ctx, maxcount, False, True)
+
+def cr_not_literal_ignore(ctx, maxcount):
+    return general_cr_literal(ctx, maxcount, True, True)
+
+count_repetitions_table = [
+    None, None,
+    cr_any, cr_any_all,
+    None, None,
+    None,
+    None,
+    None,
+    None,
+    None, None,
+    None, None, None,
+    cr_in, cr_in_ignore,
+    None, None,
+    cr_literal, cr_literal_ignore,
+    None,
+    None,
+    None,
+    cr_not_literal, cr_not_literal_ignore,
+]
+count_repetitions_unroll = unrolling_iterable(
+    enumerate(count_repetitions_table))
 
 ##### At dispatch
 
 def at_dispatch(atcode, context):
-    try:
-        function, negate = at_dispatch_table[atcode]
-    except IndexError:
-        return False
-    result = function(context)
-    if negate:
-        return not result
-    else:
-        return result
+    for i, function in at_dispatch_unroll:
+        if i == atcode:
+            return function(context)
+    return False
 
 def at_beginning(ctx):
     return ctx.at_beginning()
@@ -865,17 +1013,27 @@ def at_end_string(ctx):
 def at_boundary(ctx):
     return ctx.at_boundary(rsre_char.is_word)
 
+def at_non_boundary(ctx):
+    return not at_boundary(ctx)
+
 def at_loc_boundary(ctx):
     return ctx.at_boundary(rsre_char.is_loc_word)
+
+def at_loc_non_boundary(ctx):
+    return not at_loc_boundary(ctx)
 
 def at_uni_boundary(ctx):
     return ctx.at_boundary(rsre_char.is_uni_word)
 
-# Maps opcodes by indices to (function, negate) tuples.
+def at_uni_non_boundary(ctx):
+    return not at_uni_boundary(ctx)
+
+# Maps opcodes by indices to functions
 at_dispatch_table = [
-    (at_beginning, False), (at_beginning_line, False), (at_beginning, False),
-    (at_boundary, False), (at_boundary, True),
-    (at_end, False), (at_end_line, False), (at_end_string, False),
-    (at_loc_boundary, False), (at_loc_boundary, True), (at_uni_boundary, False),
-    (at_uni_boundary, True)
+    at_beginning, at_beginning_line, at_beginning,
+    at_boundary, at_non_boundary,
+    at_end, at_end_line, at_end_string,
+    at_loc_boundary, at_loc_non_boundary,
+    at_uni_boundary, at_uni_non_boundary,
 ]
+at_dispatch_unroll = unrolling_iterable(enumerate(at_dispatch_table))
