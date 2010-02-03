@@ -124,10 +124,7 @@ class PyFrame(eval.Frame):
             return self.execute_frame()
 
     def execute_generator_frame(self, w_inputvalue, ex=False):
-        # opcode semantic change in CPython 2.5: we must pass an input value
-        # when resuming a generator, which goes into the value stack.
-        # It's not working because the value of magic must be changed in PyCode
-        if self.pycode.magic >= 0xa0df294 and self.last_instr != -1 and not ex:
+        if self.last_instr != -1 and not ex:
             self.pushvalue(w_inputvalue)
         return self.execute_frame()
 
