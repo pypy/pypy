@@ -408,22 +408,12 @@ class FunctionGcRootTracker(object):
 
     visit_xorl = binary_insn   # used in "xor reg, reg" to create a NULL GC ptr
     visit_orl = binary_insn
-    visit_cmove = binary_insn
-    visit_cmovne = binary_insn
-    visit_cmovg = binary_insn
-    visit_cmovge = binary_insn
-    visit_cmovl = binary_insn
-    visit_cmovle = binary_insn
-    visit_cmova = binary_insn
-    visit_cmovae = binary_insn
-    visit_cmovb = binary_insn
-    visit_cmovbe = binary_insn
-    visit_cmovp = binary_insn
-    visit_cmovnp = binary_insn
-    visit_cmovs = binary_insn
-    visit_cmovns = binary_insn
-    visit_cmovo = binary_insn
-    visit_cmovno = binary_insn
+    # The various cmov* operations
+    for name in '''
+        e ne g ge l le a ae b be p np s ns o no
+        '''.split():
+        locals()['visit_cmov' + name] = binary_insn
+        locals()['visit_cmov' + name + 'l'] = binary_insn
 
     def visit_andl(self, line):
         match = self.r_binaryinsn.match(line)
