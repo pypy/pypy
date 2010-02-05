@@ -36,7 +36,8 @@ class ArrayMeta(_CDataMeta):
                 res.value = property(getvalue, setvalue)
 
                 def getraw(self):
-                    return "".join([self[i] for i in range(self._length_)])
+                    return rawffi.charp2rawstring(self._buffer.buffer,
+                                                  self._length_)
 
                 def setraw(self, buffer):
                     for i in range(len(buffer)):
