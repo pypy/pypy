@@ -1,5 +1,6 @@
 
-from _ctypes.basics import _CData, _CDataMeta, ArgumentError, keepalive_key
+from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.basics import ArgumentError, keepalive_key
 import _rawffi
 import sys
 import traceback
@@ -27,6 +28,8 @@ class CFuncPtrType(_CDataMeta):
     def _is_pointer_like(self):
         return True
 
+    from_address = cdata_from_address
+
 class CFuncPtr(_CData):
     __metaclass__ = CFuncPtrType
 
@@ -36,6 +39,7 @@ class CFuncPtr(_CData):
     _ffiargshape = 'P'
     _ffishape = 'P'
     _fficompositesize = None
+    _ffiarray = _rawffi.Array('P')
     _needs_free = False
     callable = None
     _ptr = None

@@ -129,3 +129,17 @@ class TestCFuncPtr:
         assert strtok(None, "\n") == "b"
         assert strtok(None, "\n") == "c"
         assert strtok(None, "\n") == None
+
+    def test_from_address(self):
+        def make_function():
+            proto = CFUNCTYPE(c_int)
+            a=create_string_buffer(
+                "\xB8\x78\x56\x34\x12" # mov eax, 0x12345678
+                "\xc3"                 # ret 0
+                )
+            ptr = pointer(a)
+            func = proto.from_address(addressof(ptr))
+            func.__keep = ptr # keep ptr alive
+            return func
+        f = make_function()
+        assert f() == 0x12345678
