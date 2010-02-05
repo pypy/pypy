@@ -87,21 +87,23 @@ class Union(_CData):
 
     def __getattr__(self, name):
         try:
-            fieldtype = self._fieldtypes[name].ctype
+            field = self._fieldtypes[name]
         except KeyError:
             raise AttributeError(name)
+        fieldtype = field.ctype
         val = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
-        offset = self.__class__._fieldtypes[name].num        
+        offset = field.num
         return fieldtype._CData_output(val, self, offset)
 
     def __setattr__(self, name, value):
         try:
-            fieldtype = self._fieldtypes[name].ctype
+            field = self._fieldtypes[name]
         except KeyError:
             raise AttributeError(name)
+        fieldtype = field.ctype
         cobj = fieldtype.from_param(value)
         if ensure_objects(cobj) is not None:
-            key = keepalive_key(getattr(self.__class__, name).num)
+            key = keepalive_key(field.num)
             store_reference(self, key, cobj._objects)
         arg = cobj._get_buffer_value()
         if fieldtype._fficompositesize is not None:

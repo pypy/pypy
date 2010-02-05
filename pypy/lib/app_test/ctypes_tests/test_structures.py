@@ -392,6 +392,15 @@ class TestStructure(BaseCTypesTestChecker):
         x.other = 42
         assert x.other == 42
 
+    def test_withslots(self):
+        class X(Structure):
+            _fields_ = [("a", c_int * 2)]
+            __slots__ = ['a']
+
+        x = X()
+        x.a = (42, 43)
+        assert tuple(x.a) == (42, 43)
+
     def test_getattr_recursion(self):
         # Structure.__getattr__ used to call itself recursively
         # and hit the recursion limit.
