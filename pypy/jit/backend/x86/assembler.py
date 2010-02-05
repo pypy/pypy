@@ -13,7 +13,7 @@ from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, lower_byte,\
      X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs, FRAME_FIXED_SIZE,\
      FORCE_INDEX_OFS
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.backend.x86 import codebuf
+from pypy.jit.backend.x86 import codebuf, oprofile
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.support import values_array
@@ -35,18 +35,43 @@ def align_stack_words(words):
 class MachineCodeBlockWrapper(object):
     MC_DEFAULT_SIZE = 1024*1024
 
-    def __init__(self, bigsize):
+    def __init__(self, bigsize, profile_agent=None):
         self.old_mcs = [] # keepalive
         self.bigsize = bigsize
-        self._mc = codebuf.MachineCodeBlock(bigsize)
+        self._mc = self._instantiate_mc()
+        self.function_name = None
+        self.profile_agent = profile_agent
+
+    def _instantiate_mc(self): # hook for testing
+        return codebuf.MachineCodeBlock(self.bigsize)
+
 
     def bytes_free(self):
-        return self._mc._size - self._mc._pos
+        return self._mc._size - self._mc.get_relative_pos()
+
+    def start_function(self, name):
+        self.function_name = name
+        self.start_pos = self._mc.get_relative_pos()
+
+    def end_function(self, done=True):
+        assert self.function_name is not None
+        size = self._mc.get_relative_pos() - self.start_pos
+        address = self.tell() - size
+        if self.profile_agent is not None:
+            self.profile_agent.native_code_written(self.function_name,
+                                                   address, size)
+        if done:
+            self.function_name = None
 
     def make_new_mc(self):
-        new_mc = codebuf.MachineCodeBlock(self.bigsize)
+        new_mc = self._instantiate_mc()
         debug_print('[new machine code block at', new_mc.tell(), ']')
         self._mc.JMP(rel32(new_mc.tell()))
+
+        if self.function_name is not None:
+            self.end_function(done=False)
+            self.start_pos = new_mc.get_relative_pos()
+
         self._mc.done()
         self.old_mcs.append(self._mc)
         self._mc = new_mc
@@ -69,7 +94,7 @@ def _new_method(name):
     return method
 
 for name in dir(codebuf.MachineCodeBlock):
-    if name.upper() == name:
+    if name.upper() == name or name == "writechr":
         setattr(MachineCodeBlockWrapper, name, _new_method(name))
 
 class Assembler386(object):
@@ -131,7 +156,7 @@ class Assembler386(object):
             # done
             # we generate the loop body in 'mc'
             # 'mc2' is for guard recovery code
-            self.mc = MachineCodeBlockWrapper(self.mc_size)
+            self.mc = MachineCodeBlockWrapper(self.mc_size, self.cpu.profile_agent)
             self.mc2 = MachineCodeBlockWrapper(self.mc_size)
             self._build_failure_recovery(False)
             self._build_failure_recovery(True)
@@ -169,6 +194,8 @@ class Assembler386(object):
                _x86_param_depth
                _x86_arglocs
         """
+        funcname = self._find_debug_merge_point(operations)
+
         self.make_sure_mc_exists()
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
@@ -176,6 +203,10 @@ class Assembler386(object):
         needed_mem = len(arglocs[0]) * 16 + 16
         if needed_mem >= self.mc.bytes_free():
             self.mc.make_new_mc()
+
+        # profile support
+        name = "Loop # %s: %s" % (looptoken.number, funcname)
+        self.mc.start_function(name)
         looptoken._x86_bootstrap_code = self.mc.tell()
         adr_stackadjust = self._assemble_bootstrap_code(inputargs, arglocs)
         curadr = self.mc.tell()
@@ -196,8 +227,12 @@ class Assembler386(object):
                                              frame_depth+param_depth)
         debug_print("Loop #", looptoken.number, "has address",
                     looptoken._x86_loop_code, "to", self.mc.tell())
+        self.mc.end_function()
+        
 
     def assemble_bridge(self, faildescr, inputargs, operations):
+        funcname = self._find_debug_merge_point(operations)
+
         self.make_sure_mc_exists()
         arglocs = self.rebuild_faillocs_from_descr(
             faildescr._x86_failure_recovery_bytecode)
@@ -208,6 +243,12 @@ class Assembler386(object):
         fail_depths = faildescr._x86_current_depths
         regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
                                 operations)
+
+        # oprofile support
+        descr_number = self.cpu.get_fail_descr_number(faildescr)
+        name = "Bridge # %s: %s" % (descr_number, funcname)
+        self.mc.start_function(name)
+
         adr_bridge = self.mc.tell()
         adr_stackadjust = self._patchable_stackadjust()
         frame_depth, param_depth = self._assemble(regalloc, operations)
@@ -219,8 +260,16 @@ class Assembler386(object):
         # patch the jump from original guard
         self.patch_jump(faildescr, adr_bridge)
         debug_print("Bridge out of guard",
-                    self.cpu.get_fail_descr_number(faildescr),
+                    descr_number,
                     "has address", adr_bridge, "to", self.mc.tell())
+        self.mc.end_function()
+
+    def _find_debug_merge_point(self, operations):
+        for op in operations:
+            if op.opnum == rop.DEBUG_MERGE_POINT:
+                return op.args[0]._get_str()
+        return ""
+        
 
     def patch_jump(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset

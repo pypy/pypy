@@ -31,6 +31,11 @@ class AbstractCPU(object):
         """Called once by the front-end when the program starts."""
         pass
 
+    def finish_once(self):
+        """Called once by the front-end when the program stops."""
+        pass
+
+
     def compile_loop(self, inputargs, operations, looptoken):
         """Assemble the given loop.
         Extra attributes should be put in the LoopToken to

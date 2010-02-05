@@ -108,6 +108,9 @@ translation_optiondescription = OptionDescription(
                  ["off", "profile", "steps", "detailed"],
                  default="profile",      # XXX for now
                  cmdline="--jit-debug"),
+    ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
+                 ["off", "oprofile"],
+                 default="off"),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),

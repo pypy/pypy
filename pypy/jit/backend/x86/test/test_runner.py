@@ -310,6 +310,59 @@ class TestX86(LLtypeBackendTest):
                     else:
                         assert result != expected
 
+    def test_compile_bridge_check_profile_info(self):
+        from pypy.jit.backend.x86.test.test_assembler import FakeProfileAgent
+        self.cpu.profile_agent = agent = FakeProfileAgent()
+
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        faildescr1 = BasicFailDescr(1)
+        faildescr2 = BasicFailDescr(2)
+        looptoken = LoopToken()
+        class FakeString(object):
+            def __init__(self, val):
+                self.val = val
+
+            def _get_str(self):
+                return self.val
+
+        operations = [
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello")], None),
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        operations[3].fail_args = [i1]
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        name, loopaddress, loopsize = agent.functions[0]
+        assert name == "Loop # 0: hello"
+        assert loopaddress <= looptoken._x86_loop_code
+        assert loopsize >= 40 # randomish number
+
+        i1b = BoxInt()
+        i3 = BoxInt()
+        bridge = [
+            ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
+            ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye")], None),
+            ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
+        ]
+        bridge[1].fail_args = [i1b]
+
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        name, address, size = agent.functions[1]
+        assert name == "Bridge # 0: bye"
+        assert address == loopaddress + loopsize
+        assert size >= 10 # randomish number
+
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 2
+        res = self.cpu.get_latest_value_int(0)
+        assert res == 20
 
 class TestX86OverflowMC(TestX86):
 
