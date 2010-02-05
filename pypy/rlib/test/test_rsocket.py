@@ -288,7 +288,7 @@ def test_getaddrinfo_codespeak():
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '213.239.226.252':
+        if addr.get_host() == '88.198.193.90':
             found = True
     assert found, lst
 
