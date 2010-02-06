@@ -351,12 +351,9 @@ str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_Strin
 
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
-    str_w = space.str_w
     if list_w:
         self = w_self._value
-        listlen = 0
         reslen = 0
-        l = [None] * len(list_w)
         for i in range(len(list_w)):
             w_s = list_w[i]
             if not space.is_true(space.isinstance(w_s, space.w_str)):
@@ -370,8 +367,14 @@ def str_join__String_ANY(space, w_self, w_list):
                     space.w_TypeError,
                     "sequence item %d: expected string, %s "
                     "found", i, space.type(w_s).getname(space, '?'))
-            l[i] = space.str_w(w_s)
-        return space.wrap(self.join(l))
+            reslen += len(space.str_w(w_s))
+        reslen += len(self) * (len(list_w) - 1)
+        sb = StringBuilder(reslen)
+        for i in range(len(list_w)):
+            if self and i != 0:
+                sb.append(self)
+            sb.append(space.str_w(list_w[i]))
+        return space.wrap(sb.build())
     else:
         return W_StringObject.EMPTY
 
