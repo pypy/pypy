@@ -639,7 +639,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # an optional shortcut for performance
         from pypy.objspace.descroperation import raiseattrerror
-        from pypy.objspace.descroperation import object_getattribute
         w_type = self.type(w_obj)
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
