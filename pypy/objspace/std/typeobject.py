@@ -697,7 +697,10 @@ def getattr__Type_ANY(space, w_type, w_name):
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
         if space.is_data_descr(w_descr):
-            return space.get(w_descr,w_type)
+            w_get = space.lookup(w_descr, "__get__")
+            if w_get is not None:
+                return space.get_and_call_function(w_get, w_descr, w_type,
+                                                   space.type(w_type))
     w_value = w_type.lookup(name)
     if w_value is not None:
         # __get__(None, type): turns e.g. functions into unbound methods

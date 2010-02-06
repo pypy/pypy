@@ -705,6 +705,20 @@ class AppTestTypeObject:
             pass
         raises(TypeError, "class D(A, C): pass")
 
+    def test_data_descriptor_without_get(self):
+        class Descr(object):
+            def __init__(self, name):
+                self.name = name
+            def __set__(self, obj, what):
+                pass
+        class Meta(type):
+            pass
+        class X(object):
+            __metaclass__ = Meta
+        X.a = 42
+        Meta.a = Descr("a")
+        assert X.a == 42
+
     def test_user_defined_mro_cls_access(self):
         d = []
         class T(type):
