@@ -125,13 +125,15 @@ def is_uni_linebreak(code):
 #### Category dispatch
 
 def category_dispatch(category_code, char_code):
-    for i, (function, negate) in category_dispatch_unroll:
+    i = 0
+    for function, negate in category_dispatch_unroll:
         if category_code == i:
             result = function(char_code)
             if negate:
                 return not result
             else:
                 return result
+        i = i + 1
     else:
         return False
 
@@ -145,8 +147,7 @@ category_dispatch_table = [
     (is_uni_word, True), (is_uni_linebreak, False),
     (is_uni_linebreak, True)
 ]
-category_dispatch_unroll = unrolling_iterable(
-    enumerate(category_dispatch_table))
+category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
 
 ##### Charset evaluation
 
@@ -161,10 +162,12 @@ def check_charset(char_code, context):
     negated = SET_OK
     while index >= 0:
         opcode = pattern_codes[index]
-        for i, function in set_dispatch_unroll:
+        i = 0
+        for function in set_dispatch_unroll:
             if function is not None and opcode == i:
                 index = function(pattern_codes, index, char_code)
                 break
+            i = i + 1
         else:
             if opcode == 26:   # NEGATE
                 negated ^= (SET_OK ^ SET_NOT_OK)
@@ -252,4 +255,4 @@ set_dispatch_table = [
     None,  # NEGATE
     set_range
 ]
-set_dispatch_unroll = unrolling_iterable(enumerate(set_dispatch_table))
+set_dispatch_unroll = unrolling_iterable(set_dispatch_table)
