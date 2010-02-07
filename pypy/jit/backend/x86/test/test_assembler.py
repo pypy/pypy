@@ -258,7 +258,7 @@ class FakeMCWrapper(MachineCodeBlockWrapper):
         return FakeMC(200 * (self.count - 1))
 
 def test_mc_wrapper_profile_agent():
-    agent = ProfileAgent()
+    agent = FakeProfileAgent()
     mc = FakeMCWrapper(100, agent)
     mc.start_function("abc")
     mc.writechr("x")
