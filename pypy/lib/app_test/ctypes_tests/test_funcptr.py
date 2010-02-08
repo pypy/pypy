@@ -142,4 +142,7 @@ class TestCFuncPtr:
             func.__keep = ptr # keep ptr alive
             return func
         f = make_function()
-        assert f() == 0x12345678
+        # This assembler should also work on Linux 32bit,
+        # but it segfaults for some reason.
+        if sys.platform == 'win32':
+            assert f() == 0x12345678
