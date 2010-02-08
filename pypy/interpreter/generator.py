@@ -44,7 +44,10 @@ return next yielded value or raise StopIteration."""
                                  space.wrap('generator already executing'))
         if self.frame.frame_finished_execution:
             raise OperationError(space.w_StopIteration, space.w_None)
-        if self.frame.last_instr == -1:
+        # XXX it's not clear that last_instr should be promoted at all
+        # but as long as it is necessary for call_assembler, let's do it early
+        last_instr = hint(self.frame.last_instr, promote=True)
+        if last_instr == -1:
             if w_arg and not space.is_w(w_arg, space.w_None):
                 msg = "can't send non-None value to a just-started generator"
                 raise OperationError(space.w_TypeError, space.wrap(msg))
