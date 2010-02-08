@@ -31,8 +31,8 @@ jit_merge_point is supposed to go at the start of opcode dispatch.  It allows
 the JIT to bail back to the interpreter in case running machine code is no
 longer suitable.  can_enter_jit goes at the end of a application level loop.  In
 the Python interpreter, this is the JUMP_ABSOLUTE bytecode.  The Python
-interpreter defines its hints in pypy/module/pypyjit/interp_jit.py.
-XXX by overloading default frame behavior from pyframe
+interpreter defines its hints in pypy/module/pypyjit/interp_jit.py in a few
+overriden methods of the defaut interpreter loop.
 
 The interpreter wishing to use the PyPy's JIT must define a list of *green*
 variables and a list of *red* variables.  The *green* variables are loop
@@ -98,9 +98,8 @@ constants.  All values which are "promoted", assumed to be constant by the JIT
 for optimization purposes, are also stored in constant boxes.  Normal boxes
 contain values that may change during the running of a loop.  There are three
 kinds of normal boxes: BoxInt, BoxPtr, and BoxFloat, and four kinds of constant
-boxes: ConstInt, ConstPtr, ConstFloat, and ConstAddr.
-XXX ConstAddr is only a hack for translation not to translate pointers,
-XXX nothing more
+boxes: ConstInt, ConstPtr, ConstFloat, and ConstAddr.  (ConstAddr is only used
+to get around a limitation in the translation toolchain.)
 
 The meta-interpreter starts interpreting the JIT bytecode.  Each operation is
 executed and then recorded in a list of operations, called the trace.
