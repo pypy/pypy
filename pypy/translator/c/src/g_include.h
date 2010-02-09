@@ -17,7 +17,9 @@
 #include "src/mem.h"
 #include "src/exception.h"
 #include "src/support.h"
+#ifndef PY_LONG_LONG
 #define PY_LONG_LONG long long
+#endif
 
 #ifndef PYPY_STANDALONE
 #  include "src/pyobj.h"
