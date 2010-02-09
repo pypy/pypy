@@ -778,7 +778,13 @@ class FunctionCodeGenerator(object):
         return 'fprintf(stderr, "%%s\\n", %s); abort();' % msg
 
     def OP_DEBUG_LLINTERPCALL(self, op):
-        return 'abort();  /* debug_llinterpcall should be unreachable */'
+        result = 'abort();  /* debug_llinterpcall should be unreachable */'
+        TYPE = self.lltypemap(op.result)
+        if TYPE is not Void:
+            typename = self.db.gettype(TYPE)
+            result += '\n%s = (%s)0;' % (self.expr(op.result),
+                                         cdecl(typename, ''))
+        return result
 
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value
