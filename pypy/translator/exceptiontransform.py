@@ -86,7 +86,15 @@ class BaseExceptionTransformer(object):
             exc_data.exc_value = null_value
 
         def rpyexc_raise(etype, evalue):
-            # assert(!RPyExceptionOccurred());
+            # When compiling in debug mode, the following ll_asserts will
+            # crash the program as soon as it raises AssertionError or
+            # NotImplementedError.  Useful when you are in a debugger.
+            # When compiling in release mode, AssertionErrors and
+            # NotImplementedErrors are raised normally, and only later
+            # caught by debug_catch_exception and printed, which allows
+            # us to see at least part of the traceback for them.
+            ll_assert(etype != assertion_error_ll_exc_type, "AssertionError")
+            ll_assert(etype != n_i_error_ll_exc_type, "NotImplementedError")
             exc_data.exc_type = etype
             exc_data.exc_value = evalue
             lloperation.llop.debug_start_traceback(lltype.Void, etype)

@@ -16,13 +16,16 @@ from pypy.conftest import option
 class StandaloneTests(object):
     config = None
 
-    def compile(self, entry_point):
+    def compile(self, entry_point, debug=True):
         t = TranslationContext(self.config)
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
 
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+        if debug:
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+        else:
+            cbuilder.generate_source()
         cbuilder.compile()
         if option.view:
             t.view()
@@ -511,7 +514,17 @@ class TestStandalone(StandaloneTests):
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in raiseme', l3)
 
-    def test_assertion_error(self):
+    def test_assertion_error_debug(self):
+        def entry_point(argv):
+            assert len(argv) != 1
+            return 0
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'in pypy_g_RPyRaiseException: AssertionError'
+
+    def test_assertion_error_nondebug(self):
         def g(x):
             assert x != 1
         def f(argv):
@@ -522,7 +535,7 @@ class TestStandalone(StandaloneTests):
         def entry_point(argv):
             f(argv)
             return 0
-        t, cbuilder = self.compile(entry_point)
+        t, cbuilder = self.compile(entry_point, debug=False)
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
@@ -535,7 +548,17 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
-    def test_ll_assert_error(self):
+    def test_ll_assert_error_debug(self):
+        def entry_point(argv):
+            ll_assert(len(argv) != 1, "foobar")
+            return 0
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out, err = cbuilder.cmdexec("", expect_crash=True)
+        assert out.strip() == ''
+        lines = err.strip().splitlines()
+        assert lines[-1] == 'in pypy_g_entry_point: foobar'
+
+    def test_ll_assert_error_nondebug(self):
         py.test.skip("implement later, maybe: tracebacks even with ll_assert")
         def g(x):
             ll_assert(x != 1, "foobar")
