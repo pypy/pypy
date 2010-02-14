@@ -1068,7 +1068,8 @@ class MIFrame(object):
             self.make_result_box(resbox)
         if exc:
             return self.metainterp.handle_exception()
-        return False
+        else:
+            return self.metainterp.assert_no_exception()
 
     def do_residual_call(self, argboxes, descr, exc):
         effectinfo = descr.get_extra_info()
@@ -1084,7 +1085,8 @@ class MIFrame(object):
             self.generate_guard(self.pc, rop.GUARD_NOT_FORCED, None, [])
             if exc:
                 return self.metainterp.handle_exception()
-            return False
+            else:
+                return self.metainterp.assert_no_exception()
         else:
             return self.execute_varargs(rop.CALL, argboxes, descr, exc)
 
@@ -1889,6 +1891,10 @@ class MetaInterp(object):
         else:
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
             return False
+
+    def assert_no_exception(self):
+        assert not self.cpu.get_exception()
+        return False
 
     def handle_overflow_error(self):
         frame = self.framestack[-1]
