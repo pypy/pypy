@@ -92,6 +92,7 @@ class VirtualRefInfo:
         if not self.is_virtual_ref(gcref):
             return False
         vref = lltype.cast_opaque_ptr(lltype.Ptr(self.JIT_VIRTUAL_REF), gcref)
+        assert vref.forced
         if vref.virtual_token:
             # not modified by the residual call; assert that it is still
             # set to TOKEN_TRACING_RESCALL and clear it.
@@ -115,6 +116,7 @@ class VirtualRefInfo:
     def continue_tracing(self, gcref, real_object):
         if not self.is_virtual_ref(gcref):
             return
+        assert real_object
         vref = lltype.cast_opaque_ptr(lltype.Ptr(self.JIT_VIRTUAL_REF), gcref)
         assert vref.virtual_token != self.TOKEN_TRACING_RESCALL
         vref.virtual_token = self.TOKEN_NONE
@@ -144,12 +146,15 @@ class VirtualRefInfo:
                 # We only need to reset virtual_token to TOKEN_NONE
                 # as a marker for the tracing, to tell it that this
                 # "virtual" escapes.
+                assert vref.forced
                 vref.virtual_token = self.TOKEN_NONE
             else:
                 assert not vref.forced
                 from pypy.jit.metainterp.compile import ResumeGuardForcedDescr
                 ResumeGuardForcedDescr.force_now(self.cpu, token)
                 assert vref.virtual_token == self.TOKEN_NONE
-        assert vref.forced
+                assert vref.forced
+        else:
+            assert vref.forced
         return vref.forced
     force_virtual._dont_inline_ = True

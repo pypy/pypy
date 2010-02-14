@@ -783,6 +783,7 @@ class Optimizer(object):
         # typically a PyPy PyFrame, and now is the end of its execution, so
         # forcing it now does not have catastrophic effects.
         vrefinfo = self.metainterp_sd.virtualref_info
+        assert op.args[1].nonnull()
         # - set 'forced' to point to the real object
         op1 = ResOperation(rop.SETFIELD_GC, op.args, None,
                           descr = vrefinfo.descr_forced)
