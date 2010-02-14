@@ -1,4 +1,3 @@
-import py
 from pypy.conftest import gettestobjspace
 
 class AppTest_Descriptor:
