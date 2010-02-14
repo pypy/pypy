@@ -24,19 +24,6 @@ import sys
 import os
 import __builtin__
 
-#check for sets
-try:
-    s = set()
-    del s
-except NameError:
-    try:
-        from sets import Set as set
-        from sets import ImmutableSet as frozenset
-    except ImportError:
-        class DummySet(object):pass
-        set = DummySet
-        frozenset = DummySet
-
 _registered_implementations = {}
 def registerimplementation(implcls):
     # hint to objspace.std.model to register the implementation class
