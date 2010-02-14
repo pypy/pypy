@@ -485,6 +485,19 @@ class TestAnnotateTestCase:
         assert not isinstance(dictkey(s), annmodel.SomeString)
         assert not isinstance(dictvalue(s), annmodel.SomeString)
 
+    def test_dict_update_2(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return {3: 4}
+        def f(n):
+            g(0)
+            d = {}
+            d.update(g(n))
+            return d
+        s = a.build_types(f, [int])
+        assert dictkey(s).knowntype == int
+
     def test_dict_keys(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.dict_keys, [])

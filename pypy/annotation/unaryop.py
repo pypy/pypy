@@ -409,6 +409,8 @@ class __extend__(SomeDict):
         return SomeDict(dct.dictdef)
 
     def method_update(dct1, dct2):
+        if s_None.contains(dct2):
+            return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
 
     def method_keys(dct):
