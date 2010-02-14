@@ -538,7 +538,7 @@ class Bookkeeper:
         # this might need to expand some more.
         if x in self.descs:
             return True
-        elif x in self.seen_mutable:
+        elif (x.__class__, x) in self.seen_mutable:
             return True
         else:
             return False
@@ -564,10 +564,11 @@ class Bookkeeper:
             return result
 
     def see_mutable(self, x):
-        if x in self.seen_mutable:
+        key = (x.__class__, x)
+        if key in self.seen_mutable:
             return
         clsdef = self.getuniqueclassdef(x.__class__)        
-        self.seen_mutable[x] = True
+        self.seen_mutable[key] = True
         self.event('mutable', x)
         source = InstanceSource(self, x)
         for attr in source.all_instance_attributes():

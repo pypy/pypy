@@ -2445,7 +2445,33 @@ class TestAnnotateTestCase:
         v1, v2 = graphof(a, readout).getargs()
         assert not a.bindings[v1].is_constant()
         assert not a.bindings[v2].is_constant()
-    
+
+    def test_prebuilt_mutables_dont_use_eq(self):
+        # test that __eq__ is not called during annotation, at least
+        # when we know that the classes differ anyway
+        class Base(object):
+            def __eq__(self, other):
+                if self is other:
+                    return True
+                raise ValueError
+            def __hash__(self):
+                return 42
+        class A(Base):
+            pass
+        class B(Base):
+            pass
+        a1 = A()
+        a2 = B()
+        a1.x = 5
+        a2.x = 6
+
+        def f():
+            return a1.x + a2.x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == int
+
     def test_helper_method_annotator(self):
         def fun():
             return 21
