@@ -425,6 +425,17 @@ class TestAnnotateTestCase:
             s_meth = s_example.getattr(iv(methname))
             assert isinstance(s_constmeth, annmodel.SomeBuiltin)
 
+    def test_str_join(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return ["foo", "bar"]
+        def f(n):
+            g(0)
+            return ''.join(g(n))
+        s = a.build_types(f, [int])
+        assert s.knowntype == str
+
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
         def f(a_str):

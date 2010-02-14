@@ -477,6 +477,8 @@ class __extend__(SomeString,
         return str.basestringclass()
 
     def method_join(str, s_list):
+        if s_None.contains(s_list):
+            return SomeImpossibleValue()
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
         if isinstance(s_item, SomeImpossibleValue):
