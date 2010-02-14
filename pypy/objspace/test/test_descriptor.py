@@ -125,7 +125,7 @@ class AppTest_Descriptor:
         class F: # can return long
             def __hash__(self):
                 return long(2**33)
-        assert hash(F()) == 2 # 2.5 behavior
+        assert hash(F()) == hash(2**33) # 2.5 behavior
 
         class G:
             def __hash__(self):
