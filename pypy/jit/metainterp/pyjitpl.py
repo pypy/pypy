@@ -1799,8 +1799,6 @@ class MetaInterp(object):
             self.initialize_virtualizable_enter()
 
     def initialize_virtualizable_enter(self):
-        # Switched from the interpreter (case 1 in the comment in
-        # virtualizable.py) to tracing mode (case 2): force vable_rti to NULL.
         vinfo = self.staticdata.virtualizable_info
         virtualizable_box = self.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
