@@ -726,7 +726,7 @@ class FunctionCodeGenerator(object):
                     free_line = "RPyString_FreeCache();"
                 continue
             elif T == Signed:
-                format.append('%d')
+                format.append('%ld')
             elif T == Float:
                 format.append('%f')
             elif isinstance(T, Ptr) or T == Address:
