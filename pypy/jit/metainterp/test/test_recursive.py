@@ -73,7 +73,7 @@ class RecursiveTests:
             print '%3d %9d' % (i, f(i))
         res = self.meta_interp(main, [10], optimizer=OPTIMIZER_SIMPLE)
         assert res == main(10)
-        self.check_enter_count_at_most(10)
+        self.check_enter_count_at_most(11)
 
     def test_bug_1(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'i', 'stack'])
@@ -367,7 +367,7 @@ class RecursiveTests:
         res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
-        self.check_enter_count(15) # maybe
+        self.check_enter_count_at_most(10) # maybe
         self.check_aborted_count(7)
 
     def test_trace_limit_bridge(self):
@@ -666,7 +666,6 @@ class RecursiveTests:
         self.meta_interp(portal, [2], inline=True)
         self.check_history(call_assembler=1)
 
-    @py.test.mark.xfail
     def test_recursion_cant_call_assembler_directly(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'j'],
                            get_printable_location = lambda codeno : str(codeno),
@@ -684,8 +683,8 @@ class RecursiveTests:
 
         portal(2, 50)
         self.meta_interp(portal, [2, 20], inline=True)
-        self.check_history(call_assembler=0)
-        self.check_enter_count_at_most(4)
+        self.check_history(call_assembler=0, call_may_force=1)
+        self.check_enter_count_at_most(1)
 
     def test_directly_call_assembler_return(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],

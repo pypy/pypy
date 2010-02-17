@@ -143,8 +143,8 @@ class VirtualTests:
                 node = next
                 n -= 1
             return node.value
-        res = self.meta_interp(f, [10], policy=StopAtXPolicy(externfn))
-        assert res == f(10)
+        res = self.meta_interp(f, [11], policy=StopAtXPolicy(externfn))
+        assert res == f(11)
         self.check_loop_count(2)
         self.check_loops(**{self._new_op: 2})     # XXX was 1
         self.check_loops(int_mul=0, call=1)

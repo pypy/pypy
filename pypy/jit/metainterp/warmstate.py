@@ -227,12 +227,14 @@ class WarmEnterState(object):
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
-                # bound reached; start tracing
                 if not confirm_enter_jit(*args):
                     cell.counter = 0
                     return
+                # bound reached; start tracing
                 from pypy.jit.metainterp.pyjitpl import MetaInterp
                 metainterp = MetaInterp(metainterp_sd)
+                # set counter to -2, to mean "tracing in effect"
+                cell.counter = -2
                 try:
                     loop_token = metainterp.compile_and_run_once(*args)
                 except ContinueRunningNormally:
@@ -240,7 +242,15 @@ class WarmEnterState(object):
                     cell.counter = 0
                     self.disable_noninlinable_function(metainterp)
                     raise
+                finally:
+                    if cell.counter == -2:
+                        cell.counter = 0
             else:
+                if cell.counter == -2:
+                    # tracing already happening in some outer invocation of
+                    # this function. don't trace a second time.
+                    return
+                assert cell.counter == -1
                 if not confirm_enter_jit(*args):
                     return
                 # machine code was already compiled for these greenargs
@@ -296,9 +306,14 @@ class WarmEnterState(object):
             return self.jit_getter
         #
         class JitCell(BaseJitCell):
+            # the counter can mean the following things:
+            #     counter >=  0: not yet traced, wait till threshold is reached
+            #     counter == -1: there is an entry bridge for this cell
+            #     counter == -2: tracing is currently going on for this cell
             counter = 0
             compiled_merge_points = None
             dont_trace_here = False
+            entry_loop_token = None
         #
         if self.warmrunnerdesc.get_jitcell_at_ptr is None:
             jit_getter = self._make_jitcell_getter_default(JitCell)

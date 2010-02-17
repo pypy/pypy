@@ -312,7 +312,7 @@ class SendTests:
             return x
         res = self.meta_interp(f, [198], policy=StopAtXPolicy(externfn))
         assert res == f(198)
-        self.check_loop_count(3)
+        self.check_loop_count(4)
 
     def test_indirect_call_unknown_object_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'state'])
