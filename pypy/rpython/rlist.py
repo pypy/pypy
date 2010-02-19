@@ -537,6 +537,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             item = source.ll_getitem_fast(source_start + i)
             dest.ll_setitem_fast(dest_start + i, item)
             i += 1
+ll_arraycopy._annenforceargs_ = [None, None, int, int, int]
 
 def ll_copy(RESLIST, l):
     length = l.ll_length()
