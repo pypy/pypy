@@ -12,6 +12,7 @@ from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
+from pypy.rlib.jit import purefunction
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.tool.udir import udir
@@ -413,3 +414,28 @@ class TestCompileHybrid(object):
     def test_compile_hybrid_external_exception_handling(self):
         self.run('compile_hybrid_external_exception_handling')
             
+    def define_compile_hybrid_bug1(self):
+        @purefunction
+        def nonmoving():
+            x = X(1)
+            for i in range(7):
+                rgc.collect()
+            return x
+
+        @dont_look_inside
+        def do_more_stuff():
+            x = X(5)
+            for i in range(7):
+                rgc.collect()
+            return x
+
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            x0 = do_more_stuff()
+            check(nonmoving().x == 1)
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+
+        return None, f, None
+
+    def test_compile_hybrid_bug1(self):
+        self.run('compile_hybrid_bug1', 200)
