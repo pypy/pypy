@@ -1255,9 +1255,7 @@ class BytecodeMaker(object):
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
             pure = getattr(func, "_pure_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
-            all_promoted_args = getattr(func,
-                               "_pure_function_with_all_promoted_args_", False)
-            if pure and not all_promoted_args:
+            if pure or loopinvariant:
                 effectinfo = calldescr.get_extra_info()
                 assert (effectinfo is not None and
                         not effectinfo.forces_virtual_or_virtualizable)

@@ -94,7 +94,8 @@ class W_TypeObject(W_Object):
         w_self.w_same_layout_as = get_parent_layout(w_self)
 
         if space.config.objspace.std.withtypeversion:
-            if w_self.instancetypedef.hasdict or custom_metaclass:
+            if (w_self.instancetypedef.hasdict or custom_metaclass or
+                not is_mro_purely_of_types(w_self.mro_w)):
                 pass
             else:
                 w_self._version_tag = VersionTag()
@@ -238,6 +239,18 @@ class W_TypeObject(W_Object):
                 return w_class, w_value
         return None, None
 
+    def _lookup_where_all_typeobjects(w_self, key):
+        # like _lookup_where(), but when we know that w_self.mro_w only
+        # contains W_TypeObjects.  (It differs from _lookup_where() mostly
+        # from a JIT point of view: it cannot invoke arbitrary Python code.)
+        space = w_self.space
+        for w_class in w_self.mro_w:
+            assert isinstance(w_class, W_TypeObject)
+            w_value = w_class.getdictvalue(space, key)
+            if w_value is not None:
+                return w_class, w_value
+        return None, None
+
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
         w_self = hint(w_self, promote=True)
@@ -271,7 +284,7 @@ class W_TypeObject(W_Object):
                             space.method_cache_hits.get(name, 0) + 1
 #                print "hit", w_self, name
                 return tup
-        tup = w_self._lookup_where(name)
+        tup = w_self._lookup_where_all_typeobjects(name)
         space.method_cache_versions[method_hash] = version_tag
         space.method_cache_names[method_hash] = name
         space.method_cache_lookup_where[method_hash] = tup
@@ -610,6 +623,12 @@ def validate_custom_mro(space, mro_w):
             raise OperationError(space.w_TypeError,
                                  space.wrap("mro() returned a non-class"))
     return mro_w
+
+def is_mro_purely_of_types(mro_w):
+    for w_class in mro_w:
+        if not isinstance(w_class, W_TypeObject):
+            return False
+    return True
 
 # ____________________________________________________________
 

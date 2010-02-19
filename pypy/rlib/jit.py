@@ -29,7 +29,6 @@ def loop_invariant(func):
 def purefunction_promote(func):
     import inspect
     purefunction(func)
-    func._pure_function_with_all_promoted_args_ = True
     args, varargs, varkw, defaults = inspect.getargspec(func)
     args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
