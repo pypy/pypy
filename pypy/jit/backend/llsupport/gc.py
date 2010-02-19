@@ -503,15 +503,16 @@ class GcLLDescr_framework(GcLLDescription):
             # xxx some performance issue here
             for i in range(len(op.args)):
                 v = op.args[i]
-                if (isinstance(v, ConstPtr) and bool(v.value)
-                                            and rgc.can_move(v.value)):
-                    box = BoxPtr(v.value)
+                if isinstance(v, ConstPtr) and bool(v.value):
                     addr = self.gcrefs.get_address_of_gcref(v.value)
-                    addr = cpu.cast_adr_to_int(addr)
-                    newops.append(ResOperation(rop.GETFIELD_RAW,
-                                               [ConstInt(addr)], box,
-                                               self.single_gcref_descr))
-                    op.args[i] = box
+                    # ^^^even for non-movable objects, to record their presence
+                    if rgc.can_move(v.value):
+                        box = BoxPtr(v.value)
+                        addr = cpu.cast_adr_to_int(addr)
+                        newops.append(ResOperation(rop.GETFIELD_RAW,
+                                                   [ConstInt(addr)], box,
+                                                   self.single_gcref_descr))
+                        op.args[i] = box
             # ---------- write barrier for SETFIELD_GC ----------
             if op.opnum == rop.SETFIELD_GC:
                 v = op.args[1]
