@@ -2,20 +2,15 @@
 
 This is transformed to become a JIT by code elsewhere: pypy/jit/*
 """
-import py
-import sys
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, Arguments
-from pypy.interpreter.eval import Frame
 from pypy.interpreter.pycode import PyCode, CO_CONTAINSLOOP
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.function import Function
 from pypy.interpreter.pyopcode import ExitFrame
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 
