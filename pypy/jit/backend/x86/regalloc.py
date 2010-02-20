@@ -677,6 +677,8 @@ class RegAlloc(object):
         tmp0 = TempBox()
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         self.rm.force_allocate_reg(tmp0, selected_reg=edx)
+        # XXX about the next 10 lines: why not just say
+        #      force_allocate_reg(tmp1, selected_reg=ecx)?????
         for v, reg in self.rm.reg_bindings.items():
             if reg is ecx:
                 to_sync = v
