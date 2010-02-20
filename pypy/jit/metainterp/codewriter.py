@@ -835,6 +835,8 @@ class BytecodeMaker(object):
         hints = op.args[1].value
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:
             self.minimize_variables()
+            from pypy.rpython.lltypesystem.rstr import STR
+            assert op.args[0].concretetype != lltype.Ptr(STR)
             self.emit('guard_value', self.var_position(op.args[0]))
             self.register_var(op.result)
         else:

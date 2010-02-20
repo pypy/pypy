@@ -25,11 +25,35 @@ class BaseTestJIT(BaseRtypingTest):
         assert res == 5
 
     def test_purefunction_promote(self):
-        @purefunction_promote
+        @purefunction_promote()
         def g(func):
             return func + 1
         def f(x):
             return g(x * 2)
+        res = self.interpret(f, [2])
+        assert res == 5
+
+    def test_purefunction_promote_args(self):
+        @purefunction_promote(promote_args='0')
+        def g(func, x):
+            return func + 1
+        def f(x):
+            return g(x * 2, x)
+        
+        import dis
+        from StringIO import StringIO
+        import sys
+        
+        s = StringIO()
+        sys.stdout = s
+        dis.dis(g)
+        sys.stdout = sys.__stdout__
+        x = s.getvalue().find('CALL_FUNCTION')
+        assert x != -1
+        x = s.getvalue().find('CALL_FUNCTION', x)
+        assert x != -1
+        x = s.getvalue().find('CALL_FUNCTION', x)
+        assert x != -1
         res = self.interpret(f, [2])
         assert res == 5
 

@@ -1,6 +1,7 @@
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
-from pypy.rlib.jit import purefunction_promote, hint, we_are_jitted, unroll_safe
+from pypy.rlib.jit import purefunction_promote, we_are_jitted, unroll_safe
+from pypy.rlib.jit import purefunction
 from pypy.rlib.rweakref import RWeakValueDictionary
 
 NUM_DIGITS = 4
@@ -32,11 +33,11 @@ class SharedStructure(object):
         self.other_structs.set(added_key, new_structure)
         return new_structure
 
-    @purefunction_promote
+    @purefunction_promote('0')
     def lookup_position(self, key):
         return self.keys.get(key, -1)
 
-    @purefunction_promote
+    @purefunction_promote('0')
     def get_next_structure(self, key):
         new_structure = self.other_structs.get(key)
         if new_structure is None:
@@ -45,7 +46,7 @@ class SharedStructure(object):
         self._size_estimate += new_structure.size_estimate()
         return new_structure
 
-    @purefunction_promote
+    @purefunction_promote()
     def size_estimate(self):
         return self._size_estimate >> NUM_DIGITS
 

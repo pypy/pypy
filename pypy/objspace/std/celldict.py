@@ -28,10 +28,11 @@ class ModuleDictImplementation(W_DictMultiObject):
         if makenew or jit.we_are_jitted():
             # when we are jitting, we always go through the pure function
             # below, to ensure that we have no residual dict lookup
+            self = jit.hint(self, promote=True)
             return self._getcell_makenew(key)
         return self.content.get(key, None)
 
-    @jit.purefunction_promote
+    @jit.purefunction
     def _getcell_makenew(self, key):
         res = self.content.get(key, None)
         if res is not None:

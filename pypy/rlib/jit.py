@@ -25,24 +25,27 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
-
-def purefunction_promote(func):
-    import inspect
-    purefunction(func)
-    args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
-    assert varargs is None and varkw is None
-    assert not defaults
-    argstring = ", ".join(args)
-    code = ["def f(%s):\n" % (argstring, )]
-    for arg in args:
-        code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-    code.append("    return func(%s)\n" % (argstring, ))
-    d = {"func": func, "hint": hint}
-    exec py.code.Source("\n".join(code)).compile() in d
-    result = d["f"]
-    result.func_name = func.func_name + "_promote"
-    return result
+def purefunction_promote(promote_args='all'):
+    def decorator(func):
+        import inspect
+        purefunction(func)
+        args, varargs, varkw, defaults = inspect.getargspec(func)
+        args = ["v%s" % (i, ) for i in range(len(args))]
+        assert varargs is None and varkw is None
+        assert not defaults
+        argstring = ", ".join(args)
+        code = ["def f(%s):\n" % (argstring, )]
+        if promote_args != 'all':
+            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+        for arg in args:
+            code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
+        code.append("    return func(%s)\n" % (argstring, ))
+        d = {"func": func, "hint": hint}
+        exec py.code.Source("\n".join(code)).compile() in d
+        result = d["f"]
+        result.func_name = func.func_name + "_promote"
+        return result
+    return decorator
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
