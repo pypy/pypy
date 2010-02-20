@@ -104,6 +104,7 @@ def descr_set__bases__(space, w_type, w_value):
     from pypy.objspace.std.typeobject import W_TypeObject
     from pypy.objspace.std.typeobject import check_and_find_best_base
     from pypy.objspace.std.typeobject import get_parent_layout
+    from pypy.objspace.std.typeobject import is_mro_purely_of_types
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
@@ -159,6 +160,11 @@ def descr_set__bases__(space, w_type, w_value):
             cls.mro_w = old_mro
         w_type.bases_w = saved_bases_w
         raise
+    if not is_mro_purely_of_types(w_type.mro_w):
+        # Disable method cache if the hierarchy isn't pure.
+        w_type._version_tag = None
+        for w_subclass in w_type.get_subclasses():
+            w_subclass._version_tag = None
     assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
 
 def descr__base(space, w_type):

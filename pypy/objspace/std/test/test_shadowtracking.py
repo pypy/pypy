@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+from pypy.objspace.std.test.test_typeobject import AppTestTypeObject
 
 class TestShadowTracking(object):
     def setup_class(cls):
@@ -104,6 +105,12 @@ class AppTestShadowTracking(object):
         assert a.f() == 42
         a.f = lambda : 43
         assert a.f() == 43
+
+class AppTestTypeWithMethodCache(AppTestTypeObject):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter" : True})
 
 class AppTestMethodCaching(AppTestShadowTracking):
     def setup_class(cls):
