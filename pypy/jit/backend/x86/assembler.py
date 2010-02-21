@@ -1389,16 +1389,12 @@ class Assembler386(object):
         for i in range(len(arglocs)-1, 2, -1):
             mc.PUSH(arglocs[i])
         mc.CALL(rel32(op.args[2].getint()))
-        pop_count = 0
-        for i in range(3, len(arglocs)):
+        mc.POP(eax)
+        mc.POP(eax)
+        for i in range(5, len(arglocs)):
             loc = arglocs[i]
-            pop_count += 1
-            if isinstance(loc, REG):
-                while pop_count > 0:
-                    mc.POP(loc)
-                    pop_count -= 1
-        if pop_count:
-            mc.ADD(esp, imm(WORD * pop_count))
+            assert isinstance(loc, REG)
+            mc.POP(loc)
         # patch the JZ above
         offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
