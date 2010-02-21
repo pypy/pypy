@@ -2529,7 +2529,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, 0, descr=virtualtokendescr)
+        setfield_gc(p2, -2, descr=virtualtokendescr)
         jump(p1)
         """
         # XXX we should optimize a bit more the case of a nonvirtual.
@@ -2571,7 +2571,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, 0, descr=virtualtokendescr)
+        setfield_gc(p2, -2, descr=virtualtokendescr)
         #
         jump(p0, i1)
         """
@@ -2613,7 +2613,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, 0, descr=virtualtokendescr)
+        setfield_gc(p2, -2, descr=virtualtokendescr)
         #
         jump(p0, i1)
         """
