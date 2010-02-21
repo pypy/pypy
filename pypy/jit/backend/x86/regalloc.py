@@ -668,6 +668,11 @@ class RegAlloc(object):
                 and self.rm.stays_alive(v)
                 and reg not in arglocs[3:]):
                 arglocs.append(reg)
+        # XXX this generates code that looks like: push eax / call / pop eax
+        # and expects eax to be saved, even though it's also an argument to
+        # the call.  This holds so far, by looking at the assembler of
+        # remember_young_pointer(), but it may be a bit fragile.  For a
+        # fix see r71364+r71370.
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars(op.args)
 
