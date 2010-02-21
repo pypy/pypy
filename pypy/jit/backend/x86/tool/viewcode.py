@@ -262,6 +262,13 @@ class World(object):
         if showgraph:
             g1.display()
 
+    def showtextonly(self):
+        self.ranges.sort()
+        for r in self.ranges:
+            disassembled = r.disassemble()
+            print disassembled
+            del r.text
+
 
 def tab2columns(text):
     lines = text.split('\n')
@@ -365,4 +372,6 @@ if __name__ == '__main__':
     world.parse(f)
     if showgraph:
         world.find_cross_references()
-    world.show(showtext=True, showgraph=showgraph)
+        world.show(showtext=True)
+    else:
+        world.showtextonly()
