@@ -1073,7 +1073,7 @@ class MIFrame(object):
 
     def do_residual_call(self, argboxes, descr, exc):
         effectinfo = descr.get_extra_info()
-        if effectinfo is None or effectinfo.forces_virtual_or_virtualizable:
+        if effectinfo is None:
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.vable_and_vrefs_before_residual_call()
             # xxx do something about code duplication

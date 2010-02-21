@@ -1024,7 +1024,7 @@ class HeapOpOptimizer(object):
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_ASSEMBLER):
-            if opnum == rop.CALL_ASSEMBLER:
+            if opnum != rop.CALL:
                 effectinfo = None
             else:
                 effectinfo = op.descr.get_extra_info()

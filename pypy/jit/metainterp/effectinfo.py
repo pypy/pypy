@@ -8,24 +8,20 @@ class EffectInfo(object):
     _cache = {}
 
     def __new__(cls, readonly_descrs_fields,
-                write_descrs_fields, write_descrs_arrays,
-                forces_virtual_or_virtualizable=False):
+                write_descrs_fields, write_descrs_arrays):
         key = (frozenset(readonly_descrs_fields),
                frozenset(write_descrs_fields),
-               frozenset(write_descrs_arrays),
-               forces_virtual_or_virtualizable)
+               frozenset(write_descrs_arrays))
         if key in cls._cache:
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
         result.write_descrs_fields = write_descrs_fields
         result.write_descrs_arrays = write_descrs_arrays
-        result.forces_virtual_or_virtualizable= forces_virtual_or_virtualizable
         cls._cache[key] = result
         return result
 
-def effectinfo_from_writeanalyze(effects, cpu,
-                                 forces_virtual_or_virtualizable=False):
+def effectinfo_from_writeanalyze(effects, cpu):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
@@ -61,8 +57,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
             assert 0
     return EffectInfo(readonly_descrs_fields,
                       write_descrs_fields,
-                      write_descrs_arrays,
-                      forces_virtual_or_virtualizable)
+                      write_descrs_arrays)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
