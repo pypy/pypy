@@ -531,6 +531,25 @@ class PyPyCJITTests(object):
         bytecode, = self.get_by_bytecode("COMPARE_OP")
         assert len(bytecode.get_opnames()) <= 2    # oois, guard_true
 
+    def test_chain_of_guards(self):
+        self.run_source('''
+        class A(object):
+            def method_x(self):
+                return 3
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            i = 0
+            while i < 2000:
+                name = l[arg]
+                sum += getattr(a, 'method_' + name)()
+                i += 1
+            return sum
+        ''', 3000, ([0], 2000*3))
+        assert len(self.loops) == 1
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
