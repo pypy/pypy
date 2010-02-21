@@ -164,7 +164,8 @@ def descr_set__bases__(space, w_type, w_value):
         # Disable method cache if the hierarchy isn't pure.
         w_type._version_tag = None
         for w_subclass in w_type.get_subclasses():
-            w_subclass._version_tag = None
+            if isinstance(w_type, W_TypeObject):
+                w_subclass._version_tag = None
     assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
 
 def descr__base(space, w_type):
