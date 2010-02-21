@@ -1,5 +1,6 @@
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.debug import fatalerror
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
@@ -351,9 +352,13 @@ class GcLLDescr_framework(GcLLDescription):
             type_id = llop.extract_ushort(rffi.USHORT, tid)
             has_finalizer = bool(tid & (1<<16))
             _check_typeid(type_id)
-            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                  type_id, size, True,
-                                                  has_finalizer, False)
+            try:
+                res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                      type_id, size, True,
+                                                      has_finalizer, False)
+            except MemoryError:
+                fatalerror("out of memory (from JITted code)")
+                res = lltype.nullptr(llmemory.GCREF.TO)
             #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
             #                 "-->", res)
             return res
@@ -366,10 +371,14 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(rffi.USHORT, tid)
             _check_typeid(type_id)
-            return llop1.do_malloc_varsize_clear(
-                llmemory.GCREF,
-                type_id, num_elem, self.array_basesize, itemsize,
-                self.array_length_ofs, True)
+            try:
+                return llop1.do_malloc_varsize_clear(
+                    llmemory.GCREF,
+                    type_id, num_elem, self.array_basesize, itemsize,
+                    self.array_length_ofs, True)
+            except MemoryError:
+                fatalerror("out of memory (from JITted code)")
+                return lltype.nullptr(llmemory.GCREF.TO)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
             [lltype.Signed] * 3, llmemory.GCREF))
@@ -382,22 +391,34 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
-            return llop1.do_malloc_varsize_clear(
-                llmemory.GCREF,
-                str_type_id, length, str_basesize, str_itemsize,
-                str_ofs_length, True)
+            try:
+                return llop1.do_malloc_varsize_clear(
+                    llmemory.GCREF,
+                    str_type_id, length, str_basesize, str_itemsize,
+                    str_ofs_length, True)
+            except MemoryError:
+                fatalerror("out of memory (from JITted code)")
+                return lltype.nullptr(llmemory.GCREF.TO)
         def malloc_unicode(length):
-            return llop1.do_malloc_varsize_clear(
-                llmemory.GCREF,
-                unicode_type_id, length, unicode_basesize, unicode_itemsize,
-                unicode_ofs_length, True)
+            try:
+                return llop1.do_malloc_varsize_clear(
+                    llmemory.GCREF,
+                    unicode_type_id, length, unicode_basesize,unicode_itemsize,
+                    unicode_ofs_length, True)
+            except MemoryError:
+                fatalerror("out of memory (from JITted code)")
+                return lltype.nullptr(llmemory.GCREF.TO)
         self.malloc_str = malloc_str
         self.malloc_unicode = malloc_unicode
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
             [lltype.Signed], llmemory.GCREF))
         def malloc_fixedsize_slowpath(size):
-            gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                        0, size, True, False, False)
+            try:
+                gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                            0, size, True, False, False)
+            except MemoryError:
+                fatalerror("out of memory (from JITted code)")
+                return r_ulonglong(0)
             res = rffi.cast(lltype.Signed, gcref)
             nurs_free = llop1.gc_adr_of_nursery_free(llmemory.Address).signed[0]
             return r_ulonglong(nurs_free) << 32 | r_ulonglong(r_uint(res))
