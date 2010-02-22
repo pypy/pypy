@@ -142,8 +142,25 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert w_MODULE.version_tag() is None
         assert w_OBJECT.version_tag() is not None
 
+    def test_version_tag_mixes_oldnew(self):
+        space = self.space
+        w_types = space.appexec([], """():
+        class A:
+            pass
+
+        class B(A, object):
+            pass
+
+        return A, B
+        """)
+        w_A, w_B = space.unpackiterable(w_types)
+        oldtag = w_B.version_tag()
+        space.setattr(w_A, space.wrap("x"), space.w_None)
+        newtag = w_B.version_tag()
+        if oldtag is not None:
+            assert newtag != oldtag
+
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})
-
 
