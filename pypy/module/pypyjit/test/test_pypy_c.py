@@ -551,6 +551,29 @@ class PyPyCJITTests(object):
         ''', 3000, ([0], 2000*3))
         assert len(self.loops) == 1
 
+    def test_blockstack_virtualizable(self):
+        py.test.skip("Fails for now")
+        self.run_source('''
+        def g(k):
+            s = 0
+            for i in range(k, k+2):
+                s += 1
+            return s
+
+        def main():
+            i = 0
+            while i < 100:
+                try:
+                    g(i)
+                except:
+                    pass
+                i += 1
+            return i
+        ''', 1000, ([], 100))
+        bytecode, = self.get_by_bytecode("CALL_FUNCTION")
+        # we allocate virtual ref and frame, we don't want block
+        assert len(bytecode.get_opnames('new_with_vtable')) == 2
+
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
