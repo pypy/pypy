@@ -1,6 +1,7 @@
 
+import py
 from pypy.jit.tool.otherviewer import splitloops, FinalBlock, Block,\
-     split_one_loop, postprocess
+     split_one_loop, postprocess, main
 
 def preparse(data):
     return "\n".join([i.strip() for i in data.split("\n") if i.strip()])
@@ -38,3 +39,8 @@ class TestSplitLoops(object):
         real_loops = [FinalBlock("debug_merge_point('<code object _runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357> #40 POP_TOP')", None)]
         postprocess(real_loops)
         assert real_loops[0].content.startswith("_runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357")
+
+    def test_load_actual(self):
+        fname = py.path.local(__file__).join('..', 'data.log.bz2')
+        main(str(fname), view=False)
+        # assert did not explode

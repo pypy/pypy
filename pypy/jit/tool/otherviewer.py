@@ -142,12 +142,13 @@ def postprocess(loops):
     for loop in loops:
         postprocess_loop(loop, loops, memo)
 
-def main(loopfile):
+def main(loopfile, view=True):
     log = logparser.parse_log_file(loopfile)
     loops = logparser.extract_category(log, "jit-log-opt-")
     allloops = splitloops(loops)
     postprocess(allloops)
-    Page(allloops).display()
+    if view:
+        Page(allloops).display()
 
 if __name__ == '__main__':
     parser = optparse.OptionParser(usage=__doc__)

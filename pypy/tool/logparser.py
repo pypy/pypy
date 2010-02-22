@@ -9,7 +9,7 @@ Actions:
 import autopath
 import sys, re
 from pypy.rlib.debug import DebugLog
-
+import bz2
 
 def parse_log_file(filename):
     r_start = re.compile(r"\[([0-9a-fA-F]+)\] \{([\w-]+)$")
@@ -19,7 +19,10 @@ def parse_log_file(filename):
     time_decrase = False
     performance_log = True
     nested = 0
-    f = open(filename, 'r')
+    try:
+        f = bz2.BZ2File(filename, 'r')
+    except:
+        f = open(filename, 'r')
     for line in f:
         line = line.rstrip()
         match = r_start.match(line)
