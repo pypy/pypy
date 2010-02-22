@@ -39,6 +39,7 @@ BOX_COLOR = (128, 0, 96)
 
 class BasicBlock(object):
     counter = 0
+    startlineno = 0
 
     def __init__(self, content):
         self.content = content
@@ -135,10 +136,9 @@ def split_one_loop(allloops, guard_s, guard_content, lineno):
 
 def splitloops(loops):
     real_loops = []
-    counter = 0
+    counter = 1
     for loop in loops:
         firstline = loop[:loop.find("\n")]
-        counter += loop.count("\n")
         m = re.match('# Loop (\d+)', firstline)
         if m:
             no = int(m.group(1))
@@ -150,6 +150,7 @@ def splitloops(loops):
             assert m
             guard_s = 'Guard' + m.group(1)
             split_one_loop(real_loops, guard_s, loop, counter)
+        counter += loop.count("\n") + 2
     return real_loops
 
 def postprocess_loop(loop, loops, memo):
@@ -158,11 +159,11 @@ def postprocess_loop(loop, loops, memo):
     memo.add(loop)
     if loop is None:
         return
-    m = re.search("debug_merge_point\('<code object (.*?)>", loop.content)
+    m = re.search("debug_merge_point\('<code object (.*?)> (.*?)'", loop.content)
     if m is None:
         name = '?'
     else:
-        name = m.group(1)
+        name = m.group(1) + " " + m.group(2)
     opsno = loop.content.count("\n")
     lastline = loop.content[loop.content.rfind("\n", 0, len(loop.content) - 2):]
     m = re.search('descr=<Loop(\d+)', lastline)
