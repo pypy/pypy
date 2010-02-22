@@ -20,10 +20,10 @@ def parse_log_file(filename):
     performance_log = True
     nested = 0
     try:
-        f = bz2.BZ2File(filename, 'r')
+        lines = bz2.BZ2File(filename, 'r').readlines()
     except:
-        f = open(filename, 'r')
-    for line in f:
+        lines = open(filename, 'r').readlines()
+    for line in lines:
         line = line.rstrip()
         match = r_start.match(line)
         if match:
@@ -42,7 +42,6 @@ def parse_log_file(filename):
         time_decrase = time_decrase or time < lasttime
         lasttime = time
         record(match.group(2), time=int(match.group(1), 16))
-    f.close()
     if performance_log and time_decrase:
         raise Exception("The time decreases!  The log file may have been"
                         " produced on a multi-CPU machine and the process"
