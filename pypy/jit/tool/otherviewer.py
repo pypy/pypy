@@ -5,6 +5,7 @@
 import optparse
 import sys
 import re
+import math
 
 import autopath
 from pypy.translator.tool.graphpage import GraphPage
@@ -30,16 +31,26 @@ class BasicBlock(object):
     def name(self):
         return 'node' + str(self.no)
 
-    def getcolor(self):
-        if self.ratio > 8:
-            return 'red'
-        elif self.ratio > 5:
-            return 'yellow'
-        return 'green'
-
     def generate(self, dotgen, memo):
         dotgen.emit_node(self.name(), label=self.content,
-                         shape='box', fillcolor=self.getcolor())
+                         shape='box', fillcolor=get_gradient_color(self.ratio))
+
+def get_gradient_color(ratio):
+    ratio = math.log(ratio)      # from -infinity to +infinity
+    #
+    # ratio: <---------------------- 1.8 --------------------->
+    #        <-- towards green ---- YELLOW ---- towards red -->
+    #
+    ratio -= 1.8
+    ratio = math.atan(ratio * 5) / (math.pi/2)
+    # now ratio is between -1 and 1
+    if ratio >= 0.0:
+        # from yellow (ratio=0) to red (ratio=1)
+        return '#FF%02X00' % (int((1.0-ratio)*255.5),)
+    else:
+        # from yellow (ratio=0) to green (ratio=-1)
+        return '#%02XFF00' % (int((1.0+ratio)*255.5),)
+
 
 class FinalBlock(BasicBlock):
     def __init__(self, content, target):
