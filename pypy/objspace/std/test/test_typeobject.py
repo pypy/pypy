@@ -945,6 +945,12 @@ class AppTestMutableBuiltintypes:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.immutable_builtintypes": False})
 
+    def test_del_type_mro(self):
+        del type.mro
+        # Make sure the default mro function is used.
+        class X(object):
+            pass
+
     def test_mutate_builtintype(self):
         list.a = 1
         def doublelen(self):
