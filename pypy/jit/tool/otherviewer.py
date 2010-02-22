@@ -12,13 +12,30 @@ from pypy.translator.tool.graphpage import GraphPage
 from pypy.translator.tool.make_dot import DotGen
 from pypy.tool import logparser
 
+class SubPage(GraphPage):
+    def compute(self, graph):
+        dotgen = DotGen(str(graph.no))
+        dotgen.emit_node(graph.name(), shape="box", label=graph.content)
+        self.source = dotgen.generate(target=None)
+
 class Page(GraphPage):
     def compute(self, graphs):
         dotgen = DotGen('trace')
-        memo = set()
+        self.loops = set()
         for graph in graphs:
-            graph.generate(dotgen, memo)
+            graph.grab_loops(self.loops)
+        self.links = {}
+        self.cache = {}
+        for loop in self.loops:
+            loop.generate(dotgen)
+            loop.getlinks(self.links)
+            self.cache["loop" + str(loop.no)] = loop
         self.source = dotgen.generate(target=None)
+
+    def followlink(self, label):
+        return SubPage(self.cache[label])
+
+BOX_COLOR = (128, 0, 96)
 
 class BasicBlock(object):
     counter = 0
@@ -31,8 +48,11 @@ class BasicBlock(object):
     def name(self):
         return 'node' + str(self.no)
 
-    def generate(self, dotgen, memo):
-        dotgen.emit_node(self.name(), label=self.content,
+    def getlinks(self, links):
+        links[self.linksource] = self.name()
+
+    def generate(self, dotgen):
+        dotgen.emit_node(self.name(), label=self.header,
                          shape='box', fillcolor=get_gradient_color(self.ratio))
 
 def get_gradient_color(ratio):
@@ -60,14 +80,17 @@ class FinalBlock(BasicBlock):
     def postprocess(self, loops, memo):
         postprocess_loop(self.target, loops, memo)
 
-    def generate(self, dotgen, memo):
-        if self in memo:
+    def grab_loops(self, loops):
+        if self in loops:
             return
-        memo.add(self)
-        BasicBlock.generate(self, dotgen, memo)
+        loops.add(self)
+        if self.target is not None:
+            self.target.grab_loops(loops)
+
+    def generate(self, dotgen):
+        BasicBlock.generate(self, dotgen)
         if self.target is not None:
             dotgen.emit_edge(self.name(), self.target.name())
-            self.target.generate(dotgen, memo)
 
 class Block(BasicBlock):
     def __init__(self, content, left, right):
@@ -79,17 +102,19 @@ class Block(BasicBlock):
         postprocess_loop(self.left, loops, memo)
         postprocess_loop(self.right, loops, memo)
 
-    def generate(self, dotgen, memo):
-        if self in memo:
+    def grab_loops(self, loops):
+        if self in loops:
             return
-        memo.add(self)
-        BasicBlock.generate(self, dotgen, memo)
+        loops.add(self)
+        self.left.grab_loops(loops)
+        self.right.grab_loops(loops)
+
+    def generate(self, dotgen):
+        BasicBlock.generate(self, dotgen)
         dotgen.emit_edge(self.name(), self.left.name())
         dotgen.emit_edge(self.name(), self.right.name())
-        self.left.generate(dotgen, memo)
-        self.right.generate(dotgen, memo)
 
-def split_one_loop(allloops, guard_s, guard_content):
+def split_one_loop(allloops, guard_s, guard_content, lineno):
     for i, loop in enumerate(allloops):
         content = loop.content
         pos = content.find(guard_s + '>')
@@ -104,21 +129,27 @@ def split_one_loop(allloops, guard_s, guard_content):
                                 FinalBlock(content[newpos + 1:oldpos] + "\n" +
                                            guard_content, None))
             allloops[i].guard_s = guard_s
+            allloops[i].startlineno = loop.startlineno
+            allloops[i].left.startlineno = loop.startlineno + content.count("\n", 0, pos)
+            allloops[i].right.startlineno = lineno
 
 def splitloops(loops):
     real_loops = []
+    counter = 0
     for loop in loops:
         firstline = loop[:loop.find("\n")]
+        counter += loop.count("\n")
         m = re.match('# Loop (\d+)', firstline)
         if m:
             no = int(m.group(1))
             assert len(real_loops) == no
             real_loops.append(FinalBlock(loop, None))
+            real_loops[-1].startlineno = counter
         else:
             m = re.search("bridge out of Guard (\d+)", firstline)
             assert m
             guard_s = 'Guard' + m.group(1)
-            split_one_loop(real_loops, guard_s, loop)
+            split_one_loop(real_loops, guard_s, loop, counter)
     return real_loops
 
 def postprocess_loop(loop, loops, memo):
@@ -139,13 +170,15 @@ def postprocess_loop(loop, loops, memo):
         assert isinstance(loop, FinalBlock)
         loop.target = loops[int(m.group(1))]
     bcodes = loop.content.count('debug_merge_point')
-    loop.content = "%s\n%d operations\n%d opcodes" % (name, opsno,
-                                                      bcodes)
-    loop.content += "\n" * (opsno / 100)
+    loop.linksource = "loop" + str(loop.no)
+    loop.header = "%s loop%d\n%d operations\n%d opcodes" % (name, loop.no, opsno,
+                                                          bcodes)
+    loop.header += "\n" * (opsno / 100)
     if bcodes == 0:
         loop.ratio = opsno
     else:
         loop.ratio = float(opsno) / bcodes
+    loop.content = "Logfile at %d" % loop.startlineno
     loop.postprocess(loops, memo)
 
 def postprocess(loops):
