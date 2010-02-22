@@ -160,7 +160,9 @@ def descr_set__bases__(space, w_type, w_value):
             cls.mro_w = old_mro
         w_type.bases_w = saved_bases_w
         raise
-    if not is_mro_purely_of_types(w_type.mro_w):
+    if (space.config.objspace.std.withtypeversion and
+        w_type.version_tag() is not None and
+        not is_mro_purely_of_types(w_type.mro_w)):
         # Disable method cache if the hierarchy isn't pure.
         w_type._version_tag = None
         for w_subclass in w_type.get_subclasses():
