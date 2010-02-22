@@ -494,7 +494,9 @@ class UserDelAction(AsyncAction):
         pending_w = self.dying_objects_w
         self.dying_objects_w = []
         space = self.space
-        for w_obj in pending_w:
+        for i in range(len(pending_w)):
+            w_obj = pending_w[i]
+            pending_w[i] = None
             try:
                 space.userdel(w_obj)
             except OperationError, e:
