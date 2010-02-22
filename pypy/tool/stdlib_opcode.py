@@ -61,8 +61,8 @@ class OpcodeDesc(object):
         return i, self.index
 
     def __cmp__(self, other):
-        return cmp(self.sortkey(), other.sortkey())
-
+        return (cmp(self.__class__, other.__class__) or
+                cmp(self.sortkey(), other.sortkey()))
 
 opdescmap = {}
 
