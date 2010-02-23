@@ -174,5 +174,3 @@ class SemiSpaceGCTests(SemiSpaceGCTestDefines):
             return self.interpret(func, [])
         else:
             assert 0, "don't know what to do with that"
-
-    
