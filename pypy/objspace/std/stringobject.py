@@ -161,21 +161,11 @@ otherwise."""
 
 def str_upper__String(space, w_self):
     self = w_self._value
-    res = [' '] * len(self)
-    for i in range(len(self)):
-        ch = self[i]
-        res[i] = _upper(ch)
-
-    return space.wrap("".join(res))
+    return space.wrap(self.upper())
 
 def str_lower__String(space, w_self):
     self = w_self._value
-    res = [' '] * len(self)
-    for i in range(len(self)):
-        ch = self[i]
-        res[i] = _lower(ch)
-
-    return space.wrap("".join(res))
+    return space.wrap(self.lower())
 
 def str_swapcase__String(space, w_self):
     self = w_self._value
