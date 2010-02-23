@@ -38,7 +38,7 @@ class TestSplitLoops(object):
         p60 = getfield_gc(p4, descr=<GcPtrFieldDescr 16>)
         guard_nonnull(p60, descr=<Guard5>) [p0, p1]
         """), None)]
-        split_one_loop(real_loops, 'Guard5', 'extra')
+        split_one_loop(real_loops, 'Guard5', 'extra', 1)
         assert isinstance(real_loops[1], Block)
         assert real_loops[1].content.endswith('p1]')
         assert real_loops[1].left.content == ''
@@ -47,7 +47,7 @@ class TestSplitLoops(object):
     def test_postparse(self):
         real_loops = [FinalBlock("debug_merge_point('<code object _runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357> #40 POP_TOP')", None)]
         postprocess(real_loops)
-        assert real_loops[0].content.startswith("_runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357")
+        assert real_loops[0].header.startswith("_runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357")
 
     def test_load_actual(self):
         fname = py.path.local(__file__).join('..', 'data.log.bz2')
