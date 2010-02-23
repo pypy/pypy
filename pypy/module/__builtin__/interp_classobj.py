@@ -193,7 +193,7 @@ class W_ClassObject(Wrappable):
 
     def __repr__(self):
         # NOT_RPYTHON
-        print '<W_ClassObject(%s)>' % self.name
+        return '<W_ClassObject(%s)>' % self.name
 
 def class_descr_call(space, w_self, __args__):
     self = space.interp_w(W_ClassObject, w_self)
