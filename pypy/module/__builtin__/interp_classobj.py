@@ -191,6 +191,10 @@ class W_ClassObject(Wrappable):
             return space.str_w(w_mod)
         return "?"
 
+    def __repr__(self):
+        # NOT_RPYTHON
+        print '<W_ClassObject(%s)>' % self.name
+
 def class_descr_call(space, w_self, __args__):
     self = space.interp_w(W_ClassObject, w_self)
     if self.lookup(space, space.wrap('__del__')) is not None:
