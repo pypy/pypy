@@ -53,6 +53,13 @@
 /* Pentium only! */
 #define READ_TIMESTAMP(val) \
      asm volatile("rdtsc" : "=A" (val))
+// Kernel has a barrier around rtdsc 
+// mfence
+// lfence
+// rtdsc
+// mfence
+// lfence
+// I don't know how important it is, comment talks about time warps
 
 
 /* prototypes */
