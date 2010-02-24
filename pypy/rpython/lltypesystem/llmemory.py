@@ -490,7 +490,7 @@ class fakeaddress(object):
         if self.ptr is not None and self.ptr._was_freed():
             # hack to support llarena.test_replace_object_with_stub()
             from pypy.rpython.lltypesystem import llarena
-            return llarena._getfakearenaaddress(self)
+            return llarena.getfakearenaaddress(self)
         else:
             return self
 

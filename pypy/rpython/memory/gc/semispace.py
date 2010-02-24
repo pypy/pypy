@@ -21,10 +21,21 @@ GCFLAG_FORWARDED = first_gcflag
 # either immortal objects or (for HybridGC) externally raw_malloc'ed
 GCFLAG_EXTERNAL = first_gcflag << 1
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 2
-GCFLAG_HASHTAKEN = first_gcflag << 3      # someone already asked for the hash
-GCFLAG_HASHFIELD = first_gcflag << 4      # we have an extra hash field
+
+_GCFLAG_HASH_BASE = first_gcflag << 3
+GCFLAG_HASHMASK = _GCFLAG_HASH_BASE * 0x3   # also consumes 'first_gcflag << 4'
+# the two bits in GCFLAG_HASHMASK can have one of the following values:
+#   - nobody ever asked for the hash of the object
+GC_HASH_NOTTAKEN   = _GCFLAG_HASH_BASE * 0x0
+#   - someone asked, and we gave the address of the object
+GC_HASH_TAKEN_ADDR = _GCFLAG_HASH_BASE * 0x1
+#   - someone asked, and we gave the address plus 'nursery_hash_base'
+GC_HASH_TAKEN_NURS = _GCFLAG_HASH_BASE * 0x2
+#   - we have our own extra field to store the hash
+GC_HASH_HASFIELD   = _GCFLAG_HASH_BASE * 0x3
 
 memoryError = MemoryError()
+
 
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
@@ -35,9 +46,9 @@ class SemiSpaceGC(MovingGCBase):
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HASHFIELD
-    # ^^^ all prebuilt objects have GCFLAG_HASHTAKEN, but only some have
-    #     GCFLAG_HASHFIELD (and then they are one word longer).
+    withhash_flag_is_in_field = 'tid', _GCFLAG_HASH_BASE * 0x2
+    # ^^^ prebuilt objects either have GC_HASH_TAKEN_ADDR or they
+    #     have GC_HASH_HASFIELD (and then they are one word longer).
     FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                                   ('forw', llmemory.Address))
     FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
@@ -316,7 +327,7 @@ class SemiSpaceGC(MovingGCBase):
     def get_size_incl_hash(self, obj):
         size = self.get_size(obj)
         hdr = self.header(obj)
-        if hdr.tid & GCFLAG_HASHFIELD:
+        if (hdr.tid & GCFLAG_HASHMASK) == GC_HASH_HASFIELD:
             size += llmemory.sizeof(lltype.Signed)
         return size
 
@@ -351,22 +362,31 @@ class SemiSpaceGC(MovingGCBase):
             self.set_forwarding_address(obj, newobj, objsize)
             return newobj
 
+    def _get_object_hash(self, obj, objsize, tid):
+        # Returns the hash of the object, which must not be GC_HASH_NOTTAKEN.
+        gc_hash = tid & GCFLAG_HASHMASK
+        if gc_hash == GC_HASH_HASFIELD:
+            obj = llarena.getfakearenaaddress(obj)
+            return (obj + objsize).signed[0]
+        elif gc_hash == GC_HASH_TAKEN_ADDR:
+            return llmemory.cast_adr_to_int(obj)
+        elif gc_hash == GC_HASH_TAKEN_NURS:
+            return self._compute_current_nursery_hash(obj)
+        else:
+            assert 0, "gc_hash == GC_HASH_NOTTAKEN"
+
     def _make_a_copy_with_tid(self, obj, objsize, tid):
         totalsize = self.size_gc_header() + objsize
         newaddr = self.free
         llarena.arena_reserve(newaddr, totalsize)
         raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
-        #
-        # check if we need to write a hash value at the end of the new obj
-        if tid & (GCFLAG_HASHTAKEN|GCFLAG_HASHFIELD):
-            if tid & GCFLAG_HASHFIELD:
-                hash = (obj + objsize).signed[0]
-            else:
-                hash = llmemory.cast_adr_to_int(obj)
-                tid |= GCFLAG_HASHFIELD
+        if tid & GCFLAG_HASHMASK:
+            hash = self._get_object_hash(obj, objsize, tid)
+            llarena.arena_reserve(newaddr + totalsize,
+                                  llmemory.sizeof(lltype.Signed))
             (newaddr + totalsize).signed[0] = hash
+            tid |= GC_HASH_HASFIELD
             totalsize += llmemory.sizeof(lltype.Signed)
-        #
         self.free += totalsize
         newhdr = llmemory.cast_adr_to_ptr(newaddr, lltype.Ptr(self.HDR))
         newhdr.tid = tid
@@ -446,7 +466,7 @@ class SemiSpaceGC(MovingGCBase):
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        flags |= GCFLAG_EXTERNAL | GCFLAG_FORWARDED | GCFLAG_HASHTAKEN
+        flags |= GCFLAG_EXTERNAL | GCFLAG_FORWARDED | GC_HASH_TAKEN_ADDR
         hdr.tid = self.combine(typeid16, flags)
         # immortal objects always have GCFLAG_FORWARDED set;
         # see get_forwarding_address().
@@ -611,36 +631,46 @@ class SemiSpaceGC(MovingGCBase):
 
     STATISTICS_NUMBERS = 0
 
+    def is_in_nursery(self, addr):
+        # overridden in generation.py.
+        return False
+
+    def _compute_current_nursery_hash(self, obj):
+        # overridden in generation.py.
+        raise AssertionError("should not be called")
+
     def identityhash(self, gcobj):
-        # The following code should run at most twice.
+        # The following loop should run at most twice.
         while 1:
             obj = llmemory.cast_ptr_to_adr(gcobj)
             hdr = self.header(obj)
-            #
-            if hdr.tid & GCFLAG_HASHFIELD:  # the hash is in a field at the end
-                obj += self.get_size(obj)
-                return obj.signed[0]
-            #
-            if not (hdr.tid & GCFLAG_HASHTAKEN):
-                # It's the first time we ask for a hash, and it's not an
-                # external object.  Shrink the top of space by the extra
-                # hash word that will be needed after a collect.
-                shrunk_top = self.top_of_space - llmemory.sizeof(lltype.Signed)
-                if shrunk_top < self.free:
-                    # Cannot shrink!  Do a collection, asking for at least
-                    # one word of free space, and try again.  May raise
-                    # MemoryError.  Obscure: not called directly, but
-                    # across an llop, to make sure that there is the
-                    # correct push_roots/pop_roots around the call...
-                    llop.gc_obtain_free_space(llmemory.Address,
-                                              llmemory.sizeof(lltype.Signed))
-                    continue
-                # Now we can have side-effects: set GCFLAG_HASHTAKEN
-                # and lower the top of space.
+            if hdr.tid & GCFLAG_HASHMASK:
+                break
+            # It's the first time we ask for a hash, and it's not an
+            # external object.  Shrink the top of space by the extra
+            # hash word that will be needed after a collect.
+            shrunk_top = self.top_of_space - llmemory.sizeof(lltype.Signed)
+            if shrunk_top < self.free:
+                # Cannot shrink!  Do a collection, asking for at least
+                # one word of free space, and try again.  May raise
+                # MemoryError.  Obscure: not called directly, but
+                # across an llop, to make sure that there is the
+                # correct push_roots/pop_roots around the call...
+                llop.gc_obtain_free_space(llmemory.Address,
+                                          llmemory.sizeof(lltype.Signed))
+                continue
+            else:
+                # Now we can have side-effects: lower the top of space
+                # and set one of the GC_HASH_TAKEN_xxx flags.
                 self.top_of_space = shrunk_top
-                hdr.tid |= GCFLAG_HASHTAKEN
-            #
-            return llmemory.cast_adr_to_int(obj)  # direct case
+                if self.is_in_nursery(obj):
+                    hdr.tid |= GC_HASH_TAKEN_NURS
+                else:
+                    hdr.tid |= GC_HASH_TAKEN_ADDR
+                break
+        # Now we can return the result
+        objsize = self.get_size(obj)
+        return self._get_object_hash(obj, objsize, hdr.tid)
 
     def track_heap_parent(self, obj, parent):
         addr = obj.address[0]

@@ -2,9 +2,11 @@ import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.generation import GenerationGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
-from pypy.rpython.memory.gc.semispace import GCFLAG_HASHTAKEN, GCFLAG_HASHFIELD
+from pypy.rpython.memory.gc.semispace import GCFLAG_HASHMASK
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_YOUNG_PTRS
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_HEAP_PTRS
+from pypy.rpython.memory.gc.semispace import GC_HASH_TAKEN_ADDR
+from pypy.rpython.memory.gc.semispace import GC_HASH_HASFIELD
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -359,7 +361,7 @@ class HybridGC(GenerationGC):
         # it's not an issue.
         totalsize = self.size_gc_header() + objsize
         tid = self.header(obj).tid
-        if tid & (GCFLAG_HASHTAKEN|GCFLAG_HASHFIELD):
+        if tid & GCFLAG_HASHMASK:
             totalsize_incl_hash = totalsize + llmemory.sizeof(lltype.Signed)
         else:
             totalsize_incl_hash = totalsize
@@ -370,14 +372,10 @@ class HybridGC(GenerationGC):
         self._nonmoving_copy_size += raw_malloc_usage(totalsize)
 
         llmemory.raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
-        # check if we need to write a hash value at the end of the new obj
-        if tid & (GCFLAG_HASHTAKEN|GCFLAG_HASHFIELD):
-            if tid & GCFLAG_HASHFIELD:
-                hash = (obj + objsize).signed[0]
-            else:
-                hash = llmemory.cast_adr_to_int(obj)
-                tid |= GCFLAG_HASHFIELD
+        if tid & GCFLAG_HASHMASK:
+            hash = self._get_object_hash(obj, objsize, tid)
             (newaddr + totalsize).signed[0] = hash
+            tid |= GC_HASH_HASFIELD
         #
         # GCFLAG_UNVISITED is not set
         # GCFLAG_NO_HEAP_PTRS is not set either, conservatively.  It may be
@@ -544,8 +542,8 @@ class HybridGC(GenerationGC):
         tid = self.header(obj).tid
         ll_assert(bool(tid & GCFLAG_EXTERNAL),
                   "gen2: missing GCFLAG_EXTERNAL")
-        ll_assert(bool(tid & GCFLAG_HASHTAKEN),
-                  "gen2: missing GCFLAG_HASHTAKEN")
+        ll_assert(bool(tid & GC_HASH_TAKEN_ADDR),
+                  "gen2: missing GC_HASH_TAKEN_ADDR")
         ll_assert(bool(tid & GCFLAG_UNVISITED),
                   "gen2: missing GCFLAG_UNVISITED")
         ll_assert((tid & GCFLAG_AGE_MASK) < GCFLAG_AGE_MAX,
@@ -554,8 +552,8 @@ class HybridGC(GenerationGC):
         tid = self.header(obj).tid
         ll_assert(bool(tid & GCFLAG_EXTERNAL),
                   "gen3: missing GCFLAG_EXTERNAL")
-        ll_assert(bool(tid & GCFLAG_HASHTAKEN),
-                  "gen3: missing GCFLAG_HASHTAKEN")
+        ll_assert(bool(tid & GC_HASH_TAKEN_ADDR),
+                  "gen3: missing GC_HASH_TAKEN_ADDR")
         ll_assert(not (tid & GCFLAG_UNVISITED),
                   "gen3: unexpected GCFLAG_UNVISITED")
         ll_assert((tid & GCFLAG_AGE_MASK) == GCFLAG_AGE_MAX,

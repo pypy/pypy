@@ -1,13 +1,14 @@
 import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
-from pypy.rpython.memory.gc.semispace import GCFLAG_HASHTAKEN
+from pypy.rpython.memory.gc.semispace import GC_HASH_TAKEN_ADDR
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem.lloperation import llop
 
 # The following flag is never set on young objects, i.e. the ones living
@@ -42,6 +43,8 @@ class GenerationGC(SemiSpaceGC):
                           'nursery_size': 896*1024,
                           'min_nursery_size': 48*1024,
                           'auto_nursery_size': True}
+
+    nursery_hash_base = -1
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
                  nursery_size=128,
@@ -234,7 +237,7 @@ class GenerationGC(SemiSpaceGC):
     GCFLAGS_FOR_NEW_YOUNG_OBJECTS = 0   # NO_YOUNG_PTRS never set on young objs
     GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS = (GCFLAG_EXTERNAL | GCFLAG_FORWARDED |
                                         GCFLAG_NO_YOUNG_PTRS |
-                                        GCFLAG_HASHTAKEN)
+                                        GC_HASH_TAKEN_ADDR)
 
     # ____________________________________________________________
     # Support code for full collections
@@ -355,7 +358,20 @@ class GenerationGC(SemiSpaceGC):
             self.nursery_top = self.nursery + self.nursery_size
             self.free = self.nursery_top
         self.nursery_free = self.nursery
+        # at this point we know that the nursery is empty
+        self.change_nursery_hash_base()
         return self.nursery_free
+
+    def change_nursery_hash_base(self):
+        # The following should be enough to ensure that young objects
+        # tend to always get a different hash.  It also makes sure that
+        # nursery_hash_base is not a multiple of 4, to avoid collisions
+        # with the hash of non-young objects.
+        hash_base = self.nursery_hash_base
+        hash_base += self.nursery_size - 1
+        if (hash_base & 3) == 0:
+            hash_base -= 1
+        self.nursery_hash_base = intmask(hash_base)
 
     # NB. we can use self.copy() to move objects out of the nursery,
     # but only if the object was really in the nursery.
@@ -533,6 +549,9 @@ class GenerationGC(SemiSpaceGC):
 
     def _id_grow_older(self, obj, id, ignored):
         self.objects_with_id.setitem(obj, id)
+
+    def _compute_current_nursery_hash(self, obj):
+        return intmask(llmemory.cast_adr_to_int(obj) + self.nursery_hash_base)
 
     def heap_stats_walk_roots(self):
         self.last_generation_root_objects.foreach(

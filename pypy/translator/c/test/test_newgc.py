@@ -1019,6 +1019,30 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         res = self.run('string_builder_over_allocation')
         assert res[1000] == 'y'
 
+    def define_nursery_hash_base(cls):
+        from pypy.rlib.objectmodel import compute_identity_hash
+        class A:
+            pass
+        def fn():
+            objects = []
+            hashes = []
+            for i in range(200):
+                rgc.collect(0)     # nursery-only collection, if possible
+                obj = A()
+                objects.append(obj)
+                hashes.append(compute_identity_hash(obj))
+            unique = {}
+            for i in range(len(objects)):
+                assert compute_identity_hash(objects[i]) == hashes[i]
+                unique[hashes[i]] = None
+            return len(unique)
+        return fn
+
+    def test_nursery_hash_base(self):
+        res = self.run('nursery_hash_base')
+        assert res >= 195
+
+
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
     should_be_moving = True

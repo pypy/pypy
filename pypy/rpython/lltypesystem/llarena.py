@@ -227,7 +227,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         return self.arena._getid() + self.offset
 
 
-def _getfakearenaaddress(addr):
+def getfakearenaaddress(addr):
     """Logic to handle test_replace_object_with_stub()."""
     if isinstance(addr, fakearenaaddress):
         return addr
@@ -306,7 +306,7 @@ def arena_reset(arena_addr, size, zero):
       * 1: clear, optimized for a very large area of memory
       * 2: clear, optimized for a small or medium area of memory
     """
-    arena_addr = _getfakearenaaddress(arena_addr)
+    arena_addr = getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
 
 def arena_reserve(addr, size, check_alignment=True):
@@ -315,7 +315,7 @@ def arena_reserve(addr, size, check_alignment=True):
     overlap.  The size must be symbolic; in non-translated version
     this is used to know what type of lltype object to allocate."""
     from pypy.rpython.memory.lltypelayout import memory_alignment
-    addr = _getfakearenaaddress(addr)
+    addr = getfakearenaaddress(addr)
     if check_alignment and (addr.offset & (memory_alignment-1)) != 0:
         raise ArenaError("object at offset %d would not be correctly aligned"
                          % (addr.offset,))
@@ -324,7 +324,7 @@ def arena_reserve(addr, size, check_alignment=True):
 def arena_shrink_obj(addr, newsize):
     """ Mark object as shorter than it was
     """
-    addr = _getfakearenaaddress(addr)
+    addr = getfakearenaaddress(addr)
     addr.arena.shrink_obj(addr.offset, newsize)
 
 def round_up_for_allocation(size, minsize=0):
@@ -505,3 +505,11 @@ def llimpl_arena_new_view(addr):
 register_external(arena_new_view, [llmemory.Address], llmemory.Address,
                   'll_arena.arena_new_view', llimpl=llimpl_arena_new_view,
                   llfakeimpl=arena_new_view, sandboxsafe=True)
+
+def llimpl_getfakearenaaddress(addr):
+    return addr
+register_external(getfakearenaaddress, [llmemory.Address], llmemory.Address,
+                  'll_arena.getfakearenaaddress',
+                  llimpl=llimpl_getfakearenaaddress,
+                  llfakeimpl=getfakearenaaddress,
+                  sandboxsafe=True)
