@@ -172,7 +172,9 @@ class AppTestMethodCaching(AppTestShadowTracking):
             assert a.f() == 42 + i
             A.f = eval("lambda self: %s" % (42 + i + 1, ))
         cache_counter = __pypy__.method_cache_counter("f")
-        assert cache_counter == (0, 10)
+        # the cache hits come from A.f = ..., which first does a lookup on A as
+        # well
+        assert cache_counter == (9, 11)
 
     def test_subclasses(self):
         import __pypy__

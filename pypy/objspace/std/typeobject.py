@@ -94,10 +94,12 @@ class W_TypeObject(W_Object):
         w_self.w_same_layout_as = get_parent_layout(w_self)
 
         if space.config.objspace.std.withtypeversion:
-            if (w_self.instancetypedef.hasdict or custom_metaclass or
-                not is_mro_purely_of_types(w_self.mro_w)):
+            if custom_metaclass or not is_mro_purely_of_types(w_self.mro_w):
                 pass
             else:
+                # the _version_tag should change, whenever the content of
+                # dict_w of any of the types in the mro changes, or if the mro
+                # itself changes
                 w_self._version_tag = VersionTag()
 
     def mutated(w_self):

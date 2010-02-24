@@ -109,14 +109,15 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         space = self.space
         assert space.w_list.version_tag() is not None
         assert space.w_dict.version_tag() is not None
-        assert space.type(space.sys).version_tag() is None
-        assert space.w_type.version_tag() is None
+        assert space.type(space.sys).version_tag() is not None
+        assert space.w_type.version_tag() is not None
         w_function = space.appexec([], """():
             def f():
                 pass
             return type(f)
         """)
-        assert w_function.version_tag() is None
+        assert w_function.version_tag() is not None
+        assert space.w_Exception.version_tag() is not None
 
     def test_version_tag_of_subclasses_of_builtin_types(self):
         space = self.space
@@ -138,8 +139,8 @@ class TestVersionedType(test_typeobject.TestTypeObject):
                  w_OBJECT) = space.unpackiterable(w_types)
         assert w_LIST.version_tag() is not None
         assert w_DICT.version_tag() is not None
-        assert w_TYPE.version_tag() is None
-        assert w_MODULE.version_tag() is None
+        assert w_TYPE.version_tag() is not None
+        assert w_MODULE.version_tag() is not None
         assert w_OBJECT.version_tag() is not None
 
     def test_version_tag_mixes_oldnew(self):
@@ -174,6 +175,17 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         space.setattr(w_B, space.wrap("__bases__"), space.newtuple([w_A, space.w_object]))
         newtag = w_B.version_tag()
         assert newtag is None
+
+    def test_version_tag_of_modules(self):
+        space = self.space
+        w_mod = space.appexec([], """():
+            import sys
+            return type(sys)
+        """)
+        atag = w_mod.version_tag()
+        btag = w_mod.version_tag()
+        assert btag is atag
+        assert btag is not None
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     def setup_class(cls):
