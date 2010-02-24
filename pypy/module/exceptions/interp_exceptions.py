@@ -137,7 +137,7 @@ class W_BaseException(Wrappable):
 
     def getdict(self):
         if self.w_dict is None:
-            self.w_dict = self.space.newdict()
+            self.w_dict = self.space.newdict(instance=True)
         return self.w_dict
 
     def setdict(self, space, w_dict):
