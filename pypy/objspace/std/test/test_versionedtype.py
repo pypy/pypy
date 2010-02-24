@@ -160,6 +160,21 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         if oldtag is not None:
             assert newtag != oldtag
 
+        w_types = space.appexec([], """():
+        class A:
+            pass
+        class B(object):
+            pass
+
+        return A, B
+        """)
+        w_A, w_B = space.unpackiterable(w_types)
+        oldtag = w_B.version_tag()
+        assert oldtag is not None
+        space.setattr(w_B, space.wrap("__bases__"), space.newtuple([w_A, space.w_object]))
+        newtag = w_B.version_tag()
+        assert newtag is None
+
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})
