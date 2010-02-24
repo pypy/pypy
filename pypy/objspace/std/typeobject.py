@@ -131,6 +131,10 @@ class W_TypeObject(W_Object):
         # heap objects cannot get their version_tag changed
         return w_self._pure_version_tag()
 
+    @purefunction_promote()
+    def _pure_version_tag(w_self):
+        return w_self._version_tag
+
     def getattribute_if_not_from_object(w_self):
         """ this method returns the applevel __getattribute__ if that is not
         the one from object, in which case it returns None """
@@ -156,10 +160,6 @@ class W_TypeObject(W_Object):
 
     def has_object_getattribute(w_self):
         return w_self.getattribute_if_not_from_object() is None
-
-    @purefunction_promote()
-    def _pure_version_tag(w_self):
-        return w_self._version_tag
 
     def ready(w_self):
         for w_base in w_self.bases_w:
