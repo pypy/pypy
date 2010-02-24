@@ -20,7 +20,6 @@ from pypy.rlib import rposix
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem.rstr import mallocstr
-from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.lltypesystem.llmemory import sizeof,\
      itemoffsetof, cast_ptr_to_adr, cast_adr_to_ptr, offsetof
 from pypy.rpython.lltypesystem.rstr import STR
@@ -732,15 +731,23 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
-            raw_buf, gc_buf = rffi.alloc_buffer(count)
-            try:
-                void_buf = rffi.cast(rffi.VOIDP, raw_buf)
-                got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
-                if got < 0:
-                    raise OSError(rposix.get_errno(), "os_read failed")
-                return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+            buf = lltype.malloc(STR, count)
+            # <NO GC ZONE>
+            void_buf = rffi.cast(rffi.VOIDP, buf + offset)
+            got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
+            # </NO GC ZONE>
+            if got < 0:
+                raise OSError(rposix.get_errno(), "os_read failed")
+            return rgc.ll_shrink_array(buf, got)
+            #raw_buf, gc_buf = rffi.alloc_buffer(count)
+            #try:
+            #    void_buf = rffi.cast(rffi.VOIDP, raw_buf)
+            #    got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
+            #    if got < 0:
+            #        raise OSError(rposix.get_errno(), "os_read failed")
+            #    return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
+            #finally:
+            #    rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
             
         def os_read_oofakeimpl(fd, count):
             return OOSupport.to_rstr(os.read(fd, count))
@@ -753,19 +760,28 @@ class RegisterOs(BaseLazyRegistering):
         os_write = self.llexternal(underscore_on_windows+'write',
                                    [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                    rffi.SIZE_T)
+        offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
 
         def os_write_llimpl(fd, data):
             count = len(data)
-            buf = rffi.get_nonmovingbuffer(data)
-            try:
-                written = rffi.cast(lltype.Signed, os_write(
-                    rffi.cast(rffi.INT, fd),
-                    buf, rffi.cast(rffi.SIZE_T, count)))
-                if written < 0:
-                    raise OSError(rposix.get_errno(), "os_write failed")
-            finally:
-                rffi.free_nonmovingbuffer(data, buf)
+            ll_data = llstr(data) + offset
+            written = rffi.cast(lltype.Signed, os_write(
+                rffi.cast(rffi.INT, fd),
+                rffi.cast(rffi.VOIDP, ll_data) + offset,
+                rffi.cast(rffi.SIZE_T, count)))
+            if written < 0:
+                raise OSError(rposix.get_errno(), "os_write failed")
             return written
+            #buf = rffi.get_nonmovingbuffer(data)
+            #try:
+            #    written = rffi.cast(lltype.Signed, os_write(
+            #        rffi.cast(rffi.INT, fd),
+            #        buf, rffi.cast(rffi.SIZE_T, count)))
+            #    if written < 0:
+            #        raise OSError(rposix.get_errno(), "os_write failed")
+            #finally:
+            #    rffi.free_nonmovingbuffer(data, buf)
+            #return written
 
         def os_write_oofakeimpl(fd, data):
             return os.write(fd, OOSupport.from_rstr(data))
