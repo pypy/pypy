@@ -1,6 +1,6 @@
 import py
 from pypy.interpreter import executioncontext
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 class Finished(Exception):
     pass
@@ -242,3 +242,37 @@ class TestExecutionContext:
             sys.setprofile(None)
         """)
 
+
+class AppTestDelNotBlocked:
+
+    def setup_method(self, meth):
+        if not option.runappdirect:
+            py.test.skip("test is meant for running with py.test -A")
+        from pypy.tool.udir import udir
+        tmpfile = udir.join('test_execution_context')
+        tmpfile.write("""
+import gc
+class X(object):
+    def __del__(self):
+        print "Called", self.num
+def f():
+    x1 = X(); x1.num = 1
+    x2 = X(); x2.num = 2
+    x1.next = x2
+f()
+gc.collect()
+gc.collect()
+""")
+        self.tmpfile = str(tmpfile)
+        self.w_tmpfile = self.space.wrap(self.tmpfile)
+
+    def test_del_not_blocked(self):
+        # test the behavior fixed in r71420: before, only one __del__
+        # would be called
+        import os, sys
+        print sys.executable, self.tmpfile
+        g = os.popen("'%s' '%s'" % (sys.executable, self.tmpfile), 'r')
+        data = g.read()
+        g.close()
+        assert 'Called 1' in data
+        assert 'Called 2' in data
