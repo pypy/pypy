@@ -28,7 +28,7 @@ __all__ = ['chain', 'count', 'cycle', 'dropwhile', 'groupby', 'ifilter',
            'takewhile', 'tee']
 
 
-class chain:
+class chain(object):
     """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
     all of the iterables are exhausted. Used for treating consecutive
@@ -60,7 +60,7 @@ class chain:
                 raise TypeError('%s has no next() method' % \
                                 (self._cur_iterable_iter))
 
-class count:
+class count(object):
     """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
     support python long integers. Often used as an argument to imap()
@@ -93,7 +93,7 @@ class count:
 
 
             
-class cycle:
+class cycle(object):
     """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
@@ -134,7 +134,7 @@ class cycle:
         return next_elt
             
         
-class dropwhile:
+class dropwhile(object):
     """Make an iterator that drops elements from the iterable as long
     as the predicate is true; afterwards, returns every
     element. Note, the iterator does not produce any output until the
@@ -173,7 +173,7 @@ class dropwhile:
         self._dropped = True
         return value
 
-class groupby:
+class groupby(object):
     """Make an iterator that returns consecutive keys and groups from the
     iterable. The key is a function computing a key value for each
     element. If not specified or is None, key defaults to an identity
@@ -222,7 +222,7 @@ class groupby:
 
 
 
-class _ifilter_base:
+class _ifilter_base(object):
     """base class for ifilter and ifilterflase"""
     def __init__(self, predicate, iterable):
         # Make sure iterable *IS* iterable
@@ -290,7 +290,7 @@ class ifilterfalse(_ifilter_base):
 
 
 
-class imap:
+class imap(object):
     """Make an iterator that computes the function using arguments
     from each of the iterables. If function is set to None, then
     imap() returns the arguments as a tuple. Like map() but stops
@@ -333,7 +333,7 @@ class imap:
 
 
 
-class islice:
+class islice(object):
     """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -380,7 +380,7 @@ class islice:
         self.start += self.step 
         return nextitem
 
-class izip:
+class izip(object):
     """Make an iterator that aggregates elements from each of the
     iterables.  Like zip() except that it returns an iterator instead
     of a list. Used for lock-step iteration over several iterables at
@@ -411,7 +411,7 @@ class izip:
             raise TypeError('%s has no next() method' % (i))
     
 
-class repeat:
+class repeat(object):
     """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called
@@ -459,7 +459,7 @@ class repeat:
         return self._times
     
 
-class starmap:
+class starmap(object):
     """Make an iterator that computes the function using arguments
     tuples obtained from the iterable. Used instead of imap() when
     argument parameters are already grouped in tuples from a single
@@ -494,7 +494,7 @@ class starmap:
 
 
 
-class takewhile:
+class takewhile(object):
     """Make an iterator that returns elements from the iterable as
     long as the predicate is true.
 
