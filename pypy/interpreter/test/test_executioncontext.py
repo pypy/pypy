@@ -271,7 +271,7 @@ gc.collect()
         # would be called
         import os, sys
         print sys.executable, self.tmpfile
-        g = os.popen("'%s' '%s'" % (sys.executable, self.tmpfile), 'r')
+        g = os.popen('"%s" "%s"' % (sys.executable, self.tmpfile), 'r')
         data = g.read()
         g.close()
         assert 'Called 1' in data
