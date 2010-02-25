@@ -794,7 +794,7 @@ class Optimizer(object):
         # typically a PyPy PyFrame, and now is the end of its execution, so
         # forcing it now does not have catastrophic effects.
         vrefinfo = self.metainterp_sd.virtualref_info
-        assert op.args[1].nonnull()
+        # op.args[1] should really never point to null here
         # - set 'forced' to point to the real object
         op1 = ResOperation(rop.SETFIELD_GC, op.args, None,
                           descr = vrefinfo.descr_forced)
@@ -1024,7 +1024,7 @@ class HeapOpOptimizer(object):
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_ASSEMBLER):
-            if opnum != rop.CALL:
+            if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
             else:
                 effectinfo = op.descr.get_extra_info()
@@ -1044,6 +1044,11 @@ class HeapOpOptimizer(object):
                         del self.cached_arrayitems[arraydescr]
                     except KeyError:
                         pass
+                if effectinfo.forces_virtual_or_virtualizable:
+                    vrefinfo = self.optimizer.metainterp_sd.virtualref_info
+                    self.force_lazy_setfield(vrefinfo.descr_forced)
+                    # ^^^ we only need to force this field; the other fields
+                    # of virtualref_info and virtualizable_info are not gcptrs.
                 return
             self.force_all_lazy_setfields()
         elif op.is_final() or (not we_are_translated() and

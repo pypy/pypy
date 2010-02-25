@@ -337,12 +337,10 @@ class CodeWriter(object):
         assert RESULT == FUNC.RESULT
         # ok
         if consider_effects_of is not None:
-            if self.virtualizable_analyzer.analyze(consider_effects_of):
-                effectinfo = None    # forcing virtualizable or vrefs
-            else:
-                effectinfo = effectinfo_from_writeanalyze(
+            effectinfo = effectinfo_from_writeanalyze(
                     self.readwrite_analyzer.analyze(consider_effects_of),
-                    self.cpu)
+                    self.cpu,
+                    self.virtualizable_analyzer.analyze(consider_effects_of))
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT, effectinfo)
         else:
             calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
@@ -1261,7 +1259,8 @@ class BytecodeMaker(object):
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             if pure or loopinvariant:
                 effectinfo = calldescr.get_extra_info()
-                assert effectinfo is not None
+                assert (effectinfo is not None and
+                        not effectinfo.forces_virtual_or_virtualizable)
         try:
             canraise = self.codewriter.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:

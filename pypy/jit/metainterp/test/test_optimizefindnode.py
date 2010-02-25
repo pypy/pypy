@@ -111,7 +111,9 @@ class LLtypeMixin(object):
                                       EffectInfo([], [adescr], [arraydescr]))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], []))
-    mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+    mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([nextdescr], [], [],
+                            forces_virtual_or_virtualizable=True))
     class LoopToken(AbstractDescr):
         pass
     asmdescr = LoopToken() # it can be whatever, it's not a descr though

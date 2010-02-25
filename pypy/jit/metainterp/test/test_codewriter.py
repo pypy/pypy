@@ -306,6 +306,7 @@ class TestCodeWriter:
         assert calldescrs[0][4] is not None
         assert not calldescrs[0][4].write_descrs_fields
         assert not calldescrs[0][4].write_descrs_arrays
+        assert not calldescrs[0][4].forces_virtual_or_virtualizable
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -452,9 +453,9 @@ class TestCodeWriter:
         effectinfo_g1 = calldescrs[1][4]
         effectinfo_g2 = calldescrs[2][4]
         effectinfo_h  = calldescrs[3][4]
-        assert effectinfo_g1 is None
-        assert effectinfo_g2 is None
-        assert effectinfo_h is not None
+        assert effectinfo_g1.forces_virtual_or_virtualizable
+        assert effectinfo_g2.forces_virtual_or_virtualizable
+        assert not effectinfo_h.forces_virtual_or_virtualizable
 
     def make_vrefinfo(self):
         from pypy.jit.metainterp.virtualref import VirtualRefInfo
