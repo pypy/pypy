@@ -228,9 +228,6 @@ class AbstractCPU(object):
         if args[0].getint() & args[1].getint():
             self.do_call(args[2:], calldescr)
 
-    def do_cond_call_gc_malloc(self, args, calldescr):
-        raise NotImplementedError
-
     def do_cast_ptr_to_int(self, ptrbox):
         raise NotImplementedError
 

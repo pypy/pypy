@@ -222,8 +222,6 @@ _oplist = [
     'RUNTIMENEW/1',     # ootype operation
     'COND_CALL_GC_WB',      # [cond, imm_and, if_true_call, args_for_call...]
                             #        => no result       (for the write barrier)
-    'COND_CALL_GC_MALLOC',  # [a, b, if_(a<=b)_result, if_(a>b)_call, args...]
-                            #        => result          (for mallocs)
     'DEBUG_MERGE_POINT/1',      # debugging only
     'VIRTUAL_REF_FINISH/2',
 

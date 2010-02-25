@@ -739,7 +739,6 @@ class Method(object):
     emit_op_unicodelen = lltype_only
     emit_op_unicodegetitem = lltype_only
     emit_op_cond_call_gc_wb = lltype_only
-    emit_op_cond_call_gc_malloc = lltype_only
     emit_op_setarrayitem_raw = lltype_only
 
 
