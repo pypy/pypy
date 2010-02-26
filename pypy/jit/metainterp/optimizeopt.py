@@ -654,15 +654,14 @@ class Optimizer(object):
             # replace the original guard with a guard_value
             old_guard_op = self.newoperations[value.last_guard_index]
             old_opnum = old_guard_op.opnum
-            old_guard_op.opnum = op.opnum
+            old_guard_op.opnum = rop.GUARD_VALUE
             old_guard_op.args = [old_guard_op.args[0], op.args[1]]
-            if old_opnum == rop.GUARD_NONNULL:
-                # hack hack hack.  Change the guard_opnum on
-                # old_guard_op.descr so that when resuming,
-                # the operation is not skipped by pyjitpl.py.
-                descr = old_guard_op.descr
-                assert isinstance(descr, compile.ResumeGuardDescr)
-                descr.guard_opnum = rop.GUARD_NONNULL_CLASS
+            # hack hack hack.  Change the guard_opnum on
+            # old_guard_op.descr so that when resuming,
+            # the operation is not skipped by pyjitpl.py.
+            descr = old_guard_op.descr
+            assert isinstance(descr, compile.ResumeGuardDescr)
+            descr.guard_opnum = rop.GUARD_VALUE
             emit_operation = False
         constbox = op.args[1]
         assert isinstance(constbox, Const)
