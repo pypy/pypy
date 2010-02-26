@@ -611,23 +611,16 @@ class MIFrame(object):
             jitcode.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
             # calling the subfunction directly instead of interpreting it
-            staticdata = self.metainterp.staticdata
-            globaldata = staticdata.globaldata
-            vi = staticdata.virtualizable_info
-            if vi:
-                globaldata.blackhole_virtualizable = vi.unwrap_virtualizable_box(self.metainterp.virtualizable_boxes[-1])
             if jitcode.cfnptr is not None:
                 # for non-oosends
                 varargs = [jitcode.cfnptr] + varargs
                 res = self.execute_varargs(rop.CALL, varargs,
                                              descr=jitcode.calldescr, exc=True)
-                self.metainterp.load_fields_from_virtualizable()
             else:
                 # for oosends (ootype only): calldescr is a MethDescr
                 res = self.execute_varargs(rop.OOSEND, varargs,
                                              descr=jitcode.calldescr, exc=True)
-            if vi:
-                globaldata.blackhole_virtualizable = vi.null_vable
+            self.metainterp.load_fields_from_virtualizable()
             return res
         else:
             # when tracing, this bytecode causes the subfunction to be entered
@@ -1250,6 +1243,18 @@ class MetaInterpStaticData(object):
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
+    """This object contains the JIT's global, mutable data.
+
+    Warning: for any data that you put here, think that there might be
+    multiple MetaInterps accessing it at the same time.  As usual we are
+    safe from corruption thanks to the GIL, but keep in mind that any
+    MetaInterp might modify any of these fields while another MetaInterp
+    is, say, currently in a residual call to a function.  Multiple
+    MetaInterps occur either with threads or, in single-threaded cases,
+    with recursion.  This is a case that is not well-tested, so please
+    be careful :-(  But thankfully this is one of the very few places
+    where multiple concurrent MetaInterps may interact with each other.
+    """
     def __init__(self, staticdata):
         self.initialized = False
         self.indirectcall_dict = None
@@ -1269,8 +1274,6 @@ class MetaInterpGlobalData(object):
                 greenkey = tuple(greenkey)
                 return _jitcell_dict.setdefault(greenkey, JitCell())
             self.jit_cell_at_key = jit_cell_at_key
-        if staticdata.virtualizable_info:
-            self.blackhole_virtualizable = staticdata.virtualizable_info.null_vable
 
     def get_compiled_merge_points(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)

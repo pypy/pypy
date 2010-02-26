@@ -1193,8 +1193,6 @@ class ImplicitVirtualizableTests:
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_blackhole_should_not_reenter(self):
-        # Armin thinks this can occur and does not make interpreters slower
-        # so we don't check for assertionerror, to be discussed
         if not self.basic:
             py.test.skip("purely frontend test")
 
@@ -1230,15 +1228,19 @@ class ImplicitVirtualizableTests:
             return somewhere_else.top_frame.y
 
         def main():
-            f(10, True)
-            f(10, True)
-            f(10, True)
-            f(10, True)
-            return f(10, False)
+            a = f(10, True)
+            b = f(10, True)
+            c = f(10, True)
+            d = f(10, True)
+            e = f(10, False)
+            return a + 17*b + 17*17*c + 17*17*17*d + 17*17*17*17*e
 
-        self.meta_interp(main, [])
-        #einfo = py.test.raises(AssertionError, self.meta_interp, main, [])
-        #assert einfo.value.args[0] == "reentering same frame via blackhole"
+        # the situation is: blackholing starts at the "if" above, then
+        # really calls jump_back(), which ends up calling
+        # can_enter_jit() for the same frame as the one we are currently
+        # blackholing.  It should just work fine, though.
+        res = self.meta_interp(main, [])
+        assert res == main()
 
     def test_inlining(self):
         class Frame(object):

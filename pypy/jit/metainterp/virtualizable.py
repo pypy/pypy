@@ -33,7 +33,6 @@ class VirtualizableInfo:
             VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
-        self.null_vable = cpu.ts.nullptr(VTYPE)
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
         accessor = VTYPE._hints['virtualizable2_accessor']
