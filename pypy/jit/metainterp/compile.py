@@ -209,7 +209,9 @@ class ResumeDescr(AbstractFailDescr):
         raise NotImplementedError
 
 class ResumeGuardDescr(ResumeDescr):
-    counter = 0
+    _counter = 0        # if < 0, there is one counter per value;
+    _counters = None    # they get stored in _counters then.
+
     # this class also gets the following attributes stored by resume.py code
     rd_snapshot = None
     rd_frame_info_list = None
@@ -226,10 +228,39 @@ class ResumeGuardDescr(ResumeDescr):
         guard_op.fail_args = boxes
         self.guard_opnum = guard_op.opnum
 
+    def make_a_counter_per_value(self, guard_value_op):
+        assert guard_value_op.opnum == rop.GUARD_VALUE
+        box = guard_value_op.args[0]
+        try:
+            i = guard_value_op.fail_args.index(box)
+        except ValueError:
+            return     # xxx probably very rare
+        else:
+            self._counter = ~i      # use ~(index_of_guarded_box_in_fail_args)
+
     def handle_fail(self, metainterp_sd):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
         return metainterp.handle_guard_failure(self)
+
+    def must_compile(self, metainterp_sd, inputargs_and_holes):
+        trace_eagerness = metainterp_sd.state.trace_eagerness
+        if self._counter >= 0:
+            self._counter += 1
+            return self._counter >= trace_eagerness
+        else:
+            box = inputargs_and_holes[~self._counter]
+            if self._counters is None:
+                self._counters = ResumeGuardCounters()
+            counter = self._counters.see(box)
+            return counter >= trace_eagerness
+
+    def reset_counter_from_failure(self, metainterp):
+        if self._counter >= 0:
+            self._counter = 0
+        self._counters = None
+        warmrunnerstate = metainterp.staticdata.state
+        warmrunnerstate.disable_noninlinable_function(metainterp)
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge.  Attach the new operations
@@ -239,7 +270,6 @@ class ResumeGuardDescr(ResumeDescr):
             self._debug_suboperations = new_loop.operations
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations)
-
 
     def _clone_if_mutable(self):
         res = self.__class__(self.metainterp_sd, self.original_greenkey)
@@ -262,8 +292,10 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         if all_virtuals is None:
             all_virtuals = []
         metainterp._already_allocated_resume_virtuals = all_virtuals
-        self.counter = -2     # never compile
         return metainterp.handle_guard_failure(self)
+
+    def must_compile(self, metainterp_sd, inputargs_and_holes):
+        return False     # never compile GUARD_NOT_FORCED failures
 
     @staticmethod
     def force_now(cpu, token):
@@ -314,6 +346,52 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         data = globaldata.resume_virtuals[key]
         del globaldata.resume_virtuals[key]
         return data
+
+
+class ResumeGuardCounters(object):
+    # Completely custom algorithm for now: keep 5 pairs (box, counter),
+    # and when we need more, we discard the middle pair (middle in the
+    # current value of the counter).  That way, we tend to keep the
+    # boxes with a high counter, but also we avoid always throwing away
+    # the most recently added box.  **THIS ALGO MUST GO AWAY AT SOME POINT**
+
+    def __init__(self):
+        self.counters = [0] * 5
+        self.boxes = [None] * 5
+
+    def see(self, newbox):
+        newbox = newbox.constbox()
+        # find and update an existing counter
+        unused = -1
+        for i in range(5):
+            cnt = self.counters[i]
+            if cnt:
+                if newbox.same_constant(self.boxes[i]):
+                    cnt += 1
+                    self.counters[i] = cnt
+                    return cnt
+            else:
+                unused = i
+        # not found.  Use a previously unused entry, if there is one
+        if unused >= 0:
+            self.counters[unused] = 1
+            self.boxes[unused] = newbox
+            return 1
+        # no unused entry.  Overwrite the middle one.  Computed with indices
+        # a, b, c meaning the highest, second highest, and third highest
+        # entries.
+        a = 0
+        b = c = -1
+        for i in range(1, 5):
+            if self.counters[i] > self.counters[a]:
+                c = b; b = a; a = i
+            elif b < 0 or self.counters[i] > self.counters[b]:
+                c = b; b = i
+            elif c < 0 or self.counters[i] > self.counters[c]:
+                c = i
+        self.counters[c] = 1
+        self.boxes[c] = newbox
+        return 1
 
 
 class ResumeFromInterpDescr(ResumeDescr):

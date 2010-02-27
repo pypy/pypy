@@ -1301,6 +1301,22 @@ class BasicTests:
         res = self.interp_operations(f, [-5])
         assert res == -2
 
+    def test_guard_always_changing_value(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x'])
+        class A:
+            pass
+        def f(x):
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x)
+                myjitdriver.jit_merge_point(x=x)
+                a = A()
+                hint(a, promote=True)
+                x -= 1
+        self.meta_interp(f, [50])
+        self.check_loop_count(1)
+        # this checks that the logic triggered by make_a_counter_per_value()
+        # works and prevents generating tons of bridges
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

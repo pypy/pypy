@@ -157,14 +157,6 @@ class WarmEnterState(object):
         if self.profiler is not None:
             self.profiler.set_printing(value >= DEBUG_PROFILE)
 
-    def must_compile_from_failure(self, key):
-        key.counter += 1
-        return key.counter >= self.trace_eagerness
-
-    def reset_counter_from_failure(self, key, metainterp):
-        key.counter = 0
-        self.disable_noninlinable_function(metainterp)
-
     def disable_noninlinable_function(self, metainterp):
         greenkey = metainterp.greenkey_of_huge_function
         if greenkey is not None:

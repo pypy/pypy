@@ -149,9 +149,10 @@ def test_initialize_state_from_guard_failure():
     metainterp.rebuild_state_after_failure = rebuild_state_after_failure
     
     class FakeResumeDescr:
-        pass
+        def must_compile(self, *args):
+            return True
     resumedescr = FakeResumeDescr()
-    metainterp.initialize_state_from_guard_failure(resumedescr, True)
+    metainterp.initialize_state_from_guard_failure(resumedescr)
 
     inp = metainterp.history.inputargs
     assert len(inp) == 3
