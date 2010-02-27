@@ -24,6 +24,8 @@ def parse_log_file(filename, verbose=True):
         f.close()
         import bz2
         f = bz2.BZ2File(filename, 'r')
+    else:
+        f.seek(0)
     lines = f.readlines()
     f.close()
     #
