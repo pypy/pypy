@@ -10,7 +10,7 @@ import autopath
 import sys, re
 from pypy.rlib.debug import DebugLog
 
-def parse_log_file(filename):
+def parse_log_file(filename, verbose=True):
     r_start = re.compile(r"\[([0-9a-fA-F]+)\] \{([\w-]+)$")
     r_stop  = re.compile(r"\[([0-9a-fA-F]+)\] ([\w-]+)\}$")
     lasttime = 0
@@ -27,7 +27,14 @@ def parse_log_file(filename):
     lines = f.readlines()
     f.close()
     #
-    for line in lines:
+    if verbose:
+        vnext = 0
+    else:
+        vnext = len(lines)
+    for i, line in enumerate(lines):
+        if i == vnext:
+            sys.stderr.write('%d%%..' % int(100.0*i/len(lines)))
+            vnext += 500000
         line = line.rstrip()
         match = r_start.match(line)
         if match:
@@ -46,6 +53,8 @@ def parse_log_file(filename):
         time_decrase = time_decrase or time < lasttime
         lasttime = time
         record(match.group(2), time=int(match.group(1), 16))
+    if verbose:
+        sys.stderr.write('loaded\n')
     if performance_log and time_decrase:
         raise Exception("The time decreases!  The log file may have been"
                         " produced on a multi-CPU machine and the process"
