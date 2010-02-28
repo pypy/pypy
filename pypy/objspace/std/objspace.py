@@ -14,7 +14,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.descroperation import DescrOperation
+from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
@@ -625,7 +625,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return DescrOperation.getattr(self, w_obj, w_name)
 
         # an optional shortcut for performance
-        from pypy.objspace.descroperation import raiseattrerror
         w_type = self.type(w_obj)
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
