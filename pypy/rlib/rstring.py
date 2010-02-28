@@ -32,6 +32,8 @@ class UnicodeBuilder(AbstractStringBuilder):
         return u''.join(self.l)
 
 
+# XXX: This does log(mul) mallocs, the GCs probably make that efficient, but
+# some measurement should be done at some point.
 def string_repeat(s, mul):
     """Repeat a string or unicode.  Note that this assumes that 'mul' > 0."""
     result = None
