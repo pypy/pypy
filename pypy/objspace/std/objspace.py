@@ -638,13 +638,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
         e = None
         if w_descr is not None:
             w_get = None
-            if self.is_data_descr(w_descr):
+            is_data = self.is_data_descr(w_descr)
+            if is_data:
                 w_get = self.lookup(w_descr, "__get__")
             if w_get is None:
                 w_value = w_obj.getdictvalue_attr_is_in_class(self, name)
                 if w_value is not None:
                     return w_value
-                w_get = self.lookup(w_descr, "__get__")
+                if not is_data:
+                    w_get = self.lookup(w_descr, "__get__")
             if w_get is not None:
                 # __get__ is allowed to raise an AttributeError to trigger
                 # use of __getattr__.
