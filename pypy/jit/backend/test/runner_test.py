@@ -1,5 +1,5 @@
 
-import py, sys, random, os
+import py, sys, random, os, struct
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
@@ -1271,23 +1271,32 @@ class LLtypeBackendTest(BaseBackendTest):
             record.append((a, b))
         record = []
         #
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        S = lltype.GcStruct('S', ('tid', lltype.Signed))
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        class WriteBarrierDescr:
+            jit_wb_if_flag = 4096
+            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_singlebyte = 0x10
+            def get_write_barrier_fn(self, cpu):
+                return funcbox.getint()
+        #
         for cond in [False, True]:
             value = random.randrange(-sys.maxint, sys.maxint)
             if cond:
                 value |= 4096
             else:
                 value &= ~4096
+            s = lltype.malloc(S)
+            s.tid = value
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxInt(value), ConstInt(4096),
-                                    funcbox, BoxInt(655360), BoxInt(-2121)],
-                                   'void', descr=calldescr)
+                                   [BoxPtr(sgcref), ConstInt(-2121)],
+                                   'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [(655360, -2121)]
+                assert record == [(s, -2121)]
             else:
                 assert record == []
 

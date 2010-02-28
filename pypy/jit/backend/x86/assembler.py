@@ -1,11 +1,9 @@
-import sys, os
-import ctypes
+import sys
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT,\
      LoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
-from pypy.rpython.lltypesystem.rclass import OBJECT
+from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
@@ -13,7 +11,7 @@ from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, lower_byte,\
      X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs, FRAME_FIXED_SIZE,\
      FORCE_INDEX_OFS
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.backend.x86 import codebuf, oprofile
+from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.support import values_array
@@ -1378,20 +1376,22 @@ class Assembler386(object):
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # use 'mc._mc' directly instead of 'mc', to avoid
         # bad surprizes if the code buffer is mostly full
-        loc_cond = arglocs[0]
-        loc_mask = arglocs[1]
+        descr = op.descr
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+        loc_base = arglocs[0]
         mc = self._start_block()
-        mc.TEST(loc_cond, loc_mask)
+        mc.TEST(mem8(loc_base, descr.jit_wb_if_flag_byteofs),
+                imm8(descr.jit_wb_if_flag_singlebyte))
         mc.write(constlistofchars('\x74\x00'))             # JZ after_the_call
         jz_location = mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
-        for i in range(len(arglocs)-1, 2, -1):
+        for i in range(len(arglocs)-1, -1, -1):
             mc.PUSH(arglocs[i])
-        mc.CALL(rel32(op.args[2].getint()))
-        mc.POP(eax)
-        mc.POP(eax)
-        for i in range(5, len(arglocs)):
+        mc.CALL(rel32(descr.get_write_barrier_fn(self.cpu)))
+        for i in range(len(arglocs)):
             loc = arglocs[i]
             assert isinstance(loc, REG)
             mc.POP(loc)

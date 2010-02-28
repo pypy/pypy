@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstPtr
+from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD
@@ -31,6 +32,8 @@ class GcLLDescription(GcCache):
         pass
     def can_inline_malloc(self, descr):
         return False
+    def has_write_barrier_class(self):
+        return None
 
 # ____________________________________________________________
 
@@ -296,6 +299,30 @@ class GcRootMap_asmgcc:
         return llmemory.cast_ptr_to_adr(compressed)
 
 
+class WriteBarrierDescr(AbstractDescr):
+    def __init__(self, gc_ll_descr):
+        self.llop1 = gc_ll_descr.llop1
+        self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
+        self.fielddescr_tid = get_field_descr(gc_ll_descr,
+                                              gc_ll_descr.GCClass.HDR, 'tid')
+        self.jit_wb_if_flag = gc_ll_descr.GCClass.JIT_WB_IF_FLAG
+        # if convenient for the backend, we also compute the info about
+        # the flag as (byte-offset, single-byte-flag).
+        import struct
+        value = struct.pack("i", self.jit_wb_if_flag)
+        assert value.count('\x00') == len(value) - 1    # only one byte is != 0
+        i = 0
+        while value[i] == '\x00': i += 1
+        self.jit_wb_if_flag_byteofs = i
+        self.jit_wb_if_flag_singlebyte = struct.unpack('b', value[i])[0]
+
+    def get_write_barrier_fn(self, cpu):
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)
+
+
 class GcLLDescr_framework(GcLLDescription):
 
     def __init__(self, gcdescr, translator, llop1=llop):
@@ -337,11 +364,6 @@ class GcLLDescr_framework(GcLLDescription):
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
-        self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
-        self.c_jit_wb_if_flag = ConstInt(self.GCClass.JIT_WB_IF_FLAG)
-        self.calldescr_jit_wb = get_call_descr(self, [llmemory.GCREF,
-                                                      llmemory.GCREF],
-                                               lltype.Void)
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
         min_ns = self.GCClass.TRANSLATION_PARAMS['min_nursery_size']
@@ -367,6 +389,7 @@ class GcLLDescr_framework(GcLLDescription):
             [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
+        self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(rffi.USHORT, tid)
@@ -539,7 +562,7 @@ class GcLLDescr_framework(GcLLDescription):
                 v = op.args[1]
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(cpu, newops, op.args[0], v)
+                    self._gen_write_barrier(newops, op.args[0], v)
                     op = ResOperation(rop.SETFIELD_RAW, op.args, None,
                                       descr=op.descr)
             # ---------- write barrier for SETARRAYITEM_GC ----------
@@ -547,7 +570,7 @@ class GcLLDescr_framework(GcLLDescription):
                 v = op.args[2]
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(cpu, newops, op.args[0], v)
+                    self._gen_write_barrier(newops, op.args[0], v)
                     op = ResOperation(rop.SETARRAYITEM_RAW, op.args, None,
                                       descr=op.descr)
             # ----------
@@ -555,17 +578,10 @@ class GcLLDescr_framework(GcLLDescription):
         del operations[:]
         operations.extend(newops)
 
-    def _gen_write_barrier(self, cpu, newops, v_base, v_value):
-        v_tid = BoxInt()
-        newops.append(ResOperation(rop.GETFIELD_RAW, [v_base], v_tid,
-                                   descr=self.fielddescr_tid))
-        llop1 = self.llop1
-        funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        c_func = ConstInt(cpu.cast_adr_to_int(funcaddr))
-        args = [v_tid, self.c_jit_wb_if_flag, c_func, v_base, v_value]
+    def _gen_write_barrier(self, newops, v_base, v_value):
+        args = [v_base, v_value]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
-                                   descr=self.calldescr_jit_wb))
+                                   descr=self.write_barrier_descr))
 
     def can_inline_malloc(self, descr):
         assert isinstance(descr, BaseSizeDescr)
@@ -575,6 +591,9 @@ class GcLLDescr_framework(GcLLDescription):
                 return False
             return True
         return False
+
+    def has_write_barrier_class(self):
+        return WriteBarrierDescr
 
 # ____________________________________________________________
 

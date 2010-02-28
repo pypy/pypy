@@ -8,7 +8,6 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
 from pypy.jit.backend.x86.ri386 import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_frame_layout
@@ -656,7 +655,14 @@ class RegAlloc(object):
         
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
-        arglocs = [self.loc(arg) for arg in op.args]
+        loc_base = self.rm.make_sure_var_in_reg(op.args[0], op.args,
+                                                imm_fine=False)
+        loc_newvalue = self.rm.make_sure_var_in_reg(op.args[1], op.args,
+                                                    imm_fine=False)
+        # ^^^ we also force loc_newvalue in a reg, because it will be needed
+        # anyway by the following setfield_gc.  It avoids loading it twice
+        # from the memory.
+        arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,

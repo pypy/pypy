@@ -250,21 +250,17 @@ class TestFramework:
         newops = []
         v_base = BoxPtr()
         v_value = BoxPtr()
-        gc_ll_descr._gen_write_barrier(self.fake_cpu, newops, v_base, v_value)
+        gc_ll_descr._gen_write_barrier(newops, v_base, v_value)
         assert llop1.record == []
-        assert len(newops) == 2
-        assert newops[0].opnum == rop.GETFIELD_RAW
-        assert newops[0].args == [v_base]
-        assert newops[0].descr == gc_ll_descr.fielddescr_tid
-        v_tid = newops[0].result
-        assert newops[1].opnum == rop.COND_CALL_GC_WB
-        assert newops[1].args[0] == v_tid
-        assert newops[1].args[1] ==ConstInt(gc_ll_descr.GCClass.JIT_WB_IF_FLAG)
-        assert newops[1].args[2] == ConstInt(42)     # func ptr
-        assert newops[1].args[3] == v_base
-        assert newops[1].args[4] == v_value
-        assert newops[1].descr == gc_ll_descr.calldescr_jit_wb
-        assert newops[1].result is None
+        assert len(newops) == 1
+        assert newops[0].opnum == rop.COND_CALL_GC_WB
+        assert newops[0].args[0] == v_base
+        assert newops[0].args[1] == v_value
+        assert newops[0].result is None
+        wbdescr = newops[0].descr
+        assert isinstance(wbdescr.jit_wb_if_flag, int)
+        assert isinstance(wbdescr.jit_wb_if_flag_byteofs, int)
+        assert isinstance(wbdescr.jit_wb_if_flag_singlebyte, int)
 
     def test_get_rid_of_debug_merge_point(self):
         operations = [
@@ -353,26 +349,16 @@ class TestFramework:
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
-        assert len(operations) == 3
+        assert len(operations) == 2
         #
-        assert operations[0].opnum == rop.GETFIELD_RAW
-        assert operations[0].args == [v_base]
-        assert operations[0].descr == gc_ll_descr.fielddescr_tid
-        v_tid = operations[0].result
+        assert operations[0].opnum == rop.COND_CALL_GC_WB
+        assert operations[0].args[0] == v_base
+        assert operations[0].args[1] == v_value
+        assert operations[0].result is None
         #
-        assert operations[1].opnum == rop.COND_CALL_GC_WB
-        assert operations[1].args[0] == v_tid
-        assert operations[1].args[1] == ConstInt(
-                                            gc_ll_descr.GCClass.JIT_WB_IF_FLAG)
-        assert operations[1].args[2] == ConstInt(42)     # func ptr
-        assert operations[1].args[3] == v_base
-        assert operations[1].args[4] == v_value
-        assert operations[1].descr == gc_ll_descr.calldescr_jit_wb
-        assert operations[1].result is None
-        #
-        assert operations[2].opnum == rop.SETFIELD_RAW
-        assert operations[2].args == [v_base, v_value]
-        assert operations[2].descr == field_descr
+        assert operations[1].opnum == rop.SETFIELD_RAW
+        assert operations[1].args == [v_base, v_value]
+        assert operations[1].descr == field_descr
 
     def test_rewrite_assembler_3(self):
         # check write barriers before SETARRAYITEM_GC
@@ -386,23 +372,13 @@ class TestFramework:
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
-        assert len(operations) == 3
+        assert len(operations) == 2
         #
-        assert operations[0].opnum == rop.GETFIELD_RAW
-        assert operations[0].args == [v_base]
-        assert operations[0].descr == gc_ll_descr.fielddescr_tid
-        v_tid = operations[0].result
+        assert operations[0].opnum == rop.COND_CALL_GC_WB
+        assert operations[0].args[0] == v_base
+        assert operations[0].args[1] == v_value
+        assert operations[0].result is None
         #
-        assert operations[1].opnum == rop.COND_CALL_GC_WB
-        assert operations[1].args[0] == v_tid
-        assert operations[1].args[1] == ConstInt(
-                                            gc_ll_descr.GCClass.JIT_WB_IF_FLAG)
-        assert operations[1].args[2] == ConstInt(42)     # func ptr
-        assert operations[1].args[3] == v_base
-        assert operations[1].args[4] == v_value
-        assert operations[1].descr == gc_ll_descr.calldescr_jit_wb
-        assert operations[1].result is None
-        #
-        assert operations[2].opnum == rop.SETARRAYITEM_RAW
-        assert operations[2].args == [v_base, v_index, v_value]
-        assert operations[2].descr == array_descr
+        assert operations[1].opnum == rop.SETARRAYITEM_RAW
+        assert operations[1].args == [v_base, v_index, v_value]
+        assert operations[1].descr == array_descr

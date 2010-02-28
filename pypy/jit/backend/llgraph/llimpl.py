@@ -127,7 +127,7 @@ TYPES = {
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('ref', 'varargs'), 'intorptr'),
     'call_pure'       : (('ref', 'varargs'), 'intorptr'),
-    'cond_call_gc_wb' : (('int', 'int', 'ptr', 'varargs'), None),
+    'cond_call_gc_wb' : (('ptr', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -788,9 +788,8 @@ class Frame(object):
 
     op_call_pure = op_call
 
-    def op_cond_call_gc_wb(self, calldescr, a, b, func, *args):
-        if a & b:
-            self.op_call(calldescr, func, *args)
+    def op_cond_call_gc_wb(self, descr, a, b):
+        py.test.skip("cond_call_gc_wb not supported")
 
     def op_oosend(self, descr, obj, *args):
         raise NotImplementedError("oosend for lltype backend??")

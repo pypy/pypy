@@ -220,8 +220,7 @@ _oplist = [
     'UNICODESETITEM/3',
     'NEWUNICODE/1',
     'RUNTIMENEW/1',     # ootype operation
-    'COND_CALL_GC_WB',      # [cond, imm_and, if_true_call, args_for_call...]
-                            #        => no result       (for the write barrier)
+    'COND_CALL_GC_WB',  # [objptr, newvalue]   (for the write barrier)
     'DEBUG_MERGE_POINT/1',      # debugging only
     'VIRTUAL_REF_FINISH/2',
 

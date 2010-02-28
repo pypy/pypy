@@ -444,7 +444,7 @@ TEST.mode2(MODRM, REG,   ['\x85', register(2,8), modrm(1)])
 TEST.mode2(EAX,   IMM32, ['\xA9', immediate(2)])
 TEST.mode2(MODRM, IMM32, ['\xF7', orbyte(0<<3), modrm(1), immediate(2)])
 TEST.mode2(AL,    IMM8,  ['\xA8', immediate(2,'b')])
-TEST.mode2(REG8,  IMM8,  ['\xF6', register(1,1,'b'), '\xC0', immediate(2,'b')])
+TEST.mode2(MODRM8,IMM8,  ['\xF6', orbyte(0<<3),modrm(1,'b'), immediate(2,'b')])
 
 INT = Instruction()
 INT.mode1(IMM8, ['\xCD', immediate(1, 'b')])
