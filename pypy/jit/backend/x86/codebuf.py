@@ -155,5 +155,4 @@ else:
         separate_module_sources = ['void PYPY_NO_OP(void) {}'],
         )
     ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
-                                         compilation_info=_sse2_eci,
-                                         sandboxsafe=True)
+                                         compilation_info=_sse2_eci)
