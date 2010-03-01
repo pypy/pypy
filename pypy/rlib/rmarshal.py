@@ -261,6 +261,7 @@ def readstr(loader, count):
         loader.need_more_data()
     loader.pos = end
     return loader.buf[pos:end]
+readstr._annenforceargs_ = [None, int]
 
 def readchr(loader):
     pos = loader.pos
