@@ -57,6 +57,8 @@ class BasicBlock(object):
                          shape='box', fillcolor=get_gradient_color(self.ratio))
 
 def get_gradient_color(ratio):
+    if ratio == 0:
+        return 'white'
     ratio = math.log(ratio)      # from -infinity to +infinity
     #
     # ratio: <---------------------- 1.8 --------------------->
