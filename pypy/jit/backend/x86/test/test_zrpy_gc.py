@@ -439,3 +439,19 @@ class TestCompileHybrid(object):
 
     def test_compile_hybrid_bug1(self):
         self.run('compile_hybrid_bug1', 200)
+
+    def define_compile_hybrid_vref(self):
+        from pypy.rlib.jit import virtual_ref, virtual_ref_finish
+        class A:
+            pass
+        glob = A()
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            a = A()
+            glob.v = virtual_ref(a)
+            virtual_ref_finish(a)
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        return None, f, None
+
+    def test_compile_hybrid_vref(self):
+        self.run('compile_hybrid_vref', 200)

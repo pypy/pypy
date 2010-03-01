@@ -152,6 +152,7 @@ class RPythonTyper(object):
 
     def set_type_for_typeptr(self, typeptr, TYPE):
         self.type_for_typeptr[typeptr._obj] = TYPE
+        self.lltype2vtable[TYPE] = typeptr
 
     def get_real_typeptr_for_typeptr(self, typeptr):
         # perform a linear scan for the case of ll2ctypes typeptr

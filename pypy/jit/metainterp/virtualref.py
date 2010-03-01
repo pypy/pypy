@@ -27,6 +27,10 @@ class VirtualRefInfo:
         self.descr_virtualref_index = fielddescrof(self.JIT_VIRTUAL_REF,
                                                    'virtualref_index')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
+        #
+        # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too
+        self.warmrunnerdesc.rtyper.set_type_for_typeptr(
+            self.jit_virtual_ref_vtable, self.JIT_VIRTUAL_REF)
 
     def _freeze_(self):
         return True
@@ -50,10 +54,6 @@ class VirtualRefInfo:
         if c_funcptr is not None:
             log("replaced %d 'jit_force_virtual' with %r" % (count,
                                                              c_funcptr.value))
-        #
-        # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too
-        self.warmrunnerdesc.rtyper.set_type_for_typeptr(
-            self.jit_virtual_ref_vtable, self.JIT_VIRTUAL_REF)
 
     # ____________________________________________________________
 
