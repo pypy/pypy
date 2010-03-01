@@ -92,10 +92,11 @@ _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result,
-                           compilation_info=CConfig._compilation_info_)
+                           compilation_info=CConfig._compilation_info_,
+                           sandboxsafe=True, threadsafe=True)
 
 def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win')
+    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win', sandboxsafe=True, threadsafe=True)
 
 PTR = rffi.CCHARP
 
