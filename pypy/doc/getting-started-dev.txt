@@ -334,7 +334,7 @@ CTypes on Python 2.4
 ++++++++++++++++++++++++++++
 
 `ctypes`_ is included in CPython 2.5 and higher.  CPython 2.4 users needs to
-install it (version 0.9.9.6 or later) if they want to run low-level tests. See
+install it if they want to run low-level tests. See
 the `download page of ctypes`_.
 
 .. _`download page of ctypes`: http://sourceforge.net/project/showfiles.php?group_id=71702
