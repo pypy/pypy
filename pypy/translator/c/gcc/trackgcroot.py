@@ -43,7 +43,8 @@ class FunctionGcRootTracker(object):
         self.findlabels()
         self.parse_instructions()
         try:
-            if not self.list_call_insns():
+            self.find_noncollecting_calls()
+            if not self.list_collecting_call_insns():
                 return []
             self.findframesize()
             self.fixlocalvars()
@@ -62,7 +63,7 @@ class FunctionGcRootTracker(object):
         See format_callshape() for more details about callshape_tuple.
         """
         table = []
-        for insn in self.list_call_insns():
+        for insn in self.list_collecting_call_insns():
             if not hasattr(insn, 'framesize'):
                 continue     # calls that never end up reaching a RET
             if self.is_stack_bottom:
@@ -81,10 +82,11 @@ class FunctionGcRootTracker(object):
                 if isinstance(localvar, LocalVar):
                     loc = localvar.getlocation(insn.framesize,
                                                self.uses_frame_pointer)
-                else:
-                    assert localvar in self.REG2LOC, "%s: %s" % (self.funcname,
-                                                                 localvar)
+                elif localvar in self.REG2LOC:
                     loc = self.REG2LOC[localvar]
+                else:
+                    assert False, "%s: %s" % (self.funcname,
+                                              localvar)
                 assert isinstance(loc, int)
                 if tag is None:
                     gcroots.append(loc)
@@ -115,6 +117,20 @@ class FunctionGcRootTracker(object):
             if label:
                 assert label not in self.labels, "duplicate label: %s" % label
                 self.labels[label] = Label(label, lineno)
+
+    def find_noncollecting_calls(self):
+        cannot_collect = self.CANNOT_COLLECT.copy()
+        for line in self.lines:
+            match = self.r_gcnocollect_marker.search(line)
+            if match:
+                name = match.group(1)
+                cannot_collect[name] = True
+        #
+        if self.format in ('darwin', 'mingw32', 'msvc'):
+            self.cannot_collect = dict.fromkeys(
+                ['_' + name for name in cannot_collect])
+        else:
+            self.cannot_collect = cannot_collect
 
     def append_instruction(self, insn):
         # Add the instruction to the list, and link it to the previous one.
@@ -179,8 +195,9 @@ class FunctionGcRootTracker(object):
                 raise UnrecognizedOperation(opname)
         setattr(cls, 'visit_' + opname, cls.visit_nop)
 
-    def list_call_insns(self):
-        return [insn for insn in self.insns if isinstance(insn, InsnCall)]
+    def list_collecting_call_insns(self):
+        return [insn for insn in self.insns if isinstance(insn, InsnCall)
+                     if insn.name not in self.cannot_collect]
 
     def findframesize(self):
         # the 'framesize' attached to an instruction is the number of bytes
@@ -292,7 +309,7 @@ class FunctionGcRootTracker(object):
         # walk backwards, because inserting the global labels in self.lines
         # is going to invalidate the lineno of all the InsnCall objects
         # after the current one.
-        for call in self.list_call_insns()[::-1]:
+        for call in self.list_collecting_call_insns()[::-1]:
             if hasattr(call, 'framesize'):
                 self.create_global_label(call)
 
@@ -333,6 +350,12 @@ class FunctionGcRootTracker(object):
         call.global_label = label
 
     # ____________________________________________________________
+
+    CANNOT_COLLECT = {    # some of the most used functions that cannot collect
+        'pypy_debug_catch_fatal_exception': None,
+        'RPyAbort': None,
+        'RPyAssertFailed': None,
+        }
 
     def _visit_gcroot_marker(self, line):
         match = self.r_gcroot_marker.match(line)
@@ -641,7 +664,7 @@ class FunctionGcRootTracker(object):
 
         if match is None:
             assert self.r_unaryinsn_star.match(line)   # indirect call
-            return [InsnCall(self.currentlineno),
+            return [InsnCall('<indirect>', self.currentlineno),
                     InsnSetLocal(self.EAX)]      # the result is there
 
         target = match.group(1)
@@ -691,7 +714,7 @@ class FunctionGcRootTracker(object):
                 assert  lineoffset in (1,2)
                 return [InsnStackAdjust(-4)]
 
-        insns = [InsnCall(self.currentlineno),
+        insns = [InsnCall(target, self.currentlineno),
                  InsnSetLocal(self.EAX)]      # the result is there
         if self.format in ('mingw32', 'msvc'):
             # handle __stdcall calling convention:
@@ -737,6 +760,7 @@ class ElfFunctionGcRootTracker(FunctionGcRootTracker):
     r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text|\t\.align|"+LABEL)
 
     r_gcroot_marker = re.compile(r"\t/[*] GCROOT ("+LOCALVARFP+") [*]/")
+    r_gcnocollect_marker = re.compile(r"\t/[*] GC_NOCOLLECT ("+OPERAND+") [*]/")
     r_bottom_marker = re.compile(r"\t/[*] GC_STACK_BOTTOM [*]/")
 
     FUNCTIONS_NOT_RETURNING = {
@@ -813,6 +837,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
 
     r_gcroot_marker = re.compile(r"$1") # never matches
     r_gcroot_marker_var = re.compile(r"DWORD PTR .+_constant_always_one_.+pypy_asm_gcroot")
+    r_gcnocollect_marker = re.compile(r"\spypy_asm_gc_nocollect\(("+OPERAND+")\);")
     r_bottom_marker = re.compile(r"; .+\tpypy_asm_stack_bottom\(\);")
 
     FUNCTIONS_NOT_RETURNING = {
@@ -864,9 +889,20 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
                                             'visit_' + name + 'l')
 
     visit_int = FunctionGcRootTracker.visit_nop
-    visit_npad = FunctionGcRootTracker.visit_nop
     # probably not GC pointers
     visit_cdq  = FunctionGcRootTracker.visit_nop
+
+    def visit_npad(self, line):
+        # MASM has a nasty bug: it implements "npad 5" with "add eax, 0"
+        # which is a not no-op because it clears flags.
+        # I've seen this instruction appear between "test" and "jne"...
+        # see http://www.masm32.com/board/index.php?topic=13122
+        match = self.r_unaryinsn.match(line)
+        arg = match.group(1)
+        if arg == "5":
+            # replace with "npad 3; npad 2"
+            self.lines[self.currentlineno] = "\tnpad\t3\n" "\tnpad\t2\n"
+        return []
 
     def extract_immediate(self, value):
         try:
@@ -1183,229 +1219,209 @@ class GcRootTracker(object):
 
     def dump(self, output):
         assert self.seen_main
-        shapes = {}
-        shapelines = []
-        shapeofs = 0
+
         def _globalname(name, disp=""):
             if self.format in ('darwin', 'mingw32', 'msvc'):
                 name = '_' + name
+            return name
 
-            if self.format == 'msvc':
-                if disp:
-                    return "DWORD PTR [%s+%s]" % (name, disp)
-                else:
-                    return name
-            else:
-                if disp:
-                    return "%s + %s" % (name, disp)
-                else:
-                    return name
-
-        def _globl(name):
-            if self.format == 'msvc':
-                print >> output, "PUBLIC %s" % _globalname(name)
-            else:
-                print >> output, "\t.globl %s" % _globalname(name)
-        def _label(name):
-            print >> output, "%s:" % _globalname(name)
         def _variant(**kwargs):
             txt = kwargs[self.format]
             print >> output, "\t%s" % txt
 
-        def _comment(comment):
-            if self.format == 'msvc':
-                print >> output, "; %s" % comment
-            else:
-                print >> output, "/* %s */" % comment
-
-        def _movl(source, target, comment):
-            if self.format == 'msvc':
-                print >> output, "\tmov\t%s, %s\t\t; %s" % (target, source, comment)
-            else:
-                print >> output, "\tmovl\t%s, %s\t\t/* %s */ " % (source, target, comment)
-
-        def _pushl(source, comment):
-            if self.format == 'msvc':
-                print >> output, "\tpush\t%s\t\t; %s" % (source, comment)
-            else:
-                print >> output, "\tpushl\t%s\t\t/* %s */ " % (source, comment)
-
-        def _popl(source, comment):
-            if self.format == 'msvc':
-                print >> output, "\tpop\t%s\t\t; %s" % (source, comment)
-            else:
-                print >> output, "\tpopl\t%s\t\t/* %s */ " % (source, comment)
-
-
-        def _register(name, disp=""):
-            if self.format == 'msvc':
-                if disp:
-                    return "DWORD PTR [%s+%s]" % (name, disp)
-                else:
-                    return name
-            else:
-                if disp:
-                    return "%s(%%%s)" % (disp, name)
-                else:
-                    return '%' + name
-
-        def _offset(name):
-            if self.format == 'msvc':
-                return "OFFSET %s" % _globalname(name)
-            else:
-                return "$%s" % _globalname(name)
-
-        def _call(arg, comment):
-            if self.format == 'msvc':
-                print >> output, "\tcall\t%s\t\t;%s" % (arg, comment)
-            else:
-                print >> output, "\tcall\t%s\t\t/* %s */" % (arg, comment)
-
-        def _indirectjmp(arg):
-            if self.format == 'msvc':
-                return "DWORD PTR " + arg
-            else:
-                return "*%" + arg
+        # The pypy_asm_stackwalk() function
 
         if self.format == 'msvc':
             print >> output, """\
-            TITLE\tgcmaptable.s
-            .686P
-            .XMM
-            .model\tflat
+            /* A circular doubly-linked list of all
+             * the ASM_FRAMEDATAs currently alive
+             */
+            struct asm_framedata {
+                struct asm_framedata* prev;
+                struct asm_framedata* next;
+            } __gcrootanchor = { &__gcrootanchor, &__gcrootanchor };
+
+            /* See description in asmgcroot.py */
+            __declspec(naked)
+            long pypy_asm_stackwalk(void *callback)
+            {
+               __asm {
+                mov\tedx, DWORD PTR [esp+4]\t; my argument, which is the callback
+                mov\teax, esp\t\t; my frame top address
+                push\teax\t\t\t; ASM_FRAMEDATA[6]
+                push\tebp\t\t\t; ASM_FRAMEDATA[5]
+                push\tedi\t\t\t; ASM_FRAMEDATA[4]
+                push\tesi\t\t\t; ASM_FRAMEDATA[3]
+                push\tebx\t\t\t; ASM_FRAMEDATA[2]
+
+            ; Add this ASM_FRAMEDATA to the front of the circular linked
+            ; list.  Let's call it 'self'.
+
+                mov\teax, DWORD PTR [__gcrootanchor+4]\t\t; next = gcrootanchor->next
+                push\teax\t\t\t\t\t\t\t\t\t; self->next = next
+                push\tOFFSET __gcrootanchor              ; self->prev = gcrootanchor
+                mov\tDWORD PTR [__gcrootanchor+4], esp\t\t; gcrootanchor->next = self
+                mov\tDWORD PTR [eax+0], esp\t\t\t\t\t; next->prev = self
+
+                call\tedx\t\t\t\t\t\t; invoke the callback
+
+            ; Detach this ASM_FRAMEDATA from the circular linked list
+                pop\tesi\t\t\t\t\t\t\t; prev = self->prev
+                pop\tedi\t\t\t\t\t\t\t; next = self->next
+                mov\tDWORD PTR [esi+4], edi\t\t; prev->next = next
+                mov\tDWORD PTR [edi+0], esi\t\t; next->prev = prev
+
+                pop\tebx\t\t\t\t; restore from ASM_FRAMEDATA[2]
+                pop\tesi\t\t\t\t; restore from ASM_FRAMEDATA[3]
+                pop\tedi\t\t\t\t; restore from ASM_FRAMEDATA[4]
+                pop\tebp\t\t\t\t; restore from ASM_FRAMEDATA[5]
+                pop\tecx\t\t\t\t; ignored      ASM_FRAMEDATA[6]
+            ; the return value is the one of the 'call' above,
+            ; because %eax (and possibly %edx) are unmodified
+                ret
+               }
+            }
             """
 
-        _variant(elf='\t.text',
-                 darwin='\t.text',
-                 mingw32='\t.text',
-                 msvc='_TEXT\tSEGMENT')
+        else:
+            print >> output, "\t.text"
+            print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
+            _variant(elf='.type pypy_asm_stackwalk, @function',
+                     darwin='',
+                     mingw32='')
+            print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
-        _globl('pypy_asm_stackwalk')
-        _variant(elf='.type pypy_asm_stackwalk, @function',
-                 darwin='',
-                 mingw32='',
-                 msvc='')
-        _label('pypy_asm_stackwalk')
-        _comment("See description in asmgcroot.py")
-        _movl(_register("esp", disp="4"), _register("edx"), "my argument, which is the callback")
-        _movl(_register("esp"), _register("eax"), "my frame top address")
-        _pushl(_register("eax"), "ASM_FRAMEDATA[6]")
-        _pushl(_register("ebp"), "ASM_FRAMEDATA[5]")
-        _pushl(_register("edi"), "ASM_FRAMEDATA[4]")
-        _pushl(_register("esi"), "ASM_FRAMEDATA[3]")
-        _pushl(_register("ebx"), "ASM_FRAMEDATA[2]")
+            print >> output, """\
+            /* See description in asmgcroot.py */
+            movl\t4(%esp), %edx\t/* my argument, which is the callback */
+            movl\t%esp, %eax\t/* my frame top address */
+            pushl\t%eax\t\t/* ASM_FRAMEDATA[6] */
+            pushl\t%ebp\t\t/* ASM_FRAMEDATA[5] */
+            pushl\t%edi\t\t/* ASM_FRAMEDATA[4] */
+            pushl\t%esi\t\t/* ASM_FRAMEDATA[3] */
+            pushl\t%ebx\t\t/* ASM_FRAMEDATA[2] */
 
-        print >> output
-        _comment("Add this ASM_FRAMEDATA to the front of the circular linked")
-        _comment("list.  Let's call it 'self'.")
-        print >> output
-        _movl(_globalname("__gcrootanchor", disp=4), _register("eax"), "next = gcrootanchor->next")
-        _pushl(_register("eax"),                                       "self->next = next")
-        _pushl(_offset("__gcrootanchor"),                              "self->prev = gcrootanchor")
-        _movl(_register("esp"), _globalname("__gcrootanchor", disp=4), "gcrootanchor->next = self")
-        _movl(_register("esp"), _register("eax", "0"),                 "next->prev = self")
-        print >> output
+            /* Add this ASM_FRAMEDATA to the front of the circular linked */
+            /* list.  Let's call it 'self'.                               */
 
-        _comment("note: the Mac OS X 16 bytes aligment must be respected.")
-        _call(_indirectjmp("edx"),                                    "invoke the callback")
-        print >> output
+            movl\t__gcrootanchor + 4, %eax\t/* next = gcrootanchor->next */
+            pushl\t%eax\t\t\t\t/* self->next = next */
+            pushl\t$__gcrootanchor\t\t\t/* self->prev = gcrootanchor */
+            movl\t%esp, __gcrootanchor + 4\t/* gcrootanchor->next = self */
+            movl\t%esp, 0(%eax)\t\t\t/* next->prev = self */
 
-        _comment("Detach this ASM_FRAMEDATA from the circular linked list")
-        _popl(_register("esi"),                                       "prev = self->prev")
-        _popl(_register("edi"),                                       "next = self->next")
-        _movl(_register("edi"), _register("esi", disp="4"),           "prev->next = next")
-        _movl(_register("esi"), _register("edi", disp="0"),           "next->prev = prev")
-        print >> output
+            /* note: the Mac OS X 16 bytes aligment must be respected. */
+            call\t*%edx\t\t/* invoke the callback */
 
-        _popl(_register("ebx"),                                       "restore from ASM_FRAMEDATA[2]")
-        _popl(_register("esi"),                                       "restore from ASM_FRAMEDATA[3]")
-        _popl(_register("edi"),                                       "restore from ASM_FRAMEDATA[4]")
-        _popl(_register("ebp"),                                       "restore from ASM_FRAMEDATA[5]")
-        _popl(_register("ecx"),                                       "ignored      ASM_FRAMEDATA[6]")
-        _comment("the return value is the one of the 'call' above,")
-        _comment("because %eax (and possibly %edx) are unmodified")
+            /* Detach this ASM_FRAMEDATA from the circular linked list */
+            popl\t%esi\t\t/* prev = self->prev */
+            popl\t%edi\t\t/* next = self->next */
+            movl\t%edi, 4(%esi)\t/* prev->next = next */
+            movl\t%esi, 0(%edi)\t/* next->prev = prev */
 
-        print >> output, "\tret"
+            popl\t%ebx\t\t/* restore from ASM_FRAMEDATA[2] */
+            popl\t%esi\t\t/* restore from ASM_FRAMEDATA[3] */
+            popl\t%edi\t\t/* restore from ASM_FRAMEDATA[4] */
+            popl\t%ebp\t\t/* restore from ASM_FRAMEDATA[5] */
+            popl\t%ecx\t\t/* ignored      ASM_FRAMEDATA[6] */
 
-        _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
-                 darwin='',
-                 mingw32='',
-                 msvc='')
+            /* the return value is the one of the 'call' above, */
+            /* because %eax (and possibly %edx) are unmodified  */
+            ret
+            """.replace("__gcrootanchor", _globalname("__gcrootanchor"))
+
+            _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
+                     darwin='',
+                     mingw32='')
 
         if self.format == 'msvc':
             for label, state, is_range in self.gcmaptable:
-                print >> output, "EXTERN %s:NEAR" % label
-
-        if self.format == 'msvc':
-            print >> output, '_DATA SEGMENT'
-
-        _comment("A circular doubly-linked list of all")
-        _comment("the ASM_FRAMEDATAs currently alive")
-        if self.format == 'msvc':
-            _globl('__gcrootanchor')
-            print >> output, '%s\tDD FLAT:___gcrootanchor  ; prev' % _globalname("__gcrootanchor")
-            print >> output, '\tDD FLAT:___gcrootanchor  ; next'
+                label = label[1:]
+                print >> output, "extern void* %s;" % label
         else:
-            print >> output, '\t.data'
-            print >> output, '\t.align\t4'
-            _globl('__gcrootanchor')
-            _label('__gcrootanchor')
             print >> output, """\
+            /* A circular doubly-linked list of all */
+            /* the ASM_FRAMEDATAs currently alive */
+            .data
+            .align 4
+            .globl __gcrootanchor
+            __gcrootanchor:
             .long\t__gcrootanchor       /* prev */
             .long\t__gcrootanchor       /* next */
-""".replace("__gcrootanchor", _globalname("__gcrootanchor"))
+            """.replace("__gcrootanchor", _globalname("__gcrootanchor"))
 
-        _globl('__gcmapstart')
+        shapes = {}
+        shapelines = []
+        shapeofs = 0
+
+        # write the tables
+
         if self.format == 'msvc':
-            print >> output, '%s' % _globalname('__gcmapstart'),
+            print >> output, """\
+            static struct { void* addr; long shape; } __gcmap[%d] = {
+            """ % (len(self.gcmaptable),)
+            for label, state, is_range in self.gcmaptable:
+                label = label[1:]
+                try:
+                    n = shapes[state]
+                except KeyError:
+                    n = shapes[state] = shapeofs
+                    bytes = [str(b) for b in compress_callshape(state)]
+                    shapelines.append('\t%s,\t/* %s */\n' % (
+                            ', '.join(bytes),
+                            shapeofs))
+                    shapeofs += len(bytes)
+                if is_range:
+                    n = ~ n
+                print >> output, '{ &%s, %d},' % (label, n)
+            print >> output, """\
+            };
+            void* __gcmapstart = __gcmap;
+            void* __gcmapend = __gcmap + %d;
+
+            char __gccallshapes[] = {
+            """ % (len(self.gcmaptable),)
+            output.writelines(shapelines)
+            print >> output, """\
+            };
+            """
         else:
-            _label('__gcmapstart')
-        for label, state, is_range in self.gcmaptable:
-            try:
-                n = shapes[state]
-            except KeyError:
-                n = shapes[state] = shapeofs
-                bytes = [str(b) for b in compress_callshape(state)]
-                if self.format == 'msvc':
-                    shapelines.append('\tDB\t%s\t;%s\n' % (
-                        ', '.join(bytes),
-                        shapeofs))
-                else:
+            print >> output, """\
+            .globl __gcmapstart
+            __gcmapstart:
+            """.replace("__gcmapstart", _globalname("__gcmapstart"))
+
+            for label, state, is_range in self.gcmaptable:
+                try:
+                    n = shapes[state]
+                except KeyError:
+                    n = shapes[state] = shapeofs
+                    bytes = [str(b) for b in compress_callshape(state)]
                     shapelines.append('\t/*%d*/\t.byte\t%s\n' % (
                         shapeofs,
                         ', '.join(bytes)))
-                shapeofs += len(bytes)
-            if is_range:
-                n = ~ n
-            if self.format == 'msvc':
-                print >> output, '\tDD\t%s' % (label,)
-                print >> output, '\tDD\t%d' % (n,)
-            else:
+                    shapeofs += len(bytes)
+                if is_range:
+                    n = ~ n
                 print >> output, '\t.long\t%s-%d' % (
                     label,
                     PARSERS[self.format].FunctionGcRootTracker.OFFSET_LABELS)
                 print >> output, '\t.long\t%d' % (n,)
 
-        _globl('__gcmapend')
-        if self.format == 'msvc':
-            print >> output, '%s DD ?' % _globalname('__gcmapend')
-        else:
-            _label('__gcmapend')
-        _variant(elf='.section\t.rodata',
-                 darwin='.const',
-                 mingw32='',
-                 msvc='')
+            print >> output, """\
+            .globl __gcmapend
+            __gcmapend:
+            """.replace("__gcmapend", _globalname("__gcmapend"))
 
-        _globl('__gccallshapes')
-        if self.format == 'msvc':
-            print >> output, _globalname('__gccallshapes'),
-        else:
-            _label('__gccallshapes')
-        output.writelines(shapelines)
+            _variant(elf='.section\t.rodata',
+                     darwin='.const',
+                     mingw32='')
 
-        if self.format == 'msvc':
-            print >> output, "_DATA\tENDS"
-            print >> output, "END"
+            print >> output, """\
+            .globl __gccallshapes
+            __gccallshapes:
+            """.replace("__gccallshapes", _globalname("__gccallshapes"))
+            output.writelines(shapelines)
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
         parser = PARSERS[format](verbose=self.verbose, shuffle=self.shuffle)

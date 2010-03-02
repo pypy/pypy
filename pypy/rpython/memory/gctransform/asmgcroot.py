@@ -40,6 +40,9 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
     def build_root_walker(self):
         return AsmStackRootWalker(self)
 
+    def mark_call_cannotcollect(self, hop, name):
+        hop.genop("direct_call", [c_asm_nocollect, name])
+
     def gct_direct_call(self, hop):
         fnptr = hop.spaceop.args[0].value
         try:
@@ -486,6 +489,12 @@ pypy_asm_gcroot = rffi.llexternal('pypy_asm_gcroot',
                                   sandboxsafe=True,
                                   _nowrapper=True)
 c_asm_gcroot = Constant(pypy_asm_gcroot, lltype.typeOf(pypy_asm_gcroot))
+
+pypy_asm_nocollect = rffi.llexternal('pypy_asm_gc_nocollect',
+                                     [rffi.CCHARP], lltype.Void,
+                                     sandboxsafe=True,
+                                     _nowrapper=True)
+c_asm_nocollect = Constant(pypy_asm_nocollect, lltype.typeOf(pypy_asm_nocollect))
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address,
                                                  llmemory.Address], rffi.INT))

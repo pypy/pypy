@@ -169,6 +169,9 @@ def check_computegcmaptable(format, path):
     assert len(seen) == len(tabledict), (
         "computed table contains unexpected entries:\n%r" %
         [key for key in tabledict if key not in seen])
-    print lines
-    print expectedlines
+    print '--------------- got ---------------'
+    print ''.join(lines)
+    print '------------- expected ------------'
+    print ''.join(expectedlines)
+    print '-----------------------------------'
     assert lines == expectedlines

@@ -42,9 +42,9 @@ pypy_g_SemiSpaceGC_scan_copied:
 	call	pypy_g_SemiSpaceGC_get_size
 	;; expected {28(%esp) | 20(%esp), 24(%esp), %edi, %ebp | }
 	addl	%eax, %ebx
+	jmp	.L1221
 .L1227:
 	call	RPyAbort
-	;; expected {28(%esp) | 20(%esp), 24(%esp), %edi, %ebp | }
 	cmpl	12(%esi), %ebx
 	jb	.L1229
 	addl	$20, %esp

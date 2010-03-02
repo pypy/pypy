@@ -532,7 +532,7 @@ class CStandaloneBuilder(CBuilder):
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
                          'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
-                mk.rule('gcmaptable.s', '$(GCMAPFILES)',
+                mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
 
             else:

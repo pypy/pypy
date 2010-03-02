@@ -40,7 +40,12 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return True
         return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
                                                               seen)
-    
+    def analyze_external_call(self, op, seen=None):
+        funcobj = op.args[0].value._obj
+        if funcobj._name == 'pypy_asm_stackwalk':
+            return True
+        return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
+                                                                seen)
     def analyze_simple_operation(self, op):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
@@ -577,6 +582,11 @@ class FrameworkGCTransformer(GCTransformer):
             self.pop_roots(hop, livevars)
         else:
             self.default(hop)
+            if hop.spaceop.opname == "direct_call":
+                self.mark_call_cannotcollect(hop, hop.spaceop.args[0])
+
+    def mark_call_cannotcollect(self, hop, name):
+        pass
 
     gct_indirect_call = gct_direct_call
 

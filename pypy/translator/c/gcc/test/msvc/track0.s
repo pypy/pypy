@@ -64,7 +64,6 @@ $block6$40044:
 	jl	SHORT $LN15@pypy_g_ll_@139
 $LN14@pypy_g_ll_@139:
 	call	_RPyAbort
-    ;; expected {24(%esp) | 12(%esp), 4(%esp), (%esp), 8(%esp) | 32(%esp)}
 $LN15@pypy_g_ll_@139:
 
 ; 1529 : 	l_v420 = l_v419;
@@ -76,7 +75,6 @@ $LN15@pypy_g_ll_@139:
 	test	ebx, ebx
 	jne	SHORT $LN16@pypy_g_ll_@139
 	call	_RPyAbort
-    ;; expected {24(%esp) | 12(%esp), 4(%esp), (%esp), 8(%esp) | 32(%esp)}
 $LN16@pypy_g_ll_@139:
 
 ; 1531 : 	OP_INT_ADD(l_v402, l_v421, l_v422);
@@ -183,7 +181,6 @@ $block5$40057:
 	jl	SHORT $LN10@pypy_g_ll_@139
 $LN9@pypy_g_ll_@139:
 	call	_RPyAbort
-    ;; expected {24(%esp) | 12(%esp), 4(%esp), (%esp), 8(%esp) | }
 $LN10@pypy_g_ll_@139:
 
 ; 1517 : 	l_v413 = l_v412;
@@ -195,7 +192,6 @@ $LN10@pypy_g_ll_@139:
 	test	edi, edi
 	jne	SHORT $LN11@pypy_g_ll_@139
 	call	_RPyAbort
-    ;; expected {24(%esp) | 12(%esp), 4(%esp), (%esp), 8(%esp) | }
 $LN11@pypy_g_ll_@139:
 	mov	edi, DWORD PTR [edi+8]
 
@@ -208,7 +204,6 @@ $LN11@pypy_g_ll_@139:
 	jl	SHORT $LN13@pypy_g_ll_@139
 $LN12@pypy_g_ll_@139:
 	call	_RPyAbort
-    ;; expected {24(%esp) | 12(%esp), 4(%esp), (%esp), 8(%esp) | }
 $LN13@pypy_g_ll_@139:
 
 ; 1520 : 	pypy_g_copy_string_contents__rpy_stringPtr_rpy_stringPt(l_v415, l_result_2, 0L, l_res_index_0, l_v414);
