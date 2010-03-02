@@ -47,34 +47,28 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
-   * ``libgc-dev`` (only when translating with `--opt=0, 1` or `size`)
+   * ``libgc-dev`` (Boehm: only when translating with `--opt=0, 1` or `size`)
 
 2. Translation is somewhat time-consuming (30 min to
    over one hour) and RAM-hungry.  If you have less than 1.5 GB of
    RAM (or a slow machine) you might want to pick the
    `optimization level`_ `1` in the next step.  A level of
-   `2` or `3` gives much better results, though.
+   `2` or `3` or `jit` gives much better results, though.
 
    Let me stress this another time: at ``--opt=1`` you get the Boehm
    GC, which is here mostly for historical and for testing reasons.
    You really do not want to pick it.  The resulting ``pypy-c`` is
    slow.
 
-   Alternatively, if you want to enable the experimental JIT, choose
-   the optimization level ``jit``.
-
 3. Run::
 
      cd pypy/translator/goal
-     python translate.py --opt=3 targetpypystandalone.py
+     python translate.py --opt=jit targetpypystandalone.py
 
-   possibly replacing ``--opt=3`` with ``--opt=jit`` or another
-   `optimization level`_ of your choice.
-
-   On Linux 32-bit Intel machines, you can get some extra speed
-   (and extra translation time) by adding ``--gcrootfinder=asmgcc``
-   just after the ``--opt`` option.  (This option is implied by
-   ``--opt=jit``.)
+   possibly replacing ``--opt=jit`` with another `optimization level`_
+   of your choice like ``--opt=2`` if you do not want the included JIT
+   compiler.  (The default level so far is 2.  Do not use ``--opt=jit``
+   on something else than Intel **32-bit** machines.)
 
 .. _`optimization level`: config/opt.html
 
@@ -99,11 +93,13 @@ executable. The executable behaves mostly like a normal Python interpreter::
     >>>>
 
 This executable can be moved around or copied on other machines; see
-Installation_ below.
+Installation_ below.  For now a JIT-enabled ``pypy-c`` always produces
+debugging output to stderr when it exits, unless translated with
+``--jit-debug=off``.
 
 The ``translate.py`` script takes a very large number of options controlling
 what to translate and how.  See ``translate.py -h``. Some of the more
-interesting options are:
+interesting options (but for now incompatible with the JIT) are:
 
    * ``--stackless``: this produces a pypy-c that includes features
      inspired by `Stackless Python <http://www.stackless.com>`__.
@@ -121,54 +117,12 @@ sections`_.
 
 .. _`translate PyPy with the thunk object space`:
 
-Translating with the thunk object space
+Translating with non-standard options
 ++++++++++++++++++++++++++++++++++++++++
 
-One of the original features provided by PyPy is the "thunk" 
-object space, providing lazily-computed objects in a fully
-transparent manner::
-
-    cd pypy
-    python bin/py.py -o thunk
-
-    >>>> from __pypy__ import thunk
-    >>>> def longcomputation(lst):
-    ....     print "computing..."
-    ....     return sum(lst)
-    .... 
-    >>>> x = thunk(longcomputation, range(5))
-    >>>> y = thunk(longcomputation, range(10))
-
-From the application perspective, ``x`` and ``y`` represent 
-exactly the objects being returned by the ``longcomputation()``
-invocations.  You can put these objects into a dictionary 
-without triggering the computation:: 
-
-    >>>> d = {5: x, 10: y}
-    >>>> result = d[5]
-    >>>> result
-    computing...
-    10
-    >>>> type(d[10])
-    computing...
-    <type 'int'>
-    >>>> d[10]
-    45
-
-It is interesting to note that this lazy-computing Python extension 
-is solely implemented in a small `objspace/thunk.py`_ file consisting 
-of around 200 lines of code.
-
-It is also possible to translate a PyPy version using the "thunk" object
-space::
-
-    cd pypy/translator/goal
-    python translate.py targetpypystandalone.py --objspace=thunk
-
-the example above should work in the translated result.
-
-If you want know more about pypy-exclusive features go to `objspace proxies`_
-document.
+It is possible to have non-standard features enabled for translation,
+but they are not really tested any more.  Look for example at the
+`objspace proxies`_ document.
 
 .. _`objspace proxies`: objspace-proxies.html
 
@@ -181,7 +135,15 @@ To create a standalone .NET executable using the `CLI backend`_::
 
     ./translate.py --backend=cli targetpypystandalone.py
 
-The executable and all its dependecies will be stored in the
+Or better, try out the experimental `branch/cli-jit`_ described by
+Antonio Cuni's `Ph.D. thesis`_ and translate with the JIT::
+
+    ./translate.py -Ojit --backend=cli targetpypystandalone.py
+
+.. _`branch/cli-jit`: http://codespeak.net/svn/pypy/branch/cli-jit/
+.. _`Ph.D. thesis`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
+
+The executable and all its dependencies will be stored in the
 ./pypy-cli-data directory. To run pypy.NET, you can run
 ./pypy-cli-data/main.exe. If you are using Linux or Mac, you can use
 the convenience ./pypy-cli script::
@@ -334,11 +296,6 @@ options do.
 .. _`CLI backend`: cli-backend.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 .. _clr: clr-module.html
-.. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=lib-python&branch=%3Ctrunk%3E
+.. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=applevel&branch=%3Ctrunk%3E
 
 .. include:: _ref.txt
-
-
-
-
-
