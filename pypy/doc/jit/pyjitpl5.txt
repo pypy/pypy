@@ -172,7 +172,7 @@ article:
 
 * `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`__
 
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/ipcoolps2009/bolz-tracing-jit.pdf
+.. __: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit-final.pdf
 
 as well as the `blog posts with the JIT tag.`__
 
