@@ -8,7 +8,7 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
-* `Release 1.1`_: the latest official release
+* `Release 1.2`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -56,4 +56,4 @@ on the `development mailing list`_.
 .. _`Documentation`: docindex.html 
 .. _`Getting Started`: getting-started.html
 .. _papers: extradoc.html
-.. _`Release 1.1`: release-1.1.0.html
+.. _`Release 1.2`: release-1.2.0.html
