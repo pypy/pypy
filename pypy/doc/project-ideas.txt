@@ -1,8 +1,6 @@
 Independent project ideas relating to PyPy
 ==========================================
 
-*NOTE: This is an extremely outdated list, don't consider it seriously*
-
 PyPy allows experimentation in many directions -- indeed facilitating
 experimentation in language implementation was one of the main
 motivations for the project.  This page is meant to collect some ideas
