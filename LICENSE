@@ -35,18 +35,18 @@ the beginning of each file) the files in the 'pypy' directory are each
 copyrighted by one or more of the following people and organizations:    
 
     Armin Rigo
-    Samuele Pedroni
-    Carl Friedrich Bolz
     Maciek Fijalkowski
-    Michael Hudson
+    Carl Friedrich Bolz
+    Samuele Pedroni
     Antonio Cuni
+    Michael Hudson
     Christian Tismer
     Holger Krekel
     Eric van Riet Paap
     Richard Emslie
     Anders Chrigstrom
-    Aurelien Campeas
     Amaury Forgeot d Arc
+    Aurelien Campeas
     Anders Lehmann
     Niklaus Haldimann
     Seo Sanghyeon
@@ -54,11 +54,12 @@ copyrighted by one or more of the following people and organizations:
     Lawrence Oluyede
     Jakub Gustak
     Guido Wesdorp
-    Niko Matsakis
-    Toon Verwaest
+    Benjamin Peterson
     Alexander Schremmer
+    Niko Matsakis
     Ludovic Aubry
     Alex Martelli
+    Toon Verwaest
     Stephan Diehl
     Adrien Di Mascio
     Stefan Schwarzer
@@ -66,8 +67,8 @@ copyrighted by one or more of the following people and organizations:
     Patrick Maupin
     Jacob Hallen
     Laura Creighton
-    Camillo Bruni
     Bob Ippolito
+    Camillo Bruni
     Simon Burton
     Bruno Gola
     Alexandre Fayolle
@@ -75,34 +76,35 @@ copyrighted by one or more of the following people and organizations:
     Guido van Rossum
     Valentino Volonghi
     Adrian Kuhn
-    Anders Hammarquist
     Paul deGrandis
     Gerald Klix
     Wanja Saatkamp
+    Anders Hammarquist
     Oscar Nierstrasz
     Eugene Oden
     Lukas Renggli
-    Bartosz SKOWRON
     Guenter Jantzen
     Dinu Gherman
+    Bartosz SKOWRON
     Georg Brandl
-    Benjamin Peterson
     Ben Young
-    Nicolas Chauvat
     Jean-Paul Calderone
+    Nicolas Chauvat
     Rocco Moretti
     Michael Twomey
-    Boris Feigin
+    boria
     Jared Grubb
     Olivier Dormond
     Stuart Williams
     Jens-Uwe Mager
     Justas Sadzevicius
+    Mikael Schönenberg
     Brian Dorsey
     Jonathan David Riehl
     Beatrice During
     Elmo Mäntynen
     Andreas Friedge
+    Alex Gaynor
     Anders Qvist
     Alan McIntyre
     Bert Freudenberg
