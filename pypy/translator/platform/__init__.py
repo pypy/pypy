@@ -6,10 +6,7 @@ platform.
 import sys, py, os
 
 from pypy.tool.ansi_print import ansi_log
-try:
-    from py.impl.code.code import safe_repr
-except:
-    from py._code.code import safe_repr
+from py.impl.code.code import safe_repr
 log = py.log.Producer("platform")
 py.log.setconsumer("platform", ansi_log)
 
