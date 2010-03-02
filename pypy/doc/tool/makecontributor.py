@@ -8,12 +8,12 @@ import py
 try: 
     path = py.std.sys.argv[1]
 except IndexError: 
-    print "usage: %s PATH" %(py.std.sys.argv[0])
+    print "usage: %s ROOTPATH" %(py.std.sys.argv[0])
     raise SystemExit, 1
 
 d = {}
 
-for logentry in py.path.svnwc(py.std.sys.argv[1]).log(): 
+for logentry in py.path.svnwc(path).log(): 
     a = logentry.author 
     if a in d: 
         d[a] += 1
@@ -30,6 +30,8 @@ excluded = set("anna gintas ignas".split())
 cutoff = 5 # cutoff for authors in the LICENSE file
 mark = False
 for author, count in items: 
+    if author in excluded:
+        continue
     user = uconf.system.User(author)
     try:
         realname = user.realname.strip()
