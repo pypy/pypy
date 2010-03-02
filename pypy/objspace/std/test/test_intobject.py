@@ -25,7 +25,7 @@ class TestW_IntObject:
             res = func(*args, **kwds)
             raise Exception, "should have failed but returned '%s'!" %repr(res)
         except FailedToImplement, arg:
-            return arg.w_type
+            return arg.get_w_type(self.space)
 
     def test_int_w(self):
         assert self.space.int_w(self.space.wrap(42)) == 42

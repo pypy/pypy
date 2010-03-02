@@ -219,7 +219,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       try:
                           return %s
                       except FailedToImplement, e:
-                          if e.w_type is not None:
+                          if e.get_w_type(space) is not None:
                               raise OperationError(e.w_type, e.get_w_value(space))
                           else:
                               return space.w_NotImplemented
@@ -231,7 +231,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       try:
                           w_res = %s
                       except FailedToImplement, e:
-                          if e.w_type is not None:
+                          if e.get_w_type(space) is not None:
                               raise OperationError(e.w_type, e.get_w_value(space))
                           else:
                               raise gettypeerror(space, %r, %s)

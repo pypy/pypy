@@ -13,7 +13,7 @@ from pypy.tool.cache import Cache
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
-from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.multimethod import FailedToImplement, FailedToImplementArgs
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int

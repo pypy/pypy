@@ -86,7 +86,7 @@ def add__Int_Int(space, w_int1, w_int2):
     try:
         z = ovfcheck(x + y)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer addition"))
     return wrapint(space, z)
 
@@ -96,7 +96,7 @@ def sub__Int_Int(space, w_int1, w_int2):
     try:
         z = ovfcheck(x - y)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer substraction"))
     return wrapint(space, z)
 
@@ -106,7 +106,7 @@ def mul__Int_Int(space, w_int1, w_int2):
     try:
         z = ovfcheck(x * y)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
     return wrapint(space, z)
 
@@ -119,7 +119,7 @@ def floordiv__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer division"))
     return wrapint(space, z)
 div__Int_Int = floordiv__Int_Int
@@ -128,7 +128,7 @@ def truediv__Int_Int(space, w_int1, w_int2):
     x = float(w_int1.intval)
     y = float(w_int2.intval)
     if y == 0.0:
-        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
     return space.wrap(x / y)
 
 def mod__Int_Int(space, w_int1, w_int2):
@@ -140,7 +140,7 @@ def mod__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer modulo by zero"))
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer modulo"))
     return wrapint(space, z)
 
@@ -153,7 +153,7 @@ def divmod__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer divmod by zero"))
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer modulo"))
     # no overflow possible
     m = x % y
@@ -169,7 +169,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
                              space.wrap("pow() 2nd argument "
                  "cannot be negative when 3rd argument specified"))
         ## bounce it, since it always returns float
-        raise FailedToImplement(space.w_ValueError,
+        raise FailedToImplementArgs(space.w_ValueError,
                                 space.wrap("integer exponentiation"))
     temp = iv
     ix = 1
@@ -188,7 +188,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
         if iz:
             ix = ix % iz
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
     return wrapint(space, ix)
 
@@ -211,7 +211,7 @@ def neg__Int(space, w_int1):
     try:
         x = ovfcheck(-a)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer negation"))
     return wrapint(space, x)
 
@@ -239,12 +239,12 @@ def lshift__Int_Int(space, w_int1, w_int2):
     if a == 0 or b == 0:
         return int__Int(space, w_int1)
     if b >= LONG_BIT:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
     try:
         c = ovfcheck_lshift(a, b)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
     return wrapint(space, c)
 

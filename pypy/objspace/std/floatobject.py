@@ -241,7 +241,7 @@ def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
     return W_FloatObject(x / y)
 
 truediv__Float_Float = div__Float_Float
@@ -254,7 +254,7 @@ def mod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
     mod = math.fmod(x, y)
     if (mod and ((y < 0.0) != (mod < 0.0))):
         mod += y
@@ -265,7 +265,7 @@ def _divmod_w(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
     mod = math.fmod(x, y)
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
@@ -338,9 +338,9 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         try:
             z = math.pow(x,y)
         except OverflowError:
-            raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
+            raise FailedToImplementArgs(space.w_OverflowError, space.wrap("float power"))
         except ValueError:
-            raise FailedToImplement(space.w_ValueError, space.wrap("float power")) # xxx
+            raise FailedToImplementArgs(space.w_ValueError, space.wrap("float power")) # xxx
 
     return W_FloatObject(z)
 

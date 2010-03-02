@@ -91,7 +91,7 @@ def mul__SmallInt_SmallInt(space, w_int1, w_int2):
     try:
         z = ovfcheck(x * y)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
     return wrapint(space, z)
 
@@ -110,7 +110,7 @@ def truediv__SmallInt_SmallInt(space, w_int1, w_int2):
     x = float(w_int1.intval)
     y = float(w_int2.intval)
     if y == 0.0:
-        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
     return space.wrap(x / y)
 
 def mod__SmallInt_SmallInt(space, w_int1, w_int2):
@@ -178,12 +178,12 @@ def lshift__SmallInt_SmallInt(space, w_int1, w_int2):
     if a == 0 or b == 0:
         return int__SmallInt(space, w_int1)
     if b >= LONG_BIT:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
     try:
         c = ovfcheck_lshift(a, b)
     except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
+        raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
     return wrapint(space, c)
 

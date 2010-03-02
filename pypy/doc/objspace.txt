@@ -316,7 +316,7 @@ function "int_add()" in "Object/intobject.c": ::
         try:
             z = ovfcheck(x + y)
         except OverflowError:
-            raise FailedToImplement(space.w_OverflowError,
+            raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer addition"))
         return W_IntObject(space, z)
 

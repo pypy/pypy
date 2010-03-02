@@ -195,7 +195,7 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
 def pow__Long_Long_None(space, w_long1, w_long2, w_long3):
     # XXX need to replicate some of the logic, to get the errors right
     if w_long2.num.lt(rbigint.fromint(0)):
-        raise FailedToImplement(
+        raise FailedToImplementArgs(
             space.w_ValueError,
             space.wrap("long pow() too negative"))
     return W_LongObject(w_long1.num.pow(w_long2.num, None))
