@@ -213,11 +213,11 @@ to find a ``PREFIX`` from which the directories
 ``PREFIX/pypy/lib`` can all be found.  The prefixes that are tried are::
 
     .
-    ./share/pypy-1.1
+    ./share/pypy-1.2
     ..
-    ../share/pypy-1.1
+    ../share/pypy-1.2
     ../..
-    ../../share/pypy-1.1
+    ../../share/pypy-1.2
     ../../..
     etc.
 
