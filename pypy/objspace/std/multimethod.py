@@ -25,10 +25,6 @@ from pypy.tool.sourcetools import compile2
 
 
 class FailedToImplement(Exception):
-    def __init__(self, *args):
-        if args:
-            raise Exception
-    
     def get_w_value(self, space):
         return None
     
