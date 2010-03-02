@@ -1,0 +1,75 @@
+=============================================
+PyPy 1.2: Preview of Just-in-Time Compilation
+=============================================
+
+Welcome to the PyPy 1.2 release.  The highlight of this release is a
+version of PyPy that includes a rather good JIT (Just-in-Time) Compiler.
+
+Download page:
+    
+   http://codespeak.net/pypy/dist/pypy/doc/download.html
+
+PyPy's Getting Started lives at:
+
+   http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+
+Highlights of This Release
+==========================
+
+  - JIT.  XXX only on 32-bit Intel CPUs so far.
+
+    http://morepypy.blogspot.com/search/label/jit
+
+  - Graphs:
+
+    http://speed.pypy.org/
+    http://codespeak.net:8099/plotsummary.html
+    http://codespeak.net/pypy/jitplots.html
+
+  - Improvements in GC and in our object model: we use much less memory
+    than CPython now
+
+    http://morepypy.blogspot.com/2009/10/gc-improvements.html
+    http://? for the object model, e.g. sharingdict.py
+
+
+Other Changes
+=============
+
+  - ?
+
+
+What is PyPy?
+=============
+
+Technically, PyPy is both a Python interpreter implementation and an
+advanced compiler, or more precisely a framework for implementing dynamic
+languages and generating virtual machines for them.
+
+The framework allows for alternative frontends as well as for alternative
+backends, currently C, Java and .NET.  For our main target "C", we can
+"mix in" different garbage collectors and threading models,
+including micro-threads aka "Stackless".  The inherent complexity that
+arises from this ambitious approach is mostly kept away from the Python
+interpreter implementation, our main frontend.
+
+The focus of this release is the introduction of a new transformation,
+the JIT Compiler Generator, which is able to produce a JIT Compiler for
+any interpreter frontend, given a very small number of hand-written hints.
+
+Socially, PyPy is a collaborative effort of many individuals working
+together in a distributed and sprint-driven way since 2003.  PyPy would
+not have gotten as far as it has without the coding, feedback and
+general support from numerous people.
+
+
+
+Have fun,
+
+    the PyPy release team, [in alphabetical order]
+    
+    Amaury Forgeot d'Arc, Antonio Cuni, Armin Rigo, Carl Friedrich Bolz,
+    Holger Krekel, Maciek Fijalkowski, Samuele Pedroni
+
+    and many others:
+    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
