@@ -8,7 +8,7 @@ appropriate measure but it's something)::
 
 
     Armin Rigo
-    Maciek Fijalkowski
+    Maciej Fijalkowski
     Carl Friedrich Bolz
     Samuele Pedroni
     Antonio Cuni
