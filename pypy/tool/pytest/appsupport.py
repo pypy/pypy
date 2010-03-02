@@ -1,10 +1,15 @@
 import autopath
 import py
-import py.impl.code.assertion
-from py.impl.code import _assertionold as exprinfo
+try:
+    import py.impl.code.assertion
+    from py.impl.code import _assertionold as exprinfo
+    from py.impl.test.outcome import ExceptionFailure
+except:
+    import py._code.assertion
+    from py._code import _assertionold as exprinfo
+    from py._test.outcome import ExceptionFailure
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from py.impl.test.outcome import ExceptionFailure
 
 # ____________________________________________________________
 

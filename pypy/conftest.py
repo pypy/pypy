@@ -1,5 +1,8 @@
 import py, sys, os
-from py.impl.test.outcome import Failed
+try:
+    from py.impl.test.outcome import Failed
+except:
+    from py._test.outcome import Failed
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport
