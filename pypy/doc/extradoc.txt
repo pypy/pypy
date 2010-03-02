@@ -7,6 +7,9 @@ Papers
 
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
+* `High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`_,
+  A. Cuni, Ph.D. thesis
+
 * `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`_,
   C.F. Bolz, A. Cuni, M. Fijalkowski, A. Rigo
 
@@ -55,6 +58,7 @@ Papers
 
 
 .. _bibtex: http://codespeak.net/svn/pypy/extradoc/talk/bibtex.bib
+.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: http://codespeak.net/svn/pypy/extradoc/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009-dotnet/cli-jit.pdf
