@@ -76,8 +76,16 @@ Papers
 Talks and Presentations 
 ----------------------------------
 
+Talks in 2010
++++++++++++++
+
+* `PyCon 2010`_.
+
+
 Talks in 2009
 +++++++++++++
+
+* `RuPy 2009`_.
 
 * `EuroPython talks 2009`_.
 
@@ -231,6 +239,8 @@ Talks in 2003
 * `Architecture introduction slides`_ a mostly up-to-date
   introduction for the Amsterdam PyPy-Sprint Dec 2003. 
 
+.. _`PyCon 2010`: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
+.. _`RuPy 2009`: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
 .. _`PyPy 3000`: http://codespeak.net/pypy/extradoc/talk/ep2006/pypy3000.txt
 .. _`What can PyPy do for you`: http://codespeak.net/pypy/extradoc/talk/ep2006/usecases-slides.html
 .. _`PyPy introduction at EuroPython 2006`: http://codespeak.net/pypy/extradoc/talk/ep2006/intro.pdf
