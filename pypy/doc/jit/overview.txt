@@ -16,23 +16,30 @@ Overview
 --------
 
 Writing an interpreter for a complex dynamic language like Python is not
-a small task.  So doing it a high-level language looks like a good idea,
-because high-level languages have many advantages over low-level ones
-(flexibility, ease of implementation, no low-level issues...).  This is
-the basic observation behind PyPy.
+a small task, especially if, for performance goals, we want to write a
+Just-in-Time (JIT) compiler too.
 
-But coding in a high-level language has other benefits beyond the
-obvious ones.  Perhaps most importantly, it allows the language
-interpreter to be analyzed when turned into a compiler.  This is
-precisely what our JIT compiler generator does.  Based on tracing
-JIT techniques, **it can turn the interpreter of an arbitrary
-dynamic language into a just-in-time compiler for the same language.**
-It works mostly automatically and only needs guidance by the language
-implementor in the form of a small number of hints in the source code of
-the interpreter.  The resulting JIT compiler has the same language
-semantics as the original interpreter by construction.  It generates
-machine code for the user program while aggressively optimizing it,
-leading to a big performance boost.
+The good news is that it's not what we did.  We indeed wrote an
+interpreter for Python, but we never wrote any JIT compiler for Python
+in PyPy.  Instead, we use the fact that our interpreter for Python is
+written in RPython, which is a nice, high-level language -- and we turn
+it *automatically* into a JIT compiler for Python.
+
+This transformation is of course completely transparent to the user,
+i.e. the programmer writing Python programs.  The goal (which we
+achieved) is to support *all* Python features -- including, for example,
+random frame access and debuggers.  But it is also mostly transparent to
+the language implementor, i.e. to the source code of the Python
+interpreter.  It only needs a bit of guidance: we had to put a small
+number of hints in the source code of our interpreter.  Based on these
+hints, the *JIT compiler generator* produces a JIT compiler which has
+the same language semantics as the original interpreter by construction.
+This JIT compiler itself generates machine code at runtime, aggressively
+optimizing the user's program and leading to a big performance boost,
+while keeping the semantics unmodified.  Of course, the interesting bit
+is that our Python language interpreter can evolve over time without
+getting out of sync with the JIT compiler.
+
 
 The path we followed
 --------------------
@@ -47,13 +54,15 @@ produce just-in-time compilers, rather than classical ahead-of-time
 compilers.  If this turns out to be correct, the practical speed of
 dynamic languages could be vastly improved.
 
-Today (beginning 2009), our prototype is no longer using partial
-evaluation -- at least not in a way that would convince paper reviewers.
-It is instead based on the notion of *tracing JIT,* recently studied for
-Java and JavaScript.  When compared to all existing tracing JITs so far,
-however, partial evaluation gives us some extra techniques that we
-already had in our previous JIT generators, notably how to optimize
-structures by removing allocations.
+All these previous JIT compiler generators were producing JIT compilers
+similar to the hand-written Psyco.  But today, starting from 2009, our
+prototype is no longer using partial evaluation -- at least not in a way
+that would convince paper reviewers.  It is instead based on the notion
+of *tracing JIT,* recently studied for Java and JavaScript.  When
+compared to all existing tracing JITs so far, however, partial
+evaluation gives us some extra techniques that we already had in our
+previous JIT generators, notably how to optimize structures by removing
+allocations.
 
 The closest comparison to our current JIT is Tamarin's TraceMonkey.
 However, this JIT compiler is written manually, which is quite some
@@ -87,12 +96,8 @@ that this should be:
   is modified, so that they cannot get out of sync no matter how fast
   the language evolves.
 
-* Fast enough: we think that we can get some rather good performance out
-  of the generated JIT compilers.  That's the whole point, of course.
-  Previous experience shows that it should be possible.  Our previous
-  generated JIT compilers were similar to the hand-written Psyco; due
-  to limits in automating the way Psyco works, our current generated
-  JIT compilers are instead similar to tracing JITs like TraceMonkey.
+* Fast enough: we can get some rather good performance out of the
+  generated JIT compilers.  That's the whole point, of course.
 
 
 Alternative approaches to improve speed
