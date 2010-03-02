@@ -8,18 +8,18 @@ appropriate measure but it's something)::
 
 
     Armin Rigo
-    Samuele Pedroni
-    Carl Friedrich Bolz
     Maciek Fijalkowski
-    Michael Hudson
+    Carl Friedrich Bolz
+    Samuele Pedroni
     Antonio Cuni
+    Michael Hudson
     Christian Tismer
     Holger Krekel
     Eric van Riet Paap
     Richard Emslie
     Anders Chrigstrom
-    Aurelien Campeas
     Amaury Forgeot d Arc
+    Aurelien Campeas
     Anders Lehmann
     Niklaus Haldimann
     Seo Sanghyeon
@@ -27,11 +27,12 @@ appropriate measure but it's something)::
     Lawrence Oluyede
     Jakub Gustak
     Guido Wesdorp
-    Niko Matsakis
-    Toon Verwaest
+    Benjamin Peterson
     Alexander Schremmer
+    Niko Matsakis
     Ludovic Aubry
     Alex Martelli
+    Toon Verwaest
     Stephan Diehl
     Adrien Di Mascio
     Stefan Schwarzer
@@ -39,8 +40,8 @@ appropriate measure but it's something)::
     Patrick Maupin
     Jacob Hallen
     Laura Creighton
-    Camillo Bruni
     Bob Ippolito
+    Camillo Bruni
     Simon Burton
     Bruno Gola
     Alexandre Fayolle
@@ -48,46 +49,46 @@ appropriate measure but it's something)::
     Guido van Rossum
     Valentino Volonghi
     Adrian Kuhn
-    Anders Hammarquist
     Paul deGrandis
     Gerald Klix
     Wanja Saatkamp
+    Anders Hammarquist
     Oscar Nierstrasz
     Eugene Oden
     Lukas Renggli
-    Bartosz SKOWRON
     Guenter Jantzen
     Dinu Gherman
+    Bartosz SKOWRON
     Georg Brandl
     Ben Young
-    Nicolas Chauvat
     Jean-Paul Calderone
+    Nicolas Chauvat
     Rocco Moretti
     Michael Twomey
-    Boris Feigin
+    boria
     Jared Grubb
     Olivier Dormond
     Stuart Williams
     Jens-Uwe Mager
     Justas Sadzevicius
+    Mikael Schönenberg
     Brian Dorsey
     Jonathan David Riehl
     Beatrice During
     Elmo Mäntynen
     Andreas Friedge
+    Alex Gaynor
     Anders Qvist
     Alan McIntyre
     Bert Freudenberg
     Pieter Zieschang
-    Ignas Mikalajunas
     Jacob Oscarson
     Lutz Paelike
-    Benjamin Peterson
     Michael Schneider
     Artur Lisiecki
     Lene Wagner
     Christopher Armstrong
-    Joshua Gilbert
+    Jan de Mooij
     Jacek Generowicz
     Gasper Zejn
     Stephan Busemann
@@ -95,11 +96,10 @@ appropriate measure but it's something)::
     Godefroid Chappelle
     Toby Watson
     Andrew Thompson
-    Gintautas Miliauskas
+    Joshua Gilbert
     Anders Sigfridsson
-    Neil Shepperd
+    David Schneider
     Michael Chermside
     tav
-    Igor Trindade Oliveira
     Martin Blais
     Victor Stinner
