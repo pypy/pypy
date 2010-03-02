@@ -29,8 +29,9 @@ class VirtualRefInfo:
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
         #
         # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too
-        self.warmrunnerdesc.rtyper.set_type_for_typeptr(
-            self.jit_virtual_ref_vtable, self.JIT_VIRTUAL_REF)
+        if hasattr(self.warmrunnerdesc, 'rtyper'):    # <-- for tests
+            self.warmrunnerdesc.rtyper.set_type_for_typeptr(
+                self.jit_virtual_ref_vtable, self.JIT_VIRTUAL_REF)
 
     def _freeze_(self):
         return True
