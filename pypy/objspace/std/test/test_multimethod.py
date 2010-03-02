@@ -2,6 +2,7 @@ from py.test import raises
 
 from pypy.objspace.std import multimethod
 from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.multimethod import FailedToImplementArgs
 
 
 class W_Root(object):
@@ -25,6 +26,19 @@ def add__Int_Int(space, w_x, w_y):
     assert isinstance(w_x, W_IntObject)
     assert isinstance(w_y, W_IntObject)
     return 'fine'
+
+
+def test_failedtoimplement():
+    f = FailedToImplement()
+    assert f.get_w_type("space") is None
+    assert f.get_w_value("space") is None
+    f = FailedToImplementArgs("ab", "cd")
+    assert f.get_w_type("space") == "ab"
+    assert f.get_w_value("space") == "cd"
+    # for testing it's good to get the following behavior:
+    raises(AssertionError, FailedToImplement, "ab", "cd")
+    # but the class FailedToImplement should have no __init__ for translation:
+    assert '__init__' not in FailedToImplement.__dict__
 
 
 class TestMultiMethod1:

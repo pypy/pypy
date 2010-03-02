@@ -25,6 +25,11 @@ from pypy.tool.sourcetools import compile2
 
 
 class FailedToImplement(Exception):
+    def __new__(cls, *args):
+        if cls is FailedToImplement:
+            assert not args, "use FailedToImplementArgs!"
+        return Exception.__new__(cls, *args)
+
     def get_w_value(self, space):
         return None
     
