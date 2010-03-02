@@ -38,6 +38,10 @@ Other Changes
 
   - ?
 
+  - CLI+JIT not included in the release
+
+  - Stackless incompatible with the JIT
+
 
 What is PyPy?
 =============

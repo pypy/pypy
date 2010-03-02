@@ -131,19 +131,25 @@ How fast is PyPy?
 
 .. _whysoslow:
 
-The answer to this question depends on how the PyPy interpreter is run. When
-optimized and translated to C, the PyPy interpreter runs somewhere between 1
-and 2 times slower than CPython. If the PyPy interpreter is run on top of
-CPython, i.e., without translation of any kind, then it is slower by a factor
-of 2000. Obtaining good measurements for the performance when run on the CLI or
-JVM is difficult, but it is safe to say that PyPy currently runs slower than
-IronPython (CLI) or Jython (JVM) for most tests.
+In three words, PyPy is "kind of fast".  In more than three
+words, the answer to this question is hard to give as a single
+number.  The fastest PyPy available so far is clearly PyPy
+`with a JIT included`_, optimized and translated to C.  This
+version of PyPy is "kind of fast" in the sense that there are
+numerous examples of Python code that run *much faster* than
+CPython, up to a large number of times faster.  And there are
+also examples of code that are just as slow as without the
+JIT.  A PyPy that does not include a JIT has performance that
+is more predictable: it runs generally somewhere between 1 and
+2 times slower than CPython, in the worst case up to 4 times
+slower.
 
-The work on the Just-In-Time compiler is currently at its fifth revision,
-but it looks like this revision is finally going to make it.  It is work
-in progress; see the `JIT documentation`_.
+Obtaining good measurements for the performance when run on
+the CLI or JVM is difficult, but the JIT on the CLI `seems to
+work nicely`__ too.
 
-.. _`JIT documentation`: jit/index.html
+.. __: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
+.. _`with a JIT included`: jit/index.html
 
 
 .. _`prolog and javascript`:
@@ -163,10 +169,11 @@ integers, etc.
 Currently, we have preliminary versions of a JavaScript interpreter
 (Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
 (Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
-(produced during a sprint).  All of them are unfinished at the moment.
+(produced during a sprint).  `All of them`_ are unfinished at the moment.
 
 .. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _`All of them`: http://codespeak.net/svn/pypy/lang/
 
 Development
 ========================================================================

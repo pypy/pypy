@@ -250,7 +250,7 @@ index`_.  Of particular interest after reading this document might be:
 .. _`Extreme Programming`: http://www.extremeprogramming.org/
 
 .. _fast: faq.html#how-fast-is-pypy
-.. _`very compliant`: http://codespeak.net:8099/summary?category=lib-python&branch=%3Ctrunk%3E
+.. _`very compliant`: cpython_differences.html
 
 .. _`RPython`: coding-guide.html#rpython
 
