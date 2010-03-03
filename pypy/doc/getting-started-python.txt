@@ -67,8 +67,8 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  (The default level so far is 2.  Do not use ``--opt=jit``
-   on something else than Intel **32-bit** machines.)
+   compiler.  (As of March 2010, the default level is ``--opt=2``, and
+   ``--opt=jit`` requires an Intel **32-bit** environment.)
 
 .. _`optimization level`: config/opt.html
 
