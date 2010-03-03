@@ -90,6 +90,7 @@ TYPES = {
     'uint_ge'         : (('int', 'int'), 'bool'),
     'uint_xor'        : (('int', 'int'), 'int'),
     'uint_rshift'     : (('int', 'int'), 'int'),
+    'uint_floordiv'   : (('int', 'int'), 'int'),
     'float_add'       : (('float', 'float'), 'float'),
     'float_sub'       : (('float', 'float'), 'float'),
     'float_mul'       : (('float', 'float'), 'float'),
