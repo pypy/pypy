@@ -91,6 +91,11 @@ class W_State(Wrappable):
     def w_reset(self):
         self.reset()
 
+    def create_regs(self, group_count):
+        """ Purely abstract method
+        """
+        raise NotImplementedError
+
     def w_create_regs(self, group_count):
         """Creates a tuple of index pairs representing matched groups, a format
         that's convenient for SRE_Match."""
