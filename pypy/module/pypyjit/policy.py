@@ -5,7 +5,8 @@ class PyPyJitPolicy(JitPolicy):
     def look_inside_pypy_module(self, modname):
         if (modname == '__builtin__.operation' or
                 modname == '__builtin__.abstractinst' or
-                modname == '__builtin__.interp_classobj'):
+                modname == '__builtin__.interp_classobj' or
+                modname == '__builtin__.functional'):
             return True
 
         if '.' in modname:

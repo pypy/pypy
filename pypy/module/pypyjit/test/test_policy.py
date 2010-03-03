@@ -30,6 +30,7 @@ def test_pypy_module():
     assert not pypypolicy.look_inside_pypy_module('posix.interp_expat')
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')
+    assert pypypolicy.look_inside_pypy_module('__builtin__.functional')
     assert pypypolicy.look_inside_pypy_module('exceptions.interp_exceptions')
     for modname in 'pypyjit', 'signal', 'micronumpy', 'math':
         assert pypypolicy.look_inside_pypy_module(modname)
