@@ -474,7 +474,6 @@ class PyPyCJITTests(object):
         ''', 143, ([1000], 1000 * 999 / 2))
         bytecode, = self.get_by_bytecode("BINARY_SUBSCR")
         assert bytecode.get_opnames("guard") == [
-            "guard_isnull",  # check that the range list is not forced
             "guard_false",   # check that the index is >= 0
             "guard_false",   # check that the index is lower than the current length
             ]
