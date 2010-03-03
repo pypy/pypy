@@ -1066,6 +1066,7 @@ class MIFrame(object):
             return self.metainterp.assert_no_exception()
 
     def do_residual_call(self, argboxes, descr, exc):
+        assert isinstance(descr, self.metainterp.cpu.CallDescrClass)
         effectinfo = descr.get_extra_info()
         if effectinfo is None or effectinfo.forces_virtual_or_virtualizable:
             # residual calls require attention to keep virtualizables in-sync
