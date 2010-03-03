@@ -200,6 +200,15 @@ class BasicTests:
         res = self.interp_operations(f, [42])
         assert res == 42
 
+    def test_uint_floordiv(self):
+        from pypy.rlib.rarithmetic import r_uint
+        
+        def f(a, b):
+            return a/b
+
+        res = self.interp_operations(f, [r_uint(4), r_uint(3)])
+        assert res == 1
+
     def test_direct_call(self):
         def g(n):
             return n + 2

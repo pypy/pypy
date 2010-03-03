@@ -31,6 +31,11 @@ def do_int_floordiv(cpu, box1, box2):
     z = llop.int_floordiv(lltype.Signed, box1.getint(), box2.getint())
     return ConstInt(z)
 
+def do_uint_floordiv(cpu, box1, box2):
+    z = llop.uint_floordiv(lltype.Unsigned, r_uint(box1.getint()),
+                           r_uint(box2.getint()))
+    return ConstInt(intmask(z))
+
 def do_int_mod(cpu, box1, box2):
     z = llop.int_mod(lltype.Signed, box1.getint(), box2.getint())
     return ConstInt(z)

@@ -142,6 +142,7 @@ _oplist = [
     'INT_SUB/2',
     'INT_MUL/2',
     'INT_FLOORDIV/2',
+    'UINT_FLOORDIV/2',
     'INT_MOD/2',
     'INT_AND/2',
     'INT_OR/2',
