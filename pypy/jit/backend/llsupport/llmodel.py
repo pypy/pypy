@@ -17,8 +17,6 @@ from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
 
-    CallDescrClass = BaseCallDescr
-
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool

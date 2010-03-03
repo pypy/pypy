@@ -8,8 +8,6 @@ class AbstractCPU(object):
     portal_calldescr = None
     done_with_this_frame_int_v = -1
 
-    CallDescrClass = None # a base class for all CallDescrs
-
     def __init__(self):
         self.fail_descr_list = []
 
