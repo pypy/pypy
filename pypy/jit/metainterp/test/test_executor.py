@@ -132,7 +132,14 @@ def _int_binary_operations():
                            ( 1, 4, intmask(r_uint(1) >> r_uint(4))),
                            ( 3, 3, 0)]),
         (rop.UINT_FLOORDIV, [(4, 3, intmask(r_uint(4) / r_uint(3))),
-                             (1, -1, intmask(r_uint(1) / r_uint(-1)))])
+                             (1, -1, intmask(r_uint(1) / r_uint(-1))),
+                             (110, 3, 36),
+                             (-110, 3, intmask(r_uint(-110) / r_uint(3))),
+                             (110, -3, intmask(r_uint(110) / r_uint(-3))),
+                             (-110, -3, intmask(r_uint(-110) / r_uint(-3))),
+                             (-110, -1, intmask(r_uint(-110) / r_uint(-1))),
+                             (minint, 1, intmask(r_uint(minint) / r_uint(1))),
+                             (-87, -87, intmask(r_uint(-87) / r_uint(-87)))])
         ]:
         for x, y, z in testcases:
             yield opnum, [x, y], z

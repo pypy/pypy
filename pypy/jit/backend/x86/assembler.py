@@ -719,9 +719,8 @@ class Assembler386(object):
     genop_int_floordiv = genop_int_mod
 
     def genop_uint_floordiv(self, op, arglocs, resloc):
-        self.mc.MOV(edx, eax)
-        self.mc.SAR(edx, imm(31))
-        self.mc.IDIV(ecx)
+        self.mc.XOR(edx, edx)
+        self.mc.DIV(ecx)
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax

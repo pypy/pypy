@@ -510,7 +510,8 @@ class RegAlloc(object):
     def consider_int_floordiv(self, op):
         self._consider_int_div_or_mod(op, eax, edx)
         self.Perform(op, [eax, ecx], eax)
-    consider_uint_floordiv = consider_int_mod
+
+    consider_uint_floordiv = consider_int_floordiv
 
     def _consider_compop(self, op, guard_op):
         vx = op.args[0]
