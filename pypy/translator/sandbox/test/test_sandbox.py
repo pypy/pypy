@@ -1,6 +1,7 @@
 import py
 import sys, os, time
 import struct
+import subprocess
 
 from pypy.rpython.lltypesystem import rffi
 from pypy.translator.interactive import Translation
@@ -19,8 +20,8 @@ def expect(f, g, fnname, args, result, resulttype=None):
         write_message(g, result, resulttype)
         g.flush()
 
-def compile(f):
-    t = Translation(f, backend='c', standalone=True, sandbox=True, gc='ref')
+def compile(f, gc='ref'):
+    t = Translation(f, backend='c', standalone=True, sandbox=True, gc=gc)
     return str(t.compile())
 
 
@@ -130,6 +131,72 @@ def test_oserror():
     tail = f.read()
     f.close()
     assert tail == ""
+
+def test_hybrid_gc():
+    def entry_point(argv):
+        l = []
+        for i in range(int(argv[1])):
+            l.append("x" * int(argv[2]))
+        return int(len(l) > 1000)
+
+    exe = compile(entry_point, gc='hybrid')
+    pipe = subprocess.Popen([exe, '10', '10000'], stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE)
+    g = pipe.stdin
+    f = pipe.stdout
+    expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GENERATIONGC_NURSERY",), None)
+    expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420), OSError(5232, "xyz"))
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+    rescode = pipe.wait()
+    assert rescode == 0
+
+def test_safe_alloc():
+    from pypy.rlib.rmmap import alloc, free
+    
+    def entry_point(argv):
+        one = alloc(1024)
+        free(one, 1024)
+        return 0
+
+    exe = compile(entry_point)
+    pipe = subprocess.Popen([exe], stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE)
+    g = pipe.stdin
+    f = pipe.stdout
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+    rescode = pipe.wait()
+    assert rescode == 0
+
+def test_unsafe_mmap():
+    py.test.skip("Since this stuff is unimplemented, it won't work anyway "
+                 "however, the day it starts working, it should pass test")
+    from pypy.rlib.rmmap import mmap
+    
+    def entry_point(argv):
+        try:
+            res = mmap(0, 1024)
+        except OSError:
+            return 0
+        return 1
+
+    exe = compile(entry_point)
+    pipe = subprocess.Popen([exe], stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE)
+    g = pipe.stdin
+    f = pipe.stdout
+    expect(f, g, "mmap", ARGS, OSError(1, "xyz"))
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+    rescode = pipe.wait()
+    assert rescode == 0
 
 class TestPrintedResults:
 

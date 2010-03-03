@@ -10,7 +10,8 @@ def external(name, args, result, **kwds):
         return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
 tolower = external('tolower', [lltype.Signed], lltype.Signed,
-                                      oo_primitive='tolower')
+                                      oo_primitive='tolower',
+                   sandboxsafe=True)
 isalnum = external('isalnum', [lltype.Signed], lltype.Signed,
-                   oo_primitive='isalnum')
+                   oo_primitive='isalnum', sandboxsafe=True)
                    

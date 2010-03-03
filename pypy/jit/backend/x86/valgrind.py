@@ -20,7 +20,8 @@ else:
         [llmemory.Address, lltype.Signed],
         lltype.Void,
         compilation_info=eci,
-        _nowrapper=True)
+        _nowrapper=True,
+        sandboxsafe=True)
 
 # ____________________________________________________________
 

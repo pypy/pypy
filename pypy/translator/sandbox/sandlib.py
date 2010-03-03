@@ -10,7 +10,7 @@ from pypy.lib import marshal   # see below
 from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
-from py.compat import subprocess
+import subprocess
 from pypy.tool.killsubprocess import killsubprocess
 
 class MyAnsiLog(AnsiLog):
