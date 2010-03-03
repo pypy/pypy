@@ -62,6 +62,8 @@ class Bootstrapper(object):
     # The following lock is held whenever the fields
     # 'bootstrapper.w_callable' and 'bootstrapper.args' are in use.
     lock = None
+    args = None
+    w_callable = None
 
     def setup(space):
         if bootstrapper.lock is None:
