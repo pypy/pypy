@@ -819,6 +819,7 @@ class Optimizer(object):
         value = self.getvalue(op.args[0])
         if value.is_virtual():
             # optimizefindnode should ensure that fieldvalue is found
+            assert isinstance(value, VirtualValue)
             fieldvalue = value.getfield(op.descr, None)
             assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
