@@ -398,7 +398,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'Fatal RPython error: ValueError'
+        idx = lines.index('Fatal RPython error: ValueError')   # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 4
         l0, l1, l2 = lines[-4:-1]
         assert l0 == 'RPython traceback:'
@@ -408,7 +409,8 @@ class TestStandalone(StandaloneTests):
         out2, err2 = cbuilder.cmdexec("x", expect_crash=True)
         assert out2.strip() == ''
         lines2 = err2.strip().splitlines()
-        assert lines2[-1] == 'Fatal RPython error: KeyError'
+        idx = lines2.index('Fatal RPython error: KeyError')    # assert found
+        lines2 = lines2[:idx+1]
         l0, l1, l2 = lines2[-4:-1]
         assert l0 == 'RPython traceback:'
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
@@ -435,7 +437,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == 'done.'
         lines = err.strip().splitlines()
-        assert lines[-1] == 'Fatal RPython error: KeyError'
+        idx = lines.index('Fatal RPython error: KeyError')    # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 5
         l0, l1, l2, l3 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
@@ -471,7 +474,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == 'done.'
         lines = err.strip().splitlines()
-        assert lines[-1] == 'Fatal RPython error: KeyError'
+        idx = lines.index('Fatal RPython error: KeyError')     # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 5
         l0, l1, l2, l3 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
@@ -506,7 +510,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'Fatal RPython error: ValueError'
+        idx = lines.index('Fatal RPython error: ValueError')    # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 5
         l0, l1, l2, l3 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
@@ -522,7 +527,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'in pypy_g_RPyRaiseException: AssertionError'
+        assert 'in pypy_g_RPyRaiseException: AssertionError' in lines
 
     def test_assertion_error_nondebug(self):
         def g(x):
@@ -539,7 +544,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'Fatal RPython error: AssertionError'
+        idx = lines.index('Fatal RPython error: AssertionError') # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 4
         l0, l1, l2 = lines[-4:-1]
         assert l0 == 'RPython traceback:'
@@ -556,7 +562,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'in pypy_g_entry_point: foobar'
+        assert 'in pypy_g_entry_point: foobar' in lines
 
     def test_ll_assert_error_nondebug(self):
         py.test.skip("implement later, maybe: tracebacks even with ll_assert")
@@ -574,7 +580,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
-        assert lines[-1] == 'PyPy assertion failed: foobar'
+        idx = lines.index('PyPy assertion failed: foobar')    # assert found
+        lines = lines[:idx+1]
         assert len(lines) >= 4
         l0, l1, l2 = lines[-4:-1]
         assert l0 == 'RPython traceback:'

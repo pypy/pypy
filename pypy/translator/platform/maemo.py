@@ -1,11 +1,12 @@
-import py
+import py, os
 from pypy.translator.platform.linux import Linux, _run_subprocess, GnuMakefile
 from pypy.translator.platform import ExecutionResult, log
 from pypy.tool.udir import udir
 from pypy.tool import autopath
 
 def check_scratchbox():
-    if not py.path.local('/scratchbox/login').check():
+    # in order to work, that file must exist and be executable by us
+    if not os.access('/scratchbox/login', os.X_OK):
         py.test.skip("No scratchbox detected")
 
 class Maemo(Linux):
