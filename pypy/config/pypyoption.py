@@ -333,6 +333,9 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)        
+        if type_system != 'ootype':
+            config.objspace.std.suggest(withsharingdict=True)
+        config.objspace.std.suggest(withinlineddict=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':
@@ -360,10 +363,7 @@ def set_pypy_opt_level(config, level):
 
     # extra optimizations with the JIT
     if level == 'jit':
-        if type_system != 'ootype':
-            config.objspace.std.suggest(withsharingdict=True)
         config.objspace.std.suggest(withcelldict=True)
-        config.objspace.std.suggest(withinlineddict=True)
 
 
 def enable_allworkingmodules(config):
