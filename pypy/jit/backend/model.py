@@ -13,6 +13,9 @@ class AbstractCPU(object):
     def __init__(self):
         self.fail_descr_list = []
 
+    def _freeze_(self):
+        return True
+
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
         n = descr.index

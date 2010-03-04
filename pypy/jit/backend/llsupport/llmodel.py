@@ -62,9 +62,6 @@ class AbstractLLCPU(AbstractCPU):
     def get_overflow_error(self):
         return self.mutable._overflow_flag
 
-    def _freeze_(self):
-        return True
-
     def setup(self):
         pass
 
