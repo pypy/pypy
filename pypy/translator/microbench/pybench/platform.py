@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 """ This module tries to retrieve as much platform identifying data as
     possible. It makes this information available via function APIs.

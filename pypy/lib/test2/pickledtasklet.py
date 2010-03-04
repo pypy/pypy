@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import pickle, sys
 import stackless
 
