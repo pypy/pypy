@@ -30,6 +30,9 @@ class Timer:
         self.timings[name] = time.time() - self.timings.get(name, 0)
         self.levels[timer] = new_level
 
+    def start_name(self, timerone, timertwo):
+        self.start(timerone + " " + timertwo)
+
     def stop(self, timer):
         level = self.levels.setdefault(timer, -1)
         if level == -1:
@@ -38,6 +41,9 @@ class Timer:
             name = _create_name(timer, level)
             self.timings[name] = time.time() - self.timings[name]
             self.levels[timer] = level - 1
+
+    def stop_name(self, timerone, timertwo):
+        self.stop(timerone + " " + timertwo)
 
     def value(self, timer):
         level = self.levels.get(timer, -1)
@@ -58,7 +64,11 @@ class Timer:
 class DummyTimer:
     def start(self, timer):
         pass
+    def start_name(self, timerone, timertwo):
+        pass
     def stop(self, timer):
+        pass
+    def stop_name(self, timerone, timertwo):
         pass
     def value(self, timer):
         return "Timing disabled"

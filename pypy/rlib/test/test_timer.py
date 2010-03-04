@@ -15,6 +15,8 @@ def timer_user():
     t.start("testb")
     t.stop("testb")
     t.stop("testb")
+    t.start_name("test", "one")
+    t.stop_name("test", "one")
     t.dump()
 
 
