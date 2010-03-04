@@ -145,7 +145,7 @@ def do_int_add_ovf(cpu, box1, box2):
         z = 0
     else:
         ovf = False
-    cpu._overflow_flag = ovf
+    cpu.set_overflow_flag(ovf)
     return BoxInt(z)
 
 def do_int_sub_ovf(cpu, box1, box2):
@@ -158,7 +158,7 @@ def do_int_sub_ovf(cpu, box1, box2):
         z = 0
     else:
         ovf = False
-    cpu._overflow_flag = ovf
+    cpu.set_overflow_flag(ovf)
     return BoxInt(z)
 
 def do_int_mul_ovf(cpu, box1, box2):
@@ -171,7 +171,7 @@ def do_int_mul_ovf(cpu, box1, box2):
         z = 0
     else:
         ovf = False
-    cpu._overflow_flag = ovf
+    cpu.set_overflow_flag(ovf)
     return BoxInt(z)
 
 # ----------

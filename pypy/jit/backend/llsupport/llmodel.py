@@ -14,11 +14,15 @@ from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
 
+class CPUMutableContainer(object):
+    _overflow_flag = False
+
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
+        self.mutable = CPUMutableContainer()
         assert type(opts) is not bool
         self.opts = opts
 
@@ -50,12 +54,22 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_on_leave_jitted_translated()
         else:
             self._setup_on_leave_jitted_untranslated()
+        self.class_sizes = {}
+
+    def set_overflow_flag(self, val):
+        self.mutable._overflow_flag = val
+
+    def get_overflow_error(self):
+        return self.mutable._overflow_flag
+
+    def _freeze_(self):
+        return True
 
     def setup(self):
         pass
 
     def set_class_sizes(self, class_sizes):
-        self.class_sizes = class_sizes
+        self.class_sizes.update(class_sizes)
 
     def _setup_prebuilt_error(self, prefix, Class):
         if self.rtyper is not None:   # normal case
@@ -105,8 +119,8 @@ class AbstractLLCPU(AbstractCPU):
             v_i  = _exception_emulator[1]
             _exception_emulator[0] = 0
             _exception_emulator[1] = 0
-            self.saved_exception = tp_i
-            self.saved_exc_value = self._cast_int_to_gcref(v_i)
+            self.mutable.saved_exception = tp_i
+            self.mutable.saved_exc_value = self._cast_int_to_gcref(v_i)
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
@@ -133,8 +147,8 @@ class AbstractLLCPU(AbstractCPU):
             # from now on, the state is again consistent -- no more RPython
             # exception is set.  The following code produces a write barrier
             # in the assignment to self.saved_exc_value, as needed.
-            self.saved_exception = exception
-            self.saved_exc_value = exc_value
+            self.mutable.saved_exception = exception
+            self.mutable.saved_exc_value = exc_value
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
@@ -172,14 +186,14 @@ class AbstractLLCPU(AbstractCPU):
         return rffi.cast(lltype.Signed, f)
 
     def get_exception(self):
-        return self.saved_exception
+        return self.mutable.saved_exception
 
     def get_exc_value(self):
-        return self.saved_exc_value
+        return self.mutable.saved_exc_value
 
     def clear_exception(self):
-        self.saved_exception = 0
-        self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
+        self.mutable.saved_exception = 0
+        self.mutable.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
 
 
     # ------------------- helpers and descriptions --------------------

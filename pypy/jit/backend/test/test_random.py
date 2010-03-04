@@ -264,8 +264,8 @@ class AbstractOvfOperation(AbstractOperation):
         fail_subset = builder.subset_of_intvars(r)
         original_intvars = builder.intvars[:]
         super(AbstractOvfOperation, self).produce_into(builder, r)
-        if builder.cpu._overflow_flag:   # overflow detected
-            del builder.cpu._overflow_flag
+        if builder.cpu.get_overflow_flag():   # overflow detected
+            builder.cpu.set_overflow_flag(False)
             op = ResOperation(rop.GUARD_OVERFLOW, [], None)
             # the overflowed result should not be used any more, but can
             # be used on the failure path: recompute fail_subset including
