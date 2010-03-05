@@ -18,6 +18,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib import rgc
 
 # ____________________________________________________________
 #
@@ -140,6 +141,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         self.ll = LLHelpers
         self.malloc = mallocunicode
 
+    @purefunction
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
@@ -152,6 +154,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
             result.chars[i] = cast_primitive(Char, c)
         return result
 
+    @purefunction
     def ll_encode_latin1(self, s):
         length = len(s.chars)
         result = mallocstr(length)
@@ -161,7 +164,6 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
                 raise UnicodeEncodeError("character not in latin1 range")
             result.chars[i] = cast_primitive(Char, c)
         return result
-
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
@@ -236,6 +238,7 @@ def ll_construct_restart_positions(s, l):
 
 class LLHelpers(AbstractLLHelpers):
 
+    @purefunction
     def ll_char_mul(ch, times):
         if typeOf(ch) is Char:
             malloc = mallocstr
@@ -296,6 +299,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strfasthash(s):
         return s.hash     # assumes that the hash is already computed
 
+    @purefunction
     def ll_strconcat(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -304,6 +308,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s2, newstr, 0, len1, len2)
         return newstr
 
+    @purefunction
     def ll_strip(s, ch, left, right):
         s_len = len(s.chars)
         if s_len == 0:
@@ -321,6 +326,7 @@ class LLHelpers(AbstractLLHelpers):
         s.copy_contents(s, result, lpos, 0, r_len)
         return result
 
+    @purefunction
     def ll_upper(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -337,6 +343,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @purefunction
     def ll_lower(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -377,6 +384,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @purefunction
     def ll_strcmp(s1, s2):
         if not s1 and not s2:
             return True
@@ -419,6 +427,7 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
+    @purefunction
     def ll_startswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -434,6 +443,7 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
+    @purefunction
     def ll_endswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -450,6 +460,7 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
+    @purefunction
     def ll_find_char(s, ch, start, end):
         i = start
         if end > len(s.chars):
@@ -460,6 +471,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return -1
 
+    @purefunction
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
             end = len(s.chars)
@@ -470,6 +482,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
         return -1
 
+    @purefunction
     def ll_count_char(s, ch, start, end):
         count = 0
         i = start
@@ -481,6 +494,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return count
 
+    @purefunction
     def ll_find(cls, s1, s2, start, end):
         """Knuth Morris Prath algorithm for substring match"""
         len2 = len(s2.chars)
@@ -515,6 +529,7 @@ class LLHelpers(AbstractLLHelpers):
         return -1
     ll_find = classmethod(ll_find)
 
+    @purefunction
     def ll_rfind(cls, s1, s2, start, end):
         """Reversed version of ll_find()"""
         len2 = len(s2.chars)
@@ -562,6 +577,7 @@ class LLHelpers(AbstractLLHelpers):
         return -1
     ll_rfind = classmethod(ll_rfind)
 
+    @purefunction
     def ll_count(cls, s1, s2, start, end):
         """Knuth Morris Prath algorithm for substring match"""
         # XXX more code should be shared with ll_find
@@ -640,6 +656,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @purefunction
     def ll_stringslice_startonly(s1, start):
         len1 = len(s1.chars)
         newstr = s1.malloc(len1 - start)
@@ -649,6 +666,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
 
+    @purefunction
     def ll_stringslice_startstop(s1, start, stop):
         if stop >= len(s1.chars):
             if start == 0:
@@ -661,12 +679,11 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
 
+    @purefunction
     def ll_stringslice_minusone(s1):
         newlen = len(s1.chars) - 1
-        newstr = s1.malloc(newlen)
         assert newlen >= 0
-        s1.copy_contents(s1, newstr, 0, 0, newlen)
-        return newstr
+        return rgc.ll_shrink_array(s1, newlen)
 
 
     def ll_split_chr(LIST, s, c):
@@ -694,6 +711,7 @@ class LLHelpers(AbstractLLHelpers):
         item.copy_contents(s, item, i, 0, j - i)
         return res
 
+    @purefunction
     def ll_replace_chr_chr(s, c1, c2):
         length = len(s.chars)
         newstr = s.malloc(length)
@@ -708,6 +726,7 @@ class LLHelpers(AbstractLLHelpers):
             j += 1
         return newstr
 
+    @purefunction
     def ll_contains(s, c):
         chars = s.chars
         strlen = len(chars)
@@ -718,6 +737,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return False
 
+    @purefunction
     def ll_int(s, base):
         if not 2 <= base <= 36:
             raise ValueError
