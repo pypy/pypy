@@ -4,7 +4,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp import history
+from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.regalloc import FORCE_INDEX_OFS
 from pypy.jit.backend.x86.profagent import ProfileAgent
@@ -141,3 +141,19 @@ CPU = CPU386
 
 import pypy.jit.metainterp.executor
 pypy.jit.metainterp.executor.make_execute_list(CPU)
+
+# silence warnings
+
+history.LoopToken._x86_param_depth = 0
+history.LoopToken._x86_arglocs = (None, None)
+history.LoopToken._x86_frame_depth = 0
+history.LoopToken._x86_bootstrap_code = 0
+history.LoopToken._x86_direct_bootstrap_code = 0
+history.LoopToken._x86_failure_recovery_bytecode = 0
+history.LoopToken._x86_adr_jump_offset = 0
+history.LoopToken._x86_loop_code = 0
+history.LoopToken._x86_current_depths = (0, 0)
+
+compile._DoneWithThisFrameDescr._x86_current_depths = (0, 0)
+compile._DoneWithThisFrameDescr._x86_failure_recovery_bytecode = 0
+compile._DoneWithThisFrameDescr._x86_adr_jump_offset = 0

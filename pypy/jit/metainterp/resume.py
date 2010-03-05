@@ -397,6 +397,8 @@ class AbstractVirtualInfo(object):
     def set_content(self, fieldnums):
         self.fieldnums = fieldnums
 
+    def debug_prints(self):
+        raise NotImplementedError
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):

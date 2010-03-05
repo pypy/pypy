@@ -47,6 +47,7 @@ class OptValue(object):
     last_guard_index = -1
 
     level = LEVEL_UNKNOWN
+    known_class = None
 
     def __init__(self, box):
         self.box = box
@@ -123,6 +124,21 @@ class OptValue(object):
         # meaning it has been forced.
         return self.box is None
 
+    def getfield(self, ofs, default):
+        raise NotImplementedError
+
+    def setfield(self, ofs, value):
+        raise NotImplementedError
+
+    def getitem(self, index):
+        raise NotImplementedError
+
+    def getlength(self):
+        raise NotImplementedError
+
+    def setitem(self, index, value):
+        raise NotImplementedError
+
 class ConstantValue(OptValue):
     level = LEVEL_CONSTANT
 
@@ -172,6 +188,8 @@ class AbstractVirtualValue(OptValue):
     def _make_virtual(self, modifier):
         raise NotImplementedError("abstract base")
 
+    def _really_force(self):
+        raise NotImplementedError("abstract base")
 
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):

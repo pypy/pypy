@@ -125,6 +125,31 @@ class AbstractDescr(AbstractValue):
     def _clone_if_mutable(self):
         return self
 
+    def get_extra_info(self):
+        """ Implement in call descr
+        """
+        raise NotImplementedError
+
+    def is_array_of_pointers(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
+    def is_array_of_floats(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
+    def is_pointer_field(self):
+        """ Implement for field descr
+        """
+        raise NotImplementedError
+
+    def is_float_field(self):
+        """ Implement for field descr
+        """
+        raise NotImplementedError
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
 
@@ -685,6 +710,7 @@ class LoopToken(AbstractDescr):
     terminating = False # see TerminatingLoopToken in compile.py
     # specnodes = ...
     # and more data specified by the backend when the loop is compiled
+    number = 0
 
     def __init__(self, number=0):
         self.number = number
@@ -864,6 +890,7 @@ class Stats(object):
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
+    history = None
 
     def __init__(self):
         self.loops = []
