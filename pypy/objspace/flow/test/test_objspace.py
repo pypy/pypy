@@ -892,6 +892,22 @@ class TestFlowObjSpace(Base):
                     raise TypeError()
         py.test.raises(Exception, self.codetest, f)
 
+    def test__flowspace_rewrite_directly_as_(self):
+        def g(x):
+            pass
+        def f(x):
+            pass
+        f._flowspace_rewrite_directly_as_ = g
+        def h(x):
+            f(x)
+        graph = self.codetest(h)
+        assert self.all_operations(graph) == {'simple_call': 1}
+        for block in graph.iterblocks():
+            if block.operations:
+                op = block.operations[0]
+                assert op.opname == 'simple_call'
+                assert op.args[0] == Constant(g)
+
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):

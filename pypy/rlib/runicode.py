@@ -16,26 +16,28 @@ if MAXUNICODE > sys.maxunicode:
     # when sizeof(wchar_t) == 4.
     # Note that Python3 uses a similar implementation.
     def UNICHR(c):
-        if we_are_translated():
+        assert not we_are_translated()
+        if c < sys.maxunicode or c > MAXUNICODE:
             return unichr(c)
         else:
-            if c < sys.maxunicode or c > MAXUNICODE:
-                return unichr(c)
-            else:
-                c -= 0x10000
-                return (unichr(0xD800 + (c >> 10)) +
-                        unichr(0xDC00 + (c & 0x03FF)))
+            c -= 0x10000
+            return (unichr(0xD800 + (c >> 10)) +
+                    unichr(0xDC00 + (c & 0x03FF)))
+    UNICHR._flowspace_rewrite_directly_as_ = unichr
+    # ^^^ NB.: for translation, it's essential to use this hack instead
+    # of calling unichr() from UNICHR(), because unichr() detects if there
+    # is a "try:except ValueError" immediately around it.
 
     def ORD(u):
-        if we_are_translated():
-            return ord(u)
-        else:
-            if isinstance(u, unicode) and len(u) == 2:
-                ch1 = ord(u[0])
-                ch2 = ord(u[1])
-                if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-                    return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-            return ord(u)
+        assert not we_are_translated()
+        if isinstance(u, unicode) and len(u) == 2:
+            ch1 = ord(u[0])
+            ch2 = ord(u[1])
+            if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+                return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
+        return ord(u)
+    ORD._flowspace_rewrite_directly_as_ = ord
+
 else:
     UNICHR = unichr
     ORD = ord

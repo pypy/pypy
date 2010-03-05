@@ -212,6 +212,18 @@ class TestTypedTestCase(CompilationTestCase):
         assert fn(-12) == -42
         assert fn(sys.maxint) == -42
 
+    def test_UNICHR(self):
+        from pypy.rlib.runicode import UNICHR
+        def f(x):
+            try:
+                return ord(UNICHR(x))
+            except ValueError:
+                return -42
+        fn = self.getcompiled(f, [int])
+        assert fn(65) == 65
+        assert fn(-12) == -42
+        assert fn(sys.maxint) == -42
+
     def test_list_indexerror(self):
         def f(i):
             lst = [123, 456]
