@@ -65,27 +65,32 @@ def test_GcRootMap_asmgcc():
         return -4*(4+n)
     gcrootmap = GcRootMap_asmgcc()
     num1 = frame_pos(-5)
+    num1a = num1|2
     num2 = frame_pos(55)
+    num2a = ((-num2|3) >> 7) | 128
+    num2b = (-num2|3) & 127
     shape = gcrootmap.get_basic_shape()
     gcrootmap.add_ebp_offset(shape, num1)
     gcrootmap.add_ebp_offset(shape, num2)
-    assert shape == [6, 7, 11, 15, 2, 0, num1|2, -num2|3]
+    assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a])
     gcrootmap.add_ebx(shape)
-    assert shape == [6, 7, 11, 15, 2, 0, num1|2, -num2|3, 4]
+    assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
+                              4])
     gcrootmap.add_esi(shape)
-    assert shape == [6, 7, 11, 15, 2, 0, num1|2, -num2|3, 4, 8]
+    assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
+                              4, 8])
     gcrootmap.add_edi(shape)
-    assert shape == [6, 7, 11, 15, 2, 0, num1|2, -num2|3, 4, 8, 12]
+    assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
+                              4, 8, 12])
     gcrootmap.add_ebp(shape)
-    assert shape == [6, 7, 11, 15, 2, 0, num1|2, -num2|3, 4, 8, 12, 16]
+    assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
+                              4, 8, 12, 16])
     #
     shapeaddr = gcrootmap.compress_callshape(shape)
     PCALLSHAPE = lltype.Ptr(GcRootMap_asmgcc.CALLSHAPE_ARRAY)
     p = llmemory.cast_adr_to_ptr(shapeaddr, PCALLSHAPE)
-    num2a = ((-num2|3) >> 7) | 128
-    num2b = (-num2|3) & 127
     for i, expected in enumerate([16, 12, 8, 4,
-                                  num2a, num2b, num1|2, 0, 2, 15, 11, 7, 6]):
+                                  num2a, num2b, num1a, 0, 2, 15, 11, 7, 6]):
         assert p[i] == expected
     #
     retaddr = rffi.cast(llmemory.Address, 1234567890)

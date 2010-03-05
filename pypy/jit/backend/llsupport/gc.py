@@ -252,51 +252,51 @@ class GcRootMap_asmgcc:
             lltype.free(oldgcmap, flavor='raw')
 
     def get_basic_shape(self):
-        return [self.LOC_EBP_PLUS  | 4,     # return addr: at   4(%ebp)
-                self.LOC_EBP_MINUS | 4,     # saved %ebx:  at  -4(%ebp)
-                self.LOC_EBP_MINUS | 8,     # saved %esi:  at  -8(%ebp)
-                self.LOC_EBP_MINUS | 12,    # saved %edi:  at -12(%ebp)
-                self.LOC_EBP_PLUS  | 0,     # saved %ebp:  at    (%ebp)
-                0]
+        return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
+                chr(self.LOC_EBP_MINUS | 4),    # saved %ebx:  at  -4(%ebp)
+                chr(self.LOC_EBP_MINUS | 8),    # saved %esi:  at  -8(%ebp)
+                chr(self.LOC_EBP_MINUS | 12),   # saved %edi:  at -12(%ebp)
+                chr(self.LOC_EBP_PLUS  | 0),    # saved %ebp:  at    (%ebp)
+                chr(0)]
+
+    def _encode_num(self, shape, number):
+        assert number >= 0
+        flag = 0
+        while number >= 0x80:
+            shape.append(chr((number & 0x7F) | flag))
+            flag = 0x80
+            number >>= 7
+        shape.append(chr(number | flag))
 
     def add_ebp_offset(self, shape, offset):
         assert (offset & 3) == 0
         if offset >= 0:
-            encoded = self.LOC_EBP_PLUS | offset
+            num = self.LOC_EBP_PLUS | offset
         else:
-            encoded = self.LOC_EBP_MINUS | (-offset)
-        shape.append(encoded)
+            num = self.LOC_EBP_MINUS | (-offset)
+        self._encode_num(shape, num)
 
     def add_ebx(self, shape):
-        shape.append(self.LOC_REG | 4)
+        shape.append(chr(self.LOC_REG | 4))
 
     def add_esi(self, shape):
-        shape.append(self.LOC_REG | 8)
+        shape.append(chr(self.LOC_REG | 8))
 
     def add_edi(self, shape):
-        shape.append(self.LOC_REG | 12)
+        shape.append(chr(self.LOC_REG | 12))
 
     def add_ebp(self, shape):
-        shape.append(self.LOC_REG | 16)
+        shape.append(chr(self.LOC_REG | 16))
 
     def compress_callshape(self, shape):
-        # Similar to compress_callshape() in trackgcroot.py.  XXX a bit slowish
-        result = []
-        for loc in shape:
-            assert loc >= 0
-            flag = 0
-            while loc >= 0x80:
-                result.append(int(loc & 0x7F) | flag)
-                flag = 0x80
-                loc >>= 7
-            result.append(int(loc) | flag)
+        # Similar to compress_callshape() in trackgcroot.py.
         # XXX so far, we always allocate a new small array (we could regroup
         # them inside bigger arrays) and we never try to share them.
-        length = len(result)
+        length = len(shape)
         compressed = lltype.malloc(self.CALLSHAPE_ARRAY, length,
                                    flavor='raw')
         for i in range(length):
-            compressed[length-1-i] = rffi.cast(rffi.UCHAR, result[i])
+            compressed[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
         return llmemory.cast_ptr_to_adr(compressed)
 
 
