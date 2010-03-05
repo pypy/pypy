@@ -45,3 +45,26 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
         # underflows give 0.0 with no exception raised
         assert f(1.0, -10000) == 0.0     # sanity-check the host Python
         assert self.interpret(f, [1.0, -10000]) == 0.0
+
+    def test_overflow_1(self):
+        # this (probably, depending on platform) tests the case
+        # where the C function pow() sets ERANGE.
+        def f(x, y):
+            try:
+                return math.pow(x, y)
+            except OverflowError:
+                return -42.0
+
+        assert self.interpret(f, [10.0, 40000.0]) == -42.0
+
+    def test_overflow_2(self):
+        # this (not on Linux but on Mac OS/X at least) tests the case
+        # where the C function ldexp() does not set ERANGE, but
+        # returns +infinity.
+        def f(x, y):
+            try:
+                return math.ldexp(x, y)
+            except OverflowError:
+                return -42.0
+
+        assert self.interpret(f, [10.0, 40000]) == -42.0

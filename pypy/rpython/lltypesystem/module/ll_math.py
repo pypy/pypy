@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import isinf
 
 math_frexp = rffi.llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE,
                              sandboxsafe=True)
@@ -26,16 +27,24 @@ binary_math_functions = [
 
 def ll_math_frexp(x):
     exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    mantissa = math_frexp(x, exp_p)
-    exponent = rffi.cast(lltype.Signed, exp_p[0])
-    lltype.free(exp_p, flavor='raw')
+    try:
+        _error_reset()
+        mantissa = math_frexp(x, exp_p)
+        _check_error(mantissa)
+        exponent = rffi.cast(lltype.Signed, exp_p[0])
+    finally:
+        lltype.free(exp_p, flavor='raw')
     return (mantissa, exponent)
 
 def ll_math_modf(x):
     intpart_p = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
-    fracpart = math_modf(x, intpart_p)
-    intpart = intpart_p[0]
-    lltype.free(intpart_p, flavor='raw')
+    try:
+        _error_reset()
+        fracpart = math_modf(x, intpart_p)
+        _check_error(fracpart)
+        intpart = intpart_p[0]
+    finally:
+        lltype.free(intpart_p, flavor='raw')
     return (fracpart, intpart)
 
 def ll_math_ldexp(x, exp):
@@ -50,6 +59,8 @@ def _error_reset():
 ERANGE = errno.ERANGE
 def _check_error(x):
     errno = rposix.get_errno()
+    if isinf(x):
+        errno = ERANGE
     if errno:
         if errno == ERANGE:
             if not x:
