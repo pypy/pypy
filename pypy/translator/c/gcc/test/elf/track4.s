@@ -26,7 +26,7 @@ main:
 	movl	%esi, %ebx
 	movl	$nonsense, %esi
 	call	foobar
-	;; expected {4(%ebp) | -8(%ebp), %ebx, -4(%ebp), (%ebp) | -12(%ebp), 4(%esp)}
+	;; expected {4(%ebp) | -8(%ebp), %ebx, -4(%ebp), (%ebp) | 4(%esp), -12(%ebp)}
 	addl	%edi, %eax
 	movl	4(%esp), %eax
 	movl	%ebx, %esi

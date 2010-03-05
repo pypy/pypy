@@ -13,7 +13,7 @@ main:
 	movl	$globalptr2, (%esp)
 	pushl	$0
 	call	foobar
-	;; expected {4(%ebp) | %ebx, %esi, %edi, (%ebp) | -4(%ebp), 4(%esp)}
+	;; expected {4(%ebp) | %ebx, %esi, %edi, (%ebp) | 4(%esp), -4(%ebp)}
 	popl	%eax
 #APP
 	/* GCROOT -4(%ebp) */

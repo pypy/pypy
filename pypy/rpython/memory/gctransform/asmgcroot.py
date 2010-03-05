@@ -313,29 +313,32 @@ class AsmStackRootWalker(BaseRootWalker):
         on the integer 'location' that describes it.  All locations are
         computed based on information saved by the 'callee'.
         """
+        ll_assert(location >= 0, "negative location")
         kind = location & LOC_MASK
+        offset = location & ~ LOC_MASK
         if kind == LOC_REG:   # register
-            reg = location >> 2
-            ll_assert(0 <= reg < CALLEE_SAVED_REGS, "bad register location")
+            if location == LOC_NOWHERE:
+                return llmemory.NULL
+            reg = (location >> 2) - 1
+            ll_assert(reg < CALLEE_SAVED_REGS, "bad register location")
             return callee.regs_stored_at[reg]
-        elif kind == LOC_ESP_BASED:   # in the caller stack frame at N(%esp)
-            offset = location & ~ LOC_MASK
-            ll_assert(offset >= 0, "bad %esp-based location")
+        elif kind == LOC_ESP_PLUS:    # in the caller stack frame at N(%esp)
             esp_in_caller = callee.frame_address + 4
             return esp_in_caller + offset
-        elif kind == LOC_EBP_BASED:   # in the caller stack frame at N(%ebp)
-            offset = location & ~ LOC_MASK
+        elif kind == LOC_EBP_PLUS:    # in the caller stack frame at N(%ebp)
             ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
             return ebp_in_caller + offset
-        else:
-            return llmemory.NULL
+        else:  # kind == LOC_EBP_MINUS:   at -N(%ebp)
+            ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
+            return ebp_in_caller - offset
 
 
-LOC_NOWHERE   = 0
-LOC_REG       = 1
-LOC_EBP_BASED = 2
-LOC_ESP_BASED = 3
+LOC_REG       = 0
+LOC_ESP_PLUS  = 1
+LOC_EBP_PLUS  = 2
+LOC_EBP_MINUS = 3
 LOC_MASK      = 0x03
+LOC_NOWHERE   = LOC_REG | 0
 
 # ____________________________________________________________
 
@@ -440,9 +443,6 @@ class ShapeDecompressor:
                 break
             value = (value - 0x80) << 7
         self.addr = addr
-        if value & 1:
-            value = ~ value
-        value = value >> 1
         return value
 
 # ____________________________________________________________

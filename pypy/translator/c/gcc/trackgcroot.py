@@ -9,9 +9,11 @@ from pypy.translator.c.gcc.instruction import InsnPrologue, InsnEpilogue
 from pypy.translator.c.gcc.instruction import InsnGCROOT
 from pypy.translator.c.gcc.instruction import InsnStackAdjust
 from pypy.translator.c.gcc.instruction import InsnCannotFollowEsp
-from pypy.translator.c.gcc.instruction import LocalVar, somenewvalue, frameloc
+from pypy.translator.c.gcc.instruction import LocalVar, somenewvalue
+from pypy.translator.c.gcc.instruction import frameloc_esp, frameloc_ebp
 from pypy.translator.c.gcc.instruction import LOC_REG, LOC_NOWHERE, LOC_MASK
-from pypy.translator.c.gcc.instruction import LOC_EBP_BASED, LOC_ESP_BASED
+from pypy.translator.c.gcc.instruction import LOC_EBP_PLUS, LOC_EBP_MINUS
+from pypy.translator.c.gcc.instruction import LOC_ESP_PLUS
 
 class FunctionGcRootTracker(object):
     skip = 0
@@ -69,9 +71,9 @@ class FunctionGcRootTracker(object):
             if self.is_stack_bottom:
                 retaddr = LOC_NOWHERE     # end marker for asmgcroot.py
             elif self.uses_frame_pointer:
-                retaddr = frameloc(LOC_EBP_BASED, 4)
+                retaddr = frameloc_ebp(4)
             else:
-                retaddr = frameloc(LOC_ESP_BASED, insn.framesize)
+                retaddr = frameloc_esp(insn.framesize)
             shape = [retaddr]
             # the first gcroots are always the ones corresponding to
             # the callee-saved registers
@@ -736,7 +738,7 @@ class ElfFunctionGcRootTracker(FunctionGcRootTracker):
     EBP     = '%ebp'
     EAX     = '%eax'
     CALLEE_SAVE_REGISTERS = ['%ebx', '%esi', '%edi', '%ebp']
-    REG2LOC = dict((_reg, LOC_REG | (_i<<2))
+    REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
     LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
@@ -808,7 +810,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
     EBP = 'ebp'
     EAX = 'eax'
     CALLEE_SAVE_REGISTERS = ['ebx', 'esi', 'edi', 'ebp']
-    REG2LOC = dict((_reg, LOC_REG | (_i<<2))
+    REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     TOP_OF_STACK = 'DWORD PTR [esp]'
 
@@ -1453,19 +1455,24 @@ def format_location(loc):
     # in the stack frame at an address relative to either %esp or %ebp.
     # The last two bits of the location number are used to tell the cases
     # apart; see format_location().
+    assert loc >= 0
     kind = loc & LOC_MASK
-    if kind == LOC_NOWHERE:
-        return '?'
-    elif kind == LOC_REG:
-        reg = loc >> 2
-        assert 0 <= reg <= 3
+    if kind == LOC_REG:
+        if loc == LOC_NOWHERE:
+            return '?'
+        reg = (loc >> 2) - 1
         return ElfFunctionGcRootTracker.CALLEE_SAVE_REGISTERS[reg]
     else:
-        if kind == LOC_EBP_BASED:
-            result = '(%ebp)'
-        else:
-            result = '(%esp)'
         offset = loc & ~ LOC_MASK
+        if kind == LOC_EBP_PLUS:
+            result = '(%ebp)'
+        elif kind == LOC_EBP_MINUS:
+            result = '(%ebp)'
+            offset = -offset
+        elif kind == LOC_ESP_PLUS:
+            result = '(%esp)'
+        else:
+            assert 0, kind
         if offset != 0:
             result = str(offset) + result
         return result
@@ -1531,10 +1538,7 @@ def compress_callshape(shape):
     shape.insert(5, 0)
     result = []
     for loc in shape:
-        if loc < 0:
-            loc = (-loc) * 2 - 1
-        else:
-            loc = loc * 2
+        assert loc >= 0
         flag = 0
         while loc >= 0x80:
             result.append(int(loc & 0x7F) | flag)
@@ -1557,9 +1561,6 @@ def decompress_callshape(bytes):
             if b < 0x80:
                 break
             value = (value - 0x80) << 7
-        if value & 1:
-            value = ~ value
-        value = value >> 1
         result.append(value)
     result.reverse()
     assert result[5] == 0

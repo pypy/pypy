@@ -1,13 +1,21 @@
-LOC_NOWHERE   = 0
-LOC_REG       = 1
-LOC_EBP_BASED = 2
-LOC_ESP_BASED = 3
+LOC_REG       = 0
+LOC_ESP_PLUS  = 1
+LOC_EBP_PLUS  = 2
+LOC_EBP_MINUS = 3
 LOC_MASK      = 0x03
+LOC_NOWHERE   = LOC_REG | 0
 
-def frameloc(base, offset):
-    assert base in (LOC_EBP_BASED, LOC_ESP_BASED)
+def frameloc_esp(offset):
+    assert offset >= 0
     assert offset % 4 == 0
-    return base | offset
+    return LOC_ESP_PLUS | offset
+
+def frameloc_ebp(offset):
+    assert offset % 4 == 0
+    if offset >= 0:
+        return LOC_EBP_PLUS | offset
+    else:
+        return LOC_EBP_MINUS | (-offset)
 
 
 class SomeNewValue(object):
@@ -40,12 +48,12 @@ class LocalVar(object):
             # try to use esp-relative addressing
             ofs_from_esp = framesize + self.ofs_from_frame_end
             if ofs_from_esp % 2 == 0:
-                return frameloc(LOC_ESP_BASED, ofs_from_esp)
+                return frameloc_esp(ofs_from_esp)
             # we can get an odd value if the framesize is marked as bogus
             # by visit_andl()
         assert uses_frame_pointer
         ofs_from_ebp = self.ofs_from_frame_end + 4
-        return frameloc(LOC_EBP_BASED, ofs_from_ebp)
+        return frameloc_ebp(ofs_from_ebp)
 
 
 class Insn(object):

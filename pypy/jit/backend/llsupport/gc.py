@@ -202,10 +202,10 @@ class GcRootMap_asmgcc:
     """Handles locating the stack roots in the assembler.
     This is the class supporting --gcrootfinder=asmgcc.
     """
-    LOC_NOWHERE   = 0
-    LOC_REG       = 1
-    LOC_EBP_BASED = 2
-    LOC_ESP_BASED = 3
+    LOC_REG       = 0
+    LOC_ESP_PLUS  = 1
+    LOC_EBP_PLUS  = 2
+    LOC_EBP_MINUS = 3
 
     GCMAP_ARRAY = rffi.CArray(llmemory.Address)
     CALLSHAPE_ARRAY = rffi.CArray(rffi.UCHAR)
@@ -252,37 +252,38 @@ class GcRootMap_asmgcc:
             lltype.free(oldgcmap, flavor='raw')
 
     def get_basic_shape(self):
-        return [self.LOC_EBP_BASED | 4,     # return addr: at   4(%ebp)
-                self.LOC_EBP_BASED | (-4),  # saved %ebx:  at  -4(%ebp)
-                self.LOC_EBP_BASED | (-8),  # saved %esi:  at  -8(%ebp)
-                self.LOC_EBP_BASED | (-12), # saved %edi:  at -12(%ebp)
-                self.LOC_EBP_BASED | 0,     # saved %ebp:  at    (%ebp)
+        return [self.LOC_EBP_PLUS  | 4,     # return addr: at   4(%ebp)
+                self.LOC_EBP_MINUS | 4,     # saved %ebx:  at  -4(%ebp)
+                self.LOC_EBP_MINUS | 8,     # saved %esi:  at  -8(%ebp)
+                self.LOC_EBP_MINUS | 12,    # saved %edi:  at -12(%ebp)
+                self.LOC_EBP_PLUS  | 0,     # saved %ebp:  at    (%ebp)
                 0]
 
     def add_ebp_offset(self, shape, offset):
         assert (offset & 3) == 0
-        shape.append(self.LOC_EBP_BASED | offset)
+        if offset >= 0:
+            encoded = self.LOC_EBP_PLUS | offset
+        else:
+            encoded = self.LOC_EBP_MINUS | (-offset)
+        shape.append(encoded)
 
     def add_ebx(self, shape):
-        shape.append(self.LOC_REG | 0)
-
-    def add_esi(self, shape):
         shape.append(self.LOC_REG | 4)
 
-    def add_edi(self, shape):
+    def add_esi(self, shape):
         shape.append(self.LOC_REG | 8)
 
-    def add_ebp(self, shape):
+    def add_edi(self, shape):
         shape.append(self.LOC_REG | 12)
+
+    def add_ebp(self, shape):
+        shape.append(self.LOC_REG | 16)
 
     def compress_callshape(self, shape):
         # Similar to compress_callshape() in trackgcroot.py.  XXX a bit slowish
         result = []
         for loc in shape:
-            if loc < 0:
-                loc = (-loc) * 2 - 1
-            else:
-                loc = loc * 2
+            assert loc >= 0
             flag = 0
             while loc >= 0x80:
                 result.append(int(loc & 0x7F) | flag)

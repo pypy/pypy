@@ -3,7 +3,8 @@ import sys, re
 from pypy.translator.c.gcc.trackgcroot import format_location
 from pypy.translator.c.gcc.trackgcroot import format_callshape
 from pypy.translator.c.gcc.trackgcroot import LOC_NOWHERE, LOC_REG
-from pypy.translator.c.gcc.trackgcroot import LOC_EBP_BASED, LOC_ESP_BASED
+from pypy.translator.c.gcc.trackgcroot import LOC_EBP_PLUS, LOC_EBP_MINUS
+from pypy.translator.c.gcc.trackgcroot import LOC_ESP_PLUS
 from pypy.translator.c.gcc.trackgcroot import ElfAssemblerParser
 from pypy.translator.c.gcc.trackgcroot import DarwinAssemblerParser
 from pypy.translator.c.gcc.trackgcroot import compress_callshape
@@ -16,32 +17,31 @@ this_dir = py.path.local(__file__).dirpath()
 
 def test_format_location():
     assert format_location(LOC_NOWHERE) == '?'
-    assert format_location(LOC_REG | (0<<2)) == '%ebx'
-    assert format_location(LOC_REG | (1<<2)) == '%esi'
-    assert format_location(LOC_REG | (2<<2)) == '%edi'
-    assert format_location(LOC_REG | (3<<2)) == '%ebp'
-    assert format_location(LOC_EBP_BASED + 0) == '(%ebp)'
-    assert format_location(LOC_EBP_BASED + 4) == '4(%ebp)'
-    assert format_location(LOC_EBP_BASED - 4) == '-4(%ebp)'
-    assert format_location(LOC_ESP_BASED + 0) == '(%esp)'
-    assert format_location(LOC_ESP_BASED + 4) == '4(%esp)'
-    assert format_location(LOC_ESP_BASED - 4) == '-4(%esp)'
+    assert format_location(LOC_REG | (1<<2)) == '%ebx'
+    assert format_location(LOC_REG | (2<<2)) == '%esi'
+    assert format_location(LOC_REG | (3<<2)) == '%edi'
+    assert format_location(LOC_REG | (4<<2)) == '%ebp'
+    assert format_location(LOC_EBP_PLUS + 0) == '(%ebp)'
+    assert format_location(LOC_EBP_PLUS + 4) == '4(%ebp)'
+    assert format_location(LOC_EBP_MINUS + 4) == '-4(%ebp)'
+    assert format_location(LOC_ESP_PLUS + 0) == '(%esp)'
+    assert format_location(LOC_ESP_PLUS + 4) == '4(%esp)'
 
 def test_format_callshape():
     expected = ('{4(%ebp) '               # position of the return address
                 '| 8(%ebp), 12(%ebp), 16(%ebp), 20(%ebp) '  # 4 saved regs
                 '| 24(%ebp), 28(%ebp)}')                    # GC roots
-    assert format_callshape((LOC_EBP_BASED+4,
-                             LOC_EBP_BASED+8,
-                             LOC_EBP_BASED+12,
-                             LOC_EBP_BASED+16,
-                             LOC_EBP_BASED+20,
-                             LOC_EBP_BASED+24,
-                             LOC_EBP_BASED+28)) == expected
+    assert format_callshape((LOC_EBP_PLUS+4,
+                             LOC_EBP_PLUS+8,
+                             LOC_EBP_PLUS+12,
+                             LOC_EBP_PLUS+16,
+                             LOC_EBP_PLUS+20,
+                             LOC_EBP_PLUS+24,
+                             LOC_EBP_PLUS+28)) == expected
 
 def test_compress_callshape():
-    shape = (1, -3, 0x1234, -0x5678, 0x234567,
-             -0x765432, 0x61626364, -0x41424344)
+    shape = (1, 127, 0x1234, 0x5678, 0x234567,
+             0x765432, 0x61626364, 0x41424344)
     bytes = list(compress_callshape(shape))
     print bytes
     assert len(bytes) == 1+1+2+3+4+4+5+5+1
