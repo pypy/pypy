@@ -18,7 +18,6 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import rgc
 
 # ____________________________________________________________
 #
@@ -682,9 +681,10 @@ class LLHelpers(AbstractLLHelpers):
     @purefunction
     def ll_stringslice_minusone(s1):
         newlen = len(s1.chars) - 1
+        newstr = s1.malloc(newlen)
         assert newlen >= 0
-        return rgc.ll_shrink_array(s1, newlen)
-
+        s1.copy_contents(s1, newstr, 0, 0, newlen)
+        return newstr
 
     def ll_split_chr(LIST, s, c):
         chars = s.chars
