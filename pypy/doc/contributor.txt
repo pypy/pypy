@@ -58,7 +58,7 @@ appropriate measure but it's something)::
     Lukas Renggli
     Guenter Jantzen
     Dinu Gherman
-    Bartosz SKOWRON
+    Bartosz Skowron
     Georg Brandl
     Ben Young
     Jean-Paul Calderone
