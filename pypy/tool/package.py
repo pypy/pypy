@@ -50,7 +50,7 @@ def main(basedir, name='pypy-nightly'):
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        os.system("strip " + str(builddir.join('bin', 'pypy-c')))
+        os.system("strip " + str(pypydir.join('bin', 'pypy-c')))
         os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
                   " " + name)
     finally:
