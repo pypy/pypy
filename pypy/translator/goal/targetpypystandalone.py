@@ -186,6 +186,10 @@ class PyPyTarget(object):
         #elif config.objspace.usemodules.clr:
         #    config.translation.backend == "cli"
 
+        if config.translation.sandbox:
+            config.objspace.lonepycfiles = False
+            config.objspace.usepycfiles = False
+
         config.objspace.nofaking = True
         config.objspace.compiler = "ast"
         config.translating = True
