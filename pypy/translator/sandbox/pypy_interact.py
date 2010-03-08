@@ -45,18 +45,21 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
         # * can access its own executable
         # * can access the pure Python libraries
         # * can access the temporary usession directory as /tmp
+        exclude = ['.pyc', '.pyo']
         if self.tmpdir is None:
             tmpdirnode = Dir({})
         else:
-            tmpdirnode = RealDir(self.tmpdir)
+            tmpdirnode = RealDir(self.tmpdir, exclude=exclude)
         pypydist = os.path.dirname(os.path.abspath(autopath.pypydir))
 
         return Dir({
             'bin': Dir({
                 'pypy-c': RealFile(self.executable),
-                'lib-python': RealDir(os.path.join(pypydist, 'lib-python')),
+                'lib-python': RealDir(os.path.join(pypydist, 'lib-python'),
+                                      exclude=exclude),
                 'pypy': Dir({
-                    'lib': RealDir(os.path.join(pypydist, 'pypy', 'lib')),
+                    'lib': RealDir(os.path.join(pypydist, 'pypy', 'lib'),
+                                   exclude=exclude),
                     }),
                 }),
              'tmp': tmpdirnode,

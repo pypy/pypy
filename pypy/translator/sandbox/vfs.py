@@ -64,21 +64,30 @@ class RealDir(Dir):
     # with '.' simply don't exist.  If follow_links=True, then symlinks are
     # transparently followed (they look like a regular file or directory to
     # the sandboxed process).  If follow_links=False, the subprocess is
-    # not allowed to access them at all.
-    def __init__(self, path, show_dotfiles=False, follow_links=False):
+    # not allowed to access them at all.  Finally, exclude is a list of
+    # file endings that we filter out (note that we also filter out files
+    # with the same ending but a different case, to be safe).
+    def __init__(self, path, show_dotfiles=False, follow_links=False,
+                 exclude=[]):
         self.path = path
         self.show_dotfiles = show_dotfiles
         self.follow_links  = follow_links
+        self.exclude       = [excl.lower() for excl in exclude]
     def __repr__(self):
         return '<RealDir %s>' % (self.path,)
     def keys(self):
         names = os.listdir(self.path)
         if not self.show_dotfiles:
             names = [name for name in names if not name.startswith('.')]
+        for excl in self.exclude:
+            names = [name for name in names if not name.lower().endswith(excl)]
         return names
     def join(self, name):
         if name.startswith('.') and not self.show_dotfiles:
             raise OSError(errno.ENOENT, name)
+        for excl in self.exclude:
+            if name.lower().endswith(excl):
+                raise OSError(errno.ENOENT, name)
         path = os.path.join(self.path, name)
         if self.follow_links:
             st = os.stat(path)
@@ -86,7 +95,8 @@ class RealDir(Dir):
             st = os.lstat(path)
         if stat.S_ISDIR(st.st_mode):
             return RealDir(path, show_dotfiles = self.show_dotfiles,
-                                 follow_links  = self.follow_links)
+                                 follow_links  = self.follow_links,
+                                 exclude       = self.exclude)
         elif stat.S_ISREG(st.st_mode):
             return RealFile(path)
         else:

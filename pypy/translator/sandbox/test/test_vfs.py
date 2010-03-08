@@ -90,3 +90,19 @@ def test_realdir_realfile():
             else:
                 py.test.raises(OSError, v_test_vfs.join, '.hidden')
                 py.test.raises(OSError, v_test_vfs.join, '.subdir2')
+
+def test_realdir_exclude():
+    xdir = udir.ensure('test_realdir_exclude', dir=1)
+    xdir.ensure('test_realdir_exclude.yes')
+    xdir.ensure('test_realdir_exclude.no')
+    v_udir = RealDir(str(udir), exclude=['.no'])
+    v_xdir = v_udir.join('test_realdir_exclude')
+    assert 'test_realdir_exclude.yes' in v_xdir.keys()
+    assert 'test_realdir_exclude.no' not in v_xdir.keys()
+    v_xdir.join('test_realdir_exclude.yes')    # works
+    py.test.raises(OSError, v_xdir.join, 'test_realdir_exclude.no')
+    # Windows and Mac tests, for the case
+    py.test.raises(OSError, v_xdir.join, 'Test_RealDir_Exclude.no')
+    py.test.raises(OSError, v_xdir.join, 'test_realdir_exclude.No')
+    py.test.raises(OSError, v_xdir.join, 'test_realdir_exclude.nO')
+    py.test.raises(OSError, v_xdir.join, 'test_realdir_exclude.NO')

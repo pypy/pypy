@@ -36,6 +36,12 @@ def mini_pypy_like_entry_point(argv):
         assert_(False, "os.stat('site') should have failed")
     st = os.stat('/bin/lib-python/modified-2.5.2/site.py')
     assert_(stat.S_ISREG(st.st_mode), "bad st_mode for .../site.py")
+    try:
+        os.stat('/bin/lib-python/modified-2.5.2/site.pyc')
+    except OSError:
+        pass
+    else:
+        assert_(False, "os.stat('....pyc') should have failed")
     fd = os.open('/bin/lib-python/modified-2.5.2/site.py', os.O_RDONLY, 0666)
     length = 8192
     ofs = 0
