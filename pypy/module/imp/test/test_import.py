@@ -496,6 +496,12 @@ class TestPycStuff:
                                               cpathname,
                                               mtime+1)
         assert ret is None
+
+        # also check with expected mtime==0 (nothing special any more about 0)
+        ret = importing.check_compiled_module(space,
+                                              cpathname,
+                                              0)
+        assert ret is None
         os.remove(cpathname)
 
         # check for wrong version

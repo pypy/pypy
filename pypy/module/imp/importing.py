@@ -647,9 +647,9 @@ def _w_long(stream, x):
     d = x & 0xff
     stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
-def check_compiled_module(space, pycfilename, expected_mtime=0):
+def check_compiled_module(space, pycfilename, expected_mtime):
     """
-    Check if a pyc file's magic number and (optionally) mtime match.
+    Check if a pyc file's magic number and mtime match.
     """
     stream = None
     try:
@@ -658,11 +658,10 @@ def check_compiled_module(space, pycfilename, expected_mtime=0):
         if magic != get_pyc_magic(space):
             stream.close()
             return None
-        if expected_mtime != 0:
-            pyc_mtime = _r_long(stream)
-            if pyc_mtime != expected_mtime:
-                stream.close()
-                return None
+        pyc_mtime = _r_long(stream)
+        if pyc_mtime != expected_mtime:
+            stream.close()
+            return None
         return stream
     except StreamErrors:
         if stream:
