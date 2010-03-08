@@ -7,7 +7,7 @@ _pypy_g_foo PROC					; COMDAT
 	sub	esp, 12
 	push	esi
 	call	_pypy_g_something_else
-	;; expected {4(%ebp) | %ebx, 0(%esp), %edi, (%ebp) | }
+	;; expected {4(%ebp) | %ebx, (%esp), %edi, (%ebp) | }
 	pop	esi
 	mov	esp, ebp
 	pop	ebp
