@@ -37,7 +37,7 @@ def main(basedir, name='pypy-nightly'):
     if not pypy_c.check():
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
     builddir = udir.ensure("build", dir=True)
-    pypydir = builddir.ensure("pypy", dir=True)
+    pypydir = builddir.ensure(name, dir=True)
     shutil.copytree(str(basedir.join('lib-python')),
                     str(pypydir.join('lib-python')),
                     ignore=ignore_patterns('.svn'))
@@ -50,8 +50,9 @@ def main(basedir, name='pypy-nightly'):
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
+        os.system("strip " + str(builddir.join('bin', 'pypy-c')))
         os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
-                  " pypy")
+                  " " + name)
     finally:
         os.chdir(old_dir)
     return builddir # for tests
