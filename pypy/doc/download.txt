@@ -2,28 +2,6 @@
 Download one of the following release files: 
 =============================================
 
-PyPy 1.2 Sources:
------------------
+Download page has moved to `pypy.org`_.
 
-* `pypy-1.2.0.tar.bz2`_ (sources, unix line endings) or
-* `pypy-1.2.0.tar.gz`_ (sources, unix line endings) or
-* `pypy-1.2.0.zip`_ (sources, windows line-endings)
-
-.. _`pypy-1.2.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.2.0.tar.bz2
-.. _`pypy-1.2.0.zip`: http://codespeak.net/download/pypy/pypy-1.2.0.zip
-.. _`pypy-1.2.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.2.0.tar.gz
-
-Prebuilt binaries
-~~~~~~~~~~~~~~~~~
-
-XXX
-
-The ``lang`` repository
-~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``lang`` part of our repository, which contains other interpreters
-developped mostly as external contributions, has moved and is no longer
-included in the above packages.  You can grab it by `browsing the
-Subversion source`__.
-
-.. __: http://codespeak.net/svn/pypy/lang/
+.. _`pypy.org`: http://pypy.org/download.html
