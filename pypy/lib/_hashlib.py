@@ -1,6 +1,8 @@
 from ctypes import *
 import ctypes.util
-from ctypes_configure import configure
+
+# load the platform-specific cache made by running hashlib.ctc.py
+from ctypes_config_cache._hashlib_cache import *
 
 # Note: OpenSSL on OS X only provides md5 and sha1
 libpath = ctypes.util.find_library('ssl')
@@ -16,18 +18,6 @@ def bufferstr(x):
     else:
         return buffer(x)[:]
 
-class CConfig:
-    _compilation_info_ = configure.ExternalCompilationInfo(
-        includes=['openssl/evp.h'],
-        )
-    EVP_MD = configure.Struct('EVP_MD',
-                              [])
-    EVP_MD_CTX = configure.Struct('EVP_MD_CTX',
-                                  [('digest', c_void_p)])
-c = configure.configure(CConfig)
-EVP_MD_CTX = c['EVP_MD_CTX']
-EVP_MD = c['EVP_MD']
-
 def patch_fields(fields):
     res = []
     for k, v in fields:
@@ -39,7 +29,6 @@ def patch_fields(fields):
 
 class EVP_MD_CTX(Structure):
     _fields_ = patch_fields(EVP_MD_CTX._fields_)
-del c
 
 # OpenSSL initialization
 lib.OpenSSL_add_all_digests()

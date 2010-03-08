@@ -7,48 +7,16 @@ from ctypes import (Structure, POINTER, create_string_buffer,
     c_ubyte, c_int, c_char_p, c_wchar_p)
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
-from ctypes_configure.configure import (configure, ExternalCompilationInfo,
-    ConstantInteger, DefinedConstantInteger, SimpleType)
+
+# load the platform-specific cache made by running locale.ctc.py
+from ctypes_config_cache._locale_cache import *
+
 
 size_t = c_int
 
 # XXX check where this comes from
 CHAR_MAX = 127
 
-_CONSTANTS = (
-    'LC_CTYPE',
-    'LC_NUMERIC',
-    'LC_TIME',
-    'LC_COLLATE',
-    'LC_MONETARY',
-    'LC_MESSAGES',
-    'LC_ALL',
-    'LC_PAPER',
-    'LC_NAME',
-    'LC_ADDRESS',
-    'LC_TELEPHONE',
-    'LC_MEASUREMENT',
-    'LC_IDENTIFICATION',
-)
-
-class LocaleConfigure:
-    _compilation_info_ = ExternalCompilationInfo(includes=['locale.h'])
-for key in _CONSTANTS:
-    setattr(LocaleConfigure, key, ConstantInteger(key))
-
-try:
-    locale_config = configure(LocaleConfigure, noerr=True)
-except Exception, e:
-    # should probably be moved into configure()
-    # as an optional feature
-    raise ImportError("%s: %s" % (e.__class__, e))
-
-for key in _CONSTANTS:
-    globals()[key] = locale_config[key]
-del LocaleConfigure
-del locale_config
-
-HAS_LANGINFO = True
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -288,29 +256,6 @@ def getdefaultlocale():
     raise NotImplementedError()
 
 if HAS_LANGINFO:
-    # this is incomplete list
-    langinfo_names = ('CODESET D_T_FMT D_FMT T_FMT RADIXCHAR THOUSEP '
-                      'YESEXPR NOEXPR CRNCYSTR').split(" ")
-    for i in range(1, 8):
-        langinfo_names.append("DAY_%d" % i)
-        langinfo_names.append("ABDAY_%d" % i)
-    for i in range(1, 13):
-        langinfo_names.append("MON_%d" % i)
-        langinfo_names.append("ABMON_%d" % i)
-    
-    class LanginfoConfigure:
-        _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
-        nl_item = SimpleType('nl_item')
-    for key in langinfo_names:
-        setattr(LanginfoConfigure, key, ConstantInteger(key))
-
-    config = configure(LanginfoConfigure)
-    nl_item = config['nl_item']
-    for key in langinfo_names:
-        globals()[key] = config[key]
-    del LanginfoConfigure
-    del config
-
     _nl_langinfo = libc.nl_langinfo
     _nl_langinfo.argtypes = (nl_item,)
     _nl_langinfo.restype = c_char_p
@@ -369,9 +314,8 @@ __all__ = (
     'setlocale', 'localeconv', 'strxfrm', 'strcoll',
     'gettext', 'dgettext', 'dcgettext', 'textdomain',
     'bindtextdomain', 'CHAR_MAX',
-) + _CONSTANTS + tuple(langinfo_names)
+) + ALL_CONSTANTS
 if _bind_textdomain_codeset:
     __all__ += ('bind_textdomain_codeset',)
 if HAS_LANGINFO:
     __all__ += ('nl_langinfo',)
-

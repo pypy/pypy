@@ -4,6 +4,9 @@
 import StringIO, sys
 import unittest, py
 
+from pypy.lib.ctypes_config_cache import rebuild
+rebuild.rebuild_one('pyexpat.ctc.py')
+
 from pypy.lib import pyexpat
 #from xml.parsers import expat
 expat = pyexpat

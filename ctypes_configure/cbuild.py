@@ -5,7 +5,7 @@ import distutils
 
 debug = 0
 
-configdir = py.path.local.make_numbered_dir(prefix='ctypes_configure')
+configdir = py.path.local.make_numbered_dir(prefix='ctypes_configure-')
 
 class ExternalCompilationInfo(object):
 

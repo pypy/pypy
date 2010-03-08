@@ -1,3 +1,6 @@
+from pypy.lib.ctypes_config_cache import rebuild
+rebuild.rebuild_one('resource.ctc.py')
+
 from pypy.lib import resource
 
 def test_resource():

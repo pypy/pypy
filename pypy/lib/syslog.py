@@ -9,79 +9,11 @@ import sys
 if sys.platform == 'win32':
     raise ImportError("No syslog on Windows")
 
+# load the platform-specific cache made by running syslog.ctc.py
+from ctypes_config_cache._syslog_cache import *
+
 from ctypes_support import standard_c_lib as libc
 from ctypes import c_int, c_char_p
-from ctypes_configure.configure import (configure,
-    ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger)
-
-_CONSTANTS = (
-    'LOG_EMERG',
-    'LOG_ALERT',
-    'LOG_CRIT',
-    'LOG_ERR',
-    'LOG_WARNING',
-    'LOG_NOTICE',
-    'LOG_INFO',
-    'LOG_DEBUG',
-
-    'LOG_PID',
-    'LOG_CONS',
-    'LOG_NDELAY',
-
-    'LOG_KERN',
-    'LOG_USER',
-    'LOG_MAIL',
-    'LOG_DAEMON',
-    'LOG_AUTH',
-    'LOG_LPR',
-    'LOG_LOCAL0',
-    'LOG_LOCAL1',
-    'LOG_LOCAL2',
-    'LOG_LOCAL3',
-    'LOG_LOCAL4',
-    'LOG_LOCAL5',
-    'LOG_LOCAL6',
-    'LOG_LOCAL7',
-)
-_OPTIONAL_CONSTANTS = (
-    'LOG_NOWAIT',
-    'LOG_PERROR',
-
-    'LOG_SYSLOG',
-    'LOG_CRON',
-    'LOG_UUCP',
-    'LOG_NEWS',
-)
-
-# Constant aliases if there are not defined
-_ALIAS = (
-    ('LOG_SYSLOG', 'LOG_DAEMON'),
-    ('LOG_CRON', 'LOG_DAEMON'),
-    ('LOG_NEWS', 'LOG_MAIL'),
-    ('LOG_UUCP', 'LOG_MAIL'),
-)
-
-class SyslogConfigure:
-    _compilation_info_ = ExternalCompilationInfo(includes=['sys/syslog.h'])
-for key in _CONSTANTS:
-    setattr(SyslogConfigure, key, ConstantInteger(key))
-for key in _OPTIONAL_CONSTANTS:
-    setattr(SyslogConfigure, key, DefinedConstantInteger(key))
-
-config = configure(SyslogConfigure)
-for key in _CONSTANTS:
-    globals()[key] = config[key]
-optional_constants = []
-for key in _OPTIONAL_CONSTANTS:
-    if config[key] is not None:
-        globals()[key] = config[key]
-        optional_constants.append(key)
-for alias, key in _ALIAS:
-    if alias in optional_constants:
-        continue
-    globals()[alias] = globals()[key]
-    optional_constants.append(alias)
-del config
 
 # Real prototype is:
 # void syslog(int priority, const char *format, ...);
@@ -124,9 +56,8 @@ def LOG_MASK(pri):
 def LOG_UPTO(pri):
     return (1 << (pri + 1)) - 1
 
-__all__ = _CONSTANTS + tuple(optional_constants) + (
+__all__ = ALL_CONSTANTS + (
     'openlog', 'syslog', 'closelog', 'setlogmask',
     'LOG_MASK', 'LOG_UPTO')
 
-del optional_constants
-
+del ALL_CONSTANTS

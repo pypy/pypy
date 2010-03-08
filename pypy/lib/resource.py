@@ -2,45 +2,18 @@ import sys
 if sys.platform == 'win32':
     raise ImportError('resource module not available for win32')
 
+# load the platform-specific cache made by running resource.ctc.py
+from ctypes_config_cache._resource_cache import *
+
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
 from ctypes import Structure, c_int, c_long, byref, sizeof
 from errno import EINVAL, EPERM
-from ctypes_configure.configure import (configure,
-    ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger,
-    SimpleType)
 import _structseq
 
 class error(Exception):
     pass
 
-_CONSTANTS = (
-    'RLIM_INFINITY',
-    'RLIM_NLIMITS',
-)
-_OPTIONAL_CONSTANTS = (
-    'RLIMIT_CPU',
-    'RLIMIT_FSIZE',
-    'RLIMIT_DATA',
-    'RLIMIT_STACK',
-    'RLIMIT_CORE',
-    'RLIMIT_RSS',
-    'RLIMIT_NPROC',
-    'RLIMIT_NOFILE',
-    'RLIMIT_OFILE',
-    'RLIMIT_MEMLOCK',
-    'RLIMIT_AS',
-    'RLIMIT_LOCKS',
-    'RLIMIT_SIGPENDING',
-    'RLIMIT_MSGQUEUE',
-    'RLIMIT_NICE',
-    'RLIMIT_RTPRIO',
-    'RLIMIT_VMEM',
-
-    'RUSAGE_BOTH',
-    'RUSAGE_SELF',
-    'RUSAGE_CHILDREN',
-)
 
 # Read required libc functions
 _getrusage = libc.getrusage
@@ -52,27 +25,6 @@ except AttributeError:
     from os import sysconf
     _getpagesize = None
 
-# Setup our configure
-class ResourceConfigure:
-    _compilation_info_ = ExternalCompilationInfo(includes=['sys/resource.h'])
-    rlim_t = SimpleType('rlim_t')
-for key in _CONSTANTS:
-    setattr(ResourceConfigure, key, ConstantInteger(key))
-for key in _OPTIONAL_CONSTANTS:
-    setattr(ResourceConfigure, key, DefinedConstantInteger(key))
-
-# Configure constants and types
-config = configure(ResourceConfigure)
-rlim_t = config['rlim_t']
-sizeof_rlim_t = 1<<(sizeof(rlim_t) * 8)
-for key in _CONSTANTS:
-    globals()[key] = config[key]
-optional_constants = []
-for key in _OPTIONAL_CONSTANTS:
-    if config[key] is not None:
-        globals()[key] = config[key]
-        optional_constants.append(key)
-del config
 
 class timeval(Structure):
     _fields_ = (
@@ -126,9 +78,9 @@ class struct_rusage:
     ru_nivcsw = _structseq.structseqfield(15)
 
 def rlimit_check_bounds(rlim_cur, rlim_max):
-    if rlim_cur > sizeof_rlim_t:
+    if rlim_cur > rlim_t_max:
         raise ValueError("%d does not fit into rlim_t" % rlim_cur)
-    if rlim_max > sizeof_rlim_t:
+    if rlim_max > rlim_t_max:
         raise ValueError("%d does not fit into rlim_t" % rlim_max)
 
 class rlimit(Structure):
@@ -202,10 +154,9 @@ def getpagesize():
             # Irix 5.3 has _SC_PAGESIZE, but not _SC_PAGE_SIZE
             return sysconf("SC_PAGESIZE")
 
-__all__ = _CONSTANTS + tuple(optional_constants) + (
+__all__ = ALL_CONSTANTS + (
     'error', 'timeval', 'struct_rusage', 'rlimit',
     'getrusage', 'getrlimit', 'setrlimit', 'getpagesize',
 )
 
-del optional_constants
-
+del ALL_CONSTANTS

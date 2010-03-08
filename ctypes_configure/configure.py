@@ -164,7 +164,7 @@ def configure(CConfig, noerr=False):
     for key in dir(CConfig):
         value = getattr(CConfig, key)
         if isinstance(value, CConfigEntry):
-            entries.append((key, value))            
+            entries.append((key, value))
 
     if entries:   # can be empty if there are only CConfigSingleEntries
         writer = _CWriter(CConfig)
@@ -201,7 +201,6 @@ def configure(CConfig, noerr=False):
             writer = _CWriter(CConfig)
             writer.write_header()
             res[key] = value.question(writer.ask_gcc)
-
     return res
 
 # ____________________________________________________________
@@ -209,7 +208,6 @@ def configure(CConfig, noerr=False):
 
 class CConfigEntry(object):
     "Abstract base class."
-
 
 class Struct(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
@@ -313,7 +311,6 @@ class Struct(CConfigEntry):
         S.__name__ = name
         return S
 
-
 class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined simple numeric type.
@@ -349,7 +346,6 @@ class SimpleType(CConfigEntry):
         if (size, sign) != size_and_sign(ctype):
             ctype = fixup_ctype(ctype, self.name, (size, sign))
         return ctype
-
 
 class ConstantInteger(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
