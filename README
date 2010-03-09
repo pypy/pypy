@@ -9,11 +9,15 @@ an extensive compiler framework for dynamic language implementations.
 You can build self-contained Python implementations which execute
 independently from CPython.
 
+The home page is:
+
+    http://pypy.org/
+
 We invite you to head over to our detailed getting-started document:
 
     pypy/doc/getting-started.html or
     pypy/doc/getting-started.txt
-    (local if you got a tarball or svn checkout)
+    (local if you got a source tarball or svn checkout)
 
     http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
