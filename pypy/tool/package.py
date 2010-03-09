@@ -41,6 +41,8 @@ def main(basedir, name='pypy-nightly'):
     shutil.copytree(str(basedir.join('lib-python')),
                     str(pypydir.join('lib-python')),
                     ignore=ignore_patterns('.svn', '*.pyc', '*~'))
+    # Careful: to copy pypy/lib, copying just the svn-tracked files
+    # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     pypydir.ensure('pypy', dir=True)
     shutil.copytree(str(basedir.join('pypy', 'lib')),
                     str(pypydir.join('pypy', 'lib')),
