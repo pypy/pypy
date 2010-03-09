@@ -53,11 +53,13 @@ else:
     separate_module_sources = []
 
 if not _MSVC:
+    # On some platforms, we try to link statically libffi, which is small
+    # anyway and avoids endless troubles for installing.  On other platforms
+    # libffi.a is typically not there, so we link dynamically.
     if _MINGW:
         includes = ['windows.h', 'ffi.h']
     else:
         includes = ['dlfcn.h', 'ffi.h']
-    include_dirs = platform.include_dirs_for_libffi()
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
@@ -65,9 +67,25 @@ if not _MSVC:
         pre_include_bits = []
 
     if _FREEBSD_7 or _MINGW:
-        libraries = ['ffi']
+        libraries = []
     else:
-        libraries = ['ffi', 'dl']
+        libraries = ['dl']
+
+    def find_libffi_a():
+        dirlist = platform.library_dirs_for_libffi_a()
+        for dir in dirlist:
+            result = os.path.join(dir, 'libffi.a')
+            if os.path.exists(result):
+                return result
+        raise ImportError("'libffi.a' not found in %s" % (dirlist,))
+
+    if hasattr(platform, 'library_dirs_for_libffi_a'):
+        # platforms on which we want static linking
+        link_files = [find_libffi_a()]
+    else:
+        # platforms on which we want dynamic linking
+        libraries = ['ffi'] + libraries
+        link_files = []
 
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
@@ -76,6 +94,8 @@ if not _MSVC:
         separate_module_sources = separate_module_sources,
         include_dirs = platform.include_dirs_for_libffi(),
         library_dirs = platform.library_dirs_for_libffi(),
+        link_files = link_files,
+        testonly_libraries = ['ffi'],
     )
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')

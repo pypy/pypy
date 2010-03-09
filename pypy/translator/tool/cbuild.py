@@ -18,7 +18,7 @@ class ExternalCompilationInfo(object):
                    'post_include_bits', 'libraries', 'library_dirs',
                    'separate_module_sources', 'separate_module_files',
                    'export_symbols', 'compile_extra', 'link_extra',
-                   'frameworks', 'link_files']
+                   'frameworks', 'link_files', 'testonly_libraries']
     _DUPLICATES_OK = ['compile_extra', 'link_extra']
     _EXTRA_ATTRIBUTES = ['use_cpp_linker', 'platform']
 
@@ -36,6 +36,7 @@ class ExternalCompilationInfo(object):
                  link_extra              = [],
                  frameworks              = [],
                  link_files              = [],
+                 testonly_libraries      = [],
                  use_cpp_linker          = False,
                  platform                = None):
         """
@@ -81,6 +82,10 @@ class ExternalCompilationInfo(object):
 
         link_files: list of file names which will be directly passed to the
         linker
+
+        testonly_libraries: list of libraries that are searched for during
+        testing only, by ll2ctypes.  Useful to search for a name in a dynamic
+        library during testing but use the static library for compilation.
 
         use_cpp_linker: a flag to tell if g++ should be used instead of gcc
         when linking (a bit custom so far)

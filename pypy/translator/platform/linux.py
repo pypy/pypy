@@ -24,6 +24,10 @@ class Linux(BasePosix):
     def library_dirs_for_libffi(self):
         return ['/usr/lib/libffi']
 
+    def library_dirs_for_libffi_a(self):
+        # places where we need to look for libffi.a
+        return self.library_dirs_for_libffi() + ['/usr/lib']
+
 
 class Linux64(Linux):
     shared_only = ['-fPIC']

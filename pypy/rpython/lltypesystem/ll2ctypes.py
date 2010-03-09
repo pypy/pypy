@@ -853,7 +853,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             eci = old_eci.compile_shared_lib()
             _eci_cache[old_eci] = eci
 
-    libraries = list(eci.libraries + eci.frameworks)
+    libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
     if not libraries:
