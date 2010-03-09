@@ -216,7 +216,7 @@ def test_exc(formatstr, args, exception, excmsg):
     try:
         testformat(formatstr, args)
     except exception, exc:
-        if str(exc) == excmsg:
+        if excmsg is None or str(exc) == excmsg:
             if verbose:
                 print "yes"
         else:
@@ -235,8 +235,9 @@ if have_unicode:
     test_exc(unicode('abc %\u3000','raw-unicode-escape'), 1, ValueError,
              "unsupported format character '?' (0x3000) at index 5")
 
-test_exc('%d', '1', TypeError, "int argument required")
-test_exc('%g', '1', TypeError, "float argument required")
+# the exact error message may vary in the next two examples
+test_exc('%d', '1', TypeError, None)  # "int argument required"
+test_exc('%g', '1', TypeError, None)  # "float argument required"
 test_exc('no format', '1', TypeError,
          "not all arguments converted during string formatting")
 test_exc('no format', u'1', TypeError,
