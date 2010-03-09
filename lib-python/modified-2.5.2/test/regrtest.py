@@ -491,8 +491,13 @@ NOTTESTS = [
 
 def findtests(testdir=None, stdtests=STDTESTS, nottests=NOTTESTS):
     """Return a list of all applicable test modules."""
-    if not testdir: testdir = findtestdir()
-    names = os.listdir(testdir)
+    if testdir:
+        testdirs = [testdir]
+    else:
+        testdirs = findtestdirs()
+    names = {}
+    for testdir in testdirs:
+        names.update(dict.fromkeys(os.listdir(testdir)))
     tests = []
     for name in names:
         if name[:5] == "test_" and name[-3:] == os.extsep+"py":
@@ -529,10 +534,18 @@ def runtest(test, generate, verbose, quiet, testdir=None, huntrleaks=False):
 def runtest_inner(test, generate, verbose, quiet,
                      testdir=None, huntrleaks=False):
     test_support.unload(test)
-    if not testdir:
-        testdir = findtestdir()
-    outputdir = os.path.join(testdir, "output")
-    outputfile = os.path.join(outputdir, test)
+    if testdir:
+        testdirs = [testdir]
+    else:
+        testdirs = findtestdirs()
+    outputfiles = []
+    for testdir in testdirs:
+        outputdir = os.path.join(testdir, "output")
+        outputfile = os.path.join(outputdir, test)
+        if os.path.exists(outputfile):
+            outputfiles.append(outputfile)
+    if outputfiles:
+        outputfile = outputfiles[-1]
     if verbose:
         cfp = None
     else:
@@ -763,13 +776,23 @@ def reportdiff(expected, output):
 
     print "*" * 70
 
-def findtestdir():
+def findtestdirs():
+    # XXX hacking: returns a list of both the '2.5.2/test' and the
+    # 'modified-2.5.2/test' directories, as full paths.
     if __name__ == '__main__':
         file = sys.argv[0]
     else:
         file = __file__
-    testdir = os.path.dirname(file) or os.curdir
-    return testdir
+    testdir = os.path.abspath(os.path.dirname(file) or os.curdir)
+    assert os.path.basename(testdir).lower() == 'test'
+    maindir = os.path.dirname(testdir)
+    libpythondir = os.path.dirname(maindir)
+    maindirname = os.path.basename(maindir).lower()
+    if maindirname.startswith('modified-'):
+        maindirname = maindirname[len('modified-'):]
+    testdir1 = os.path.join(libpythondir, maindirname, 'test')
+    testdir2 = os.path.join(libpythondir, 'modified-'+maindirname, 'test')
+    return [testdir1, testdir2]
 
 def removepy(name):
     if name.endswith(os.extsep + "py"):
