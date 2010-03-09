@@ -14,9 +14,6 @@ from ctypes_config_cache._locale_cache import *
 
 size_t = c_int
 
-# XXX check where this comes from
-CHAR_MAX = 127
-
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -313,7 +310,7 @@ __all__ = (
     'Error',
     'setlocale', 'localeconv', 'strxfrm', 'strcoll',
     'gettext', 'dgettext', 'dcgettext', 'textdomain',
-    'bindtextdomain', 'CHAR_MAX',
+    'bindtextdomain',
 ) + ALL_CONSTANTS
 if _bind_textdomain_codeset:
     __all__ += ('bind_textdomain_codeset',)
