@@ -22,7 +22,8 @@ _CONSTANTS = [
 ]
 
 class LocaleConfigure:
-    _compilation_info_ = ExternalCompilationInfo(includes=['locale.h'])
+    _compilation_info_ = ExternalCompilationInfo(includes=['limits.h',
+                                                           'locale.h'])
 for key in _CONSTANTS:
     setattr(LocaleConfigure, key, DefinedConstantInteger(key))
 
@@ -34,7 +35,7 @@ for key, value in config.items():
 
 # ____________________________________________________________
 
-eci = ExternalCompilationInfo(includes=['langinfo.h'])
+eci = ExternalCompilationInfo(includes=['locale.h', 'langinfo.h'])
 HAS_LANGINFO = check_eci(eci)
 
 if HAS_LANGINFO:

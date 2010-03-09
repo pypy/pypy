@@ -38,3 +38,8 @@ def test_resource():
 def test_pyexpat():
     d = run('pyexpat.ctc.py', '_pyexpat_cache.py')
     assert 'XML_COMBINED_VERSION' in d
+
+def test_locale():
+    d = run('locale.ctc.py', '_locale_cache.py')
+    assert 'LC_ALL' in d
+    assert 'CHAR_MAX' in d
