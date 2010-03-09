@@ -38,7 +38,7 @@ class BaseStringFormatter(object):
                space.wrap('not all arguments converted '
                             'during string formatting'))
 
-    def std_wp_int(self, r, prefix=''):
+    def std_wp_int(self, r, prefix='', keep_zero=False):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
             sign = r[0] == '-'
@@ -48,7 +48,7 @@ class BaseStringFormatter(object):
                     r = '-' + '0'*padding + r[1:]
                 else:
                     r = '0'*padding + r
-            elif self.prec == 0 and r == '0':
+            elif self.prec == 0 and r == '0' and not keep_zero:
                 r = ''
         self.std_wp_number(r, prefix)
 
@@ -78,11 +78,15 @@ class BaseStringFormatter(object):
     def fmt_o(self, w_value):
         "oct formatting"
         r = oct_num_helper(self.space, w_value)
-        if self.f_alt and (r != '0' or self.prec == 0):
-            prefix = '0'
-        else:
-            prefix = ''
-        self.std_wp_int(r, prefix)
+        keep_zero = False
+        if self.f_alt:
+            if r == '0':
+                keep_zero = True
+            elif r.startswith('-'):
+                r = '-0' + r[1:]
+            else:
+                r = '0' + r
+        self.std_wp_int(r, keep_zero=keep_zero)
 
     fmt_i = fmt_d
     fmt_u = fmt_d
