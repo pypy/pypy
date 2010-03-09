@@ -10,6 +10,8 @@ def dumpcache(referencefilename, filename, config):
     print >> f
     names = config.keys()
     names.sort()
+    print >> f, '__all__ = %r' % (tuple(names),)
+    print >> f
     for key in names:
         val = config[key]
         if isinstance(val, (int, long)):

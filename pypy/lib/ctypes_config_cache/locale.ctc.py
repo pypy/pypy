@@ -10,37 +10,40 @@ from ctypes_configure.dumpcache import dumpcache
 
 # ____________________________________________________________
 
-_CONSTANTS = (
+_CONSTANTS = [
     'LC_CTYPE',
-    'LC_NUMERIC',
     'LC_TIME',
     'LC_COLLATE',
     'LC_MONETARY',
     'LC_MESSAGES',
+    'LC_NUMERIC',
     'LC_ALL',
-    'LC_PAPER',
-    'LC_NAME',
-    'LC_ADDRESS',
-    'LC_TELEPHONE',
-    'LC_MEASUREMENT',
-    'LC_IDENTIFICATION',
-)
+    'CHAR_MAX',
+]
 
 class LocaleConfigure:
     _compilation_info_ = ExternalCompilationInfo(includes=['locale.h'])
 for key in _CONSTANTS:
-    setattr(LocaleConfigure, key, ConstantInteger(key))
+    setattr(LocaleConfigure, key, DefinedConstantInteger(key))
 
 config = configure(LocaleConfigure, noerr=True)
+for key, value in config.items():
+    if value is None:
+        del config[key]
+        _CONSTANTS.remove(key)
 
 # ____________________________________________________________
 
 HAS_LANGINFO = True    # xxx hard-coded to True for now
 
 if HAS_LANGINFO:
-    # this is incomplete list
-    langinfo_names = ('CODESET D_T_FMT D_FMT T_FMT RADIXCHAR THOUSEP '
-                      'YESEXPR NOEXPR CRNCYSTR').split(" ")
+    # list of all possible names
+    langinfo_names = [
+        "RADIXCHAR", "THOUSEP", "CRNCYSTR",
+        "D_T_FMT", "D_FMT", "T_FMT", "AM_STR", "PM_STR",
+        "CODESET", "T_FMT_AMPM", "ERA", "ERA_D_FMT", "ERA_D_T_FMT",
+        "ERA_T_FMT", "ALT_DIGITS", "YESEXPR", "NOEXPR", "_DATE_FMT",
+        ]
     for i in range(1, 8):
         langinfo_names.append("DAY_%d" % i)
         langinfo_names.append("ABDAY_%d" % i)
@@ -52,13 +55,18 @@ if HAS_LANGINFO:
         _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
         nl_item = SimpleType('nl_item')
     for key in langinfo_names:
-        setattr(LanginfoConfigure, key, ConstantInteger(key))
+        setattr(LanginfoConfigure, key, DefinedConstantInteger(key))
 
-    config.update(configure(LanginfoConfigure))
-    _CONSTANTS = _CONSTANTS + tuple(langinfo_names)
+    langinfo_config = configure(LanginfoConfigure)
+    for key, value in langinfo_config.items():
+        if value is None:
+            del langinfo_config[key]
+            langinfo_names.remove(key)
+    config.update(langinfo_config)
+    _CONSTANTS += langinfo_names
 
 # ____________________________________________________________
 
-config['ALL_CONSTANTS'] = _CONSTANTS
+config['ALL_CONSTANTS'] = tuple(_CONSTANTS)
 config['HAS_LANGINFO'] = HAS_LANGINFO
 dumpcache(__file__, '_locale_cache.py', config)
