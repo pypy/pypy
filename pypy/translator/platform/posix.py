@@ -91,13 +91,14 @@ class BasePosix(Platform):
             ('LDFLAGS', self.link_flags + list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
+            ('LINKFILES', eci.link_files),
             ]
         for args in definitions:
             m.definition(*args)
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 

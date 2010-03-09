@@ -41,7 +41,14 @@ class TestMakefile(object):
         if self.strict_on_stderr:
             assert res.err == ''
         assert res.returncode == 0
-    
+
+    def test_link_files(self):
+        tmpdir = udir.join('link_files' + self.__class__.__name__).ensure(dir=1)
+        eci = ExternalCompilationInfo(link_files=['/foo/bar.a'])
+        mk = self.platform.gen_makefile(['blip.c'], eci, path=tmpdir)
+        mk.write()
+        assert 'LINKFILES = /foo/bar.a' in tmpdir.join('Makefile').read()
+
 class TestMaemo(TestMakefile):
     strict_on_stderr = False
     
