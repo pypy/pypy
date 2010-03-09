@@ -54,8 +54,8 @@ class STType(Wrappable):
 
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
-        ast = ast_from_node(space, self.tree, info)
         try:
+            ast = ast_from_node(space, self.tree, info)
             result = compile_ast(space, ast, info)
         except error.IndentationError, e:
             raise OperationError(space.w_IndentationError,
