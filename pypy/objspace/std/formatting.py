@@ -322,7 +322,7 @@ def make_formatter_subclass(do_unicode):
             else:
                 s = c
             msg = "unsupported format character '%s' (0x%x) at index %d" % (
-                s, ord(c), self.fmtpos)
+                s, ord(c), self.fmtpos - 1)
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
         def std_wp(self, r):
