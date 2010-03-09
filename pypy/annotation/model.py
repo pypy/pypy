@@ -40,7 +40,7 @@ import inspect, weakref
 DEBUG = False    # set to False to disable recording of debugging information
 TLS = tlsobject()
 
-class SomeObject:
+class SomeObject(object):
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
