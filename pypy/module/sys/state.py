@@ -14,7 +14,7 @@ class State:
     def __init__(self, space): 
         self.space = space 
 
-        self.w_modules = space.newdict()
+        self.w_modules = space.newdict(module=True)
 
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])

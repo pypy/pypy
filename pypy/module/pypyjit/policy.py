@@ -8,10 +8,12 @@ class PyPyJitPolicy(JitPolicy):
                 modname == '__builtin__.interp_classobj' or
                 modname == '__builtin__.functional'):
             return True
-
+        if modname == 'sys.state':
+            return True
         if '.' in modname:
             modname, _ = modname.split('.', 1)
-        if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions']:
+        if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
+                       'imp']:
             return True
         return False
 
