@@ -55,7 +55,15 @@ class STType(Wrappable):
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         ast = ast_from_node(space, self.tree, info)
-        return space.wrap(compile_ast(space, ast, info))
+        try:
+            result = compile_ast(space, ast, info)
+        except error.IndentationError, e:
+            raise OperationError(space.w_IndentationError,
+                                 e.wrap_info(space))
+        except error.SyntaxError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space))
+        return space.wrap(result)
     descr_compile.unwrap_spec = ["self", ObjSpace, str]
 
 STType.typedef = TypeDef("parser.st",
