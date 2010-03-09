@@ -5,7 +5,7 @@ Run this to rebuild _locale_cache.py.
 
 import autopath
 from ctypes_configure.configure import (configure, ExternalCompilationInfo,
-    ConstantInteger, DefinedConstantInteger, SimpleType)
+    ConstantInteger, DefinedConstantInteger, SimpleType, check_eci)
 from ctypes_configure.dumpcache import dumpcache
 
 # ____________________________________________________________
@@ -34,7 +34,8 @@ for key, value in config.items():
 
 # ____________________________________________________________
 
-HAS_LANGINFO = True    # xxx hard-coded to True for now
+eci = ExternalCompilationInfo(includes=['langinfo.h'])
+HAS_LANGINFO = check_eci(eci)
 
 if HAS_LANGINFO:
     # list of all possible names
@@ -52,7 +53,7 @@ if HAS_LANGINFO:
         langinfo_names.append("ABMON_%d" % i)
     
     class LanginfoConfigure:
-        _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
+        _compilation_info_ = eci
         nl_item = SimpleType('nl_item')
     for key in langinfo_names:
         setattr(LanginfoConfigure, key, DefinedConstantInteger(key))
