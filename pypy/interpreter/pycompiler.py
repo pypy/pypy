@@ -264,6 +264,7 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
         except TokenIndentationError, e:
+            # XXX this case in unreachable?
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
         except SyntaxError, e:
