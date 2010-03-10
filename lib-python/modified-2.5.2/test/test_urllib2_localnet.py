@@ -225,7 +225,7 @@ class FakeProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 class ProxyAuthTests(unittest.TestCase):
     URL = "http://www.foo.com"
 
-    PORT = 21871
+    PORT = 8080
     USER = "tester"
     PASSWD = "test123"
     REALM = "TestRealm"
