@@ -97,32 +97,33 @@ _strxfrm = libc.strxfrm
 _strxfrm.argtypes = (c_char_p, c_char_p, size_t)
 _strxfrm.restype = size_t
 
-_gettext = libc.gettext
-_gettext.argtypes = (c_char_p,)
-_gettext.restype = c_char_p
+HAS_LIBINTL = hasattr(libc, 'gettext')
+if HAS_LIBINTL:
+    _gettext = libc.gettext
+    _gettext.argtypes = (c_char_p,)
+    _gettext.restype = c_char_p
 
-_dgettext = libc.dgettext
-_dgettext.argtypes = (c_char_p, c_char_p)
-_dgettext.restype = c_char_p
+    _dgettext = libc.dgettext
+    _dgettext.argtypes = (c_char_p, c_char_p)
+    _dgettext.restype = c_char_p
 
-_dcgettext = libc.dcgettext
-_dcgettext.argtypes = (c_char_p, c_char_p, c_int)
-_dcgettext.restype = c_char_p
+    _dcgettext = libc.dcgettext
+    _dcgettext.argtypes = (c_char_p, c_char_p, c_int)
+    _dcgettext.restype = c_char_p
 
-_textdomain = libc.textdomain
-_textdomain.argtypes = (c_char_p,)
-_textdomain.restype = c_char_p
+    _textdomain = libc.textdomain
+    _textdomain.argtypes = (c_char_p,)
+    _textdomain.restype = c_char_p
 
-_bindtextdomain = libc.bindtextdomain
-_bindtextdomain.argtypes = (c_char_p, c_char_p)
-_bindtextdomain.restype = c_char_p
+    _bindtextdomain = libc.bindtextdomain
+    _bindtextdomain.argtypes = (c_char_p, c_char_p)
+    _bindtextdomain.restype = c_char_p
 
-try:
-    _bind_textdomain_codeset = libc.bindtextdomain_codeset
-    _bind_textdomain_codeset.argtypes = (c_char_p, c_char_p)
-    _bind_textdomain_codeset.restype = c_char_p
-except AttributeError:
-    _bind_textdomain_codeset = None
+    HAS_BIND_TEXTDOMAIN_CODESET = hasattr(libc, 'bindtextdomain_codeset')
+    if HAS_BIND_TEXTDOMAIN_CODESET:
+        _bind_textdomain_codeset = libc.bindtextdomain_codeset
+        _bind_textdomain_codeset.argtypes = (c_char_p, c_char_p)
+        _bind_textdomain_codeset.restype = c_char_p
 
 class Error(Exception):
     pass
@@ -268,51 +269,53 @@ if HAS_LANGINFO:
             return result
         raise ValueError("unsupported langinfo constant")
 
-def gettext(msg):
-    """gettext(msg) -> string
-    Return translation of msg."""
-    return _gettext(msg)
+if HAS_LIBINTL:
+    def gettext(msg):
+        """gettext(msg) -> string
+        Return translation of msg."""
+        return _gettext(msg)
 
-def dgettext(domain, msg):
-    """dgettext(domain, msg) -> string
-    Return translation of msg in domain."""
-    return _dgettext(domain, msg)
+    def dgettext(domain, msg):
+        """dgettext(domain, msg) -> string
+        Return translation of msg in domain."""
+        return _dgettext(domain, msg)
 
-def dcgettext(domain, msg, category):
-    """dcgettext(domain, msg, category) -> string
-    Return translation of msg in domain and category."""
-    return _dcgettext(domain, msg, category)
+    def dcgettext(domain, msg, category):
+        """dcgettext(domain, msg, category) -> string
+        Return translation of msg in domain and category."""
+        return _dcgettext(domain, msg, category)
 
-def textdomain(domain):
-    """textdomain(domain) -> string
-    Set the C library's textdomain to domain, returning the new domain."""
-    return _textdomain(domain)
+    def textdomain(domain):
+        """textdomain(domain) -> string
+        Set the C library's textdomain to domain, returning the new domain."""
+        return _textdomain(domain)
 
-def bindtextdomain(domain, dir):
-    """bindtextdomain(domain, dir) -> string
-    Bind the C library's domain to dir."""
-    dirname = _bindtextdomain(domain, dir)
-    if not dirname:
-        errno = get_errno()
-        raise OSError(errno)
-    return dirname
+    def bindtextdomain(domain, dir):
+        """bindtextdomain(domain, dir) -> string
+        Bind the C library's domain to dir."""
+        dirname = _bindtextdomain(domain, dir)
+        if not dirname:
+            errno = get_errno()
+            raise OSError(errno)
+        return dirname
 
-if _bind_textdomain_codeset:
-    def bind_textdomain_codeset(domain, codeset):
-        """bind_textdomain_codeset(domain, codeset) -> string
-        Bind the C library's domain to codeset."""
-        codeset = _bind_textdomain_codeset(domain, codeset)
-        if codeset:
-            return codeset
-        return None
+    if HAS_BIND_TEXTDOMAIN_CODESET:
+        def bind_textdomain_codeset(domain, codeset):
+            """bind_textdomain_codeset(domain, codeset) -> string
+            Bind the C library's domain to codeset."""
+            codeset = _bind_textdomain_codeset(domain, codeset)
+            if codeset:
+                return codeset
+            return None
 
 __all__ = (
     'Error',
     'setlocale', 'localeconv', 'strxfrm', 'strcoll',
-    'gettext', 'dgettext', 'dcgettext', 'textdomain',
-    'bindtextdomain',
 ) + ALL_CONSTANTS
-if _bind_textdomain_codeset:
-    __all__ += ('bind_textdomain_codeset',)
+if HAS_LIBINTL:
+    __all__ += ('gettext', 'dgettext', 'dcgettext', 'textdomain',
+                'bindtextdomain')
+    if HAS_BIND_TEXTDOMAIN_CODESET:
+        __all__ += ('bind_textdomain_codeset',)
 if HAS_LANGINFO:
     __all__ += ('nl_langinfo',)
