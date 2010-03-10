@@ -91,7 +91,7 @@ in the base directory. Then compile::
 
     perl Configure VC-WIN32
     ms\do_ms.bat
-    nmake -f ms\ntdll.mak install
+    nmake -f ms\nt.mak install
 
 Using the mingw compiler
 ------------------------
