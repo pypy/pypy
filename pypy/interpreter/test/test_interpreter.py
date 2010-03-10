@@ -2,7 +2,6 @@ import py
 import sys
 
 class TestInterpreter: 
-    from pypy.interpreter.pycompiler import CPythonCompiler as CompilerClass
 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
@@ -33,15 +32,6 @@ class TestInterpreter:
             return '<<<%s>>>' % e.errorstr(space)
         else:
             return space.unwrap(w_output)
-
-    def setup_method(self, arg):
-        ec = self.space.getexecutioncontext() 
-        self.saved_compiler = ec.compiler
-        ec.compiler = self.CompilerClass(self.space)
-
-    def teardown_method(self, arg):
-        ec = self.space.getexecutioncontext() 
-        ec.compiler = self.saved_compiler
 
     def test_exception_trivial(self):
         x = self.codetest('''\
@@ -166,26 +156,6 @@ class TestInterpreter:
             '''
         self.codetest(code, 'f', [])
 
-    def test_extended_arg(self):
-        longexpr = 'x = x or ' + '-x' * 2500
-        code = '''
-                def f(x):
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                    while x:
-                        x -= 1   # EXTENDED_ARG is for the JUMP_ABSOLUTE at the end of the loop
-                    return x
-                ''' % ((longexpr,)*10)
-        assert self.codetest(code, 'f', [3]) == 0
-
     def test_call_star_starstar(self):
         code = '''\
             def f1(n):
@@ -259,14 +229,6 @@ class TestInterpreter:
                 return os.name
             '''
         assert self.codetest(code, 'f', []) == os.name
-
-
-class TestPyPyInterpreter(TestInterpreter):
-    """Runs the previous test with the pypy parser"""
-    from pypy.interpreter.pycompiler import PythonAstCompiler as CompilerClass
-
-    def test_extended_arg(self):
-        py.test.skip("expression too large for the recursive parser")
 
 
 class AppTestInterpreter: 

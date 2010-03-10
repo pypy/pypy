@@ -107,14 +107,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  "std",
                  cmdline='--objspace -o'),
 
-    ChoiceOption("parser", "which parser to use for app-level code",
-                 ["pypy", "cpython"], "pypy",
-                 cmdline='--parser'),
-
-    ChoiceOption("compiler", "which compiler to use for app-level code",
-                 ["cpython", "ast"], "ast",
-                 cmdline='--compiler'),
-
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
         BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
                    default=False,

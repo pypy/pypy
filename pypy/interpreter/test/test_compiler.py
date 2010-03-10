@@ -1,6 +1,6 @@
 import __future__
 import py, sys
-from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
+from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
@@ -636,25 +636,6 @@ def test():
         assert ex.match(space, space.w_SyntaxError)
         assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
-
-class TestPyCCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = CPythonCompiler(self.space)
-
-    if sys.version_info < (2, 5):
-        def skip_on_2_4(self):
-            py.test.skip("syntax not supported by the CPython 2.4 compiler")
-        _unicode_error_kind = "w_UnicodeError"
-        test_continue_in_nested_finally = skip_on_2_4
-        test_try_except_finally = skip_on_2_4
-        test_yield_in_finally = skip_on_2_4
-    elif sys.version_info < (2, 6):
-        _unicode_error_kind = "w_UnicodeDecodeError"
-    else:
-        def skip_on_2_6(self):
-            py.test.skip("syntax different on CPython 2.6 compiler")
-        test_globals_warnings = skip_on_2_6
-        _unicode_error_kind = "w_SyntaxError"
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
