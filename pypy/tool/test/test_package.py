@@ -2,13 +2,13 @@
 import py
 from pypy.tool.autopath import pypydir
 from pypy.tool.package import main
-import tarfile
+import tarfile, os
 
 def test_dir_structure():
     # make sure we have sort of pypy-c
     pypy_c = py.path.local(pypydir).join('translator', 'goal', 'pypy-c')
     if not pypy_c.check():
-        shutil.copy("/usr/bin/echo", pypy_c)
+        os.system("echo faked_pypy_c> %s" % (pypy_c,))
         fake_pypy_c = True
     else:
         fake_pypy_c = False
