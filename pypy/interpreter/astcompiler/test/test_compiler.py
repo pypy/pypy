@@ -53,7 +53,7 @@ class TestCompiler:
     if x:
 %s        return 1
     else:
-        return 0""" % ("        y += 1\n" * 9000,)
+        return 0""" % ("        y += 1\n" * 6700,)
         yield self.st, func, "f(1)", 1
         yield self.st, func, "f(0)", 0
 
