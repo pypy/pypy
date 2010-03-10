@@ -315,6 +315,12 @@ def getcwd(space):
         return space.wrap(cur)
 getcwd.unwrap_spec = [ObjSpace]
 
+def getcwdu(space):
+    """Return the current working directory as a unicode string."""
+    # XXX ascii encoding for now
+    return space.call_method(getcwd(space), 'decode')
+getcwdu.unwrap_spec = [ObjSpace]
+
 def chdir(space, path):
     """Change the current working directory to the specified path."""
     try:

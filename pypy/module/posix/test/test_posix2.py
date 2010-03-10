@@ -195,6 +195,11 @@ class AppTestPosix:
         f = posix.fdopen(fd, "r")
         f.close()
 
+    def test_getcwd(self):
+        assert isinstance(self.posix.getcwd(), str)
+        assert isinstance(self.posix.getcwdu(), unicode)
+        assert self.posix.getcwd() == self.posix.getcwdu()
+
     def test_listdir(self):
         pdir = self.pdir
         posix = self.posix 
