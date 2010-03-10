@@ -250,8 +250,7 @@ class PythonAstCompiler(PyCodeCompiler):
     def _compile_to_ast(self, source, info):
         from pypy.interpreter.pyparser.future import get_futures
         from pypy.interpreter.pyparser.error import (SyntaxError,
-                                                     IndentationError,
-                                                     TokenIndentationError)
+                                                     IndentationError)
         from pypy.interpreter.astcompiler.astbuilder import ast_from_node
         space = self.space
         try:
