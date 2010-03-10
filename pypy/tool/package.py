@@ -47,6 +47,8 @@ def main(basedir, name='pypy-nightly'):
     shutil.copytree(str(basedir.join('pypy', 'lib')),
                     str(pypydir.join('pypy', 'lib')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
+    for file in ['LICENSE', 'README']:
+        shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('bin', dir=True)
     shutil.copy(str(pypy_c), str(pypydir.join('bin', 'pypy-c')))
     old_dir = os.getcwd()

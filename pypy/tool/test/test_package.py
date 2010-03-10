@@ -19,6 +19,8 @@ def test_dir_structure():
         assert builddir.join('test', 'pypy', 'lib', 'syslog.py').check()
         assert not builddir.join('test', 'pypy', 'lib', 'py').check()
         assert not builddir.join('test', 'pypy', 'lib', 'ctypes_configure').check()
+        assert builddir.join('test', 'LICENSE').check()
+        assert builddir.join('test', 'README').check()
         th = tarfile.open(str(builddir.join('test.tar.bz2')))
         assert th.getmember('test/pypy/lib/syslog.py')
     finally:
