@@ -806,6 +806,12 @@ class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker):
 class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
     format = 'mingw32'
 
+    FUNCTIONS_NOT_RETURNING = {
+        '_abort': None,
+        '_exit': None,
+        '__assert': None,
+        }
+
 class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
     format = 'msvc'
     ESP = 'esp'

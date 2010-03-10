@@ -4,13 +4,14 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.rpython.tool import rffi_platform
+from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.rlib import rpoll
 
 import sys
 
-if sys.platform == 'win32':
+if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32', 'user32', 'advapi32', 'gdi32']
 else:
     libraries = ['ssl', 'crypto']

@@ -303,7 +303,7 @@ class MingwPlatform(posix.BasePosix):
     name = 'mingw32'
     standalone_only = []
     shared_only = []
-    cflags = []
+    cflags = ['-O3']
     link_flags = []
     so_ext = 'dll'
 
