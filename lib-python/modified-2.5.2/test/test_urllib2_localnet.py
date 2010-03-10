@@ -240,7 +240,9 @@ class ProxyAuthTests(unittest.TestCase):
 
         self.server = LoopbackHttpServerThread(self.PORT, FakeProxyHandler)
         self.server.start()
-        self.server.ready.wait()
+        self.server.ready.wait(10)
+        if not self.server.ready.isSet():
+            raise Exception("timeout waiting for the server to be ready")
 
         handler = urllib2.ProxyHandler({"http" : self.PROXY_URL})
         self._digest_auth_handler = urllib2.ProxyDigestAuthHandler()
