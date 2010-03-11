@@ -166,6 +166,7 @@ def split_one_loop(real_loops, guard_s, guard_content, lineno, no, allloops):
         raise Exception("Did not find")
 
 MAX_LOOPS = 300
+LINE_CUTOFF = 300
 
 def splitloops(loops):
     real_loops = []
@@ -225,8 +226,8 @@ def postprocess_loop(loop, loops, memo):
         loop.ratio = float(opsno) / bcodes
     content = loop.content
     lines = content.split("\n")
-    if len(lines) > 100:
-        lines = lines[100:] + ["%d more lines..." % (len(lines) - 100)]
+    if len(lines) > LINE_CUTOFF:
+        lines = lines[:LINE_CUTOFF] + ["%d more lines..." % (len(lines) - LINE_CUTOFF)]
     for i, line in enumerate(lines):
         lines[i] = re.sub("\[.*\]", "", line)
     loop.content = "Logfile at %d\n" % loop.startlineno + "\n".join(lines)
