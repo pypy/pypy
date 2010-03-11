@@ -11,6 +11,7 @@ import autopath
 from pypy.translator.tool.graphpage import GraphPage
 from pypy.translator.tool.make_dot import DotGen
 from pypy.tool import logparser
+from pypy.tool import progressbar
 
 class SubPage(GraphPage):
     def compute(self, graph):
@@ -56,6 +57,21 @@ class BasicBlock(object):
         dotgen.emit_node(self.name(), label=self.header,
                          shape='box', fillcolor=get_gradient_color(self.ratio))
 
+    def get_content(self):
+        return self._content
+
+    def set_content(self, content):
+        self._content = content
+        groups = re.findall('Guard(\d+)', content)
+        if not groups:
+            self.first_guard = -1
+            self.last_guard = -1
+        else:
+            self.first_guard = int(groups[0])
+            self.last_guard = int(groups[-1])
+
+    content = property(get_content, set_content)
+
 def get_gradient_color(ratio):
     if ratio == 0:
         return 'white'
@@ -73,7 +89,6 @@ def get_gradient_color(ratio):
     else:
         # from yellow (ratio=0) to green (ratio=-1)
         return '#%02XFF00' % (int((1.0+ratio)*255.5),)
-
 
 class FinalBlock(BasicBlock):
     def __init__(self, content, target):
@@ -117,8 +132,11 @@ class Block(BasicBlock):
         dotgen.emit_edge(self.name(), self.left.name())
         dotgen.emit_edge(self.name(), self.right.name())
 
-def split_one_loop(allloops, guard_s, guard_content, lineno):
-    for i, loop in enumerate(allloops):
+def split_one_loop(real_loops, guard_s, guard_content, lineno, no, allloops):
+    for i in range(len(allloops) - 1, -1, -1):
+        loop = allloops[i]
+        if no < loop.first_guard or no > loop.last_guard:
+            continue
         content = loop.content
         pos = content.find(guard_s + '>')
         if pos != -1:
@@ -127,33 +145,57 @@ def split_one_loop(allloops, guard_s, guard_content, lineno):
             assert newpos != -1
             if oldpos == -1:
                 oldpos = len(content)
-            allloops[i] = Block(content[:oldpos],
-                                FinalBlock(content[oldpos:], None),
-                                FinalBlock(content[newpos + 1:oldpos] + "\n" +
-                                           guard_content, None))
-            allloops[i].guard_s = guard_s
-            allloops[i].startlineno = loop.startlineno
-            allloops[i].left.startlineno = loop.startlineno + content.count("\n", 0, pos)
-            allloops[i].right.startlineno = lineno
+            if isinstance(loop, Block):
+                left = Block(content[oldpos:], loop.left, loop.right)
+            else:
+                left = FinalBlock(content[oldpos:], None)
+            right = FinalBlock(guard_content, None)
+            mother = Block(content[:oldpos], len(allloops), len(allloops) + 1)
+            allloops[i] = mother
+            allloops.append(left)
+            allloops.append(right)
+            if hasattr(loop, 'loop_no'):
+                real_loops[loop.loop_no] = mother
+                mother.loop_no = loop.loop_no
+            mother.guard_s = guard_s
+            mother.startlineno = loop.startlineno
+            left.startlineno = loop.startlineno + content.count("\n", 0, pos)
+            right.startlineno = lineno
+            return
+    else:
+        raise Exception("Did not find")
+
+MAX_LOOPS = 300
 
 def splitloops(loops):
     real_loops = []
     counter = 1
-    for loop in loops:
+    bar = progressbar.ProgressBar(color='blue')
+    single_percent = len(loops) / 100
+    allloops = []
+    for i, loop in enumerate(loops):
+        if i > MAX_LOOPS:
+            return real_loops, allloops
+        if single_percent and i % single_percent == 0:
+            bar.render(i / single_percent)
         firstline = loop[:loop.find("\n")]
         m = re.match('# Loop (\d+)', firstline)
         if m:
             no = int(m.group(1))
             assert len(real_loops) == no
-            real_loops.append(FinalBlock(loop, None))
-            real_loops[-1].startlineno = counter
+            _loop = FinalBlock(loop, None)
+            real_loops.append(_loop)
+            _loop.startlineno = counter
+            _loop.loop_no = no
+            allloops.append(_loop)
         else:
             m = re.search("bridge out of Guard (\d+)", firstline)
             assert m
             guard_s = 'Guard' + m.group(1)
-            split_one_loop(real_loops, guard_s, loop, counter)
+            split_one_loop(real_loops, guard_s, loop, counter,
+                           int(m.group(1)), allloops)
         counter += loop.count("\n") + 2
-    return real_loops
+    return real_loops, allloops
 
 def postprocess_loop(loop, loops, memo):
     if loop in memo:
@@ -184,7 +226,11 @@ def postprocess_loop(loop, loops, memo):
     loop.content = "Logfile at %d" % loop.startlineno
     loop.postprocess(loops, memo)
 
-def postprocess(loops):
+def postprocess(loops, allloops):
+    for loop in allloops:
+        if isinstance(loop, Block):
+            loop.left = allloops[loop.left]
+            loop.right = allloops[loop.right]
     memo = set()
     for loop in loops:
         postprocess_loop(loop, loops, memo)
@@ -192,8 +238,8 @@ def postprocess(loops):
 def main(loopfile, view=True):
     log = logparser.parse_log_file(loopfile)
     loops = logparser.extract_category(log, "jit-log-opt-")
-    allloops = splitloops(loops)
-    postprocess(allloops)
+    real_loops, allloops = splitloops(loops)
+    postprocess(real_loops, allloops)
     if view:
         Page(allloops).display()
 
