@@ -402,8 +402,8 @@ class CCompiler:
         data = ''
         try:
             saved_environ = os.environ.copy()
+            c = stdoutcapture.Capture(mixed_out_err = True)
             try:
-                c = stdoutcapture.Capture(mixed_out_err = True)
                 self._build()
             finally:
                 # workaround for a distutils bugs where some env vars can
