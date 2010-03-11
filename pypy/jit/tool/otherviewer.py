@@ -223,7 +223,13 @@ def postprocess_loop(loop, loops, memo):
         loop.ratio = opsno
     else:
         loop.ratio = float(opsno) / bcodes
-    loop.content = "Logfile at %d" % loop.startlineno
+    content = loop.content
+    lines = content.split("\n")
+    if len(lines) > 100:
+        lines = lines[100:] + ["%d more lines..." % (len(lines) - 100)]
+    for i, line in enumerate(lines):
+        lines[i] = re.sub("\[.*\]", "", line)
+    loop.content = "Logfile at %d\n" % loop.startlineno + "\n".join(lines)
     loop.postprocess(loops, memo)
 
 def postprocess(loops, allloops):
