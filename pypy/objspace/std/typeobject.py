@@ -221,7 +221,6 @@ class W_TypeObject(W_Object):
         return None
                 
 
-    @dont_look_inside
     def _lookup(w_self, key):
         space = w_self.space
         for w_class in w_self.mro_w:
@@ -230,7 +229,6 @@ class W_TypeObject(W_Object):
                 return w_value
         return None
 
-    @dont_look_inside
     def _lookup_where(w_self, key):
         # like lookup() but also returns the parent class in which the
         # attribute was found
