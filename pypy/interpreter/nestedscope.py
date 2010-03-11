@@ -101,16 +101,12 @@ class __extend__(pyframe.PyFrame):
         if len(closure) != nfreevars:
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
-        self.cells = [Cell() for i in range(ncellvars)]
-        if closure:
-            self.cells += closure
-
-    def getclosure(self):
-        if self.cells is None:
-            return None
-        ncellvars = len(self.pycode.co_cellvars)  # not part of the closure
-        return self.cells[ncellvars:]
-
+        self.cells = [None] * (ncellvars + nfreevars)
+        for i in range(ncellvars):
+            self.cells[i] = Cell()
+        for i in range(nfreevars):
+            self.cells[i + ncellvars] = closure[i]
+    
     def _getcells(self):
         return self.cells
 
