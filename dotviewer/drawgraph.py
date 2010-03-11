@@ -658,12 +658,3 @@ class TextSnippet:
             self.renderer.textzones.append((x, y, w, h, word))
             x += w
 
-
-try:
-    sum   # 2.3 only
-except NameError:
-    def sum(lst):
-        total = 0
-        for item in lst:
-            total += lst
-        return total
