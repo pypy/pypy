@@ -2,7 +2,7 @@
 """ A sample script that packages PyPy, provided that it's already built.
 Usage:
 
-package.py pypydir [name-of-archive]
+package.py pypydir [name-of-archive] [name-of-pypy-c]
 """
 
 import autopath
@@ -31,7 +31,7 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
-def main(basedir, name='pypy-nightly'):
+def main(basedir, name='pypy-nightly', rename_pypy_c='pypy-c'):
     basedir = py.path.local(basedir)
     pypy_c = basedir.join('pypy', 'translator', 'goal', 'pypy-c')
     if not pypy_c.check():
@@ -50,11 +50,12 @@ def main(basedir, name='pypy-nightly'):
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('bin', dir=True)
-    shutil.copy(str(pypy_c), str(pypydir.join('bin', 'pypy-c')))
+    archive_pypy_c = pypydir.join('bin', rename_pypy_c)
+    shutil.copy(str(pypy_c), str(archive_pypy_c))
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        os.system("strip " + str(pypydir.join('bin', 'pypy-c')))
+        os.system("strip " + str(archive_pypy_c))
         os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
                   " " + name)
     finally:
@@ -62,10 +63,8 @@ def main(basedir, name='pypy-nightly'):
     return builddir # for tests
 
 if __name__ == '__main__':
-    if len(sys.argv) == 1 or len(sys.argv) > 3:
+    if len(sys.argv) == 1 or len(sys.argv) > 4:
         print >>sys.stderr, __doc__
         sys.exit(1)
-    elif len(sys.argv) == 2:
-        main(sys.argv[1])
     else:
-        main(sys.argv[1], sys.argv[2])
+        main(*sys.argv[1:])
