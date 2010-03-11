@@ -198,7 +198,6 @@ class PyPyTarget(object):
             config.objspace.usepycfiles = False
 
         config.objspace.nofaking = True
-        config.objspace.compiler = "ast"
         config.translating = True
 
         import translate
