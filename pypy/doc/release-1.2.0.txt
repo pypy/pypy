@@ -63,14 +63,6 @@ and an advanced compiler, or more precisely a framework for
 implementing dynamic languages and generating virtual machines
 for them.
 
-The framework allows for alternative frontends as well as for
-alternative backends, currently C, Java and .NET.  For our
-main target "C", we can "mix in" different garbage collectors
-and threading models, including micro-threads aka "Stackless".
-The inherent complexity that arises from this ambitious
-approach is mostly kept away from the Python interpreter
-implementation, our main frontend.
-
 The focus of this release is the introduction of a new
 transformation, the JIT Compiler Generator, which is able to
 produce a JIT Compiler for any interpreter frontend, given a
