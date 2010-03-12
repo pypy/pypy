@@ -573,7 +573,6 @@ class PyPyCJITTests(object):
         assert len(bytecode.get_opnames('new_with_vtable')) == 2
 
     def test_import_in_function(self):
-        py.test.skip("does not work, why???")
         self.run_source('''
         def main():
             i = 0
@@ -584,7 +583,7 @@ class PyPyCJITTests(object):
         ''', 100, ([], 100))
         bytecode, = self.get_by_bytecode('IMPORT_NAME')
         bytecode2, = self.get_by_bytecode('IMPORT_FROM')
-        assert len(bytecode.get_opnames('call')) == 0
+        assert len(bytecode.get_opnames('call')) == 2 # split_chr and list_pop
         assert len(bytecode2.get_opnames('call')) == 0
 
 class AppTestJIT(PyPyCJITTests):
