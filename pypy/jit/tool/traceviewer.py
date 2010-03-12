@@ -16,7 +16,23 @@ from pypy.tool import progressbar
 class SubPage(GraphPage):
     def compute(self, graph):
         dotgen = DotGen(str(graph.no))
-        dotgen.emit_node(graph.name(), shape="box", label=graph.content)
+        # split over debug_merge_points
+        counter = 0
+        lines = graph.content.split("\n")
+        lines_so_far = []
+        for line in lines:
+            line = re.sub('.\[.*\]', '', line)
+            if 'debug_merge_point' in line:
+                dotgen.emit_node('node%d' % counter, shape="box",
+                                 label="\n".join(lines_so_far))
+                if counter != 0:
+                    dotgen.emit_edge('node%d' % (counter - 1), 'node%d' % counter)
+                counter += 1
+                lines_so_far = []
+            lines_so_far.append(line)
+        dotgen.emit_node('node%d' % counter, shape="box",
+                         label="\n".join(lines_so_far))
+        dotgen.emit_edge('node%d' % (counter - 1), 'node%d' % counter)
         self.source = dotgen.generate(target=None)
 
 class Page(GraphPage):
@@ -225,12 +241,7 @@ def postprocess_loop(loop, loops, memo):
     else:
         loop.ratio = float(opsno) / bcodes
     content = loop.content
-    lines = content.split("\n")
-    if len(lines) > LINE_CUTOFF:
-        lines = lines[:LINE_CUTOFF] + ["%d more lines..." % (len(lines) - LINE_CUTOFF)]
-    for i, line in enumerate(lines):
-        lines[i] = re.sub("\[.*\]", "", line)
-    loop.content = "Logfile at %d\n" % loop.startlineno + "\n".join(lines)
+    loop.content = "Logfile at %d\n" % loop.startlineno + content
     loop.postprocess(loops, memo)
 
 def postprocess(loops, allloops):

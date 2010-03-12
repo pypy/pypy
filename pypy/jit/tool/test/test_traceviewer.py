@@ -1,6 +1,6 @@
 import math
 import py
-from pypy.jit.tool.otherviewer import splitloops, FinalBlock, Block,\
+from pypy.jit.tool.traceviewer import splitloops, FinalBlock, Block,\
      split_one_loop, postprocess, main, get_gradient_color
 
 
