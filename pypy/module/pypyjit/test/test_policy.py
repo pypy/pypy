@@ -39,7 +39,3 @@ def test_pypy_module():
 def test_see_jit_module():
     assert pypypolicy.look_inside_pypy_module('pypyjit.interp_jit')
 
-def test_module_with_stuff_in_init():
-    from pypy.module.sys import Module
-    assert not pypypolicy.look_inside_function(Module.getdictvalue.im_func)
-
