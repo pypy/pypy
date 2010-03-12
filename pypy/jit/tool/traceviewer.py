@@ -38,9 +38,7 @@ class SubPage(GraphPage):
 class Page(GraphPage):
     def compute(self, graphs):
         dotgen = DotGen('trace')
-        self.loops = set()
-        for graph in graphs:
-            graph.grab_loops(self.loops)
+        self.loops = graphs
         self.links = {}
         self.cache = {}
         for loop in self.loops:
@@ -114,13 +112,6 @@ class FinalBlock(BasicBlock):
     def postprocess(self, loops, memo):
         postprocess_loop(self.target, loops, memo)
 
-    def grab_loops(self, loops):
-        if self in loops:
-            return
-        loops.add(self)
-        if self.target is not None:
-            self.target.grab_loops(loops)
-
     def generate(self, dotgen):
         BasicBlock.generate(self, dotgen)
         if self.target is not None:
@@ -135,13 +126,6 @@ class Block(BasicBlock):
     def postprocess(self, loops, memo):
         postprocess_loop(self.left, loops, memo)
         postprocess_loop(self.right, loops, memo)
-
-    def grab_loops(self, loops):
-        if self in loops:
-            return
-        loops.add(self)
-        self.left.grab_loops(loops)
-        self.right.grab_loops(loops)
 
     def generate(self, dotgen):
         BasicBlock.generate(self, dotgen)
