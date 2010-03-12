@@ -572,6 +572,21 @@ class PyPyCJITTests(object):
         # we allocate virtual ref and frame, we don't want block
         assert len(bytecode.get_opnames('new_with_vtable')) == 2
 
+    def test_import_in_function(self):
+        py.test.skip("does not work, why???")
+        self.run_source('''
+        def main():
+            i = 0
+            while i < 100:
+                from sys import version
+                i += 1
+            return i
+        ''', 100, ([], 100))
+        bytecode, = self.get_by_bytecode('IMPORT_NAME')
+        bytecode2, = self.get_by_bytecode('IMPORT_FROM')
+        assert len(bytecode.get_opnames('call')) == 0
+        assert len(bytecode2.get_opnames('call')) == 0
+
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
