@@ -252,9 +252,10 @@ def complex_conjugate__Complex(space, w_self):
 
 app = gateway.applevel(""" 
     import math
+    import sys
     def possint(f):
         ff = math.floor(f)
-        if f == ff:
+        if f == ff and abs(f) < sys.maxint:
             return int(ff)
         return f
 

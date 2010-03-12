@@ -326,6 +326,7 @@ class AppTestAppComplexTest:
         h.assertEqual(repr(1-6j), '(1-6j)')
 
         h.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
+        assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
 
     def test_neg(self):
         h = self.helper
