@@ -914,7 +914,7 @@ def _k_mul(a, b):
 
     t3 = _k_mul(t1, t2)
     del t1, t2
-    assert t3.sign ==1
+    assert t3.sign >=0
 
     # Add t3.  It's not obvious why we can't run out of room here.
     # See the (*) comment after this function.
