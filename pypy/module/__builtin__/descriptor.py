@@ -96,7 +96,7 @@ class C(B):
 )
 
 class W_Property(Wrappable):
-    def __init__(self, space, w_fget, w_fset, w_fdel, w_doc):
+    def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset
         self.w_fdel = w_fdel
@@ -106,10 +106,10 @@ class W_Property(Wrappable):
             w_getter_doc = space.findattr(self.w_fget, space.wrap("__doc__"))
             if w_getter_doc is not None:
                 self.w_doc = w_getter_doc
+    init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root]
 
     def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         w_result = space.allocate_instance(W_Property, w_subtype)
-        W_Property.__init__(w_result, space, w_fget, w_fset, w_fdel, w_doc)
         return w_result
     new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
 
@@ -173,6 +173,7 @@ class C(object):
     def delx(self): del self.__x
     x = property(getx, setx, delx, "I am the 'x' property.")''',
     __new__ = interp2app(W_Property.new.im_func),
+    __init__ = interp2app(W_Property.init),
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),

@@ -310,4 +310,18 @@ class AppTestBuiltinApp:
         p.name = 0
         assert p.name == 0
 
+    def test_property_subclass_with_init(self):
+        l = []
+        
+        def x(self):
+            l.append('x')
+        
+        class P(property):
+            def __init__(self):
+                property.__init__(self, x)
 
+        class X(object):
+            x = P()
+
+        X().x
+        assert l
