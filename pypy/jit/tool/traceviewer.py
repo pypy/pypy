@@ -15,6 +15,7 @@ from pypy.tool import progressbar
 
 class SubPage(GraphPage):
     def compute(self, graph):
+        self.links = {}
         dotgen = DotGen(str(graph.no))
         # split over debug_merge_points
         counter = 0
@@ -22,6 +23,9 @@ class SubPage(GraphPage):
         lines_so_far = []
         for line in lines:
             line = re.sub('.\[.*\]', '', line)
+            boxes = re.findall('([pif]\d+)', line)
+            for box in boxes:
+                self.links[box] = box
             if 'debug_merge_point' in line:
                 dotgen.emit_node('node%d' % counter, shape="box",
                                  label="\n".join(lines_so_far))
