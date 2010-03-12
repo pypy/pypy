@@ -1,79 +1,93 @@
-=============================================
-PyPy 1.2: Preview of Just-in-Time Compilation
-=============================================
+==================================
+PyPy 1.2: Just-in-Time Compilation
+==================================
 
-Welcome to the PyPy 1.2 release.  The highlight of this release is a
-version of PyPy that includes a rather good JIT (Just-in-Time) Compiler.
+Welcome to the PyPy 1.2 release.  The highlight of this
+release is to be the first that ships with a Just-in-Time
+compiler that is known to be faster than CPython (and unladen
+swallow) on some real-world applications (or the best
+benchmarks we could get for them).  The main theme for the 1.2
+release is speed.
 
-Download page:
-    
-   http://codespeak.net/pypy/dist/pypy/doc/download.html
+Main site:
 
-PyPy's Getting Started lives at:
+    http://pypy.org/
 
-   http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+The JIT is stable and we don't observe crashes. Nevertheless
+we would recommend you to treat it as beta software and as a
+way to try out the JIT to see how it works for you.
+
 
 Highlights of This Release
 ==========================
 
-  - JIT.  XXX only on 32-bit Intel CPUs so far.
+* The JIT compiler.
 
-    http://morepypy.blogspot.com/search/label/jit
+* Various interpreter optimizations that improve performance
+  as well as help save memory.
 
-  - Graphs:
+* Introducing a new PyPy website at http://pypy.org/ , made by
+  tav and improved by the PyPy team.
 
-    http://speed.pypy.org/
-    http://codespeak.net:8099/plotsummary.html
-    http://codespeak.net/pypy/jitplots.html
+* Introducing http://speed.pypy.org/ , a new service that
+  monitors our performance nightly, made by Miquel Torres.
 
-  - Improvements in GC and in our object model: we use much less memory
-    than CPython now
+* There will be ubuntu packages on "PyPy's PPA" made by
+  Bartosz Skowron; however various troubles prevented us from
+  having them as of now.
 
-    http://morepypy.blogspot.com/2009/10/gc-improvements.html
-    http://? for the object model, e.g. sharingdict.py
+Known JIT problems (or why you should consider this beta
+software) are:
 
+* The only supported platform is 32bit x86 for now, we're
+  looking for help with other platforms.
 
-Other Changes
-=============
+* It is still memory-hungry.  There is no limit on the amount
+  of RAM that the assembler can consume; it is thus possible
+  (although unlikely) that the assembler ends up using
+  unreasonable amounts of memory.
 
-  - ?
-
-  - CLI+JIT not included in the release
-
-  - Stackless incompatible with the JIT
+If you want to try PyPy, go to the "download page" on our
+excellent new site at http://pypy.org/download.html and find
+the binary for your platform. If the binary does not work
+(e.g. on Linux, because of different versions of external .so
+dependencies), or if your platform is not supported, you can
+try building from the source.
 
 
 What is PyPy?
 =============
 
-Technically, PyPy is both a Python interpreter implementation and an
-advanced compiler, or more precisely a framework for implementing dynamic
-languages and generating virtual machines for them.
+Technically, PyPy is both a Python interpreter implementation
+and an advanced compiler, or more precisely a framework for
+implementing dynamic languages and generating virtual machines
+for them.
 
-The framework allows for alternative frontends as well as for alternative
-backends, currently C, Java and .NET.  For our main target "C", we can
-"mix in" different garbage collectors and threading models,
-including micro-threads aka "Stackless".  The inherent complexity that
-arises from this ambitious approach is mostly kept away from the Python
-interpreter implementation, our main frontend.
+The framework allows for alternative frontends as well as for
+alternative backends, currently C, Java and .NET.  For our
+main target "C", we can "mix in" different garbage collectors
+and threading models, including micro-threads aka "Stackless".
+The inherent complexity that arises from this ambitious
+approach is mostly kept away from the Python interpreter
+implementation, our main frontend.
 
-The focus of this release is the introduction of a new transformation,
-the JIT Compiler Generator, which is able to produce a JIT Compiler for
-any interpreter frontend, given a very small number of hand-written hints.
+The focus of this release is the introduction of a new
+transformation, the JIT Compiler Generator, which is able to
+produce a JIT Compiler for any interpreter frontend, given a
+very small number of hand-written hints.
 
-Socially, PyPy is a collaborative effort of many individuals working
-together in a distributed and sprint-driven way since 2003.  PyPy would
-not have gotten as far as it has without the coding, feedback and
-general support from numerous people.
+Socially, PyPy is a collaborative effort of many individuals
+working together in a distributed and sprint-driven way since
+2003.  PyPy would not have gotten as far as it has without the
+coding, feedback and general support from numerous people.
 
 
+The PyPy release team,
+    Armin Rigo, Maciej Fijalkowski and Amaury Forgeot d'Arc
 
-Have fun,
+Together with
+    Antonio Cuni, Carl Friedrich Bolz, Holger Krekel and
+    Samuele Pedroni
 
-    the PyPy release team, [in alphabetical order]
-    
-    Amaury Forgeot d'Arc, Antonio Cuni, Armin Rigo, Carl Friedrich Bolz,
-    Holger Krekel, Maciek Fijalkowski, Samuele Pedroni
-
-    and many others:
+and many others:
     http://codespeak.net/pypy/dist/pypy/doc/contributor.html
