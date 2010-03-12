@@ -76,6 +76,7 @@ class __extend__(PyFrame):
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def JUMP_ABSOLUTE(f, jumpto, _, ec=None):
