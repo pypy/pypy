@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" Usage: otherviewer.py loopfile
+""" Usage: traceviewer.py loopfile
 """
 
 import optparse
