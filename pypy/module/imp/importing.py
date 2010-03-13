@@ -356,9 +356,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
         return space.getbuiltinmodule(find_info.filename, force_init=True)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, PKG_DIRECTORY):
+        w_mod = None
         if reuse:
-            w_mod = space.getitem(space.sys.get('modules'), w_modulename)
-        else:
+            try:
+                w_mod = space.getitem(space.sys.get('modules'), w_modulename)
+            except OperationError, oe:
+                if not oe.match(space, space.w_KeyError):
+                    raise
+        if w_mod is None:
             w_mod = space.wrap(Module(space, w_modulename))
         if find_info.modtype == PKG_DIRECTORY:
             pkgdir = find_info.filename

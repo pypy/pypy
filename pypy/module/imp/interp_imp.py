@@ -76,7 +76,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space.str_w(w_suffix),
         filemode)
     return importing.load_module(
-        space, w_name, find_info)
+        space, w_name, find_info, reuse=True)
 
 def load_source(space, w_modulename, w_filename, w_file=None):
     filename = space.str_w(w_filename)

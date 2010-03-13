@@ -110,3 +110,14 @@ class AppTestImpModule:
             pass
         else:
             raise Exception("expected an ImportError")
+
+    def test_load_module_in_sys_modules(self):
+        fn = self._py_file()
+        f = open(fn, 'rb')
+        descr = ('.py', 'U', self.imp.PY_SOURCE)
+        mod = self.imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
+        f.close()
+        f = open(fn, 'rb')
+        mod2 = self.imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
+        f.close()
+        assert mod2 is mod
