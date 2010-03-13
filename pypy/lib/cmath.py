@@ -37,8 +37,7 @@ def acosh(x):
 
     Return the hyperbolic arccosine of x."""
 
-    z = sqrt(_half)
-    z = log(z*(sqrt(x+_one)+sqrt(x-_one)))
+    z = log(_sqrt_half*(sqrt(x+_one)+sqrt(x-_one)))
     return z+z
 
 
@@ -58,8 +57,7 @@ def asinh(x):
 
     Return the hyperbolic arc sine of x."""
     
-    z = sqrt(_half)
-    z = log((z * (sqrt(x+_i)+sqrt((x-_i))) ))
+    z = log((_sqrt_half * (sqrt(x+_i)+sqrt((x-_i))) ))
     return z+z
 
 
@@ -182,6 +180,8 @@ def sqrt(x):
             real = -d
             imag = -s
     return complex(real, imag)
+
+_sqrt_half = sqrt(_half)
 
 
 def tan(x):
