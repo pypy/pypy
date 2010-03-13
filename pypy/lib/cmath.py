@@ -37,7 +37,6 @@ def acosh(x):
 
     Return the hyperbolic arccosine of x."""
 
-    z = complex()
     z = sqrt(_half)
     z = log(z*(sqrt(x+_one)+sqrt(x-_one)))
     return z+z
@@ -59,7 +58,6 @@ def asinh(x):
 
     Return the hyperbolic arc sine of x."""
     
-    z = complex()
     z = sqrt(_half)
     z = log((z * (sqrt(x+_i)+sqrt((x-_i))) ))
     return z+z
