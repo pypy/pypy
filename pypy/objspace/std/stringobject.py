@@ -871,10 +871,6 @@ def str__String(space, w_str):
         return w_str
     return wrapstr(space, w_str._value)
 
-def iter__String(space, w_list):
-    from pypy.objspace.std import iterobject
-    return iterobject.W_SeqIterObject(w_list)
-
 def ord__String(space, w_str):
     u_str = w_str._value
     if len(u_str) != 1:
