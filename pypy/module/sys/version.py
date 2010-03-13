@@ -15,6 +15,18 @@ SVN_URL = """$HeadURL$"""[10:-28]
 
 REV = """$LastChangedRevision$"""[22:-2]
 
+def rev2int(rev):
+    try:
+        return int(rev)
+    except ValueError:
+        import py
+        from pypy.tool.ansi_print import ansi_log
+        log = py.log.Producer("version")
+        py.log.setconsumer("version", ansi_log)
+        log.ERROR("No subversion revision number available!")
+        log.ERROR("Hard-coding '0'")
+        return 0
+
 
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
@@ -85,7 +97,7 @@ def svn_revision():
     "Return the last-changed svn revision number."
     # NB. we hack the number directly out of the .svn directory to avoid
     # to depend on an external 'svn' executable in the path.
-    rev = int(REV)
+    rev = rev2int(REV)
     try:
         formatfile = os.path.join(pypydir, '.svn', 'format')
         if os.path.exists(formatfile):
