@@ -175,6 +175,11 @@ class AbstractCPU(object):
 
     def do_getarrayitem_gc(self, arraybox, indexbox, arraydescr):
         raise NotImplementedError
+
+    def do_arraycopy(self, calldescr, fnptr, sourcebox, destbox,
+                     source_startbox, dest_startbox, lengthbox, arraydescr):
+        return self.do_call([fnptr, sourcebox, destbox, source_startbox,
+                             dest_startbox, lengthbox], calldescr)
     
     def do_getfield_gc(self, structbox, fielddescr):
         raise NotImplementedError

@@ -17,6 +17,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.metainterp.typesystem import deref
+from pypy.rlib import rgc
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -133,6 +134,8 @@ _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
+
+_ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)

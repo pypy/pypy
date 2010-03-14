@@ -360,6 +360,13 @@ class MIFrame(object):
     def opimpl_arraylen_gc(self, arraybox, arraydesc):
         self.execute_with_descr(rop.ARRAYLEN_GC, arraydesc, arraybox)
 
+    @arguments("descr", "box", "box", "box", "box", "box", "box", "descr")
+    def opimpl_arraycopy(self, calldescr, fnptr, sourcebox, destbox,
+                         source_startbox, dest_startbox, lengthbox, arraydescr):
+        self.execute_with_descr(rop.ARRAYCOPY, arraydescr, calldescr, fnptr,
+                                sourcebox, destbox, source_startbox,
+                                dest_startbox, lengthbox)
+
     @arguments("orgpc", "box", "descr", "box")
     def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
         negbox = self.metainterp.execute_and_record(

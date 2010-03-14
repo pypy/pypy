@@ -118,6 +118,32 @@ class ListTests:
         assert res == f(10)
         py.test.skip("'[non-null] * n' gives a residual call so far")
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
+    
+    def test_arraycopy_simpleoptimize(self):
+        def f():
+            l = [1, 2, 3, 4]
+            l2 = l[:]
+            return l2[0] + l2[1] + l2[2] + l2[3]
+
+        res = self.interp_operations(f, [], listops=True)
+        assert res == 10
+
+    def test_arraycopy_full(self):
+        jitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            l = []
+            l2 = []
+            while n > 0:
+                jitdriver.can_enter_jit(n=n)
+                jitdriver.jit_merge_point(n=n)
+                l = [1, 2, 3, n]
+                l2 = l[:]
+                n -= 1
+            return l2[0] + l2[1] + l2[2] + l2[3]
+
+        res = self.meta_interp(f, [5], listops=True)
+        assert res == 7
+        self.check_loops(call=0)
 
 class TestOOtype(ListTests, OOJitMixin):
     pass

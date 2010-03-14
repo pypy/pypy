@@ -1452,6 +1452,8 @@ class BytecodeMaker(object):
             self.register_var(op.result)
             return True
         #
+        if oopspec_name == 'list.ll_arraycopy':
+            return self.handle_arraycopy(op, arraydescr, args)
         if oopspec_name == 'list.getitem':
             return self.handle_list_getitem(op, arraydescr, args,
                                             'getarrayitem_gc')
@@ -1531,6 +1533,18 @@ class BytecodeMaker(object):
         self.emit(self.get_position(itemsdescr))
         self.emit(self.get_position(arraydescr))
         self.emit(self.var_position(index))
+        self.register_var(op.result)
+        return True
+
+    def handle_arraycopy(self, op, arraydescr, args):
+        self.emit('arraycopy')
+        calldescr, _ = self.codewriter.getcalldescr(op.args[0], args, op.result,
+                                                    consider_effects_of=op)
+        self.emit(self.get_position(calldescr))
+        self.emit(self.var_position(op.args[0]))
+        for arg in args:
+            self.emit(self.var_position(arg))
+        self.emit(self.get_position(arraydescr))
         self.register_var(op.result)
         return True
 

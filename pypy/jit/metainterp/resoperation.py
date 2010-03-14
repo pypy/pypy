@@ -216,6 +216,7 @@ _oplist = [
     'SETARRAYITEM_RAW/3d',#only added by backend.llsupport.gc.rewrite_assembler
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
+    'ARRAYCOPY/7d',
     'NEWSTR/1',
     'STRSETITEM/3',
     'UNICODESETITEM/3',

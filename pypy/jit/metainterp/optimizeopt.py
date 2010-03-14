@@ -16,6 +16,7 @@ from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
+from pypy.jit.metainterp.history import AbstractDescr
 
 def optimize_loop_1(metainterp_sd, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
@@ -909,6 +910,27 @@ class Optimizer(object):
         value.ensure_nonnull()
         fieldvalue = self.getvalue(op.args[2])
         self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
+
+    def optimize_ARRAYCOPY(self, op):
+        source_value = self.getvalue(op.args[2])
+        dest_value = self.getvalue(op.args[3])
+        source_start_box = self.get_constant_box(op.args[4])
+        dest_start_box = self.get_constant_box(op.args[5])
+        length = self.get_constant_box(op.args[6])
+        if (source_value.is_virtual() and source_start_box and dest_start_box
+            and length and dest_value.is_virtual()):
+            # XXX optimize the case where dest value is not virtual,
+            #     but we still can avoid a mess
+            source_start = source_start_box.getint()
+            dest_start = dest_start_box.getint()
+            for index in range(length.getint()):
+                val = source_value.getitem(index + source_start)
+                dest_value.setitem(index + dest_start, val)
+            return
+        descr = op.args[0]
+        assert isinstance(descr, AbstractDescr)
+        self.emit_operation(ResOperation(rop.CALL, op.args[1:], op.result,
+                                         descr))
 
     def optimize_INSTANCEOF(self, op):
         value = self.getvalue(op.args[0])

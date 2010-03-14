@@ -15,6 +15,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
+from pypy.rlib import rgc
 
 class MiniStats:
     pass

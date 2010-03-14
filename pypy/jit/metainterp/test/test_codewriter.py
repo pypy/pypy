@@ -150,6 +150,8 @@ class TestCodeWriter:
                 return ('typedescr', CLASS)
             def methdescrof(self, CLASS, methname):
                 return FakeMethDescr(CLASS, methname)
+            def arraydescrof(self, ARRAY):
+                return ('arraydescr', ARRAY)
             def sizeof(self, STRUCT):
                 return ('sizeof', STRUCT)
 
@@ -512,6 +514,28 @@ class TestCodeWriter:
         assert ConstInt(55) in jitcode.constants
         assert ConstInt(66) not in jitcode.constants
 
+    def test_ll_arraycopy(self):
+        from pypy.rlib import rgc
+        from pypy.rpython.lltypesystem import lltype
+
+        A = lltype.GcArray(lltype.Signed)
+        
+        def f():
+            l = lltype.malloc(A, 3)
+            l[0] = 1
+            l[1] = 2
+            l[3] = 3
+            l2 = lltype.malloc(A, 3)
+            rgc.ll_arraycopy(l, l2, 0, 0, 3)
+            return l2[0] + l2[1] + l2[3]
+
+        graphs = self.make_graphs(f, [])
+        cw = CodeWriter(self.rtyper)
+        cw.candidate_graphs = [graphs[0]]
+        cw._start(self.metainterp_sd, None)
+        jitcode = cw.make_one_bytecode((graphs[0], None), False)
+        assert 'residual_call' not in jitcode._source
+        assert 'arraycopy' in jitcode._source
 
 class ImmutableFieldsTests:
 
