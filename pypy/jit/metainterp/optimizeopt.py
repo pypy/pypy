@@ -927,6 +927,8 @@ class Optimizer(object):
                 val = source_value.getitem(index + source_start)
                 dest_value.setitem(index + dest_start, val)
             return
+        if length and length.getint() == 0:
+            return # 0-length arraycopy
         descr = op.args[0]
         assert isinstance(descr, AbstractDescr)
         self.emit_operation(ResOperation(rop.CALL, op.args[1:], op.result,

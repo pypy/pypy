@@ -2775,6 +2775,21 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         '''
         self.optimize_loop(ops, 'Not', expected)
 
+    def test_arraycopy_no_elem(self):
+        """ this was actually observed in the wild
+        """
+        ops = '''
+        [p1]
+        p0 = new_array(0, descr=arraydescr)
+        arraycopy(0, 0, p0, p1, 0, 0, 0, descr=arraydescr)
+        jump(p1)
+        '''
+        expected = '''
+        [p1]
+        jump(p1)
+        '''
+        self.optimize_loop(ops, 'Not', expected)
+
 class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
 
     def test_instanceof(self):
