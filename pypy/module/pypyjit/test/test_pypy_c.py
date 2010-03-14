@@ -586,6 +586,23 @@ class PyPyCJITTests(object):
         assert len(bytecode.get_opnames('call')) == 2 # split_chr and list_pop
         assert len(bytecode2.get_opnames('call')) == 0
 
+    def test_arraycopy_disappears(self):
+        self.run_source('''
+        def main():
+            i = 0
+            while i < 100:
+                t = (1, 2, 3, i + 1)
+                t2 = t[:]
+                del t
+                i = t2[3]
+                del t2
+            return i
+        ''', 100, ([], 100))
+        bytecode, = self.get_by_bytecode('BINARY_SUBSCR')
+        assert len(bytecode.get_opnames('new_array')) == 1
+        # XXX I would like here to say that it's 0, but unfortunately
+        #     call that can raise is not exchanged into getarrayitem_gc
+
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
