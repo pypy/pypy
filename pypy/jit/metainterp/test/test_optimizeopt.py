@@ -2724,7 +2724,56 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_arraycopy_1(self):
-        pass
+        ops = '''
+        [i0]
+        p1 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 1, 1, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 1, 3, descr=arraydescr)
+        arraycopy(0, 0, p1, p2, 1, 1, 2, descr=arraydescr)
+        i2 = getarrayitem_gc(p2, 1, descr=arraydescr)
+        jump(i2)
+        '''
+        expected = '''
+        [i0]
+        jump(1)
+        '''
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_arraycopy_2(self):
+        ops = '''
+        [i0]
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i0, descr=arraydescr)
+        setarrayitem_gc(p2, 0, 3, descr=arraydescr)
+        arraycopy(0, 0, p1, p2, 1, 1, 2, descr=arraydescr)
+        i2 = getarrayitem_gc(p2, 0, descr=arraydescr)
+        jump(i2)
+        '''
+        expected = '''
+        [i0]
+        jump(3)
+        '''
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_arraycopy_not_virtual(self):
+        ops = '''
+        [p0]
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        arraycopy(0, 0, p1, p2, 0, 0, 3, descr=arraydescr)
+        jump(p2)
+        '''
+        expected = '''
+        [p0]
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 10, descr=arraydescr)
+        jump(p2)
+        '''
+        self.optimize_loop(ops, 'Not', expected)
 
 class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
 
