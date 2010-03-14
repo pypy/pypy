@@ -68,6 +68,9 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                     builder = specialize.make_constgraphbuilder(2, factory=fold,
                                                                 srcmodule='<ann_override.wrap>')
                     return funcdesc.cachedgraph((typ, x), builder=builder)
+        if typ is str:
+            if args_s[1].can_be_None:
+                typ = (None, str)
         return funcdesc.cachedgraph(typ)
 
     def _remember_immutable(pol, t, cached):
