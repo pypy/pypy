@@ -314,9 +314,20 @@ class PerfectSpecializationFinder(NodeFinder):
     node_fromstart = InstanceNode(fromstart=True)
 
     def find_nodes_loop(self, loop):
+        self._loop = loop
         self.setup_input_nodes(loop.inputargs)
         self.find_nodes(loop.operations)
         self.build_result_specnodes(loop)
+
+    def show(self):
+        from pypy.jit.metainterp.viewnode import viewnodes, view
+        op = self._loop.operations[-1]
+        assert op.opnum == rop.JUMP
+        exitnodes = [self.getnode(arg) for arg in op.args]
+        viewnodes(self.inputnodes, exitnodes)
+        if hasattr(self._loop.token, "specnodes"):
+            view(self._loop.token.specnodes)
+
 
     def setup_input_nodes(self, inputargs):
         inputnodes = []
