@@ -236,8 +236,10 @@ class MsvcPlatform(Platform):
             ('LIBS', self._libs(eci.libraries)),
             ('LIBDIRS', self._libdirs(eci.library_dirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
-            ('CFLAGS', self.cflags + list(eci.compile_extra)),
-            ('LDFLAGS', self.link_flags + list(eci.link_extra)),
+            ('CFLAGS', self.cflags),
+            ('CFLAGSEXTRA', list(eci.compile_extra)),
+            ('LDFLAGS', self.link_flags),
+            ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', self.link),
             ('MASM', self.masm),
@@ -247,7 +249,7 @@ class MsvcPlatform(Platform):
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('.c.obj', '', '$(CC) /nologo $(CFLAGS) /Fo$@ /c $< $(INCLUDEDIRS)'),
+            ('.c.obj', '', '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:
@@ -255,10 +257,10 @@ class MsvcPlatform(Platform):
 
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   '$(CC_LINK) /nologo $(LDFLAGS) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
+                   '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   ['$(CC_LINK) /nologo $(LDFLAGS) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
 

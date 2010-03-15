@@ -87,8 +87,10 @@ class BasePosix(Platform):
             ('LIBS', self._libs(eci.libraries)),
             ('LIBDIRS', self._libdirs(eci.library_dirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
-            ('CFLAGS', self.cflags + list(eci.compile_extra)),
-            ('LDFLAGS', self.link_flags + list(eci.link_extra)),
+            ('CFLAGS', self.cflags),
+            ('CFLAGSEXTRA', list(eci.compile_extra)),
+            ('LDFLAGS', self.link_flags),
+            ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
@@ -98,8 +100,8 @@ class BasePosix(Platform):
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
-            ('%.o', '%.c', '$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
+            ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:
@@ -123,6 +125,7 @@ class Definition(object):
 
     def write(self, f):
         def write_list(prefix, lst):
+            lst = lst or ['']
             for i, fn in enumerate(lst):
                 fn = fn.replace('\\', '\\\\')
                 print >> f, prefix, fn,
@@ -136,9 +139,8 @@ class Definition(object):
             f.write('%s = %s\n' % (name, value.replace('\\', '\\\\')))
         else:
             write_list('%s =' % (name,), value)
-        if value:
-            f.write('\n')
-        
+        f.write('\n')
+
 class Rule(object):
     def __init__(self, target, deps, body):
         self.target = target
