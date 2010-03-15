@@ -116,7 +116,7 @@ void pypy_debug_ensure_opened(void)
  * This is the default generic timestamp implementation.
  */
 #  ifdef _WIN32
-#    define READ_TIMESTAMP(val)  QueryPerformanceCounter(&(val))
+#    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
 #  else
 #    include <time.h>
 #    include <sys/time.h>
