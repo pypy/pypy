@@ -12,9 +12,10 @@ from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
-from pypy.rlib.jit import purefunction
+from pypy.rlib.jit import purefunction, unroll_safe
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
+from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 
 class X(object):
@@ -162,7 +163,13 @@ class TestCompileHybrid(object):
                                         'x5', 'x6', 'x7', 'l', 's'])
         cls.main_allfuncs = staticmethod(main_allfuncs)
         cls.name_to_func = name_to_func
-        cls.cbuilder = compile(get_entry(allfuncs), "hybrid", gcrootfinder="asmgcc", jit=True)
+        OLD_DEBUG = GcLLDescr_framework.DEBUG
+        try:
+            GcLLDescr_framework.DEBUG = True
+            cls.cbuilder = compile(get_entry(allfuncs), "hybrid",
+                                   gcrootfinder="asmgcc", jit=True)
+        finally:
+            GcLLDescr_framework.DEBUG = OLD_DEBUG
 
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileHybrid.log')
@@ -455,3 +462,53 @@ class TestCompileHybrid(object):
 
     def test_compile_hybrid_vref(self):
         self.run('compile_hybrid_vref', 200)
+
+    def define_compile_hybrid_float(self):
+        # test for a bug: the fastpath_malloc does not save and restore
+        # xmm registers around the actual call to the slow path
+        class A:
+            x0 = x1 = x2 = x3 = x4 = x5 = x6 = x7 = 0
+        @dont_look_inside
+        def escape1(a):
+            a.x0 += 0
+            a.x1 += 6
+            a.x2 += 12
+            a.x3 += 18
+            a.x4 += 24
+            a.x5 += 30
+            a.x6 += 36
+            a.x7 += 42
+        @dont_look_inside
+        def escape2(n, f0, f1, f2, f3, f4, f5, f6, f7):
+            check(f0 == n + 0.0)
+            check(f1 == n + 0.125)
+            check(f2 == n + 0.25)
+            check(f3 == n + 0.375)
+            check(f4 == n + 0.5)
+            check(f5 == n + 0.625)
+            check(f6 == n + 0.75)
+            check(f7 == n + 0.875)
+        @unroll_safe
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            i = 0
+            while i < 42:
+                m = n + i
+                f0 = m + 0.0
+                f1 = m + 0.125
+                f2 = m + 0.25
+                f3 = m + 0.375
+                f4 = m + 0.5
+                f5 = m + 0.625
+                f6 = m + 0.75
+                f7 = m + 0.875
+                a1 = A()
+                # at this point, all or most f's are still in xmm registers
+                escape1(a1)
+                escape2(m, f0, f1, f2, f3, f4, f5, f6, f7)
+                i += 1
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        return None, f, None
+
+    def test_compile_hybrid_float(self):
+        self.run('compile_hybrid_float')

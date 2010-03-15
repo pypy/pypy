@@ -1244,7 +1244,8 @@ class Assembler386(object):
         # as pushed above, plus optionally in esi[-16] to esi[-1] for
         # the XMM registers.  Moreover, esi[8] is a pointer to the recovery
         # bytecode, pushed just before by the CALL instruction written by
-        # generate_quick_failure().
+        # generate_quick_failure().  XXX misaligned stack in the call, but
+        # it's ok because failure_recovery_func is not calling anything more
         mc.PUSH(esi)
         mc.CALL(rel32(failure_recovery_func))
         # returns in eax the fail_index
@@ -1395,6 +1396,9 @@ class Assembler386(object):
         # we choose the most compact encoding over the most efficient one.
         for i in range(len(arglocs)-1, -1, -1):
             mc.PUSH(arglocs[i])
+        # misaligned stack in the call, but it's ok because the write barrier
+        # is not going to call anything more.  Also, this assumes that the
+        # write barrier does not touch the xmm registers.
         mc.CALL(rel32(descr.get_write_barrier_fn(self.cpu)))
         for i in range(len(arglocs)):
             loc = arglocs[i]
@@ -1446,6 +1450,7 @@ class Assembler386(object):
         mc.CMP(edx, heap(nursery_top_adr))
         mc.write(constlistofchars('\x76\x00')) # JNA after the block
         jmp_adr = mc.get_relative_pos()
+        # XXXXXXXXXXXXXXXX must save and restore xmm registers here!!!!
         self._emit_call(rel32(slowpath_addr), [imm(size)],
                         force_mc=True, mc=mc)
 

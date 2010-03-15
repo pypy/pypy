@@ -325,6 +325,7 @@ class WriteBarrierDescr(AbstractDescr):
 
 
 class GcLLDescr_framework(GcLLDescription):
+    DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
     def __init__(self, gcdescr, translator, llop1=llop):
         from pypy.rpython.memory.gctypelayout import _check_typeid
@@ -436,7 +437,21 @@ class GcLLDescr_framework(GcLLDescription):
         self.malloc_unicode = malloc_unicode
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
             [lltype.Signed], llmemory.GCREF))
+        #
+        class ForTestOnly:
+            pass
+        for_test_only = ForTestOnly()
+        for_test_only.x = 1.23
+        def random_usage_of_xmm_registers():
+            x0 = for_test_only.x
+            x1 = x0 * 0.1
+            x2 = x0 * 0.2
+            x3 = x0 * 0.3
+            for_test_only.x = x0 + x1 + x2 + x3
+        #
         def malloc_fixedsize_slowpath(size):
+            if self.DEBUG:
+                random_usage_of_xmm_registers()
             try:
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                             0, size, True, False, False)
