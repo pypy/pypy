@@ -123,8 +123,8 @@ def getfqdn(name=''):
 
 _socketmethods = (
     'bind', 'connect', 'connect_ex', 'fileno', 'listen',
-    'getpeername', 'getsockname', 'getsockopt', 'setsockopt',
-    'sendall', 'setblocking',
+    'getpeername', 'getsockname', 'setsockopt',
+    'setblocking',
     'settimeout', 'gettimeout', 'shutdown')
 
 if sys.platform == "riscos":
@@ -198,11 +198,34 @@ class _socketobject(object):
     type = property(lambda self: self._sock.type, doc="the socket type")
     proto = property(lambda self: self._sock.proto, doc="the socket protocol")
 
-    _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
-          "%s.__doc__ = _realsocket.%s.__doc__\n")
+    def sendall(self, data, flags=0):
+        """sendall(data[, flags])
+
+        Send a data string to the socket.  For the optional flags
+        argument, see the Unix manual.  This calls send() repeatedly
+        until all data is sent.  If an error occurs, it's impossible
+        to tell how much data has been sent.
+        """
+        self._sock.sendall(data, flags)
+
+    def getsockopt(self, level, optname, buflen=None):
+        """getsockopt(level, option[, buffersize]) -> value
+
+        Get a socket option.  See the Unix manual for level and option.
+        If a nonzero buffersize argument is given, the return value is a
+        string of that length; otherwise it is an integer.
+        """
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
+
+    _s = ("def %(name)s(self, %(args)s): return self._sock.%(name)s(%(args)s)\n\n"
+          "%(name)s.__doc__ = _realsocket.%(name)s.__doc__\n")
     for _m in _socketmethods:
-        exec _s % (_m, _m, _m, _m)
-    del _m, _s
+        # yupi! we're on pypy, all code objects have this interface
+        argcount = getattr(_realsocket, _m).im_func.func_code.co_argcount - 1
+        exec _s % {'name': _m, 'args': ', '.join(['arg%d' % i for i in range(argcount)])}
+    del _m, _s, i, argcount
 
 socket = SocketType = _socketobject
 
