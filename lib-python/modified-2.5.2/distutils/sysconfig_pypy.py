@@ -93,3 +93,9 @@ def get_config_var(name):
     get_config_vars().get(name)
     """
     return get_config_vars().get(name)
+
+def customize_compiler(options):
+    """Dummy method to let some easy_install packages that have
+    optional C speedup components.
+    """
+    pass
