@@ -13,13 +13,19 @@ import sys
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32', 'user32', 'advapi32', 'gdi32']
+    includes = [
+        # ssl.h includes winsock.h, which will conflict with our own
+        # need of winsock2.  Remove this when separate compilation is
+        # available...
+        'winsock2.h',
+        'openssl/ssl.h']
 else:
     libraries = ['ssl', 'crypto']
+    includes = ['openssl/ssl.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
-    includes = ['openssl/ssl.h',
-                ],
+    includes = includes,
     export_symbols = ['SSL_load_error_strings'],
     )
 
