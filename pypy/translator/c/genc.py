@@ -524,7 +524,7 @@ class CStandaloneBuilder(CBuilder):
                 mk.definition('OBJECTS', 'gcmaptable.obj $(ASMLBLOBJFILES)')
                 # /Oi (enable intrinsics) and /Ob1 (some inlining) are mandatory
                 # even in debug builds
-                mk.definition('ASM_CFLAGS', '$(CFLAGS) /Oi /Ob1')
+                mk.definition('ASM_CFLAGS', '$(CFLAGS) $(CFLAGSEXTRA) /Oi /Ob1')
                 mk.rule('.SUFFIXES', '.s', [])
                 mk.rule('.s.obj', '',
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
@@ -537,7 +537,7 @@ class CStandaloneBuilder(CBuilder):
 
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
-                mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
+                mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $*.gcmap')
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
