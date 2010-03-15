@@ -368,12 +368,12 @@ class FunctionGcRootTracker(object):
         return []
 
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
-        'cmp', 'test', 'set', 'sahf', 'cltd', 'cld', 'std',
+        'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt', 'ucomi', 'subs', 'subp' , 'adds', 'addp', 'xorp', 'movap',
-        'movd', 'movlp', 'sqrtsd',
+        'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
+        'movap', 'movd', 'movlp', 'sqrtsd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
@@ -381,6 +381,8 @@ class FunctionGcRootTracker(object):
         'bswap', 'bt', 'rdtsc',
         # zero-extending moves should not produce GC pointers
         'movz',
+        # quadword operations
+        'movq',
         ])
 
     visit_movb = visit_nop
@@ -1176,10 +1178,17 @@ class MsvcAssemblerParser(AssemblerParser):
             # with other modules.
             if line.startswith("PUBLIC\t__real@"):
                 line = '; ' + line
+            if line.startswith("PUBLIC\t__mask@@"):
+                line = '; ' + line
             elif line.startswith("PUBLIC\t??_C@"):
                 line = '; ' + line
             elif line == "PUBLIC\t__$ArrayPad$\n":
                 line = '; ' + line
+
+            # The msvc compiler writes "fucomip ST(1)" when the correct
+            # syntax is "fucomip ST, ST(1)"
+            if line == "\tfucomip\tST(1)\n":
+                line = "\tfucomip\tST, ST(1)\n"
 
             # Because we insert labels in the code, some "SHORT" jumps
             # are now longer than 127 bytes.  We turn them all into
