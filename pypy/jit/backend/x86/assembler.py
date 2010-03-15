@@ -118,6 +118,8 @@ class Assembler386(object):
         self.fail_ebp = 0
         self.loc_float_const_neg = None
         self.loc_float_const_abs = None
+        self.malloc_fixedsize_slowpath1 = 0
+        self.malloc_fixedsize_slowpath2 = 0
         self.setup_failure_recovery()
 
     def leave_jitted_hook(self):
@@ -164,6 +166,8 @@ class Assembler386(object):
                 self._build_failure_recovery(True, withfloats=True)
                 codebuf.ensure_sse2_floats()
                 self._build_float_constants()
+            if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
+                self._build_malloc_fixedsize_slowpath()
 
     def _build_float_constants(self):
         # 11 words: 8 words for the data, and up to 3 words for alignment
@@ -183,6 +187,27 @@ class Assembler386(object):
         addr[7] = 0                #
         self.loc_float_const_neg = heap64(float_constants)
         self.loc_float_const_abs = heap64(float_constants + 16)
+
+    def _build_malloc_fixedsize_slowpath(self):
+        mc = self.mc2._mc
+        # ---------- first helper for the slow path of malloc ----------
+        self.malloc_fixedsize_slowpath1 = mc.tell()
+        if self.cpu.supports_floats:          # save the XMM registers in
+            for i in range(8):                # the *caller* frame, from esp+8
+                mc.MOVSD(mem64(esp, 8+8*i), xmm_registers[i])
+        mc.SUB(edx, eax)                      # compute the size we want
+        mc.MOV(mem(esp, 4), edx)              # save it as the new argument
+        addr = self.cpu.gc_ll_descr.get_malloc_fixedsize_slowpath_addr()
+        mc.JMP(rel32(addr))                   # tail call to the real malloc
+        # ---------- second helper for the slow path of malloc ----------
+        self.malloc_fixedsize_slowpath2 = mc.tell()
+        if self.cpu.supports_floats:          # restore the XMM registers
+            for i in range(8):                # from where they were saved
+                mc.MOVSD(xmm_registers[i], mem64(esp, 8+8*i))
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
+        mc.RET()
+        self.mc2.done()
 
     def assemble_loop(self, inputargs, operations, looptoken):
         """adds the following attributes to looptoken:
@@ -1442,7 +1467,7 @@ class Assembler386(object):
         self.mc.JMP(rel32(loop_token._x86_loop_code))
 
     def malloc_cond_fixedsize(self, nursery_free_adr, nursery_top_adr,
-                              size, tid, slowpath_addr):
+                              size, tid):
         # don't use self.mc
         mc = self._start_block()
         mc.MOV(eax, heap(nursery_free_adr))
@@ -1450,14 +1475,25 @@ class Assembler386(object):
         mc.CMP(edx, heap(nursery_top_adr))
         mc.write(constlistofchars('\x76\x00')) # JNA after the block
         jmp_adr = mc.get_relative_pos()
-        # XXXXXXXXXXXXXXXX must save and restore xmm registers here!!!!
-        self._emit_call(rel32(slowpath_addr), [imm(size)],
-                        force_mc=True, mc=mc)
 
-        # note that slowpath_addr returns a "long long", or more precisely
-        # two results, which end up in eax and edx.
-        # eax should contain the result of allocation, edx new value
-        # of nursery_free_adr
+        # See comments in _build_malloc_fixedsize_slowpath for the
+        # details of the two helper functions that we are calling below.
+        # First, we need to call two of them and not just one because we
+        # need to have a mark_gc_roots() in between.  Then the calling
+        # convention of slowpath_addr{1,2} are tweaked a lot to allow
+        # the code here to be just two CALLs: slowpath_addr1 gets the
+        # size of the object to allocate from (EDX-EAX) and returns the
+        # result in EAX; slowpath_addr2 additionally returns in EDX a
+        # copy of heap(nursery_free_adr), so that the final MOV below is
+        # a no-op.
+        slowpath_addr1 = self.malloc_fixedsize_slowpath1
+        # reserve room for the argument to the real malloc and the
+        # 8 saved XMM regs
+        self._regalloc.reserve_param(1+16)
+        mc.CALL(rel32(slowpath_addr1))
+        self.mark_gc_roots()
+        slowpath_addr2 = self.malloc_fixedsize_slowpath2
+        mc.CALL(rel32(slowpath_addr2))
 
         offset = mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127

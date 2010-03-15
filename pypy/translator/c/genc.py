@@ -437,6 +437,7 @@ class CStandaloneBuilder(CBuilder):
         if res.returncode != 0:
             if expect_crash:
                 return res.out, res.err
+            print >> sys.stderr, res.err
             raise Exception("Returned %d" % (res.returncode,))
         if expect_crash:
             raise Exception("Program did not crash!")

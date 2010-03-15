@@ -14,7 +14,6 @@ from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
-from pypy.rlib.rarithmetic import r_ulonglong, r_uint
 
 # ____________________________________________________________
 
@@ -457,13 +456,11 @@ class GcLLDescr_framework(GcLLDescription):
                                             0, size, True, False, False)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
-                return r_ulonglong(0)
-            res = rffi.cast(lltype.Signed, gcref)
-            nurs_free = llop1.gc_adr_of_nursery_free(llmemory.Address).signed[0]
-            return r_ulonglong(nurs_free) << 32 | r_ulonglong(r_uint(res))
+                return 0
+            return rffi.cast(lltype.Signed, gcref)
         self.malloc_fixedsize_slowpath = malloc_fixedsize_slowpath
         self.MALLOC_FIXEDSIZE_SLOWPATH = lltype.FuncType([lltype.Signed],
-                                                 lltype.UnsignedLongLong)
+                                                         lltype.Signed)
 
     def get_nursery_free_addr(self):
         nurs_addr = llop.gc_adr_of_nursery_free(llmemory.Address)

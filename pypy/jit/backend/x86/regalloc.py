@@ -702,7 +702,6 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             descr.size, descr.tid,
-            gc_ll_descr.get_malloc_fixedsize_slowpath_addr(),
             )
 
     def consider_new(self, op):

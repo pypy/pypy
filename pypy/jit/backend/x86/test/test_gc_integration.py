@@ -175,15 +175,13 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.addrs[1] = self.addrs[0] + 64
         # 64 bytes
         def malloc_slowpath(size):
-            from pypy.rlib.rarithmetic import r_ulonglong
             assert size == 8
             nadr = rffi.cast(lltype.Signed, self.nursery)
-            self.addrs[0] = 99999    # should be overridden by the caller
-            return ((r_ulonglong(nadr + size) << 32) |     # this part in edx
-                     r_ulonglong(nadr))                    # this part in eax
+            self.addrs[0] = nadr + size
+            return nadr
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed],
-                                               lltype.UnsignedLongLong)
+                                               lltype.Signed)
         self._counter = 123
 
     def can_inline_malloc(self, descr):
