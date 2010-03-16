@@ -82,7 +82,7 @@ times, the JIT enters tracing mode.
 *Tracing* is where JIT interprets the bytecode, generated at translation time,
 of the interpreter interpreting the application level code.  This allows it to
 see the exact operations that make up the application level loop.  Tracing is
-preformed by MetaInterp and MIFrame classes in metainterp/pyjitpl.py.
+performed by MetaInterp and MIFrame classes in metainterp/pyjitpl.py.
 maybe_compile_and_run() creates a MetaInterp and calls its
 compile_and_run_once() method.  This initializes the MIFrame for the input
 arguments of the loop, the red and green variables passed from the
