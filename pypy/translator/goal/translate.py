@@ -264,6 +264,10 @@ def main():
             if (translateconfig.goals != ['annotate'] and
                 translateconfig.goals != ['rtype']):
                 drv.set_extra_goals(['pyjitpl'])
+            # early check:
+            from pypy.jit.backend.detect_cpu import getcpuclassname
+            getcpuclassname(config.translation.jit_backend)
+
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
