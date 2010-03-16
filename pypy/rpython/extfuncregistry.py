@@ -29,8 +29,8 @@ complex_math_functions = [
     ('frexp', [float],        (float, int)),
     ('ldexp', [float, int],   float),
     ('modf',  [float],        (float, float)),
-    ] + [(name, [float, float], float) for name in
-         ll_math.binary_math_functions]
+    ] + [(name, [float, float], float)
+         for name in 'atan2', 'fmod', 'hypot', 'pow']
 
 for name, args, res in complex_math_functions:
     func = getattr(math, name)
