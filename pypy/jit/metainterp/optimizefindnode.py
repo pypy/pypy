@@ -326,7 +326,7 @@ class PerfectSpecializationFinder(NodeFinder):
         exitnodes = [self.getnode(arg) for arg in op.args]
         viewnodes(self.inputnodes, exitnodes)
         if hasattr(self._loop.token, "specnodes"):
-            view(self._loop.token.specnodes)
+            view(*self._loop.token.specnodes)
 
 
     def setup_input_nodes(self, inputargs):
