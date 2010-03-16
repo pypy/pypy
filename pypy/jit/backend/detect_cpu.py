@@ -49,20 +49,25 @@ def autodetect():
             model = 'x86-without-sse2'
     return model
 
-def getcpuclass(backend_name="auto"):
+def getcpuclassname(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
     if backend_name in ('i386', 'x86'):
-        from pypy.jit.backend.x86.runner import CPU
+        return "pypy.jit.backend.x86.runner", "CPU"
     elif backend_name == 'x86-without-sse2':
-        from pypy.jit.backend.x86.runner import CPU386_NO_SSE2 as CPU
+        return "pypy.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == 'cli':
-        from pypy.jit.backend.cli.runner import CliCPU as CPU
+        return "pypy.jit.backend.cli.runner", "CliCPU"
     elif backend_name == 'llvm':
-        from pypy.jit.backend.llvm.runner import LLVMCPU as CPU
+        return "pypy.jit.backend.llvm.runner", "LLVMCPU"
     else:
         raise ProcessorAutodetectError, "unsupported cpu '%s'" % backend_name
-    return CPU
+
+def getcpuclass(backend_name="auto"):
+    modname, clsname = getcpuclassname(backend_name)
+    mod = __import__(modname, {}, {}, clsname)
+    return getattr(mod, clsname)
 
 if __name__ == '__main__':
     print autodetect()
+    print getcpuclassname()
