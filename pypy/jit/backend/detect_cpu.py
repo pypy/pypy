@@ -61,7 +61,8 @@ def getcpuclassname(backend_name="auto"):
     elif backend_name == 'llvm':
         return "pypy.jit.backend.llvm.runner", "LLVMCPU"
     else:
-        raise ProcessorAutodetectError, "unsupported cpu '%s'" % backend_name
+        raise ProcessorAutodetectError, (
+            "we have no JIT backend for this cpu: '%s'" % backend_name)
 
 def getcpuclass(backend_name="auto"):
     modname, clsname = getcpuclassname(backend_name)
