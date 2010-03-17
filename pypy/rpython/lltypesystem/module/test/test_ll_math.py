@@ -2,7 +2,7 @@
 """
 
 from pypy.rpython.lltypesystem.module import ll_math
-from pypy.module.math.test.test_direct import MathTests, finite
+from pypy.module.math.test.test_direct import MathTests, get_tester
 
 
 class TestMath(MathTests):
@@ -21,15 +21,7 @@ def make_test_case((fnname, args, expected), dict):
             assert expected == OverflowError, "%s: got an OverflowError" % (
                 repr,)
         else:
-            if callable(expected):
-                ok = expected(got)
-            else:
-                assert finite(expected), "badly written test"
-                gotsign = ll_math.math_copysign(1.0, got)
-                expectedsign = ll_math.math_copysign(1.0, expected)
-                ok = finite(got) and (got == expected and
-                                      gotsign == expectedsign)
-            if not ok:
+            if not get_tester(expected)(got):
                 raise AssertionError("%r: got %s" % (repr, got))
     #
     dict[fnname] = dict.get(fnname, 0) + 1

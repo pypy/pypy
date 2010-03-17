@@ -4,10 +4,10 @@
 import py, sys, math
 from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
 
-consistent = True
+consistent_host = True
 if '__pypy__' not in sys.builtin_module_names:
     if sys.version_info < (2, 6):
-        consistent = False
+        consistent_host = False
 
 def positiveinf(x):
     return isinf(x) and x > 0.0
@@ -100,8 +100,8 @@ class MathTests:
         ('pow', (INFINITY, 0.001), positiveinf),
         ('pow', (INFINITY, -0.001), 0.0),
         ('pow', (-INFINITY, 0.0), 1.0),
-        ('pow', (-INFINITY, 0.001), ValueError),
-        ('pow', (-INFINITY, -0.001), ValueError),
+        ('pow', (-INFINITY, 0.001), positiveinf),
+        ('pow', (-INFINITY, -0.001), 0.0),
         ('pow', (-INFINITY, 3.0), negativeinf),
         ('pow', (-INFINITY, 6.0), positiveinf),
         ('pow', (-INFINITY, -13.0), -0.0),
@@ -111,13 +111,13 @@ class MathTests:
         ('pow', (0.999, INFINITY), 0.0),
         ('pow', (-0.999,INFINITY), 0.0),
         #('pow', (-1.0, INFINITY), 1.0, but strange, could also be -1.0),
-        ('pow', (-1.001,INFINITY), OverflowError),
+        ('pow', (-1.001,INFINITY), positiveinf),
         ('pow', (1.001, -INFINITY), 0.0),
         ('pow', (1.0,   -INFINITY), 1.0),
         #('pow', (0.999, -INFINITY), positiveinf, but get OverflowError),
         #('pow', (INFINITY, INFINITY), positiveinf, but get OverflowError),
         ('pow', (INFINITY, -INFINITY), 0.0),
-        ('pow', (-INFINITY, INFINITY), OverflowError),
+        ('pow', (-INFINITY, INFINITY), positiveinf),
         ]
 
     IRREGERRCASES = [
@@ -167,6 +167,8 @@ class MathTests:
         ('modf', (NAN,), lambda x: (isnan(x[0]) and isnan(x[1]))),
         ]
 
+    # The list of test cases.  Note that various tests import this,
+    # notably in rpython/lltypesystem/module and in translator/c/test.
     TESTCASES = (REGCASES + IRREGCASES + OVFCASES + INFCASES + IRREGERRCASES
                  + NANCASES1 + NANCASES2 + NANCASES3 + NANCASES4 + NANCASES5
                  + NANCASES6)
@@ -174,6 +176,25 @@ class MathTests:
 
 class TestDirect(MathTests):
     pass
+
+def get_tester(expected):
+    if type(expected) is type(Exception):
+        def tester(value):
+            return False
+    elif callable(expected):
+        def tester(value):
+            ok = expected(value)
+            assert isinstance(ok, bool)
+            return ok
+    else:
+        assert finite(expected), "badly written test"
+        def tester(got):
+            gotsign = expectedsign = 1
+            if got < 0.0: gotsign = -gotsign
+            if expected < 0.0: expectedsign = -expectedsign
+            return finite(got) and (got == expected and
+                                    gotsign == expectedsign)
+    return tester
 
 def do_test(fn, fnname, args, expected):
     repr = "%s(%s)" % (fnname, ', '.join(map(str, args)))
@@ -185,22 +206,13 @@ def do_test(fn, fnname, args, expected):
         assert expected == OverflowError, "%s: got an OverflowError" % (
             repr,)
     else:
-        if callable(expected):
-            ok = expected(got)
-        else:
-            assert finite(expected), "badly written test"
-            gotsign = expectedsign = 1
-            if got < 0.0: gotsign = -gotsign
-            if expected < 0.0: expectedsign = -expectedsign
-            ok = finite(got) and (got == expected and
-                                  gotsign == expectedsign)
-        if not ok:
+        if not get_tester(expected)(got):
             raise AssertionError("%r: got %s" % (repr, got))
 
 def make_test_case((fnname, args, expected), dict):
     #
     def test_func(self):
-        if not consistent:
+        if not consistent_host:
             py.test.skip("inconsistent behavior before 2.6")
         fn = getattr(math, fnname)
         do_test(fn, fnname, args, expected)
