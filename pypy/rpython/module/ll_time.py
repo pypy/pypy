@@ -42,7 +42,7 @@ else:
 
 class CConfigForFTime:
     _compilation_info_ = ExternalCompilationInfo(
-        includes=[TIME_H, 'sys/timeb.h'],
+        includes=includes,
         libraries=libraries
     )
     TIMEB = platform.Struct(STRUCT_TIMEB, [('time', rffi.INT),
