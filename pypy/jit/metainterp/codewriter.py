@@ -475,7 +475,6 @@ class BytecodeMaker(object):
         for arg in self.force_block_args_order(block):
             self.register_var(arg, verbose=False)
         self.emit(label(block))
-        #self.make_prologue(block)
 
         operations = block.operations
         if block.exitswitch == c_last_exception:
