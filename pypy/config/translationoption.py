@@ -154,6 +154,12 @@ translation_optiondescription = OptionDescription(
                cmdline="--cflags"),
     StrOption("linkerflags", "Specify flags for the linker (C backend only)",
                cmdline="--ldflags"),
+    BoolOption("force_make", "Force execution of makefile instead of"
+               " calling platform", cmdline="--force-make",
+               default=False, negation=False),
+    IntOption("make_jobs", "Specify -j argument to make for compilation"
+              " (C backend only)",
+              cmdline="--make-jobs", default=1),
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),

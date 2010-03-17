@@ -448,8 +448,13 @@ class CStandaloneBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
-        if self.config.translation.gcrootfinder == "asmgcc":
-            self.translator.platform.execute_makefile(self.targetdir)
+        if (self.config.translation.gcrootfinder == "asmgcc" or
+            self.config.translation.force_make):
+            extra_opts = []
+            if self.config.translation.make_jobs != 1:
+                extra_opts += ['-j', str(self.config.translation.make_jobs)]
+            self.translator.platform.execute_makefile(self.targetdir,
+                                                      extra_opts)
         else:
             compiler = CCompilerDriver(self.translator.platform,
                                        [self.c_source_filename] + self.extrafiles,
