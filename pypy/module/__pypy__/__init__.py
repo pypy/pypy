@@ -10,6 +10,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
+        'identity_dict'             : 'interp_identitydict.W_IdentityDict',
     }
 
     def setup_after_space_initialization(self):

@@ -3,10 +3,10 @@ from pypy.conftest import gettestobjspace
 
 class AppTestIdentityDict:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_collections'])
+        cls.space = gettestobjspace(usemodules=['__pypy__'])
 
     def test_numbers(self):
-        from _collections import identity_dict
+        from __pypy__ import identity_dict
         d = identity_dict()
         d[0] = 1
         d[0.0] = 2
@@ -18,7 +18,7 @@ class AppTestIdentityDict:
         assert not d
 
     def test_get(self):
-        from _collections import identity_dict
+        from __pypy__ import identity_dict
         d = identity_dict()
         d[None] = 1
 
@@ -28,7 +28,7 @@ class AppTestIdentityDict:
         assert d.get(1, 42) == 42
 
     def test_unhashable(self):
-        from _collections import identity_dict
+        from __pypy__ import identity_dict
 
         d = identity_dict()
         d[[]] = 1
@@ -43,7 +43,7 @@ class AppTestIdentityDict:
         raises(KeyError, d.__getitem__, [])
 
     def test_keys(self):
-        from _collections import identity_dict
+        from __pypy__ import identity_dict
         d = identity_dict()
         d[[]] = 1
         d[[]] = 2
@@ -53,7 +53,7 @@ class AppTestIdentityDict:
         assert sorted(d.values()) == [1, 2, 3]
 
     def test_in(self):
-        from _collections import identity_dict
+        from __pypy__ import identity_dict
         d = identity_dict()
         d[None] = 1
 
