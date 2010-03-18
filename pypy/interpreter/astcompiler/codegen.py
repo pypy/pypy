@@ -1273,7 +1273,6 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             self.add_const(doc_str.s)
             start = 1
         else:
-            self.add_const(self.space.w_None)
             start = 0
         if func.args.args:
             self._handle_nested_args(func.args.args)
