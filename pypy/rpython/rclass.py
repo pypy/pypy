@@ -223,11 +223,11 @@ class AbstractInstanceRepr(Repr):
 
     def convert_const_exact(self, value):
         try:
-            return self.iprebuiltinstances[value][1]
+            return self.iprebuiltinstances[value]
         except KeyError:
             self.setup()
             result = self.create_instance()
-            self.iprebuiltinstances[value] = value, result
+            self.iprebuiltinstances[value] = result
             self.initialize_prebuilt_instance(value, self.classdef, result)
             return result
 
