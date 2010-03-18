@@ -16,6 +16,8 @@ from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
 from pypy.translator.c import gc
+from pypy.lib.identity_dict import identity_dict
+
 
 class NoCorrespondingNode(Exception):
     pass
@@ -42,7 +44,7 @@ class LowLevelDatabase(object):
         self.pendingsetupnodes = []
         self.containernodes = {}
         self.containerlist = []
-        self.delayedfunctionnames = {}
+        self.delayedfunctionnames = identity_dict()
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
@@ -191,11 +193,11 @@ class LowLevelDatabase(object):
                         if len(name) == n:
                             raise
                         if isinstance(lltype.typeOf(obj).TO, lltype.FuncType):
-                            if id(obj) in self.delayedfunctionnames:
-                                return self.delayedfunctionnames[id(obj)][0]
+                            if obj in self.delayedfunctionnames:
+                                return self.delayedfunctionnames[obj][0]
                             funcname = name[n:]
                             funcname = self.namespace.uniquename('g_'+funcname)
-                            self.delayedfunctionnames[id(obj)] = funcname, obj
+                            self.delayedfunctionnames[obj] = funcname, obj
                         else:
                             funcname = None      # can't use the name of a
                                                  # delayed non-function ptr
@@ -204,10 +206,10 @@ class LowLevelDatabase(object):
                         # /hack hack hack
                     else:
                         # hack hack hack
-                        if id(obj) in self.delayedfunctionnames:
+                        if obj in self.delayedfunctionnames:
                             # this used to be a delayed function,
                             # make sure we use the same name
-                            forcename = self.delayedfunctionnames[id(obj)][0]
+                            forcename = self.delayedfunctionnames[obj][0]
                             node = self.getcontainernode(container,
                                                          forcename=forcename)
                             assert node.ptrname == forcename

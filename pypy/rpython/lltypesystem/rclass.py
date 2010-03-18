@@ -21,6 +21,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import objectmodel
+from pypy.lib.identity_dict import identity_dict
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -310,7 +311,7 @@ class InstanceRepr(AbstractInstanceRepr):
             ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
             self.object_type = ForwardRef()
             
-        self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
+        self.prebuiltinstances = identity_dict()
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 

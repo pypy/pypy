@@ -13,6 +13,8 @@ from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
+from pypy.lib.identity_dict import identity_dict
+
 
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
@@ -95,11 +97,11 @@ class FunctionCodeGenerator(object):
                 mix.append(cleanupop.result)
              
         uniquemix = []
-        seen = {}
+        seen = identity_dict()
         for v in mix:
-            if id(v) not in seen:
+            if v not in seen:
                 uniquemix.append(v)
-                seen[id(v)] = True
+                seen[v] = True
         self.vars = uniquemix
 
     def name(self, cname):  #virtual
@@ -122,11 +124,11 @@ class FunctionCodeGenerator(object):
         for block in self.graph.iterblocks():
             self.blocknum[block] = len(self.blocknum)
         db = self.db
-        lltypes = {}
+        lltypes = identity_dict()
         for v in self.vars:
             T = getattr(v, 'concretetype', PyObjPtr)
             typename = db.gettype(T)
-            lltypes[id(v)] = T, typename
+            lltypes[v] = T, typename
         self.lltypes = lltypes
         self.innerloops = {}    # maps the loop's header block to a Loop()
         for loop in find_inner_loops(self.graph, Bool):
@@ -161,11 +163,11 @@ class FunctionCodeGenerator(object):
             yield llvalue
 
     def lltypemap(self, v):
-        T, typename = self.lltypes[id(v)]
+        T, typename = self.lltypes[v]
         return T
 
     def lltypename(self, v):
-        T, typename = self.lltypes[id(v)]
+        T, typename = self.lltypes[v]
         return typename
 
     def expr(self, v, special_case_void=True):
@@ -298,7 +300,7 @@ class FunctionCodeGenerator(object):
         is_alive = {}
         assignments = []
         for a1, a2 in zip(link.args, link.target.inputargs):
-            a2type, a2typename = self.lltypes[id(a2)]
+            a2type, a2typename = self.lltypes[a2]
             if a2type is Void:
                 continue
             src = self.expr(a1)

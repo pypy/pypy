@@ -127,26 +127,26 @@ class SomeObject(object):
             except AttributeError:
                 pass
             else:
-                bookkeeper._someobject_coming_from[id(self)] = position_key, None
+                bookkeeper._someobject_coming_from[self] = position_key, None
         return self
 
     def origin(self):
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         if bookkeeper is None:
             return None
-        return bookkeeper._someobject_coming_from.get(id(self), (None, None))[0]
+        return bookkeeper._someobject_coming_from.get(self, (None, None))[0]
     origin = property(origin)
 
     def caused_by_merge(self):
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         if bookkeeper is None:
             return None
-        return bookkeeper._someobject_coming_from.get(id(self), (None, None))[1]
+        return bookkeeper._someobject_coming_from.get(self, (None, None))[1]
     def set_caused_by_merge(self, nvalue):
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         if bookkeeper is None:
             return
-        bookkeeper._someobject_coming_from[id(self)] = self.origin, nvalue
+        bookkeeper._someobject_coming_from[self] = self.origin, nvalue
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
 

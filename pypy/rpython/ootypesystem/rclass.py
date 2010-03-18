@@ -10,6 +10,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.exceptiondata import standardexceptions
 from pypy.tool.pairtype import pairtype
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.lib.identity_dict import identity_dict
 
 OBJECT = ootype.ROOT
 META = ootype.Instance("Meta", ootype.ROOT,
@@ -184,7 +185,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
             self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
-        self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
+        self.prebuiltinstances = identity_dict()
         self.object_type = self.lowleveltype
         self.gcflavor = gcflavor
 

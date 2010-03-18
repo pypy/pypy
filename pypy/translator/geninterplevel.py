@@ -62,7 +62,7 @@ from pypy.tool.sourcetools import render_docstr, NiceCompile
 
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
      uniquemodulename, C_IDENTIFIER, NameManager
-
+from pypy.lib.identity_dict import identity_dict
 
 import pypy # __path__
 import py.path
@@ -194,10 +194,11 @@ class GenRpy:
             def __repr__(self):
                 return '<%s>' % self.__name__
             
-        self.builtin_ids = dict( [
-            (id(value), bltinstub(key))
+        self.builtin_ids = identity_dict()
+        self.builtin_ids.update(dict( [
+            (value, bltinstub(key))
             for key, value in __builtin__.__dict__.items()
-            if callable(value) and type(value) not in [types.ClassType, type] ] )
+            if callable(value) and type(value) not in [types.ClassType, type] ] ))
         
         self.space = FlowObjSpace() # for introspection
 
@@ -391,8 +392,8 @@ class GenRpy:
                 name = self.nameof_instance(obj)
             else:
                 # shortcutting references to __builtin__
-                if id(obj) in self.builtin_ids:
-                    func = self.builtin_ids[id(obj)]
+                if obj in self.builtin_ids:
+                    func = self.builtin_ids[obj]
                     #name = self.get_nameof_builtin_func(func)
                     # the above is quicker in principle, but pulls more
                     # stuff in, so it is slower right now.
@@ -705,8 +706,8 @@ else:
         return self._space_arities
         
     def try_space_shortcut_for_builtin(self, v, nargs, args):
-        if isinstance(v, Constant) and id(v.value) in self.builtin_ids:
-            name = self.builtin_ids[id(v.value)].__name__
+        if isinstance(v, Constant) and v.value in self.builtin_ids:
+            name = self.builtin_ids[v.value].__name__
             if hasattr(self.space, name):
                 if self.space_arities().get(name, -1) == nargs:
                     if name != 'isinstance':
@@ -726,8 +727,8 @@ else:
 
     def nameof_builtin_function(self, func):
         # builtin function
-        if id(func) in self.builtin_ids:
-            func = self.builtin_ids[id(func)]
+        if func in self.builtin_ids:
+            func = self.builtin_ids[func]
             return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
         # where does it come from? Python2.2 doesn't have func.__module__
         for modname, module in sys.modules.items():

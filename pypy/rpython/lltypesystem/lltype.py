@@ -1938,7 +1938,7 @@ def dissect_ll_instance(v, t=None, memo=None):
         memo = {}
     if id(v) in memo:
         return
-    memo[id(v)] = True
+    memo[id(v)] = True # could use an identity dict if there wasnt the parameter
     if t is None:
         t = typeOf(v)
     yield t, v

@@ -7,6 +7,7 @@ import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.descriptor import roproperty
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
+from pypy.lib.identity_dict import identity_dict
 
 """
     memory size before and after introduction of __slots__
@@ -379,15 +380,16 @@ def uniqueitems(lst):
 def traverse(visit, functiongraph):
     block = functiongraph.startblock
     visit(block)
-    seen = {id(block): True}
+    seen = identity_dict()
+    seen[block] = True
     stack = list(block.exits[::-1])
     while stack:
         link = stack.pop()
         visit(link)
         block = link.target
-        if id(block) not in seen:
+        if block not in seen:
             visit(block)
-            seen[id(block)] = True
+            seen[block] = True
             stack += block.exits[::-1]
 
 

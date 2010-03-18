@@ -18,6 +18,9 @@ else:
     MAGIC = 20030419
 
 import array, operator
+
+from identity_dict import identity_dict
+
 from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
 from sre_constants import SRE_INFO_PREFIX, SRE_INFO_LITERAL
 from sre_constants import SRE_FLAG_UNICODE, SRE_FLAG_LOCALE
@@ -573,7 +576,7 @@ class _Dispatcher(object):
 class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
-        self.executing_contexts = {}
+        self.executing_contexts = identity_dict()
         self.at_dispatcher = _AtcodeDispatcher()
         self.ch_dispatcher = _ChcodeDispatcher()
         self.set_dispatcher = _CharsetDispatcher()
@@ -593,9 +596,9 @@ class _OpcodeDispatcher(_Dispatcher):
     def dispatch(self, opcode, context):
         """Dispatches a context on a given opcode. Returns True if the context
         is done matching, False if it must be resumed when next encountered."""
-        if self.executing_contexts.has_key(id(context)):
-            generator = self.executing_contexts[id(context)]
-            del self.executing_contexts[id(context)]
+        if self.executing_contexts.has_key(context):
+            generator = self.executing_contexts[context]
+            del self.executing_contexts[context]
             has_finished = generator.next()
         else:
             method = self.DISPATCH_TABLE.get(opcode, _OpcodeDispatcher.unknown)
@@ -604,7 +607,7 @@ class _OpcodeDispatcher(_Dispatcher):
                 generator = has_finished
                 has_finished = generator.next()
         if not has_finished:
-            self.executing_contexts[id(context)] = generator
+            self.executing_contexts[context] = generator
         return has_finished
 
     def op_success(self, ctx):

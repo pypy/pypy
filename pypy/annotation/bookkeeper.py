@@ -22,6 +22,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
+from pypy.lib.identity_dict import identity_dict
 
 class Stats:
 
@@ -174,7 +175,7 @@ class Bookkeeper:
         self.stats = Stats(self)
 
         # used in SomeObject.__new__ for keeping debugging info
-        self._someobject_coming_from = {}
+        self._someobject_coming_from = identity_dict()
 
         delayed_imports()
 

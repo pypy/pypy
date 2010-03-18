@@ -7,6 +7,8 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.metavm import InstructionList, StoreResult
+from pypy.lib.identity_dict import identity_dict
+
 
 def render_sub_op(sub_op, db, generator):
     op = sub_op.op
@@ -424,12 +426,12 @@ class Function(object):
             args[name] = True
         
         locals = []
-        seen = {}
+        seen = identity_dict()
         for v in mix:
             is_var = isinstance(v, flowmodel.Variable)
-            if id(v) not in seen and is_var and v.name not in args and v.concretetype is not ootype.Void:
+            if v not in seen and is_var and v.name not in args and v.concretetype is not ootype.Void:
                 locals.append(self.cts.llvar_to_cts(v))
-                seen[id(v)] = True
+                seen[v] = True
 
         self.locals = locals
 

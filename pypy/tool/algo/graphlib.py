@@ -6,6 +6,8 @@ Convention:
   'edges' is a dict mapping vertices to a list of edges with its source.
   Note that we can usually use 'edges' as the set of 'vertices' too.
 """
+from pypy.lib.identity_dict import identity_dict
+
 
 class Edge:
     def __init__(self, source, target):
@@ -199,12 +201,12 @@ def break_cycles(vertices, edges):
                 roots_finished.add(root)
                 continue
             #print 'from root %r: %d cycles' % (root, len(cycles))
-            allcycles = {}
+            allcycles = identity_dict()
             edge2cycles = {}
             for cycle in cycles:
-                allcycles[id(cycle)] = cycle
+                allcycles[cycle] = cycle
                 for edge in cycle:
-                    edge2cycles.setdefault(edge, []).append(id(cycle))
+                    edge2cycles.setdefault(edge, []).append(cycle)
             edge_weights = {}
             for edge, cycle in edge2cycles.iteritems():
                 edge_weights[edge] = len(cycle)
@@ -221,8 +223,8 @@ def break_cycles(vertices, edges):
                 yield max_edge
                 progress = True
                 # unregister all cycles that have just been broken
-                for broken_cycle_id in edge2cycles[max_edge]:
-                    broken_cycle = allcycles.pop(broken_cycle_id, ())
+                for broken_cycle in edge2cycles[max_edge]:
+                    broken_cycle = allcycles.pop(broken_cycle, ())
                     for edge in broken_cycle:
                         edge_weights[edge] -= 1
 

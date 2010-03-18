@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gcheader import header2obj
 from pypy.translator.tool.reftracker import BaseRefTrackerPage, MARKER
 from pypy.tool.uid import uid
+from pypy.lib.identity_dict import identity_dict
 
 
 class LLRefTrackerPage(BaseRefTrackerPage):
@@ -121,7 +122,7 @@ def track(*ll_objects):
     """Invoke a dot+pygame object reference tracker."""
     lst = [MARKER]
     size_gc_header = None
-    seen = {}
+    seen = identity_dict()
     for ll_object in ll_objects:
         if isinstance(ll_object, llmemory.GCHeaderOffset):
             size_gc_header = ll_object
@@ -132,9 +133,9 @@ def track(*ll_objects):
         #        ll_object = ptr._obj
         #    else:
         #        ll_object = None
-        if ll_object is not None and id(ll_object) not in seen:
+        if ll_object is not None and ll_object not in seen:
             lst.append(ll_object)
-            seen[id(ll_object)] = ll_object
+            seen[ll_object] = ll_object
     page = LLRefTrackerPage(lst, size_gc_header)
     # auto-expand one level, for now
     auto_expand = 1
@@ -142,9 +143,9 @@ def track(*ll_objects):
         page = page.content()
         for ll_object in lst[1:]:
             for name, value in page.enum_content(ll_object):
-                if not isinstance(value, str) and id(value) not in seen:
+                if not isinstance(value, str) and value not in seen:
                     lst.append(value)
-                    seen[id(value)] = value
+                    seen[value] = value
         page = page.newpage(lst)
     page.display()
 
