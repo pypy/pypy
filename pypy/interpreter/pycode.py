@@ -225,12 +225,6 @@ class PyCode(eval.Code):
                 return w_first
         return space.w_None
 
-    def getjoinpoints(self):
-        """Compute the bytecode positions that are potential join points
-        (for FlowObjSpace)"""
-        # first approximation
-        return dis.findlabels(self.co_code)
-
     def _to_code(self):
         """For debugging only."""
         consts = [None] * len(self.co_consts_w)

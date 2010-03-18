@@ -209,8 +209,6 @@ class FlowExecutionContext(ExecutionContext):
             arg_list[position] = Constant(value)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
-        #for joinpoint in code.getjoinpoints():
-        #    self.joinpoints[joinpoint] = []  # list of blocks
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = collections.deque([initialblock])
         self.graph = FunctionGraph(name or code.co_name, initialblock)
