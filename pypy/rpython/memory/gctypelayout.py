@@ -183,7 +183,7 @@ class TypeLayoutBuilder(object):
         self.lltype2vtable = lltype2vtable
         self.make_type_info_group()
         self.id_of_type = {}      # {LLTYPE: type_id}
-        self.seen_roots = identity_dict()
+        self.iseen_roots = identity_dict()
         # the following are lists of addresses of gc pointers living inside the
         # prebuilt structures.  It should list all the locations that could
         # possibly point to a GC heap object.
@@ -310,9 +310,9 @@ class TypeLayoutBuilder(object):
     def consider_constant(self, TYPE, value, gc):
         if value is not lltype.top_container(value):
             return
-        if value in self.seen_roots:
+        if value in self.iseen_roots:
             return
-        self.seen_roots[value] = True
+        self.iseen_roots[value] = True
 
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
             typeid = self.get_type_id(TYPE)

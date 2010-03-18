@@ -44,7 +44,7 @@ class LowLevelDatabase(object):
         self.pendingsetupnodes = []
         self.containernodes = {}
         self.containerlist = []
-        self.delayedfunctionnames = identity_dict()
+        self.idelayedfunctionnames = identity_dict()
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
@@ -193,11 +193,11 @@ class LowLevelDatabase(object):
                         if len(name) == n:
                             raise
                         if isinstance(lltype.typeOf(obj).TO, lltype.FuncType):
-                            if obj in self.delayedfunctionnames:
-                                return self.delayedfunctionnames[obj][0]
+                            if obj in self.idelayedfunctionnames:
+                                return self.idelayedfunctionnames[obj][0]
                             funcname = name[n:]
                             funcname = self.namespace.uniquename('g_'+funcname)
-                            self.delayedfunctionnames[obj] = funcname, obj
+                            self.idelayedfunctionnames[obj] = funcname, obj
                         else:
                             funcname = None      # can't use the name of a
                                                  # delayed non-function ptr
@@ -206,10 +206,10 @@ class LowLevelDatabase(object):
                         # /hack hack hack
                     else:
                         # hack hack hack
-                        if obj in self.delayedfunctionnames:
+                        if obj in self.idelayedfunctionnames:
                             # this used to be a delayed function,
                             # make sure we use the same name
-                            forcename = self.delayedfunctionnames[obj][0]
+                            forcename = self.idelayedfunctionnames[obj][0]
                             node = self.getcontainernode(container,
                                                          forcename=forcename)
                             assert node.ptrname == forcename

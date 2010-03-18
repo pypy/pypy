@@ -194,8 +194,8 @@ class GenRpy:
             def __repr__(self):
                 return '<%s>' % self.__name__
             
-        self.builtin_ids = identity_dict()
-        self.builtin_ids.update([
+        self.ibuiltin_ids = identity_dict()
+        self.ibuiltin_ids.update([
             (value, bltinstub(key))
             for key, value in __builtin__.__dict__.items()
             if callable(value) and type(value) not in [types.ClassType, type] ] )
@@ -392,8 +392,8 @@ class GenRpy:
                 name = self.nameof_instance(obj)
             else:
                 # shortcutting references to __builtin__
-                if obj in self.builtin_ids:
-                    func = self.builtin_ids[obj]
+                if obj in self.ibuiltin_ids:
+                    func = self.ibuiltin_ids[obj]
                     #name = self.get_nameof_builtin_func(func)
                     # the above is quicker in principle, but pulls more
                     # stuff in, so it is slower right now.
@@ -706,8 +706,8 @@ else:
         return self._space_arities
         
     def try_space_shortcut_for_builtin(self, v, nargs, args):
-        if isinstance(v, Constant) and v.value in self.builtin_ids:
-            name = self.builtin_ids[v.value].__name__
+        if isinstance(v, Constant) and v.value in self.ibuiltin_ids:
+            name = self.ibuiltin_ids[v.value].__name__
             if hasattr(self.space, name):
                 if self.space_arities().get(name, -1) == nargs:
                     if name != 'isinstance':
@@ -727,8 +727,8 @@ else:
 
     def nameof_builtin_function(self, func):
         # builtin function
-        if func in self.builtin_ids:
-            func = self.builtin_ids[func]
+        if func in self.ibuiltin_ids:
+            func = self.ibuiltin_ids[func]
             return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
         # where does it come from? Python2.2 doesn't have func.__module__
         for modname, module in sys.modules.items():

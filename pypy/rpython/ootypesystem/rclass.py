@@ -185,7 +185,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
             self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
-        self.prebuiltinstances = identity_dict()
+        self.iprebuiltinstances = identity_dict()
         self.object_type = self.lowleveltype
         self.gcflavor = gcflavor
 

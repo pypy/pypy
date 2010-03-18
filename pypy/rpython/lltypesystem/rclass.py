@@ -311,7 +311,7 @@ class InstanceRepr(AbstractInstanceRepr):
             ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
             self.object_type = ForwardRef()
             
-        self.prebuiltinstances = identity_dict()
+        self.iprebuiltinstances = identity_dict()
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 

@@ -175,7 +175,7 @@ class Bookkeeper:
         self.stats = Stats(self)
 
         # used in SomeObject.__new__ for keeping debugging info
-        self._someobject_coming_from = identity_dict()
+        self._isomeobject_coming_from = identity_dict()
 
         delayed_imports()
 

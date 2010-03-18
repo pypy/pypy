@@ -65,7 +65,7 @@ class FunctionCodeGenerator(object):
                 continue
             db.gettype(T)  # force the type to be considered by the database
        
-        self.lltypes = None
+        self.illtypes = None
 
     def collect_var_and_types(self):
         #
@@ -129,7 +129,7 @@ class FunctionCodeGenerator(object):
             T = getattr(v, 'concretetype', PyObjPtr)
             typename = db.gettype(T)
             lltypes[v] = T, typename
-        self.lltypes = lltypes
+        self.illtypes = lltypes
         self.innerloops = {}    # maps the loop's header block to a Loop()
         for loop in find_inner_loops(self.graph, Bool):
             self.innerloops[loop.headblock] = loop
@@ -139,7 +139,7 @@ class FunctionCodeGenerator(object):
 
     def implementation_end(self):
         self.all_cached_consts = list(self.allconstantvalues())
-        self.lltypes = None
+        self.illtypes = None
         self.vars = None
         self.blocknum = None
         self.innerloops = None
@@ -163,11 +163,11 @@ class FunctionCodeGenerator(object):
             yield llvalue
 
     def lltypemap(self, v):
-        T, typename = self.lltypes[v]
+        T, typename = self.illtypes[v]
         return T
 
     def lltypename(self, v):
-        T, typename = self.lltypes[v]
+        T, typename = self.illtypes[v]
         return typename
 
     def expr(self, v, special_case_void=True):
@@ -300,7 +300,7 @@ class FunctionCodeGenerator(object):
         is_alive = {}
         assignments = []
         for a1, a2 in zip(link.args, link.target.inputargs):
-            a2type, a2typename = self.lltypes[a2]
+            a2type, a2typename = self.illtypes[a2]
             if a2type is Void:
                 continue
             src = self.expr(a1)
