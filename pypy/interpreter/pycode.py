@@ -220,9 +220,10 @@ class PyCode(eval.Code):
 
     def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
-            return self.co_consts_w[0]
-        else:
-            return space.w_None
+            w_first = self.co_consts_w[0]
+            if space.is_true(space.isinstance(w_first, space.w_basestring)):
+                return w_first
+        return space.w_None
 
     def getjoinpoints(self):
         """Compute the bytecode positions that are potential join points

@@ -1289,6 +1289,8 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         if lam.args.args:
             self._handle_nested_args(lam.args.args)
             self.argcount = len(lam.args.args)
+        # Prevent a string from being the first constant and thus a docstring.
+        self.add_const(self.space.w_None)
         lam.body.walkabout(self)
         self.emit_op(ops.RETURN_VALUE)
 

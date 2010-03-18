@@ -317,6 +317,9 @@ class TestCompiler:
         for source, expected in [
             ('''def foo(): return 1''',      None),
             ('''class foo: pass''',          None),
+            ('''foo = lambda: 4''',          None),
+            ('''foo = lambda: "foo"''',      None),
+            ('''def foo(): 4''',             None),
             ('''class foo: "foo"''',         "foo"),
             ('''def foo():
                     """foo docstring"""
