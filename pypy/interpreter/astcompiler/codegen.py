@@ -196,8 +196,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             op = name_ops_default(ctx)
         self.emit_op_arg(op, self.add_name(container, identifier))
 
-    def is_docstring(self, node):
-        return isinstance(node, ast.Expr) and isinstance(node.value, ast.Str)
+    def possible_docstring(self, node):
+        if isinstance(node, ast.Expr):
+            expr_value = node.value
+            if isinstance(expr_value, ast.Str):
+                return expr_value
+        return None
 
     def _get_code_flags(self):
         # Default for everything but module scopes.
@@ -207,11 +211,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         """Compile a list of statements, handling doc strings if needed."""
         if body:
             start = 0
-            if self.is_docstring(body[0]):
-                doc_expr = body[0]
-                assert isinstance(doc_expr, ast.Expr)
+            doc_expr = self.possible_docstring(body[0])
+            if doc_expr is not None:
                 start = 1
-                doc_expr.value.walkabout(self)
+                doc_expr.walkabout(self)
                 self.name_op("__doc__", ast.Store)
             for i in range(start, len(body)):
                 body[i].walkabout(self)
@@ -1265,12 +1268,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
         # If there's a docstring, store it as the first constant.
-        if self.is_docstring(func.body[0]):
-            doc_expr = func.body[0]
-            assert isinstance(doc_expr, ast.Expr)
-            doc_str = doc_expr.value
-            assert isinstance(doc_str, ast.Str)
-            self.add_const(doc_str.s)
+        doc_expr = self.possible_docstring(func.body[0])
+        if doc_expr is not None:
+            self.add_const(doc_expr.s)
             start = 1
         else:
             start = 0
