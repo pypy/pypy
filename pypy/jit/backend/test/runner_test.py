@@ -1012,6 +1012,7 @@ class BaseBackendTest(Runner):
             py.test.skip("requires floats")
 
         from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
+        from pypy.jit.metainterp.resoperation import opname
 
         fzer = BoxFloat(0.0)
         fone = BoxFloat(1.0)
@@ -1043,7 +1044,6 @@ class BaseBackendTest(Runner):
                 else:
                     ok = (got.value == expected)
                 if not ok:
-                    from pypy.jit.metainterp.resoperation import opname
                     raise AssertionError("%s(%s): got %r, expected %r" % (
                         opname[opnum], ', '.join(map(repr, realvalues)),
                         got.value, expected))
@@ -1066,7 +1066,16 @@ class BaseBackendTest(Runner):
                         for i, box in enumerate(testcase):
                             self.cpu.set_future_value_float(i, box.value)
                         fail = self.cpu.execute_token(looptoken)
-                        assert fail.identifier == 5 - (expected_id ^ expected)
+                        if fail.identifier != 5 - (expected_id^expected):
+                            if fail.identifier == 4:
+                                msg = "it was taken"
+                            else:
+                                msg = "it was not taken"
+                            raise AssertionError(
+                                "%s(%s)/%s took the wrong path: %s" % (
+                                    opname[opnum],
+                                    ', '.join(map(repr, realvalues)),
+                                    opname[guard_opnum], msg))
 
         yield nan_and_infinity, rop.FLOAT_ADD, operator.add, all_cases_binary
         yield nan_and_infinity, rop.FLOAT_SUB, operator.sub, all_cases_binary
