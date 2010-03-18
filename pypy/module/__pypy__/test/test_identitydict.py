@@ -14,6 +14,7 @@ class AppTestIdentityDict:
 
         assert d
         assert len(d) == 3
+        del d[0]
         d.clear()
         assert not d
 

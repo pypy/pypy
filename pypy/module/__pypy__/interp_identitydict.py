@@ -34,6 +34,13 @@ class W_IdentityDict(Wrappable):
         except KeyError:
             raise OperationError(space.w_KeyError, w_key)
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def descr_delitem(self, space, w_key):
+        try:
+            del self.dict[w_key]
+        except KeyError:
+            raise OperationError(space.w_KeyError, w_key)
+
     @unwrap_spec('self', ObjSpace, W_Root, W_Root)
     def get(self, space, w_key, w_default=None):
         return self.dict.get(w_key, w_default)
@@ -61,6 +68,7 @@ All objects can be used as keys, even non-hashable ones.
     __contains__ = interp2app(W_IdentityDict.descr_contains),
     __setitem__ = interp2app(W_IdentityDict.descr_setitem),
     __getitem__ = interp2app(W_IdentityDict.descr_getitem),
+    __delitem__ = interp2app(W_IdentityDict.descr_delitem),
     get = interp2app(W_IdentityDict.get),
     keys = interp2app(W_IdentityDict.keys),
     values = interp2app(W_IdentityDict.values),
