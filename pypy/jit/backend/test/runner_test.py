@@ -1047,6 +1047,26 @@ class BaseBackendTest(Runner):
                     raise AssertionError("%s(%s): got %r, expected %r" % (
                         opname[opnum], ', '.join(map(repr, realvalues)),
                         got.value, expected))
+                # if we expect a boolean, also check the combination with
+                # a GUARD_TRUE or GUARD_FALSE
+                if isinstance(expected, bool):
+                    for guard_opnum, expected_id in [(rop.GUARD_TRUE, 1),
+                                                     (rop.GUARD_FALSE, 0)]:
+                        box = BoxInt()
+                        operations = [
+                            ResOperation(opnum, list(testcase), box),
+                            ResOperation(guard_opnum, [box], None,
+                                         descr=BasicFailDescr(4)),
+                            ResOperation(rop.FINISH, [], None,
+                                         descr=BasicFailDescr(5))]
+                        operations[1].fail_args = []
+                        looptoken = LoopToken()
+                        self.cpu.compile_loop(list(testcase), operations,
+                                              looptoken)
+                        for i, box in enumerate(testcase):
+                            self.cpu.set_future_value_float(i, box.value)
+                        fail = self.cpu.execute_token(looptoken)
+                        assert fail.identifier == 5 - (expected_id ^ expected)
 
         yield nan_and_infinity, rop.FLOAT_ADD, operator.add, all_cases_binary
         yield nan_and_infinity, rop.FLOAT_SUB, operator.sub, all_cases_binary
