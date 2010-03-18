@@ -32,7 +32,7 @@ class FunctionCodeGenerator(object):
                        exception_policy
                        more_ll_values
                        vars all_cached_consts 
-                       lltypes
+                       illtypes
                        functionname
                        blocknum
                        innerloops
