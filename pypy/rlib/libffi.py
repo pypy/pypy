@@ -15,10 +15,6 @@ import os
 import sys
 import ctypes.util
 
-DEBUG = False # writes dlerror() messages to stderr
-# XXX this need solving rather than hacking. We need to raise something else
-#     than OSError, something capable of delivering a message
-
 from pypy.translator.platform import platform
 
 # maaaybe isinstance here would be better. Think
@@ -218,6 +214,13 @@ def external(name, args, result, **kwds):
 def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
+class DLOpenError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return repr(self.msg)
+
+
 if not _WIN32:
     c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP)
     c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
@@ -248,12 +251,7 @@ if not _WIN32:
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
             err = dlerror()
-            # because the message would be lost in a translated program (OSError only has an errno),
-            # we offer a way to write it to stderr
-            if DEBUG:
-                import os
-                os.write(2, err)
-            raise OSError(-1, err)
+            raise DLOpenError(err)
         return res
 
     dlclose = c_dlclose
@@ -284,8 +282,8 @@ if _WIN32:
     def dlopen(name):
         res = rwin32.LoadLibrary(name)
         if not res:
-            # XXX format error message
-            raise WindowsError(2, rwin32.GetLastError())
+            err = rwin32.GetLastError()
+            raise DLOpenError(rwin32.FormatError(err))
         return res
 
     def dlclose(handle):
@@ -626,6 +624,7 @@ class FuncPtr(AbstractFuncPtr):
 
 class CDLL:
     def __init__(self, libname, unload_on_finalization=True):
+        """Load the library, or raises DLOpenError."""
         self.unload_on_finalization = unload_on_finalization
         self.lib = lltype.nullptr(rffi.CCHARP.TO)
         ll_libname = rffi.str2charp(libname)

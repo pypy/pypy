@@ -24,7 +24,7 @@ class TestDLOperations:
         ALLOCATED.clear()
 
     def test_dlopen(self):
-        py.test.raises(OSError, "dlopen(rffi.str2charp('xxxxxxxxxxxx'))")
+        py.test.raises(DLOpenError, "dlopen(rffi.str2charp('xxxxxxxxxxxx'))")
         assert dlopen(rffi.str2charp(get_libc_name()))
         
     def get_libc(self):

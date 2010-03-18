@@ -144,7 +144,11 @@ def unpack_argshapes(space, w_argtypes):
 
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
-        self.cdll = CDLL(name)
+        try:
+            self.cdll = CDLL(name)
+        except DLOpenError, e:
+            raise operationerrfmt(space.w_OSError, '%s: %s', name,
+                                  e.msg or 'unspecified error')
         self.name = name
         self.w_cache = space.newdict()
         self.space = space

@@ -188,6 +188,16 @@ class AppTestFfi:
         import _rawffi
         _rawffi.CDLL(self.libc_name)
 
+    def test_libload_fail(self):
+        import _rawffi
+        try:
+            _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
+        except OSError, e:
+            print e
+            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+        else:
+            raise AssertionError("did not fail??")
+
     def test_libc_load(self):
         import _rawffi
         _rawffi.get_libc()
