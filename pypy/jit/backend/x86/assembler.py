@@ -682,8 +682,12 @@ class Assembler386(object):
         loc0, loc1 = arglocs
         self.mc.XORPD(loc0, loc0)
         self.mc.UCOMISD(loc0, loc1)
-        self.mc.SETNE(lower_byte(resloc))
-        self.mc.MOVZX(resloc, lower_byte(resloc))
+        rl = resloc.lowest8bits()
+        rh = resloc.higher8bits()
+        self.mc.SETNE(rl)
+        self.mc.SETP(rh)
+        self.mc.OR(rl, rh)
+        self.mc.MOVZX(resloc, rl)
 
     def genop_cast_float_to_int(self, op, arglocs, resloc):
         self.mc.CVTTSD2SI(resloc, arglocs[0])
