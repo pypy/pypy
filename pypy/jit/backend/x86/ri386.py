@@ -16,8 +16,11 @@ class REG(OPERAND):
     def lowest8bits(self):
         if self.op < 4:
             return registers8[self.op]
-        else:
-            raise ValueError
+        raise ValueError
+    def higher8bits(self):
+        if self.op < 4:
+            return registers8[self.op + 4]
+        raise ValueError
 
 class FLOATREG(OPERAND):
     width = 8
