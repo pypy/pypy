@@ -1068,11 +1068,12 @@ class BaseBackendTest(Runner):
                         fail = self.cpu.execute_token(looptoken)
                         if fail.identifier != 5 - (expected_id^expected):
                             if fail.identifier == 4:
-                                msg = "it was taken"
+                                msg = "was taken"
                             else:
-                                msg = "it was not taken"
+                                msg = "was not taken"
                             raise AssertionError(
-                                "%s(%s)/%s took the wrong path: %s" % (
+                                "%s(%s)/%s took the wrong path: "
+                                "the failure path of the guard %s" % (
                                     opname[opnum],
                                     ', '.join(map(repr, realvalues)),
                                     opname[guard_opnum], msg))
