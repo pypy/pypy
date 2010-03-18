@@ -7,6 +7,8 @@ from UserDict import DictMixin
 
 
 class IdentityDictPurePython(object, DictMixin):
+    __slots__ = "_dict _keys".split()
+
     def __init__(self):
         self._dict = {}
         self._keys = {} # id(obj) -> obj
@@ -30,6 +32,8 @@ class IdentityDictPurePython(object, DictMixin):
 
 
 class IdentityDictPyPy(object, DictMixin):
+    __slots__ = ["_dict"]
+
     def __init__(self):
         self._dict = idict()
 
