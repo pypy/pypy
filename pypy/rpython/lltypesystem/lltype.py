@@ -5,6 +5,7 @@ from pypy.rlib.rarithmetic import normalizedinttype
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
+from pypy.lib.identity_dict import identity_dict
 from types import NoneType
 from sys import maxint
 import struct
@@ -1935,10 +1936,10 @@ class staticAdtMethod(object):
 
 def dissect_ll_instance(v, t=None, memo=None):
     if memo is None:
-        memo = {}
-    if id(v) in memo:
+        memo = identity_dict()
+    if v in memo:
         return
-    memo[id(v)] = True # could use an identity dict if there wasnt the parameter
+    memo[v] = True
     if t is None:
         t = typeOf(v)
     yield t, v

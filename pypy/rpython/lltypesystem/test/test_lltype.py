@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.lib.identity_dict import identity_dict
 
 def isweak(p, T):
     try:
@@ -620,7 +621,7 @@ def test_dissect_ll_instance():
     b_expected = [(Ptr(B), b), (B, b._obj)]
     assert list(dissect_ll_instance(b)) == b_expected + r_expected
 
-    memo = {}
+    memo = identity_dict()
     assert list(dissect_ll_instance(r, None, memo)) == r_expected
     assert list(dissect_ll_instance(b, None, memo)) == b_expected
 

@@ -195,10 +195,10 @@ class GenRpy:
                 return '<%s>' % self.__name__
             
         self.builtin_ids = identity_dict()
-        self.builtin_ids.update(dict( [
+        self.builtin_ids.update([
             (value, bltinstub(key))
             for key, value in __builtin__.__dict__.items()
-            if callable(value) and type(value) not in [types.ClassType, type] ] ))
+            if callable(value) and type(value) not in [types.ClassType, type] ] )
         
         self.space = FlowObjSpace() # for introspection
 
