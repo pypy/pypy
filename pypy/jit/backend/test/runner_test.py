@@ -1,5 +1,5 @@
 
-import py, sys, random, os, struct
+import py, sys, random, os, struct, operator
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
@@ -1006,6 +1006,62 @@ class BaseBackendTest(Runner):
         #
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 1
+
+    def test_nan_and_infinity(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+
+        from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
+
+        fzer = BoxFloat(0.0)
+        fone = BoxFloat(1.0)
+        fmqr = BoxFloat(-0.25)
+        finf = BoxFloat(INFINITY)
+        fmnf = BoxFloat(-INFINITY)
+        fnan = BoxFloat(NAN)
+
+        all_cases_unary =  [(a,)   for a in [fzer,fone,fmqr,finf,fmnf,fnan]]
+        all_cases_binary = [(a, b) for a in [fzer,fone,fmqr,finf,fmnf,fnan]
+                                   for b in [fzer,fone,fmqr,finf,fmnf,fnan]]
+        no_zero_divison  = [(a, b) for a in [fzer,fone,fmqr,finf,fmnf,fnan]
+                                   for b in [     fone,fmqr,finf,fmnf,fnan]]
+
+        def nan_and_infinity(opnum, realoperation, testcases):
+            for testcase in testcases:
+                realvalues = [b.value for b in testcase]
+                expected = realoperation(*realvalues)
+                if isinstance(expected, float):
+                    expectedtype = 'float'
+                else:
+                    expectedtype = 'int'
+                got = self.execute_operation(opnum, list(testcase),
+                                             expectedtype)
+                if isnan(expected):
+                    ok = isnan(got.value)
+                elif isinf(expected):
+                    ok = isinf(got.value)
+                else:
+                    ok = (got.value == expected)
+                if not ok:
+                    from pypy.jit.metainterp.resoperation import opname
+                    raise AssertionError("%s(%s): got %r, expected %r" % (
+                        opname[opnum], ', '.join(map(repr, realvalues)),
+                        got.value, expected))
+
+        yield nan_and_infinity, rop.FLOAT_ADD, operator.add, all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_SUB, operator.sub, all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_MUL, operator.mul, all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_TRUEDIV, \
+                                           operator.truediv, no_zero_divison
+        yield nan_and_infinity, rop.FLOAT_NEG, operator.neg, all_cases_unary
+        yield nan_and_infinity, rop.FLOAT_ABS, abs,          all_cases_unary
+        yield nan_and_infinity, rop.FLOAT_IS_TRUE, bool,     all_cases_unary
+        yield nan_and_infinity, rop.FLOAT_LT,  operator.lt,  all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_LE,  operator.le,  all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_EQ,  operator.eq,  all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_NE,  operator.ne,  all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_GT,  operator.gt,  all_cases_binary
+        yield nan_and_infinity, rop.FLOAT_GE,  operator.ge,  all_cases_binary
 
 
 class LLtypeBackendTest(BaseBackendTest):
