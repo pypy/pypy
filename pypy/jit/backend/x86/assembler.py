@@ -568,7 +568,7 @@ class Assembler386(object):
                     return self.implement_guard(addr, getattr(self.mc, name)), 0
         return genop_cmp_guard
 
-    def _cmpop_guard_float(cond, false_cond):
+    def _cmpop_guard_float(cond, false_cond, need_jp):
         def genop_cmp_guard_float(self, op, guard_op, addr, arglocs,
                                   result_loc):
             guard_opnum = guard_op.opnum
@@ -576,13 +576,17 @@ class Assembler386(object):
             if guard_opnum == rop.GUARD_FALSE:
                 mc = self.mc._mc
                 name = 'J' + cond
-                mc.JP(rel32(mc.tell() + 12))
+                if need_jp:
+                    mc.JP(rel32(mc.tell() + 12))
                 getattr(mc, name)(rel32(addr))
                 return mc.tell() - 4, 0
             else:
                 name = 'J' + false_cond
                 addr1 = self.implement_guard(addr, getattr(self.mc, name))
-                addr2 = self.implement_guard(addr, self.mc.JP)
+                if need_jp:
+                    addr2 = self.implement_guard(addr, self.mc.JP)
+                else:
+                    addr2 = 0
                 return addr1, addr2
         return genop_cmp_guard_float
 
@@ -672,11 +676,11 @@ class Assembler386(object):
     genop_guard_uint_le = _cmpop_guard("BE", "AE", "A", "B")
     genop_guard_uint_ge = _cmpop_guard("AE", "BE", "B", "A")
 
-    genop_guard_float_lt = _cmpop_guard_float("B", "AE")
-    genop_guard_float_le = _cmpop_guard_float("BE", "A")
-    genop_guard_float_eq = _cmpop_guard_float("E", "NE")
-    genop_guard_float_gt = _cmpop_guard_float("A", "BE")
-    genop_guard_float_ge = _cmpop_guard_float("AE", "B")
+    genop_guard_float_lt = _cmpop_guard_float("B", "AE", True)
+    genop_guard_float_le = _cmpop_guard_float("BE", "A", True)
+    genop_guard_float_eq = _cmpop_guard_float("E", "NE", True)
+    genop_guard_float_gt = _cmpop_guard_float("A", "BE", False)
+    genop_guard_float_ge = _cmpop_guard_float("AE", "B", False)
 
     def genop_guard_float_ne(self, op, guard_op, addr, arglocs, result_loc):
         guard_opnum = guard_op.opnum
