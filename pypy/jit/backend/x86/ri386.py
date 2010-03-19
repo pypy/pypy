@@ -207,19 +207,22 @@ class MODRM64(MODRM):
 class MODRM8(MODRM):
     width = 1
 
-class REL(OPERAND):
+class REL32(OPERAND):
+    width = 4
     def __init__(self, absolute_target):
         self.absolute_target = absolute_target
     def assembler(self):
         return '%d' % (self.absolute_target,)    
 
-class REL32(REL):
-    width = 4
-
-class REL8(REL):
-    def assembler(self):
-        return '.+%d' % (self.absolute_target,)
+class REL8(OPERAND):
     width = 1
+    def __init__(self, relative_target):    # NB. a *relative* target
+        assert single_byte(relative_target)
+        self.relative_target = relative_target
+    def assembler(self):
+        # a bit of a hack: only works if a nextlabel is attached
+        nextlabel = getattr(self, 'nextlabel', '?')
+        return '%s+%d' % (nextlabel, self.relative_target,)
 
 class MISSING(OPERAND):
     def __repr__(self):
@@ -413,6 +416,7 @@ def constlistofchars(s):
 constlistofchars._annspecialcase_ = 'specialize:memo'
 
 missing = MISSING()
+rel8_patched_later = rel8(0)
 
 # __________________________________________________________
 # Abstract base class, with methods like NOP(), ADD(x, y), etc.

@@ -1029,7 +1029,7 @@ class Assembler386(object):
                                         addr, locs, ign_2):
         mc = self._start_block()
         mc.CMP(locs[0], imm8(1))
-        mc.JB(rel8(mc.tell()))
+        mc.JB(rel8_patched_later)
         jb_location = mc.get_relative_pos()
         self._cmp_guard_class(mc, locs)
         # patch the JB above
@@ -1428,11 +1428,11 @@ class Assembler386(object):
                         tmp=eax)
         mc = self._start_block()
         mc.CMP(eax, imm(self.cpu.done_with_this_frame_int_v))
-        mc.JE(rel8(mc.tell()))
+        mc.JE(rel8_patched_later)
         je_location = mc.get_relative_pos()
         self._emit_call(rel32(self.assembler_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx, force_mc=True, mc=mc)
-        mc.JMP(rel8(mc.tell()))
+        mc.JMP(rel8_patched_later)
         jmp_location = mc.get_relative_pos()
         offset = jmp_location - je_location
         assert 0 < offset <= 127
@@ -1460,7 +1460,7 @@ class Assembler386(object):
         mc = self._start_block()
         mc.TEST(mem8(loc_base, descr.jit_wb_if_flag_byteofs),
                 imm8(descr.jit_wb_if_flag_singlebyte))
-        mc.JZ(rel8(mc.tell()))
+        mc.JZ(rel8_patched_later)
         jz_location = mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
@@ -1518,7 +1518,7 @@ class Assembler386(object):
         mc.MOV(eax, heap(nursery_free_adr))
         mc.LEA(edx, addr_add(eax, imm(size)))
         mc.CMP(edx, heap(nursery_top_adr))
-        mc.JNA(rel8(mc.tell()))
+        mc.JNA(rel8_patched_later)
         jmp_adr = mc.get_relative_pos()
 
         # See comments in _build_malloc_fixedsize_slowpath for the

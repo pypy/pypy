@@ -4,8 +4,7 @@ from pypy.jit.backend.x86 import ri386 as i386
 from pypy.jit.backend.x86.ri386setup import all_instructions
 from pypy.tool.udir import udir
 
-INPUTNAME = str(udir.join('checkfile.s'))
-FILENAME = str(udir.join('checkfile.tmp'))
+FILEBASE = str(udir.join('checkfile'))
 BEGIN_TAG = '<<<ri386-test-begin>>>'
 END_TAG =   '<<<ri386-test-end>>>'
 
@@ -57,7 +56,7 @@ def imm8_tests():
     return map(i386.imm8, v)
 
 def rel8_tests():
-    v = [-1,0,1] + [random.randrange(-123, 123) for i in range(COUNT1)]
+    v = [-128,-1,0,1,127] + [random.randrange(-127, 127) for i in range(COUNT1)]
     return map(i386.rel8, v)    
 
 def imm16_tests():
@@ -138,7 +137,7 @@ def run_test(instrname, instr, args_lists):
     instrname = instr.as_alias or instrname
     labelcount = 0
     oplist = []
-    g = open(INPUTNAME, 'w')
+    g = open(FILEBASE + instrname + '.s', 'w')
     g.write('\x09.string "%s"\n' % BEGIN_TAG)
     for args in args_lists:
         suffix = ""
@@ -154,7 +153,9 @@ def run_test(instrname, instr, args_lists):
             suffix = ""
             if args[-1][0] in (i386.REL8,i386.REL32):
                 labelcount += 1
-                following = "\nL%d:" % labelcount
+                labelname = "L%d" % labelcount
+                following = "\n%s:" % labelname
+                args[-1][1].nextlabel = labelname
             elif args[-1][0] in (i386.IMM8,i386.IMM32):
                 args = list(args)
                 args[-1] = ("%d", args[-1][1])  # no '$' sign
@@ -173,9 +174,10 @@ def run_test(instrname, instr, args_lists):
         oplist.append(op)
     g.write('\x09.string "%s"\n' % END_TAG)
     g.close()
-    os.system('as "%s" -o "%s"' % (INPUTNAME, FILENAME))
+    os.system('as "%s.s" -o "%s.tmp"' % (FILEBASE + instrname,
+                                         FILEBASE + instrname))
     try:
-        f = open(FILENAME, 'rb')
+        f = open(FILEBASE + instrname + '.tmp', 'rb')
     except IOError:
         raise Exception("Assembler error")
     data = f.read()
@@ -259,9 +261,6 @@ class CodeChecker(i386.I386CodeBuilder):
     def begin(self, op):
         self.op = op
         self.instrindex = self.index
-
-    def tell(self):
-        return 0
 
     def write(self, listofchars):
         data = ''.join(listofchars)

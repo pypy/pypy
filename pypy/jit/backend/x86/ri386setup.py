@@ -115,9 +115,7 @@ class relative(operand):
                          % (self.op,))
             lines.append('builder.write(packimm32(offset))')
         elif self.width == 'b':
-            lines.append('offset = arg%d.absolute_target - (builder.tell()+2)'
-                         % (self.op,))
-            lines.append('assert offset < 127')
+            lines.append('offset = arg%d.relative_target' % (self.op,))
             lines.append('builder.write(packimm8(offset))')
         else:
             raise ValueError("Invalid width %s" % (self.width,))
