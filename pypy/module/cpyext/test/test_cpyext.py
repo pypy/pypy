@@ -46,6 +46,9 @@ class AppTestCpythonExtension:
         import ctypes
         initfunc = ctypes.CDLL(mod)['init%s' % (name,)]
         initfunc()
+        return self.space.getitem(
+            self.space.sys.get('modules'),
+            self.space.wrap(name))
 
     def setup_method(self, func):
         self.w_import_module = self.space.wrap(self.import_module)
@@ -65,3 +68,24 @@ class AppTestCpythonExtension:
         """
         self.import_module(name='foo', init=init)
         assert 'foo' in sys.modules
+
+    def test_export_function(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", methods);
+        """
+        body = """
+        PyObject* foo_pi(PyObject* self, PyObject *args)
+        {
+            return PyFloat_FromDouble(3.14);
+        }
+        static PyMethodDef methods[] = {
+            { "return_pi", foo_pi, METH_NOARGS },
+            { NULL }
+        };
+        """
+        module = self.import_module(name='foo', init=init, body=body)
+        assert 'foo' in sys.modules
+        assert 'return_pi' in dir(module)
+        assert module.return_pi is None # XXX for the moment

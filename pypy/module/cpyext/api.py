@@ -1,9 +1,21 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
+
+import py, autopath
+
+include_dir = py.path.local(autopath.pypydir).join(
+    'module', 'cpyext', 'include')
+
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        include_dirs=[include_dir],
+        includes=['Python.h']
+        )
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable):
@@ -18,13 +30,20 @@ def cpython_api(argtypes, restype):
         return func
     return decorate
 
-def cpython_struct(name):
-    struct = rffi.CStruct('PyMethodDef')
-    TYPES[name] = struct
-    return struct
+def cpython_struct(name, fields):
+    setattr(CConfig, name, rffi_platform.Struct(name, fields))
+    forward = lltype.ForwardReference()
+    TYPES[name] = forward
+    return forward
 
 FUNCTIONS = {}
 TYPES = {}
+
+PyObject = cpython_struct('PyObject', [])
+
+def configure():
+    for name, TYPE in rffi_platform.configure(CConfig).iteritems():
+        TYPES[name].become(TYPE)
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -42,6 +61,7 @@ def build_bridge(space):
         structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
+    #include <Python.h>
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
@@ -67,6 +87,7 @@ def build_bridge(space):
 
     # Build code and get pointer to the structure
     eci = ExternalCompilationInfo(
+        include_dirs=[include_dir],
         separate_module_sources=[code],
         export_symbols=['pypyAPI'] + list(FUNCTIONS),
         )
