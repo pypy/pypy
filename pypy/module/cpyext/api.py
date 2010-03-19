@@ -31,19 +31,28 @@ def cpython_api(argtypes, restype):
     return decorate
 
 def cpython_struct(name, fields):
-    setattr(CConfig, name, rffi_platform.Struct(name, fields))
+    configname = name.replace(' ', '__')
+    setattr(CConfig, configname, rffi_platform.Struct(name, fields))
     forward = lltype.ForwardReference()
-    TYPES[name] = forward
+    TYPES[configname] = forward
     return forward
 
 FUNCTIONS = {}
 TYPES = {}
 
-PyObject = cpython_struct('PyObject', [])
+PyObject = lltype.Ptr(cpython_struct('struct _object', []))
 
 def configure():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():
         TYPES[name].become(TYPE)
+
+def make_ref(w_obj):
+    return lltype.nullptr(PyObject.TO) # XXX for the moment
+
+def from_ref(space, ref):
+    if not ref:
+        return space.w_None # XXX for the moment, should be an exception
+    assert False
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call

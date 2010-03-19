@@ -95,4 +95,5 @@ class AppTestCpythonExtension:
         module = self.import_module(name='foo', init=init, body=body)
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
-        assert module.return_pi is None # XXX for the moment
+        assert module.return_pi is not None
+        assert module.return_pi() is None # XXX for the moment
