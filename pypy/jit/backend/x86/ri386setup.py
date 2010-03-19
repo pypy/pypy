@@ -44,6 +44,7 @@ type_order = {
     IMM8:  [(IMM8,  None), (IMM32, None)],
 
     REL32: [(REL32, None)],
+    REL8: [(REL8, None)],
 
     MODRM:   [(MODRM,  None)],
     MODRM8:  [(MODRM8, None)],
@@ -103,16 +104,23 @@ class immediate(operand):
         elif self.width == 'h':
             lines.append('builder.write(packimm16(arg%d.value))' % (self.op,))
         else:
-            raise AssertionError, "invalid width %r" % (self.width,)
+            raise ValueError("invalid width %r" % (self.width,))
         return False
 
 class relative(operand):
     def eval(self, lines, has_orbyte):
         assert not has_orbyte, "malformed bytecode"
-        assert self.width == 'i', "only REL32 supported at the moment"
-        lines.append('offset = arg%d.absolute_target - (builder.tell()+4)' % (
-            self.op,))
-        lines.append('builder.write(packimm32(offset))')
+        if self.width == 'i':
+            lines.append('offset = arg%d.absolute_target - (builder.tell()+4)'
+                         % (self.op,))
+            lines.append('builder.write(packimm32(offset))')
+        elif self.width == 'b':
+            lines.append('offset = arg%d.absolute_target - (builder.tell()+2)'
+                         % (self.op,))
+            lines.append('assert offset < 127')
+            lines.append('builder.write(packimm8(offset))')
+        else:
+            raise ValueError("Invalid width %s" % (self.width,))
         return False
 
 ##class conditioncode(operand):
@@ -329,7 +337,7 @@ CALL.mode1(MODRM, ['\xFF', orbyte(2<<3), modrm(1)])
 CALL.indirect = 1
 
 JMP = Instruction()
-#JMP.mode1(REL8,  ['\xEB', immediate(1,'b')])
+JMP.mode1(REL8,  ['\xEB', relative(1,'b')])
 JMP.mode1(REL32, ['\xE9', relative(1)])
 JMP.mode1(MODRM, ['\xFF', orbyte(4<<3), modrm(1)])
 JMP.indirect = 1
@@ -589,7 +597,7 @@ def define_cond(prefix, indirect, modes, code):
         instr._mode(modes, code1)
         instr.indirect = indirect
 
-#define_cond('J',   1, (REL8,),   [None,'\x70', immediate(1,'b')])
+define_cond('J',   1, (REL8,),   [None,'\x70', relative(1,'b')])
 define_cond('J',   1, (REL32,),  ['\x0F', None,'\x80', relative(1)])
 define_cond('SET', 0, (MODRM8,), ['\x0F', None,'\x90',orbyte(0<<3),modrm(1,'b')])
 define_cond('CMOV',0,(REG,MODRM),['\x0F', None,'\x40', register(1,8), modrm(2)])

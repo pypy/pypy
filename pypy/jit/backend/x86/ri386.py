@@ -207,12 +207,19 @@ class MODRM64(MODRM):
 class MODRM8(MODRM):
     width = 1
 
-class REL32(OPERAND):
-    width = 4
+class REL(OPERAND):
     def __init__(self, absolute_target):
         self.absolute_target = absolute_target
     def assembler(self):
-        return '%d' % (self.absolute_target,)
+        return '%d' % (self.absolute_target,)    
+
+class REL32(REL):
+    width = 4
+
+class REL8(REL):
+    def assembler(self):
+        return '.+%d' % (self.absolute_target,)
+    width = 1
 
 class MISSING(OPERAND):
     def __repr__(self):
@@ -274,6 +281,7 @@ imm32 = IMM32
 imm8 = IMM8
 imm16 = IMM16
 rel32 = REL32
+rel8 = REL8
 
 def imm(value):
     if isinstance(value, ComputedIntSymbolic):
