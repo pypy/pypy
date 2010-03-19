@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, lower_byte,\
+from pypy.jit.backend.x86.regalloc import RegAlloc, WORD,\
      X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs, FRAME_FIXED_SIZE,\
      FORCE_INDEX_OFS
 from pypy.rlib.objectmodel import we_are_translated, specialize
@@ -522,13 +522,14 @@ class Assembler386(object):
 
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):
+            rl = result_loc.lowest8bits()
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
-                getattr(self.mc, 'SET' + rev_cond)(lower_byte(result_loc))
+                getattr(self.mc, 'SET' + rev_cond)(rl)
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])
-                getattr(self.mc, 'SET' + cond)(lower_byte(result_loc))
-            self.mc.MOVZX(result_loc, lower_byte(result_loc))
+                getattr(self.mc, 'SET' + cond)(rl)
+            self.mc.MOVZX(result_loc, rl)
         return genop_cmp
 
     def _cmpop_float(cond, is_ne=False):
@@ -758,8 +759,9 @@ class Assembler386(object):
 
     def genop_int_is_true(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))
-        self.mc.SETNE(lower_byte(resloc))
-        self.mc.MOVZX(resloc, lower_byte(resloc))
+        rl = resloc.lowest8bits()
+        self.mc.SETNE(rl)
+        self.mc.MOVZX(resloc, rl)
 
     def genop_guard_bool_not(self, op, guard_op, addr, arglocs, resloc):
         guard_opnum = guard_op.opnum
@@ -868,7 +870,7 @@ class Assembler386(object):
         elif size == 2:
             self.mc.MOV16(addr_add(base_loc, ofs_loc), value_loc)
         elif size == 1:
-            self.mc.MOV(addr8_add(base_loc, ofs_loc), lower_byte(value_loc))
+            self.mc.MOV(addr8_add(base_loc, ofs_loc), value_loc.lowest8bits())
         else:
             print "[asmgen]setfield addr size %d" % size
             raise NotImplementedError("Addr size %d" % size)
@@ -886,7 +888,7 @@ class Assembler386(object):
                                      scale_loc.value), value_loc)
             elif scale_loc.value == 0:
                 self.mc.MOV(addr8_add(base_loc, ofs_loc, baseofs.value,
-                                      scale_loc.value), lower_byte(value_loc))
+                                      scale_loc.value), value_loc.lowest8bits())
             else:
                 raise NotImplementedError("scale = %d" % scale_loc.value)
 
@@ -896,7 +898,7 @@ class Assembler386(object):
                                               self.cpu.translate_support_code)
         assert itemsize == 1
         self.mc.MOV(addr8_add(base_loc, ofs_loc, basesize),
-                    lower_byte(val_loc))
+                    val_loc.lowest8bits())
 
     def genop_discard_unicodesetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs

@@ -1011,20 +1011,3 @@ def get_ebp_ofs(position):
     # Returns (ebp-20), (ebp-24), (ebp-28)...
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)
-
-def lower_byte(reg):
-    # argh, kill, use lowest8bits instead
-    if isinstance(reg, MODRM):
-        return reg
-    if isinstance(reg, IMM32):
-        return imm8(reg.value)
-    if reg is eax:
-        return al
-    elif reg is ebx:
-        return bl
-    elif reg is ecx:
-        return cl
-    elif reg is edx:
-        return dl
-    else:
-        raise NotImplementedError()
