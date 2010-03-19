@@ -155,5 +155,5 @@ history.LoopToken._x86_current_depths = (0, 0)
 
 compile._DoneWithThisFrameDescr._x86_current_depths = (0, 0)
 compile._DoneWithThisFrameDescr._x86_failure_recovery_bytecode = 0
-compile._DoneWithThisFrameDescr._x86_adr_jump_offset1 = 0
-compile._DoneWithThisFrameDescr._x86_adr_jump_offset2 = 0
+compile._DoneWithThisFrameDescr._x86_adr_jump_offset = 0
+
