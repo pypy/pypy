@@ -296,8 +296,7 @@ class Assembler386(object):
         
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
-        adr_jump_offset = faildescr._x86_adr_jump_offset
-        self.patch_jump(faildescr._x86_adr_jump_offset, adr_new_target)
+        self.patch_jump(faildescr._x86_adr_jump_offset1, adr_new_target)
         if faildescr._x86_adr_jump_offset2:
             self.patch_jump(faildescr._x86_adr_jump_offset2, adr_new_target)
 
@@ -498,8 +497,8 @@ class Assembler386(object):
             dispatch_opnum = op.opnum
         t = genop_guard_list[dispatch_opnum](self, op, guard_op, failaddr,
                                              arglocs, resloc)
-        adr_jump_offset, adr_jump_offset2 = t
-        faildescr._x86_adr_jump_offset = adr_jump_offset
+        adr_jump_offset1, adr_jump_offset2 = t
+        faildescr._x86_adr_jump_offset1 = adr_jump_offset1
         faildescr._x86_adr_jump_offset2 = adr_jump_offset2
 
     def regalloc_perform_guard(self, guard_op, faillocs, arglocs, resloc,
