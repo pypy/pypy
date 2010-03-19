@@ -61,7 +61,9 @@ def build_bridge(space):
         structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
+    #define const       /* cheat */
     #include <Python.h>
+    #define long int    /* cheat */
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;

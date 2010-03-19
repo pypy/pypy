@@ -7,6 +7,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
 from pypy.module.cpyext import api
 
+import sys
+
 class TestApi():
     def test_signature(self):
         assert 'Py_InitModule' in api.FUNCTIONS
@@ -14,14 +16,14 @@ class TestApi():
             rffi.CCHARP, lltype.Ptr(api.TYPES['PyMethodDef'])]
         assert api.FUNCTIONS['Py_InitModule'].restype == lltype.Void
 
-def compile_module(name, code, libraries=()):
+def compile_module(name, code, **kwds):
     include_dir = py.path.local(autopath.pypydir).join(
         'module', 'cpyext', 'include')
     eci = ExternalCompilationInfo(
         separate_module_sources=[code],
         export_symbols=['init%s' % (name,)],
         include_dirs=[include_dir],
-        libraries=libraries,
+        **kwds
         )
     eci = eci.convert_sources_to_files()
     soname = platform.platform.compile(
@@ -42,7 +44,12 @@ class AppTestCpythonExtension:
         %(init)s
         }
         """ % dict(name=name, init=init, body=body)
-        mod = compile_module(name, code, libraries=[self.api_library])
+        if sys.platform == 'win32':
+            libraries = [self.api_library]
+            mod = compile_module(name, code, libraries=libraries)
+        else:
+            libraries = [str(self.api_library+'.so')]
+            mod = compile_module(name, code, link_files=libraries)
         import ctypes
         initfunc = ctypes.CDLL(mod)['init%s' % (name,)]
         initfunc()
