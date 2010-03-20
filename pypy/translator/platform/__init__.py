@@ -123,6 +123,9 @@ class Platform(object):
             if len(stderrlines) > 50:
                 log.ERROR('...')
             raise CompilationError(stdout, stderr)
+        else:
+            for line in stderr.splitlines():
+                log.WARNING(line)
 
     
     def _compile_args_from_eci(self, eci, standalone):
