@@ -1,13 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.rlib.objectmodel import we_are_translated
 import pypy.module.cpyext.api
+from pypy.module.cpyext.state import State
 
-class State:
-    def __init__(self, space):
-        if not we_are_translated():
-            self.api_lib = str(api.build_bridge(space))
-        else:
-            XXX # build an import library when translating pypy.
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -30,5 +25,4 @@ class Module(MixedModule):
 import pypy.module.cpyext.floatobject
 import pypy.module.cpyext.modsupport
 import pypy.module.cpyext.pythonrun
-from pypy.module.cpyext import api
 api.configure()

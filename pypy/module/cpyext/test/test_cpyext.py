@@ -94,4 +94,4 @@ class AppTestCpythonExtension:
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
-        assert module.return_pi() is None # XXX for the moment
+        assert module.return_pi() == 3.14

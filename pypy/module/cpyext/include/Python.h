@@ -2,7 +2,7 @@
 #define Py_PYTHON_H
 
 typedef struct _object {
-    int __dummy;
+    long refcnt;
 } PyObject;
 
 #include <stdio.h>
