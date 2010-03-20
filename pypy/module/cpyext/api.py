@@ -225,3 +225,10 @@ def build_bridge(space, rename=True):
 
     return modulename.new(ext='')
 
+def load_extension_module(space, path, name):
+    state = space.fromcache(State)
+    import ctypes
+    initfunc = ctypes.CDLL(path)['init%s' % (name,)]
+    initfunc()
+    state.check_and_raise_exception()
+

@@ -26,9 +26,8 @@ class TestApi():
             rffi.CCHARP, lltype.Ptr(api.TYPES['PyMethodDef'])]
         assert api.FUNCTIONS['Py_InitModule'].restype == lltype.Void
 
-def compile_module(modname, code, **kwds):
+def compile_module(modname, **kwds):
     eci = ExternalCompilationInfo(
-        separate_module_sources=[code],
         export_symbols=['init%s' % (modname,)],
         include_dirs=api.include_dirs,
         **kwds
@@ -43,25 +42,30 @@ class AppTestCpythonExtensionBase:
     def setup_class(cls):
         cls.api_library = api.build_bridge(cls.space, rename=True)
 
-    def import_module(self, name, init, body=''):
-        code = """
-        #include <pypy_rename.h>
-        #include <Python.h>
-        %(body)s
+    def import_module(self, name, init=None, body=''):
+        if init is not None:
+            code = """
+            #include <pypy_rename.h>
+            #include <Python.h>
+            %(body)s
 
-        void init%(name)s(void) {
-        %(init)s
-        }
-        """ % dict(name=name, init=init, body=body)
-        if sys.platform == 'win32':
-            libraries = [self.api_library]
-            mod = compile_module(name, code, libraries=libraries)
+            void init%(name)s(void) {
+            %(init)s
+            }
+            """ % dict(name=name, init=init, body=body)
+            kwds = dict(separate_module_sources=[code])
         else:
-            libraries = [str(self.api_library+'.so')]
-            mod = compile_module(name, code, link_files=libraries)
-        import ctypes
-        initfunc = ctypes.CDLL(mod)['init%s' % (name,)]
-        initfunc()
+            filename = py.path.local(autopath.pypydir) / 'module' \
+                    / 'cpyext'/ 'test' / (name + ".c")
+            kwds = dict(separate_module_files=[filename])
+
+        if sys.platform == 'win32':
+            kwds["libraries"] = [self.api_library]
+        else:
+            kwds["link_files"] = [str(self.api_library + '.so')]
+        mod = compile_module(name, **kwds)
+
+        api.load_extension_module(self.space, mod, name)
         return self.space.getitem(
             self.space.sys.get('modules'),
             self.space.wrap(name))
@@ -176,6 +180,18 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             raise exc.value
 
         assert exc.value.message == "moo!"
+
+    def test_init_exception(self):
+        import sys
+        init = """
+            PyErr_SetString(PyExc_Exception, "moo!");
+        """
+        exc = raises(Exception, "self.import_module(name='foo', init=init)")
+        if type(exc.value) is not Exception:
+            raise exc.value
+
+        assert exc.value.message == "moo!"
+
 
     def test_internal_exceptions(self):
         skip("Useful to see how programming errors look like")

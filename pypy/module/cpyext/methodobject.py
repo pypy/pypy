@@ -3,7 +3,6 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import PyObject, from_ref, NullPointerException, \
         InvalidPointerException
@@ -29,12 +28,8 @@ def cfunction_descr_call(space, w_self, __args__):
         ret = from_ref(space, result)
     except NullPointerException:
         state = space.fromcache(State)
-        exc_value = state.exc_value
-        exc_type = state.exc_type
-        assert exc_value is not None and exc_type is not None
-        state.exc_value = None
-        state.exc_type = None
-        raise OperationError(exc_type, exc_value)
+        state.check_and_raise_exception()
+        assert False, "NULL returned but no exception set"
     except InvalidPointerException:
         if not we_are_translated():
             import sys
