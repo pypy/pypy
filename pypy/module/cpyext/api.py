@@ -171,7 +171,8 @@ def build_bridge(space, rename=True):
         def wrapper(*args):
             boxed_args = []
             # XXX use unrolling_iterable here
-            for typ, arg in zip(callable.api_func.argtypes, args):
+            for i, typ in enumerate(callable.api_func.argtypes):
+                arg = args[i]
                 if typ is PyObject:
                     arg = from_ref(space, arg)
                 boxed_args.append(arg)
