@@ -95,3 +95,47 @@ class AppTestCpythonExtension:
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
         assert module.return_pi() == 3.14
+
+    def test_export_function2(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", methods);
+        """
+        body = """
+        static PyObject* my_objects[1];
+        static PyObject* foo_cached_pi(PyObject* self, PyObject *args)
+        {
+            if (my_objects[0] == NULL) {
+                my_objects[0] = PyFloat_FromDouble(3.14);
+                Py_INCREF(my_objects[0]);
+            }
+            return my_objects[0];
+        }
+        static PyObject* foo_drop_pi(PyObject* self, PyObject *args)
+        {
+            if (my_objects[0] != NULL) {
+                Py_DECREF(my_objects[0]);
+                my_objects[0] = NULL;
+            }
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+        static PyObject* foo_retinvalid(PyObject* self, PyObject *args)
+        {
+            return (PyObject*)0xAFFEBABE;
+        }
+        static PyMethodDef methods[] = {
+            { "return_pi", foo_cached_pi, METH_NOARGS },
+            { "drop_pi",   foo_drop_pi, METH_NOARGS },
+            { "return_invalid_pointer", foo_retinvalid, METH_NOARGS },
+            { NULL }
+        };
+        """
+        module = self.import_module(name='foo', init=init, body=body)
+        raises(RuntimeError, module.return_invalid_pointer)
+        assert module.return_pi() == 3.14
+        module.drop_pi()
+        module.drop_pi()
+        assert module.return_pi() == 3.14
+        assert module.return_pi() == 3.14

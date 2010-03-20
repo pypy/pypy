@@ -14,6 +14,10 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         state = self.space.fromcache(State)
+        if not we_are_translated():
+            state.api_lib = str(pypy.module.cpyext.api.build_bridge(space))
+        else:
+            XXX # build an import library when translating pypy.
 
     def startup(self, space):
         state = space.fromcache(State)
@@ -25,4 +29,5 @@ class Module(MixedModule):
 import pypy.module.cpyext.floatobject
 import pypy.module.cpyext.modsupport
 import pypy.module.cpyext.pythonrun
+import pypy.module.cpyext.macros
 api.configure()

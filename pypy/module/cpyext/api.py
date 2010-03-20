@@ -63,6 +63,7 @@ def make_ref(space, w_obj):
     py_obj = state.py_objects_w2r.get(w_obj)
     if py_obj is None:
         py_obj = lltype.malloc(PyObject.TO, None, flavor="raw")
+        py_obj.c_refcnt = 1
         ctypes_obj = ll2ctypes.lltype2ctypes(py_obj)
         ptr = ctypes.cast(ctypes_obj, ctypes.c_void_p).value
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes_obj)
@@ -75,7 +76,10 @@ def from_ref(space, ref):
     if not ref:
         raise RuntimeError("Null pointer dereference!")
     ptr = ctypes.addressof(ref._obj._storage)
-    obj = state.py_objects_r2w[ptr]
+    try:
+        obj = state.py_objects_r2w[ptr]
+    except KeyError:
+        raise RuntimeError("Got invalid reference to a PyObject")
     return obj
 
 #_____________________________________________________
@@ -136,8 +140,12 @@ def build_bridge(space, rename=True):
         body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
         functions.append('%s\n%s\n' % (header, body))
 
+    global_objects = """
+    PyObject *PyPy_None = NULL;
+    """
     code = (prologue +
             struct_declaration_code +
+            global_objects +
             '\n' +
             '\n'.join(functions))
 
@@ -156,6 +164,7 @@ def build_bridge(space, rename=True):
     import ctypes
     bridge = ctypes.CDLL(str(modulename))
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
+    Py_NONE = ctypes.c_void_p.in_dll(bridge, 'PyPy_None')
 
     def make_wrapper(callable):
         def wrapper(*args):
@@ -176,6 +185,8 @@ def build_bridge(space, rename=True):
         pypyAPI[structindex[name]] = ctypes.cast(
             ll2ctypes.lltype2ctypes(llhelper(func.functype, make_wrapper(func.callable))),
             ctypes.c_void_p)
+    Py_NONE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_None)),
+            ctypes.c_void_p).value
 
     return modulename.new(ext='')
 
