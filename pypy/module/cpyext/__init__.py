@@ -30,4 +30,5 @@ import pypy.module.cpyext.floatobject
 import pypy.module.cpyext.modsupport
 import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.macros
+import pypy.module.cpyext.pyerrors
 api.configure()

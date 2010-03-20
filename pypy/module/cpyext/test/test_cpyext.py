@@ -143,3 +143,29 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module.drop_pi()
         assert module.return_pi() == 3.14
         assert module.return_pi() == 3.14
+
+    def test_exception(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", methods);
+        """
+        body = """
+        PyObject* foo_pi(PyObject* self, PyObject *args)
+        {
+            PyErr_SetString(PyExc_Exception, "moo!");
+            return NULL;
+        }
+        static PyMethodDef methods[] = {
+            { "raise_exception", foo_pi, METH_NOARGS },
+            { NULL }
+        };
+        """
+        module = self.import_module(name='foo', init=init, body=body)
+        exc = raises(Exception, module.raise_exception)
+        if type(exc.value) is not Exception:
+            raise exc.value
+
+        assert exc.value.message == "moo!"
+
+

@@ -12,6 +12,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
+from pypy.interpreter.error import OperationError
 
 
 include_dirs = [
@@ -59,6 +60,12 @@ def configure():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():
         TYPES[name].become(TYPE)
 
+class NullPointerException(Exception):
+    pass
+
+class InvalidPointerException(Exception):
+    pass
+
 def make_ref(space, w_obj):
     state = space.fromcache(State)
     py_obj = state.py_objects_w2r.get(w_obj)
@@ -75,12 +82,12 @@ def make_ref(space, w_obj):
 def from_ref(space, ref):
     state = space.fromcache(State)
     if not ref:
-        raise RuntimeError("Null pointer dereference!")
+        raise NullPointerException("Null pointer dereference!")
     ptr = ctypes.addressof(ref._obj._storage)
     try:
         obj = state.py_objects_r2w[ptr]
     except KeyError:
-        raise RuntimeError("Got invalid reference to a PyObject")
+        raise InvalidPointerException("Got invalid reference to a PyObject")
     return obj
 
 #_____________________________________________________
@@ -143,6 +150,7 @@ def build_bridge(space, rename=True):
 
     global_objects = """
     PyObject *PyPy_None = NULL;
+    PyObject *PyPyExc_Exception = NULL;
     """
     code = (prologue +
             struct_declaration_code +
@@ -166,6 +174,7 @@ def build_bridge(space, rename=True):
     bridge = ctypes.CDLL(str(modulename))
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
     Py_NONE = ctypes.c_void_p.in_dll(bridge, 'PyPy_None')
+    PyExc_Exception = ctypes.c_void_p.in_dll(bridge, 'PyPyExc_Exception')
 
     def make_wrapper(callable):
         def wrapper(*args):
@@ -176,7 +185,21 @@ def build_bridge(space, rename=True):
                 if typ is PyObject:
                     arg = from_ref(space, arg)
                 boxed_args.append(arg)
-            retval = callable(space, *boxed_args)
+            try:
+                retval = callable(space, *boxed_args)
+            except OperationError, e:
+                e.normalize_exception(space)
+                state = space.fromcache(State)
+                state.exc_type = e.w_type
+                state.exc_value = e.get_w_value(space)
+                restype = callable.api_func.restype
+                if restype is lltype.Void:
+                    return
+                if restype is PyObject:
+                    return lltype.nullptr(PyObject)
+                if restype is lltype.Signed:
+                    return -1
+                assert False, "Unknown return type"
             if callable.api_func.restype is PyObject:
                 retval = make_ref(space, retval)
             return retval
@@ -189,6 +212,8 @@ def build_bridge(space, rename=True):
             ctypes.c_void_p)
     Py_NONE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_None)),
             ctypes.c_void_p).value
+    PyExc_Exception.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space,
+        space.w_Exception)), ctypes.c_void_p).value
 
     return modulename.new(ext='')
 

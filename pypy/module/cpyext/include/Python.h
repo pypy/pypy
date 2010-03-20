@@ -14,5 +14,6 @@ extern PyObject *PyPy_None;
 
 #include "modsupport.h"
 #include "pythonrun.h"
+#include "pyerrors.h"
 
 #endif

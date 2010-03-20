@@ -3,8 +3,11 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import PyObject, from_ref
+from pypy.module.cpyext.api import PyObject, from_ref, NullPointerException, \
+        InvalidPointerException
+from pypy.module.cpyext.state import State
 from pypy.rlib.objectmodel import we_are_translated
 
 
@@ -24,11 +27,19 @@ def cfunction_descr_call(space, w_self, __args__):
     result = self.ml.c_ml_meth(null, null)
     try:
         ret = from_ref(space, result)
-    except RuntimeError:
+    except NullPointerException:
+        state = space.fromcache(State)
+        exc_value = state.exc_value
+        exc_type = state.exc_type
+        assert exc_value is not None and exc_type is not None
+        state.exc_value = None
+        state.exc_type = None
+        raise OperationError(exc_type, exc_value)
+    except InvalidPointerException:
         if not we_are_translated():
             import sys
-            print >>sys.stderr, "Calling a function failed. Did it" \
-                    " really return a PyObject?"
+            print >>sys.stderr, "Calling a C function return an invalid PyObject" \
+                    " pointer."
         raise
 
     # XXX result.decref()
