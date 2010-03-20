@@ -11,15 +11,15 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
             Py_InitModule("foo", methods);
         """
         body = """
-        PyObject* foo_FromDouble(PyObject* self, PyObject *args)
+        static PyObject* foo_FromDouble(PyObject* self, PyObject *args)
         {
             return PyFloat_FromDouble(3.14);
         }
-        PyObject* foo_AsDouble(PyObject* self, PyObject *args)
+        static PyObject* foo_AsDouble(PyObject* self, PyObject *args)
         {
-            PyObject* pi = PyFloat_FromDouble(3.14);
-            double d = PyFloat_AsDouble(pi);
-			return PyFloat_FromDouble(d);
+            PyObject* obj = PyFloat_FromDouble(23.45);
+            double d = PyFloat_AsDouble(obj);
+            return PyFloat_FromDouble(d);
         }
         static PyMethodDef methods[] = {
             { "FromDouble", foo_FromDouble, METH_NOARGS },
@@ -30,4 +30,4 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', init=init, body=body)
         assert 'foo' in sys.modules
         assert module.FromDouble() == 3.14
-        assert module.AsDouble() == 3.14
+        assert module.AsDouble() == 23.45

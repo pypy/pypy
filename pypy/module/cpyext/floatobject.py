@@ -6,5 +6,5 @@ def PyFloat_FromDouble(space, value):
     return space.wrap(value)
 
 @cpython_api([PyObject], lltype.Float)
-def PyFloat_AsDouble(space, w_float):
-    return 10.0 #XXX: for now
+def PyFloat_AsDouble(space, w_obj):
+    return space.float_w(space.float(w_obj))
