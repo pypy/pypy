@@ -11,6 +11,8 @@ typedef long             Py_ssize_t;
 extern PyObject *PyPy_None;
 #define Py_None PyPy_None
 
+#define long int /* XXX: same hack as in api.py */
+
 #include <stdio.h>
 
 #include "boolobject.h"

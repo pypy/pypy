@@ -1,3 +1,4 @@
  - Make the pypy interpreter support dynamically created typeobjects to support PyTypeObject
  - Add exceptions
  - Generate header files programmatically.
+ - Fix the '#define long int' hack in both api.py and include/Python.h

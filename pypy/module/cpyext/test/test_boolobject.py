@@ -19,9 +19,27 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
         {
             Py_RETURN_FALSE;
         }
+        static PyObject* foo_test_FromLong(PyObject* self, PyObject *args)
+        {
+            int i;
+            for(i=-3; i<3; i++)
+            {
+                PyObject* obj = PyBool_FromLong(i);
+                PyObject* expected = (i ? Py_True : Py_False);
+                
+                if(obj != expected)
+                {
+                    Py_DECREF(obj);
+                    Py_RETURN_FALSE;
+                }
+                Py_DECREF(obj);
+            }
+            Py_RETURN_TRUE;
+        }
         static PyMethodDef methods[] = {
             { "get_true", foo_get_true, METH_NOARGS },
             { "get_false", foo_get_false, METH_NOARGS },
+            { "test_FromLong", foo_test_FromLong, METH_NOARGS },
             { NULL }
         };
         """
@@ -29,3 +47,4 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert module.get_true() == True
         assert module.get_false() == False
+        assert module.test_FromLong() == True

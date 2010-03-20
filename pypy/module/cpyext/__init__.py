@@ -26,6 +26,7 @@ class Module(MixedModule):
                       space.wrap(state.api_lib))
 
 # import these modules to register api functions by side-effect
+import pypy.module.cpyext.boolobject
 import pypy.module.cpyext.floatobject
 import pypy.module.cpyext.modsupport
 import pypy.module.cpyext.pythonrun

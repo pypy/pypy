@@ -78,6 +78,8 @@ def make_ref(space, w_obj):
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes_obj)
         state.py_objects_w2r[w_obj] = py_obj
         state.py_objects_r2w[ptr] = w_obj
+    else:
+        py_obj.c_refcnt += 1
     return py_obj
 
 def from_ref(space, ref):
