@@ -10,6 +10,13 @@ def Py_DECREF(space, w_obj):
     state = space.fromcache(State)
     obj = state.py_objects_w2r.get(w_obj)
     obj.c_refcnt -= 1
+    if obj.c_refcnt == 0:
+        del state.py_objects_w2r[w_obj]
+        ptr = ctypes.addressof(obj._obj._storage)
+        del state.py_objects_r2w[ptr]
+        lltype.free(obj)
+    else:
+        assert obj.c_refcnt > 0
     return
 
 @cpython_api([PyObject], lltype.Void)
