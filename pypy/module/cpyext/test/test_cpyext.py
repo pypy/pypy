@@ -11,6 +11,14 @@ from pypy.module.cpyext import api
 from pypy.translator.goal import autopath
 
 
+@api.cpython_api([], api.PyObject)
+def PyPy_Crash1(space):
+    1/0
+
+@api.cpython_api([], lltype.Signed)
+def PyPy_Crash2(space):
+    1/0
+
 class TestApi():
     def test_signature(self):
         assert 'Py_InitModule' in api.FUNCTIONS
@@ -151,7 +159,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_InitModule("foo", methods);
         """
         body = """
-        PyObject* foo_pi(PyObject* self, PyObject *args)
+        static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
             PyErr_SetString(PyExc_Exception, "moo!");
             return NULL;
@@ -167,5 +175,34 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             raise exc.value
 
         assert exc.value.message == "moo!"
+
+    def test_internal_exceptions(self):
+        py.test.skip("Useful to see how programming errors look like")
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", methods);
+        """
+        body = """
+        static PyObject* foo_crash1(PyObject* self, PyObject *args)
+        {
+            return PyPy_Crash1();
+        }
+        static PyObject* foo_crash2(PyObject* self, PyObject *args)
+        {
+            int a = PyPy_Crash2();
+            if (a == -1)
+                return NULL;
+            return PyFloat_FromDouble(a);
+        }
+        static PyMethodDef methods[] = {
+            { "crash1", foo_crash1, METH_NOARGS },
+            { "crash2", foo_crash2, METH_NOARGS },
+            { NULL }
+        };
+        """
+        module = self.import_module(name='foo', init=init, body=body)
+        module.crash1()
+        module.crash2()
 
 
