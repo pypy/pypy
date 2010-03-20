@@ -14,6 +14,7 @@ def Py_DECREF(space, w_obj):
         del state.py_objects_w2r[w_obj]
         ptr = ctypes.addressof(obj._obj._storage)
         del state.py_objects_r2w[ptr]
+        # XXX this will likely be somewhere else when we have grown a type object
         lltype.free(obj)
     else:
         assert obj.c_refcnt > 0
