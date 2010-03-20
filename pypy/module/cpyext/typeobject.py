@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
 
-from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject, PyObjectFields, Py_ssize_t
+from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject,\
+        PyObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.modsupport import PyMethodDef
 
@@ -128,31 +129,12 @@ PyTypeObjectFields.extend([
 	("tp_weaklist", PyObject),
 	("tp_del", destructor),
     ])
-for x in PyTypeObjectFields:
-    try:
-        if len(x) != 2:
-            print x
-    except:
-        print x
 PyTypeObject = cpython_struct(
         "PyTypeObject",
         PyTypeObjectFields, PyTypeObject)
 
-#@cpython_api([rffi.CCHARP, lltype.Ptr(PyMethodDef)], lltype.Void)
-def Py_InitModule(space, name, methods):
-    modname = rffi.charp2str(name)
-    w_mod = PyImport_AddModule(space, modname)
-    methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
-    if methods:
-        i = 0
-        while True:
-            method = methods[i]
-            if not method.c_ml_name: break
+def allocate_type_obj(space, w_obj):
+    py_obj = lltype.malloc(PyTypeObject, None, flavor="raw")
+    return py_obj
 
-            methodname = rffi.charp2str(method.c_ml_name)
-            flags = method.c_ml_flags
-            w_function = PyCFunction_NewEx(space, method, None, modname)
-            space.setattr(w_mod,
-                          space.wrap(methodname),
-                          w_function)
-            i = i + 1
+

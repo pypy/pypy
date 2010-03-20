@@ -20,7 +20,7 @@ def PyImport_AddModule(space, name):
     space.setitem(w_modules, w_name, w_mod)
     return w_mod
 
-@cpython_api([rffi.CCHARP, lltype.Ptr(PyMethodDef)], lltype.Void)
+@cpython_api([rffi.CCHARP, lltype.Ptr(PyMethodDef)], PyObject, borrowed=True)
 def Py_InitModule(space, name, methods):
     modname = rffi.charp2str(name)
     w_mod = PyImport_AddModule(space, modname)
@@ -38,3 +38,4 @@ def Py_InitModule(space, name, methods):
                           space.wrap(methodname),
                           w_function)
             i = i + 1
+    return w_mod

@@ -3,24 +3,35 @@
 
 #include <stdio.h>
 
-typedef struct _object {
-    long refcnt;
-} PyObject;
 
 typedef void* Py_buffer;
 
+
 #define PyObject_HEAD  \
-    long refcnt;
+    long obj_refcnt;       \
+    struct _object *obj_type;
 
 #define PyObject_VAR_HEAD		\
 	PyObject_HEAD			\
-	Py_ssize_t ob_size; /* Number of items in variable part */
+	Py_ssize_t obj_size; /* Number of items in variable part */
 
 #define PyObject_HEAD_INIT(type)	\
-	1, /* XXX  type, */
+	1, type,
 
 #define PyVarObject_HEAD_INIT(type, size)	\
 	PyObject_HEAD_INIT(type) size,
+
+typedef struct _object {
+    PyObject_HEAD
+} PyObject;
+
+typedef struct {
+	PyObject_VAR_HEAD
+} PyVarObject;
+
+#define Py_REFCNT(ob)		(((PyObject*)(ob))->obj_refcnt)
+#define Py_TYPE(ob)		(((PyObject*)(ob))->obj_type)
+#define Py_SIZE(ob)		(((PyVarObject*)(ob))->obj_size)
 
 
 extern PyObject *PyPy_None;
@@ -367,6 +378,11 @@ manually remove this flag though!
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
 
+extern PyTypeObject *PyPyType_Type; /* built-in 'type' */
+#define PyType_Type *PyPyType_Type
+int PyPyType_Ready(PyTypeObject *);
+#define PyType_Ready PyPyType_Ready
+
 /* objimpl.h ----------------------------------------------*/
 
 PyObject * _PyObject_New(PyTypeObject *);
@@ -377,5 +393,6 @@ PyObject * _PyObject_New(PyTypeObject *);
 #define PyObject_NewVar(type, typeobj, n) \
 		( (type *) _PyObject_NewVar((typeobj), (n)) )
 
+void PyObject_Del(void *);
 
 #endif

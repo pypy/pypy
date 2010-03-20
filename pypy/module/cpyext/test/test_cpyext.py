@@ -24,7 +24,6 @@ class TestApi():
         assert 'Py_InitModule' in api.FUNCTIONS
         assert api.FUNCTIONS['Py_InitModule'].argtypes == [
             rffi.CCHARP, lltype.Ptr(api.TYPES['PyMethodDef'])]
-        assert api.FUNCTIONS['Py_InitModule'].restype == lltype.Void
 
 def compile_module(modname, **kwds):
     eci = ExternalCompilationInfo(

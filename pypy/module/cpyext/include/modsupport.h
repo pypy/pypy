@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void Py_InitModule(const char* name, PyMethodDef* methods);
+PyObject *Py_InitModule(const char* name, PyMethodDef* methods);
 
 #ifdef __cplusplus
 }

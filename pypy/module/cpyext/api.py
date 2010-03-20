@@ -14,10 +14,12 @@ from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
 
+
 Py_ssize_t = lltype.Signed
 
+include_dir = py.path.local(autopath.pypydir).join('module', 'cpyext', 'include')
 include_dirs = [
-    py.path.local(autopath.pypydir).join('module', 'cpyext', 'include'),
+    include_dir,
     udir,
     ]
 
@@ -27,16 +29,29 @@ class CConfig:
         includes=['Python.h']
         )
 
+class CConfig_constants:
+    _compilation_info_ = CConfig._compilation_info_
+
+constant_names = """Py_TPFLAGS_READY Py_TPFLAGS_READYING """.split()
+for name in constant_names:
+    setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
+# XXX does not work, why?
+#globals().update(rffi_platform.configure(CConfig_constants))
+Py_TPFLAGS_READY = (1L<<12)
+Py_TPFLAGS_READYING = (1L<<13)
+
+
 class ApiFunction:
-    def __init__(self, argtypes, restype, callable):
+    def __init__(self, argtypes, restype, callable, borrowed):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
+        self.borrowed = borrowed
 
-def cpython_api(argtypes, restype):
+def cpython_api(argtypes, restype, borrowed=False):
     def decorate(func):
-        api_function = ApiFunction(argtypes, restype, func)
+        api_function = ApiFunction(argtypes, restype, func, borrowed)
         FUNCTIONS[func.func_name] = api_function
         func.api_func = api_function
         return func
@@ -56,12 +71,15 @@ TYPES = {}
 # It is important that these PyObjects are allocated in a raw fashion
 # Thus we cannot save a forward pointer to the wrapped object
 # So we need a forward and backward mapping in our State instance
-PyObjectFields = (("refcnt", lltype.Signed), )
-PyObject = lltype.Ptr(cpython_struct('struct _object', PyObjectFields))
+PyObjectStruct = lltype.ForwardReference()
+PyObject = lltype.Ptr(PyObjectStruct)
+PyObjectFields = (("obj_refcnt", lltype.Signed), ("obj_type", PyObject))
+cpython_struct('struct _object', PyObjectFields, PyObjectStruct)
 
 def configure():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():
-        TYPES[name].become(TYPE)
+        if name in TYPES:
+            TYPES[name].become(TYPE)
 
 class NullPointerException(Exception):
     pass
@@ -69,19 +87,23 @@ class NullPointerException(Exception):
 class InvalidPointerException(Exception):
     pass
 
-def make_ref(space, w_obj):
+def make_ref(space, w_obj, borrowed=False):
     state = space.fromcache(State)
     py_obj = state.py_objects_w2r.get(w_obj)
     if py_obj is None:
-        py_obj = lltype.malloc(PyObject.TO, None, flavor="raw")
-        py_obj.c_refcnt = 1
+        if space.is_w(space.type(w_obj), space.w_type):
+            from pypy.module.cpyext.typeobject import allocate_type_obj
+            py_obj = allocate_type_obj(space, w_obj)
+        else:
+            py_obj = lltype.malloc(PyObject.TO, None, flavor="raw")
+        py_obj.c_obj_refcnt = 1
         ctypes_obj = ll2ctypes.lltype2ctypes(py_obj)
         ptr = ctypes.cast(ctypes_obj, ctypes.c_void_p).value
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes_obj)
         state.py_objects_w2r[w_obj] = py_obj
         state.py_objects_r2w[ptr] = w_obj
-    else:
-        py_obj.c_refcnt += 1
+    elif not borrowed:
+        py_obj.c_obj_refcnt += 1
     return py_obj
 
 def from_ref(space, ref):
@@ -158,6 +180,7 @@ def build_bridge(space, rename=True):
     PyObject *PyPy_True = NULL;
     PyObject *PyPy_False = NULL;
     PyObject *PyPyExc_Exception = NULL;
+    PyTypeObject *PyPyType_Type = NULL;
     """
     code = (prologue +
             struct_declaration_code +
@@ -169,6 +192,7 @@ def build_bridge(space, rename=True):
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         separate_module_sources=[code],
+        #separate_module_files=[include_dir / "typeobject.c"],
         export_symbols=['pypyAPI'] + export_symbols,
         )
     eci = eci.convert_sources_to_files()
@@ -180,10 +204,16 @@ def build_bridge(space, rename=True):
     import ctypes
     bridge = ctypes.CDLL(str(modulename))
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
-    Py_NONE = ctypes.c_void_p.in_dll(bridge, 'PyPy_None')
-    Py_TRUE = ctypes.c_void_p.in_dll(bridge, 'PyPy_True')
-    Py_FALSE = ctypes.c_void_p.in_dll(bridge, 'PyPy_False')
-    PyExc_Exception = ctypes.c_void_p.in_dll(bridge, 'PyPyExc_Exception')
+
+    # populate static data
+    for name, w_obj in [("PyPy_None", space.w_None),
+                        ("PyPy_True", space.w_True),
+                        ("PyPy_False", space.w_False),
+                        ("PyPyExc_Exception", space.w_Exception),
+                        ("PyPyType_Type", space.w_type)]:
+        ptr = ctypes.c_void_p.in_dll(bridge, name)
+        ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, w_obj)),
+            ctypes.c_void_p).value
 
     def make_wrapper(callable):
         def wrapper(*args):
@@ -210,7 +240,7 @@ def build_bridge(space, rename=True):
                     return -1
                 assert False, "Unknown return type"
             if callable.api_func.restype is PyObject:
-                retval = make_ref(space, retval)
+                retval = make_ref(space, retval, borrowed=callable.api_func.borrowed)
             return retval
         return wrapper
 
@@ -219,14 +249,6 @@ def build_bridge(space, rename=True):
         pypyAPI[structindex[name]] = ctypes.cast(
             ll2ctypes.lltype2ctypes(llhelper(func.functype, make_wrapper(func.callable))),
             ctypes.c_void_p)
-    Py_NONE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_None)),
-            ctypes.c_void_p).value
-    Py_TRUE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_True)),
-            ctypes.c_void_p).value
-    Py_FALSE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_False)),
-            ctypes.c_void_p).value
-    PyExc_Exception.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space,
-        space.w_Exception)), ctypes.c_void_p).value
 
     return modulename.new(ext='')
 
