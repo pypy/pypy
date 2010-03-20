@@ -4,16 +4,19 @@ from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.tool.udir import udir
 from pypy.translator import platform
 
 import py, autopath
 
-include_dir = py.path.local(autopath.pypydir).join(
-    'module', 'cpyext', 'include')
+include_dirs = [
+    py.path.local(autopath.pypydir).join('module', 'cpyext', 'include'),
+    udir,
+    ]
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        include_dirs=[include_dir],
+        include_dirs=include_dirs,
         includes=['Python.h']
         )
 
@@ -57,10 +60,31 @@ def from_ref(space, ref):
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
-def build_bridge(space):
+def build_bridge(space, rename=True):
     db = LowLevelDatabase()
 
+    export_symbols = list(FUNCTIONS)
+
     structindex = {}
+
+    prologue = """\
+    #define const            /* cheat */
+    #include <Python.h>
+    #define long int         /* cheat */
+    """
+    if rename:
+        pypy_rename = []
+        export_symbols = []
+        for name in FUNCTIONS:
+            newname = name.replace('Py', 'PyPy')
+            pypy_rename.append('#define %s %s' % (name, newname))
+            export_symbols.append(newname)
+        pypy_rename_h = udir.join('pypy_rename.h')
+        pypy_rename_h.write('\n'.join(pypy_rename))
+
+        prologue = """\
+        #include <pypy_rename.h> /* avoid symbol clashes */
+        """ + prologue
 
     # Structure declaration code
     members = []
@@ -70,9 +94,6 @@ def build_bridge(space):
         structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
-    #define const       /* cheat */
-    #include <Python.h>
-    #define long int    /* cheat */
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
@@ -94,13 +115,16 @@ def build_bridge(space):
         body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
         functions.append('%s\n%s\n' % (header, body))
 
-    code = struct_declaration_code + '\n' + '\n'.join(functions)
+    code = (prologue +
+            struct_declaration_code +
+            '\n' +
+            '\n'.join(functions))
 
     # Build code and get pointer to the structure
     eci = ExternalCompilationInfo(
-        include_dirs=[include_dir],
+        include_dirs=include_dirs,
         separate_module_sources=[code],
-        export_symbols=['pypyAPI'] + list(FUNCTIONS),
+        export_symbols=['pypyAPI'] + export_symbols,
         )
     eci = eci.convert_sources_to_files()
     modulename = platform.platform.compile(

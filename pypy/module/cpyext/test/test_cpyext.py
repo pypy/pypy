@@ -1,5 +1,3 @@
-import py, autopath
-
 from pypy.conftest import gettestobjspace
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -7,6 +5,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
 from pypy.module.cpyext import api
 
+import py, autopath
 import sys
 
 class TestApi():
@@ -16,13 +15,11 @@ class TestApi():
             rffi.CCHARP, lltype.Ptr(api.TYPES['PyMethodDef'])]
         assert api.FUNCTIONS['Py_InitModule'].restype == lltype.Void
 
-def compile_module(name, code, **kwds):
-    include_dir = py.path.local(autopath.pypydir).join(
-        'module', 'cpyext', 'include')
+def compile_module(modname, code, **kwds):
     eci = ExternalCompilationInfo(
         separate_module_sources=[code],
-        export_symbols=['init%s' % (name,)],
-        include_dirs=[include_dir],
+        export_symbols=['init%s' % (modname,)],
+        include_dirs=api.include_dirs,
         **kwds
         )
     eci = eci.convert_sources_to_files()
@@ -33,10 +30,11 @@ def compile_module(name, code, **kwds):
 
 class AppTestCpythonExtension:
     def setup_class(cls):
-        cls.api_library = api.build_bridge(cls.space)
+        cls.api_library = api.build_bridge(cls.space, rename=True)
 
     def import_module(self, name, init, body=''):
         code = """
+        #include <pypy_rename.h>
         #include <Python.h>
         %(body)s
 
