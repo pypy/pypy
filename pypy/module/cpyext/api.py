@@ -150,6 +150,8 @@ def build_bridge(space, rename=True):
 
     global_objects = """
     PyObject *PyPy_None = NULL;
+    PyObject *PyPy_True = NULL;
+    PyObject *PyPy_False = NULL;
     PyObject *PyPyExc_Exception = NULL;
     """
     code = (prologue +
@@ -174,6 +176,8 @@ def build_bridge(space, rename=True):
     bridge = ctypes.CDLL(str(modulename))
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
     Py_NONE = ctypes.c_void_p.in_dll(bridge, 'PyPy_None')
+    Py_TRUE = ctypes.c_void_p.in_dll(bridge, 'PyPy_True')
+    Py_FALSE = ctypes.c_void_p.in_dll(bridge, 'PyPy_False')
     PyExc_Exception = ctypes.c_void_p.in_dll(bridge, 'PyPyExc_Exception')
 
     def make_wrapper(callable):
@@ -211,6 +215,10 @@ def build_bridge(space, rename=True):
             ll2ctypes.lltype2ctypes(llhelper(func.functype, make_wrapper(func.callable))),
             ctypes.c_void_p)
     Py_NONE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_None)),
+            ctypes.c_void_p).value
+    Py_TRUE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_True)),
+            ctypes.c_void_p).value
+    Py_FALSE.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, space.w_False)),
             ctypes.c_void_p).value
     PyExc_Exception.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space,
         space.w_Exception)), ctypes.c_void_p).value
