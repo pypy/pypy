@@ -28,7 +28,7 @@ def cfunction_descr_call(space, w_self, __args__):
         if not we_are_translated():
             import sys
             print >>sys.stderr, "Calling a function failed. Did it" \
-                    " really return an PyObject?"
+                    " really return a PyObject?"
         raise
 
     # XXX result.decref()
