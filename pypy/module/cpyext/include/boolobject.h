@@ -17,6 +17,7 @@ extern PyObject *PyPy_False;
 #define Py_RETURN_TRUE return Py_INCREF(Py_True), Py_True
 #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
 
+int PyBool_Check(PyObject*);
 PyObject* PyBool_FromLong(long);
 
 #ifdef __cplusplus

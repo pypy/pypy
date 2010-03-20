@@ -36,10 +36,25 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
             }
             Py_RETURN_TRUE;
         }
+        static PyObject* foo_test_Check(PyObject* self, PyObject *args)
+        {
+            int result = 0;
+            PyObject* f = PyFloat_FromDouble(1.0);
+            
+            if(PyBool_Check(Py_True) &&
+                PyBool_Check(Py_False) &&
+                !PyBool_Check(f)) 
+            {
+                result = 1;
+            }
+            Py_DECREF(f);
+            return PyBool_FromLong(result);
+        }
         static PyMethodDef methods[] = {
             { "get_true", foo_get_true, METH_NOARGS },
             { "get_false", foo_get_false, METH_NOARGS },
             { "test_FromLong", foo_test_FromLong, METH_NOARGS },
+            { "test_Check", foo_test_Check, METH_NOARGS },
             { NULL }
         };
         """
@@ -48,3 +63,4 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
         assert module.get_true() == True
         assert module.get_false() == False
         assert module.test_FromLong() == True
+        assert module.test_Check() == True
