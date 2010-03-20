@@ -11,23 +11,21 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
             Py_InitModule("foo", methods);
         """
         body = """
-        static PyObject* foo_GetTrue(PyObject* self, PyObject *args)
+        static PyObject* foo_get_true(PyObject* self, PyObject *args)
         {
-            Py_INCREF(Py_True);
-            return Py_True;
+            Py_RETURN_TRUE;
         }
-        static PyObject* foo_GetFalse(PyObject* self, PyObject *args)
+        static PyObject* foo_get_false(PyObject* self, PyObject *args)
         {
-            Py_INCREF(Py_False);
-            return Py_False;
+            Py_RETURN_FALSE;
         }
         static PyMethodDef methods[] = {
-            { "GetTrue", foo_GetTrue, METH_NOARGS },
-            { "GetFalse", foo_GetFalse, METH_NOARGS },
+            { "get_true", foo_get_true, METH_NOARGS },
+            { "get_false", foo_get_false, METH_NOARGS },
             { NULL }
         };
         """
         module = self.import_module(name='foo', init=init, body=body)
         assert 'foo' in sys.modules
-        assert module.GetTrue() == True
-        assert module.GetFalse() == False
+        assert module.get_true() == True
+        assert module.get_false() == False
