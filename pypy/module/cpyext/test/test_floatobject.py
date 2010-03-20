@@ -15,10 +15,11 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
         {
             return PyFloat_FromDouble(3.14);
         }
-        double foo_AsDouble(PyObject* self, PyObject *args)
+        PyObject* foo_AsDouble(PyObject* self, PyObject *args)
         {
             PyObject* pi = PyFloat_FromDouble(3.14);
-            return PyFloat_AsDouble(pi);
+            double d = PyFloat_AsDouble(pi);
+			return PyFloat_FromDouble(d);
         }
         static PyMethodDef methods[] = {
             { "FromDouble", foo_FromDouble, METH_NOARGS },
