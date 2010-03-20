@@ -9,6 +9,7 @@ extern "C" {
 
 
 PyObject* PyFloat_FromDouble(double);
+//double PyFloat_AsDouble(PyObject*);
 
 #ifdef __cplusplus
 }
