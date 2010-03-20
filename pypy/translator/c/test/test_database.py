@@ -5,6 +5,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.rpython.lltypesystem.rffi import VOIDP_real
 
 
 def dump_on_stdout(database):
@@ -220,6 +221,11 @@ def test_array_of_char():
     db.get(a)
     db.complete()
     dump_on_stdout(db)
+
+def test_voidp():
+    A = VOIDP_real
+    db = LowLevelDatabase()
+    assert db.gettype(A) == "void *@"
 
 def test_recursive_struct():
     S = GcForwardReference()

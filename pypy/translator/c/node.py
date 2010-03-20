@@ -304,7 +304,10 @@ class BareBoneArrayDefNode:
         self.LLTYPE = ARRAY
         self.varlength = varlength
         self.dependencies = {}
-        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
+        contained_type = ARRAY.OF
+        if ARRAY._hints.get("render_as_void"):
+            contained_type = Void
+        self.itemtypename = db.gettype(contained_type, who_asks=self)
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
