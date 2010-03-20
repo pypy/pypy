@@ -42,10 +42,11 @@ def cpython_api(argtypes, restype):
         return func
     return decorate
 
-def cpython_struct(name, fields):
+def cpython_struct(name, fields, forward=None):
     configname = name.replace(' ', '__')
     setattr(CConfig, configname, rffi_platform.Struct(name, fields))
-    forward = lltype.ForwardReference()
+    if forward is None:
+        forward = lltype.ForwardReference()
     TYPES[configname] = forward
     return forward
 
@@ -55,7 +56,8 @@ TYPES = {}
 # It is important that these PyObjects are allocated in a raw fashion
 # Thus we cannot save a forward pointer to the wrapped object
 # So we need a forward and backward mapping in our State instance
-PyObject = lltype.Ptr(cpython_struct('struct _object', [("refcnt", lltype.Signed)]))
+PyObjectFields = (("refcnt", lltype.Signed), )
+PyObject = lltype.Ptr(cpython_struct('struct _object', PyObjectFields))
 
 def configure():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():

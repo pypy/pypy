@@ -4,4 +4,4 @@ from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
 @cpython_api([PyTypeObjectPtr], PyObject)
 def _PyObject_New(space, pto):
-    return space.wrap(42)
+    return space.wrap(42) # XXX
