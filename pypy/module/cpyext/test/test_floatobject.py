@@ -19,6 +19,7 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
         {
             PyObject* obj = PyFloat_FromDouble(23.45);
             double d = PyFloat_AsDouble(obj);
+            Py_DECREF(obj);
             return PyFloat_FromDouble(d);
         }
         static PyMethodDef methods[] = {
