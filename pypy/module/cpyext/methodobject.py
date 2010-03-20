@@ -5,6 +5,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import PyObject, from_ref
+from pypy.rlib.objectmodel import we_are_translated
+
 
 class W_PyCFunctionObject(Wrappable):
     def __init__(self, ml, w_self, w_modname):
@@ -20,7 +22,15 @@ def cfunction_descr_call(space, w_self, __args__):
 
     # Call the C function
     result = self.ml.c_ml_meth(null, null)
-    ret = from_ref(space, result)
+    try:
+        ret = from_ref(space, result)
+    except RuntimeError:
+        if not we_are_translated():
+            import sys
+            print >>sys.stderr, "Calling a function failed. Did it" \
+                    " really return an PyObject?"
+        raise
+
     # XXX result.decref()
     return ret
 
