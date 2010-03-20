@@ -1,7 +1,8 @@
-import py
-import autopath
 import ctypes
 
+import py
+
+from pypy.translator.goal import autopath
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import ll2ctypes
