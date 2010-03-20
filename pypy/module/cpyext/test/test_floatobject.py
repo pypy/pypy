@@ -1,9 +1,9 @@
-from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtension
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 import py
 import sys
 
-class AppTestFloatObject(AppTestCpythonExtension):
+class AppTestFloatObject(AppTestCpythonExtensionBase):
     def test_floatobject(self):
         import sys
         init = """

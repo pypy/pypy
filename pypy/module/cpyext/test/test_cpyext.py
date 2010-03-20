@@ -1,12 +1,15 @@
+import sys
+
+import py
+
 from pypy.conftest import gettestobjspace
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
 from pypy.module.cpyext import api
+from pypy.translator.goal import autopath
 
-import py, autopath
-import sys
 
 class TestApi():
     def test_signature(self):
@@ -28,7 +31,7 @@ def compile_module(modname, code, **kwds):
         standalone=False)
     return str(soname)
 
-class AppTestCpythonExtension:
+class AppTestCpythonExtensionBase:
     def setup_class(cls):
         cls.api_library = api.build_bridge(cls.space, rename=True)
 
@@ -65,6 +68,7 @@ class AppTestCpythonExtension:
         except OperationError:
             pass
 
+class AppTestCpythonExtension(AppTestCpythonExtensionBase):
     def test_createmodule(self):
         import sys
         init = """
