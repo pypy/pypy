@@ -14,6 +14,7 @@ from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
 
+Py_ssize_t = lltype.Signed
 
 include_dirs = [
     py.path.local(autopath.pypydir).join('module', 'cpyext', 'include'),

@@ -31,4 +31,6 @@ import pypy.module.cpyext.modsupport
 import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.macros
 import pypy.module.cpyext.pyerrors
+import pypy.module.cpyext.typeobject
+import pypy.module.cpyext.object
 api.configure()

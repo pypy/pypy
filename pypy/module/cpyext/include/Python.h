@@ -1,9 +1,12 @@
 #ifndef Py_PYTHON_H
 #define Py_PYTHON_H
 
-typedef struct _object {
-    long refcnt;
-} PyObject;
+#include <inttypes.h>
+#include <stdint.h>
+typedef long             Py_ssize_t;
+#define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
+
+#include "object.h"
 
 extern PyObject *PyPy_None;
 #define Py_None PyPy_None
@@ -17,5 +20,7 @@ extern PyObject *PyPy_None;
 #include "modsupport.h"
 #include "pythonrun.h"
 #include "pyerrors.h"
+#include "stringobject.h"
+#include "descrobject.h"
 
 #endif
