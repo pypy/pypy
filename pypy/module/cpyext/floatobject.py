@@ -7,4 +7,4 @@ def PyFloat_FromDouble(space, value):
 
 @cpython_api([PyObject], lltype.Float)
 def PyFloat_AsDouble(space, w_float):
-	return 10.0 #XXX: for now
+    return 10.0 #XXX: for now
