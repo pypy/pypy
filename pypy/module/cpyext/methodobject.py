@@ -26,6 +26,8 @@ class W_PyCFunctionObject(Wrappable):
             w_self = self.w_self
         result = self.ml.c_ml_meth(make_ref(space, w_self), make_ref(space, args_tuple))
         try:
+            if result:
+                result.c_obj_refcnt -= 1 
             ret = from_ref(space, result)
         except NullPointerException:
             state = space.fromcache(State)

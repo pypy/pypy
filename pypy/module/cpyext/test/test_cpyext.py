@@ -202,7 +202,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_DECREF(true);
             refcnt_after = Py_REFCNT(true);
             printf("REFCNT %i %i\\n", refcnt, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt);
+            return PyBool_FromLong(refcnt_after == refcnt && refcnt < 3);
         }
         static PyMethodDef methods[] = {
             { "test_refcount", foo_pi, METH_NOARGS },
