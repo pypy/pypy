@@ -9,7 +9,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         import sys
         module = self.import_module(name='foo')
         assert 'foo' in sys.modules
-        print module.fooType
+        assert "copy" in dir(module.fooType)
         obj = module.new()
         print "Obj has type", type(obj)
         assert type(obj) is module.fooType

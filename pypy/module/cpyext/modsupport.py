@@ -26,8 +26,8 @@ def Py_InitModule(space, name, methods):
     modname = rffi.charp2str(name)
     w_mod = PyImport_AddModule(space, modname)
     dict_w = convert_method_defs(space, methods)
-    for w_key, w_value in dict_w.items():
-        space.setattr(w_mod, w_key, w_value)
+    for key, w_value in dict_w.items():
+        space.setattr(w_mod, space.wrap(key), w_value)
     return w_mod
 
 
@@ -43,7 +43,7 @@ def convert_method_defs(space, methods):
             methodname = rffi.charp2str(method.c_ml_name)
             flags = method.c_ml_flags
             w_function = PyCFunction_NewEx(space, method, None)
-            dict_w[space.wrap(methodname)] = w_function
+            dict_w[methodname] = w_function
             i = i + 1
     return dict_w
 
