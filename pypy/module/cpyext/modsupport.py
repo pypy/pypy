@@ -11,7 +11,7 @@ PyMethodDef = cpython_struct(
     'PyMethodDef',
     [('ml_name', rffi.CCHARP),
      ('ml_meth', PyCFunction),
-     ('ml_flags', rffi.INT),
+     ('ml_flags', rffi.INT_real),
      ])
 
 def PyImport_AddModule(space, name):
@@ -66,7 +66,7 @@ def convert_method_defs(space, methods, pto):
     return dict_w
 
 
-@cpython_api([PyObject], rffi.INT)
+@cpython_api([PyObject], rffi.INT_real)
 def PyModule_Check(space, w_obj):
     w_type = space.gettypeobject(Module.typedef)
     return general_check(space, w_obj, w_type)

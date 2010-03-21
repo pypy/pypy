@@ -185,7 +185,6 @@ def build_bridge(space, rename=True):
     prologue = """\
     #define const            /* cheat */
     #include <Python.h>
-    #define long int         /* cheat */
     """
     if rename:
         pypy_rename = []
@@ -304,12 +303,14 @@ def build_bridge(space, rename=True):
                     return
                 if restype is PyObject:
                     return lltype.nullptr(PyObject.TO)
-                if restype in (lltype.Signed, rffi.INT):
-                    return -1
+                if restype in (lltype.Signed, rffi.INT_real):
+                    return rffi.cast(rffi.INT_real, -1)
                 assert False, "Unknown return type"
 
             if callable.api_func.restype is PyObject:
                 retval = make_ref(space, retval, borrowed=callable.api_func.borrowed)
+            if callable.api_func.restype is rffi.INT_real:
+                retval = rffi.cast(rffi.INT_real, retval)
             return retval
         return wrapper
 

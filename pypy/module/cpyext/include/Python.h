@@ -17,7 +17,6 @@
 /* move somewhere else */
 extern PyObject *Py_None;
 
-#define long int /* XXX: same hack as in api.py */
 
 #include <stdio.h>
 

@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, PyObject, general_check
 
-@cpython_api([PyObject], rffi.INT)
+@cpython_api([PyObject], rffi.INT_real)
 def PyBool_Check(space, w_obj):
     w_type = space.w_bool
     return general_check(space, w_obj, w_type)
