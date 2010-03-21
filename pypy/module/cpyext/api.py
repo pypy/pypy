@@ -141,6 +141,7 @@ def make_ref(space, w_obj, borrowed=False):
         ctypes_obj = ll2ctypes.lltype2ctypes(py_obj)
         ptr = ctypes.cast(ctypes_obj, ctypes.c_void_p).value
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes_obj)
+        py_obj = rffi.cast(PyObject, py_obj)
         state.py_objects_w2r[w_obj] = py_obj
         state.py_objects_r2w[ptr] = w_obj
     elif not borrowed:

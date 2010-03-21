@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject, \
         METH_STATIC, METH_CLASS, METH_COEXIST
 from pypy.interpreter.module import Module
-from pypy.module.cpyext.methodobject import PyCFunction_NewEx
+from pypy.module.cpyext.methodobject import PyCFunction_NewEx, PyDescr_NewMethod
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
