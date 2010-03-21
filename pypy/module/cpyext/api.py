@@ -1,4 +1,5 @@
 import ctypes
+import sys
 
 import py
 
@@ -180,6 +181,7 @@ def build_bridge(space, rename=True):
     PyObject *PyPy_True = NULL;
     PyObject *PyPy_False = NULL;
     PyObject *PyPyExc_Exception = NULL;
+    PyObject *PyPyExc_TypeError = NULL;
     PyTypeObject *PyPyType_Type = NULL;
     PyTypeObject *PyPyBaseObject_Type = NULL;
     """
@@ -193,8 +195,8 @@ def build_bridge(space, rename=True):
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         separate_module_sources=[code],
-        #separate_module_files=[include_dir / "typeobject.c",
-        #                       include_dir / "varargwrapper.c"],
+        separate_module_files=[include_dir / "typeobject.c",
+                               include_dir / "varargwrapper.c"],
         export_symbols=['pypyAPI'] + export_symbols,
         )
     eci = eci.convert_sources_to_files()
@@ -212,6 +214,7 @@ def build_bridge(space, rename=True):
                         ("PyPy_True", space.w_True),
                         ("PyPy_False", space.w_False),
                         ("PyPyExc_Exception", space.w_Exception),
+                        ("PyPyExc_TypeError", space.w_TypeError),
                         ("PyPyType_Type", space.w_type),
                         ("PyPyBaseObject_Type", space.w_object),
                         ]:
@@ -223,26 +226,36 @@ def build_bridge(space, rename=True):
         def wrapper(*args):
             boxed_args = []
             # XXX use unrolling_iterable here
+            print >>sys.stderr, callable
             for i, typ in enumerate(callable.api_func.argtypes):
                 arg = args[i]
                 if typ is PyObject:
                     arg = from_ref(space, arg)
                 boxed_args.append(arg)
+            state = space.fromcache(State)
             try:
                 retval = callable(space, *boxed_args)
+                print "Callable worked"
             except OperationError, e:
                 e.normalize_exception(space)
-                state = space.fromcache(State)
                 state.exc_type = e.w_type
                 state.exc_value = e.get_w_value(space)
+            except BaseException, e:
+                state.exc_type = space.w_SystemError
+                state.exc_value = space.wrap(str(e))
+                import traceback
+                traceback.print_exc()
+
+            if state.exc_value is not None:
                 restype = callable.api_func.restype
                 if restype is lltype.Void:
                     return
                 if restype is PyObject:
-                    return lltype.nullptr(PyObject)
-                if restype is lltype.Signed:
+                    return lltype.nullptr(PyObject.TO)
+                if restype in (lltype.Signed, rffi.INT):
                     return -1
                 assert False, "Unknown return type"
+
             if callable.api_func.restype is PyObject:
                 retval = make_ref(space, retval, borrowed=callable.api_func.borrowed)
             return retval

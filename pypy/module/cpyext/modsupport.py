@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import PyCFunction_NewEx
+from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
 
@@ -39,3 +40,17 @@ def Py_InitModule(space, name, methods):
                           w_function)
             i = i + 1
     return w_mod
+
+@cpython_api([PyObject], rffi.INT)
+def PyModule_Check(space, w_obj):
+    w_type = space.gettypeobject(Module.typedef)
+    w_obj_type = space.type(w_obj)
+    return space.is_w(w_obj_type, w_type) or space.is_true(space.issubtype(w_obj_type, w_type))
+
+@cpython_api([PyObject], PyObject)
+def PyModule_GetDict(space, w_mod):
+    if PyModule_Check(space, w_mod):
+        assert isinstance(w_mod, Module)
+        return w_mod.getdict()
+    else:
+        PyErr_BadInternalCall()

@@ -11,3 +11,4 @@ def PyTuple_New(space, size):
 def PyTuple_SetItem(space, w_t, pos, w_obj):
     assert isinstance(w_t, W_TupleObject)
     w_t.wrappeditems[pos] = w_obj
+    return 0

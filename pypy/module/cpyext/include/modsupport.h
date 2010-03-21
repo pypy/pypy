@@ -8,6 +8,8 @@ extern "C" {
 #endif
 
 PyObject *Py_InitModule(const char* name, PyMethodDef* methods);
+PyObject * PyModule_GetDict(PyObject *);
+
 
 #ifdef __cplusplus
 }

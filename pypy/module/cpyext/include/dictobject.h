@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+PyObject * PyDict_New(void);
+int PyDict_SetItemString(PyObject *dp, const char *key, PyObject *item);
 
 #ifdef __cplusplus
 }

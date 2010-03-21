@@ -9,4 +9,5 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         import sys
         module = self.import_module(name='foo')
         assert 'foo' in sys.modules
+        print module.fooType
         assert module.new().name == "Foo Example"

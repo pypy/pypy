@@ -387,7 +387,7 @@ int PyPyType_Ready(PyTypeObject *);
 
 /* objimpl.h ----------------------------------------------*/
 
-PyObject * _PyObject_New(PyTypeObject *);
+PyObject * _PyObject_New(PyObject *);
 // PyVarObject * _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
 
 #define PyObject_New(type, typeobj) \
@@ -396,5 +396,8 @@ PyObject * _PyObject_New(PyTypeObject *);
 		( (type *) _PyObject_NewVar((typeobj), (n)) )
 
 void PyObject_Del(void *);
+
+/* PyPy internal ----------------------------------- */
+int PyPyType_Register(PyTypeObject *);
 
 #endif

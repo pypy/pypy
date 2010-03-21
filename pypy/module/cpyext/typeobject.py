@@ -1,10 +1,16 @@
+import ctypes
+
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
-
+from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import TypeDef
 from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject,\
         PyObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.modsupport import PyMethodDef
+from pypy.module.cpyext.state import State
 
 PyTypeObject = lltype.ForwardReference()
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
@@ -133,8 +139,41 @@ PyTypeObject = cpython_struct(
         "PyTypeObject",
         PyTypeObjectFields, PyTypeObject)
 
+
+class W_PyCTypeObject(Wrappable):
+    pass
+
+class W_PyCObject(Wrappable):
+    pass
+
+@unwrap_spec(ObjSpace, W_Root, W_Root)
+def cobject_descr_getattr(space, w_obj, w_name):
+    name = space.str_w(w_name)
+    return w_name
+
+
 def allocate_type_obj(space, w_obj):
     py_obj = lltype.malloc(PyTypeObject, None, flavor="raw")
     return py_obj
 
+def create_type_object(space, pto):
+    return space.gettypeobject(W_PyCTypeObject)
 
+@cpython_api([PyTypeObjectPtr], rffi.INT)
+def PyPyType_Register(space, pto):
+    state = space.fromcache(State)
+    ptr = ctypes.addressof(pto._obj._storage)
+    if ptr not in state.py_objects_r2w:
+        w_obj = create_type_object(space, pto)
+        state.py_objects_r2w[ptr] = w_obj
+        state.py_objects_w2r[w_obj] = pto
+    return 1
+
+W_PyCObject.typedef = TypeDef(
+    'C_object',
+    __getattr__ = interp2app(cobject_descr_getattr),
+    )
+
+W_PyCTypeObject.typedef = TypeDef(
+    'C_type'
+    )

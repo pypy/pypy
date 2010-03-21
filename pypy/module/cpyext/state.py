@@ -15,5 +15,6 @@ class State:
         if exc_type is not None or exc_value is not None:
             self.exc_value = None
             self.exc_type = None
-            raise OperationError(exc_type, exc_value)
+            op_err = OperationError(exc_type, exc_value)
+            raise op_err
 

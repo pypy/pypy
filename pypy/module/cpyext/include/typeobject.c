@@ -75,7 +75,7 @@ PyPyType_Ready(PyTypeObject *type)
 			goto error;
 		type->tp_dict = dict;
 	}
-
+#if 0
 	/* Add type-specific descriptors to tp_dict */
 	if (add_operators(type) < 0)
 		goto error;
@@ -163,9 +163,14 @@ PyPyType_Ready(PyTypeObject *type)
 		    add_subclass((PyTypeObject *)b, type) < 0)
 			goto error;
 	}
-
+#endif
 	/* All done -- set the ready flag */
 	assert(type->tp_dict != NULL);
+
+    /* PYPY ADDITION */
+    if (PyPyType_Register(type) < 0)
+        goto error;
+
 	type->tp_flags =
 		(type->tp_flags & ~Py_TPFLAGS_READYING) | Py_TPFLAGS_READY;
 	return 0;
