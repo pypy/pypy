@@ -2,6 +2,7 @@
 /************************************************************/
  /***  C header subsection: support functions              ***/
 
+#include <stdio.h>
 
 /*** misc ***/
 

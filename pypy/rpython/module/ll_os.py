@@ -88,31 +88,17 @@ class RegisterOs(BaseLazyRegistering):
     def __init__(self):
         self.configure(CConfig)
 
-        # on some platforms, e.g. OS X Leopard, the following constants which
-        # may be defined in pyconfig.h triggers "legacy" behaviour for functions
-        # like setpgrp():
-        #
-        #   _POSIX_C_SOURCE 200112L
-        #   _XOPEN_SOURCE 600
-        #   _DARWIN_C_SOURCE 1
-        #
-        # since the translation currently includes pyconfig.h, the checkcompiles
-        # call below include the pyconfig.h file so that the same behaviour is
-        # present in both the check and the final translation...
-
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
                 "getpgrp(0)",
-                '#include "pyconfig.h"\n#include <unistd.h>',
-                [platform.get_python_include_dir()]
-                )
+                '#include <unistd.h>',
+                [])
 
         if hasattr(os, 'setpgrp'):
             self.SETPGRP_HAVE_ARG = platform.checkcompiles(
                 "setpgrp(0,0)",
-                '#include "pyconfig.h"\n#include <unistd.h>',
-                [platform.get_python_include_dir()]
-                )
+                '#include <unistd.h>',
+                [])
 
         # we need an indirection via c functions to get macro calls working on llvm XXX still?
         if hasattr(os, 'WCOREDUMP'):

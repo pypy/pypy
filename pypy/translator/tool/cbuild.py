@@ -225,6 +225,7 @@ class ExternalCompilationInfo(object):
         return ExternalCompilationInfo(**attrs)
 
     def write_c_header(self, fileobj):
+        print >> fileobj, STANDARD_DEFINES
         for piece in self.pre_include_bits:
             print >> fileobj, piece
         for path in self.includes:
@@ -254,8 +255,6 @@ class ExternalCompilationInfo(object):
             f = filename.open("w")
             if being_main:
                 f.write("#define PYPY_NOT_MAIN_FILE\n")
-            if sys.platform == 'win32':
-                f.write("#define WIN32_LEAN_AND_MEAN\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)
@@ -292,3 +291,28 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] = ()
         d['separate_module_sources'] = ()
         return ExternalCompilationInfo(**d)
+
+
+# ____________________________________________________________
+#
+# This is extracted from pyconfig.h from CPython.  It sets the macros
+# that affect the features we get from system include files.
+
+STANDARD_DEFINES = '''
+/* Define on Darwin to activate all library features */
+#define _DARWIN_C_SOURCE 1
+/* This must be set to 64 on some systems to enable large file support. */
+#define _FILE_OFFSET_BITS 64
+/* Define on Linux to activate all library features */
+#define _GNU_SOURCE 1
+/* This must be defined on some systems to enable large file support. */
+#define _LARGEFILE_SOURCE 1
+/* Define on NetBSD to activate all library features */
+#define _NETBSD_SOURCE 1
+/* Define to activate features from IEEE Stds 1003.1-2001 */
+#define _POSIX_C_SOURCE 200112L
+/* Define on FreeBSD to activate all library features */
+#define __BSD_VISIBLE 1
+/* Windows: winsock/winsock2 mess */
+#define WIN32_LEAN_AND_MEAN
+'''

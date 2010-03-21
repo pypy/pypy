@@ -1,6 +1,6 @@
 import py, math
 from pypy.module.math.test import test_direct
-from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.test.test_standalone import StandaloneTests
 
 
 def get_test_case((fnname, args, expected)):
@@ -25,18 +25,30 @@ def get_test_case((fnname, args, expected)):
 
 testfnlist = [get_test_case(testcase)
               for testcase in test_direct.MathTests.TESTCASES]
+reprlist = [repr(testcase)
+            for testcase in test_direct.MathTests.TESTCASES]
 
-def fn():
+def fn(args):
+    err = False
     for i in range(len(testfnlist)):
         testfn = testfnlist[i]
         if not testfn():
-            return i
-    return -42  # ok
+            print "error:", reprlist[i]
+            err = True
+    if not err:
+        print "all ok"
+    return 0
 
-def test_math():
-    f = compile(fn, [])
-    res = f()
-    if res >= 0:
-        py.test.fail(repr(test_direct.MathTests.TESTCASES[res]))
-    else:
-        assert res == -42
+
+class TestMath(StandaloneTests):
+
+    def test_math(self, debug=True):
+        t, cbuilder = self.compile(fn, debug=debug)
+        data = cbuilder.cmdexec('')
+        if "error:" in data:
+            py.test.fail(data.strip())
+        else:
+            assert "all ok" in data
+
+    def test_math_nodebug(self):
+        self.test_math(debug=False)

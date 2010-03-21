@@ -23,6 +23,12 @@ int main(int argc, char *argv[])
 
     instrument_setup();
 
+    if (sizeof(void*) != SIZEOF_LONG) {
+        errmsg = "only support platforms where sizeof(void*) == sizeof(long),"
+                 " for now";
+        goto error;
+    }
+
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 

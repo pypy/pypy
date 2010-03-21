@@ -1,12 +1,18 @@
 from pypy.rpython.lltypesystem.lltype import GcArray, Array, Char, malloc
 from pypy.rpython.annlowlevel import llstr
-from pypy.rlib.rarithmetic import r_uint, formatd
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, formatd
 
 CHAR_ARRAY = GcArray(Char)
 
 def ll_int_str(repr, i):
     return ll_int2dec(i)
 ll_int_str._pure_function_ = True
+
+def ll_unsigned(i):
+    if isinstance(i, r_longlong) or isinstance(i, r_ulonglong):
+        return r_ulonglong(i)
+    else:
+        return r_uint(i)
 
 def ll_int2dec(i):
     from pypy.rpython.lltypesystem.rstr import mallocstr
@@ -15,9 +21,9 @@ def ll_int2dec(i):
     sign = 0
     if i < 0:
         sign = 1
-        i = r_uint(-i)
+        i = ll_unsigned(-i)
     else:
-        i = r_uint(i)
+        i = ll_unsigned(i)
     if i == 0:
         len = 1
         temp[0] = '0'
@@ -52,9 +58,9 @@ def ll_int2hex(i, addPrefix):
     sign = 0
     if i < 0:
         sign = 1
-        i = r_uint(-i)
+        i = ll_unsigned(-i)
     else:
-        i = r_uint(i)
+        i = ll_unsigned(i)
     if i == 0:
         len = 1
         temp[0] = '0'
@@ -94,9 +100,9 @@ def ll_int2oct(i, addPrefix):
     sign = 0
     if i < 0:
         sign = 1
-        i = r_uint(-i)
+        i = ll_unsigned(-i)
     else:
-        i = r_uint(i)
+        i = ll_unsigned(i)
     while i:
         temp[len] = hex_chars[i & 0x7]
         i >>= 3

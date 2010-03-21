@@ -32,9 +32,10 @@ elif _MS_WINDOWS:
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=includes,
-        pre_include_bits=['#ifndef _GNU_SOURCE\n' +
-                          '#define _GNU_SOURCE\n' +
-                          '#endif']
+        #pre_include_bits=['#ifndef _GNU_SOURCE\n' +
+        #                  '#define _GNU_SOURCE\n' +
+        #                  '#endif']
+        # ^^^ _GNU_SOURCE is always defined by the ExternalCompilationInfo now
     )
     size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
     off_t = rffi_platform.SimpleType("off_t", rffi.LONG)

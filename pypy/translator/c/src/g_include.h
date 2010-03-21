@@ -54,9 +54,6 @@
 #ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_strtod.h"
-#  ifdef RPyExc_thread_error
-#    include "src/ll_thread.h"
-#  endif
 #endif
 #endif
 

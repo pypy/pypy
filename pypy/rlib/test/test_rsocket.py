@@ -281,7 +281,8 @@ def test_getaddrinfo_http():
             addr.get_port() == 80):
             found = True
     assert found, lst
-    py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
+    e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
+    assert isinstance(e.value.get_msg(), str)
 
 def test_getaddrinfo_codespeak():
     lst = getaddrinfo('codespeak.net', None)

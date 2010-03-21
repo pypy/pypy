@@ -15,7 +15,8 @@ if sys.platform == 'win32':
     TIME_H = 'time.h'
     FTIME = '_ftime64'
     STRUCT_TIMEB = 'struct __timeb64'
-    includes = [TIME_H, 'windows.h', 'sys/types.h', 'sys/timeb.h']
+    includes = ['winsock2.h', 'windows.h',
+                TIME_H, 'sys/types.h', 'sys/timeb.h']
 else:
     TIME_H = 'sys/time.h'
     FTIME = 'ftime'

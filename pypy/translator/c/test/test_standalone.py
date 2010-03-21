@@ -205,16 +205,13 @@ class TestStandalone(StandaloneTests):
         #py.process.cmdexec(exe)
 
     def test_standalone_large_files(self):
-        from pypy.module.posix.test.test_posix2 import need_sparse_files
-        need_sparse_files()
         filename = str(udir.join('test_standalone_largefile'))
         r4800000000 = r_longlong(4800000000L)
         def entry_point(argv):
             fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0644)
             os.lseek(fd, r4800000000, 0)
-            os.write(fd, "$")
             newpos = os.lseek(fd, 0, 1)
-            if newpos == r4800000000 + 1:
+            if newpos == r4800000000:
                 print "OK"
             else:
                 print "BAD POS"
@@ -674,7 +671,10 @@ class TestThread(object):
         def entry_point(argv):
             os.write(1, "hello world\n")
             error = ll_thread.set_stacksize(int(argv[1]))
-            assert error == 0
+            if error != 0:
+                os.write(2, "set_stacksize(%d) returned %d\n" % (
+                    int(argv[1]), error))
+                raise AssertionError
             # malloc a bit
             s1 = State(); s2 = State(); s3 = State()
             s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333

@@ -281,6 +281,14 @@ class AppTestFunction:
         raises(TypeError, type, 'Foo', (type(f),), {})
         raises(TypeError, type, 'Foo', (type(len),), {})
 
+    def test_lambda_docstring(self):
+        # Like CPython, (lambda:"foo") has a docstring of "foo".
+        # But let's not test that.  Just test that (lambda:42) does not
+        # have 42 as docstring.
+        f = lambda: 42
+        assert f.func_doc is None
+
+
 class AppTestMethod: 
     def test_simple_call(self):
         class A(object):

@@ -331,6 +331,11 @@ class FunctionGcRootTracker(object):
                     label = label2
         if label is None:
             k = call.lineno
+            if self.format == 'msvc':
+                # Some header files (ws2tcpip.h) define STDCALL functions
+                funcname = self.funcname.split('@')[0]
+            else:
+                funcname = self.funcname
             while 1:
                 label = '__gcmap_%s__%s_%d' % (self.filetag, self.funcname, k)
                 if label not in self.labels:

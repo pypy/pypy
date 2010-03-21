@@ -1,3 +1,4 @@
+import py
 import sys, operator
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
@@ -104,6 +105,16 @@ class BaseTestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-sys.maxint-1])
         res = self.ll_to_string(res)
         assert res == '-' + oct(sys.maxint+1).replace('L', '').replace('l', '')
+
+    def test_str_of_longlong(self):
+        def f(i):
+            return str(i)
+
+        res = self.interpret(f, [r_longlong(0)])
+        assert self.ll_to_string(res) == '0'
+
+        res = self.interpret(f, [r_longlong(413974738222117)])
+        assert self.ll_to_string(res) == '413974738222117'
 
     def test_unsigned(self):
         bigvalue = sys.maxint + 17

@@ -8,7 +8,6 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.tool.udir import udir
-import distutils
 
 # ____________________________________________________________
 #
@@ -18,7 +17,7 @@ def eci_from_header(c_header_source, include_dirs=None):
     if include_dirs is None:
         include_dirs = []
     return ExternalCompilationInfo(
-        pre_include_bits=[c_header_source],
+        post_include_bits=[c_header_source],
         include_dirs=include_dirs
     )
 
@@ -562,11 +561,6 @@ def run_example_code(filepath, eci):
             section[key] = int(value)
 
 # ____________________________________________________________
-
-def get_python_include_dir():
-    from distutils import sysconfig
-    gcv = sysconfig.get_config_vars()
-    return gcv.get('INCLUDEPY', '.') # this is for running on top of pypy-c
 
 def configure_external_library(name, eci, configurations,
                                symbol=None, _cache={}):

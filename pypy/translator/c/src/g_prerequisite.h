@@ -2,19 +2,18 @@
 /**************************************************************/
 /***  this is included before any code produced by genc.py  ***/
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE  /* this must be defined before including other headers
-                        in order to get a few extra functions like mremap() */
+
+#ifdef PYPY_STANDALONE
+#  include "src/commondefs.h"
+#else
+#  include "Python.h"
 #endif
 
-/* XXX for now we always include Python.h even to produce stand-alone
- * executables (which are *not* linked against CPython then),
- * to get the convenient macro definitions
- */
+#ifdef _WIN32
+#  include <io.h>   /* needed, otherwise _lseeki64 truncates to 32-bits (??) */
+#endif
+
 #ifndef AVR
-#include "Python.h"
-
-
 #include "thread.h"   /* needs to be included early to define the
                          struct RPyOpaque_ThreadLock */
 #endif

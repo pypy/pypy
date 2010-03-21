@@ -9,20 +9,13 @@
 #include "thread_nt.h"
 #else
 
-#include <unistd.h>
-
-#ifndef _POSIX_THREADS
-/* This means pthreads are not implemented in libc headers, hence the macro
-   not present in unistd.h. But they still can be implemented as an external
-   library (e.g. gnu pth in pthread emulation) */
-# ifdef HAVE_PTHREAD_H
-#  include <pthread.h> /* _POSIX_THREADS */
-# endif
-#endif
-
-#ifdef _POSIX_THREADS
+/* We should check if unistd.h defines _POSIX_THREADS, but sometimes
+   it is not defined even though the system implements them as an
+   external library (e.g. gnu pth in pthread emulation).  So we just
+   always go ahead and use them, assuming they are supported on all
+   platforms for which we care.  If not, do some detecting again.
+*/
 #include "thread_pthread.h"
-#endif
 
 #endif /* !_WIN32 */
 

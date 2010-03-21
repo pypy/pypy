@@ -10,17 +10,19 @@ class AppTestThread(GenericTestThread):
         cls.w_tmpdir = cls.space.wrap(tmpdir)
 
     def test_import_lock(self):
+        # XXX XXX XXX this test fails if run together with all other tests
+        # of this directory, but not when run alone
         import thread, imp
         assert not imp.lock_held()
         done = []
-        def f():
+        def f(i):
             print '[ENTER %d]' % i
             from imghdr import testall
             print '[LEAVE %d]' % i
             done.append(1)
         for i in range(5):
             print '[RUN %d]' % i
-            thread.start_new_thread(f, ())
+            thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5)
         assert len(done) == 5
 

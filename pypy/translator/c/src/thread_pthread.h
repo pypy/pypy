@@ -1,9 +1,23 @@
 
 /* Posix threads interface (from CPython) */
 
+/* XXX needs to detect HAVE_BROKEN_POSIX_SEMAPHORES properly; currently
+   it is set only if _POSIX_SEMAPHORES == -1.  Seems to be only for
+   SunOS/5.8 and AIX/5.
+*/
+
+#include <unistd.h>   /* for the _POSIX_xxx and _POSIX_THREAD_xxx defines */
+#include <stdlib.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <errno.h>
+
+/* The following is hopefully equivalent to what CPython does
+   (which is trying to compile a snippet of code using it) */
+#ifdef PTHREAD_SCOPE_SYSTEM
+#  define PTHREAD_SYSTEM_SCHED_SUPPORTED
+#endif
 
 /* The POSIX spec says that implementations supporting the sem_*
    family of functions must indicate this by defining
@@ -114,11 +128,11 @@ long RPyThreadGetIdent(void)
 	volatile pthread_t threadid;
 	/* Jump through some hoops for Alpha OSF/1 */
 	threadid = pthread_self();
-#if SIZEOF_PTHREAD_T <= SIZEOF_LONG
-	return (long) threadid;
-#else
-	return (long) *(long *) &threadid;
-#endif
+
+	if (sizeof(pthread_t) <= sizeof(long))
+		return (long) threadid;
+	else
+		return (long) *(long *) &threadid;
 }
 
 static long _pypythread_stacksize = 0;
@@ -171,11 +185,10 @@ long RPyThreadStart(void (*func)(void))
 
         pthread_detach(th);
 
-#if SIZEOF_PTHREAD_T <= SIZEOF_LONG
-	return (long) th;
-#else
-	return (long) *(long *) &th;
-#endif
+	if (sizeof(pthread_t) <= sizeof(long))
+		return (long) th;
+	else
+		return (long) *(long *) &th;
 }
 
 long RPyThreadGetStackSize(void)
