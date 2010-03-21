@@ -378,6 +378,8 @@ def setup():
 
 NUMBER_TYPES = setup()
 platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
+INT_real = lltype.Number("INT", INT._type)
+
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------
 #        Type           RPython integer class doing wrap-around
