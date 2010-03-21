@@ -9,7 +9,7 @@ class Linux(BasePosix):
     name = "linux"
     
     link_flags = ['-pthread', '-lrt']
-    cflags = ['-O3', '-pthread', '-fomit-frame-pointer']
+    cflags = ['-O3', '-pthread', '-fomit-frame-pointer', '-Wall']
     standalone_only = []
     shared_only = ['-fPIC']
     so_ext = 'so'
