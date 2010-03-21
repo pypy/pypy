@@ -357,12 +357,15 @@ if sys.platform == 'linux2':
     # usage hint but a real command.  It guarantees that after MADV_DONTNEED
     # the pages are cleared again.
     from pypy.rpython.tool import rffi_platform
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
+    _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
     MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
                                                      '#include <sys/mman.h>')
     linux_madvise = rffi.llexternal('madvise',
                                     [llmemory.Address, rffi.SIZE_T, rffi.INT],
                                     rffi.INT,
-                                    sandboxsafe=True, _nowrapper=True)
+                                    sandboxsafe=True, _nowrapper=True,
+                                    compilation_info=_eci)
     linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
                                         sandboxsafe=True, _nowrapper=True)
 

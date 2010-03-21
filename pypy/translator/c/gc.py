@@ -364,7 +364,7 @@ class FrameworkGcPolicy(BasicGcPolicy):
         typename = funcgen.db.gettype(op.result.concretetype)
         fieldname = c_vtableinfo.value[2]
         return (
-        '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (unsigned short)%s->_%s, %s);'
+        '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (pypy_halfword_t)%s->_%s, %s);'
             % (funcgen.expr(op.result),
                cdecl(typename, ''),
                funcgen.expr(c_grpptr),

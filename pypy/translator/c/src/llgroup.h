@@ -9,6 +9,8 @@
    lower one stores the offset inside the group, divided by 4.  The
    limitation is to have at most 256KB of data in the whole group. */
 
+typedef unsigned short pypy_halfword_t;
+
 #define GROUP_MEMBER_OFFSET(grouptype, groupname, membername)           \
   ((unsigned short)(((long)&((grouptype*)NULL)->membername) / 4))
 
@@ -17,13 +19,6 @@
 
 #define _OP_GET_NEXT_GROUP_MEMBER(groupptr, compactoffset, skipoffset)  \
   ((((char*)groupptr) + skipoffset) + ((long)compactoffset)*4)
-
-#define OP_IS_GROUP_MEMBER_NONZERO(compactoffset, r)  \
-  r = (compactoffset != 0)
-
-#define OP_EXTRACT_USHORT(value, r)         r = (unsigned short)value
-#define OP_COMBINE_USHORT(ushort, rest, r)  r = ((long)ushort) | rest
-
 /* A macro to check at run-time if sizeof(group) is too large. */
 #define PYPY_GROUP_CHECK_SIZE(groupname, lastname)   \
   if (sizeof(groupname) > 65536*4)  \
@@ -36,6 +31,8 @@
    that this pointer must fit inside 32-bit, i.e. the whole group must
    be located in the first 32 bits of address space. */
 
+typedef unsigned int pypy_halfword_t;
+
 #define GROUP_MEMBER_OFFSET(grouptype, groupname, membername)   \
   ((long)(&groupname.membername))
 
@@ -45,12 +42,6 @@
 #define _OP_GET_NEXT_GROUP_MEMBER(groupptr, compactoffset, skipoffset)  \
   ((long)compactoffset + skipoffset)
 
-#define OP_IS_GROUP_MEMBER_NONZERO(compactoffset, r)  \
-  r = (compactoffset != 0)
-
-#define OP_EXTRACT_USHORT(value, r)         r = (unsigned int)value
-#define OP_COMBINE_USHORT(ushort, rest, r)  r = ((long)ushort) | rest
-
 /* A macro to check at run-time if the group is below the 32-bit limit. */
 #define PYPY_GROUP_CHECK_SIZE(groupname, lastname)          \
   if ((unsigned long)(&groupname.lastname) > 0xFFFFFFFF)    \
@@ -59,5 +50,12 @@
 
 
 #endif /*****************************************************/
+
+
+#define OP_IS_GROUP_MEMBER_NONZERO(compactoffset, r)  \
+  r = (compactoffset != 0)
+
+#define OP_EXTRACT_USHORT(value, r)         r = (pypy_halfword_t)value
+#define OP_COMBINE_USHORT(ushort, rest, r)  r = ((long)ushort) | rest
 
 #endif /* _PYPY_LL_GROUP_H_ */

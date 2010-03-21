@@ -209,6 +209,7 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
+        yield 'goto block0;'    # to avoid a warning "this label is not used"
 
         # generate the body of each block
         for block in graph.iterblocks():
