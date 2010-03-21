@@ -8,7 +8,7 @@ from pypy.module.cpyext.state import State
 @cpython_api([PyObject], lltype.Void)
 def Py_DECREF(space, w_obj):
     state = space.fromcache(State)
-    obj = state.py_objects_w2r.get(w_obj)
+    obj = state.py_objects_w2r[w_obj]
     obj.c_obj_refcnt -= 1
     if obj.c_obj_refcnt == 0:
         del state.py_objects_w2r[w_obj]

@@ -8,6 +8,8 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
 from pypy.module.cpyext import api
+from pypy.module.cpyext.state import State
+from pypy.module.cpyext.macros import Py_DECREF
 from pypy.translator.goal import autopath
 
 
@@ -44,7 +46,7 @@ def compile_module(modname, **kwds):
 
 class AppTestCpythonExtensionBase:
     def setup_class(cls):
-        cls.api_library = api.build_bridge(cls.space, rename=True)
+        cls.space = gettestobjspace(usemodules=['cpyext'])
 
     def import_module(self, name, init=None, body=''):
         if init is not None:
@@ -63,10 +65,12 @@ class AppTestCpythonExtensionBase:
                     / 'cpyext'/ 'test' / (name + ".c")
             kwds = dict(separate_module_files=[filename])
 
+        state = self.space.fromcache(State)
+        api_library = state.api_lib
         if sys.platform == 'win32':
-            kwds["libraries"] = [self.api_library]
+            kwds["libraries"] = [api_library]
         else:
-            kwds["link_files"] = [str(self.api_library + '.so')]
+            kwds["link_files"] = [str(api_library + '.so')]
         mod = compile_module(name, **kwds)
 
         api.load_extension_module(self.space, mod, name)
@@ -76,13 +80,29 @@ class AppTestCpythonExtensionBase:
 
     def setup_method(self, func):
         self.w_import_module = self.space.wrap(self.import_module)
+        self.w_check_refcnts = self.space.wrap(self.check_refcnts)
+        #self.check_refcnts("Object has refcnt != 1: %r -- Not executing test!")
+        #self.space.fromcache(State).print_refcounts()
 
     def teardown_method(self, func):
         try:
+            w_mod = self.space.getitem(self.space.sys.get('modules'),
+                               self.space.wrap('foo'))
             self.space.delitem(self.space.sys.get('modules'),
                                self.space.wrap('foo'))
+            Py_DECREF(self.space, w_mod)
         except OperationError:
             pass
+        self.space.fromcache(State).print_refcounts()
+        #self.check_refcnts("Test leaks object: %r")
+
+    def check_refcnts(self, message):
+        # check for sane refcnts
+        for w_obj in (self.space.w_True, self.space.w_False,
+                self.space.w_None):
+            state = self.space.fromcache(State)
+            obj = state.py_objects_w2r.get(w_obj)
+            assert obj.c_obj_refcnt == 1, message % (w_obj, )
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
     def test_createmodule(self):
@@ -128,8 +148,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             if (my_objects[0] == NULL) {
                 my_objects[0] = PyFloat_FromDouble(3.14);
-                Py_INCREF(my_objects[0]);
             }
+            Py_INCREF(my_objects[0]);
             return my_objects[0];
         }
         static PyObject* foo_drop_pi(PyObject* self, PyObject *args)
@@ -154,10 +174,16 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         """
         module = self.import_module(name='foo', init=init, body=body)
         assert module.return_pi() == 3.14
+        print "A"
         module.drop_pi()
+        print "B"
         module.drop_pi()
+        print "C"
         assert module.return_pi() == 3.14
+        print "D"
         assert module.return_pi() == 3.14
+        print "E"
+        module.drop_pi()
         skip("Hmm, how to check for the exception?")
         raises(api.InvalidPointerException, module.return_invalid_pointer)
 
@@ -198,11 +224,13 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             int refcnt = Py_REFCNT(true);
             int refcnt_after;
             Py_INCREF(true);
+            Py_INCREF(true);
             PyBool_Check(true);
-            Py_DECREF(true);
             refcnt_after = Py_REFCNT(true);
+            Py_DECREF(true);
+            Py_DECREF(true);
             printf("REFCNT %i %i\\n", refcnt, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt && refcnt < 3);
+            return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
         }
         static PyMethodDef methods[] = {
             { "test_refcount", foo_pi, METH_NOARGS },

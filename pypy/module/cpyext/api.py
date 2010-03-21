@@ -156,9 +156,17 @@ def from_ref(space, ref):
     try:
         obj = state.py_objects_r2w[ptr]
     except KeyError:
-        import pdb; pdb.set_trace()
-        raise InvalidPointerException("Got invalid reference to a PyObject")
+        raise InvalidPointerException("Got invalid reference to a PyObject: %r" % (ref, ))
     return obj
+
+def clear_memory(space):
+    from pypy.module.cpyext.macros import Py_DECREF
+    state = space.fromcache(State)
+    while state.py_objects_w2r:
+        key = state.py_objects_w2r.keys()[0]
+        Py_DECREF(space, key)
+    state.reset()
+
 
 def general_check(space, w_obj, w_type):
     w_obj_type = space.type(w_obj)

@@ -64,3 +64,4 @@ class AppTestBoolObject(AppTestCpythonExtensionBase):
         assert module.get_false() == False
         assert module.test_FromLong() == True
         assert module.test_Check() == True
+        self.check_refcnts("FOOOOOO %r")

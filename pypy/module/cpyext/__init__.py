@@ -15,7 +15,7 @@ class Module(MixedModule):
         """NOT_RPYTHON"""
         state = self.space.fromcache(State)
         if not we_are_translated():
-            state.api_lib = str(pypy.module.cpyext.api.build_bridge(space))
+            state.api_lib = str(pypy.module.cpyext.api.build_bridge(self.space))
         else:
             XXX # build an import library when translating pypy.
 

@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import PyObject, from_ref, NullPointerException, \
         InvalidPointerException, make_ref
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.macros import Py_DECREF
 from pypy.rlib.objectmodel import we_are_translated
 
 
@@ -26,9 +27,11 @@ class W_PyCFunctionObject(Wrappable):
             w_self = self.w_self
         result = self.ml.c_ml_meth(make_ref(space, w_self), make_ref(space, args_tuple))
         try:
-            if result:
-                result.c_obj_refcnt -= 1 
             ret = from_ref(space, result)
+            Py_DECREF(space, ret)
+            if w_self:
+                Py_DECREF(space, w_self)
+            Py_DECREF(space, args_tuple)
         except NullPointerException:
             state = space.fromcache(State)
             state.check_and_raise_exception()
