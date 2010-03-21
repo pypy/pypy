@@ -5,11 +5,13 @@ from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.typedef import TypeDef
 from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject,\
         PyObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
-from pypy.module.cpyext.modsupport import PyMethodDef
+from pypy.module.cpyext.modsupport import PyMethodDef, convert_method_defs
 from pypy.module.cpyext.state import State
 
 PyTypeObject = lltype.ForwardReference()
@@ -122,7 +124,7 @@ PyTypeObjectFields.extend([
 	("tp_dict", PyObject),
 	("tp_descr_get", descrgetfunc),
 	("tp_descr_set", descrsetfunc),
-	("tp_dictoffset", Py_ssize_t),
+	("tp_dictoffset", Py_ssize_t),  # can be ignored in PyPy
 	("tp_init", initproc),
 	("tp_alloc", allocfunc),
 	("tp_new", newfunc),
@@ -140,10 +142,10 @@ PyTypeObject = cpython_struct(
         PyTypeObjectFields, PyTypeObject)
 
 
-class W_PyCTypeObject(Wrappable):
+class W_PyCTypeObject(W_TypeObject):
     pass
 
-class W_PyCObject(Wrappable):
+class W_PyCObject(W_ObjectObject):
     pass
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)
@@ -153,11 +155,20 @@ def cobject_descr_getattr(space, w_obj, w_name):
 
 
 def allocate_type_obj(space, w_obj):
-    py_obj = lltype.malloc(PyTypeObject, None, flavor="raw")
-    return py_obj
+    pto = lltype.malloc(PyTypeObject, None, flavor="raw")
+    #  XXX fill slots in pto
+    return pto
 
 def create_type_object(space, pto):
-    return space.gettypeobject(W_PyCTypeObject)
+    bases_w = []
+    dict_w = convert_method_defs(space, pto.c_tp_methods)
+
+    w_type = space.allocate_instance(W_PyCTypeObject, space.gettypeobject(W_PyCTypeObject.typedef))
+    W_TypeObject.__init__(w_type, space, rffi.charp2str(pto.c_tp_name),
+            bases_w or [space.w_object], dict_w)
+    w_type.ready()
+    return w_type
+
 
 @cpython_api([PyTypeObjectPtr], rffi.INT)
 def PyPyType_Register(space, pto):
@@ -171,9 +182,9 @@ def PyPyType_Register(space, pto):
 
 W_PyCObject.typedef = TypeDef(
     'C_object',
-    __getattr__ = interp2app(cobject_descr_getattr),
+    #__getattrbute__ = interp2app(cobject_descr_getattribute),
     )
 
 W_PyCTypeObject.typedef = TypeDef(
-    'C_type'
+    'C_type', W_TypeObject.typedef
     )

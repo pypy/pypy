@@ -11,10 +11,9 @@ from pypy.rlib.objectmodel import we_are_translated
 
 
 class W_PyCFunctionObject(Wrappable):
-    def __init__(self, ml, w_self, w_modname):
+    def __init__(self, ml, w_self):
         self.ml = ml
         self.w_self = w_self
-        self.w_modname = w_modname
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
 def cfunction_descr_call(space, w_self, __args__):
@@ -45,5 +44,5 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(cfunction_descr_call),
     )
 
-def PyCFunction_NewEx(space, ml, w_self, w_modname):
-    return space.wrap(W_PyCFunctionObject(ml, w_self, w_modname))
+def PyCFunction_NewEx(space, ml, w_self):
+    return space.wrap(W_PyCFunctionObject(ml, w_self))
