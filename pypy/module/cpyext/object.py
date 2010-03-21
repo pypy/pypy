@@ -5,7 +5,7 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 
 def get_cls_for_type_object(space, w_type):
     if isinstance(w_type, W_PyCTypeObject):
-        return space.allocate_instance(W_PyCObject, space.gettypeobject(W_PyCObject.typedef))
+        return space.allocate_instance(W_PyCObject, w_type)
     assert False, "Please add more cases in get_cls_for_type_object!"
 
 @cpython_api([PyObject], PyObject)
