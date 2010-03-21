@@ -1,5 +1,5 @@
 import autopath
-import py, os
+import py, os, sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConfigError
@@ -10,6 +10,8 @@ DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
 DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
+
+IS_64_BITS = sys.maxint > 2147483647
 
 PLATFORMS = [
     'maemo',
@@ -73,7 +75,7 @@ translation_optiondescription = OptionDescription(
                               ("translation.gcremovetypeptr", False)],
                  }),
     BoolOption("gcremovetypeptr", "Remove the typeptr from every object",
-               default=False, cmdline="--gcremovetypeptr"),
+               default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ["n/a", "shadowstack", "asmgcc"],
