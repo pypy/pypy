@@ -7,8 +7,7 @@
 extern "C" {
 #endif
 
-extern PyObject *PyPyExc_Exception;
-#define PyExc_Exception PyPyExc_Exception
+extern PyObject *PyExc_Exception;
 
 #ifdef __cplusplus
 }

@@ -3,9 +3,8 @@
 #include <pypy_rename.h>
 #include <Python.h>
 
-    
 int
-PyPyType_Ready(PyTypeObject *type)
+PyType_Ready(PyTypeObject *type)
 {
 	PyObject *dict, *bases;
 	PyTypeObject *base;
@@ -61,7 +60,7 @@ PyPyType_Ready(PyTypeObject *type)
 		if (base == NULL)
 			bases = PyTuple_New(0);
 		else
-			bases = PyTuple_Pack(1, base);
+			bases = PyPyTuple_Pack(1, base);
 		if (bases == NULL)
 			goto error;
 		type->tp_bases = bases;

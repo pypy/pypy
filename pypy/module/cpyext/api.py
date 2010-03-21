@@ -68,6 +68,15 @@ def cpython_struct(name, fields, forward=None):
 
 FUNCTIONS = {}
 TYPES = {}
+GLOBALS = {
+    'Py_None': ('PyObject*', 'space.w_None'),
+    'Py_True': ('PyObject*', 'space.w_True'),
+    'Py_False': ('PyObject*', 'space.w_False'),
+    'PyExc_Exception': ('PyObject*', 'space.w_Exception'),
+    'PyExc_TypeError': ('PyObject*', 'space.w_TypeError'),
+    'PyType_Type': ('PyTypeObject*', 'space.w_type'),
+    'PyBaseObject_Type': ('PyTypeObject*', 'space.w_object'),
+    }
 
 # It is important that these PyObjects are allocated in a raw fashion
 # Thus we cannot save a forward pointer to the wrapped object
@@ -124,7 +133,7 @@ def from_ref(space, ref):
 def build_bridge(space, rename=True):
     db = LowLevelDatabase()
 
-    export_symbols = list(FUNCTIONS)
+    export_symbols = list(FUNCTIONS) + list(GLOBALS)
 
     structindex = {}
 
@@ -135,11 +144,12 @@ def build_bridge(space, rename=True):
     """
     if rename:
         pypy_rename = []
-        export_symbols = []
-        for name in FUNCTIONS:
+        renamed_symbols = []
+        for name in export_symbols:
             newname = name.replace('Py', 'PyPy')
             pypy_rename.append('#define %s %s' % (name, newname))
-            export_symbols.append(newname)
+            renamed_symbols.append(newname)
+        export_symbols = renamed_symbols
         pypy_rename_h = udir.join('pypy_rename.h')
         pypy_rename_h.write('\n'.join(pypy_rename))
 
@@ -176,18 +186,13 @@ def build_bridge(space, rename=True):
         body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
         functions.append('%s\n%s\n' % (header, body))
 
-    global_objects = """
-    PyObject *PyPy_None = NULL;
-    PyObject *PyPy_True = NULL;
-    PyObject *PyPy_False = NULL;
-    PyObject *PyPyExc_Exception = NULL;
-    PyObject *PyPyExc_TypeError = NULL;
-    PyTypeObject *PyPyType_Type = NULL;
-    PyTypeObject *PyPyBaseObject_Type = NULL;
-    """
+    global_objects = []
+    for name, (type, expr) in GLOBALS.iteritems():
+        global_objects.append('%s %s = NULL;' % (type, name))
+    global_code = '\n'.join(global_objects)
     code = (prologue +
             struct_declaration_code +
-            global_objects +
+            global_code +
             '\n' +
             '\n'.join(functions))
 
@@ -210,14 +215,10 @@ def build_bridge(space, rename=True):
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # populate static data
-    for name, w_obj in [("PyPy_None", space.w_None),
-                        ("PyPy_True", space.w_True),
-                        ("PyPy_False", space.w_False),
-                        ("PyPyExc_Exception", space.w_Exception),
-                        ("PyPyExc_TypeError", space.w_TypeError),
-                        ("PyPyType_Type", space.w_type),
-                        ("PyPyBaseObject_Type", space.w_object),
-                        ]:
+    for name, (type, expr) in GLOBALS.iteritems():
+        if rename:
+            name = name.replace('Py', 'PyPy')
+        w_obj = eval(expr)
         ptr = ctypes.c_void_p.in_dll(bridge, name)
         ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, w_obj)),
             ctypes.c_void_p).value

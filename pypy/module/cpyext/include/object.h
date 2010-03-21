@@ -34,9 +34,6 @@ typedef struct {
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->obj_size)
 
 
-extern PyObject *PyPy_None;
-#define Py_None PyPy_None
-
 struct _typeobject;
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
@@ -378,12 +375,9 @@ manually remove this flag though!
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
 
-extern PyTypeObject *PyPyType_Type; /* built-in 'type' */
-#define PyType_Type *PyPyType_Type
-extern PyTypeObject *PyPyBaseObject_Type;
-#define PyBaseObject_Type *PyPyBaseObject_Type
-int PyPyType_Ready(PyTypeObject *);
-#define PyType_Ready PyPyType_Ready
+extern PyTypeObject *PyType_Type; /* built-in 'type' */
+extern PyTypeObject *PyBaseObject_Type;
+int PyType_Ready(PyTypeObject *);
 
 /* objimpl.h ----------------------------------------------*/
 
