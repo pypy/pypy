@@ -8,8 +8,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.typedef import TypeDef
-from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject,\
-        PyObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
+from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject, \
+     PyObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.modsupport import PyMethodDef, convert_method_defs
 from pypy.module.cpyext.state import State
@@ -23,7 +23,7 @@ PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
 # XXX
 PyNumberMethods = PySequenceMethods = PyMappingMethods = \
-	PyBufferProcs = PyMemberDef = PyGetSetDef = rffi.VOIDP.TO
+                  PyBufferProcs = PyMemberDef = PyGetSetDef = rffi.VOIDP.TO
 
 freefunc = P(FT([rffi.VOIDP], Void))
 destructor = P(FT([PyO], Void))
@@ -67,79 +67,79 @@ PyTypeObjectFields = []
 PyTypeObjectFields.extend(PyObjectFields)
 PyTypeObjectFields.extend([
     ("tp_name", rffi.CCHARP), # For printing, in format "<module>.<name>"
-	("tp_basicsize", Py_ssize_t), ("tp_itemsize", Py_ssize_t), # For allocation
+    ("tp_basicsize", Py_ssize_t), ("tp_itemsize", Py_ssize_t), # For allocation
 
-	# Methods to implement standard operations
-	("tp_dealloc", destructor),
-	("tp_print", printfunc),
-	("tp_getattr", getattrfunc),
-	("tp_setattr", setattrfunc),
-	("tp_compare", cmpfunc),
-	("tp_repr", reprfunc),
+    # Methods to implement standard operations
+    ("tp_dealloc", destructor),
+    ("tp_print", printfunc),
+    ("tp_getattr", getattrfunc),
+    ("tp_setattr", setattrfunc),
+    ("tp_compare", cmpfunc),
+    ("tp_repr", reprfunc),
 
-	# Method suites for standard classes
-	("tp_as_number", Ptr(PyNumberMethods)),
-	("tp_as_sequence", Ptr(PySequenceMethods)),
-	("tp_as_mapping", Ptr(PyMappingMethods)),
+    # Method suites for standard classes
+    ("tp_as_number", Ptr(PyNumberMethods)),
+    ("tp_as_sequence", Ptr(PySequenceMethods)),
+    ("tp_as_mapping", Ptr(PyMappingMethods)),
 
-	# More standard operations (here for binary compatibility)
-	("tp_hash", hashfunc),
-	("tp_call", ternaryfunc),
-	("tp_str", reprfunc),
-	("tp_getattro", getattrofunc),
-	("tp_setattro", setattrofunc),
+    # More standard operations (here for binary compatibility)
+    ("tp_hash", hashfunc),
+    ("tp_call", ternaryfunc),
+    ("tp_str", reprfunc),
+    ("tp_getattro", getattrofunc),
+    ("tp_setattro", setattrofunc),
 
-	# Functions to access object as input/output buffer
-	("tp_as_buffer", Ptr(PyBufferProcs)),
+    # Functions to access object as input/output buffer
+    ("tp_as_buffer", Ptr(PyBufferProcs)),
 
-	# Flags to define presence of optional/expanded features
-	("tp_flags", lltype.Signed),
+    # Flags to define presence of optional/expanded features
+    ("tp_flags", lltype.Signed),
 
-	("tp_doc", rffi.CCHARP), # Documentation string
+    ("tp_doc", rffi.CCHARP), # Documentation string
 
-	# Assigned meaning in release 2.0
-	# call function for all accessible objects
-	("tp_traverse", traverseproc),
+    # Assigned meaning in release 2.0
+    # call function for all accessible objects
+    ("tp_traverse", traverseproc),
 
-	# delete references to contained objects
-	("tp_clear", inquiry),
+    # delete references to contained objects
+    ("tp_clear", inquiry),
 
-	# Assigned meaning in release 2.1
-	# rich comparisons 
-	("tp_richcompare", richcmpfunc),
+    # Assigned meaning in release 2.1
+    # rich comparisons 
+    ("tp_richcompare", richcmpfunc),
 
-	# weak reference enabler
-	("tp_weaklistoffset", Py_ssize_t),
+    # weak reference enabler
+    ("tp_weaklistoffset", Py_ssize_t),
 
-	# Added in release 2.2
-	# Iterators
-	("tp_iter", getiterfunc),
-	("tp_iternext", iternextfunc),
+    # Added in release 2.2
+    # Iterators
+    ("tp_iter", getiterfunc),
+    ("tp_iternext", iternextfunc),
 
-	# Attribute descriptor and subclassing stuff
+    # Attribute descriptor and subclassing stuff
     ("tp_methods", Ptr(PyMethodDef)),
     ("tp_members", Ptr(PyMemberDef)),
     ("tp_getset", Ptr(PyGetSetDef)),
     ("tp_base", Ptr(PyTypeObject)),
-	("tp_dict", PyObject),
-	("tp_descr_get", descrgetfunc),
-	("tp_descr_set", descrsetfunc),
-	("tp_dictoffset", Py_ssize_t),  # can be ignored in PyPy
-	("tp_init", initproc),
-	("tp_alloc", allocfunc),
-	("tp_new", newfunc),
-	("tp_free", freefunc), # Low-level free-memory routine
-	("tp_is_gc", inquiry), # For PyObject_IS_GC
-	("tp_bases", PyObject),
-	("tp_mro", PyObject), # method resolution order
-	("tp_cache", PyObject),
-	("tp_subclasses", PyObject),
-	("tp_weaklist", PyObject),
-	("tp_del", destructor),
+    ("tp_dict", PyObject),
+    ("tp_descr_get", descrgetfunc),
+    ("tp_descr_set", descrsetfunc),
+    ("tp_dictoffset", Py_ssize_t),  # can be ignored in PyPy
+    ("tp_init", initproc),
+    ("tp_alloc", allocfunc),
+    ("tp_new", newfunc),
+    ("tp_free", freefunc), # Low-level free-memory routine
+    ("tp_is_gc", inquiry), # For PyObject_IS_GC
+    ("tp_bases", PyObject),
+    ("tp_mro", PyObject), # method resolution order
+    ("tp_cache", PyObject),
+    ("tp_subclasses", PyObject),
+    ("tp_weaklist", PyObject),
+    ("tp_del", destructor),
     ])
 PyTypeObject = cpython_struct(
-        "PyTypeObject",
-        PyTypeObjectFields, PyTypeObject)
+    "PyTypeObject",
+    PyTypeObjectFields, PyTypeObject)
 
 
 class W_PyCTypeObject(W_TypeObject):
