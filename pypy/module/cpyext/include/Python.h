@@ -5,6 +5,7 @@
 #ifndef _WIN32
 #include <inttypes.h>
 #include <stdint.h>
+#include <stddef.h>
 #define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
 #else
 #define Py_DEPRECATED(VERSION_UNUSED)
