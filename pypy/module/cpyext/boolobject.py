@@ -1,11 +1,10 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, PyObject
+from pypy.module.cpyext.api import cpython_api, PyObject, general_check
 
 @cpython_api([PyObject], rffi.INT)
 def PyBool_Check(space, w_obj):
-    if space.eq_w(space.type(w_obj), space.w_bool):
-        return 1
-    return 0
+    w_type = space.w_bool
+    return general_check(space, w_obj, w_type)
 
 @cpython_api([rffi.LONG], PyObject)
 def PyBool_FromLong(space, value):

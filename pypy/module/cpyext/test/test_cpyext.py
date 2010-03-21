@@ -185,6 +185,34 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
         assert exc.value.message == "moo!"
 
+    def test_refcount(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", methods);
+        """
+        body = """
+        static PyObject* foo_pi(PyObject* self, PyObject *args)
+        {
+            PyObject *true = Py_True;
+            int refcnt = Py_REFCNT(true);
+            int refcnt_after;
+            Py_INCREF(true);
+            PyBool_Check(true);
+            Py_DECREF(true);
+            refcnt_after = Py_REFCNT(true);
+            printf("REFCNT %i %i\\n", refcnt, refcnt_after);
+            return PyBool_FromLong(refcnt_after == refcnt);
+        }
+        static PyMethodDef methods[] = {
+            { "test_refcount", foo_pi, METH_NOARGS },
+            { NULL }
+        };
+        """
+        module = self.import_module(name='foo', init=init, body=body)
+        assert module.test_refcount()
+
+
     def test_init_exception(self):
         import sys
         init = """

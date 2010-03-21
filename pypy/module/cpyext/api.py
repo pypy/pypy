@@ -160,6 +160,10 @@ def from_ref(space, ref):
         raise InvalidPointerException("Got invalid reference to a PyObject")
     return obj
 
+def general_check(space, w_obj, w_type):
+    w_obj_type = space.type(w_obj)
+    return int(space.is_w(w_obj_type, w_type) or space.is_true(space.issubtype(w_obj_type, w_type)))
+
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
