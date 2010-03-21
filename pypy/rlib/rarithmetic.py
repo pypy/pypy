@@ -321,12 +321,13 @@ class unsigned_int(base_int):
 
 _inttypes = {}
 
-def build_int(name, sign, bits):
+def build_int(name, sign, bits, force_creation=False):
     sign = bool(sign)
-    try:
-        return _inttypes[sign, bits]
-    except KeyError:
-        pass
+    if not force_creation:
+        try:
+            return _inttypes[sign, bits]
+        except KeyError:
+            pass
     if sign:
         base_int_type = signed_int
     else:
@@ -334,8 +335,11 @@ def build_int(name, sign, bits):
     mask = (2 ** bits) - 1
     if name is None:
         raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
-    int_type = _inttypes[sign, bits] = type(name, (base_int_type,), {'MASK': mask,
-                                                           'BITS': bits})
+    int_type = type(name, (base_int_type,), {'MASK': mask,
+                                             'BITS': bits,
+                                             'SIGN': sign})
+    if not force_creation:
+        _inttypes[sign, bits] = int_type
     class ForValuesEntry(extregistry.ExtRegistryEntry):
         _type_ = int_type
 

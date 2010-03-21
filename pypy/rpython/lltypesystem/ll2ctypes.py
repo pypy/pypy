@@ -44,6 +44,7 @@ def _setup_ctypes_cache():
         rffi.SHORT:      ctypes.c_short,
         rffi.USHORT:     ctypes.c_ushort,
         rffi.INT:        ctypes.c_int,
+        rffi.INT_real:   ctypes.c_int,
         rffi.UINT:       ctypes.c_uint,
         rffi.LONG:       ctypes.c_long,
         rffi.ULONG:      ctypes.c_ulong,
