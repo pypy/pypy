@@ -1,13 +1,15 @@
 #ifndef Py_PYTHON_H
 #define Py_PYTHON_H
 
+/* Compat stuff */
 #include <inttypes.h>
 #include <stdint.h>
-typedef long             Py_ssize_t;
+#define Py_ssize_t long
 #define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
 
 #include "object.h"
 
+/* move somewhere else */
 extern PyObject *PyPy_None;
 #define Py_None PyPy_None
 
@@ -24,5 +26,8 @@ extern PyObject *PyPy_None;
 #include "pyerrors.h"
 #include "stringobject.h"
 #include "descrobject.h"
+#include "tupleobject.h"
+#include "dictobject.h"
+#include "macros.h"
 
 #endif

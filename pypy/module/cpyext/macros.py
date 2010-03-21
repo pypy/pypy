@@ -25,4 +25,3 @@ def Py_INCREF(space, w_obj):
     state = space.fromcache(State)
     obj = state.py_objects_w2r.get(w_obj)
     obj.c_obj_refcnt += 1
-    return

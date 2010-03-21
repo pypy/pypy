@@ -1,6 +1,9 @@
+#include <assert.h>
+
 #include <pypy_rename.h>
 #include <Python.h>
 
+    
 int
 PyPyType_Ready(PyTypeObject *type)
 {

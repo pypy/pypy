@@ -181,6 +181,7 @@ def build_bridge(space, rename=True):
     PyObject *PyPy_False = NULL;
     PyObject *PyPyExc_Exception = NULL;
     PyTypeObject *PyPyType_Type = NULL;
+    PyTypeObject *PyPyBaseObject_Type = NULL;
     """
     code = (prologue +
             struct_declaration_code +
@@ -192,7 +193,8 @@ def build_bridge(space, rename=True):
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         separate_module_sources=[code],
-        #separate_module_files=[include_dir / "typeobject.c"],
+        #separate_module_files=[include_dir / "typeobject.c",
+        #                       include_dir / "varargwrapper.c"],
         export_symbols=['pypyAPI'] + export_symbols,
         )
     eci = eci.convert_sources_to_files()
@@ -210,7 +212,9 @@ def build_bridge(space, rename=True):
                         ("PyPy_True", space.w_True),
                         ("PyPy_False", space.w_False),
                         ("PyPyExc_Exception", space.w_Exception),
-                        ("PyPyType_Type", space.w_type)]:
+                        ("PyPyType_Type", space.w_type),
+                        ("PyPyBaseObject_Type", space.w_object),
+                        ]:
         ptr = ctypes.c_void_p.in_dll(bridge, name)
         ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, w_obj)),
             ctypes.c_void_p).value

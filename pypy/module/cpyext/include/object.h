@@ -380,6 +380,8 @@ manually remove this flag though!
 
 extern PyTypeObject *PyPyType_Type; /* built-in 'type' */
 #define PyType_Type *PyPyType_Type
+extern PyTypeObject *PyPyBaseObject_Type;
+#define PyBaseObject_Type *PyPyBaseObject_Type
 int PyPyType_Ready(PyTypeObject *);
 #define PyType_Ready PyPyType_Ready
 
