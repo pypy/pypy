@@ -40,6 +40,10 @@ for name in constant_names:
 #globals().update(rffi_platform.configure(CConfig_constants))
 Py_TPFLAGS_READY = (1L<<12)
 Py_TPFLAGS_READYING = (1L<<13)
+METH_COEXIST = 0x0040
+METH_STATIC = 0x0020
+METH_CLASS = 0x0010
+METH_NOARGS = 0x0004
 
 
 class ApiFunction:
@@ -75,7 +79,7 @@ GLOBALS = {
     'PyExc_Exception': ('PyObject*', 'space.w_Exception'),
     'PyExc_TypeError': ('PyObject*', 'space.w_TypeError'),
     'PyType_Type': ('PyTypeObject*', 'space.w_type'),
-    'PyBaseObject_Type': ('PyTypeObject*', 'space.w_object'),
+    'PyBaseObject_Type#': ('PyTypeObject*', 'space.w_object'),
     }
 
 # It is important that these PyObjects are allocated in a raw fashion
@@ -84,7 +88,9 @@ GLOBALS = {
 PyObjectStruct = lltype.ForwardReference()
 PyObject = lltype.Ptr(PyObjectStruct)
 PyObjectFields = (("obj_refcnt", lltype.Signed), ("obj_type", PyObject))
+PyVarObjectFields = PyObjectFields + (("obj_size", Py_ssize_t), )
 cpython_struct('struct _object', PyObjectFields, PyObjectStruct)
+
 
 def configure():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():
@@ -97,13 +103,38 @@ class NullPointerException(Exception):
 class InvalidPointerException(Exception):
     pass
 
+def get_padded_type(T, size):
+    fields = T._flds.copy()
+    hints = T._hints.copy()
+    hints["size"] = size
+    del hints["fieldoffsets"]
+    pad_fields = []
+    new_fields = []
+    for name in T._names:
+        new_fields.append((name, fields[name]))
+    for i in xrange(size - rffi.sizeof(T)):
+        new_fields.append(("custom%i" % (i, ), lltype.Char))
+    hints["padding"] = hints["padding"] + tuple(pad_fields)
+    return lltype.Struct(hints["c_name"], *new_fields, hints=hints)
+
 def make_ref(space, w_obj, borrowed=False):
+    if w_obj is None:
+        return lltype.nullptr(PyObject.TO)
+        #raise NullPointerException("Trying to pass a NULL reference")
     state = space.fromcache(State)
     py_obj = state.py_objects_w2r.get(w_obj)
     if py_obj is None:
+        from pypy.module.cpyext.typeobject import allocate_type_obj,\
+                W_PyCTypeObject, W_PyCObject
         if space.is_w(space.type(w_obj), space.w_type):
-            from pypy.module.cpyext.typeobject import allocate_type_obj
             py_obj = allocate_type_obj(space, w_obj)
+        elif isinstance(w_obj, W_PyCObject):
+            w_type = space.type(w_obj)
+            assert isinstance(w_type, W_PyCTypeObject)
+            pto = w_type.pto
+            basicsize = pto._obj.c_tp_basicsize
+            T = get_padded_type(PyObject.TO, basicsize)
+            py_obj = lltype.malloc(T, None, flavor="raw")
         else:
             py_obj = lltype.malloc(PyObject.TO, None, flavor="raw")
         py_obj.c_obj_refcnt = 1
@@ -124,6 +155,7 @@ def from_ref(space, ref):
     try:
         obj = state.py_objects_r2w[ptr]
     except KeyError:
+        import pdb; pdb.set_trace()
         raise InvalidPointerException("Got invalid reference to a PyObject")
     return obj
 
@@ -146,8 +178,13 @@ def build_bridge(space, rename=True):
         pypy_rename = []
         renamed_symbols = []
         for name in export_symbols:
+            if "#" in name:
+                deref = "*"
+            else:
+                deref = ""
+            name = name.replace("#", "")
             newname = name.replace('Py', 'PyPy')
-            pypy_rename.append('#define %s %s' % (name, newname))
+            pypy_rename.append('#define %s %s%s' % (name, deref, newname))
             renamed_symbols.append(newname)
         export_symbols = renamed_symbols
         pypy_rename_h = udir.join('pypy_rename.h')
@@ -188,7 +225,7 @@ def build_bridge(space, rename=True):
 
     global_objects = []
     for name, (type, expr) in GLOBALS.iteritems():
-        global_objects.append('%s %s = NULL;' % (type, name))
+        global_objects.append('%s %s = NULL;' % (type, name.replace("#", "")))
     global_code = '\n'.join(global_objects)
     code = (prologue +
             struct_declaration_code +
@@ -216,6 +253,7 @@ def build_bridge(space, rename=True):
 
     # populate static data
     for name, (type, expr) in GLOBALS.iteritems():
+        name = name.replace("#", "")
         if rename:
             name = name.replace('Py', 'PyPy')
         w_obj = eval(expr)

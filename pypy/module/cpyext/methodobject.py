@@ -5,7 +5,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import PyObject, from_ref, NullPointerException, \
-        InvalidPointerException
+        InvalidPointerException, make_ref
 from pypy.module.cpyext.state import State
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -19,10 +19,14 @@ class W_PyCFunctionObject(Wrappable):
 def cfunction_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
-    null = lltype.nullptr(PyObject.TO) # XXX for the moment
+    w_kw = space.newdict()
+    for key, w_value in kw_w:
+        space.setitem(w_kw, space.wrap(key), w_value)
+    args_tuple = space.newtuple([space.wrap(args_w), w_kw])
+    #null = lltype.nullptr(PyObject.TO) # XXX for the moment
 
     # Call the C function
-    result = self.ml.c_ml_meth(null, null)
+    result = self.ml.c_ml_meth(make_ref(space, self.w_self), make_ref(space, args_tuple))
     try:
         ret = from_ref(space, result)
     except NullPointerException:

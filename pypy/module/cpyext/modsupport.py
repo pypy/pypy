@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject
+from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject, \
+        METH_STATIC, METH_CLASS, METH_COEXIST
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import PyCFunction_NewEx
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
@@ -25,26 +26,43 @@ def PyImport_AddModule(space, name):
 def Py_InitModule(space, name, methods):
     modname = rffi.charp2str(name)
     w_mod = PyImport_AddModule(space, modname)
-    dict_w = convert_method_defs(space, methods)
+    dict_w = convert_method_defs(space, methods, None)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)
     return w_mod
 
 
-def convert_method_defs(space, methods):
+def convert_method_defs(space, methods, pto):
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
     dict_w = {}
     if methods:
-        i = 0
+        i = -1
         while True:
+            i = i + 1
             method = methods[i]
             if not method.c_ml_name: break
 
             methodname = rffi.charp2str(method.c_ml_name)
             flags = method.c_ml_flags
-            w_function = PyCFunction_NewEx(space, method, None)
-            dict_w[methodname] = w_function
-            i = i + 1
+            if pto is None:
+                if flags & METH_CLASS or flags & METH_STATIC:
+                    raise OperationError(space.w_ValueError,
+                            "module functions cannot set METH_CLASS or METH_STATIC")
+                w_obj = PyCFunction_NewEx(space, method, None)
+            else:
+                if methodname in dict_w and not (flags & METH_COEXIST):
+                    continue
+                if flags & METH_CLASS:
+                    if flags & METH_STATIC:
+                        raise OperationError(space.w_ValueError,
+                                "method cannot be both class and static")
+                    w_obj = PyDescr_NewClassMethod(pto, method)
+                elif flags & METH_STATIC:
+                    w_func = PyCFunction_NewEx(space, method, None)
+                    w_obj = PyStaticMethod_New(space, w_func)
+                else:
+                    w_obj = PyDescr_NewMethod(space, pto, method)
+            dict_w[methodname] = w_obj
     return dict_w
 
 

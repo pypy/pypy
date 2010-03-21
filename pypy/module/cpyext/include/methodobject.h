@@ -29,6 +29,20 @@ typedef struct PyMethodDef PyMethodDef;
 #define METH_NOARGS   0x0004
 #define METH_O        0x0008
 
+/* METH_CLASS and METH_STATIC are a little different; these control
+   the construction of methods for a class.  These cannot be used for
+   functions in modules. */
+#define METH_CLASS    0x0010
+#define METH_STATIC   0x0020
+
+/* METH_COEXIST allows a method to be entered eventhough a slot has
+   already filled the entry.  When defined, the flag allows a separate
+   method, "__contains__" for example, to coexist with a defined 
+   slot like sq_contains. */
+
+#define METH_COEXIST   0x0040
+
+
 
 #ifdef __cplusplus
 }

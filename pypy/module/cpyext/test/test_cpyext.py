@@ -25,6 +25,11 @@ class TestApi():
         assert api.FUNCTIONS['Py_InitModule'].argtypes == [
             rffi.CCHARP, lltype.Ptr(api.TYPES['PyMethodDef'])]
 
+    def test_padding(self):
+        T = api.get_padded_type(api.PyObject.TO, 42)
+        assert rffi.sizeof(T) == 42
+        print T
+
 def compile_module(modname, **kwds):
     eci = ExternalCompilationInfo(
         export_symbols=['init%s' % (modname,)],

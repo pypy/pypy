@@ -64,7 +64,7 @@ visitproc = P(FT([PyO, rffi.VOIDP], rffi.INT))
 traverseproc = P(FT([PyO, visitproc, rffi.VOIDP], rffi.INT))
 
 PyTypeObjectFields = []
-PyTypeObjectFields.extend(PyObjectFields)
+PyTypeObjectFields.extend(PyVarObjectFields)
 PyTypeObjectFields.extend([
     ("tp_name", rffi.CCHARP), # For printing, in format "<module>.<name>"
     ("tp_basicsize", Py_ssize_t), ("tp_itemsize", Py_ssize_t), # For allocation
@@ -143,9 +143,14 @@ PyTypeObject = cpython_struct(
 
 
 class W_PyCTypeObject(W_TypeObject):
-    pass
+    def __init__(self, space, pto):
+        self.pto = pto
+        bases_w = []
+        dict_w = convert_method_defs(space, pto.c_tp_methods, pto)
+        W_TypeObject.__init__(self, space, rffi.charp2str(pto.c_tp_name),
+            bases_w or [space.w_object], dict_w)
 
-class W_PyCObject(W_ObjectObject):
+class W_PyCObject(Wrappable):
     pass
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)
@@ -160,12 +165,9 @@ def allocate_type_obj(space, w_obj):
     return pto
 
 def create_type_object(space, pto):
-    bases_w = []
-    dict_w = convert_method_defs(space, pto.c_tp_methods)
 
     w_type = space.allocate_instance(W_PyCTypeObject, space.gettypeobject(W_PyCTypeObject.typedef))
-    W_TypeObject.__init__(w_type, space, rffi.charp2str(pto.c_tp_name),
-            bases_w or [space.w_object], dict_w)
+    w_type.__init__(space, pto)
     w_type.ready()
     return w_type
 
@@ -180,10 +182,11 @@ def PyPyType_Register(space, pto):
         state.py_objects_w2r[w_obj] = pto
     return 1
 
-W_PyCObject.typedef = TypeDef(
-    'C_object',
-    #__getattrbute__ = interp2app(cobject_descr_getattribute),
-    )
+W_PyCObject.typedef = W_ObjectObject.typedef
+#TypeDef(
+#    'C_object',
+#    #__getattrbute__ = interp2app(cobject_descr_getattribute),
+#    )
 
 W_PyCTypeObject.typedef = TypeDef(
     'C_type', W_TypeObject.typedef
