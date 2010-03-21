@@ -4,18 +4,18 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT
 from pypy.rpython.memory.gc.base import MovingGCBase, ARRAY_TYPEID_MAP,\
      TYPEID_MAP
 
 import sys, os
 
-first_gcflag = 1 << 16
+first_gcflag = 1 << (LONG_BIT//2)
 GCFLAG_FORWARDED = first_gcflag
 # GCFLAG_EXTERNAL is set on objects not living in the semispace:
 # either immortal objects or (for HybridGC) externally raw_malloc'ed
@@ -458,7 +458,7 @@ class SemiSpaceGC(MovingGCBase):
         # Although calling get_type_id() on a forwarded object works by itself,
         # we catch it as an error because it's likely that what is then
         # done with the typeid is bogus.
-        return llop.extract_ushort(rffi.USHORT, tid)
+        return llop.extract_ushort(llgroup.HALFWORD, tid)
 
     def init_gc_object(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))

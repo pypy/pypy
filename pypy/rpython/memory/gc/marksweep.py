@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, llgroup
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
@@ -29,7 +29,7 @@ class MarkSweepGC(GCBase):
     HDRPTR = lltype.Ptr(HDR)
     # need to maintain a linked list of malloced objects, since we used the
     # systems allocator and can't walk the heap
-    HDR.become(lltype.Struct('header', ('typeid16', rffi.USHORT),
+    HDR.become(lltype.Struct('header', ('typeid16', llgroup.HALFWORD),
                                        ('mark', lltype.Bool),
                                        ('flags', lltype.Char),
                                        ('next', HDRPTR)))

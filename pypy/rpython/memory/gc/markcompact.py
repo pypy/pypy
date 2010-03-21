@@ -66,7 +66,7 @@ FREE_SPACE_ADD = 256
 # XXX adjust
 GC_CLEARANCE = 32*1024
 
-TID_TYPE = rffi.USHORT
+TID_TYPE = llgroup.HALFWORD
 BYTES_PER_TID = rffi.sizeof(TID_TYPE)
 
 
@@ -354,7 +354,7 @@ class MarkCompactGC(MovingGCBase):
 
     def get_type_id(self, addr):
         tid = self.header(addr).tid
-        return llop.extract_ushort(rffi.USHORT, tid)
+        return llop.extract_ushort(llgroup.HALFWORD, tid)
 
     def mark_roots_recursively(self):
         self.root_walker.walk_roots(

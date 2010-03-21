@@ -1,13 +1,19 @@
 import weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rlib.rarithmetic import LONG_BIT
 
 
 class GroupType(lltype.ContainerType):
     """A 'group' that stores static structs together in memory.
-    The point is that they can be referenced by a GroupMemberOffset
-    which only takes 2 bytes (a USHORT), so the total size of a group
-    is limited to 18 or 19 bits (= the 16 bits in a USHORT, plus 2 or
-    3 bits at the end that are zero and so don't need to be stored).
+
+    On 32-bit platforms, the point is that they can be referenced by a
+    GroupMemberOffset which only takes 2 bytes (a USHORT), so the total
+    size of a group is limited to 18 (= the 16 bits in a USHORT, plus 2
+    bits at the end that are zero and so don't need to be stored).
+
+    On 64-bit platforms, we check that the address they end up at is
+    within the first 32 bits, so that we can store that address in half
+    a long (i.e. in a UINT).
     """
     _gckind = 'raw'
 
@@ -43,16 +49,24 @@ def member_of_group(structptr):
 _membership = weakref.WeakValueDictionary()
 
 
+if LONG_BIT == 32:
+    HALFWORD = rffi.USHORT
+    r_halfword = rffi.r_ushort
+else:
+    HALFWORD = rffi.UINT
+    r_halfword = rffi.r_uint
+
+
 class GroupMemberOffset(llmemory.Symbolic):
-    """The offset of a struct inside a group, stored compactly in a USHORT.
-    Can only be used by the lloperation 'get_group_member'.
+    """The offset of a struct inside a group, stored compactly in a HALFWORD
+    (a USHORT or UINT). Can only be used by the lloperation 'get_group_member'.
     """
     def annotation(self):
         from pypy.annotation import model
-        return model.SomeInteger(knowntype=rffi.r_ushort)
+        return model.SomeInteger(knowntype=r_halfword)
 
     def lltype(self):
-        return rffi.USHORT
+        return HALFWORD
 
     def __init__(self, grp, memberindex):
         assert lltype.typeOf(grp) == Group
@@ -76,11 +90,15 @@ class GroupMemberOffset(llmemory.Symbolic):
 
 
 class CombinedSymbolic(llmemory.Symbolic):
-    """A general-purpose Signed symbolic that combines a USHORT and the
-    rest of the word (typically flags).  Only supports extracting the USHORT
+    """A general-purpose Signed symbolic that combines an unsigned half-word
+    (USHORT on 32-bit platforms, UINT on 64-bit platforms) and the rest
+    of the word (typically flags).  Only supports extracting the half-word
     with 'llop.extract_ushort', and extracting the rest of the word with
-    '&~0xFFFF' or with a direct masking like '&0x10000'.
+    '&~0xFFFF' or with a direct masking like '&0x10000' (resp. on 64-bit
+    platform, with '&~0xFFFFFFFF' or '&0x100000000').
     """
+    MASK = (1<<(LONG_BIT//2))-1     # 0xFFFF or 0xFFFFFFFF
+
     def annotation(self):
         from pypy.annotation import model
         return model.SomeInteger()
@@ -89,7 +107,7 @@ class CombinedSymbolic(llmemory.Symbolic):
         return lltype.Signed
 
     def __init__(self, lowpart, rest):
-        assert (rest & 0xFFFF) == 0
+        assert (rest & CombinedSymbolic.MASK) == 0
         self.lowpart = lowpart
         self.rest = rest
 
@@ -97,22 +115,22 @@ class CombinedSymbolic(llmemory.Symbolic):
         return '<CombinedSymbolic %r|%s>' % (self.lowpart, self.rest)
 
     def __and__(self, other):
-        if (other & 0xFFFF) == 0:
+        if (other & CombinedSymbolic.MASK) == 0:
             return self.rest & other
-        if (other & 0xFFFF) == 0xFFFF:
+        if (other & CombinedSymbolic.MASK) == CombinedSymbolic.MASK:
             return CombinedSymbolic(self.lowpart, self.rest & other)
         raise Exception("other=0x%x" % other)
 
     def __or__(self, other):
-        assert (other & 0xFFFF) == 0
+        assert (other & CombinedSymbolic.MASK) == 0
         return CombinedSymbolic(self.lowpart, self.rest | other)
 
     def __add__(self, other):
-        assert (other & 0xFFFF) == 0
+        assert (other & CombinedSymbolic.MASK) == 0
         return CombinedSymbolic(self.lowpart, self.rest + other)
 
     def __sub__(self, other):
-        assert (other & 0xFFFF) == 0
+        assert (other & CombinedSymbolic.MASK) == 0
         return CombinedSymbolic(self.lowpart, self.rest - other)
 
     def __eq__(self, other):

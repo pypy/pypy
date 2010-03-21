@@ -1,7 +1,7 @@
 from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, ll_call_destructor, type_contains_pyobjs, var_ispyobj
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, llgroup
 from pypy.rpython import rmodel
 from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
@@ -22,7 +22,7 @@ from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 import sys, types
 
 
-TYPE_ID = rffi.USHORT
+TYPE_ID = llgroup.HALFWORD
 
 class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
 
@@ -302,7 +302,7 @@ class FrameworkGCTransformer(GCTransformer):
                     minimal_transform=False)
             self.get_member_index_ptr = getfn(
                 GCClass.get_member_index.im_func,
-                [s_gc, annmodel.SomeInteger(knowntype=rffi.r_ushort)],
+                [s_gc, annmodel.SomeInteger(knowntype=llgroup.r_halfword)],
                 annmodel.SomeInteger())
 
         if hasattr(GCClass, 'writebarrier_before_copy'):
