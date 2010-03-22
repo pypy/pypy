@@ -328,10 +328,14 @@ def build_bridge(space, rename=True):
 
     return modulename.new(ext='')
 
+@unwrap_spec(ObjSpace, str, str)
 def load_extension_module(space, path, name):
     state = space.fromcache(State)
-    import ctypes
-    initfunc = ctypes.CDLL(path)['init%s' % (name,)]
-    initfunc()
+    from pypy.rlib import libffi
+    dll = libffi.CDLL(path)
+    initfunc = dll.getpointer(
+        'init%s' % (name,), [], libffi.ffi_type_void)
+    dll.unload_on_finalization = False
+    initfunc.call(lltype.Void)
     state.check_and_raise_exception()
 
