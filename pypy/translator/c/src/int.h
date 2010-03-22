@@ -57,11 +57,11 @@
 	else FAIL_OVF("integer addition")
 
 #define OP_INT_ADD_NONNEG_OVF(x,y,r)  /* y can be assumed >= 0 */ \
-    OP_INT_ADD(x,y,r); \
+    r = (long)((unsigned long)x + (unsigned long)y); \
     if (r >= (x)); \
     else FAIL_OVF("integer addition")
-/* XXX can a C compiler be too clever and think it can "prove" that
- * r >= x always hold above? */
+/* Can a C compiler be too clever and think it can "prove" that
+ * r >= x always holds above?  Yes.  Hence the casting. */
 
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
 
