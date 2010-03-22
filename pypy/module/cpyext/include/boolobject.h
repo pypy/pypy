@@ -7,9 +7,8 @@
 extern "C" {
 #endif
 
-extern PyObject *Py_True;
-
-extern PyObject *Py_False;
+PyAPI_DATA(PyObject *) Py_True;
+PyAPI_DATA(PyObject *) Py_False;
 
 /* Macros for returning Py_True or Py_False, respectively */
 #define Py_RETURN_TRUE return Py_INCREF(Py_True), Py_True

@@ -18,7 +18,7 @@ from pypy.interpreter.error import OperationError
 
 Py_ssize_t = lltype.Signed
 
-include_dir = py.path.local(autopath.pypydir).join('module', 'cpyext', 'include')
+include_dir = py.path.local(autopath.pypydir) / 'module' / 'cpyext' / 'include'
 include_dirs = [
     include_dir,
     udir,
@@ -255,6 +255,7 @@ def build_bridge(space, rename=True):
     eci = eci.convert_sources_to_files()
     modulename = platform.platform.compile(
         [], eci,
+        outputfilename=str(udir / "module_cache" / "pypyapi"),
         standalone=False)
 
     # load the bridge, and init structure

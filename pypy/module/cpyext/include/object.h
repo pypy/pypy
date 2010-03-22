@@ -375,8 +375,8 @@ manually remove this flag though!
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
 
-extern PyTypeObject *PyType_Type; /* built-in 'type' */
-extern PyTypeObject *PyBaseObject_Type;
+PyAPI_DATA(PyTypeObject *) PyType_Type; /* built-in 'type' */
+PyAPI_DATA(PyTypeObject *) PyBaseObject_Type;
 int PyPyType_Ready(PyTypeObject *);
 #define PyType_Ready PyPyType_Ready
 
