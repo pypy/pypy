@@ -19,10 +19,12 @@ class Linux(BasePosix):
         return ['-shared'] + args
 
     def include_dirs_for_libffi(self):
-        return ['/usr/include/libffi']
+        return self._pkg_config("libffi", "--cflags-only-I",
+                                ['/usr/include/libffi'])
 
     def library_dirs_for_libffi(self):
-        return ['/usr/lib/libffi']
+        return self._pkg_config("libffi", "--libs-only-L",
+                                ['/usr/lib/libffi'])
 
     def library_dirs_for_libffi_a(self):
         # places where we need to look for libffi.a

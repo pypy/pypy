@@ -47,6 +47,13 @@ class BasePosix(Platform):
         # hook for maemo
         return include_dirs
 
+    def _pkg_config(self, lib, opt, default):
+        ret, out, err = _run_subprocess("pkg-config", [lib, opt])
+        if ret:
+            return default
+        # strip compiler flags
+        return [entry[2:] for entry in out.split()]
+
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None):
         cfiles = [py.path.local(f) for f in cfiles]
         cfiles += [py.path.local(f) for f in eci.separate_module_files]
