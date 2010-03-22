@@ -79,8 +79,34 @@ class AppTestCpythonExtensionBase:
             self.space.sys.get('modules'),
             self.space.wrap(name))
 
+    def import_extension(self, modname, functions):
+
+        methods_table = []
+        codes = []
+        for funcname, flags, code in functions:
+            cfuncname = "%s_%s" % (modname, funcname)
+            methods_table.append("{\"%s\", %s, %s}," %
+                                 (funcname, cfuncname, flags))
+            func_code = """
+            static PyObject* %s(PyObject* self, PyObject* args)
+            {
+            %s
+            }
+            """ % (cfuncname, code)
+            codes.append(func_code)
+
+        body = "\n".join(codes) + """
+        static PyMethodDef methods[] = {
+        %s
+        { NULL }
+        };
+        """ % ('\n'.join(methods_table),)
+        init = """Py_InitModule("%s", methods);""" % (modname,)
+        return self.import_module(name=modname, init=init, body=body)
+
     def setup_method(self, func):
         self.w_import_module = self.space.wrap(self.import_module)
+        self.w_import_extension = self.space.wrap(self.import_extension)
         self.w_check_refcnts = self.space.wrap(self.check_refcnts)
         #self.check_refcnts("Object has refcnt != 1: %r -- Not executing test!")
         #self.space.fromcache(State).print_refcounts()
