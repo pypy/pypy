@@ -1,1 +1,0 @@
-The RPython-part of the collections module.
