@@ -141,6 +141,21 @@ class AppTestFfi:
             return inp;
         }
 
+        struct s2a {
+            int bah[2];
+        };
+
+        struct s2a get_s2a(void) {
+            struct s2a outp;
+            outp.bah[0] = 4;
+            outp.bah[1] = 5;
+            return outp;
+        }
+
+        int check_s2a(struct s2a inp) {
+            return (inp.bah[0] == 4 && inp.bah[1] == 5);
+        }
+
         int AAA_first_ordinal_function()
         {
             return 42;
@@ -157,7 +172,7 @@ class AppTestFfi:
                      allocate_array
                      static_int static_double
                      sum_x_y
-                     give perturb
+                     give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
                   """.split()
         eci = ExternalCompilationInfo(export_symbols=symbols)
@@ -178,9 +193,6 @@ class AppTestFfi:
             cls.w_libm_name = space.wrap('libm.so')
             if sys.platform == "darwin":
                 cls.w_libm_name = space.wrap('libm.dylib')
-        import platform
-        cls.w_isx86_64 = space.wrap(platform.machine() == 'x86_64')
-                
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
 
@@ -538,6 +550,22 @@ class AppTestFfi:
         a1.free()
         del cb
 
+    def test_void_returning_callback(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        runcallback = lib.ptr('runcallback', ['P'], None)
+        called = []
+        def callback():
+            called.append(True)
+
+        cb = _rawffi.CallbackPtr(callback, [], None)
+        a1 = cb.byptr()
+        res = runcallback(a1)
+        assert res is None
+        assert called == [True]
+        a1.free()
+        del cb
+
     def test_another_callback_in_stackless(self):
         try:
             import _stackless
@@ -665,7 +693,7 @@ class AppTestFfi:
         # fragile
         S = _rawffi.Structure([('x', 'c'), ('y', 'l')])
         assert (repr(_rawffi.Array((S, 2))) ==
-                "<_rawffi.Array 'V' (%d, %d)>" % (4*lsize, lsize))
+                "<_rawffi.Array '?' (%d, %d)>" % (4*lsize, lsize))
 
         assert (repr(_rawffi.Structure([('x', 'i'), ('yz', 'i')])) ==
                 "<_rawffi.Structure 'x' 'yz' (%d, %d)>" % (2*isize, isize))
@@ -819,28 +847,21 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_struct_byvalue(self):
-        if self.isx86_64:
-            skip("Segfaults on x86_64 because small structures "
-                 "may be passed in registers and "
-                 "c_elements must not be null")
-
-        import _rawffi
+        import _rawffi, sys
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
+        print >> sys.stderr, "getting..."
         sum_x_y = lib.ptr('sum_x_y', [(X_Y, 1)], 'l')
         x_y.x = 200
         x_y.y = 220
+        print >> sys.stderr, "calling..."
         res = sum_x_y(x_y)
+        print >> sys.stderr, "done"
         assert res[0] == 420
         x_y.free()
 
     def test_ret_struct(self):
-        if self.isx86_64:
-            skip("Segfaults on x86_64 because small structures "
-                 "may be passed in registers and "
-                 "c_elements must not be null")
-
         import _rawffi
         S2H = _rawffi.Structure([('x', 'h'), ('y', 'h')])
         s2h = S2H()
@@ -870,6 +891,20 @@ class AppTestFfi:
         assert s2h.y == 11
         
         s2h.free()
+
+    def test_ret_struct_containing_array(self):
+        import _rawffi
+        AoI = _rawffi.Array('i')
+        S2A = _rawffi.Structure([('bah', (AoI, 2))])
+        lib = _rawffi.CDLL(self.lib_name)
+        get_s2a = lib.ptr('get_s2a', [], (S2A, 1))
+        check_s2a = lib.ptr('check_s2a', [(S2A, 1)], 'i')
+
+        res = get_s2a()
+        assert isinstance(res, _rawffi.StructureInstanceAutoFree)
+        assert res.shape is S2A
+        ok = check_s2a(res)
+        assert ok[0] == 1
 
     def test_buffer(self):
         import _rawffi

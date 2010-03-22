@@ -366,13 +366,26 @@ c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
                                                    CALLBACK_TP, rffi.VOIDP],
                               rffi.INT)            
 
-def make_struct_ffitype(size, aligment):
-    tp = lltype.malloc(FFI_TYPE_P.TO, flavor='raw')
-    tp.c_type = FFI_TYPE_STRUCT
-    tp.c_size = rffi.cast(rffi.SIZE_T, size)
-    tp.c_alignment = rffi.cast(rffi.USHORT, aligment)
-    tp.c_elements = lltype.nullptr(FFI_TYPE_PP.TO)
-    return tp
+FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
+                                        ('ffistruct', FFI_TYPE_P.TO),
+                                        ('members', lltype.Array(FFI_TYPE_P))))
+
+def make_struct_ffitype_e(size, aligment, field_types):
+    """Compute the type of a structure.  Returns a FFI_STRUCT_P out of
+       which the 'ffistruct' member is a regular FFI_TYPE.
+    """
+    tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw')
+    tpe.ffistruct.c_type = FFI_TYPE_STRUCT
+    tpe.ffistruct.c_size = rffi.cast(rffi.SIZE_T, size)
+    tpe.ffistruct.c_alignment = rffi.cast(rffi.USHORT, aligment)
+    tpe.ffistruct.c_elements = rffi.cast(FFI_TYPE_PP,
+                                         lltype.direct_arrayitems(tpe.members))
+    n = 0
+    while n < len(field_types):
+        tpe.members[n] = field_types[n]
+        n += 1
+    tpe.members[n] = lltype.nullptr(FFI_TYPE_P.TO)
+    return tpe
 
 def cast_type_to_ffitype(tp):
     """ This function returns ffi representation of rpython type tp
