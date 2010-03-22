@@ -1,5 +1,6 @@
 import py, os
-from pypy.translator.platform.linux import Linux, _run_subprocess, GnuMakefile
+from pypy.translator.platform.linux import Linux
+from pypy.translator.platform.posix import _run_subprocess, GnuMakefile
 from pypy.translator.platform import ExecutionResult, log
 from pypy.tool.udir import udir
 from pypy.tool import autopath

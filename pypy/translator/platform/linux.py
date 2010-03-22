@@ -1,9 +1,7 @@
 
 import py, os
-from pypy.translator.platform import Platform, CompilationError, ExecutionResult
-from pypy.translator.platform import log, _run_subprocess
-from pypy.tool import autopath
-from pypy.translator.platform.posix import GnuMakefile, BasePosix
+from pypy.translator.platform import _run_subprocess
+from pypy.translator.platform.posix import BasePosix
 
 class Linux(BasePosix):
     name = "linux"

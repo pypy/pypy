@@ -1,5 +1,5 @@
 
-from pypy.translator.platform.linux import GnuMakefile as Makefile
+from pypy.translator.platform.posix import GnuMakefile as Makefile
 from StringIO import StringIO
 import re
 
