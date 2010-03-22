@@ -422,6 +422,16 @@ namespace pypy.runtime
             return Convert.ToString(n, base_);
         }
 
+        public static string OOString(long n, int base_)
+        {
+            if (base_ == -1)
+                base_ = 10;
+            if (n<0 && base_ != 10)
+                return "-" + Convert.ToString(-n, base_);
+            else
+                return Convert.ToString(n, base_);
+        }
+
         public static string OOString(double d, int base_)
         {
             return d.ToString();
