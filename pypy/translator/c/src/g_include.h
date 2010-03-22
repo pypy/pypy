@@ -11,7 +11,9 @@
 #  include "marshal.h"
 #  include "eval.h"
 #else
-#  include "src/standalone.h"
+#  include <stdlib.h>
+#  include <assert.h>
+#  include <math.h>
 #endif
 
 #include "src/mem.h"
