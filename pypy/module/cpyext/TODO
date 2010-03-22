@@ -35,5 +35,8 @@ pointer to a char buffer; it may be NULL.
   called, the pypy string is created, and added in py_objects_r2w.
   The buffer is then supposed to be immutable.
 
+- _PyString_Resize works only on not-yet-pypy'd strings, and returns a
+  similar object.
+
 - There could be an (expensive!) check in from_ref() that the buffer
   still corresponds to the pypy gc-managed string.
