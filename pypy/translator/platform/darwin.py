@@ -10,7 +10,7 @@ class Darwin(posix.BasePosix):
     standalone_only = ['-mdynamic-no-pic']
     shared_only = []
 
-    so_ext = 'dylib'
+    so_ext = 'so'
     
     def __init__(self, cc=None):
         if cc is None:
@@ -18,7 +18,7 @@ class Darwin(posix.BasePosix):
         self.cc = cc
 
     def _args_for_shared(self, args):
-        return (self.shared_only + ['-dylib', '-undefined', 'dynamic_lookup']
+        return (self.shared_only + ['-bundle', '-undefined', 'dynamic_lookup']
                                  + args)
 
     def include_dirs_for_libffi(self):
