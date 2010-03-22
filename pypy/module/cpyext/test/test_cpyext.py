@@ -232,13 +232,31 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             printf("REFCNT %i %i\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
         }
+        static PyObject* foo_bar(PyObject* self, PyObject *args)
+        {
+            PyObject *true = Py_True;
+            PyObject *tup = NULL;
+            int refcnt = Py_REFCNT(true);
+            int refcnt_after;
+
+            tup = PyTuple_New(1);
+            Py_INCREF(true);
+            if (PyTuple_SetItem(tup, 0, true) < 0)
+                return NULL;
+            refcnt_after = Py_REFCNT(true);
+            printf("REFCNT2 %i %i\\n", refcnt, refcnt_after);
+            return PyBool_FromLong(refcnt_after == refcnt && refcnt < 3);
+        }
+
         static PyMethodDef methods[] = {
             { "test_refcount", foo_pi, METH_NOARGS },
+            { "test_refcount2", foo_bar, METH_NOARGS },
             { NULL }
         };
         """
         module = self.import_module(name='foo', init=init, body=body)
         assert module.test_refcount()
+        assert module.test_refcount2()
 
 
     def test_init_exception(self):
