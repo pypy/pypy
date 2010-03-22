@@ -1,3 +1,39 @@
  - Make the pypy interpreter support dynamically created typeobjects to support PyTypeObject
  - Add exceptions
  - Generate header files programmatically.
+
+PyStringObject support
+======================
+
+The problem
+-----------
+
+PyString_AsString() should return a (non-movable) pointer
+to the underlying buffer, whereas pypy strings are movable.  C code
+may temporarily store this address and use it, as long as it owns a
+reference to the PyObject.  There is no "release" function to specify
+that the pointer is not needed any more.
+
+Note that the pointer may be used to fill the initial value of
+string. This is valid only when the string was just allocated, and is
+not used elsewhere.
+
+Proposed solution
+-----------------
+
+Our emulation of the PyStringObject contains an additional member: a
+pointer to a char buffer; it may be NULL.
+
+- A string allocated by pypy will be converted into a PyStringObject
+  with a NULL buffer.  When PyString_AsString() is called, memory is
+  allocated (with flavor='raw') and content is copied.
+
+- A string allocated with PyString_FromStringAndSize(NULL, size) will
+  allocate a buffer with the specified size, but the reference won't
+  be stored in the global map py_objects_r2w; there won't be a
+  corresponding object in pypy.  When from_ref() or Py_INCREF() is
+  called, the pypy string is created, and added in py_objects_r2w.
+  The buffer is then supposed to be immutable.
+
+- There could be an (expensive!) check in from_ref() that the buffer
+  still corresponds to the pypy gc-managed string.
