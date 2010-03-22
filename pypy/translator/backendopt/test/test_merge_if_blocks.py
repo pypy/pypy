@@ -5,7 +5,7 @@ from pypy.translator.translator import TranslationContext, graphof as tgraphof
 from pypy.objspace.flow.model import flatten, Block
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, r_int
 from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
 
 def do_test_merge(fn, testvalues):
@@ -38,7 +38,8 @@ def test_merge1():
         return 4
     do_test_merge(merge_int, range(4))
     do_test_merge(merge_int, [r_uint(i) for i in range(4)])
-    do_test_merge(merge_int, [r_longlong(i) for i in range(4)])
+    if r_longlong is not r_int:
+        do_test_merge(merge_int, [r_longlong(i) for i in range(4)])
     do_test_merge(merge_int, [r_ulonglong(i) for i in range(4)])
 
     def merge_chr(n):
