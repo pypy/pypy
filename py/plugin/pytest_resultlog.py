@@ -68,15 +68,15 @@ class ResultLog(object):
         else:
             code = report.shortrepr
         if code == 'x':
-            longrepr = safestr(report.longrepr)
+            longrepr = str(report.longrepr)
         elif code == 'P':
             longrepr = ''
         elif report.passed:
             longrepr = ""
         elif report.failed:
-            longrepr = safestr(report.longrepr) 
+            longrepr = str(report.longrepr) 
         elif report.skipped:
-            longrepr = safestr(report.longrepr.reprcrash.message)
+            longrepr = str(report.longrepr.reprcrash.message)
         self.log_outcome(report.item, code, longrepr) 
 
     def pytest_collectreport(self, report):
@@ -86,16 +86,9 @@ class ResultLog(object):
             else:
                 assert report.skipped
                 code = "S"
-            longrepr = safestr(report.longrepr.reprcrash)
+            longrepr = str(report.longrepr.reprcrash)
             self.log_outcome(report.collector, code, longrepr)    
 
     def pytest_internalerror(self, excrepr):
         path = excrepr.reprcrash.path 
-        self.write_log_entry(path, '!', safestr(excrepr))
-
-
-def safestr(x):
-    if isinstance(x, unicode):
-        return x.encode('utf-8')
-    else:
-        return str(x)
+        self.write_log_entry(path, '!', str(excrepr))
