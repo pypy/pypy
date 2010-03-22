@@ -459,8 +459,6 @@ if __name__ == '__main__':
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
-    sys.ps1 = '>>>> '
-    sys.ps2 = '.... '
 
     # debugging only
     def pypy_initial_path(s):
@@ -474,10 +472,20 @@ if __name__ == '__main__':
     # finds its own extension modules :-/
     import os
     os.environ['PYTHONPATH'] = ':'.join(sys.path)
+    reset = []
+    if 'PYTHONINSPECT_' in os.environ:
+        reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
+        os.environ['PYTHONINSPECT'] = os.environ['PYTHONINSPECT_']
 
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
     os = nanos.os_module_for_testing
-    sys.exit(entry_point(sys.argv[0], sys.argv[1:], os))
-    #sys.exit(entry_point('app_main.py', sys.argv[1:]))
+    sys.ps1 = '>>>> '
+    sys.ps2 = '.... '
+    try:
+        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
+    finally:
+        sys.ps1 = '>>> '     # restore the normal ones, in case
+        sys.ps2 = '... '     # we are dropping to CPython's prompt
+        import os; os.environ.update(reset)

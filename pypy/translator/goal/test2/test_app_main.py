@@ -277,9 +277,8 @@ class TestInteraction:
         child.expect('>>> ')
 
     def test_pythoninspect(self):
-        old = os.environ.get('PYTHONINSPECT', '')
+        os.environ['PYTHONINSPECT_'] = '1'
         try:
-            os.environ['PYTHONINSPECT'] = '1'
             path = getscript("""
                 print 6*7
                 """)
@@ -287,7 +286,7 @@ class TestInteraction:
             child.expect('42')
             child.expect('>>> ')
         finally:
-            os.environ['PYTHONINSPECT'] = old
+            del os.environ['PYTHONINSPECT_']
 
     def test_set_pythoninspect(self):
         path = getscript("""
@@ -422,13 +421,12 @@ class TestNonInteractive:
         assert ('Argv: ' + repr([p, 'extra'])) in data
 
     def test_pythoninspect_doesnt_override_isatty(self):
-        old = os.environ.get('PYTHONINSPECT', '')
+        os.environ['PYTHONINSPECT_'] = '1'
         try:
-            os.environ['PYTHONINSPECT'] = '1'
             data = self.run('', senddata='6*7\nprint 2+3\n')
             assert data == '5\n'
         finally:
-            os.environ['PYTHONINSPECT'] = old
+            del os.environ['PYTHONINSPECT_']
 
     def test_i_flag_overrides_isatty(self):
         data = self.run('-i', senddata='6*7\nraise SystemExit\n',
