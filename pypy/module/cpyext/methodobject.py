@@ -53,25 +53,17 @@ class W_PyCMethodObject(W_PyCFunctionObject):
 @unwrap_spec(ObjSpace, W_Root, Arguments)
 def cfunction_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
-    args_w, kw_w = __args__.unpack()
-    w_kw = space.newdict()
-    for key, w_value in kw_w:
-        space.setitem(w_kw, space.wrap(key), w_value)
-    args_tuple = space.newtuple([space.wrap(args_w), w_kw])
-    #null = lltype.nullptr(PyObject.TO) # XXX for the moment
-    ret = self.call(None, args_tuple)
+    w_tuple = __args__.unpack_cpy()
+    ret = self.call(None, w_tuple)
     # XXX result.decref()
     return ret
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
 def cmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
-    args_w, kw_w = __args__.unpack()
-    w_kw = space.newdict()
-    for key, w_value in kw_w:
-        space.setitem(w_kw, space.wrap(key), w_value)
-    args_tuple = space.newtuple([space.wrap(args_w[1:]), w_kw])
-    ret = self.call(args_w[0], args_tuple)
+    w_tuple = __args__.unpack_cpy(1)
+    w_self = __args__.arguments_w[0]
+    ret = self.call(w_self, w_tuple)
     # XXX result.decref()
     return ret
 
