@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
@@ -11,6 +11,38 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.macros import Py_DECREF
 from pypy.rlib.objectmodel import we_are_translated
 
+
+def from_ref_ex(space, result):
+    try:
+        ret = from_ref(space, result)
+    except NullPointerException:
+        state = space.fromcache(State)
+        state.check_and_raise_exception()
+        assert False, "NULL returned but no exception set"
+    except InvalidPointerException:
+        if not we_are_translated():
+            import sys
+            print >>sys.stderr, "Calling a C function return an invalid PyObject" \
+                    " pointer."
+        raise
+    return ret
+
+def generic_cpy_call(space, func, *args):
+    boxed_args = []
+    for arg in args: # XXX ur needed
+        if isinstance(arg, W_Root) or arg is None:
+            boxed_args.append(make_ref(space, arg))
+        else:
+            boxed_args.append(arg)
+    result = func(*boxed_args)
+    try:
+        ret = from_ref_ex(space, result)
+        Py_DECREF(space, ret)
+        return ret
+    finally:
+        for arg in args: # XXX ur needed
+            if arg is not None and isinstance(arg, W_Root):
+                Py_DECREF(space, arg)
 
 # XXX use Function as a parent class?
 class W_PyCFunctionObject(Wrappable):
@@ -25,26 +57,11 @@ class W_PyCFunctionObject(Wrappable):
         # Call the C function
         if w_self is None:
             w_self = self.w_self
-        result = self.ml.c_ml_meth(make_ref(space, w_self), make_ref(space, args_tuple))
-        try:
-            ret = from_ref(space, result)
-            Py_DECREF(space, ret)
-            if w_self:
-                Py_DECREF(space, w_self)
-            Py_DECREF(space, args_tuple)
-        except NullPointerException:
-            state = space.fromcache(State)
-            state.check_and_raise_exception()
-            assert False, "NULL returned but no exception set"
-        except InvalidPointerException:
-            if not we_are_translated():
-                import sys
-                print >>sys.stderr, "Calling a C function return an invalid PyObject" \
-                        " pointer."
-            raise
-        return ret
+        return generic_cpy_call(space, self.ml.c_ml_meth, w_self, args_tuple)
+
 
 class W_PyCMethodObject(W_PyCFunctionObject):
+    w_self = None
     def __init__(self, space, ml):
         self.space = space
         self.ml = ml

@@ -26,15 +26,15 @@ def PyImport_AddModule(space, name):
 def Py_InitModule(space, name, methods):
     modname = rffi.charp2str(name)
     w_mod = PyImport_AddModule(space, modname)
-    dict_w = convert_method_defs(space, methods, None)
+    dict_w = {}
+    convert_method_defs(space, dict_w, methods, None)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)
     return w_mod
 
 
-def convert_method_defs(space, methods, pto):
+def convert_method_defs(space, dict_w, methods, pto):
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
-    dict_w = {}
     if methods:
         i = -1
         while True:
@@ -63,7 +63,6 @@ def convert_method_defs(space, methods, pto):
                 else:
                     w_obj = PyDescr_NewMethod(space, pto, method)
             dict_w[methodname] = w_obj
-    return dict_w
 
 
 @cpython_api([PyObject], rffi.INT_real)

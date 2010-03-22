@@ -14,6 +14,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         obj2 = obj.copy()
+        assert module.new().name == "Foo Example"
         skip("In progress")
         assert "copy" in repr(module.fooType.copy)
-        assert module.new().name == "Foo Example"

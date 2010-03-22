@@ -7,13 +7,15 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.cpyext.api import cpython_api, cpython_api_c, cpython_struct
 from pypy.module.cpyext.api import PyObject, PyVarObjectFields, Py_ssize_t
 from pypy.module.cpyext.api import Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.modsupport import PyMethodDef, convert_method_defs
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.methodobject import from_ref_ex, generic_cpy_call
+
 
 PyTypeObject = lltype.ForwardReference()
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
@@ -24,7 +26,7 @@ PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
 # XXX
 PyNumberMethods = PySequenceMethods = PyMappingMethods = \
-                  PyBufferProcs = PyMemberDef = PyGetSetDef = rffi.VOIDP.TO
+                  PyBufferProcs = PyMemberDef = rffi.VOIDP.TO
 
 freefunc = P(FT([rffi.VOIDP], Void))
 destructor = P(FT([PyO], Void))
@@ -63,6 +65,17 @@ objobjargproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
 objobjproc = P(FT([PyO, PyO], rffi.INT_real))
 visitproc = P(FT([PyO, rffi.VOIDP], rffi.INT_real))
 traverseproc = P(FT([PyO, visitproc, rffi.VOIDP], rffi.INT_real))
+
+getter = P(FT([PyO, rffi.VOIDP_real], PyO))
+setter = P(FT([PyO, PyO, rffi.VOIDP_real], rffi.INT_real))
+
+PyGetSetDef = cpython_struct("PyGetSetDef", (
+	("name", rffi.CCHARP),
+    ("get", getter),
+    ("set", setter),
+    ("doc", rffi.CCHARP),
+    ("closure", rffi.VOIDP_real),
+))
 
 PyTypeObjectFields = []
 PyTypeObjectFields.extend(PyVarObjectFields)
@@ -138,16 +151,55 @@ PyTypeObjectFields.extend([
     ("tp_weaklist", PyObject),
     ("tp_del", destructor),
     ])
-PyTypeObject = cpython_struct(
-    "PyTypeObject",
-    PyTypeObjectFields, PyTypeObject)
+cpython_struct("PyTypeObject", PyTypeObjectFields, PyTypeObject)
+
+
+
+class W_GetSetPropertyEx(GetSetProperty): # XXX fix this to be rpython
+    def getter(self, space, w_self):
+        return generic_cpy_call(space, self.getset.c_get, w_self, self.getset.c_closure)
+
+    def setter(self, space, w_self, w_value):
+        return generic_cpy_call(space, self.getset.c_set, w_self, w_value,
+                self.getset.c_closure)
+
+    def __init__(self, getset):
+        self.getset = getset
+        self.name = rffi.charp2str(getset.c_name)
+        doc = set = get = None
+        if doc:
+            doc = rffi.charp2str(getset.c_doc)
+        if getset.c_get:
+            get = self.getter.im_func
+        if getset.c_set:
+            set = self.setter.im_func
+        GetSetProperty.__init__(self, get, set, None, doc, W_PyCObject, True)
+
+def PyDescr_NewGetSet(space, getset, pto):
+    return space.wrap(W_GetSetPropertyEx(getset))
+
+def convert_getset_defs(space, dict_w, getsets, pto):
+    getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
+    if getsets:
+        i = -1
+        while True:
+            i = i + 1
+            getset = getsets[i]
+            name = getset.c_name
+            if not name:
+                break
+            name = rffi.charp2str(name)
+            w_descr = PyDescr_NewGetSet(space, getset, pto)
+            dict_w[name] = w_descr
 
 
 class W_PyCTypeObject(W_TypeObject):
     def __init__(self, space, pto):
         self.pto = pto
         bases_w = []
-        dict_w = convert_method_defs(space, pto.c_tp_methods, pto)
+        dict_w = {}
+        convert_method_defs(space, dict_w, pto.c_tp_methods, pto)
+        convert_getset_defs(space, dict_w, pto.c_tp_getset, pto)
         W_TypeObject.__init__(self, space, rffi.charp2str(pto.c_tp_name),
             bases_w or [space.w_object], dict_w)
 
@@ -166,7 +218,6 @@ def allocate_type_obj(space, w_obj):
     return pto
 
 def create_type_object(space, pto):
-
     w_type = space.allocate_instance(W_PyCTypeObject, space.gettypeobject(W_PyCTypeObject.typedef))
     w_type.__init__(space, pto)
     w_type.ready()

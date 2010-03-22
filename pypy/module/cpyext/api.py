@@ -14,6 +14,7 @@ from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import ObjSpace, unwrap_spec
 
 
@@ -124,6 +125,7 @@ def make_ref(space, w_obj, borrowed=False):
     if w_obj is None:
         return lltype.nullptr(PyObject.TO)
         #raise NullPointerException("Trying to pass a NULL reference")
+    assert isinstance(w_obj, W_Root)
     state = space.fromcache(State)
     py_obj = state.py_objects_w2r.get(w_obj)
     if py_obj is None:
@@ -281,7 +283,7 @@ def build_bridge(space, rename=True):
         def wrapper(*args):
             boxed_args = []
             # XXX use unrolling_iterable here
-            print >>sys.stderr, callable
+            print >>sys.stderr, callable,
             for i, typ in enumerate(callable.api_func.argtypes):
                 arg = args[i]
                 if typ is PyObject:
@@ -290,7 +292,7 @@ def build_bridge(space, rename=True):
             state = space.fromcache(State)
             try:
                 retval = callable(space, *boxed_args)
-                print "Callable worked"
+                print >>sys.stderr, " DONE"
             except OperationError, e:
                 e.normalize_exception(space)
                 state.exc_type = e.w_type
