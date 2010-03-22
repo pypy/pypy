@@ -14,6 +14,7 @@ from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import ObjSpace, unwrap_spec
 
 
 Py_ssize_t = lltype.Signed
@@ -33,17 +34,13 @@ class CConfig:
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
 
-constant_names = """Py_TPFLAGS_READY Py_TPFLAGS_READYING """.split()
+constant_names = """
+Py_TPFLAGS_READY Py_TPFLAGS_READYING
+METH_COEXIST METH_STATIC METH_CLASS METH_NOARGS
+""".split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-# XXX does not work, why?
-#globals().update(rffi_platform.configure(CConfig_constants))
-Py_TPFLAGS_READY = (1L<<12)
-Py_TPFLAGS_READYING = (1L<<13)
-METH_COEXIST = 0x0040
-METH_STATIC = 0x0020
-METH_CLASS = 0x0010
-METH_NOARGS = 0x0004
+globals().update(rffi_platform.configure(CConfig_constants))
 
 
 class ApiFunction:
@@ -191,6 +188,7 @@ def build_bridge(space, rename=True):
 
     prologue = """\
     #define const            /* cheat */
+    #include <pypy_rename.h>
     #include <Python.h>
     """
     pypy_rename = []
