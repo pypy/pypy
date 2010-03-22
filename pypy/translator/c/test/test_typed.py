@@ -242,12 +242,12 @@ class TestTypedTestCase(CompilationTestCase):
         def f(i):
             return 4*i
         fn = self.getcompiled(f, [r_ulonglong], view=False)
-        assert fn(sys.maxint) == 4*sys.maxint
+        assert fn(2147483647) == 4*2147483647
 
         def g(i):
             return 4*i
         gn = self.getcompiled(g, [r_longlong], view=False)
-        assert gn(sys.maxint) == 4*sys.maxint
+        assert gn(2147483647) == 4*2147483647
 
     def test_specializing_int_functions(self):
         def f(i):
