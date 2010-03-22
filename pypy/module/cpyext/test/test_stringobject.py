@@ -38,4 +38,4 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert module.get_hello1() == 'Hello world'
         assert module.get_hello2() == 'Hello world'
         assert module.test_Size()
-        raises(TypeError, "module.test_Size_exception()")
+        raises(TypeError, module.test_Size_exception)
