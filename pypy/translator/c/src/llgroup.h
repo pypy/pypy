@@ -19,10 +19,12 @@ typedef unsigned short pypy_halfword_t;
 
 #define _OP_GET_NEXT_GROUP_MEMBER(groupptr, compactoffset, skipoffset)  \
   ((((char*)groupptr) + skipoffset) + ((long)compactoffset)*4)
-/* A macro to check at run-time if sizeof(group) is too large. */
+
+/* A macro to crash at compile-time if sizeof(group) is too large.
+   Uses a hack that I've found on some random forum.  Haaaaaaaaaackish. */
 #define PYPY_GROUP_CHECK_SIZE(groupname, lastname)   \
-  if (sizeof(groupname) > 65536*4)  \
-    error = "group " #groupname " is more than 256KB of data"
+  { typedef char group_##groupname##_is_too_large[   \
+	2*(sizeof(groupname) <= 65536*4)-1]; }
 
 
 #else /******************************************************/

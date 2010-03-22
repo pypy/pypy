@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.c.test import test_typed
 
@@ -714,9 +715,12 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         yield self._test_size_limit, False
 
     def _test_size_limit(self, toobig):
+        import sys
         from pypy.rpython.lltypesystem import llgroup
         from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.translator.platform import CompilationError
+        if toobig and sys.maxint > 2147483647:
+            py.test.skip("not easy to test groups too big on 64-bit platforms")
         grp = llgroup.group("big")
         S1 = Struct('S1', ('x', Signed), ('y', Signed),
                           ('z', Signed), ('u', Signed),
