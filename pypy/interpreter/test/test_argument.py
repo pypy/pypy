@@ -72,6 +72,9 @@ class DummySpace(object):
     def newdict(self):
         return {}
 
+    def newlist(self, l=[]):
+        return l
+
     def setitem(self, obj, key, value):
         obj[key] = value
 
@@ -89,6 +92,9 @@ class DummySpace(object):
 
     def int_w(self, x):
         return x
+
+    def eq_w(self, x, y):
+        return x == y
 
     def isinstance(self, obj, cls):
         return isinstance(obj, cls)
@@ -128,6 +134,12 @@ class TestArgumentsNormal(object):
         assert args1.arguments_w == ["thingy", "0"]
         assert args1.keywords is args.keywords
         assert args1.keywords_w is args.keywords_w
+
+    def test_unpack_cpy(self):
+        space = DummySpace()
+        args = Arguments(space, ["0"])
+        assert space.eq_w(args.unpack_cpy(), space.newtuple([space.newlist([space.wrap("0")]), space.newdict()]))
+        assert space.eq_w(args.unpack_cpy(1), space.newtuple([space.newlist(), space.newdict()]))
 
     def test_fixedunpacked(self):
         space = DummySpace()
