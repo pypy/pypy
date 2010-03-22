@@ -1,5 +1,6 @@
 import py
 from pypy.translator.jvm.test.runtest import JvmTest
+from pypy.translator.jvm.genjvm import detect_missing_support_programs
 from pypy.rlib.test.test_rarithmetic import Test_r_uint as BaseTest_r_uint
 from pypy.rlib.test.test_rarithmetic import Test_r_int as BaseTest_r_int
 from pypy.rlib.test.test_rarithmetic import test_ovfcheck as base_test_ovfcheck
@@ -8,6 +9,7 @@ from pypy.rlib import rarithmetic as ra
 class BaseAdaptedTest(JvmTest):
     
     def unary_test(self, f):
+        detect_missing_support_programs()
         cache = {}
         def new_func(x):
             xtype = type(x)
@@ -20,6 +22,7 @@ class BaseAdaptedTest(JvmTest):
         super(BaseAdaptedTest,self).unary_test(new_func)    
         
     def binary_test(self, f, rargs = None):
+        detect_missing_support_programs()
         cache = {}
         def new_func(x, y):
             if type(x) == self.RTYPE or type(y) == self.RTYPE:
