@@ -36,4 +36,3 @@ import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
 import pypy.module.cpyext.tupleobject
 import pypy.module.cpyext.dictobject
-api.configure()

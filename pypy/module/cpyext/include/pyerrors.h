@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 extern PyObject *PyExc_Exception;
+void PyErr_SetString(PyObject *, char *);
 
 #ifdef __cplusplus
 }

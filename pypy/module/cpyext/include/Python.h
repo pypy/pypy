@@ -1,6 +1,7 @@
 #ifndef Py_PYTHON_H
 #define Py_PYTHON_H
 
+#include <pypy_rename.h>
 /* Compat stuff */
 #ifndef _WIN32
 #include <inttypes.h>

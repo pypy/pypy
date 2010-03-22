@@ -71,6 +71,7 @@ class AppTestCpythonExtensionBase:
             kwds["libraries"] = [api_library]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
+            kwds["compile_extra"] = ["-Werror=implicit-function-declaration"]
         mod = compile_module(name, **kwds)
 
         api.load_extension_module(self.space, mod, name)

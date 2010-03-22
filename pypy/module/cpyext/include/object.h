@@ -377,7 +377,7 @@ manually remove this flag though!
 
 extern PyTypeObject *PyType_Type; /* built-in 'type' */
 extern PyTypeObject *PyBaseObject_Type;
-int PyType_Ready(PyTypeObject *);
+int PyPyType_Ready(PyTypeObject *);
 #define PyType_Ready PyPyType_Ready
 
 /* objimpl.h ----------------------------------------------*/

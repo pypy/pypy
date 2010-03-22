@@ -175,6 +175,7 @@ def general_check(space, w_obj, w_type):
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
+# Do not call this more than once per process
 def build_bridge(space, rename=True):
     db = LowLevelDatabase()
 
@@ -186,9 +187,9 @@ def build_bridge(space, rename=True):
     #define const            /* cheat */
     #include <Python.h>
     """
+    pypy_rename = []
+    renamed_symbols = []
     if rename:
-        pypy_rename = []
-        renamed_symbols = []
         for name in export_symbols:
             if "#" in name:
                 deref = "*"
@@ -198,13 +199,11 @@ def build_bridge(space, rename=True):
             newname = name.replace('Py', 'PyPy')
             pypy_rename.append('#define %s %s%s' % (name, deref, newname))
             renamed_symbols.append(newname)
-        export_symbols = renamed_symbols
-        pypy_rename_h = udir.join('pypy_rename.h')
-        pypy_rename_h.write('\n'.join(pypy_rename))
+    export_symbols = renamed_symbols
+    pypy_rename_h = udir.join('pypy_rename.h')
+    pypy_rename_h.write('\n'.join(pypy_rename))
 
-        prologue = """\
-        #include <pypy_rename.h> /* avoid symbol clashes */
-        """ + prologue
+    configure() # needs pypy_rename.h
 
     # Structure declaration code
     members = []
