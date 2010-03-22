@@ -9,6 +9,7 @@ extern "C" {
 
 PyObject * PyString_FromStringAndSize(const char *, Py_ssize_t);
 PyObject * PyString_FromString(const char *);
+Py_ssize_t PyString_Size(PyObject *);
 
 #ifdef __cplusplus
 }
