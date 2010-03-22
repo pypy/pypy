@@ -99,14 +99,18 @@ void RPyConvertExceptionToCPython(void)
 	assert(RPyExceptionOccurred());
 	assert(!PyErr_Occurred());
 	clsname = RPyFetchExceptionType()->ov_name->items;
-	pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
-	if (pycls != NULL && PyExceptionClass_Check(pycls) &&
-	    PyObject_IsSubclass(pycls, PyExc_Exception)) {
-		v = NULL;
+	v = NULL;
+	if (strcmp(clsname, "AssertionError") == 0) {
+		/* workaround against the py lib's BuiltinAssertionError */
+		pycls = PyExc_AssertionError;
 	}
 	else {
-		pycls = PyExc_Exception; /* XXX RPythonError */
-		v = PyString_FromString(clsname);
+		pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
+		if (pycls == NULL || !PyExceptionClass_Check(pycls) ||
+		    !PyObject_IsSubclass(pycls, PyExc_Exception)) {
+			pycls = PyExc_Exception; /* XXX RPythonError */
+			v = PyString_FromString(clsname);
+		}
 	}
 	Py_INCREF(pycls);
 	tb = NULL;
