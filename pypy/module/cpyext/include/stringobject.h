@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 PyObject * PyString_FromStringAndSize(const char *, Py_ssize_t);
+PyObject * PyString_FromString(const char *);
 
 #ifdef __cplusplus
 }
