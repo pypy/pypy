@@ -302,9 +302,6 @@ def divmod__Float_Float(space, w_float1, w_float2):
     return space.newtuple(_divmod_w(space, w_float1, w_float2))
 
 def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
-    # XXX it makes sense to do more here than in the backend
-    # about sorting out errors!
-
     # This raises FailedToImplement in cases like overflow where a
     # (purely theoretical) big-precision float implementation would have
     # a chance to give a result, and directly OperationError for errors
@@ -314,34 +311,18 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
             "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
-    z = 1.0
-    if y == 0.0:
-        z = 1.0
-    elif x == 0.0:
-        if y < 0.0:
+    try:
+        # We delegate to our implementation of math.pow() the error detection.
+        z = math.pow(x,y)
+    except OverflowError:
+        raise FailedToImplementArgs(space.w_OverflowError,
+                                    space.wrap("float power"))
+    except ValueError:
+        if x == 0.0 and y < 0.0:
             raise OperationError(space.w_ZeroDivisionError,
-                                    space.wrap("0.0 cannot be raised to a negative power"))
-        z = 0.0
-    else:
-        if x < 0.0:
-            if math.floor(y) != y:
-                raise OperationError(space.w_ValueError,
-                                        space.wrap("negative number "
-                                                   "cannot be raised to a fractional power"))
-            if x == -1.0:
-                # xxx what if y is infinity or a NaN
-                if math.floor(y * 0.5) * 2.0 == y:
-                    return space.wrap(1.0)
-                else:
-                    return space.wrap( -1.0)
-#        else:
-        try:
-            z = math.pow(x,y)
-        except OverflowError:
-            raise FailedToImplementArgs(space.w_OverflowError, space.wrap("float power"))
-        except ValueError:
-            raise FailedToImplementArgs(space.w_ValueError, space.wrap("float power")) # xxx
-
+                space.wrap("0.0 cannot be raised to a negative power"))
+        raise OperationError(space.w_ValueError,
+                             space.wrap("float power"))
     return W_FloatObject(z)
 
 
