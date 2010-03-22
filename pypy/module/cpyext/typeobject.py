@@ -8,8 +8,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.typedef import TypeDef
-from pypy.module.cpyext.api import cpython_api, cpython_struct, PyObject, \
-     PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, Py_TPFLAGS_READY
+from pypy.module.cpyext.api import cpython_api, cpython_api_c, cpython_struct
+from pypy.module.cpyext.api import PyObject, PyVarObjectFields, Py_ssize_t
+from pypy.module.cpyext.api import Py_TPFLAGS_READYING, Py_TPFLAGS_READY
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.modsupport import PyMethodDef, convert_method_defs
 from pypy.module.cpyext.state import State
@@ -171,6 +172,9 @@ def create_type_object(space, pto):
     w_type.ready()
     return w_type
 
+@cpython_api_c()
+def PyType_Ready(space, pto):
+    "Implemented in typeobject.c"
 
 @cpython_api([PyTypeObjectPtr], rffi.INT_real)
 def PyPyType_Register(space, pto):

@@ -62,6 +62,11 @@ def cpython_api(argtypes, restype, borrowed=False):
         return func
     return decorate
 
+def cpython_api_c():
+    def decorate(func):
+        FUNCTIONS_C[func.func_name] = None
+    return decorate
+
 def cpython_struct(name, fields, forward=None):
     configname = name.replace(' ', '__')
     setattr(CConfig, configname, rffi_platform.Struct(name, fields))
@@ -71,6 +76,7 @@ def cpython_struct(name, fields, forward=None):
     return forward
 
 FUNCTIONS = {}
+FUNCTIONS_C = {}
 TYPES = {}
 GLOBALS = {
     'Py_None': ('PyObject*', 'space.w_None'),
@@ -179,7 +185,7 @@ def general_check(space, w_obj, w_type):
 def build_bridge(space, rename=True):
     db = LowLevelDatabase()
 
-    export_symbols = list(FUNCTIONS) + list(GLOBALS)
+    export_symbols = list(FUNCTIONS) + list(FUNCTIONS_C) + list(GLOBALS)
 
     structindex = {}
 
