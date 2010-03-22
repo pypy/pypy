@@ -16,7 +16,9 @@
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
 #ifdef PTHREAD_SCOPE_SYSTEM
-#  define PTHREAD_SYSTEM_SCHED_SUPPORTED
+#  ifndef PTHREAD_SYSTEM_SCHED_SUPPORTED
+#    define PTHREAD_SYSTEM_SCHED_SUPPORTED
+#  endif
 #endif
 
 /* The POSIX spec says that implementations supporting the sem_*
