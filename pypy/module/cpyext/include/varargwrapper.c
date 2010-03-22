@@ -10,7 +10,8 @@ PyObject * PyPyTuple_Pack(Py_ssize_t size, ...)
 
     tuple = PyTuple_New(size);
     va_start(ap, size);
-    for (i = 0; i < size; cur = va_arg(ap, PyObject*), i++) {
+    for (i = 0; i < size; i++) {
+        cur = va_arg(ap, PyObject*);
         Py_INCREF(cur);
         if (PyTuple_SetItem(tuple, i, cur) < 0)
             return NULL;
