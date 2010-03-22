@@ -307,10 +307,8 @@ def build_bridge(space, rename=True):
                     return
                 if restype is PyObject:
                     return lltype.nullptr(PyObject.TO)
-                if restype is lltype.Signed:
-                    return rffi.cast(lltype.Signed, -1)
-                if restype is rffi.INT_REAL:
-                    return rffi.cast(rffi.INT_REAL, -1)
+                if restype in (Py_ssize_t, rffi.INT_real):
+                    return rffi.cast(restype, -1)
                 assert False, "Unknown return type"
 
             if callable.api_func.restype is PyObject:
