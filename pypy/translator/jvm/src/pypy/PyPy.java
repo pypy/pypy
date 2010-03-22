@@ -839,6 +839,15 @@ public class PyPy implements Constants {
             return Integer.toString(n, base_);
     }
 
+    public String oostring(long n, int base_) {
+        if (base_ == -1)
+            base_ = 10;
+        if (n < 0 && base_ != 10)
+            return "-" + Long.toString(-n, base_);
+        else
+            return Long.toString(n, base_);
+    }
+
     public String oostring(double d, int base_) {
         if (d == Double.POSITIVE_INFINITY)
             return "inf";
