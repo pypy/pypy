@@ -485,16 +485,20 @@ class FunctionCodeGenerator(object):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
+        baseexpr_is_const = isinstance(op.args[0], Constant)
         expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
-                                                     op.args[1].value)
+                                                     op.args[1].value,
+                                                     baseexpr_is_const)
         return self.generic_get(op, expr)
 
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
+        baseexpr_is_const = isinstance(op.args[0], Constant)
         expr = structdef.ptr_access_expr(self.expr(op.args[0]),
-                                         op.args[1].value)
+                                         op.args[1].value,
+                                         baseexpr_is_const)
         return self.generic_set(op, expr)
 
     def OP_GETSUBSTRUCT(self, op):

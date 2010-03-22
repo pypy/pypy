@@ -95,7 +95,9 @@ def name_float(value, db):
     elif isnan(value):
         return '(Py_HUGE_VAL/Py_HUGE_VAL)'
     else:
-        return repr(value)
+        x = repr(value)
+        assert not x.startswith('n')
+        return x
 
 def name_singlefloat(value, db):
     value = float(value)

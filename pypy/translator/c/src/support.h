@@ -74,7 +74,7 @@ void RPyAssertFailed(const char* filename, long lineno,
  * it's a "guaranteed" segfault and not one that can be used by
  * attackers.
  */
-#  define RPyCHECK(x)           ((x) || RPyAbort())
+#  define RPyCHECK(x)           ((x)?(void)0:RPyAbort())
 #  define RPyField(ptr, name)   ((RPyCHECK(ptr), (ptr))->name)
 #  define RPyItem(array, index)                                             \
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
@@ -87,12 +87,11 @@ void RPyAssertFailed(const char* filename, long lineno,
 #  define RPyBareItem(array, index)                                         \
      ((RPyCHECK((array) && (index) >= 0), (array))[index])
 
-int RPyAbort(void);
+void RPyAbort(void);
 #ifndef PYPY_NOT_MAIN_FILE
-int RPyAbort(void) {
+void RPyAbort(void) {
   fprintf(stderr, "Invalid RPython operation (NULL ptr or bad array index)\n");
   abort();
-  return 0;
 }
 #endif
 

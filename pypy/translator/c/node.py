@@ -130,8 +130,10 @@ class StructDefNode:
         fldname = self.c_struct_field_name(fldname)
         return '%s.%s' % (baseexpr, fldname)
 
-    def ptr_access_expr(self, baseexpr, fldname):
+    def ptr_access_expr(self, baseexpr, fldname, baseexpr_is_const=False):
         fldname = self.c_struct_field_name(fldname)
+        if baseexpr_is_const:
+            return '%s->%s' % (baseexpr, fldname)
         return 'RPyField(%s, %s)' % (baseexpr, fldname)
 
     def definition(self):
