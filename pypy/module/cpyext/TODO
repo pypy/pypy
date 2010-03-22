@@ -38,5 +38,8 @@ pointer to a char buffer; it may be NULL.
 - _PyString_Resize works only on not-yet-pypy'd strings, and returns a
   similar object.
 
+- PyString_Size don't need to force the object. (in this case, another
+  "size" member is needed)
+
 - There could be an (expensive!) check in from_ref() that the buffer
   still corresponds to the pypy gc-managed string.
