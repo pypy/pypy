@@ -70,7 +70,7 @@ getter = P(FT([PyO, rffi.VOIDP_real], PyO))
 setter = P(FT([PyO, PyO, rffi.VOIDP_real], rffi.INT_real))
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
-	("name", rffi.CCHARP),
+    ("name", rffi.CCHARP),
     ("get", getter),
     ("set", setter),
     ("doc", rffi.CCHARP),
