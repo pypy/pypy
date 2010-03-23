@@ -18,14 +18,14 @@ class Darwin(posix.BasePosix):
         self.cc = cc
 
     def _args_for_shared(self, args):
-        return (self.shared_only + ['-dynamiclib', '-undefined', 'dynamic_lookup']
+        return (self.shared_only + ['-bundle', '-undefined', 'dynamic_lookup']
                                  + args)
 
     def include_dirs_for_libffi(self):
         return ['/usr/include/ffi']
 
     def library_dirs_for_libffi(self):
-        return ['/usr/lib/']
+        return []
 
     def check___thread(self):
         # currently __thread is not supported by Darwin gccs
