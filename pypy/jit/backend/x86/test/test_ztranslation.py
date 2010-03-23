@@ -1,10 +1,12 @@
-import py
+import py, os
+from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.translator.translator import TranslationContext
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = CPU386
@@ -62,40 +64,6 @@ class TestTranslationX86(CCompiledMixin):
         res = self.meta_interp(f, [40, -49])
         assert res == f(40, -49)
 
-    def test_external_exception_handling_translates(self):
-        jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
-
-        @dont_look_inside
-        def f(x):
-            if x > 20:
-                return 2
-            raise ValueError
-        @dont_look_inside
-        def g(x):
-            if x > 15:
-                raise ValueError
-            return 2
-        def main(i):
-            jitdriver.set_param("threshold", 3)
-            jitdriver.set_param("trace_eagerness", 2)
-            total = 0
-            n = i
-            while n > 3:
-                jitdriver.can_enter_jit(n=n, total=total)
-                jitdriver.jit_merge_point(n=n, total=total)
-                try:
-                    total += f(n)
-                except ValueError:
-                    total += 1
-                try:
-                    total += g(n)
-                except ValueError:
-                    total -= 1
-                n -= 1
-            return total * 10
-        res = self.meta_interp(main, [40])
-        assert res == main(40)
-
     def test_direct_assembler_call_translates(self):
         class Thing(object):
             def __init__(self, val):
@@ -144,3 +112,75 @@ class TestTranslationX86(CCompiledMixin):
                                policy=StopAtXPolicy(change))
         assert res == main(0)
 
+
+class TestTranslationRemoveTypePtrX86(CCompiledMixin):
+    CPUClass = CPU386
+
+    def _get_TranslationContext(self):
+        t = TranslationContext()
+        t.config.translation.gc = 'hybrid'
+        t.config.translation.gcrootfinder = 'asmgcc'
+        t.config.translation.list_comprehension_operations = True
+        t.config.translation.gcremovetypeptr = True
+        return t
+
+    def test_external_exception_handling_translates(self):
+        jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
+
+        @dont_look_inside
+        def f(x):
+            if x > 20:
+                return 2
+            raise ValueError
+        @dont_look_inside
+        def g(x):
+            if x > 15:
+                raise ValueError
+            return 2
+        class Base:
+            def meth(self):
+                return 2
+        class Sub(Base):
+            def meth(self):
+                return 1
+        @dont_look_inside
+        def h(x):
+            if x < 2000:
+                return Sub()
+            else:
+                return Base()
+        def main(i):
+            jitdriver.set_param("threshold", 3)
+            jitdriver.set_param("trace_eagerness", 2)
+            total = 0
+            n = i
+            while n > 3:
+                jitdriver.can_enter_jit(n=n, total=total)
+                jitdriver.jit_merge_point(n=n, total=total)
+                try:
+                    total += f(n)
+                except ValueError:
+                    total += 1
+                try:
+                    total += g(n)
+                except ValueError:
+                    total -= 1
+                n -= h(n).meth()   # this is to force a GUARD_CLASS
+            return total * 10
+
+        # XXX custom fishing, depends on the exact env var and format
+        logfile = udir.join('test_ztranslation.log')
+        os.environ['PYPYLOG'] = 'jit-log-opt:%s' % (logfile,)
+        try:
+            res = self.meta_interp(main, [40])
+            assert res == main(40)
+        finally:
+            del os.environ['PYPYLOG']
+
+        guard_class = 0
+        for line in open(str(logfile)):
+            if 'guard_class' in line:
+                guard_class += 1
+        # if we get many more guard_classes, it means that we generate
+        # guards that always fail
+        assert 0 < guard_class <= 4

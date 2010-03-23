@@ -1000,15 +1000,18 @@ class Assembler386(object):
             # we use the following algorithm:
             #   - read the typeid from mem(locs[0]), i.e. at offset 0
             #   - keep the lower 16 bits read there
-            #   - multiply by 4 and use it as an offset in type_info_group.
+            #   - multiply by 4 and use it as an offset in type_info_group
+            #   - add 16 bytes, to go past the TYPE_INFO structure
             loc = locs[1]
             assert isinstance(loc, IMM32)
             classptr = loc.value
             # here, we have to go back from 'classptr' to the value expected
             # from reading the 16 bits in the object header
+            from pypy.rpython.memory.gctypelayout import GCData
+            sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
-            expected_typeid = (classptr - type_info_group) >> 2
+            expected_typeid = (classptr - sizeof_ti - type_info_group) >> 2
             mc.CMP16(mem(locs[0], 0), imm32(expected_typeid))
 
     def genop_guard_guard_class(self, ign_1, guard_op, addr, locs, ign_2):
