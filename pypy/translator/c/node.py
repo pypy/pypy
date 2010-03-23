@@ -227,7 +227,7 @@ class ArrayDefNode:
         return '%s.items[%s]' % (baseexpr, index)
     access_expr_varindex = access_expr
 
-    def ptr_access_expr(self, baseexpr, index):
+    def ptr_access_expr(self, baseexpr, index, dummy=False):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
@@ -325,7 +325,7 @@ class BareBoneArrayDefNode:
         return '%s[%d]' % (baseexpr, index)
     access_expr_varindex = access_expr
 
-    def ptr_access_expr(self, baseexpr, index):
+    def ptr_access_expr(self, baseexpr, index, dummy=False):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
@@ -368,7 +368,7 @@ class FixedSizeArrayDefNode:
     def getptrtype(self):
         return self.itemtypename.replace('@', '*@')
 
-    def access_expr(self, baseexpr, index):
+    def access_expr(self, baseexpr, index, dummy=False):
         if not isinstance(index, int):
             assert index.startswith('item')
             index = int(index[4:])
