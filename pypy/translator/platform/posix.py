@@ -48,7 +48,10 @@ class BasePosix(Platform):
         return include_dirs
 
     def _pkg_config(self, lib, opt, default):
-        ret, out, err = _run_subprocess("pkg-config", [lib, opt])
+        try:
+            ret, out, err = _run_subprocess("pkg-config", [lib, opt])
+        except OSError:
+            ret = 1
         if ret:
             return default
         # strip compiler flags
