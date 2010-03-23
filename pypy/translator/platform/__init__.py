@@ -12,7 +12,7 @@ py.log.setconsumer("platform", ansi_log)
 
 from subprocess import PIPE, Popen
 
-def _run_subprocess(executable, args, env=None):
+def _run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, str):
         args = str(executable) + ' ' + args
         shell = True
@@ -22,7 +22,7 @@ def _run_subprocess(executable, args, env=None):
         else:
             args = [str(executable)] + args
         shell = False
-    pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env)
+    pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
     stdout, stderr = pipe.communicate()
     return pipe.returncode, stdout, stderr
 
@@ -108,9 +108,10 @@ class Platform(object):
 
     # some helpers which seem to be cross-platform enough
 
-    def _execute_c_compiler(self, cc, args, outname):
+    def _execute_c_compiler(self, cc, args, outname, cwd=None):
         log.execute(cc + ' ' + ' '.join(args))
-        returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ)
+        returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ,
+                                                     cwd)
         self._handle_error(returncode, stderr, stdout, outname)
 
     def _handle_error(self, returncode, stderr, stdout, outname):
