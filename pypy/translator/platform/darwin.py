@@ -25,7 +25,7 @@ class Darwin(posix.BasePosix):
         return ['/usr/include/ffi']
 
     def library_dirs_for_libffi(self):
-        return ['/usr/lib']
+        return []
 
     def check___thread(self):
         # currently __thread is not supported by Darwin gccs
