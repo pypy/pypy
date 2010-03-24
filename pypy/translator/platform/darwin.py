@@ -10,7 +10,7 @@ class Darwin(posix.BasePosix):
     standalone_only = ['-mdynamic-no-pic']
     shared_only = []
 
-    so_ext = 'bundle'
+    so_ext = 'so'
     
     def __init__(self, cc=None):
         if cc is None:
@@ -25,7 +25,7 @@ class Darwin(posix.BasePosix):
         return ['/usr/include/ffi']
 
     def library_dirs_for_libffi(self):
-        return []
+        return ['/usr/lib']
 
     def check___thread(self):
         # currently __thread is not supported by Darwin gccs
