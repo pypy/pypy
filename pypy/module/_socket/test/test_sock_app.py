@@ -338,6 +338,7 @@ class AppTestSocket:
         s.close()
 
     def test_NtoH(self):
+        import sys
         import _socket as socket
         # This just checks that htons etc. are their own inverse,
         # when looking at the lower 16 or 32 bits.
@@ -351,7 +352,28 @@ class AppTestSocket:
             swapped = func(mask)
             assert swapped & mask == mask
             try:
-                func(1L<<34)
+                func(-1)
+            except (OverflowError, ValueError):
+                pass
+            else:
+                assert False
+            try:
+                func(sys.maxint*2+2)
+            except OverflowError:
+                pass
+            else:
+                assert False
+
+    def test_NtoH_overflow(self):
+        skip("we are not checking for overflowing values yet")
+        import _socket as socket
+        # Checks that we cannot give too large values to htons etc.
+        # Skipped for now; CPython 2.6 is also not consistent.
+        sizes = {socket.htonl: 32, socket.ntohl: 32,
+                 socket.htons: 16, socket.ntohs: 16}
+        for func, size in sizes.items():
+            try:
+                func(1L << size)
             except OverflowError:
                 pass
             else:

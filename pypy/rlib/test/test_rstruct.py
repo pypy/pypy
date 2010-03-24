@@ -1,12 +1,14 @@
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rstruct.runpack import runpack
+from pypy.rlib.rarithmetic import LONG_BIT
 import struct
 
 class BaseTestRStruct(BaseRtypingTest):
     def test_unpack(self):
+        pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
         def fn():
-            return runpack('sll', 'a\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00')[1]
+            return runpack('sll', 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
         assert fn() == 3
         assert self.interpret(fn, []) == 3
 

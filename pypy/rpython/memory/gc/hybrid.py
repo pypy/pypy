@@ -1,6 +1,6 @@
 import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
-from pypy.rpython.memory.gc.generation import GenerationGC
+from pypy.rpython.memory.gc.generation import GenerationGC, WORD
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
 from pypy.rpython.memory.gc.semispace import GCFLAG_HASHMASK
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_YOUNG_PTRS
@@ -89,8 +89,8 @@ class HybridGC(GenerationGC):
     # condition: large_object <= large_object_gcptrs < min_nursery_size/4
 
     def __init__(self, *args, **kwds):
-        large_object = kwds.pop('large_object', 24)
-        large_object_gcptrs = kwds.pop('large_object_gcptrs', 32)
+        large_object = kwds.pop('large_object', 6*WORD)
+        large_object_gcptrs = kwds.pop('large_object_gcptrs', 8*WORD)
         self.generation3_collect_threshold = kwds.pop(
             'generation3_collect_threshold', GENERATION3_COLLECT_THRESHOLD)
         GenerationGC.__init__(self, *args, **kwds)

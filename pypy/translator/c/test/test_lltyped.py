@@ -732,14 +732,17 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                           ('z4', Signed), ('u4', Signed))
         goffsets = []
         for i in range(4096 + toobig):
-            goffsets.append(grp.add_member(malloc(S1, immortal=True)))
+            ofs = grp.add_member(malloc(S1, immortal=True))
+            goffsets.append(llgroup.CombinedSymbolic(ofs, 0))
         grpptr = grp._as_ptr()
         def f(n):
-            p = llop.get_group_member(Ptr(S1), grpptr, goffsets[n])
+            o = llop.extract_ushort(llgroup.HALFWORD, goffsets[n])
+            p = llop.get_group_member(Ptr(S1), grpptr, o)
             p.x = 5
             for i in range(len(goffsets)):
                 if i != n:
-                    q = llop.get_group_member(Ptr(S1), grpptr, goffsets[i])
+                    o = llop.extract_ushort(llgroup.HALFWORD, goffsets[i])
+                    q = llop.get_group_member(Ptr(S1), grpptr, o)
                     q.x = 666
             return p.x
         if toobig:

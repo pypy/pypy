@@ -9,10 +9,13 @@ from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
+
+UINT_MAX_32_BITS = r_uint(4294967295)
 
 
 class W_Root(object):
@@ -1093,6 +1096,24 @@ class ObjSpace(object):
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
+        return value
+
+    def c_int_w(self, w_obj):
+        # Like space.int_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
+        value = self.int_w(w_obj)
+        if value < -2147483647-1 or value > 2147483647:
+            raise OperationError(self.w_OverflowError,
+                                 self.wrap("expected a 32-bit integer"))
+        return value
+
+    def c_uint_w(self, w_obj):
+        # Like space.uint_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
+        value = self.uint_w(w_obj)
+        if value > UINT_MAX_32_BITS:
+            raise OperationError(self.w_OverflowError,
+                              self.wrap("expected an unsigned 32-bit integer"))
         return value
 
     def warn(self, msg, w_warningcls):

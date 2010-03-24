@@ -148,9 +148,8 @@ def name_small_integer(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, llgroup.GroupMemberOffset):
             groupnode = db.getcontainernode(value.grpptr._as_obj())
-            return 'GROUP_MEMBER_OFFSET(%s, %s, member%s)' % (
+            return 'GROUP_MEMBER_OFFSET(%s, member%s)' % (
                 cdecl(groupnode.implementationtypename, ''),
-                groupnode.name,
                 value.index,
                 )
         else:

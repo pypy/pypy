@@ -50,9 +50,11 @@ _membership = weakref.WeakValueDictionary()
 
 
 if LONG_BIT == 32:
+    HALFSHIFT = 16
     HALFWORD = rffi.USHORT
     r_halfword = rffi.r_ushort
 else:
+    HALFSHIFT = 32
     HALFWORD = rffi.UINT
     r_halfword = rffi.r_uint
 
@@ -97,7 +99,7 @@ class CombinedSymbolic(llmemory.Symbolic):
     '&~0xFFFF' or with a direct masking like '&0x10000' (resp. on 64-bit
     platform, with '&~0xFFFFFFFF' or '&0x100000000').
     """
-    MASK = (1<<(LONG_BIT//2))-1     # 0xFFFF or 0xFFFFFFFF
+    MASK = (1<<HALFSHIFT)-1     # 0xFFFF or 0xFFFFFFFF
 
     def annotation(self):
         from pypy.annotation import model

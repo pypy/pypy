@@ -2,6 +2,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError
+from pypy.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import OperationError, operationerrfmt
 
 def gethostname(space):
@@ -152,30 +153,24 @@ def socketpair(space, family = rsocket.socketpair_default_family,
     return space.newtuple([space.wrap(sock1), space.wrap(sock2)])
 socketpair.unwrap_spec = [ObjSpace, int, int, int]
 
+# The following 4 functions refuse all negative numbers, like CPython 2.6.
+# They could also check that the argument is not too large, but CPython 2.6
+# is not doing that consistently.
 def ntohs(space, x):
     """ntohs(integer) -> integer
 
     Convert a 16-bit integer from network to host byte order.
     """
     return space.wrap(rsocket.ntohs(x))
-ntohs.unwrap_spec = [ObjSpace, int]
+ntohs.unwrap_spec = [ObjSpace, r_uint]
 
-def ntohl(space, w_x):
+def ntohl(space, x):
     """ntohl(integer) -> integer
 
     Convert a 32-bit integer from network to host byte order.
     """
-    if space.is_true(space.isinstance(w_x, space.w_int)):
-        x = space.int_w(w_x)
-    elif space.is_true(space.isinstance(w_x, space.w_long)):
-        x = space.uint_w(w_x)
-    else:
-        raise operationerrfmt(space.w_TypeError,
-                              "expected int/long, %s found",
-                              space.type(w_x).getname(space, "?"))
-
     return space.wrap(rsocket.ntohl(x))
-ntohl.unwrap_spec = [ObjSpace, W_Root]
+ntohl.unwrap_spec = [ObjSpace, r_uint]
 
 def htons(space, x):
     """htons(integer) -> integer
@@ -183,24 +178,15 @@ def htons(space, x):
     Convert a 16-bit integer from host to network byte order.
     """
     return space.wrap(rsocket.htons(x))
-htons.unwrap_spec = [ObjSpace, int]
+htons.unwrap_spec = [ObjSpace, r_uint]
 
-def htonl(space, w_x):
+def htonl(space, x):
     """htonl(integer) -> integer
 
     Convert a 32-bit integer from host to network byte order.
     """
-    if space.is_true(space.isinstance(w_x, space.w_int)):
-        x = space.int_w(w_x)
-    elif space.is_true(space.isinstance(w_x, space.w_long)):
-        x = space.uint_w(w_x)
-    else:
-        raise operationerrfmt(space.w_TypeError,
-                              "expected int/long, %s found",
-                              space.type(w_x).getname(space, "?"))
-
     return space.wrap(rsocket.htonl(x))
-htonl.unwrap_spec = [ObjSpace, W_Root]
+htonl.unwrap_spec = [ObjSpace, r_uint]
 
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation

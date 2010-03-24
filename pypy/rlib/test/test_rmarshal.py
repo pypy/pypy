@@ -2,7 +2,7 @@ import py
 import marshal
 from pypy.rlib.rmarshal import *
 from pypy.annotation import model as annmodel
-from pypy.rlib.rarithmetic import formatd
+from pypy.rlib.rarithmetic import formatd, LONG_BIT
 
 types_that_can_be_none = [
     [int],
@@ -15,6 +15,10 @@ def test_marshaller():
     buf = []
     get_marshaller(int)(buf, 5)
     assert marshal.loads(''.join(buf)) == 5
+
+    buf = []
+    get_marshaller(int)(buf, -555)
+    assert marshal.loads(''.join(buf)) == -555
 
     buf = []
     get_marshaller(float)(buf, 3.25)
@@ -37,6 +41,15 @@ def test_marshaller():
     assert marshal.loads(''.join(buf)) == 0x12380000007
 
     buf = []
+    get_marshaller(r_longlong)(buf, r_longlong(-0x12380000007))
+    assert marshal.loads(''.join(buf)) == -0x12380000007
+
+    if LONG_BIT > 32:
+        buf = []
+        get_marshaller(int)(buf, -0x12340000007)
+        assert marshal.loads(''.join(buf)) == -0x12340000007
+
+    buf = []
     get_marshaller([int])(buf, [2, 5, -7])
     assert marshal.loads(''.join(buf)) == [2, 5, -7]
 
@@ -53,6 +66,9 @@ def test_marshaller():
 def test_unmarshaller():
     buf = 'i\x05\x00\x00\x00'
     assert get_unmarshaller(int)(buf) == 5
+
+    buf = 'i\x00\xf0\xff\xff'
+    assert get_unmarshaller(int)(buf) == -4096
 
     buf = 'f\x043.25'
     assert get_unmarshaller(float)(buf) == 3.25
@@ -74,6 +90,16 @@ def test_unmarshaller():
 
     buf = 'I\x07\x00\x00\x80\x23\x01\x00\x00'
     assert get_unmarshaller(r_longlong)(buf) == 0x12380000007
+
+    buf = 'I\x00\x00\x01\x83\x80\x00\x00\x97'
+    assert get_unmarshaller(r_longlong)(buf) == -7566046822028738560L
+
+    if LONG_BIT > 32:
+        buf = 'I\x07\x00\x00\x80\x23\x01\x00\x00'
+        assert get_unmarshaller(int)(buf) == 0x12380000007
+
+        buf = 'I\x00\x00\x01\x83\x80\x00\x00\x97'
+        assert get_unmarshaller(int)(buf) == -7566046822028738560
 
     buf = ('[\x03\x00\x00\x00i\x02\x00\x00\x00i\x05\x00\x00\x00'
            'i\xf9\xff\xff\xff')
@@ -98,10 +124,18 @@ def test_llinterp_marshal():
         return ''.join(buf)
     res = interpret(f, [])
     res = ''.join(res.chars)
-    assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
-                   's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
-                   'i\x07\x00\x00\x00s\x05\x00\x00\x00world'
-                   'f\x061e+100')
+    if LONG_BIT == 32:
+        assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
+                       's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
+                       'i\x07\x00\x00\x00s\x05\x00\x00\x00world'
+                       'f\x061e+100')
+    else:
+        assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00'
+                       'I\x05\x00\x00\x00\x00\x00\x00\x00'
+                       's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
+                       'I\x07\x00\x00\x00\x00\x00\x00\x00'
+                       's\x05\x00\x00\x00world'
+                       'f\x061e+100')
 
 def test_llinterp_unmarshal():
     from pypy.rpython.test.test_llinterp import interpret

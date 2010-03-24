@@ -106,7 +106,7 @@ class Test_rbigint(object):
         assert rbigint.fromrarith_int(r_uint(17)).eq(rbigint([17], 1))
         assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(rbigint([intmask(BASE-1)], 1))
         assert rbigint.fromrarith_int(r_uint(BASE)).eq(rbigint([0, 1], 1))
-        assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(rbigint([0], 0))
+        #assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(rbigint([0], 0))
         assert rbigint.fromrarith_int(r_uint(sys.maxint)).eq(
             rbigint.fromint(sys.maxint))
         assert rbigint.fromrarith_int(r_uint(sys.maxint+1)).eq(
@@ -192,6 +192,14 @@ class Test_rbigint(object):
                 f1 = rbigint.fromlong(x)
                 f2 = rbigint.fromlong(y)
                 assert (x < y) ==  f1.lt(f2)
+
+    def test_order(self):
+        f6 = rbigint.fromint(6)
+        f7 = rbigint.fromint(7)
+        assert (f6.lt(f6), f6.lt(f7), f7.lt(f6)) == (0,1,0)
+        assert (f6.le(f6), f6.le(f7), f7.le(f6)) == (1,1,0)
+        assert (f6.gt(f6), f6.gt(f7), f7.gt(f6)) == (0,0,1)
+        assert (f6.ge(f6), f6.ge(f7), f7.ge(f6)) == (1,0,1)
 
     def test_int_conversion(self):
         f1 = rbigint.fromlong(12332)
@@ -465,9 +473,12 @@ class TestTranslatable(object):
 
     def test_args_from_rarith_int(self):
         from pypy.rpython.tool.rfficache import platform
+        from pypy.rlib.rarithmetic import r_int
         classlist = platform.numbertype_to_rclass.values()
         fnlist = []
         for r in classlist:
+            if r is r_int:     # and also r_longlong on 64-bit
+                continue
             if r is int:
                 mask = sys.maxint*2+1
                 signed = True

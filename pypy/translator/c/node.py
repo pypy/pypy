@@ -992,17 +992,12 @@ class GroupNode(ContainerNode):
             forward_cdecl(ctype, self.name, self.db.standalone,
                           self.is_thread_local()))
         yield '#include "src/llgroup.h"'
+        yield 'PYPY_GROUP_CHECK_SIZE(%s)' % (self.name,)
         for i, member in enumerate(self.obj.members):
             structnode = self.db.getcontainernode(member)
             yield '#define %s %s.member%d' % (structnode.name,
                                               self.name, i)
         yield ''
-
-    def startupcode(self):
-        count = len(self.obj.members)
-        if count == 0:
-            return []
-        return ['PYPY_GROUP_CHECK_SIZE(%s, member%d);' % (self.name, count-1)]
 
     def initializationexpr(self):
         self._fix_members()

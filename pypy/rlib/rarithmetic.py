@@ -307,7 +307,7 @@ class signed_int(base_int):
         if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
             raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
         if val < 0:
-            val = - ((-val) & klass.MASK)
+            val = ~ ((~val) & klass.MASK)
         return super(signed_int, klass).__new__(klass, val)
     typemap = {}
 

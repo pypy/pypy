@@ -60,37 +60,79 @@ class AppTestLong:
         assert a == 3L
 
     def test_compare(self):
-        BIG = 1L << 9999
-        assert 0 == 0L
-        assert not (0 != 0L)
-        assert 0L == 0
-        assert not (0L != 0)
-        assert not (0 == BIG)
-        assert 0 != BIG
-        assert not (BIG == 0)
-        assert BIG != 0
-        assert not (0L == BIG)
-        assert 0L != BIG
-        assert 0 <= 0L
-        assert not (0 < 0L)
-        assert 0 <= BIG
-        assert 0 < BIG
-        assert not (BIG <= 0)
-        assert not (BIG < 0)
-        assert 0L <= 0L
-        assert not (0L < 0L)
-        assert 0L <= BIG
-        assert 0L < BIG
-        assert not (BIG <= 0L)
-        assert not (BIG < 0L)
-        assert not (0 <= -BIG)
-        assert not (0 < -BIG)
-        assert -BIG <= 0
-        assert -BIG < 0
-        assert not (0L <= -BIG)
-        assert not (0L < -BIG)
-        assert -BIG <= 0L
-        assert -BIG < 0L
+        for BIG in (1L, 1L << 62, 1L << 9999):
+            assert 0 == 0L
+            assert not (0 != 0L)
+            assert 0L == 0
+            assert not (0L != 0)
+            assert not (0 == BIG)
+            assert 0 != BIG
+            assert not (BIG == 0)
+            assert BIG != 0
+            assert not (0L == BIG)
+            assert 0L != BIG
+            assert 0 <= 0L
+            assert not (0 < 0L)
+            assert 0 <= BIG
+            assert 0 < BIG
+            assert not (BIG <= 0)
+            assert not (BIG < 0)
+            assert 0L <= 0L
+            assert not (0L < 0L)
+            assert 0L <= BIG
+            assert 0L < BIG
+            assert not (BIG <= 0L)
+            assert not (BIG < 0L)
+            assert not (0 <= -BIG)
+            assert not (0 < -BIG)
+            assert -BIG <= 0
+            assert -BIG < 0
+            assert not (0L <= -BIG)
+            assert not (0L < -BIG)
+            assert -BIG <= 0L
+            assert -BIG < 0L
+            #
+            assert not (BIG <  int(BIG))
+            assert     (BIG <= int(BIG))
+            assert     (BIG == int(BIG))
+            assert not (BIG != int(BIG))
+            assert not (BIG >  int(BIG))
+            assert     (BIG >= int(BIG))
+            #
+            assert     (BIG <  int(BIG)+1)
+            assert     (BIG <= int(BIG)+1)
+            assert not (BIG == int(BIG)+1)
+            assert     (BIG != int(BIG)+1)
+            assert not (BIG >  int(BIG)+1)
+            assert not (BIG >= int(BIG)+1)
+            #
+            assert not (BIG <  int(BIG)-1)
+            assert not (BIG <= int(BIG)-1)
+            assert not (BIG == int(BIG)-1)
+            assert     (BIG != int(BIG)-1)
+            assert     (BIG >  int(BIG)-1)
+            assert     (BIG >= int(BIG)-1)
+            #
+            assert not (int(BIG) <  BIG)
+            assert     (int(BIG) <= BIG)
+            assert     (int(BIG) == BIG)
+            assert not (int(BIG) != BIG)
+            assert not (int(BIG) >  BIG)
+            assert     (int(BIG) >= BIG)
+            #
+            assert not (int(BIG)+1 <  BIG)
+            assert not (int(BIG)+1 <= BIG)
+            assert not (int(BIG)+1 == BIG)
+            assert     (int(BIG)+1 != BIG)
+            assert     (int(BIG)+1 >  BIG)
+            assert     (int(BIG)+1 >= BIG)
+            #
+            assert     (int(BIG)-1 <  BIG)
+            assert     (int(BIG)-1 <= BIG)
+            assert not (int(BIG)-1 == BIG)
+            assert     (int(BIG)-1 != BIG)
+            assert not (int(BIG)-1 >  BIG)
+            assert not (int(BIG)-1 >= BIG)
 
     def test_conversion(self):
         class long2(long):

@@ -197,6 +197,10 @@ def test_intmask_small():
         x = intmask(tp(5))
         assert (type(x), x) == (int, 5)
 
+def test_bug_creating_r_int():
+    minint = -sys.maxint-1
+    assert r_int(r_int(minint)) == minint
+
 def test_ovfcheck():
     one = 1
     x = sys.maxint

@@ -9,6 +9,9 @@ see as the list of roots (stack and prebuilt objects).
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctypelayout import TypeLayoutBuilder
+from pypy.rlib.rarithmetic import LONG_BIT
+
+WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
 S = lltype.GcForwardReference()
@@ -378,11 +381,11 @@ class TestGenerationGC(TestSemiSpaceGC):
 class TestHybridGC(TestGenerationGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
 
-    GC_PARAMS = {'space_size': 192,
-                 'min_nursery_size': 48,
-                 'nursery_size': 48,
-                 'large_object': 12,
-                 'large_object_gcptrs': 12,
+    GC_PARAMS = {'space_size': 48*WORD,
+                 'min_nursery_size': 12*WORD,
+                 'nursery_size': 12*WORD,
+                 'large_object': 3*WORD,
+                 'large_object_gcptrs': 3*WORD,
                  'generation3_collect_threshold': 5,
                  }
 

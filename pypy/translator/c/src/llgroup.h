@@ -11,7 +11,7 @@
 
 typedef unsigned short pypy_halfword_t;
 
-#define GROUP_MEMBER_OFFSET(grouptype, groupname, membername)           \
+#define GROUP_MEMBER_OFFSET(grouptype, membername)  \
   ((unsigned short)(((long)&((grouptype*)NULL)->membername) / 4))
 
 #define _OP_GET_GROUP_MEMBER(groupptr, compactoffset)  \
@@ -22,33 +22,31 @@ typedef unsigned short pypy_halfword_t;
 
 /* A macro to crash at compile-time if sizeof(group) is too large.
    Uses a hack that I've found on some random forum.  Haaaaaaaaaackish. */
-#define PYPY_GROUP_CHECK_SIZE(groupname, lastname)   \
-  { typedef char group_##groupname##_is_too_large[   \
-	2*(sizeof(groupname) <= 65536*4)-1]; }
+#define PYPY_GROUP_CHECK_SIZE(groupname)   \
+  typedef char group_##groupname##_is_too_large[   \
+	2*(sizeof(groupname) <= 65536*4)-1];
 
 
 #else /******************************************************/
 /* On 64-bit platforms, a CombinedSymbolic is two UINTs, and the lower
-   one stores a real pointer to the group memeber.  The limitation is
-   that this pointer must fit inside 32-bit, i.e. the whole group must
-   be located in the first 32 bits of address space. */
+   one is an 32-bit offset from the start of the group. */
 
 typedef unsigned int pypy_halfword_t;
 
-#define GROUP_MEMBER_OFFSET(grouptype, groupname, membername)   \
-  ((long)(&groupname.membername))
+#define GROUP_MEMBER_OFFSET(grouptype, membername)  \
+  offsetof(grouptype, membername)
 
 #define _OP_GET_GROUP_MEMBER(groupptr, compactoffset)  \
-  ((long)compactoffset)
+  (((char*)groupptr) + (long)compactoffset)
 
 #define _OP_GET_NEXT_GROUP_MEMBER(groupptr, compactoffset, skipoffset)  \
-  ((long)compactoffset + skipoffset)
+  (((char*)groupptr) + skipoffset + (long)compactoffset)
 
-/* A macro to check at run-time if the group is below the 32-bit limit. */
-#define PYPY_GROUP_CHECK_SIZE(groupname, lastname)          \
-  if ((unsigned long)(&groupname.lastname) > 0xFFFFFFFF)    \
-    error = "group " #groupname " is not located in the "   \
-            "initial 32 bits of address space"
+/* A macro to crash at compile-time if sizeof(group) is too large.
+   Uses a hack that I've found on some random forum.  Haaaaaaaaaackish. */
+#define PYPY_GROUP_CHECK_SIZE(groupname)   \
+  typedef char group_##groupname##_is_too_large[   \
+	2*(sizeof(groupname) <= 4294967296L)-1];
 
 
 #endif /*****************************************************/

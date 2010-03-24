@@ -380,7 +380,7 @@ class AppTestPosix:
     if hasattr(os, 'setuid'):
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OSError, os.setuid, -100000)
+            raises((OSError, ValueError, OverflowError), os.setuid, -100000)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -396,13 +396,13 @@ class AppTestPosix:
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OSError, os.setgid, -100000)
+            raises((OSError, ValueError, OverflowError), os.setgid, -100000)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
-            raises(OSError, os.getsid, -100000)
+            raises((OSError, ValueError, OverflowError), os.getsid, -100000)
 
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):

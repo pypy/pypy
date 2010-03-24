@@ -49,6 +49,7 @@ def widen_digit(x):
 
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
+    # XXX relace the list of ints with a list of rffi.INTs, maybe
     
     def __init__(self, digits=None, sign=0):
         if digits is None or len(digits) == 0:
@@ -272,13 +273,13 @@ class rbigint(object):
         return False
 
     def le(self, other):
-        return self.lt(other) or self.eq(other)
+        return not other.lt(self)
 
     def gt(self, other):
-        return other.le(self)
+        return other.lt(self)
 
     def ge(self, other):
-        return other.lt(self)
+        return not self.lt(other)
 
     def hash(self):
         return _hash(self)

@@ -8,8 +8,10 @@ from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem.lloperation import llop
+
+WORD = LONG_BIT // 8
 
 # The following flag is never set on young objects, i.e. the ones living
 # in the nursery.  It is initially set on all prebuilt and old objects,
@@ -47,10 +49,10 @@ class GenerationGC(SemiSpaceGC):
     nursery_hash_base = -1
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
-                 nursery_size=128,
-                 min_nursery_size=128,
+                 nursery_size=32*WORD,
+                 min_nursery_size=32*WORD,
                  auto_nursery_size=False,
-                 space_size=4096,
+                 space_size=1024*WORD,
                  max_space_size=sys.maxint//2+1):
         SemiSpaceGC.__init__(self, config, chunk_size = chunk_size,
                              space_size = space_size,

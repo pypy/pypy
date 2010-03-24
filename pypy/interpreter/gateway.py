@@ -126,6 +126,12 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_int(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_c_uint(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
         argname = self.orig_arg()
@@ -229,6 +235,12 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.nonnegint_w(%s)" % (self.scopenext(),))
+
+    def visit_c_int(self, typ):
+        self.run_args.append("space.c_int_w(%s)" % (self.scopenext(),))
+
+    def visit_c_uint(self, typ):
+        self.run_args.append("space.c_uint_w(%s)" % (self.scopenext(),))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -347,6 +359,12 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.nonnegint_w(%s)" % (self.nextarg(),))
+
+    def visit_c_int(self, typ):
+        self.unwrap.append("space.c_int_w(%s)" % (self.nextarg(),))
+
+    def visit_c_uint(self, typ):
+        self.unwrap.append("space.c_uint_w(%s)" % (self.nextarg(),))
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()

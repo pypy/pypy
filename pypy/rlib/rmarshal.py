@@ -6,7 +6,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.signature import annotation
 from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.tool.pairtype import pair, pairtype
-from pypy.rlib.rarithmetic import formatd, r_longlong, intmask
+from pypy.rlib.rarithmetic import formatd, r_longlong, intmask, LONG_BIT
 from pypy.rlib.rarithmetic import break_up_float, parts_to_float
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -151,8 +151,12 @@ def load_bool(loader):
 add_loader(annmodel.s_Bool, load_bool)
 
 def dump_int(buf, x):
-    buf.append(TYPE_INT)
-    w_long(buf, x)
+    # only use TYPE_INT on 32-bit platforms
+    if LONG_BIT > 32:
+        dump_longlong(buf, r_longlong(x))
+    else:
+        buf.append(TYPE_INT)
+        w_long(buf, x)
 add_dumper(annmodel.SomeInteger(), dump_int)
 
 def load_int_nonneg(loader):
@@ -163,9 +167,14 @@ def load_int_nonneg(loader):
 add_loader(annmodel.SomeInteger(nonneg=True), load_int_nonneg)
 
 def load_int(loader):
-    if readchr(loader) != TYPE_INT:
-        raise ValueError("expected an int")
-    return readlong(loader)
+    r = readchr(loader)
+    if LONG_BIT > 32 and r == TYPE_INT64:
+        x = readlong(loader) & 0xFFFFFFFF
+        x |= readlong(loader) << 32
+        return x
+    if r == TYPE_INT:
+        return readlong(loader)
+    raise ValueError("expected an int")
 add_loader(annmodel.SomeInteger(), load_int)
 
 def dump_longlong(buf, x):

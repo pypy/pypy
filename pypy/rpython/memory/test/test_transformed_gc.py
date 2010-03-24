@@ -1,10 +1,10 @@
 import py
 import sys
-import struct, inspect
+import inspect
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.annotation import policy as annpolicy
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.lltypesystem.lloperation import llop, void
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
@@ -14,8 +14,9 @@ from pypy.rlib import rgc
 from pypy import conftest
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.rarithmetic import LONG_BIT
 
-INT_SIZE = struct.calcsize("i")   # only for estimates
+WORD = LONG_BIT // 8
 
 
 def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
@@ -219,7 +220,7 @@ class GenericGCTests(GCTest):
         run, statistics = self.runner("llinterp_lists", statistics=True)
         run([])
         heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * INT_SIZE / 4 # xxx
+        assert heap_size < 16000 * WORD / 4 # xxx
 
     def define_llinterp_tuples(cls):
         def malloc_a_lot():
@@ -239,7 +240,7 @@ class GenericGCTests(GCTest):
         run, statistics = self.runner("llinterp_tuples", statistics=True)
         run([])
         heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * INT_SIZE / 4 # xxx
+        assert heap_size < 16000 * WORD / 4 # xxx
 
     def skipdefine_global_list(cls):
         gl = []
@@ -275,7 +276,7 @@ class GenericGCTests(GCTest):
         res = run([100, 0])
         assert res == len(''.join([str(x) for x in range(100)]))
         heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * INT_SIZE / 4 # xxx
+        assert heap_size < 16000 * WORD / 4 # xxx
 
     def define_nongc_static_root(cls):
         T1 = lltype.GcStruct("C", ('x', lltype.Signed))
@@ -687,7 +688,7 @@ class GenericMovingGCTests(GenericGCTests):
         def f():
             from pypy.rpython.lltypesystem import rffi
             alist = [A() for i in range(50)]
-            idarray = lltype.malloc(rffi.INTP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
             # Compute the id of all the elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
@@ -753,7 +754,7 @@ class GenericMovingGCTests(GenericGCTests):
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
                 if op.opname == 'do_malloc_fixedsize_clear':
-                    op.args = [Constant(type_id, rffi.USHORT),
+                    op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(True, lltype.Bool),  # can_collect
                                Constant(False, lltype.Bool), # has_finalizer
@@ -790,7 +791,7 @@ class GenericMovingGCTests(GenericGCTests):
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
                 if op.opname == 'do_malloc_fixedsize_clear':
-                    op.args = [Constant(type_id, rffi.USHORT),
+                    op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(True, lltype.Bool),  # can_collect
                                Constant(False, lltype.Bool), # has_finalizer
@@ -883,7 +884,7 @@ class TestMarkSweepGC(GenericGCTests):
     gcname = "marksweep"
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 4096 }
+            GC_PARAMS = {'start_heap_size': 1024*WORD }
             root_stack_depth = 200
 
 
@@ -1121,7 +1122,7 @@ class TestPrintingGC(GenericGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC as GCClass
-            GC_PARAMS = {'start_heap_size': 4096 }
+            GC_PARAMS = {'start_heap_size': 1024*WORD }
             root_stack_depth = 200
 
 class TestSemiSpaceGC(GenericMovingGCTests):
@@ -1131,7 +1132,7 @@ class TestSemiSpaceGC(GenericMovingGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
-            GC_PARAMS = {'space_size': 2048}
+            GC_PARAMS = {'space_size': 512*WORD}
             root_stack_depth = 200
 
 class TestMarkCompactGC(GenericMovingGCTests):
@@ -1143,7 +1144,7 @@ class TestMarkCompactGC(GenericMovingGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-            GC_PARAMS = {'space_size': 2048}
+            GC_PARAMS = {'space_size': 512*WORD}
             root_stack_depth = 200
 
 class TestGenerationGC(GenericMovingGCTests):
@@ -1154,8 +1155,8 @@ class TestGenerationGC(GenericMovingGCTests):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
-            GC_PARAMS = {'space_size': 2048,
-                         'nursery_size': 128}
+            GC_PARAMS = {'space_size': 512*WORD,
+                         'nursery_size': 32*WORD}
             root_stack_depth = 200
 
     def define_weakref_across_minor_collection(cls):
@@ -1351,8 +1352,8 @@ class TestGenerationalNoFullCollectGC(GCTest):
                 self.__ready = False # collecting here is expected
                 GenerationGC._teardown(self)
                 
-            GC_PARAMS = {'space_size': 2048,
-                         'nursery_size': 512}
+            GC_PARAMS = {'space_size': 512*WORD,
+                         'nursery_size': 128*WORD}
             root_stack_depth = 200
 
     def define_working_nursery(cls):
@@ -1382,9 +1383,9 @@ class TestHybridGC(TestGenerationGC):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
-            GC_PARAMS = {'space_size': 2048,
-                         'nursery_size': 128,
-                         'large_object': 32}
+            GC_PARAMS = {'space_size': 512*WORD,
+                         'nursery_size': 32*WORD,
+                         'large_object': 8*WORD}
             root_stack_depth = 200
 
     def define_ref_from_rawmalloced_to_regular(cls):
@@ -1522,7 +1523,7 @@ class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
     gcname = "marksweep"
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 4096 }
+            GC_PARAMS = {'start_heap_size': 1024*WORD }
             root_stack_depth = 200
 
 class TestHybridTaggedPointerGC(TaggedPointerGCTests):
@@ -1532,6 +1533,6 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
-            GC_PARAMS = {'space_size': 2048,
-                         'nursery_size': 128}
+            GC_PARAMS = {'space_size': 512*WORD,
+                         'nursery_size': 32*WORD}
             root_stack_depth = 200

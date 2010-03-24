@@ -1,7 +1,6 @@
 import py
 import sys
 
-#from pypy.rpython.memory.support import INT_SIZE
 from pypy.rpython.memory import gcwrapper
 from pypy.rpython.memory.test import snippet
 from pypy.rpython.test.test_llinterp import get_interpreter
@@ -12,6 +11,10 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from pypy.rlib import rgc
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rarithmetic import LONG_BIT
+
+WORD = LONG_BIT // 8
+
 
 def stdout_ignore_ll_functions(msg):
     strmsg = str(msg)
@@ -629,7 +632,7 @@ class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     GC_CAN_SHRINK_ARRAY = True
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
-    GC_PARAMS = {'space_size': 64}
+    GC_PARAMS = {'space_size': 16*WORD}
 
 class TestGenerationalGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
@@ -641,7 +644,7 @@ class TestMarkCompactGC(TestSemiSpaceGC):
         py.test.skip("Not implemented yet")
 
 class TestMarkCompactGCGrowing(TestMarkCompactGC):
-    GC_PARAMS = {'space_size': 64}
+    GC_PARAMS = {'space_size': 16*WORD}
 
 class TestHybridGC(TestGenerationalGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
@@ -716,11 +719,11 @@ class TestHybridGCSmallHeap(GCTest):
     GC_CAN_MOVE = False # with this size of heap, stuff gets allocated
                         # in 3rd gen.
     GC_CANNOT_MALLOC_NONMOVABLE = False
-    GC_PARAMS = {'space_size': 192,
-                 'min_nursery_size': 48,
-                 'nursery_size': 48,
-                 'large_object': 12,
-                 'large_object_gcptrs': 12,
+    GC_PARAMS = {'space_size': 48*WORD,
+                 'min_nursery_size': 12*WORD,
+                 'nursery_size': 12*WORD,
+                 'large_object': 3*WORD,
+                 'large_object_gcptrs': 3*WORD,
                  'generation3_collect_threshold': 5,
                  }
 

@@ -197,6 +197,40 @@ class TestGateway:
         space.raises_w(space.w_ValueError,
                        space.call_function, w_app_g, space.wrap(-1))
 
+    def test_interp2app_unwrap_spec_c_int(self):
+        from pypy.rlib.rarithmetic import r_longlong
+        space = self.space
+        w = space.wrap
+        def g(space, x):
+            return space.wrap(x + 6)
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
+                                                   'c_int'])
+        app_ug = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
+                                                   'c_uint'])
+        assert app_ug is not app_g
+        w_app_g = space.wrap(app_g)
+        w_app_ug = space.wrap(app_ug)
+        #
+        assert self.space.eq_w(space.call_function(w_app_g, space.wrap(7)),
+                               space.wrap(13))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_g,
+                       space.wrap(r_longlong(0x80000000)))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_g,
+                       space.wrap(r_longlong(-0x80000001)))
+        #
+        assert self.space.eq_w(space.call_function(w_app_ug, space.wrap(7)),
+                               space.wrap(13))
+        assert self.space.eq_w(space.call_function(w_app_ug,
+                                                   space.wrap(0x7FFFFFFF)),
+                               space.wrap(r_longlong(0x7FFFFFFF+6)))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_ug, space.wrap(-1))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_ug,
+                       space.wrap(r_longlong(0x100000000)))
+
     def test_interp2app_unwrap_spec_args_w(self):
         space = self.space
         w = space.wrap
