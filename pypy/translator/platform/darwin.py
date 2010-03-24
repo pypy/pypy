@@ -10,7 +10,7 @@ class Darwin(posix.BasePosix):
     standalone_only = ['-mdynamic-no-pic']
     shared_only = []
 
-    so_ext = 'so'
+    so_ext = 'bundle'
     
     def __init__(self, cc=None):
         if cc is None:
