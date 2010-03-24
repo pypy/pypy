@@ -318,7 +318,20 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("float power"))
     except ValueError:
-        if x == 0.0 and y < 0.0:
+        # special case: "(-1.0) ** bignum" should not raise ValueError,
+        # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
+        # -           pipermail/python-bugs-list/2003-March/016795.html
+        if x < 0.0:
+            if math.floor(y) != y:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("negative number cannot be "
+                                                "raised to a fractional power"))
+            if x == -1.0:
+                if math.floor(y * 0.5) * 2.0 == y:
+                     return space.wrap(1.0)
+                else:
+                     return space.wrap( -1.0)
+        elif x == 0.0 and y < 0.0:
             raise OperationError(space.w_ZeroDivisionError,
                 space.wrap("0.0 cannot be raised to a negative power"))
         raise OperationError(space.w_ValueError,
