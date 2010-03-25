@@ -356,10 +356,9 @@ else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
 
-def setup():
-    """ creates necessary c-level types
-    """
-    result = []
+def populate_inttypes():
+    names = []
+    populatelist = []
     for name in TYPES:
         c_name = name
         if name.startswith('unsigned'):
@@ -368,7 +367,18 @@ def setup():
         else:
             signed = (name != 'size_t')
         name = name.replace(' ', '')
-        tp = platform.inttype(name.upper(), c_name, signed)
+        names.append(name)
+        populatelist.append((name.upper(), c_name, signed))
+    platform.populate_inttypes(populatelist)
+    return names
+
+def setup():
+    """ creates necessary c-level types
+    """
+    names = populate_inttypes()
+    result = []
+    for name in names:
+        tp = platform.types[name.upper()]
         globals()['r_' + name] = platform.numbertype_to_rclass[tp]
         globals()[name.upper()] = tp
         tpp = lltype.Ptr(lltype.Array(tp, hints={'nolength': True}))

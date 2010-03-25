@@ -34,12 +34,22 @@ def ask_gcc(question, add_source=""):
     return build_executable_cache([c_file], eci)
 
 def sizeof_c_type(c_typename, **kwds):
-    question = 'printf("sizeof %s=%%ld", (long)sizeof(%s));' % (c_typename,
-                                                                c_typename)
-    answer = ask_gcc(question, **kwds).split('=')
-    assert answer[0] == "sizeof " + c_typename, "wrong program: " \
-           "sizeof %s expected, got %s" % (c_typename, answer[0])
-    return int(answer[1])
+    return sizeof_c_types([c_typename], **kwds)[0]
+
+def sizeof_c_types(typenames_c, **kwds):
+    lines = ['printf("sizeof %s=%%ld\\n", (long)sizeof(%s));' % (c_typename,
+                                                                 c_typename)
+             for c_typename in typenames_c]
+    question = '\n\t'.join(lines)
+    answer = ask_gcc(question, **kwds)
+    lines = answer.splitlines()
+    assert len(lines) == len(typenames_c)
+    result = []
+    for line, c_typename in zip(lines, typenames_c):
+        answer = line.split('=')
+        assert answer[0] == "sizeof " + c_typename
+        result.append(int(answer[1]))
+    return result
 
 class Platform:
     def __init__(self):
@@ -50,11 +60,28 @@ class Platform:
         try:
             return self.types[name]
         except KeyError:
-            bits = sizeof_c_type(c_name, **kwds) * 8
-            inttype = rarithmetic.build_int('r_' + name, signed, bits)
-            tp = lltype.build_number(name, inttype)
-            self.numbertype_to_rclass[tp] = inttype
-            self.types[name] = tp
-            return tp
+            size = sizeof_c_type(c_name, **kwds)
+            return self._make_type(name, signed, size)
+
+    def _make_type(self, name, signed, size):
+        inttype = rarithmetic.build_int('r_' + name, signed, size*8)
+        tp = lltype.build_number(name, inttype)
+        self.numbertype_to_rclass[tp] = inttype
+        self.types[name] = tp
+        return tp
+
+    def populate_inttypes(self, list, **kwds):
+        """'list' is a list of (name, c_name, signed)."""
+        missing = []
+        names_c = []
+        for name, c_name, signed in list:
+            if name not in self.types:
+                missing.append((name, signed))
+                names_c.append(c_name)
+        if names_c:
+            sizes = sizeof_c_types(names_c, **kwds)
+            assert len(sizes) == len(missing)
+            for (name, signed), size in zip(missing, sizes):
+                self._make_type(name, signed, size)
 
 platform = Platform()
