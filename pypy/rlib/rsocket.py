@@ -42,13 +42,15 @@ def ntohs(x):
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
 def ntohl(x):
-    return rffi.cast(lltype.Signed, _c.ntohl(x))
+    # accepts and returns an Unsigned
+    return rffi.cast(lltype.Unsigned, _c.ntohl(x))
 
 def htons(x):
     return rffi.cast(lltype.Signed, _c.htons(x))
 
 def htonl(x):
-    return rffi.cast(lltype.Signed, _c.htonl(x))
+    # accepts and returns an Unsigned
+    return rffi.cast(lltype.Unsigned, _c.htonl(x))
 
 
 _FAMILIES = {}
