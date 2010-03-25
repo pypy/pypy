@@ -110,10 +110,10 @@ class BaseTestRint(BaseRtypingTest):
         def f(i):
             return str(i)
 
-        res = self.interpret(f, [r_longlong(0)])
+        res = self.interpret(f, [int64(0)])
         assert self.ll_to_string(res) == '0'
 
-        res = self.interpret(f, [r_longlong(413974738222117)])
+        res = self.interpret(f, [int64(413974738222117)])
         assert self.ll_to_string(res) == '413974738222117'
 
     def test_unsigned(self):
@@ -135,7 +135,7 @@ class BaseTestRint(BaseRtypingTest):
         f._annspecialcase_ = "specialize:argtype(0)"
         def g(n):
             if n > 0:
-                return f(r_longlong(0))
+                return f(int64(0))
             else:
                 return f(0)
         res = self.interpret(g, [0])
@@ -147,7 +147,7 @@ class BaseTestRint(BaseRtypingTest):
     def test_downcast_int(self):
         def f(i):
             return int(i)
-        res = self.interpret(f, [r_longlong(0)])
+        res = self.interpret(f, [int64(0)])
         assert res == 0
 
     def test_isinstance_vs_int_types(self):

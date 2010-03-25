@@ -32,13 +32,17 @@ def test_gethostbyname_ex():
 
 def test_gethostbyaddr():
     host = "localhost"
+    expected = socket.gethostbyaddr(host)
+    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
     ip = space.appexec([w_socket, space.wrap(host)],
                        "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) == socket.gethostbyaddr(host)
+    assert space.unwrap(ip) in expecteds
     host = "127.0.0.1"
+    expected = socket.gethostbyaddr(host)
+    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
     ip = space.appexec([w_socket, space.wrap(host)],
                        "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) == socket.gethostbyaddr(host)
+    assert space.unwrap(ip) in expecteds
 
 def test_getservbyname():
     name = "smtp"

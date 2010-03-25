@@ -1,6 +1,9 @@
 import py
-from pypy.lib import dbm
 from pypy.tool.udir import udir
+try:
+    from pypy.lib import dbm
+except ImportError, e:
+    py.test.skip(e)
 
 def test_get():
     path = str(udir.join('test_dbm_extra.test_get'))

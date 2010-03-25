@@ -13,7 +13,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.gcc_cache import build_executable_cache
 
 def ask_gcc(question, add_source=""):
-    includes = ['stdlib.h', 'sys/types.h']
+    includes = ['stdlib.h', 'stdio.h', 'sys/types.h']
     include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes
@@ -34,8 +34,8 @@ def ask_gcc(question, add_source=""):
     return build_executable_cache([c_file], eci)
 
 def sizeof_c_type(c_typename, **kwds):
-    question = 'printf("sizeof %s=%%d", sizeof(%s));' % (c_typename,
-                                                         c_typename)
+    question = 'printf("sizeof %s=%%ld", (long)sizeof(%s));' % (c_typename,
+                                                                c_typename)
     answer = ask_gcc(question, **kwds).split('=')
     assert answer[0] == "sizeof " + c_typename, "wrong program: " \
            "sizeof %s expected, got %s" % (c_typename, answer[0])

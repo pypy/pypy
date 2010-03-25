@@ -28,6 +28,8 @@ class CompilationTestCase:
     def compilefunc(self, t, func):
         from pypy.translator.c import genc
         self.builder = builder = genc.CExtModuleBuilder(t, func, config=t.config)
+        if hasattr(self, 'include_also_eci'):
+            builder.merge_eci(self.include_also_eci)
         builder.generate_source()
         builder.compile()
         return builder.get_entry_point()

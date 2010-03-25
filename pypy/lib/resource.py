@@ -28,8 +28,8 @@ except AttributeError:
 
 class timeval(Structure):
     _fields_ = (
-        ("tv_sec", c_int),
-        ("tv_usec", c_int),
+        ("tv_sec", c_long),
+        ("tv_usec", c_long),
     )
     def __str__(self):
         return "(%s, %s)" % (self.tv_sec, self.tv_usec)

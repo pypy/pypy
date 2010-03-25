@@ -3,7 +3,14 @@ Test the readline library on top of PyPy.  The following tests run
 in the PyPy interpreter, itself running on top of CPython
 """
 
+import py
 from pypy.conftest import gettestobjspace
+from pypy.rpython.tool import rffi_platform as platform
+
+try:
+    from pypy.module.readline import c_readline
+except platform.CompilationError, e:
+    py.test.skip(e)
 
 
 class AppTestReadline:

@@ -264,7 +264,8 @@ class W_TypeObject(W_Object):
     @purefunction
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
-        SHIFT = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
+        SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
+        SHIFT1 = SHIFT2 - 5
         version_tag_as_int = current_object_addr_as_int(version_tag)
         # ^^^Note: if the version_tag object is moved by a moving GC, the
         # existing method cache entries won't be found any more; new
@@ -273,7 +274,12 @@ class W_TypeObject(W_Object):
         # the time - so using the fast current_object_addr_as_int() instead
         # of a slower solution like hash() is still a good trade-off.
         hash_name = compute_hash(name)
-        method_hash = r_uint(intmask(version_tag_as_int * hash_name)) >> SHIFT
+        product = intmask(version_tag_as_int * hash_name)
+        method_hash = (r_uint(product) ^ (r_uint(product) << SHIFT1)) >> SHIFT2
+        # ^^^Note2: we used to just take product>>SHIFT2, but on 64-bit
+        # platforms SHIFT2 is really large, and we loose too much information
+        # that way (as shown by failures of the tests that typically have
+        # method names like 'f' who hash to a number that has only ~33 bits).
         cached_version_tag = space.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = space.method_cache_names[method_hash]

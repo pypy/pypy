@@ -5,7 +5,8 @@ from pypy.rlib.objectmodel import running_on_llinterp
 from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import r_uint, intmask, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import rffi
@@ -526,11 +527,21 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
             return rffi.cast(rffi.VOIDP, v)
         res = self.interpret(llfn, [r_ulonglong(0)])
         assert res == lltype.nullptr(rffi.VOIDP.TO)
+        #
         def llfn(v):
             return rffi.cast(rffi.LONGLONG, v)
         res = self.interpret(llfn, [lltype.nullptr(rffi.VOIDP.TO)])
         assert res == 0
-        assert isinstance(res, r_longlong)
+        if r_longlong is not r_int:
+            assert isinstance(res, r_longlong)
+        else:
+            assert isinstance(res, int)
+        #
+        def llfn(v):
+            return rffi.cast(rffi.ULONGLONG, v)
+        res = self.interpret(llfn, [lltype.nullptr(rffi.VOIDP.TO)])
+        assert res == 0
+        assert isinstance(res, r_ulonglong)
         
 class TestOOtype(BaseTestRbuiltin, OORtypeMixin):
 

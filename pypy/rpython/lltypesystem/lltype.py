@@ -1494,8 +1494,13 @@ class _array(_parentable):
         if n < 0:
             raise ValueError, "negative array length"
         _parentable.__init__(self, TYPE)
-        self.items = [TYPE.OF._allocate(initialization=initialization, parent=self, parentindex=j)
-                      for j in range(n)]
+        try:
+            myrange = range(n)
+        except OverflowError:
+            raise MemoryError("definitely too many items")
+        self.items = [TYPE.OF._allocate(initialization=initialization,
+                                        parent=self, parentindex=j)
+                      for j in myrange]
         if parent is not None:
             self._setparentstructure(parent, parentindex)
 

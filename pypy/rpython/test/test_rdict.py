@@ -4,7 +4,7 @@ from pypy.rpython import rint
 from pypy.rpython.lltypesystem import rdict, rstr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.objectmodel import r_dict
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)
@@ -567,6 +567,8 @@ class BaseTestRdict(BaseRtypingTest):
 
     def test_dict_of_r_uint(self):
         for r_t in [r_uint, r_longlong, r_ulonglong]:
+            if r_t is r_int:
+                continue    # for 64-bit platforms: skip r_longlong
             d = {r_t(2): 3, r_t(4): 5}
             def fn(x, y):
                 d[r_t(x)] = 123

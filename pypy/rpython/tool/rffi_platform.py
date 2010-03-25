@@ -299,11 +299,16 @@ class Struct(CConfigEntry):
             fieldoffsets.append(offset)
             seen[cell] = True
 
+        allfields = tuple(['c_' + name for name, _ in fields])
+        padfields = tuple(padfields)
         name = self.name
+        padding_drop = PaddingDrop(name, allfields, padfields,
+                                   config_result.CConfig._compilation_info_)
         hints = {'align': info['align'],
                  'size': info['size'],
                  'fieldoffsets': tuple(fieldoffsets),
-                 'padding': tuple(padfields)}
+                 'padding': padfields,
+                 'get_padding_drop': padding_drop}
         if name.startswith('struct '):
             name = name[7:]
         else:
@@ -475,6 +480,89 @@ class SizeOf(CConfigEntry):
 
     def build_result(self, info, config_result):
         return info['size']
+
+# ____________________________________________________________
+
+class PaddingDrop(object):
+    # Compute (lazily) the padding_drop for a structure.
+    # See test_generate_padding for more information.
+    cache = None
+
+    def __init__(self, name, allfields, padfields, eci):
+        self.name = name
+        self.allfields = allfields
+        self.padfields = padfields
+        self.eci = eci
+
+    def __call__(self, types):
+        if self.cache is None:
+            self.compute_now(types)
+        return self.cache
+
+    def compute_now(self, types):
+        # Some simplifying assumptions there.  We assume that all fields
+        # are either integers or pointers, so can be written in C as '0'.
+        # We also assume that the C backend gives us in 'types' a dictionary
+        # mapping non-padding field names to their C type (without '@').
+        drops = []
+        staticfields = []
+        consecutive_pads = []
+        for fieldname in self.allfields:
+            if fieldname in self.padfields:
+                consecutive_pads.append(fieldname)
+                continue
+            staticfields.append(types[fieldname])
+            if consecutive_pads:
+                # In that case we have to ask: how many of these pads are
+                # really needed?  The correct answer might be between none
+                # and all of the pads listed in 'consecutive_pads'.
+                for i in range(len(consecutive_pads)+1):
+                    class CConfig:
+                        _compilation_info_ = self.eci
+                        FIELDLOOKUP = _PaddingDropFieldLookup(self.name,
+                                                              staticfields,
+                                                              fieldname)
+                    try:
+                        got = configure(CConfig)['FIELDLOOKUP']
+                        if got == 1:
+                            break     # found
+                    except CompilationError:
+                        pass
+                    staticfields.insert(-1, None)
+                else:
+                    raise Exception("could not determine the detailed field"
+                                    " layout of %r" % (self.name,))
+                # succeeded with 'i' pads.  Drop all pads beyond that.
+                drops += consecutive_pads[i:]
+            consecutive_pads = []
+        drops += consecutive_pads   # drop the final pads too
+        self.cache = drops
+
+class _PaddingDropFieldLookup(CConfigEntry):
+    def __init__(self, name, staticfields, fieldname):
+        self.name = name
+        self.staticfields = staticfields
+        self.fieldname = fieldname
+
+    def prepare_code(self):
+        yield 'typedef %s platcheck_t;' % (self.name,)
+        yield 'static platcheck_t s = {'
+        for i, type in enumerate(self.staticfields):
+            if i == len(self.staticfields)-1:
+                value = -1
+            else:
+                value = 0
+            if type:
+                yield '\t(%s)%s,' % (type, value)
+            else:
+                yield '\t%s,' % (value,)
+        yield '};'
+        fieldname = self.fieldname
+        assert fieldname.startswith('c_')
+        yield 'dump("fieldlookup", s.%s != 0);' % (fieldname[2:],)
+
+    def build_result(self, info, config_result):
+        return info['fieldlookup']
 
 # ____________________________________________________________
 #

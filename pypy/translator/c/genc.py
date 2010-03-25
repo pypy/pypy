@@ -167,16 +167,19 @@ class CBuilder(object):
 
     have___thread = None
 
+    def merge_eci(self, *ecis):
+        self.eci = self.eci.merge(*ecis)
+
     def collect_compilation_info(self, db):
         # we need a concrete gcpolicy to do this
-        self.eci = self.eci.merge(db.gcpolicy.compilation_info())
+        self.merge_eci(db.gcpolicy.compilation_info())
 
         all = []
         for node in self.db.globalcontainers():
             eci = getattr(node, 'compilation_info', None)
             if eci:
                 all.append(eci)
-        self.eci = self.eci.merge(*all)
+        self.merge_eci(*all)
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:

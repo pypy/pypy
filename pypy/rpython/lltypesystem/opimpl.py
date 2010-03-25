@@ -18,13 +18,20 @@ ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
-type_by_name = {
+if r_longlong is r_int:
+    r_longlong_arg = (r_longlong, int)
+    r_longlong_result = int
+else:
+    r_longlong_arg = r_longlong
+    r_longlong_result = r_longlong
+
+argtype_by_name = {
     'int': int,
     'float': float,
     'uint': r_uint,
-    'llong': r_longlong,
+    'llong': r_longlong_arg,
     'ullong': r_ulonglong,
     }
 
@@ -56,9 +63,9 @@ def get_primitive_op_src(fullopname):
             adjust_result = intmask
         else:
             adjust_result = no_op
-        assert typname in type_by_name, "%s: not a primitive op" % (
+        assert typname in argtype_by_name, "%s: not a primitive op" % (
             fullopname,)
-        argtype = type_by_name[typname]
+        argtype = argtype_by_name[typname]
 
         if opname in ops_unary:
             def op_function(x):
@@ -226,16 +233,16 @@ def op_int_mod(x, y):
     return r
 
 def op_llong_floordiv(x, y):
-    assert isinstance(x, r_longlong)
-    assert isinstance(y, r_longlong)
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, r_longlong_arg)
     r = x//y
     if x^y < 0 and x%y != 0:
         r += 1
     return r
 
 def op_llong_mod(x, y):
-    assert isinstance(x, r_longlong)
-    assert isinstance(y, r_longlong)
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, r_longlong_arg)
     r = x%y
     if x^y < 0 and x%y != 0:
         r -= y
@@ -258,7 +265,7 @@ def op_cast_uint_to_float(u):
     return float(u)
 
 def op_cast_longlong_to_float(i):
-    assert type(i) is r_longlong
+    assert isinstance(i, r_longlong_arg)
     # take first 31 bits
     li = float(int(i & r_longlong(0x7fffffff)))
     ui = float(int(i >> 31)) * float(0x80000000)
@@ -290,7 +297,7 @@ def op_cast_float_to_longlong(f):
     small = f / r
     high = int(small)
     truncated = int((small - high) * r)
-    return r_longlong(high) * 0x100000000 + truncated
+    return r_longlong_result(high) * 0x100000000 + truncated
 
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1
@@ -314,10 +321,10 @@ def op_cast_uint_to_int(b):
 
 def op_cast_int_to_longlong(b):
     assert type(b) is int
-    return r_longlong(b)
+    return r_longlong_result(b)
 
 def op_truncate_longlong_to_int(b):
-    assert type(b) is r_longlong
+    assert isinstance(b, r_longlong_arg)
     return intmask(b)
 
 def op_cast_pointer(RESTYPE, obj):
