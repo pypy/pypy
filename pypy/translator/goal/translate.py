@@ -11,7 +11,7 @@ import py
 # clean up early pypy/_cache
 try:
     py.path.local(autopath.pypydir).join('_cache').remove()
-except py.error:
+except Exception:
     pass
 
 from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
