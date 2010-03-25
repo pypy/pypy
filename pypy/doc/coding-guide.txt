@@ -241,11 +241,17 @@ Object restrictions
 
 We are using
 
-**integer, float, string, boolean**
+**integer, float, boolean**
 
-  a lot of, but not all string methods are supported. When slicing a string
-  it is necessary to prove that the slice start and stop indexes are
-  non-negative.
+  works.
+
+**strings**
+
+  a lot of, but not all string methods are supported.  Indexes can be
+  negative.  In case they are not, then you get slightly more efficient
+  code if the translator can prove that they are non-negative.  When
+  slicing a string it is necessary to prove that the slice start and
+  stop indexes are non-negative.
 
 **tuples**
 
