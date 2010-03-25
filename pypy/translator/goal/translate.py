@@ -7,6 +7,12 @@ Command-line options for translate:
 import sys, os, new
 
 import autopath 
+import py
+# clean up early pypy/_cache
+try:
+    py.path.local(autopath.pypydir).join('_cache').remove()
+except py.error:
+    pass
 
 from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
                                ArbitraryOption, StrOption, IntOption, Config, \
@@ -82,7 +88,6 @@ OVERRIDES = {
     'translation.debug': False,
 }
 
-import py
 # we want 2.4 expand_default functionality
 import optparse
 from pypy.tool.ansi_print import ansi_log
