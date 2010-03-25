@@ -649,7 +649,7 @@ def setuid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setuid.unwrap_spec = [ObjSpace, "c_uint"]
+setuid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
 def seteuid(space, arg):
     """ seteuid(uid)
@@ -661,7 +661,7 @@ def seteuid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-seteuid.unwrap_spec = [ObjSpace, "c_uint"]
+seteuid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
 def setgid(space, arg):
     """ setgid(gid)
@@ -673,7 +673,7 @@ def setgid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setgid.unwrap_spec = [ObjSpace, "c_uint"]
+setgid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
 def setegid(space, arg):
     """ setegid(gid)
@@ -685,7 +685,7 @@ def setegid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setegid.unwrap_spec = [ObjSpace, "c_uint"]
+setegid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
 def chroot(space, path):
     """ chroot(path)
@@ -785,7 +785,7 @@ def setreuid(space, ruid, euid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None                
-setreuid.unwrap_spec = [ObjSpace, "c_uint", "c_uint"]
+setreuid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
 
 def setregid(space, rgid, egid):
     """ setregid(rgid, egid)
@@ -797,7 +797,7 @@ def setregid(space, rgid, egid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None                
-setregid.unwrap_spec = [ObjSpace, "c_uint", "c_uint"]
+setregid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
 
 def getsid(space, pid):
     """ getsid(pid) -> sid
@@ -866,7 +866,7 @@ def chown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-chown.unwrap_spec = [ObjSpace, str, "c_uint", "c_uint"]
+chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
 
 if _WIN:
     from pypy.rlib import rwin32

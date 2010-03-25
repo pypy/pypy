@@ -207,9 +207,12 @@ class TestGateway:
                                                    'c_int'])
         app_ug = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
                                                    'c_uint'])
+        app_ng = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
+                                                   'c_nonnegint'])
         assert app_ug is not app_g
         w_app_g = space.wrap(app_g)
         w_app_ug = space.wrap(app_ug)
+        w_app_ng = space.wrap(app_ng)
         #
         assert self.space.eq_w(space.call_function(w_app_g, space.wrap(7)),
                                space.wrap(13))
@@ -230,6 +233,14 @@ class TestGateway:
         space.raises_w(space.w_OverflowError,
                        space.call_function, w_app_ug,
                        space.wrap(r_longlong(0x100000000)))
+        #
+        assert self.space.eq_w(space.call_function(w_app_ng, space.wrap(7)),
+                               space.wrap(13))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_ng,
+                       space.wrap(r_longlong(0x80000000)))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_ng, space.wrap(-1))
 
     def test_interp2app_unwrap_spec_args_w(self):
         space = self.space

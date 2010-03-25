@@ -1116,6 +1116,19 @@ class ObjSpace(object):
                               self.wrap("expected an unsigned 32-bit integer"))
         return value
 
+    def c_nonnegint_w(self, w_obj):
+        # Like space.int_w(), but raises an app-level ValueError if
+        # the integer is negative or does not fit in 32 bits.  Mostly here
+        # for gateway.py.
+        value = self.int_w(w_obj)
+        if value < 0:
+            raise OperationError(self.w_ValueError,
+                                 self.wrap("expected a non-negative integer"))
+        if value > 2147483647:
+            raise OperationError(self.w_OverflowError,
+                                 self.wrap("expected a 32-bit integer"))
+        return value
+
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
             import warnings
