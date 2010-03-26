@@ -206,8 +206,35 @@ class __extend__(pyframe.PyFrame):
                 next_instr += 3
                 oparg = (oparg << 16) | (hi << 8) | lo
 
+            if opcode == opcodedesc.RETURN_VALUE.index:
+                w_returnvalue = self.popvalue()
+                block = self.unrollstack(SReturnValue.kind)
+                if block is None:
+                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    raise Return
+                else:
+                    unroller = SReturnValue(w_returnvalue)
+                    next_instr = block.handle(self, unroller)
+                    return next_instr    # now inside a 'finally' block
+
+            if opcode == opcodedesc.YIELD_VALUE.index:
+                #self.last_instr = intmask(next_instr - 1) XXX clean up!
+                raise Yield
+
+            if opcode == opcodedesc.END_FINALLY.index:
+                unroller = self.end_finally()
+                if isinstance(unroller, SuspendedUnroller):
+                    # go on unrolling the stack
+                    block = self.unrollstack(unroller.kind)
+                    if block is None:
+                        w_result = unroller.nomoreblocks()
+                        self.pushvalue(w_result)
+                        raise Return
+                    else:
+                        next_instr = block.handle(self, unroller)
+                return next_instr
+
             if opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                # Special case for the JIT
                 return self.jump_absolute(oparg, next_instr, ec)
 
             if we_are_translated():
@@ -218,7 +245,7 @@ class __extend__(pyframe.PyFrame):
                     if not opdesc.is_enabled(space):
                         continue
                     if not hasattr(pyframe.PyFrame, opdesc.methodname):
-                        continue   # e.g. for JUMP_ABSOLUTE, implemented above
+                        continue   # e.g. for JUMP_FORWARD, implemented above
 
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
@@ -847,19 +874,6 @@ class __extend__(pyframe.PyFrame):
         block = FinallyBlock(self, next_instr + offsettoend)
         self.append_block(block)
 
-    def END_FINALLY(self, oparg, next_instr):
-        unroller = self.end_finally()
-        if isinstance(unroller, SuspendedUnroller):
-            # go on unrolling the stack
-            block = self.unrollstack(unroller.kind)
-            if block is None:
-                w_result = unroller.nomoreblocks()
-                self.pushvalue(w_result)
-                raise Return
-            else:
-                next_instr = block.handle(self, unroller)
-        return next_instr
-
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         w_exitfunc = self.popvalue()
@@ -879,20 +893,6 @@ class __extend__(pyframe.PyFrame):
                                      self.space.w_None,
                                      self.space.w_None,
                                      self.space.w_None)
-
-    def YIELD_VALUE(self, oparg, next_instr):
-        raise Yield
-
-    def RETURN_VALUE(self, oparg, next_instr):
-        w_returnvalue = self.popvalue()
-        block = self.unrollstack(SReturnValue.kind)
-        if block is None:
-            self.pushvalue(w_returnvalue)
-            raise Return
-        unroller = SReturnValue(w_returnvalue)
-        next_instr = block.handle(self, unroller)
-        return next_instr    # now inside a 'finally' block
-
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
