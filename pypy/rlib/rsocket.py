@@ -506,6 +506,10 @@ def make_null_address(family):
     klass = familyclass(family)
     result = instantiate(klass)
     buf = lltype.malloc(rffi.CCHARP.TO, klass.maxlen, flavor='raw', zero=True)
+    # Initialize the family to the correct value.  Avoids surprizes on
+    # Windows when calling a function that unexpectedly does not set
+    # the output address (e.g. recvfrom() on a connected IPv4 socket).
+    rffi.setintfield(rffi.cast(_c.sockaddr_ptr, buf), 'c_sa_family', family)
     result.setdata(buf, 0)
     return result, klass.maxlen
 
