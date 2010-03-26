@@ -479,7 +479,7 @@ testmap = [
     RegrTest('test_pep352.py'),
     RegrTest('test_platform.py'),
     RegrTest('test_runpy.py'),
-    RegrTest('test_sqlite.py', usemodules="thread"),
+    RegrTest('test_sqlite.py', usemodules="thread _rawffi"),
     RegrTest('test_startfile.py', skip="bogus test"),
     RegrTest('test_structmembers.py', skip="depends on _testcapi"),
     RegrTest('test_urllib2_localnet.py', usemodules="thread"),
