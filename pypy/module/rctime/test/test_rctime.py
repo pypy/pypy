@@ -220,6 +220,14 @@ class AppTestRCTime:
         exp = '2000 01 01 00 00 00 1 001'
         assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
+    def test_strftime_ext(self):
+        import time as rctime
+
+        tt = rctime.gmtime()
+        result = rctime.strftime('%D', tt)
+        if result != '':    # else format not supported and we got ''
+            assert result == rctime.strftime('%m/%d/%y', t)
+
     def test_strftime_bounds_checking(self):
         import time as rctime
         
