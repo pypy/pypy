@@ -1004,7 +1004,7 @@ class __extend__(pyframe.PyFrame):
     def LOOKUP_METHOD(self, nameindex, next_instr):
         # overridden by faster version in the standard object space.
         space = self.space
-        w_obj = slef.popvalue()
+        w_obj = self.popvalue()
         w_name = self.getname_w(nameindex)
         w_value = space.getattr(w_obj, w_name)
         self.pushvalue(w_value)
