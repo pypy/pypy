@@ -9,7 +9,7 @@ from pypy.jit.metainterp.gc import get_description
 
 
 def test_boehm():
-    gc_ll_descr = GcLLDescr_boehm(None, None)
+    gc_ll_descr = GcLLDescr_boehm(None, None, None)
     #
     record = []
     prev_funcptr_for_new = gc_ll_descr.funcptr_for_new
@@ -167,7 +167,8 @@ class TestFramework:
         gcdescr = get_description(config_)
         translator = FakeTranslator()
         llop1 = FakeLLOp()
-        gc_ll_descr = GcLLDescr_framework(gcdescr, FakeTranslator(), llop1)
+        gc_ll_descr = GcLLDescr_framework(gcdescr, FakeTranslator(), None,
+                                          llop1)
         gc_ll_descr.initialize()
         self.llop1 = llop1
         self.gc_ll_descr = gc_ll_descr

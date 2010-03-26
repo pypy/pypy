@@ -2,7 +2,8 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rlib.objectmodel import Symbolic
-
+from pypy.rpython.annlowlevel import llhelper
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 
 def test_get_size_descr():
     c0 = GcCache(False)
@@ -147,6 +148,7 @@ def test_get_call_descr_not_translated():
     assert not descr1.returns_a_pointer()
     assert not descr1.returns_a_float()
     assert descr1.arg_classes == "ii"
+    assert isinstance(descr1.empty_box, BoxInt)
     #
     T = lltype.GcStruct('T')
     descr2 = get_call_descr(c0, [lltype.Ptr(T)], lltype.Ptr(T))
@@ -154,15 +156,22 @@ def test_get_call_descr_not_translated():
     assert descr2.returns_a_pointer()
     assert not descr2.returns_a_float()
     assert descr2.arg_classes == "r"
+    assert isinstance(descr2.empty_box, BoxPtr)
     #
     U = lltype.GcStruct('U', ('x', lltype.Signed))
     assert descr2 == get_call_descr(c0, [lltype.Ptr(U)], lltype.Ptr(U))
+    #
+    V = lltype.Struct('V', ('x', lltype.Signed))
+    assert isinstance(get_call_descr(c0, [], lltype.Ptr(V)).empty_box, BoxInt)
+    #
+    assert get_call_descr(c0, [], lltype.Void).empty_box is None
     #
     descr4 = get_call_descr(c0, [lltype.Float, lltype.Float], lltype.Float)
     assert descr4.get_result_size(False) == rffi.sizeof(lltype.Float)
     assert not descr4.returns_a_pointer()
     assert descr4.returns_a_float()
     assert descr4.arg_classes == "ff"
+    assert isinstance(descr4.empty_box, BoxFloat)
 
 def test_get_call_descr_translated():
     c1 = GcCache(True)
@@ -227,3 +236,34 @@ def test_repr_of_descr():
     #
     descr4f = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Float)
     assert 'FloatCallDescr' in descr4f.repr_of_descr()
+
+def test_call_stubs():
+    c0 = GcCache(False)
+    ARGS = [lltype.Char, lltype.Signed]
+    RES = lltype.Char
+    descr1 = get_call_descr(c0, ARGS, RES)
+    def f(a, b):
+        return 'c'
+
+    call_stub = descr1.get_call_stub()
+    fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f)
+
+    res = call_stub([BoxInt(rffi.cast(lltype.Signed, fnptr)),
+                     BoxInt(1), BoxInt(2)])
+    assert res.getint() == ord('c')
+
+    ARRAY = lltype.GcArray(lltype.Signed)
+    ARGS = [lltype.Float, lltype.Ptr(ARRAY)]
+    RES = lltype.Float
+
+    def f(a, b):
+        return float(b[0]) + a
+
+    fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f)
+    descr2 = get_call_descr(c0, ARGS, RES)
+    a = lltype.malloc(ARRAY, 3)
+    opaquea = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+    a[0] = 1
+    res = descr2.get_call_stub()([BoxInt(rffi.cast(lltype.Signed, fnptr)),
+                                  BoxFloat(3.5), BoxPtr(opaquea)])
+    assert res.getfloat() == 4.5

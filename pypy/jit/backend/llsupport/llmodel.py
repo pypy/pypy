@@ -1,7 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
@@ -13,6 +13,9 @@ from pypy.jit.backend.llsupport.descr import get_size_descr,  BaseSizeDescr
 from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+
+empty_int_box = BoxInt(0)
 
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
@@ -31,7 +34,7 @@ class AbstractLLCPU(AbstractCPU):
             translator = rtyper.annotator.translator
         else:
             translator = None
-        self.gc_ll_descr = get_ll_description(gcdescr, translator)
+        self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
         else:
@@ -474,20 +477,23 @@ class AbstractLLCPU(AbstractCPU):
         if not we_are_translated():
             assert (list(calldescr.arg_classes) ==
                     [arg.type for arg in args[1:]])
-        loop_token = calldescr.get_token_for_call(self)
-        set_future_values(self, args)
-        self.execute_token(loop_token)
-        # Note: if an exception is set, the rest of the code does a bit of
-        # nonsense but nothing wrong (the return value should be ignored)
-        if calldescr.returns_a_pointer():
-            return BoxPtr(self.get_latest_value_ref(0))
-        elif calldescr.returns_a_float():
-            return BoxFloat(self.get_latest_value_float(0))
-        elif calldescr.get_result_size(self.translate_support_code) > 0:
-            return BoxInt(self.get_latest_value_int(0))
-        else:
-            return None
-
+        callstub = calldescr.get_call_stub()
+        try:
+            return callstub(args)
+        except Exception, e:
+            if not we_are_translated():
+                if not type(e) is LLException:
+                    raise
+                self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                              e.args[1])
+                self.saved_exception = rffi.cast(lltype.Signed, e.args[0])
+            else:
+                ptr = cast_instance_to_base_ptr(e)
+                self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                              ptr)
+                self.saved_exception = rffi.cast(lltype.Signed, ptr.typeptr)
+            return calldescr.empty_box
+            
     def do_cast_ptr_to_int(self, ptrbox):
         return BoxInt(self.cast_gcref_to_int(ptrbox.getref_base()))
 

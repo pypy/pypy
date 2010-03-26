@@ -19,8 +19,8 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
-    def __init__(self, gcdescr, translator=None):
-        GcCache.__init__(self, translator is not None)
+    def __init__(self, gcdescr, translator=None, rtyper=None):
+        GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
     def _freeze_(self):
         return True
@@ -41,8 +41,8 @@ class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
 
-    def __init__(self, gcdescr, translator):
-        GcLLDescription.__init__(self, gcdescr, translator)
+    def __init__(self, gcdescr, translator, rtyper):
+        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         # grab a pointer to the Boehm 'malloc' function
         from pypy.rpython.tool import rffi_platform
         compilation_info = rffi_platform.configure_boehm()
@@ -327,11 +327,11 @@ class WriteBarrierDescr(AbstractDescr):
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
-    def __init__(self, gcdescr, translator, llop1=llop):
+    def __init__(self, gcdescr, translator, rtyper, llop1=llop):
         from pypy.rpython.memory.gctypelayout import _check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
-        GcLLDescription.__init__(self, gcdescr, translator)
+        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         assert self.translate_support_code, "required with the framework GC"
         self.translator = translator
         self.llop1 = llop1
@@ -611,7 +611,7 @@ class GcLLDescr_framework(GcLLDescription):
 
 # ____________________________________________________________
 
-def get_ll_description(gcdescr, translator=None):
+def get_ll_description(gcdescr, translator=None, rtyper=None):
     # translator is None if translate_support_code is False.
     if gcdescr is not None:
         name = gcdescr.config.translation.gctransformer
@@ -622,4 +622,4 @@ def get_ll_description(gcdescr, translator=None):
     except KeyError:
         raise NotImplementedError("GC transformer %r not supported by "
                                   "the JIT backend" % (name,))
-    return cls(gcdescr, translator)
+    return cls(gcdescr, translator, rtyper)
