@@ -4,8 +4,12 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool.rffi_platform import CompilationError
 
-import os, pyexpat
+import os
 import py
+try:
+    import pyexpat
+except ImportError:
+    py.test.skip("No module expat")
 
 try:
    from pypy.module.pyexpat import interp_pyexpat
