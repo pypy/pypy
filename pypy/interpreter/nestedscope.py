@@ -169,51 +169,51 @@ class __extend__(pyframe.PyFrame):
 
     ### extra opcodes ###
 
-    def LOAD_CLOSURE(f, varindex, *ignored):
+    def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = f.cells[varindex]
-        w_value = f.space.wrap(cell)
-        f.pushvalue(w_value)
+        cell = self.cells[varindex]
+        w_value = self.space.wrap(cell)
+        self.pushvalue(w_value)
 
-    def LOAD_DEREF(f, varindex, *ignored):
+    def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
-        cell = f.cells[varindex]
+        cell = self.cells[varindex]
         try:
             w_value = cell.get()
         except ValueError:
-            varname = f.getfreevarname(varindex)
-            if f.iscellvar(varindex):
+            varname = self.getfreevarname(varindex)
+            if self.iscellvar(varindex):
                 message = "local variable '%s' referenced before assignment"%varname
-                w_exc_type = f.space.w_UnboundLocalError
+                w_exc_type = self.space.w_UnboundLocalError
             else:
                 message = ("free variable '%s' referenced before assignment"
                            " in enclosing scope"%varname)
-                w_exc_type = f.space.w_NameError
-            raise OperationError(w_exc_type, f.space.wrap(message))
+                w_exc_type = self.space.w_NameError
+            raise OperationError(w_exc_type, self.space.wrap(message))
         else:
-            f.pushvalue(w_value)
+            self.pushvalue(w_value)
 
-    def STORE_DEREF(f, varindex, *ignored):
+    def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
-        w_newvalue = f.popvalue()
-        cell = f.cells[varindex]
+        w_newvalue = self.popvalue()
+        cell = self.cells[varindex]
         cell.set(w_newvalue)
 
     @jit.unroll_safe
-    def MAKE_CLOSURE(f, numdefaults, *ignored):
-        w_codeobj = f.popvalue()
-        codeobj = f.space.interp_w(pycode.PyCode, w_codeobj)
+    def MAKE_CLOSURE(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
-            w_freevarstuple = f.popvalue()
-            freevars = [f.space.interp_w(Cell, cell)
-                        for cell in f.space.fixedview(w_freevarstuple)]
+            w_freevarstuple = self.popvalue()
+            freevars = [self.space.interp_w(Cell, cell)
+                        for cell in self.space.fixedview(w_freevarstuple)]
         else:
             nfreevars = len(codeobj.co_freevars)
-            freevars = [f.space.interp_w(Cell, f.popvalue())
+            freevars = [self.space.interp_w(Cell, self.popvalue())
                         for i in range(nfreevars)]
             freevars.reverse()
-        defaultarguments = [f.popvalue() for i in range(numdefaults)]
+        defaultarguments = [self.popvalue() for i in range(numdefaults)]
         defaultarguments.reverse()
-        fn = function.Function(f.space, codeobj, f.w_globals,
+        fn = function.Function(self.space, codeobj, self.w_globals,
                                defaultarguments, freevars)
-        f.pushvalue(f.space.wrap(fn))
+        self.pushvalue(self.space.wrap(fn))
