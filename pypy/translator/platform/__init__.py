@@ -10,21 +10,7 @@ from py.impl.code.code import safe_repr
 log = py.log.Producer("platform")
 py.log.setconsumer("platform", ansi_log)
 
-from subprocess import PIPE, Popen
-
-def _run_subprocess(executable, args, env=None, cwd=None):
-    if isinstance(args, str):
-        args = str(executable) + ' ' + args
-        shell = True
-    else:
-        if args is None:
-            args = [str(executable)]
-        else:
-            args = [str(executable)] + args
-        shell = False
-    pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
-    stdout, stderr = pipe.communicate()
-    return pipe.returncode, stdout, stderr
+from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
 
 class CompilationError(Exception):
     def __init__(self, out, err):
