@@ -245,7 +245,7 @@ class __extend__(pyframe.PyFrame):
                     if not opdesc.is_enabled(space):
                         continue
                     if not hasattr(pyframe.PyFrame, opdesc.methodname):
-                        continue   # e.g. for JUMP_FORWARD, implemented above
+                        continue   # e.g. for JUMP_ABSOLUTE, implemented above
 
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
