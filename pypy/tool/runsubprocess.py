@@ -32,7 +32,10 @@ if __name__ == '__main__':
             sys.exit()
         assert operation.startswith('(')
         args = eval(operation)
-        results = _run(*args)
+        try:
+            results = _run(*args)
+        except EnvironmentError, e:
+            results = (None, str(e))
         sys.stdout.write('%r\n' % (results,))
         sys.stdout.flush()
 
@@ -47,4 +50,7 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
         _child_stdin.flush()
         results = _child_stdout.readline()
         assert results.startswith('(')
-        return eval(results)
+        results = eval(results)
+        if results[0] is None:
+            raise OSError(results[1])
+        return results

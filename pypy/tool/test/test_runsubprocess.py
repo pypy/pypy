@@ -1,6 +1,12 @@
 import py, os
 from pypy.tool.runsubprocess import run_subprocess
 
+def test_no_such_command():
+    py.test.raises(EnvironmentError, run_subprocess,
+                   'this_command_does_not_exist', [])
+    py.test.raises(EnvironmentError, run_subprocess,
+                   'this_command_does_not_exist', [])
+
 def test_echo():
     if not os.path.exists('/bin/echo'):
         py.test.skip("there is no /bin/echo")
