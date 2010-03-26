@@ -590,6 +590,7 @@ class TestStandalone(StandaloneTests):
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):
+        py.test.skip("TestMaemo: tests skipped for now")
         from pypy.translator.platform.maemo import check_scratchbox
         check_scratchbox()
         from pypy.config.pypyoption import get_pypy_config
