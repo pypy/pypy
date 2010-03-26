@@ -271,7 +271,11 @@ gc.collect()
         # would be called
         import os, sys
         print sys.executable, self.tmpfile
-        g = os.popen('"%s" "%s"' % (sys.executable, self.tmpfile), 'r')
+        if sys.platform == "win32":    # quote? what's that?
+            cmdformat = "%s %s"
+        else:
+            cmdformat = "'%s' '%s'"
+        g = os.popen(cmdformat % (sys.executable, self.tmpfile), 'r')
         data = g.read()
         g.close()
         assert 'Called 1' in data
