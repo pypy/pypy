@@ -78,7 +78,7 @@ class __extend__(PyFrame):
         except ExitFrame:
             return self.popvalue()
 
-    def JUMP_ABSOLUTE(f, jumpto, _, ec=None):
+    def jump_absolute(self, jumpto, _, ec=None):
         if we_are_jitted():
             f.last_instr = intmask(jumpto)
             ec.bytecode_trace(f)

@@ -206,6 +206,10 @@ class __extend__(pyframe.PyFrame):
                 next_instr += 3
                 oparg = (oparg << 16) | (hi << 8) | lo
 
+            if opcode == opcodedesc.JUMP_ABSOLUTE.index:
+                # Special case for the JIT
+                return self.jump_absolute(oparg, next_instr, ec)
+
             if we_are_translated():
                 from pypy.rlib import rstack # for resume points
 
@@ -790,7 +794,7 @@ class __extend__(pyframe.PyFrame):
                                   self.space.str_w(w_name))
         self.pushvalue(w_obj)
 
-    def JUMP_ABSOLUTE(self, jumpto, next_instr):
+    def jump_absolute(self, jumpto, next_instr, ec):
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
