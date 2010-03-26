@@ -326,10 +326,12 @@ def descr_new_zipimporter(space, w_type, name):
     w_ZipImportError = space.getattr(space.getbuiltinmodule('zipimport'),
                                      w('ZipImportError'))
     ok = False
-    parts = name.split(os.path.sep)
+    parts_ends = [i for i in range(0, len(name))
+                    if name[i] == os.path.sep or name[i] == ZIPSEP]
+    parts_ends.append(len(name))
     filename = "" # make annotator happy
-    for i in range(1, len(parts) + 1):
-        filename = os.path.sep.join(parts[:i])
+    for i in parts_ends:
+        filename = name[:i]
         if not filename:
             filename = os.path.sep
         try:
