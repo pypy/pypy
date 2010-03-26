@@ -1,7 +1,10 @@
 try:
     import _curses
 except ImportError:
-    import _minimal_curses as _curses   # when running on top of pypy-c
+    try:
+        import _minimal_curses as _curses   # when running on top of pypy-c
+    except ImportError:
+        import py; py.test.skip("no _curses module")    # no _curses at all
 
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._minimal_curses import fficurses
