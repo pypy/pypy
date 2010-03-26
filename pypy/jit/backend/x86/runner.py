@@ -1,6 +1,3 @@
-import sys
-import ctypes
-import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
