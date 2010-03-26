@@ -324,6 +324,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED):
+                    assert suffix is not None
                     filename = filepart + suffix
                     stream = streamio.open_file_as_stream(filename, filemode)
                     try:
