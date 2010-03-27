@@ -44,8 +44,9 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
     # do this at import-time, when the process is still tiny
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
-    _child_stdin, _child_stdout = os.popen2(
-        "'%s' '%s'" % (sys.executable, _source))
+    args = ["'%s' '%s'" % (sys.executable, _source)]
+    pipe = Popen(args, stdout=PIPE, stdin=PIPE, shell=True, close_fds=True)
+    (_child_stdin, _child_stdout) = (pipe.stdin, pipe.stdout)
 
     def _run(*args):
         _child_stdin.write('%r\n' % (args,))
