@@ -1,7 +1,7 @@
 
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
-from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
