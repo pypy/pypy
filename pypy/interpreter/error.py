@@ -375,3 +375,10 @@ def wrap_oserror(space, e, exception_name='w_OSError'):
                                   space.wrap(msg))
     return OperationError(exc, w_error)
 wrap_oserror._annspecialcase_ = 'specialize:arg(2)'
+
+def wrap_oserror_filename(space, e, filename, exception_name='w_OSError'):
+    operr = wrap_oserror(space, e, exception_name)
+    space.setattr(operr.get_w_value(space), space.wrap('filename'),
+                                            space.wrap(filename))
+    return operr
+wrap_oserror_filename._annspecialcase_ = 'specialize:arg(2)'

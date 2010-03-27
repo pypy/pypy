@@ -139,6 +139,7 @@ class AppTestPosix:
             self.posix.stat("nonexistentdir/nonexistentfile")
         except OSError, e:
             assert e.errno == errno.ENOENT
+            assert e.filename == "nonexistentdir/nonexistentfile"
             # On Windows, when the parent directory does not exist,
             # the winerror is 3 (cannot find the path specified)
             # instead of 2 (cannot find the file specified)

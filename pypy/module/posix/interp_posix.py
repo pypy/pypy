@@ -3,6 +3,7 @@ from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import wrap_oserror_filename
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -177,7 +178,7 @@ with (at least) the following attributes:
     try:
         st = os.stat(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
     else: 
         return build_stat_result(space, st)
 stat.unwrap_spec = [ObjSpace, str]
