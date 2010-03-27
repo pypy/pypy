@@ -131,7 +131,7 @@ class W_ZipImporter(Wrappable):
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
             filename = filename[len(self.filename):]
-        if filename.startswith(os.sep):
+        if filename.startswith(os.path.sep) or filename.startswith(ZIPSEP):
             filename = filename[1:]
         if ZIPSEP != os.path.sep:
             filename = filename.replace(os.path.sep, ZIPSEP)
@@ -361,7 +361,7 @@ def descr_new_zipimporter(space, w_type, name):
             "%s seems not to be a zipfile", filename)
     zip_file.close()
     prefix = name[len(filename):]
-    if prefix.startswith(os.sep):
+    if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
         prefix = prefix[1:]
     w_result = space.wrap(W_ZipImporter(space, name, filename,
                                         zip_file.NameToInfo, prefix))

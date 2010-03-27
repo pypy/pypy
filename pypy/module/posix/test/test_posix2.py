@@ -355,7 +355,8 @@ class AppTestPosix:
         os = self.posix
         for i in range(5):
             stream = os.popen('echo 1')
-            assert stream.read() == '1\n'
+            res = stream.read()
+            assert res == '1\n'
             stream.close()
 
     if hasattr(__import__(os.name), '_getfullpathname'):

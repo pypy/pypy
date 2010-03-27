@@ -239,10 +239,11 @@ class AppTestZipimport:
         # value.  Not sure why it doesn't the assertion uses import.archive
         # directly. -exarkun
         archive = importer.archive
+        realprefix = importer.prefix
         allbutlast = self.zipfile.split(os.path.sep)[:-1]
         prefix = 'directory'
         assert archive == self.zipfile
-        assert importer.prefix == prefix
+        assert realprefix == prefix
 
     def test_zip_directory_cache(self):
         """ Check full dictionary interface

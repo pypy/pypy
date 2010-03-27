@@ -131,6 +131,8 @@ class TestCFuncPtr:
         assert strtok(None, "\n") == None
 
     def test_from_address(self):
+        py.test.skip("This test needs mmap to make sure the"
+                     " code is executable, please rewrite me")
         def make_function():
             proto = CFUNCTYPE(c_int)
             a=create_string_buffer(

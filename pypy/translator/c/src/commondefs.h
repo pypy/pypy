@@ -76,3 +76,7 @@ typedef unsigned long Py_uintptr_t;
 
 #define HAVE_LONG_LONG 1
 #define Py_HUGE_VAL HUGE_VAL
+
+#ifdef _WIN32
+#  define MS_WINDOWS    /* a synonym */
+#endif

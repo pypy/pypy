@@ -271,8 +271,8 @@ gc.collect()
         # would be called
         import os, sys
         print sys.executable, self.tmpfile
-        if sys.platform == "win32":    # quote? what's that?
-            cmdformat = "%s %s"
+        if sys.platform == "win32":
+            cmdformat = '""%s" "%s""'    # excellent! tons of "!
         else:
             cmdformat = "'%s' '%s'"
         g = os.popen(cmdformat % (sys.executable, self.tmpfile), 'r')
