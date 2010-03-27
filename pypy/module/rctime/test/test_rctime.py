@@ -226,7 +226,7 @@ class AppTestRCTime:
         tt = rctime.gmtime()
         result = rctime.strftime('%D', tt)
         if result != '':    # else format not supported and we got ''
-            assert result == rctime.strftime('%m/%d/%y', t)
+            assert result == rctime.strftime('%m/%d/%y', tt)
 
     def test_strftime_bounds_checking(self):
         import time as rctime
