@@ -245,7 +245,7 @@ def access(space, path, mode):
     try:
         ok = os.access(path, mode)
     except OSError, e: 
-        raise wrap_oserror_filename(space, e, filename)
+        raise wrap_oserror_filename(space, e, path)
     else:
         return space.wrap(ok)
 access.unwrap_spec = [ObjSpace, str, "c_int"]
