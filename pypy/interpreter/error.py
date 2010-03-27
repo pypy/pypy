@@ -344,7 +344,7 @@ except NameError:
 else:
     _WINDOWS = True
 
-    def wrap_windowserror(space, e):
+    def wrap_windowserror(space, e, filename=None):
         from pypy.rlib import rwin32
 
         winerror = e.winerror
@@ -353,16 +353,19 @@ else:
         except ValueError:
             msg = 'Windows Error %d' % winerror
         exc = space.w_WindowsError
-        w_error = space.call_function(exc,
-                                      space.wrap(winerror),
-                                      space.wrap(msg))
+        if filename is not None:
+            w_error = space.call_function(exc, space.wrap(winerror),
+                                          space.wrap(msg), space.wrap(filename))
+        else:
+            w_error = space.call_function(exc, space.wrap(winerror),
+                                          space.wrap(msg))
         return OperationError(exc, w_error)
 
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError'): 
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
-        return wrap_windowserror(space, e)
+        return wrap_windowserror(space, e, filename)
 
     errno = e.errno
     try:
