@@ -34,7 +34,8 @@ if sys.platform == "win32":
 def machine_code_dump(data, originaddr):
     # the disassembler to use. 'objdump' writes GNU-style instructions.
     # 'ndisasm' would use Intel syntax, but you need to fix the output parsing.
-    objdump = 'objdump -b binary -m i386 --adjust-vma=%(origin)d -D %(file)s'
+    objdump = ('objdump -M intel -b binary -m i386 '
+               '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')
     f.write(data)
