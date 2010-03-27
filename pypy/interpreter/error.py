@@ -358,8 +358,8 @@ else:
                                       space.wrap(msg))
         return OperationError(exc, w_error)
 
-def wrap_oserror(space, e, exception_name='w_OSError'): 
-    assert isinstance(e, OSError) 
+def wrap_oserror(space, e, filename=None, exception_name='w_OSError'): 
+    assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
         return wrap_windowserror(space, e)
@@ -370,15 +370,10 @@ def wrap_oserror(space, e, exception_name='w_OSError'):
     except ValueError:
         msg = 'error %d' % errno
     exc = getattr(space, exception_name)
-    w_error = space.call_function(exc,
-                                  space.wrap(errno),
-                                  space.wrap(msg))
+    if filename is not None:
+        w_error = space.call_function(exc, space.wrap(errno),
+                                      space.wrap(msg), space.wrap(filename))
+    else:
+        w_error = space.call_function(exc, space.wrap(errno), space.wrap(msg))
     return OperationError(exc, w_error)
-wrap_oserror._annspecialcase_ = 'specialize:arg(2)'
-
-def wrap_oserror_filename(space, e, filename, exception_name='w_OSError'):
-    operr = wrap_oserror(space, e, exception_name)
-    space.setattr(operr.get_w_value(space), space.wrap('filename'),
-                                            space.wrap(filename))
-    return operr
-wrap_oserror_filename._annspecialcase_ = 'specialize:arg(3)'
+wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
