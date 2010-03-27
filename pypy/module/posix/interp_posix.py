@@ -19,7 +19,7 @@ Return a file descriptor (a small integer)."""
     try: 
         fd = os.open(fname, flag, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, fname)
     return space.wrap(fd)
 open.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
 
@@ -188,7 +188,7 @@ def lstat(space, path):
     try:
         st = os.lstat(path)
     except OSError, e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror_filename(space, e, path)
     else:
         return build_stat_result(space, st)
 lstat.unwrap_spec = [ObjSpace, str]
@@ -245,7 +245,7 @@ def access(space, path, mode):
     try:
         ok = os.access(path, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, filename)
     else:
         return space.wrap(ok)
 access.unwrap_spec = [ObjSpace, str, "c_int"]
@@ -284,7 +284,7 @@ def unlink(space, path):
     try:
         os.unlink(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 unlink.unwrap_spec = [ObjSpace, str]
 
 def remove(space, path):
@@ -292,7 +292,7 @@ def remove(space, path):
     try:
         os.unlink(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 remove.unwrap_spec = [ObjSpace, str]
 
 def _getfullpathname(space, path):
@@ -301,7 +301,7 @@ def _getfullpathname(space, path):
     try:
         fullpath = posix._getfullpathname(path)
     except OSError, e:
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
     else: 
         return space.wrap(fullpath)
 _getfullpathname.unwrap_spec = [ObjSpace, str]
@@ -327,7 +327,7 @@ def chdir(space, path):
     try:
         os.chdir(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 chdir.unwrap_spec = [ObjSpace, str]
 
 def mkdir(space, path, mode=0777):
@@ -335,7 +335,7 @@ def mkdir(space, path, mode=0777):
     try:
         os.mkdir(path, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 mkdir.unwrap_spec = [ObjSpace, str, "c_int"]
 
 def rmdir(space, path):
@@ -343,7 +343,7 @@ def rmdir(space, path):
     try:
         os.rmdir(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 rmdir.unwrap_spec = [ObjSpace, str]
 
 def strerror(space, errno):
@@ -421,7 +421,7 @@ entries '.' and '..' even if they are present in the directory."""
     try:
         result = os.listdir(dirname)
     except OSError, e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror_filename(space, e, dirname)
     result_w = [space.wrap(s) for s in result]
     return space.newlist(result_w)
 listdir.unwrap_spec = [ObjSpace, str]
@@ -440,7 +440,7 @@ def chmod(space, path, mode):
     try: 
         os.chmod(path, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
 chmod.unwrap_spec = [ObjSpace, str, "c_int"]
 
 def rename(space, old, new):
@@ -502,12 +502,11 @@ def readlink(space, path):
     try:
         result = os.readlink(path)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror_filename(space, e, path)
     return space.wrap(result)
 readlink.unwrap_spec = [ObjSpace, str]
 
 def fork(space):
-    
     try:
         pid = os.fork()
     except OSError, e: 
@@ -590,7 +589,7 @@ second form is used, set the access and modified times to the current time.
             os.utime(path, None)
             return
         except OSError, e:
-            raise wrap_oserror(space, e)
+            raise wrap_oserror_filename(space, e, path)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_tuple)
@@ -600,7 +599,7 @@ second form is used, set the access and modified times to the current time.
         modtime = space.float_w(args_w[1])
         os.utime(path, (actime, modtime))
     except OSError, e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror_filename(space, e, path)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -696,7 +695,7 @@ def chroot(space, path):
     try:
         os.chroot(path)
     except OSError, e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror_filename(space, e, path)
     return space.w_None
 chroot.unwrap_spec = [ObjSpace, str]
 
@@ -865,7 +864,7 @@ def chown(space, path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except OSError, e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror_filename(space, e, path)
     return space.w_None
 chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
 

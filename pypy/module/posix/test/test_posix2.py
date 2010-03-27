@@ -133,19 +133,27 @@ class AppTestPosix:
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
 
+    def test_stat_lstat(self):
+        import stat
+        st = self.posix.stat(".")
+        assert stat.S_ISDIR(st.st_mode)
+        st = self.posix.lstat(".")
+        assert stat.S_ISDIR(st.st_mode)
+
     def test_stat_exception(self):
         import sys, errno
-        try:
-            self.posix.stat("nonexistentdir/nonexistentfile")
-        except OSError, e:
-            assert e.errno == errno.ENOENT
-            assert e.filename == "nonexistentdir/nonexistentfile"
-            # On Windows, when the parent directory does not exist,
-            # the winerror is 3 (cannot find the path specified)
-            # instead of 2 (cannot find the file specified)
-            if sys.platform == 'win32':
-                assert isinstance(e, WindowsError)
-                assert e.winerror == 3
+        for fn in [self.posix.stat, self.posix.lstat]:
+            try:
+                fn("nonexistentdir/nonexistentfile")
+            except OSError, e:
+                assert e.errno == errno.ENOENT
+                assert e.filename == "nonexistentdir/nonexistentfile"
+                # On Windows, when the parent directory does not exist,
+                # the winerror is 3 (cannot find the path specified)
+                # instead of 2 (cannot find the file specified)
+                if sys.platform == 'win32':
+                    assert isinstance(e, WindowsError)
+                    assert e.winerror == 3
 
     def test_pickle(self):
         import pickle, os
@@ -161,10 +169,47 @@ class AppTestPosix:
         posix = self.posix
         try: 
             posix.open('qowieuqwoeiu', 0, 0)
-        except OSError: 
-            pass
+        except OSError, e:
+            assert e.filename == 'qowieuqwoeiu'
         else: 
             assert 0
+
+    def test_filename_exception(self):
+        for fn in [self.posix.unlink, self.posix.remove,
+                   self.posix.chdir, self.posix.mkdir, self.posix.rmdir,
+                   self.posix.listdir, self.posix.readlink,
+                   self.posix.chroot]:
+            try:
+                fn('qowieuqw/oeiu')
+            except OSError, e:
+                assert e.filename == 'qowieuqw/oeiu'
+            else:
+                assert 0
+
+    def test_chmod_exception(self):
+        try:
+            self.posix.chmod('qowieuqw/oeiu', 0)
+        except OSError, e:
+            assert e.filename == 'qowieuqw/oeiu'
+        else:
+            assert 0
+
+    def test_chown_exception(self):
+        try:
+            self.posix.chown('qowieuqw/oeiu', 0, 0)
+        except OSError, e:
+            assert e.filename == 'qowieuqw/oeiu'
+        else:
+            assert 0
+
+    def test_utime_exception(self):
+        for arg in [None, (0, 0)]:
+            try:
+                self.posix.utime('qowieuqw/oeiu', arg)
+            except OSError, e:
+                assert e.filename == 'qowieuqw/oeiu'
+            else:
+                assert 0
 
     def test_functions_raise_error(self): 
         def ex(func, *args):
