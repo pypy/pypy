@@ -78,6 +78,19 @@ def test_gethostbyaddr():
         py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
                      % (address_list,))
 
+        name, aliases, address_list = gethostbyaddr('localhost')
+        allnames = [name] + aliases
+        for n in allnames:
+            assert isinstance(n, str)
+        if sys.platform != 'win32':
+            assert 'localhost' in allnames
+        for a in address_list:
+            if isinstance(a, INET6Address) and a.get_host() == "::1":
+                break  # ok
+        else:
+            py.test.fail("could not find the ::1 IPv6 address in %r"
+                         % (address_list,))
+
 def test_getservbyname():
     assert getservbyname('http') == 80
     assert getservbyname('http', 'tcp') == 80
