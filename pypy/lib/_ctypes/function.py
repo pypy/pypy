@@ -359,6 +359,9 @@ class CFuncPtr(_CData):
         # No output parameter, return the actual function result.
         return retval
 
+    def __nonzero__(self):
+        return bool(self._buffer[0])
+
     def __del__(self):
         if self._needs_free:
             # XXX we need to find a bad guy here

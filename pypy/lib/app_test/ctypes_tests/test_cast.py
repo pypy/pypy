@@ -84,4 +84,6 @@ class TestCast(BaseCTypesTestChecker):
         my_sqrt = lib.my_sqrt
         sqrt = cast(cast(my_sqrt, c_void_p), CFUNCTYPE(c_double, c_double))
         assert sqrt(4.0) == 2.0
+        assert not cast(0, CFUNCTYPE(c_int))
+
         
