@@ -2,24 +2,20 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, UnpackValueError
 from pypy.interpreter.error import OperationError, operationerrfmt, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter import pyframe
-from pypy.interpreter import function
-from pypy.interpreter.pyopcode import unrolling_compare_dispatch_table, \
-     BytecodeCorruption
+from pypy.interpreter import pyframe, function
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.interpreter.gateway import PyPyCacheDir
-from pypy.tool.cache import Cache 
+from pypy.tool.cache import Cache
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement, FailedToImplementArgs
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.objspace.std import stdtypedef
+from pypy.objspace.std import stdtypedef, frame
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
-from pypy.rlib.unroll import unrolling_iterable
 import sys
 import os
 import __builtin__
@@ -30,18 +26,6 @@ def registerimplementation(implcls):
     assert issubclass(implcls, W_Object)
     _registered_implementations[implcls] = True
 
-
-compare_table = [
-    "lt",   # "<"
-    "le",   # "<="
-    "eq",   # "=="
-    "ne",   # "!="
-    "gt",   # ">"
-    "ge",   # ">="
-    ]
-
-unrolling_compare_ops = unrolling_iterable(
-    enumerate(compare_table))
 
 ##################################################################
 
@@ -58,166 +42,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
 
-
-        class StdObjSpaceFrame(pyframe.PyFrame):
-            if self.config.objspace.std.optimized_int_add:
-                if self.config.objspace.std.withsmallint:
-                    def BINARY_ADD(f, oparg, *ignored):
-                        from pypy.objspace.std.smallintobject import \
-                             W_SmallIntObject, add__SmallInt_SmallInt
-                        w_2 = f.popvalue()
-                        w_1 = f.popvalue()
-                        if type(w_1) is W_SmallIntObject and type(w_2) is W_SmallIntObject:
-                            try:
-                                w_result = add__SmallInt_SmallInt(f.space, w_1, w_2)
-                            except FailedToImplement:
-                                w_result = f.space.add(w_1, w_2)
-                        else:
-                            w_result = f.space.add(w_1, w_2)
-                        f.pushvalue(w_result)
-                else:
-                    def BINARY_ADD(f, oparg, *ignored):
-                        from pypy.objspace.std.intobject import \
-                             W_IntObject, add__Int_Int
-                        w_2 = f.popvalue()
-                        w_1 = f.popvalue()
-                        if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
-                            try:
-                                w_result = add__Int_Int(f.space, w_1, w_2)
-                            except FailedToImplement:
-                                w_result = f.space.add(w_1, w_2)
-                        else:
-                            w_result = f.space.add(w_1, w_2)
-                        f.pushvalue(w_result)
-
-            if self.config.objspace.std.optimized_list_getitem:
-                def BINARY_SUBSCR(f, *ignored):
-                    w_2 = f.popvalue()
-                    w_1 = f.popvalue()
-                    if type(w_1) is W_ListObject and type(w_2) is W_IntObject:
-                        try:
-                            w_result = w_1.wrappeditems[w_2.intval]
-                        except IndexError:
-                            raise OperationError(f.space.w_IndexError,
-                                f.space.wrap("list index out of range"))
-                    else:
-                        w_result = f.space.getitem(w_1, w_2)
-                    f.pushvalue(w_result)
-
-            def LIST_APPEND(f, *ignored):
-                w = f.popvalue()
-                v = f.popvalue()
-                if type(v) is W_ListObject:
-                    v.append(w)
-                else:
-                    f.space.call_method(v, 'append', w)
-
-            if self.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-                def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
-                    from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
-                    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-                    w_globals = f.w_globals
-                    num = oparg >> 8
-                    assert isinstance(w_globals, W_DictMultiObject)
-                    w_value = w_globals.get_builtin_indexed(num)
-                    if w_value is None:
-                        builtins = f.get_builtin()
-                        assert isinstance(builtins, Module)
-                        w_builtin_dict = builtins.w_dict
-                        assert isinstance(w_builtin_dict, W_DictMultiObject)
-                        w_value = w_builtin_dict.get_builtin_indexed(num)
-        ##                 if w_value is not None:
-        ##                     print "CALL_LIKELY_BUILTIN fast"
-                    if w_value is None:
-                        varname = OPTIMIZED_BUILTINS[num]
-                        message = "global name '%s' is not defined"
-                        raise operationerrfmt(f.space.w_NameError,
-                                              message, varname)
-                    nargs = oparg & 0xff
-                    w_function = w_value
-                    try:
-                        w_result = f.call_likely_builtin(w_function, nargs)
-                        # XXX XXX fix the problem of resume points!
-                        #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-                    finally:
-                        f.dropvalues(nargs)
-                    f.pushvalue(w_result)
-
-                def call_likely_builtin(f, w_function, nargs):
-                    if isinstance(w_function, function.Function):
-                        executioncontext = self.getexecutioncontext()
-                        executioncontext.c_call_trace(f, w_function)
-                        res = w_function.funccall_valuestack(nargs, f)
-                        executioncontext.c_return_trace(f, w_function)
-                        return res
-                    args = f.make_arguments(nargs)
-                    return f.space.call_args(w_function, args)
-
-            if self.config.objspace.opcodes.CALL_METHOD:
-                # def LOOKUP_METHOD(...):
-                from pypy.objspace.std.callmethod import LOOKUP_METHOD
-                # def CALL_METHOD(...):
-                from pypy.objspace.std.callmethod import CALL_METHOD
-
-            if self.config.objspace.std.optimized_comparison_op:
-                def COMPARE_OP(f, testnum, *ignored):
-                    import operator
-                    w_2 = f.popvalue()
-                    w_1 = f.popvalue()
-                    w_result = None
-                    if (type(w_2) is W_IntObject and type(w_1) is W_IntObject
-                        and testnum < len(compare_table)):
-                        for i, attr in unrolling_compare_ops:
-                            if i == testnum:
-                                op = getattr(operator, attr)
-                                w_result = f.space.newbool(op(w_1.intval,
-                                                              w_2.intval))
-                                break
-                    else:
-                        for i, attr in unrolling_compare_dispatch_table:
-                            if i == testnum:
-                                w_result = getattr(f, attr)(w_1, w_2)
-                                break
-                        else:
-                            raise BytecodeCorruption, "bad COMPARE_OP oparg"
-                    f.pushvalue(w_result)
-
-            if self.config.objspace.std.logspaceoptypes:
-                _space_op_types = []
-                for name, func in pyframe.PyFrame.__dict__.iteritems():
-                    if hasattr(func, 'binop'):
-                        operationname = func.binop
-                        def make_opimpl(operationname):
-                            def opimpl(f, *ignored):
-                                operation = getattr(f.space, operationname)
-                                w_2 = f.popvalue()
-                                w_1 = f.popvalue()
-                                if we_are_translated():
-                                    s = operationname + ' ' + str(w_1) + ' ' + str(w_2)
-                                else:
-                                    s = operationname + ' ' + w_1.__class__.__name__ + ' ' + w_2.__class__.__name__
-                                f._space_op_types.append(s)
-                                w_result = operation(w_1, w_2)
-                                f.pushvalue(w_result)
-                            return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
-                        locals()[name] = make_opimpl(operationname)
-                    elif hasattr(func, 'unaryop'):
-                        operationname = func.unaryop
-                        def make_opimpl(operationname):
-                            def opimpl(f, *ignored):
-                                operation = getattr(f.space, operationname)
-                                w_1 = f.popvalue()
-                                if we_are_translated():
-                                    s = operationname + ' ' + str(w_1)
-                                else:
-                                    s = operationname + ' ' + w_1.__class__.__name__
-                                f._space_op_types.append(s)
-                                w_result = operation(w_1)
-                                f.pushvalue(w_result)
-                            return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
-                        locals()[name] = make_opimpl(operationname)                    
-
-        self.FrameClass = StdObjSpaceFrame
+        self.FrameClass = frame.build_frame(self)
 
         # store the dict class on the space to access it in various places
         from pypy.objspace.std import dictmultiobject
