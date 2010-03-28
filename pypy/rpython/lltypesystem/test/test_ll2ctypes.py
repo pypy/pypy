@@ -1041,6 +1041,10 @@ class TestLL2Ctypes(object):
 
         #assert lltype.cast_ptr_to_int(ref1) == intval
 
+    def test_ptr_truth(self):
+        abc = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Void)), 0)
+        assert not abc
+
     def test_mixed_gcref_comparison(self):
         NODE = lltype.GcStruct('NODE')
         node = lltype.malloc(NODE)
