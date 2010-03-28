@@ -2,6 +2,7 @@ import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
+from pypy.conftest import gettestobjspace
 
 
 class TestW_ListObject:
@@ -769,3 +770,18 @@ class AppTestW_ListObject:
         l = [1,2,3,4]
         l.__delslice__(0, 2)
         assert l == [3, 4]
+
+
+class AppTestListFastSubscr:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.optimized_list_getitem" :
+                                       True})
+
+    def test_getitem(self):
+        import operator
+        l = [0, 1, 2, 3, 4]
+        for i in xrange(5):
+            assert l[i] == i
+        assert l[3:] == [3, 4]
+        raises(TypeError, operator.getitem, l, "str")
