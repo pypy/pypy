@@ -230,9 +230,7 @@ class FlowObjSpace(ObjSpace):
         if func.func_closure is None:
             closure = None
         else:
-            closure = [extract_cell_content(c, name, func)
-                       for c, name in zip(func.func_closure,
-                                          func.func_code.co_freevars)]
+            closure = [extract_cell_content(c) for c in func.func_closure]
         # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
         class_ = getattr(func, 'class_', None)
@@ -540,25 +538,27 @@ _add_exceptions("""pow""",
                 OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf
 
-def extract_cell_content(c, varname='?', func='?'):
+def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
     the func_closure of a function object."""
-    # yuk! this is all I could come up with that works in Python 2.2 too
-    class X(object):
-        def __cmp__(self, other):
-            self.other = other
-            return 0
-        def __eq__(self, other):
-            self.other = other
-            return True
-    x = X()
-    x_cell, = (lambda: x).func_closure
-    x_cell == c
     try:
-        return x.other    # crashes if the cell is actually empty
+        # This is simple on 2.6
+        return getattr(c, "cell_contents")
     except AttributeError:
-        raise Exception("in %r, the free variable %r has no value" % (
-                func, varname))
+        class X(object):
+            def __cmp__(self, other):
+                self.other = other
+                return 0
+            def __eq__(self, other):
+                self.other = other
+                return True
+        x = X()
+        x_cell, = (lambda: x).func_closure
+        x_cell == c
+        try:
+            return x.other    # crashes if the cell is actually empty
+        except AttributeError:
+            raise ValueError("empty cell")
 
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
