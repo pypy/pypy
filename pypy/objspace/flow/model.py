@@ -206,16 +206,10 @@ class Block(object):
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
 
-    def reallyalloperations(self):
-        """Iterate over all operations, including cleanup sub-operations.
-        XXX remove!"""
-        for op in self.operations:
-            yield op
-
     def getvariables(self):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
-        for op in self.reallyalloperations():
+        for op in self.operations:
             result += op.args
             result.append(op.result)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
@@ -223,7 +217,7 @@ class Block(object):
     def getconstants(self):
         "Return all constants mentioned in this Block."
         result = self.inputargs[:]
-        for op in self.reallyalloperations():
+        for op in self.operations:
             result += op.args
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
@@ -231,7 +225,7 @@ class Block(object):
         for a in mapping:
             assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.reallyalloperations():
+        for op in self.operations:
             op.args = [mapping.get(a, a) for a in op.args]
             op.result = mapping.get(op.result, op.result)
         self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
