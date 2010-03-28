@@ -33,8 +33,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
 
-    PACKAGE_PATH = 'objspace.std'
-
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
         self._typecache = Cache()
