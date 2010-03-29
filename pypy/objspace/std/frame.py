@@ -4,6 +4,7 @@ import operator
 
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter import pyframe, pyopcode, function
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
 from pypy.objspace.std.multimethod import FailedToImplement
 
