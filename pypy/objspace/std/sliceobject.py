@@ -1,9 +1,4 @@
-"""
-Reviewed 03-06-21
-
-slice object construction   tested, OK
-indices method              tested, OK
-"""
+"""Slice object"""
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
