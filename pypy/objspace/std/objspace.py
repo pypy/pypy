@@ -35,8 +35,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
-        self._typecache = Cache()
-
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
 
