@@ -1,4 +1,5 @@
-from pypy.objspace.std.objspace import W_Object, register_all
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.register_all import register_all
 
 
 class W_ObjectObject(W_Object):

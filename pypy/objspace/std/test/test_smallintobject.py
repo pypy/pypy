@@ -5,7 +5,7 @@ import sys, py
 #    py.test.skip("WITHSMALLINT is not enabled")
 
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.objspace import FailedToImplement
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import r_uint
 
 from pypy.objspace.std.test.test_intobject import AppTestInt

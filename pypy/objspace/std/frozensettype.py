@@ -1,9 +1,8 @@
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.objspace import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod
-from pypy.objspace.std.stdtypedef import SMM
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+
 
 frozenset_copy                  = SMM('copy', 1,
                                       doc='Return a shallow copy of a set.')
@@ -37,7 +36,8 @@ frozenset_reduce                = SMM('__reduce__',1,
 
 register_all(vars(), globals())
 
-def descr__frozenset__new__(space, w_frozensettype, w_iterable=NoneNotWrapped):
+def descr__frozenset__new__(space, w_frozensettype,
+                            w_iterable=gateway.NoneNotWrapped):
     from pypy.objspace.std.setobject import W_FrozensetObject
     from pypy.objspace.std.setobject import _is_frozenset_exact
     if (space.is_w(w_frozensettype, space.w_frozenset) and
@@ -52,7 +52,7 @@ frozenset_typedef = StdTypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
 Build an immutable unordered collection.""",
-    __new__ = newmethod(descr__frozenset__new__),
+    __new__ = gateway.interp2app(descr__frozenset__new__),
     )
 
 frozenset_typedef.registermethods(globals())

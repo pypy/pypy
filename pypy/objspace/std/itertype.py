@@ -1,4 +1,5 @@
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import gateway
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 # ____________________________________________________________
 

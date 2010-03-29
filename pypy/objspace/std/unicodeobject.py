@@ -1,5 +1,5 @@
-from pypy.objspace.std.objspace import register_all, W_Object
-from pypy.objspace.std.objspace import registerimplementation
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt

@@ -4,14 +4,13 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.typedef import no_hash_descr, descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
+from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib import jit
 from pypy.tool.sourcetools import compile2
 
-__all__ = ['StdTypeDef', 'newmethod', 'gateway',
-           'GetSetProperty', 'Member',
-           'SMM', 'descr_get_dict', 'no_hash_descr']
+__all__ = ['StdTypeDef', 'SMM', 'no_hash_descr']
 
 SMM = StdObjSpaceMultiMethod
 
@@ -41,11 +40,6 @@ def issubtypedef(a, b):
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
 std_dict_descr.name = '__dict__'
-
-def newmethod(descr_new, unwrap_spec=None):
-    "NOT_RPYTHON: initialization-time only."
-    # this is turned into a static method by the constructor of W_TypeObject.
-    return gateway.interp2app(descr_new, unwrap_spec=unwrap_spec)
 
 # ____________________________________________________________
 #
@@ -288,8 +282,8 @@ def slicemultimethod(space, multimethod, typedef, result, local=False):
 def slicemultimethods(space, typedef):
     """NOT_RPYTHON"""
     result = {}
-    # import and slice all multimethods of the space.MM container
-    for multimethod in hack_out_multimethods(space.MM.__dict__):
+    # import and slice all multimethods of the MM container
+    for multimethod in hack_out_multimethods(model.MM.__dict__):
         slicemultimethod(space, multimethod, typedef, result)
     # import all multimethods defined directly on the type without slicing
     for multimethod in typedef.local_multimethods:
@@ -301,9 +295,8 @@ def multimethods_defined_on(cls):
     multimethods that have an implementation whose first typed argument
     is 'cls'.
     """
-    from pypy.objspace.std.objspace import StdObjSpace   # XXX for now
     typedef = cls.typedef
-    for multimethod in hack_out_multimethods(StdObjSpace.MM.__dict__):
+    for multimethod in hack_out_multimethods(model.MM.__dict__):
         if cls in multimethod.dispatch_tree:
             yield multimethod, False
     for multimethod in typedef.local_multimethods:

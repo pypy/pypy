@@ -1,5 +1,9 @@
 import sys
-from pypy.objspace.std.objspace import *
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std import model
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rbigint import rbigint, SHIFT
@@ -305,7 +309,8 @@ def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     return %(opname)s__Long_Long(space, w_long1, w_long2)
 """ % {'opname': opname}, '', 'exec')
 
-    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int_Int' % opname], W_IntObject, W_IntObject, order=1)
+    getattr(model.MM, opname).register(globals()['%s_ovr__Int_Int' % opname],
+                                       W_IntObject, W_IntObject, order=1)
 
 # unary ops
 for opname in ['neg', 'abs']:
@@ -315,7 +320,8 @@ def %(opname)s_ovr__Int(space, w_int1):
     return %(opname)s__Long(space, w_long1)
 """ % {'opname': opname}
 
-    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int' % opname], W_IntObject, order=1)
+    getattr(model.MM, opname).register(globals()['%s_ovr__Int' % opname],
+                                       W_IntObject, order=1)
 
 # pow
 def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
@@ -328,7 +334,9 @@ def pow_ovr__Int_Int_Long(space, w_int1, w_int2, w_long3):
     w_long2 = delegate_Int2Long(space, w_int2)
     return pow__Long_Long_Long(space, w_long1, w_long2, w_long3)
 
-StdObjSpace.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=1)
-StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_LongObject, order=1)
+model.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject,
+                      W_NoneObject, order=1)
+model.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject,
+                      W_LongObject, order=1)
 
 

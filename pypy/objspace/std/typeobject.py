@@ -1,4 +1,5 @@
-from pypy.objspace.std.objspace import register_all, W_Object
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt

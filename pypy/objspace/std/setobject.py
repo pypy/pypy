@@ -1,7 +1,8 @@
-from pypy.objspace.std.objspace import W_Object, OperationError
-from pypy.objspace.std.objspace import registerimplementation, register_all
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef

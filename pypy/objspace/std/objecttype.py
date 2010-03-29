@@ -1,10 +1,9 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.descroperation import Object
+from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
-from pypy.interpreter.typedef import default_identity_hash
-from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.descroperation import Object
+from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.objspace import StdObjSpace
 
 
 def descr__repr__(space, w_obj):
@@ -171,8 +170,8 @@ object_typedef = StdTypeDef("object",
     __repr__ = gateway.interp2app(descr__repr__),
     __class__ = GetSetProperty(descr__class__, descr_set___class__),
     __doc__ = '''The most base type''',
-    __new__ = newmethod(descr__new__,
-                        unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__,
+    unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     __hash__ = gateway.interp2app(default_identity_hash),
     __reduce_ex__ = gateway.interp2app(descr__reduce_ex__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),

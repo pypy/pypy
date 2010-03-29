@@ -1,33 +1,42 @@
-from pypy.objspace.std.register_all import register_all
+import __builtin__
+import types
+from pypy.interpreter import pyframe, function, special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, UnpackValueError
-from pypy.interpreter.error import OperationError, operationerrfmt, debug_print
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter import pyframe, function
+from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
+                               transparent, callmethod)
+from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.interpreter.gateway import PyPyCacheDir
-from pypy.tool.cache import Cache
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.objspace.std.model import W_Object, UnwrapError
-from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
-from pypy.objspace.std.multimethod import FailedToImplement, FailedToImplementArgs
-from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.objspace.std import stdtypedef, frame
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
-import sys
-import os
-import __builtin__
+from pypy.tool.sourcetools import func_with_new_name
 
-_registered_implementations = {}
-def registerimplementation(implcls):
-    # hint to objspace.std.model to register the implementation class
-    assert issubclass(implcls, W_Object)
-    _registered_implementations[implcls] = True
+# Object imports
+from pypy.objspace.std.boolobject import W_BoolObject
+from pypy.objspace.std.complexobject import W_ComplexObject
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.ropeobject import W_RopeObject
+from pypy.objspace.std.iterobject import W_SeqIterObject
+from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.smallintobject import W_SmallIntObject
+from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.typeobject import W_TypeObject
 
+# types
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.stringtype import wrapstr
+from pypy.objspace.std.unicodetype import wrapunicode
 
-##################################################################
 
 class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
@@ -35,91 +44,36 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
-        # Import all the object types and implementations
-        self.model = StdTypeModel(self.config)
+        # setup all the object types and implementations
+        self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
 
-        # store the dict class on the space to access it in various places
-        from pypy.objspace.std import dictmultiobject
-        self.DictObjectCls = dictmultiobject.W_DictMultiObject
-
-        from pypy.objspace.std import tupleobject
-        self.TupleObjectCls = tupleobject.W_TupleObject
-
-        if not self.config.objspace.std.withrope:
-            from pypy.objspace.std import stringobject
-            self.StringObjectCls = stringobject.W_StringObject
+        if self.config.objspace.std.withrope:
+            self.StringObjectCls = W_RopeObject
         else:
-            from pypy.objspace.std import ropeobject
-            self.StringObjectCls = ropeobject.W_RopeObject
-        assert self.StringObjectCls in self.model.typeorder
+            self.StringObjectCls = W_StringObject
 
-        # install all the MultiMethods into the space instance
-        for name, mm in self.MM.__dict__.items():
-            if not isinstance(mm, StdObjSpaceMultiMethod):
-                continue
-            if not hasattr(self, name):
-                if name.endswith('_w'): # int_w, str_w...: these do not return a wrapped object
-                    func = mm.install_not_sliced(self.model.typeorder, baked_perform_call=True)
-                else:               
-                    exprargs, expr, miniglobals, fallback = (
-                        mm.install_not_sliced(self.model.typeorder, baked_perform_call=False))
+        self._install_multimethods()
 
-                    func = stdtypedef.make_perform_trampoline('__mm_'+name,
-                                                              exprargs, expr, miniglobals,
-                                                              mm)
-                
-                                                  # e.g. add(space, w_x, w_y)
-                def make_boundmethod(func=func):
-                    def boundmethod(*args):
-                        return func(self, *args)
-                    return func_with_new_name(boundmethod, 'boundmethod_'+name)
-                boundmethod = make_boundmethod()
-                setattr(self, name, boundmethod)  # store into 'space' instance
-            elif self.config.objspace.std.builtinshortcut:
-                from pypy.objspace.std import builtinshortcut
-                if name.startswith('inplace_'):
-                    fallback_name = name[len('inplace_'):]
-                    if fallback_name in ('or', 'and'):
-                        fallback_name += '_'
-                    fallback_mm = self.MM.__dict__[fallback_name]
-                else:
-                    fallback_mm = None
-                builtinshortcut.install(self, mm, fallback_mm)
-
-        if self.config.objspace.std.builtinshortcut:
-            from pypy.objspace.std import builtinshortcut
-            builtinshortcut.install_is_true(self, self.MM.nonzero, self.MM.len)
-
-        # set up the method cache
         if self.config.objspace.std.withmethodcache:
-            SIZE = 1 << self.config.objspace.std.methodcachesizeexp
-            self.method_cache_versions = [None] * SIZE
-            self.method_cache_names = [None] * SIZE
-            self.method_cache_lookup_where = [(None, None)] * SIZE
-            if self.config.objspace.std.withmethodcachecounter:
-                self.method_cache_hits = {}
-                self.method_cache_misses = {}
-
-        # hack to avoid imports in the time-critical functions below
-        for cls in self.model.typeorder:
-            globals()[cls.__name__] = cls
-        for cls in self.model.imported_but_not_registered:
-            globals()[cls.__name__] = cls
+            self._setup_method_cache()
 
         # singletons
-        self.w_None  = W_NoneObject.w_None
+        self.w_None = W_NoneObject.w_None
         self.w_False = W_BoolObject.w_False
-        self.w_True  = W_BoolObject.w_True
-        from pypy.interpreter.special import NotImplemented, Ellipsis
-        self.w_NotImplemented = self.wrap(NotImplemented(self))  
-        self.w_Ellipsis = self.wrap(Ellipsis(self))  
+        self.w_True = W_BoolObject.w_True
+        self.w_NotImplemented = self.wrap(special.NotImplemented(self))
+        self.w_Ellipsis = self.wrap(special.Ellipsis(self))
 
         # types
+        self.builtin_types = {}
         for typedef in self.model.pythontypes:
             w_type = self.gettypeobject(typedef)
+            self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
+        self.builtin_types["NotImplemented"] = self.w_NotImplemented
+        self.builtin_types["Ellipsis"] = self.w_Ellipsis
 
         # exceptions & builtins
         self.make_builtins()
@@ -127,34 +81,57 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # the type of old-style classes
         self.w_classobj = self.builtin.get('__metaclass__')
 
-        # fix up a problem where multimethods apparently don't 
-        # like to define this at interp-level 
-        # HACK HACK HACK
-        from pypy.objspace.std.typeobject import _HEAPTYPE
-        old_flags = self.w_dict.__flags__
-        self.w_dict.__flags__ |= _HEAPTYPE
-        self.appexec([self.w_dict], """
-            (dict): 
-                def fromkeys(cls, seq, value=None):
-                    r = cls()
-                    for s in seq:
-                        r[s] = value
-                    return r
-                dict.fromkeys = classmethod(fromkeys)
-        """)
-        self.w_dict.__flags__ = old_flags
-
         # final setup
         self.setup_builtin_modules()
         # Adding transparent proxy call
         if self.config.objspace.std.withtproxy:
-            w___pypy__ = self.getbuiltinmodule("__pypy__")
-            from pypy.objspace.std.transparent import app_proxy, app_proxy_controller
-        
-            self.setattr(w___pypy__, self.wrap('tproxy'),
-                          self.wrap(app_proxy))
-            self.setattr(w___pypy__, self.wrap('get_tproxy_controller'),
-                          self.wrap(app_proxy_controller))
+            transparent.setup(self)
+
+    def get_builtin_types(self):
+        return self.builtin_types
+
+    def _setup_method_cache(self):
+        SIZE = 1 << self.config.objspace.std.methodcachesizeexp
+        self.method_cache_versions = [None] * SIZE
+        self.method_cache_names = [None] * SIZE
+        self.method_cache_lookup_where = [(None, None)] * SIZE
+        if self.config.objspace.std.withmethodcachecounter:
+            self.method_cache_hits = {}
+            self.method_cache_misses = {}
+
+    def _install_multimethods(self):
+        """Install all the MultiMethods into the space instance."""
+        model.add_extra_comparisons()
+        for name, mm in model.MM.__dict__.items():
+            if not isinstance(mm, model.StdObjSpaceMultiMethod):
+                continue
+            if not hasattr(self, name):
+                # int_w, str_w...: these do not return a wrapped object
+                if name.endswith('_w'):
+                    func = mm.install_not_sliced(self.model.typeorder,
+                                                 baked_perform_call=True)
+                else:
+                    unsliced = mm.install_not_sliced(self.model.typeorder,
+                                                     baked_perform_call=False)
+                    exprargs, expr, miniglobals, fallback = unsliced
+                    func = stdtypedef.make_perform_trampoline('__mm_'+name,
+                                                              exprargs, expr,
+                                                              miniglobals, mm)
+
+                boundmethod = types.MethodType(func, self, self.__class__)
+                setattr(self, name, boundmethod)  # store into 'space' instance
+            elif self.config.objspace.std.builtinshortcut:
+                if name.startswith('inplace_'):
+                    fallback_name = name[len('inplace_'):]
+                    if fallback_name in ('or', 'and'):
+                        fallback_name += '_'
+                    fallback_mm = model.MM.__dict__[fallback_name]
+                else:
+                    fallback_mm = None
+                builtinshortcut.install(self, mm, fallback_mm)
+        if self.config.objspace.std.builtinshortcut:
+            builtinshortcut.install_is_true(self, model.MM.nonzero,
+                                            model.MM.len)
 
     def createexecutioncontext(self):
         # add space specific fields to execution context
@@ -190,7 +167,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # annotation (see pypy/annotation/builtin.py)
         if x is None:
             return self.w_None
-        if isinstance(x, W_Object):
+        if isinstance(x, model.W_Object):
             raise TypeError, "attempt to wrap already wrapped object: %s"%(x,)
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
@@ -201,10 +178,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            from pypy.objspace.std.stringtype import wrapstr
             return wrapstr(self, x)
         if isinstance(x, unicode):
-            from pypy.objspace.std.unicodetype import wrapunicode
             return wrapunicode(self, x)
         if isinstance(x, float):
             return W_FloatObject(x)
@@ -266,7 +241,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
                 return w_result
-        #print "fake-wrapping", x 
         from fake import fake_object
         return fake_object(self, x)
 
@@ -275,23 +249,22 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
         if hasattr(self, 'w_' + x.__name__):
-            w_result = getattr(self, 'w_' + x.__name__)            
+            w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
     wrap_exception_cls._annspecialcase_ = "override:wrap_exception_cls"
-        
+
     def unwrap(self, w_obj):
         if isinstance(w_obj, Wrappable):
             return w_obj
-        if isinstance(w_obj, W_Object):
+        if isinstance(w_obj, model.W_Object):
             return w_obj.unwrap(self)
-        raise UnwrapError, "cannot unwrap: %r" % w_obj
+        raise model.UnwrapError, "cannot unwrap: %r" % w_obj
 
     def newint(self, intval):
         # this time-critical and circular-imports-funny method was stored
         # on 'self' by initialize()
         # not sure how bad this is:
-        from pypy.objspace.std.inttype import wrapint
         return wrapint(self, intval)
 
     def newfloat(self, floatval):
@@ -304,18 +277,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_LongObject.fromint(self, val)
 
     def newtuple(self, list_w):
-        from pypy.objspace.std.tupletype import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
-        return wraptuple(self, list_w)
+        return W_TupleObject(list_w)
 
     def newlist(self, list_w):
-        from pypy.objspace.std.listobject import W_ListObject
         return W_ListObject(list_w)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
                 from_strdict_shared=None, strdict=False):
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
                 classofinstance=classofinstance,
@@ -493,21 +463,21 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def finditem_str(self, w_obj, key):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if (isinstance(w_obj, self.DictObjectCls) and
+        if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             return w_obj.getitem_str(key)
         return ObjSpace.finditem_str(self, w_obj, key)
 
     def finditem(self, w_obj, w_key):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if (isinstance(w_obj, self.DictObjectCls) and
+        if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
     def set_str_keyed_item(self, w_obj, key, w_value, shadows_type=True):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if (isinstance(w_obj, self.DictObjectCls) and
+        if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             w_obj.set_str_keyed_item(key, w_value, shadows_type)
         else:
@@ -528,37 +498,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def call_method(self, w_obj, methname, *arg_w):
         if self.config.objspace.opcodes.CALL_METHOD:
-            from pypy.objspace.std.callmethod import call_method_opt
-            return call_method_opt(self, w_obj, methname, *arg_w)
+            return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
         else:
             return ObjSpace.call_method(self, w_obj, methname, *arg_w)
 
     def raise_key_error(self, w_key):
         e = self.call_function(self.w_KeyError, w_key)
         raise OperationError(self.w_KeyError, e)
-
-    class MM:
-        "Container for multimethods."
-        call    = StdObjSpaceMultiMethod('call', 1, ['__call__'], general__args__=True)
-        init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
-        getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
-        # special visible multimethods
-        int_w   = StdObjSpaceMultiMethod('int_w', 1, [])     # returns an unwrapped int
-        str_w   = StdObjSpaceMultiMethod('str_w', 1, [])     # returns an unwrapped string
-        float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
-        uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
-        unicode_w = StdObjSpaceMultiMethod('unicode_w', 1, [])    # returns an unwrapped list of unicode characters
-        bigint_w = StdObjSpaceMultiMethod('bigint_w', 1, []) # returns an unwrapped rbigint
-        # NOTE: when adding more sometype_w() methods, you need to write a
-        # stub in default.py to raise a space.w_TypeError
-        marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
-        log     = StdObjSpaceMultiMethod('log', 1, [], extra_args=['base'])
-
-        # add all regular multimethods here
-        for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-            if _name not in locals():
-                mm = StdObjSpaceMultiMethod(_symbol, _arity, _specialnames)
-                locals()[_name] = mm
-                del mm
-
-        pow.extras['defaults'] = (None,)

@@ -1,8 +1,8 @@
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.basestringtype import basestring_typedef
-from pypy.interpreter.error import OperationError, operationerrfmt
 
 from sys import maxint
 
@@ -286,7 +286,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
 # ____________________________________________________________
 
 unicode_typedef = StdTypeDef("unicode", basestring_typedef,
-    __new__ = newmethod(descr_new_),
+    __new__ = gateway.interp2app(descr_new_),
     __doc__ = '''unicode(string [, encoding[, errors]]) -> object
 
 Create a new Unicode object from the given encoded string.

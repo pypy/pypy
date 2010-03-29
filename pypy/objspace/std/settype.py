@@ -1,8 +1,7 @@
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.objspace import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod, no_hash_descr
-from pypy.objspace.std.stdtypedef import SMM
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter import gateway
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr, SMM
 from pypy.interpreter import gateway
 
 set_add                         = SMM('add', 2,
@@ -77,9 +76,9 @@ set_typedef = StdTypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
-    __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                                   gateway.W_Root,
-                                                   gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
+                                                            gateway.W_Root,
+                                                            gateway.Arguments]),
     __hash__ = no_hash_descr,
     )
 

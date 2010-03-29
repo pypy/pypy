@@ -2,7 +2,7 @@
 """ transparent list implementation
 """
 
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.proxy_helpers import register_type
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import baseobjspace, argument
@@ -73,7 +73,7 @@ def transparent_class(name, BaseCls):
     W_Transparent.__name__ = name
     return W_Transparent
 
-W_Transparent = transparent_class('W_Transparent', Wrappable)
+W_Transparent = transparent_class('W_Transparent', baseobjspace.Wrappable)
 W_TransparentObject = transparent_class('W_TransparentObject', W_Object)
 
 from pypy.objspace.std.objecttype import object_typedef

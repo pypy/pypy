@@ -1,6 +1,6 @@
-import sys
-from pypy.interpreter import baseobjspace
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import baseobjspace, gateway
+from pypy.interpreter.typedef import GetSetProperty
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
@@ -88,7 +88,7 @@ slice_typedef = StdTypeDef("slice",
     __doc__ = '''slice([start,] stop[, step])
 
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = no_hash_descr,
     start = slicewprop('w_start'),
     stop  = slicewprop('w_stop'),

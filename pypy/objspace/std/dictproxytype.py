@@ -1,5 +1,7 @@
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import gateway
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 # ____________________________________________________________
 

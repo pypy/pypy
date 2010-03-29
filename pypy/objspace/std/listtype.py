@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
@@ -24,7 +24,8 @@ list_count    = SMM('count',  2,
                         ' occurrences of value')
 list_reverse  = SMM('reverse',1,
                     doc='L.reverse() -- reverse *IN PLACE*')
-list_sort     = SMM('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'],
+list_sort     = SMM('sort',   4, defaults=(None, None, False),
+                    argnames=['cmp', 'key', 'reverse'],
                     doc='L.sort(cmp=None, key=None, reverse=False) -- stable'
                         ' sort *IN PLACE*;\ncmp(x, y) -> -1, 0, 1')
 list_reversed = SMM('__reversed__', 1,
@@ -50,9 +51,9 @@ def descr__new__(space, w_listtype, __args__):
 list_typedef = StdTypeDef("list",
     __doc__ = '''list() -> new list
 list(sequence) -> new list initialized from sequence's items''',
-    __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                                   gateway.W_Root,
-                                                   gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
+                                               gateway.W_Root,
+                                               gateway.Arguments]),
     __hash__ = no_hash_descr,
     )
 list_typedef.registermethods(globals())

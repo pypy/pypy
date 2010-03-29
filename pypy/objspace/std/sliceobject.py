@@ -5,8 +5,10 @@ slice object construction   tested, OK
 indices method              tested, OK
 """
 
-from pypy.objspace.std.objspace import *
+from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.slicetype import _Eval_SliceIndex
 
 

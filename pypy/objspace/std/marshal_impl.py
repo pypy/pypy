@@ -11,8 +11,8 @@ a callback and a state variable.
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.objspace.std import longobject, model
 from pypy.objspace.std.longobject import SHIFT as long_bits
-from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
@@ -31,8 +31,6 @@ from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-
-import longobject
 
 from pypy.module.marshal.interp_marshal import register
 
@@ -125,7 +123,7 @@ register(TYPE_STOPITER, unmarshal_Type)
 def marshal_w_Ellipsis(space, w_ellipsis, m):
     m.atom(TYPE_ELLIPSIS)
 
-StdObjSpace.MM.marshal_w.register(marshal_w_Ellipsis, Ellipsis)
+model.MM.marshal_w.register(marshal_w_Ellipsis, Ellipsis)
 
 def unmarshal_Ellipsis(space, u, tc):
     return space.w_Ellipsis
@@ -399,7 +397,7 @@ def marshal_w_pycode(space, w_pycode, m):
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
-StdObjSpace.MM.marshal_w.register(marshal_w_pycode, PyCode)
+model.MM.marshal_w.register(marshal_w_pycode, PyCode)
 
 # helper for unmarshalling string lists of code objects.
 # unfortunately they now can be interned or referenced,

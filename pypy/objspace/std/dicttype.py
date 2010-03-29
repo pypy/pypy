@@ -1,5 +1,8 @@
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
@@ -124,7 +127,6 @@ app = gateway.applevel('''
     def itervalues(d):
         return iter(dict.values(d))
 ''', filename=__file__)
-#XXX what about dict.fromkeys()?
 
 dict_update__ANY             = app.interphook("update")
 dict_popitem__ANY            = app.interphook("popitem")
@@ -137,6 +139,24 @@ dict_itervalues__ANY         = app.interphook("itervalues")
 update1                      = app.interphook("update1")
 
 register_all(vars(), globals())
+
+@gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
+def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if w_fill is None:
+        w_fill = space.w_None
+    w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+    w_iter = space.iter(w_keys)
+    while True:
+        try:
+            w_key = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        space.setitem(w_dict, w_key, w_fill)
+    return w_dict
+
 
 # ____________________________________________________________
 
@@ -157,9 +177,12 @@ dict(seq) -> new dictionary initialized as if via:
         d[k] = v
 dict(**kwargs) -> new dictionary initialized with the name=value pairs
     in the keyword argument list.  For example:  dict(one=1, two=2)''',
-    __new__ = newmethod(descr__new__,
-                        unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__,
+                                 unwrap_spec=
+                                 [gateway.ObjSpace,
+                                  gateway.W_Root,gateway.Arguments]),
     __hash__ = no_hash_descr,
+    fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     )
 dict_typedef.registermethods(globals())
 
@@ -180,18 +203,16 @@ def descr_dictiter__reduce__(w_self, space):
     XXX to do: remove this __reduce__ method and do
     a registration with copy_reg, instead.
     """
-    from pypy.interpreter.mixedmodule import MixedModule
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
     new_inst = mod.get('dictiter_surrogate_new')
     w_typeobj = space.gettypeobject(dictiter_typedef)
-    
-    from pypy.interpreter.mixedmodule import MixedModule
+
     raise OperationError(
         space.w_RuntimeError,
         space.wrap("cannot pickle dictiters with multidicts"))
     # XXXXXX get that working again
-    
+
     # we cannot call __init__ since we don't have the original dict
     if isinstance(w_self, W_DictIter_Keys):
         w_clone = space.allocate_instance(W_DictIter_Keys, w_typeobj)
@@ -217,7 +238,7 @@ def descr_dictiter__reduce__(w_self, space):
         w_res
     ]
     w_ret = space.newtuple([new_inst, space.newtuple(tup)])
-    return w_ret    
+    return w_ret
 
 # ____________________________________________________________
 

@@ -1,6 +1,7 @@
 from pypy.interpreter import gateway
-from pypy.objspace.std.objspace import W_Object, OperationError
-from pypy.objspace.std.objspace import registerimplementation, register_all
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 
 import math

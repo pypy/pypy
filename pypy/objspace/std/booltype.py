@@ -1,4 +1,5 @@
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import gateway
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.inttype import int_typedef
 
 def descr__new__(space, w_booltype, w_obj=None):
@@ -16,6 +17,6 @@ bool_typedef = StdTypeDef("bool", int_typedef,
 Returns True when the argument x is true, False otherwise.
 The builtins True and False are the only two instances of the class bool.
 The class bool is a subclass of the class int, and cannot be subclassed.''',
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     )
 bool_typedef.acceptable_as_base_class = False

@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.objspace.std import longobject as lobj
-from pypy.objspace.std.objspace import FailedToImplement
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.rbigint import rbigint

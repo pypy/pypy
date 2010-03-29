@@ -4,7 +4,9 @@ Sequence-iteration is correctly implemented, thoroughly
 tested, and complete. The only missing feature is support
 for function-iteration.
 """
-from pypy.objspace.std.objspace import *
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 
 
 class W_AbstractSeqIterObject(W_Object):

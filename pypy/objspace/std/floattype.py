@@ -1,5 +1,6 @@
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.strutil import interp_string_to_float
 
@@ -48,5 +49,5 @@ float_typedef = StdTypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
 Convert a string or number to a floating point number, if possible.''',
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     )

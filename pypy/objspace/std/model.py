@@ -8,6 +8,12 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
 
+_registered_implementations = set()
+def registerimplementation(implcls):
+    """Hint to objspace.std.model to register the implementation class."""
+    assert issubclass(implcls, W_Object)
+    _registered_implementations.add(implcls)
+
 option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
@@ -132,8 +138,7 @@ class StdTypeModel:
         if config.objspace.std.withrope:
             del self.typeorder[stringobject.W_StringObject]
 
-        #check if we missed implementations
-        from pypy.objspace.std.objspace import _registered_implementations
+        # check if we missed implementations
         for implcls in _registered_implementations:
             assert (implcls in self.typeorder or
                     implcls in self.imported_but_not_registered), (
@@ -146,7 +151,7 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
-        
+
         if config.objspace.std.withsmallint:
             self.typeorder[boolobject.W_BoolObject] += [
                 (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
@@ -171,11 +176,11 @@ class StdTypeModel:
             ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
-            (complexobject.W_ComplexObject, 
+            (complexobject.W_ComplexObject,
                     complexobject.delegate_Long2Complex),
             ]
         self.typeorder[floatobject.W_FloatObject] += [
-            (complexobject.W_ComplexObject, 
+            (complexobject.W_ComplexObject,
                     complexobject.delegate_Float2Complex),
             ]
         self.typeorder[setobject.W_SetObject] += [
@@ -265,6 +270,60 @@ class StdTypeModel:
             self._typeorder_with_empty_usersubcls = result
         return self._typeorder_with_empty_usersubcls
 
+def _op_negated(function):
+    def op(space, w_1, w_2):
+        return space.not_(function(space, w_1, w_2))
+    return op
+
+def _op_swapped(function):
+    def op(space, w_1, w_2):
+        return function(space, w_2, w_1)
+    return op
+
+def _op_swapped_negated(function):
+    def op(space, w_1, w_2):
+        return space.not_(function(space, w_2, w_1))
+    return op
+
+OPERATORS = ['lt', 'le', 'eq', 'ne', 'gt', 'ge']
+OP_CORRESPONDANCES = [
+    ('eq', 'ne', _op_negated),
+    ('lt', 'gt', _op_swapped),
+    ('le', 'ge', _op_swapped),
+    ('lt', 'ge', _op_negated),
+    ('le', 'gt', _op_negated),
+    ('lt', 'le', _op_swapped_negated),
+    ('gt', 'ge', _op_swapped_negated),
+    ]
+for op1, op2, value in OP_CORRESPONDANCES[:]:
+    i = OP_CORRESPONDANCES.index((op1, op2, value))
+    OP_CORRESPONDANCES.insert(i+1, (op2, op1, value))
+
+def add_extra_comparisons():
+    """
+    Add the missing comparison operators if they were not explicitly
+    defined:  eq <-> ne  and  lt <-> le <-> gt <-> ge.
+    We try to add them in the order defined by the OP_CORRESPONDANCES
+    table, thus favouring swapping the arguments over negating the result.
+    """
+    originalentries = {}
+    for op in OPERATORS:
+        originalentries[op] = getattr(MM, op).signatures()
+
+    for op1, op2, correspondance in OP_CORRESPONDANCES:
+        mirrorfunc = getattr(MM, op2)
+        for types in originalentries[op1]:
+            t1, t2 = types
+            if t1 is t2:
+                if not mirrorfunc.has_signature(types):
+                    functions = getattr(MM, op1).getfunctions(types)
+                    assert len(functions) == 1, ('Automatic'
+                            ' registration of comparison functions'
+                            ' only work when there is a single method for'
+                            ' the operation.')
+                    mirrorfunc.register(correspondance(functions[0]), *types)
+
+
 # ____________________________________________________________
 
 W_ANY = W_Root
@@ -313,13 +372,13 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
                 break
         else:
             self.name = operatorsymbol
-            
+
         if extras.get('general__args__', False):
             self.argnames_after = ['__args__']
         if extras.get('w_varargs', False):
             self.argnames_after = ['w_args']
         if extras.get('varargs_w', False):
-            self.argnames_after = ['args_w']            
+            self.argnames_after = ['args_w']
         self.argnames_after += extras.get('extra_args', [])
 
     def install_not_sliced(self, typeorder, baked_perform_call=True):
@@ -352,3 +411,32 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         #
         mm.dispatch_tree = merge(self.dispatch_tree, other.dispatch_tree)
         return mm
+
+
+class MM:
+    """StdObjSpace multimethods"""
+
+    call    = StdObjSpaceMultiMethod('call', 1, ['__call__'],
+                                     general__args__=True)
+    init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
+    getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
+    # special visible multimethods
+    int_w   = StdObjSpaceMultiMethod('int_w', 1, [])     # returns an unwrapped int
+    str_w   = StdObjSpaceMultiMethod('str_w', 1, [])     # returns an unwrapped string
+    float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
+    uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
+    unicode_w = StdObjSpaceMultiMethod('unicode_w', 1, [])    # returns an unwrapped list of unicode characters
+    bigint_w = StdObjSpaceMultiMethod('bigint_w', 1, []) # returns an unwrapped rbigint
+    # NOTE: when adding more sometype_w() methods, you need to write a
+    # stub in default.py to raise a space.w_TypeError
+    marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
+    log     = StdObjSpaceMultiMethod('log', 1, [], extra_args=['base'])
+
+    # add all regular multimethods here
+    for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
+        if _name not in locals():
+            mm = StdObjSpaceMultiMethod(_symbol, _arity, _specialnames)
+            locals()[_name] = mm
+            del mm
+
+    pow.extras['defaults'] = (None,)

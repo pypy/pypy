@@ -1,7 +1,7 @@
 import py
 from pypy.objspace.std import complexobject as cobj
 from pypy.objspace.std import complextype as cobjtype
-from pypy.objspace.std.objspace import FailedToImplement
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std import StdObjSpace
 

@@ -1,7 +1,9 @@
-from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.strutil import string_to_int, string_to_w_long, ParseStringError, ParseStringOverflowError
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.strutil import (string_to_int, string_to_w_long,
+                                       ParseStringError,
+                                       ParseStringOverflowError)
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.objectmodel import instantiate
 
@@ -47,8 +49,8 @@ def retry_to_w_long(space, parser, base=0):
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
-    
-def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
+
+def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
@@ -64,7 +66,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
             except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)                
+                 w_longval = retry_to_w_long(space, e.parser)
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
@@ -77,7 +79,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
             except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)                
+                 w_longval = retry_to_w_long(space, e.parser)
         else:
             # otherwise, use the __int__() method
             w_obj = space.int(w_value)
@@ -116,13 +118,13 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
         except ParseStringOverflowError, e:
-            w_longval = retry_to_w_long(space, e.parser, base)                        
+            w_longval = retry_to_w_long(space, e.parser, base)
 
     if w_longval is not None:
         if not space.is_w(w_inttype, space.w_int):
             raise OperationError(space.w_OverflowError,
                                  space.wrap(
-                "long int too large to convert to int"))          
+                "long int too large to convert to int"))
         return w_longval
     elif space.is_w(w_inttype, space.w_int):
         # common case
@@ -143,5 +145,5 @@ representation of a floating point number!)  When converting a string, use
 the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     )

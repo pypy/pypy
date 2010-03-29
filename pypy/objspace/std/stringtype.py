@@ -1,4 +1,5 @@
-from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter import gateway
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
@@ -42,7 +43,7 @@ def wrapchar(space, c):
 
 def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
-    assert stop >= 0 
+    assert stop >= 0
     assert not space.config.objspace.std.withrope
     if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_str):
         return orig_obj
@@ -294,7 +295,7 @@ def descr__new__(space, w_stringtype, w_object=''):
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("str", basestring_typedef,
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     __doc__ = '''str(object) -> string
 
 Return a nice string representation of the object.
@@ -326,4 +327,3 @@ def stringstartswith(u_self, prefix, start, end):
         if u_self[start+i] != prefix[i]:
             return False
     return True
-    

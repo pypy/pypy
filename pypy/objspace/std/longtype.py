@@ -1,9 +1,9 @@
-from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter import gateway
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 
-def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
+def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
@@ -75,5 +75,5 @@ point argument will be truncated towards zero (this does not include a
 string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
-    __new__ = newmethod(descr__new__),
+    __new__ = gateway.interp2app(descr__new__),
     )

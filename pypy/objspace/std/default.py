@@ -1,6 +1,7 @@
 """Default implementation for some operation."""
 
-from pypy.objspace.std.objspace import *
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.register_all import register_all
 from pypy.rlib import objectmodel
 
 

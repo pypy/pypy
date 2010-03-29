@@ -1,17 +1,22 @@
 import operator, new
-from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std import model
+from pypy.objspace.std.multimethod import FailedToImplementArgs
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import formatd, LONG_BIT
 from pypy.rlib.rbigint import rbigint
+from pypy.tool.sourcetools import func_with_new_name
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
 class W_FloatObject(W_Object):
-    """This is a reimplementation of the CPython "PyFloatObject" 
+    """This is a reimplementation of the CPython "PyFloatObject"
        it is assumed that the constructor takes a real Python float as
        an argument"""
     from pypy.objspace.std.floattype import float_typedef as typedef
@@ -397,11 +402,13 @@ def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
     w_float2 = delegate_Long2Float(space, w_int2)
     return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
 
-StdObjSpace.MM.pow.register(pow_neg__Long_Long_None, W_LongObject, W_LongObject, W_NoneObject, order=1)
+model.MM.pow.register(pow_neg__Long_Long_None, W_LongObject, W_LongObject,
+                      W_NoneObject, order=1)
 
 def pow_neg__Int_Int_None(space, w_int1, w_int2, thirdarg):
     w_float1 = delegate_Int2Float(space, w_int1)
     w_float2 = delegate_Int2Float(space, w_int2)
     return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
 
-StdObjSpace.MM.pow.register(pow_neg__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=2)
+model.MM.pow.register(pow_neg__Int_Int_None, W_IntObject, W_IntObject,
+                      W_NoneObject, order=2)
