@@ -282,7 +282,7 @@ testmap = [
     RegrTest('test_largefile.py'),
     RegrTest('test_linuxaudiodev.py', skip="unsupported extension module"),
     RegrTest('test_list.py', core=True),
-    RegrTest('test_locale.py'),
+    RegrTest('test_locale.py', usemodules="_locale"),
     RegrTest('test_logging.py', usemodules='thread'),
     RegrTest('test_long.py', core=True),
     RegrTest('test_long_future.py', core=True),
