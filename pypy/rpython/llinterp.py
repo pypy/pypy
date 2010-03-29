@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import ComputedIntSymbolic, CDefinedIntSymbolic
+from pypy.rlib import rstackovf
 
 import sys, os
 import math
@@ -321,6 +322,18 @@ class LLFrame(object):
         except LLException, e:
             if not (catch_exception and op is block.operations[-1]):
                 raise
+        except RuntimeError, e:
+            rstackovf.check_stack_overflow(e)
+            # xxx fish fish fish for proper etype and evalue to use
+            rtyper = self.llinterpreter.typer
+            bk = rtyper.annotator.bookkeeper
+            classdef = bk.getuniqueclassdef(rstackovf._StackOverflow)
+            exdata = rtyper.getexceptiondata()
+            evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
+            etype = exdata.fn_type_of_exc_inst(evalue)
+            e = LLException(etype, evalue)
+            if not (catch_exception and op is block.operations[-1]):
+                raise e
 
         # determine nextblock and/or return value
         if len(block.exits) == 0:

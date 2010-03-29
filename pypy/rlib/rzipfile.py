@@ -217,7 +217,7 @@ class RZipFile(object):
                                 + fheader[_FH_EXTRA_FIELD_LENGTH])
             fname = fp.read(fheader[_FH_FILENAME_LENGTH])
             if fname != data.orig_filename:
-                raise RuntimeError, \
+                raise BadZipfile, \
                       'File name in directory "%s" and header "%s" differ.' % (
                           data.orig_filename, fname)
         fp.seek(self.start_dir, 0)

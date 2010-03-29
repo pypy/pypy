@@ -1,5 +1,6 @@
 from pypy.rpython import rclass
 from pypy.annotation import model as annmodel
+from pypy.rlib import rstackovf
 
 
 # the exceptions that can be implicitely raised by some operations
@@ -19,6 +20,7 @@ standardexceptions = {
     UnicodeDecodeError: True,
     UnicodeEncodeError: True,
     NotImplementedError: True,
+    rstackovf._StackOverflow: True,
     }
 
 

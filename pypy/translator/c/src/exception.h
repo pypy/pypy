@@ -104,6 +104,9 @@ void RPyConvertExceptionToCPython(void)
 		/* workaround against the py lib's BuiltinAssertionError */
 		pycls = PyExc_AssertionError;
 	}
+	else if (strcmp(clsname, "StackOverflow") == 0) {
+		pycls = PyExc_RuntimeError;
+	}
 	else {
 		pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
 		if (pycls == NULL || !PyExceptionClass_Check(pycls) ||

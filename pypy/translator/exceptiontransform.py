@@ -13,6 +13,7 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.rstackovf import _StackOverflow
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.tool.sourcetools import func_with_new_name
@@ -60,8 +61,8 @@ class BaseExceptionTransformer(object):
         exc_data, null_type, null_value = self.setup_excdata()
 
         rclass = translator.rtyper.type_system.rclass
-        (runtime_error_ll_exc_type,
-         runtime_error_ll_exc) = self.get_builtin_exception(RuntimeError)
+        (stackovf_ll_exc_type,
+         stackovf_ll_exc) = self.get_builtin_exception(_StackOverflow)
         (assertion_error_ll_exc_type,
          assertion_error_ll_exc) = self.get_builtin_exception(AssertionError)
         (n_i_error_ll_exc_type,
@@ -114,8 +115,8 @@ class BaseExceptionTransformer(object):
                 exc_data.exc_type = rclass.ll_inst_type(evalue)
                 exc_data.exc_value = evalue
 
-        def rpyexc_raise_runtime_error():
-            rpyexc_raise(runtime_error_ll_exc_type, runtime_error_ll_exc)
+        def rpyexc_raise_stack_overflow():
+            rpyexc_raise(stackovf_ll_exc_type, stackovf_ll_exc)
 
         self.rpyexc_occured_ptr = self.build_func(
             "RPyExceptionOccurred",
@@ -151,9 +152,9 @@ class BaseExceptionTransformer(object):
             lltype.Void,
             jitcallkind='rpyexc_raise') # for the JIT
 
-        self.rpyexc_raise_runtime_error_ptr = self.build_func(
-            "RPyRaiseRuntimeError",
-            self.noinline(rpyexc_raise_runtime_error),
+        self.rpyexc_raise_stack_overflow_ptr = self.build_func(
+            "RPyRaiseStackOverflow",
+            self.noinline(rpyexc_raise_stack_overflow),
             [], lltype.Void)
 
         self.rpyexc_fetch_exception_ptr = self.build_func(
@@ -237,10 +238,10 @@ class BaseExceptionTransformer(object):
             if block.operations[i].opname == 'stack_unwind':
                 # if there are stack_unwind ops left,
                 # the graph was not stackless-transformed
-                # so we need to raise a RuntimeError in any
+                # so we need to raise a StackOverflow in any
                 # case
                 block.operations[i].opname = "direct_call"
-                block.operations[i].args = [self.rpyexc_raise_runtime_error_ptr]
+                block.operations[i].args = [self.rpyexc_raise_stack_overflow_ptr]
 
     def replace_fetch_restore_operations(self, block):
         # the gctransformer will create these operations.  It looks as if the

@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
 from pypy.objspace.flow.operation import FunctionByName
 from pypy.rlib.unroll import unrolling_iterable, _unroller
+from pypy.rlib import rstackovf
 
 debug = 0
 
@@ -201,9 +202,13 @@ class FlowObjSpace(ObjSpace):
         if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
+        # special case for StackOverflow (see rlib/rstackovf.py)
+        if check_class == rstackovf.StackOverflow:
+            w_real_class = self.wrap(rstackovf._StackOverflow)
+            return ObjSpace.exception_match(self, w_exc_type, w_real_class)
         # checking a tuple of classes
         for w_klass in self.fixedview(w_check_class):
-            if ObjSpace.exception_match(self, w_exc_type, w_klass):
+            if self.exception_match(w_exc_type, w_klass):
                 return True
         return False
 

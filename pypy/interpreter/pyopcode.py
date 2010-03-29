@@ -18,6 +18,7 @@ from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import rstackovf
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -106,20 +107,13 @@ class __extend__(pyframe.PyFrame):
         except MemoryError:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
-        except NotImplementedError:
-            raise
-        except RuntimeError, e:
-            if we_are_translated():
-                # stack overflows should be the only kind of RuntimeErrors
-                # in translated PyPy
-                msg = "internal error (stack overflow?)"
-            else:
-                msg = str(e)
+        except rstackovf.StackOverflow, e:
+            rstackovf.check_stack_overflow(e)
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RuntimeError,
-                self.space.wrap(msg))
+                self.space.wrap("maximum recursion depth exceeded"))
         return next_instr
-        
+
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
         # catch asynchronous exceptions and turn them
         # into OperationErrors

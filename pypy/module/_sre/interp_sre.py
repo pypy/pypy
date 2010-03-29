@@ -177,10 +177,20 @@ def w_search(space, w_state, w_pattern_codes):
     state = space.interp_w(W_State, w_state)
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
-    return space.newbool(state.search(pattern_codes))
+    try:
+        res = state.search(pattern_codes)
+    except RuntimeError:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("Internal re error"))
+    return space.newbool(res)
 
 def w_match(space, w_state, w_pattern_codes):
     state = space.interp_w(W_State, w_state)
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
-    return space.newbool(state.match(pattern_codes))
+    try:
+        res = state.match(pattern_codes)
+    except RuntimeError:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("Internal re error"))
+    return space.newbool(res)

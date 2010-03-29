@@ -1,7 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import rarithmetic, objectmodel
+from pypy.rlib import rarithmetic, objectmodel, rstackovf
 from pypy.translator.stackless import frame
 from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE, STORAGE_TYPES_AND_FIELDS
 
@@ -382,7 +382,7 @@ def slp_main_loop(depth):
             # uncommon case: exceed the limit
             pending = pending.f_back
             pending.f_depth = depth - 1
-            e = RuntimeError()
+            e = rstackovf._StackOverflow()
             if not pending:
                 raise e
             global_state.exception = e

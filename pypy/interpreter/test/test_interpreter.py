@@ -263,3 +263,12 @@ class AppTestInterpreter:
     def test_identity(self):
         def f(x): return x
         assert f(666) == 666
+
+    def test_raise_recursion(self):
+        def f(): f()
+        try:
+            f()
+        except RuntimeError, e:
+            assert str(e) == "maximum recursion depth exceeded"
+        else:
+            assert 0, "should have raised!"

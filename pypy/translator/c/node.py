@@ -11,6 +11,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib.rarithmetic import isinf, isnan
+from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from py.builtin import BaseException
@@ -981,6 +982,8 @@ class PyObjectNode(ContainerNode):
                 return 'PyExc_' + value.__name__
             if value is py.code._AssertionError:
                 return 'PyExc_AssertionError'
+            if value is _StackOverflow:
+                return 'PyExc_RuntimeError'
         raise Exception("don't know how to simply render py object: %r" %
                         (value, ))
     
