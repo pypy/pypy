@@ -536,7 +536,7 @@ def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
     the func_closure of a function object."""
     try:
-        # This is simple on 2.6
+        # This is simple on 2.5
         return getattr(c, "cell_contents")
     except AttributeError:
         class X(object):
