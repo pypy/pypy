@@ -514,11 +514,7 @@ class UserDelAction(AsyncAction):
         self.weakrefs_w = []
         for i in range(len(pending_w)):
             w_ref = pending_w[i]
-            try:
-                w_ref.activate_callback()
-            except OperationError, e:
-                e.write_unraisable(space, 'weakref ', w_obj)
-                e.clear(space)   # break up reference cycles
+            w_ref.activate_callback()
         
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
