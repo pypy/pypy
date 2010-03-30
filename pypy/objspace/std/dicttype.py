@@ -142,7 +142,6 @@ register_all(vars(), globals())
 
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
-    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
     w_dict = space.call_function(w_type)
