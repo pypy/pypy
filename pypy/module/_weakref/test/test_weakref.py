@@ -411,3 +411,15 @@ class AppTestProxy(object):
 
         a = A()
         assert _weakref.ref(a) == a
+
+    def test_callback_raises(self):
+        import _weakref, gc
+        class A(object):
+            pass
+        a1 = A()
+        def callback(ref):
+            explode
+        ref1 = _weakref.ref(a1, callback)
+        del a1
+        gc.collect()
+        assert ref1() is None

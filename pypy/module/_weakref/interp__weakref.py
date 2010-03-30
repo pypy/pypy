@@ -23,7 +23,7 @@ class WeakrefLifeline(object):
         for i in range(len(self.refs_weak) - 1, -1, -1):
             w_ref = self.refs_weak[i]()
             if w_ref is not None:
-                w_ref.activate_callback()
+                self.space.user_del_action.register_weakref_callback(w_ref)
 
     def clear_all_weakrefs(self):
         """Clear all weakrefs.  This is called when an app-level object has

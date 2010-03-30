@@ -478,10 +478,15 @@ class UserDelAction(AsyncAction):
     def __init__(self, space):
         AsyncAction.__init__(self, space)
         self.dying_objects_w = []
+        self.weakrefs_w = []
         self.finalizers_lock_count = 0
 
     def register_dying_object(self, w_obj):
         self.dying_objects_w.append(w_obj)
+        self.fire()
+
+    def register_weakref_callback(self, w_ref):
+        self.weakrefs_w.append(w_ref)
         self.fire()
 
     def perform(self, executioncontext, frame):
@@ -505,8 +510,16 @@ class UserDelAction(AsyncAction):
             # finally, this calls the interp-level destructor for the
             # cases where there is both an app-level and a built-in __del__.
             w_obj._call_builtin_destructor()
-
-
+        pending_w = self.weakrefs_w
+        self.weakrefs_w = []
+        for i in range(len(pending_w)):
+            w_ref = pending_w[i]
+            try:
+                w_ref.activate_callback()
+            except OperationError, e:
+                e.write_unraisable(space, 'weakref ', w_obj)
+                e.clear(space)   # break up reference cycles
+        
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
 
