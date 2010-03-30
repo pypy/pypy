@@ -150,3 +150,20 @@ def test_from_import_abs_import():
     assert f.flags == fut.CO_FUTURE_ABSOLUTE_IMPORT
 
 
+def test_raw_doc():
+    s = 'r"Doc"\nfrom __future__ import with_statement\n'
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == fut.CO_FUTURE_WITH_STATEMENT
+
+def test_unicode_doc():
+    s = 'u"Doc"\nfrom __future__ import with_statement\n'
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == fut.CO_FUTURE_WITH_STATEMENT
+
+def test_raw_unicode_doc():
+    s = 'ru"Doc"\nfrom __future__ import with_statement\n'
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == fut.CO_FUTURE_WITH_STATEMENT

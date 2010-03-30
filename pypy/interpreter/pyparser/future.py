@@ -62,7 +62,7 @@ class FutureAutomaton(object):
     not recognized as a valid future statement or something that may
     precede a future statement.
     """
-    
+
     def __init__(self, future_flags, string):
         self.future_flags = future_flags
         self.s = string
@@ -83,7 +83,7 @@ class FutureAutomaton(object):
 
     def start(self):
         c = self.getc()
-        if c in ["'", '"'] and not self.docstring_consumed:
+        if c in ("'", '"', "r", "u") and not self.docstring_consumed:
             self.consume_docstring()
         elif c in whitespace_or_newline:
             self.consume_empty_line()
@@ -100,6 +100,10 @@ class FutureAutomaton(object):
 
     def consume_docstring(self):
         self.docstring_consumed = True
+        if self.getc() == "r":
+            self.pos += 1
+        if self.getc() == "u":
+            self.pos += 1
         endchar = self.getc()
         if (self.getc() == self.getc(+1) and
             self.getc() == self.getc(+2)):

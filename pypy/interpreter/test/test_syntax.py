@@ -359,6 +359,22 @@ if 1:
         exec s
         assert acontext.calls == '__enter__ __exit__'.split()
 
+    def test_raw_doc_string(self):
+        s = """r'doc'
+from __future__ import with_statement
+class Context(object):
+    def __enter__(self):
+        global enter
+        enter = True
+    def __exit__(self, *exc):
+        global exit
+        exit = True
+with Context() as w:
+    pass"""
+        exec s
+        assert enter
+        assert exit
+
     def test_with_as_var(self):
 
         s = """from __future__ import with_statement
