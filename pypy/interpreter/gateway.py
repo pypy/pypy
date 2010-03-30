@@ -23,6 +23,7 @@ from pypy.interpreter.argument import Arguments, Signature
 from pypy.tool.sourcetools import NiceCompile, compile2
 from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from pypy.rlib import rstackovf
+from pypy.rlib.objectmodel import we_are_translated
 
 # internal non-translatable parts: 
 import py
@@ -564,6 +565,8 @@ class BuiltinCode(eval.Code):
 
     def handle_exception(self, space, e):
         try:
+            if not we_are_translated():
+                raise
             raise e
         except KeyboardInterrupt: 
             raise OperationError(space.w_KeyboardInterrupt,
