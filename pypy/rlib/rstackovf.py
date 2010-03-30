@@ -21,5 +21,6 @@ def check_stack_overflow(e):
         return
     # before translation, an "except StackOverflow" includes all RuntimeErrors,
     # including NotImplementedError.  Special-case them.
-    if type(e) is not RuntimeError or 'recursion' not in str(e):
+    if ((type(e) is not RuntimeError or 'recursion' not in str(e))
+        and type(e) is not AttributeError):
         raise e
