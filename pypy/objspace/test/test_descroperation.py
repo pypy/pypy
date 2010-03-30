@@ -22,82 +22,92 @@ class AppTest_Descroperation:
         cls.space = conftest.gettestobjspace(**cls.OPTIONS)
 
     def test_special_methods(self):
-        class A(object):
-            def __lt__(self, other):
-                return "lt"
-            def __imul__(self, other):
-                return "imul"
-            def __sub__(self, other):
-                return "sub"
-            def __rsub__(self, other):
-                return "rsub"
-            def __pow__(self, other):
-                return "pow"
-            def __rpow__(self, other):
-                return "rpow"
-            def __neg__(self):
-                return "neg"
-        a = A()
-        assert (a < 5) == "lt"
-        assert (object() > a) == "lt"
-        a1 = a
-        a1 *= 4
-        assert a1 == "imul"
-        assert a - 2 == "sub"
-        assert a - object() == "sub"
-        assert 2 - a == "rsub"
-        assert object() - a == "rsub"
-        assert a ** 2 == "pow"
-        assert a ** object() == "pow"
-        assert 2 ** a == "rpow"
-        assert object() ** a == "rpow"
-        assert -a == "neg"
-
-        class B(A):
-            def __lt__(self, other):
-                return "B's lt"
-            def __imul__(self, other):
-                return "B's imul"
-            def __sub__(self, other):
-                return "B's sub"
-            def __rsub__(self, other):
-                return "B's rsub"
-            def __pow__(self, other):
-                return "B's pow"
-            def __rpow__(self, other):
-                return "B's rpow"
-            def __neg__(self):
-                return "B's neg"
-
-        b = B()
-        assert (a < b) == "lt"
-        assert (b > a) == "lt"
-        b1 = b
-        b1 *= a
-        assert b1 == "B's imul"
-        a1 = a
-        a1 *= b
-        assert a1 == "imul"
-        assert a - b == "B's rsub"
-        assert b - a == "B's sub"
-        assert b - b == "B's sub"
-        assert a ** b == "B's rpow"
-        assert b ** a == "B's pow"
-        assert b ** b == "B's pow"
-        assert -b == "B's neg"
-
-        class C(B):
+        class OldStyle:
             pass
-        c = C()
-        assert c - 1 == "B's sub"
-        assert 1 - c == "B's rsub"
-        assert c - b == "B's sub"
-        assert b - c == "B's sub"
+        for base in (object, OldStyle,):
+            class A(base):
+                def __lt__(self, other):
+                    return "lt"
+                def __imul__(self, other):
+                    return "imul"
+                def __sub__(self, other):
+                    return "sub"
+                def __rsub__(self, other):
+                    return "rsub"
+                def __pow__(self, other):
+                    return "pow"
+                def __rpow__(self, other):
+                    return "rpow"
+                def __neg__(self):
+                    return "neg"
+            a = A()
+            assert (a < 5) == "lt"
+            assert (object() > a) == "lt"
+            a1 = a
+            a1 *= 4
+            assert a1 == "imul"
+            assert a - 2 == "sub"
+            assert a - object() == "sub"
+            assert 2 - a == "rsub"
+            assert object() - a == "rsub"
+            assert a ** 2 == "pow"
+            assert a ** object() == "pow"
+            assert 2 ** a == "rpow"
+            assert object() ** a == "rpow"
+            assert -a == "neg"
 
-        assert c ** 1 == "B's pow"
-        assert 1 ** c == "B's rpow"
-        assert c ** b == "B's pow"
-        assert b ** c == "B's pow"
+            class B(A):
+                def __lt__(self, other):
+                    return "B's lt"
+                def __imul__(self, other):
+                    return "B's imul"
+                def __sub__(self, other):
+                    return "B's sub"
+                def __rsub__(self, other):
+                    return "B's rsub"
+                def __pow__(self, other):
+                    return "B's pow"
+                def __rpow__(self, other):
+                    return "B's rpow"
+                def __neg__(self):
+                    return "B's neg"
+
+            b = B()
+            assert (a < b) == "lt"
+            assert (b > a) == "lt"
+            b1 = b
+            b1 *= a
+            assert b1 == "B's imul"
+            a1 = a
+            a1 *= b
+            assert a1 == "imul"
+
+            if base is object:
+                assert a - b == "B's rsub"
+            else:
+                assert a - b == "sub"
+            assert b - a == "B's sub"
+            assert b - b == "B's sub"
+            if base is object:
+                assert a ** b == "B's rpow"
+            else:
+                assert a ** b == "pow"
+            assert b ** a == "B's pow"
+            assert b ** b == "B's pow"
+            assert -b == "B's neg"
+
+            class C(B):
+                pass
+            c = C()
+            assert c - 1 == "B's sub"
+            assert 1 - c == "B's rsub"
+            assert c - b == "B's sub"
+            assert b - c == "B's sub"
+
+            assert c ** 1 == "B's pow"
+            assert 1 ** c == "B's rpow"
+            assert c ** b == "B's pow"
+            assert b ** c == "B's pow"
 
     def test_getslice(self):
         class Sq(object):
@@ -370,6 +380,74 @@ class AppTest_Descroperation:
         A() == B()
         A() < B()
         assert l == [B, A, A, B]
+
+    def test_rich_comparison(self):
+        # Old-style
+        class A:
+            def __init__(self, a):
+                self.a = a
+            def __eq__(self, other):
+                return self.a == other.a
+        class B:
+            def __init__(self, a):
+                self.a = a
+        # New-style
+        class C(object):
+            def __init__(self, a):
+                self.a = a
+            def __eq__(self, other):
+                return self.a == other.a
+        class D(object):
+            def __init__(self, a):
+                self.a = a
+        
+        assert A(1) == B(1)
+        assert B(1) == A(1)
+        assert A(1) == C(1)
+        assert C(1) == A(1)
+        assert A(1) == D(1)
+        assert D(1) == A(1)
+        assert C(1) == D(1)
+        assert D(1) == C(1)
+        assert not(A(1) == B(2))
+        assert not(B(1) == A(2))
+        assert not(A(1) == C(2))
+        assert not(C(1) == A(2))
+        assert not(A(1) == D(2))
+        assert not(D(1) == A(2))
+        assert not(C(1) == D(2))
+        assert not(D(1) == C(2))
+
+    def test_addition(self):
+        # Old-style
+        class A:
+            def __init__(self, a):
+                self.a = a
+            def __add__(self, other):
+                return self.a + other.a
+            __radd__ = __add__
+        class B:
+            def __init__(self, a):
+                self.a = a
+        # New-style
+        class C(object):
+            def __init__(self, a):
+                self.a = a
+            def __add__(self, other):
+                return self.a + other.a
+            __radd__ = __add__
+        class D(object):
+            def __init__(self, a):
+                self.a = a
+
+        assert A(1) + B(2) == 3
+        assert B(1) + A(2) == 3
+        assert A(1) + C(2) == 3
+        assert C(1) + A(2) == 3
+        assert A(1) + D(2) == 3
+        assert D(1) + A(2) == 3
+        assert C(1) + D(2) == 3
+        assert D(1) + C(2) == 3
 
     def test_mod_failure(self):
         try:
