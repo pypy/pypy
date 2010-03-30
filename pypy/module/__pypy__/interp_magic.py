@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.objspace.std.typeobject import MethodCache
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
@@ -24,13 +25,15 @@ def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
     assert space.config.objspace.std.withmethodcachecounter
-    return space.newtuple([space.newint(space.method_cache_hits.get(name, 0)),
-                           space.newint(space.method_cache_misses.get(name, 0)),])
+    cache = space.fromcache(MethodCache)
+    return space.newtuple([space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0))])
 method_cache_counter.unwrap_spec = [ObjSpace, str]
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
     assert space.config.objspace.std.withmethodcachecounter
-    space.method_cache_misses = {}
-    space.method_cache_hits = {}
+    cache = space.fromcache(MethodCache)
+    cache.misses = {}
+    cache.hits = {}
 

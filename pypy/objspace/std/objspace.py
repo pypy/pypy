@@ -56,9 +56,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         self._install_multimethods()
 
-        if self.config.objspace.std.withmethodcache:
-            self._setup_method_cache()
-
         # singletons
         self.w_None = W_NoneObject.w_None
         self.w_False = W_BoolObject.w_False
@@ -89,15 +86,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def get_builtin_types(self):
         return self.builtin_types
-
-    def _setup_method_cache(self):
-        SIZE = 1 << self.config.objspace.std.methodcachesizeexp
-        self.method_cache_versions = [None] * SIZE
-        self.method_cache_names = [None] * SIZE
-        self.method_cache_lookup_where = [(None, None)] * SIZE
-        if self.config.objspace.std.withmethodcachecounter:
-            self.method_cache_hits = {}
-            self.method_cache_misses = {}
 
     def _install_multimethods(self):
         """Install all the MultiMethods into the space instance."""
