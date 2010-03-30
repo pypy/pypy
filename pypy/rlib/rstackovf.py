@@ -13,7 +13,7 @@ class StackOverflow(RuntimeError):
 _StackOverflow = StackOverflow
 
 # replace StackOverflow with this, which works in untranslated code too
-StackOverflow = ((RuntimeError, RuntimeError),)
+StackOverflow = ((RuntimeError, AttributeError),)
 
 
 def check_stack_overflow(e):
