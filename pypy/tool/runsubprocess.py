@@ -3,7 +3,9 @@ with a hack to prevent bogus out-of-memory conditions in os.fork()
 if the current process already grew very large.
 """
 
-import sys, os
+import sys
+import os
+import warnings
 from subprocess import PIPE, Popen
 
 def run_subprocess(executable, args, env=None, cwd=None):
@@ -44,6 +46,9 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
     # do this at import-time, when the process is still tiny
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
+    # Let's not hear about os.popen2's deprecation.
+    warnings.filterwarnings("ignore", "popen2", DeprecationWarning,
+                            "runsubprocess")
     _child_stdin, _child_stdout = os.popen2(
         "'%s' '%s'" % (sys.executable, _source))
 
