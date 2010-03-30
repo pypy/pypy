@@ -1,3 +1,4 @@
+import sys
 from pypy.rlib.objectmodel import we_are_translated
 
 # RPython raises StackOverflow instead of just RuntimeError when running
@@ -13,14 +14,14 @@ class StackOverflow(RuntimeError):
 _StackOverflow = StackOverflow
 
 # replace StackOverflow with this, which works in untranslated code too
-StackOverflow = ((RuntimeError, AttributeError),)
+StackOverflow = ((RuntimeError, RuntimeError),)
 
 
-def check_stack_overflow(e):
+def check_stack_overflow():
     if we_are_translated():
         return
     # before translation, an "except StackOverflow" includes all RuntimeErrors,
     # including NotImplementedError.  Special-case them.
-    if ((type(e) is not RuntimeError or 'recursion' not in str(e))
-        and type(e) is not AttributeError):
-        raise e
+    e, v, _ = sys.exc_info()
+    if e is not RuntimeError or 'recursion' not in str(v):
+        raise

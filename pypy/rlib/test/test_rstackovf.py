@@ -25,6 +25,7 @@ class RecurseGetAttr(object):
         return getattr(self, attr)
 
 def test_raises_AttributeError():
+    py.test.skip("not RPython code...")
     rga = RecurseGetAttr()
     try:
         rga.y

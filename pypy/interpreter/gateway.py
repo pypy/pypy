@@ -574,7 +574,7 @@ class BuiltinCode(eval.Code):
         except MemoryError: 
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow, e:
-            rstackovf.check_stack_overflow(e)
+            rstackovf.check_stack_overflow()
             raise OperationError(space.w_RuntimeError,
                                 space.wrap("maximum recursion depth exceeded"))
 

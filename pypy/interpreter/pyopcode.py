@@ -109,7 +109,7 @@ class __extend__(pyframe.PyFrame):
                 self.space.w_MemoryError)
         except rstackovf.StackOverflow, e:
             # Note that this case catches AttributeError!
-            rstackovf.check_stack_overflow(e)
+            rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RuntimeError,
                 self.space.wrap("maximum recursion depth exceeded"))
