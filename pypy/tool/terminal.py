@@ -25,8 +25,8 @@ CONTROLS = {
 
 # List of numeric capabilities
 VALUES = {
-    'COLUMNS':'cols', # Width of the terminal (None for unknown)
-    'LINES':'lines',  # Height of the terminal (None for unknown)
+    'COLUMNS':'cols', # Width of the terminal (80 for unknown)
+    'LINES':'lines',  # Height of the terminal (25 for unknown)
     'MAX_COLORS': 'colors',
 }
 
@@ -37,8 +37,9 @@ def default():
         setattr(MODULE, 'BG_%s' % color, '')
     for control in CONTROLS:
         setattr(MODULE, control, '')
-    for value in VALUES:
-        setattr(MODULE, value, None)
+    MODULE.COLUMNS = 80
+    MODULE.LINES = 25
+    MODULE.MAX_COLORS = 1
 
 def setup():
     """Set the terminal control strings"""
