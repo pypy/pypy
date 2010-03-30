@@ -372,6 +372,12 @@ class AppTest_DictObject:
         assert {}.fromkeys([]) == {}
         assert {1: 0, 2: 0, 3: 0}.fromkeys([1, '1'], 'j') == (
                           {1: 'j', '1': 'j'})
+        class D(dict):
+            def __new__(cls):
+                return E()
+        class E(dict):
+            pass
+        assert isinstance(D.fromkeys([1, 2]), E)
 
     def test_str_uses_repr(self):
         class D(dict):

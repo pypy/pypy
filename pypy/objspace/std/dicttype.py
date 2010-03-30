@@ -145,7 +145,7 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
-    w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+    w_dict = space.call_function(w_type)
     w_iter = space.iter(w_keys)
     while True:
         try:
