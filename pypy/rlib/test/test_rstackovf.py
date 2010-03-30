@@ -1,4 +1,5 @@
 import sys
+import py
 from pypy.rlib import rstackovf
 
 def recurse(n):
@@ -17,6 +18,21 @@ def f(n):
 
 def test_direct():
     assert f(sys.maxint) == 1
+
+class RecurseGetAttr(object):
+
+    def __getattr__(self, attr):
+        return getattr(self, attr)
+
+def test_raises_AttributeError():
+    rga = RecurseGetAttr()
+    try:
+        rga.y
+    except AttributeError:
+        pass
+    else:
+        py.test.skip("interpreter is not badly behaved")
+    py.test.raises(rstackovf.StackOverflow, getattr, rga, "y")
 
 def test_llinterp():
     from pypy.rpython.test.test_llinterp import interpret
