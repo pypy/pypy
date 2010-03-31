@@ -47,8 +47,8 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
     # Let's not hear about os.popen2's deprecation.
-    warnings.filterwarnings("ignore", "popen2", DeprecationWarning,
-                            "runsubprocess")
+    warnings.filterwarnings("ignore", ".*popen2.*", DeprecationWarning,
+                            "pypy.tool.runsubprocess")
     _child_stdin, _child_stdout = os.popen2(
         "'%s' '%s'" % (sys.executable, _source))
 
