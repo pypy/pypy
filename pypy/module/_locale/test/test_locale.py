@@ -22,8 +22,15 @@ class AppTestLocaleTrivia:
         current = _locale.setlocale(_locale.LC_ALL)
         try:
             try:
-                _locale.setlocale(_locale.LC_ALL,
-                                  space.str_w(cls.w_language_en))
+                # some systems are only UTF-8 oriented
+                try:
+                    _locale.setlocale(_locale.LC_ALL,
+                                      space.str_w(cls.w_language_en))
+                except _locale.Error:
+                    _locale.setlocale(_locale.LC_ALL,
+                                      space.str_w(cls.w_language_utf8))
+                    cls.w_language_en = cls.w_language_utf8
+
                 _locale.setlocale(_locale.LC_ALL,
                                   space.str_w(cls.w_language_pl))
             except _locale.Error:
@@ -111,10 +118,11 @@ class AppTestLocaleTrivia:
         assert string.lowercase == lcase
         assert string.uppercase == ucase
 
-        _locale.setlocale(_locale.LC_ALL, self.language_en)
+        if self.language_en != self.language_utf8:
+            _locale.setlocale(_locale.LC_ALL, self.language_en)
 
-        assert string.lowercase != lcase
-        assert string.uppercase != ucase
+            assert string.lowercase != lcase
+            assert string.uppercase != ucase
 
     def test_localeconv(self):
         import _locale
