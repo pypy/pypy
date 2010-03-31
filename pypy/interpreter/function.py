@@ -295,8 +295,13 @@ class Function(Wrappable):
     def descr_function__setstate__(self, space, w_args):
         from pypy.interpreter.pycode import PyCode
         args_w = space.unpackiterable(w_args)
-        (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs_w,
-         w_func_dict, w_module) = args_w
+        try:
+            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs_w,
+             w_func_dict, w_module) = args_w
+        except ValueError:
+            # wrong args
+            raise OperationError(space.w_ValueError,
+                         space.wrap("Wrong arguments to function.__setstate__"))
 
         self.space = space
         self.name = space.str_w(w_name)

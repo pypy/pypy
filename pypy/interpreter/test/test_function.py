@@ -288,6 +288,11 @@ class AppTestFunction:
         f = lambda: 42
         assert f.func_doc is None
 
+    def test_setstate_called_with_wrong_args(self):
+        f = lambda: 42
+        # not sure what it should raise, since CPython doesn't have setstate
+        # on function types
+        raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
 
 class AppTestMethod: 
     def test_simple_call(self):
