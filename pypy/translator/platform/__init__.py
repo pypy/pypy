@@ -114,9 +114,12 @@ class Platform(object):
             for line in stderr.splitlines():
                 log.WARNING(line)
 
-    
+    def _preprocess_include_dirs(self, include_dirs):
+        # hook for maemo
+        return include_dirs
+
     def _compile_args_from_eci(self, eci, standalone):
-        include_dirs = self._preprocess_dirs(eci.include_dirs)
+        include_dirs = self._preprocess_include_dirs(eci.include_dirs)
         args = self._includedirs(include_dirs)
         if standalone:
             extra = self.standalone_only

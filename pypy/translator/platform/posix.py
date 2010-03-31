@@ -45,10 +45,6 @@ class BasePosix(Platform):
                                  cwd=str(exe_name.dirpath()))
         return exe_name
 
-    def _preprocess_dirs(self, include_dirs):
-        # hook for maemo
-        return include_dirs
-
     def _pkg_config(self, lib, opt, default):
         try:
             ret, out, err = _run_subprocess("pkg-config", [lib, opt])
@@ -87,7 +83,7 @@ class BasePosix(Platform):
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in
-                           self._preprocess_dirs(eci.include_dirs)]
+                           self._preprocess_include_dirs(eci.include_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [

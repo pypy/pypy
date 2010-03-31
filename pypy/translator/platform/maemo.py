@@ -42,7 +42,7 @@ class Maemo(Linux):
             self.copied_cache[dir_from] = new_dirpath
             return new_dirpath
     
-    def _preprocess_dirs(self, include_dirs):
+    def _preprocess_include_dirs(self, include_dirs):
         """ Tweak includedirs so they'll be available through scratchbox
         """
         res_incl_dirs = []
