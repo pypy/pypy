@@ -7,18 +7,18 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
-import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
+from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 g = globals()
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
 POP_BLOCK END_FINALLY'''.split():
-    g[op] = opcode.opmap[op]
-HAVE_ARGUMENT = opcode.HAVE_ARGUMENT
+    g[op] = stdlib_opcode.opmap[op]
+HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
 class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
@@ -541,7 +541,7 @@ class PyFrame(eval.Frame):
                 if delta_iblock < min_delta_iblock:
                     min_delta_iblock = delta_iblock
 
-            if op >= opcode.HAVE_ARGUMENT:
+            if op >= stdlib_opcode.HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
