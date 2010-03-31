@@ -18,10 +18,11 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
         # need of winsock2.  Remove this when separate compilation is
         # available...
         'winsock2.h',
-        'openssl/ssl.h']
+        'openssl/ssl.h',
+        'openssl/err.h']
 else:
     libraries = ['ssl', 'crypto']
-    includes = ['openssl/ssl.h']
+    includes = ['openssl/ssl.h', 'openssl/err.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
@@ -140,7 +141,7 @@ ssl_external('SSL_connect', [SSL_P], rffi.INT)
 ssl_external('SSL_get_error', [SSL_P, rffi.INT], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
-ssl_external('ERR_error_string', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 ssl_external('SSL_get_peer_certificate', [SSL_P], X509_P)
 ssl_external('X509_get_subject_name', [X509_P], X509_NAME_P)
 ssl_external('X509_get_issuer_name', [X509_P], X509_NAME_P)
