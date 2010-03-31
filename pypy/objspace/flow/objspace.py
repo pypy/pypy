@@ -457,7 +457,7 @@ class FlowObjSpace(ObjSpace):
         # XXX same as w_KeyboardInterrupt()
         raise RuntimeError("the interpreter raises RuntimeError during "
                            "flow graph construction")
-    w_RuntimeError = property(w_RuntimeError)
+    w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
 
 # the following gives us easy access to declare more for applications:
 NOT_REALLY_CONST = {
