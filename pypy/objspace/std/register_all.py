@@ -44,6 +44,8 @@ def register_all(module_dict, *alt_ns):
         func = hack_func_by_name(funcname, namespaces)
         func.register(obj, *l)
 
+    model.add_extra_comparisons()
+
 
 def hack_func_by_name(funcname, namespaces):
     for ns in namespaces:

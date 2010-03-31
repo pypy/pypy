@@ -89,7 +89,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def _install_multimethods(self):
         """Install all the MultiMethods into the space instance."""
-        model.add_extra_comparisons()
         for name, mm in model.MM.__dict__.items():
             if not isinstance(mm, model.StdObjSpaceMultiMethod):
                 continue
