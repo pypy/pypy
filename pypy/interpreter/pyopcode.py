@@ -7,18 +7,16 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
-from pypy.interpreter import gateway, function, eval
-from pypy.interpreter import pyframe, pytraceback
+from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit
+from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from pypy.tool.stdlib_opcode import unrolling_opcode_descs
-from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib import rstackovf
+from pypy.tool.stdlib_opcode import (opcodedesc, HAVE_ARGUMENT,
+                                     unrolling_opcode_descs,
+                                     opcode_method_names)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
