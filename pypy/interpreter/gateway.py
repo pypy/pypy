@@ -576,6 +576,8 @@ class BuiltinCode(eval.Code):
         except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
             raise space.prebuilt_recursion_error
+        except RuntimeError:   # not on top of py.py
+            raise OperationError(space.w_RuntimeError, space.w_None)
 
 # (verbose) performance hack below
 
