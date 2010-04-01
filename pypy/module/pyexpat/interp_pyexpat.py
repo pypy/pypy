@@ -33,7 +33,7 @@ eci = rffi_platform.configure_external_library(
      ])
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
-XML_Parser = rffi.VOIDP # an opaque pointer
+XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
 
 class CConfigure:
     _compilation_info_ = eci
@@ -475,7 +475,7 @@ information passed to the ExternalEntityRefHandler."""
         global_storage.get_nonmoving_id(
             CallbackData(space, parser),
             id=rffi.cast(lltype.Signed, parser.itself))
-        XML_SetUserData(parser.itself, parser.itself)
+        XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
 
         # copy handlers from self
         for i in range(NB_HANDLERS):
@@ -621,7 +621,7 @@ Return a new XML parser object."""
     global_storage.get_nonmoving_id(
         CallbackData(space, parser),
         id=rffi.cast(lltype.Signed, parser.itself))
-    XML_SetUserData(parser.itself, parser.itself)
+    XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
 
     return space.wrap(parser)
 ParserCreate.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]

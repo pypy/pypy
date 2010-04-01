@@ -448,7 +448,7 @@ def CCallback(args, res):
     return lltype.Ptr(lltype.FuncType(args, res))
 CCallback._annspecialcase_ = 'specialize:memo'
 
-def COpaque(name, hints=None, compilation_info=None):
+def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
     if compilation_info is None:
         compilation_info = ExternalCompilationInfo()
     if hints is None:
@@ -456,7 +456,10 @@ def COpaque(name, hints=None, compilation_info=None):
     else:
         hints = hints.copy()
     hints['external'] = 'C'
-    hints['c_name'] = name
+    if name is not None:
+        hints['c_name'] = name
+    if ptr_typedef is not None:
+        hints['c_pointer_typedef'] = ptr_typedef
     def lazy_getsize(cache={}):
         from pypy.rpython.tool import rffi_platform
         try:
@@ -470,7 +473,8 @@ def COpaque(name, hints=None, compilation_info=None):
     return lltype.OpaqueType(name, hints)
 
 def COpaquePtr(*args, **kwds):
-    return lltype.Ptr(COpaque(*args, **kwds))
+    typedef = kwds.pop('typedef', None)
+    return lltype.Ptr(COpaque(ptr_typedef=typedef, *args, **kwds))
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,

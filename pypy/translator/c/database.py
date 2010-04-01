@@ -101,6 +101,9 @@ class LowLevelDatabase(object):
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
         elif isinstance(T, Ptr):
+            if (isinstance(T.TO, OpaqueType) and
+                T.TO.hints.get('c_pointer_typedef') is not None):
+                return '%s @' % T.TO.hints['c_pointer_typedef']
             try:
                 node = self.gettypedefnode(T.TO)
             except NoCorrespondingNode:

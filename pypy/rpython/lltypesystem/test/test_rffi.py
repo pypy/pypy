@@ -280,6 +280,28 @@ class BaseTestRffi:
         f1 = self.compile(f, [])
         assert f1() == 'a'
 
+    def test_opaque_typedef(self):
+        code = """
+        #include <stddef.h>
+        struct stuff;
+        typedef struct stuff *stuff_ptr;
+        static int get(stuff_ptr ptr) { return (ptr != NULL); }
+        """
+
+        eci = ExternalCompilationInfo(
+            post_include_bits = [code]
+        )
+
+        STUFFP = COpaquePtr(typedef='stuff_ptr', compilation_info=eci)
+        ll_get = llexternal('get', [STUFFP], lltype.Signed,
+                            compilation_info=eci)
+
+        def f():
+            return ll_get(lltype.nullptr(STUFFP.TO))
+
+        f1 = self.compile(f, [])
+        assert f1() == 0
+
     def return_char(self, signed):
         ctype_pref = ["un", ""][signed]
         rffi_type = [UCHAR, SIGNEDCHAR][signed]

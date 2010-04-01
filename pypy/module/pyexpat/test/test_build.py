@@ -18,6 +18,8 @@ except (ImportError, CompilationError):
 
 def test_build():
     def entry_point(argv):
+        parser = interp_pyexpat.XML_ParserCreate("test")
+        interp_pyexpat.XML_ParserFree(parser)
         res = interp_pyexpat.XML_ErrorString(3)
         os.write(1, rffi.charp2str(res))
         return 0
