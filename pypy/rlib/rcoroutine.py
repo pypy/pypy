@@ -111,7 +111,7 @@ def make_coroutine_classes(baseclass):
             self.temp_exc = exc
 
         def check_for_zombie(self, obj):
-            return co in self.to_delete
+            return obj in self.to_delete
 
         def postpone_deletion(self, obj):
             self.to_delete.append(obj)
