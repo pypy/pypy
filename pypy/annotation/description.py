@@ -689,8 +689,8 @@ class MethodDesc(Desc):
     knowntype = types.MethodType
 
     def __init__(self, bookkeeper, funcdesc, originclassdef, 
-                 selfclassdef, name, flags={}):
-        super(MethodDesc, self).__init__(bookkeeper)
+                 selfclassdef, name, flags={}, pyobj=None):
+        super(MethodDesc, self).__init__(bookkeeper, pyobj)
         self.funcdesc = funcdesc
         self.originclassdef = originclassdef
         self.selfclassdef = selfclassdef
