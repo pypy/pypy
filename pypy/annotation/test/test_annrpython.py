@@ -1768,6 +1768,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert s == annmodel.SomeString()
 
+    def test_more_complex_method_hasattr(self):
+        class X:
+            def m(self):
+                return 4
+            m.attr = 32
+        def f():
+            x = X()
+            if hasattr(x.m, "attr"):
+                return 3
+            return 0
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        s_res = annmodel.SomeInteger(True)
+        s_res.const = 3
+        assert s == s_res
+
     def test_dont_see_AttributeError_clause(self):
         class Stuff:
             def _freeze_(self):

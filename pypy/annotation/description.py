@@ -293,7 +293,8 @@ class FunctionDesc(Desc):
         return self.bookkeeper.getmethoddesc(self, 
                                              classdef,   # originclassdef,
                                              None,       # selfclassdef
-                                             name)
+                                             name,
+                                             pyobj=self.pyobj)
 
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         shape = rawshape(args)
@@ -727,7 +728,8 @@ class MethodDesc(Desc):
                                              self.originclassdef,
                                              newselfclassdef,
                                              self.name,
-                                             flags)
+                                             flags,
+                                             self.pyobj)
 
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
