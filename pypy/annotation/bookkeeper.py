@@ -523,7 +523,7 @@ class Bookkeeper:
                         self.getdesc(pyobj.im_func),            # funcdesc
                         self.getuniqueclassdef(origincls),      # originclassdef
                         classdef,                               # selfclassdef
-                        name, pyobj=pyobj)
+                        name)
             else:
                 # must be a frozen pre-built constant, but let's check
                 try:
@@ -552,7 +552,7 @@ class Bookkeeper:
         return result
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
-                      flags={}, pyobj=None):
+                      flags={}):
         flagskey = flags.items()
         flagskey.sort()
         key = funcdesc, originclassdef, selfclassdef, name, tuple(flagskey)
@@ -560,7 +560,7 @@ class Bookkeeper:
             return self.methoddescs[key]
         except KeyError:
             result = description.MethodDesc(self, funcdesc, originclassdef,
-                                            selfclassdef, name, flags, pyobj)
+                                            selfclassdef, name, flags)
             self.methoddescs[key] = result
             return result
 
