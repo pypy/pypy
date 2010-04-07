@@ -294,6 +294,8 @@ class TranslationDriver(SimpleTaskEngine):
         return res
 
     def task_annotate(self):
+        """ Annotate
+        """
         # includes annotation and annotatation simplifications
         translator = self.translator
         policy = self.policy
@@ -349,6 +351,8 @@ class TranslationDriver(SimpleTaskEngine):
 
 
     def task_rtype_lltype(self):
+        """ RTyping - lltype version
+        """
         rtyper = self.translator.buildrtyper(type_system='lltype')
         insist = not self.config.translation.insist
         rtyper.specialize(dont_simplify_again=True,
@@ -358,6 +362,8 @@ class TranslationDriver(SimpleTaskEngine):
     RTYPE = 'rtype_lltype'
 
     def task_rtype_ootype(self):
+        """ RTyping - ootype version
+        """
         # Maybe type_system should simply be an option used in task_rtype
         insist = not self.config.translation.insist
         rtyper = self.translator.buildrtyper(type_system="ootype")
@@ -368,6 +374,9 @@ class TranslationDriver(SimpleTaskEngine):
     OOTYPE = 'rtype_ootype'
 
     def task_pyjitpl_lltype(self):
+        """ Generate bytecodes for JIT and flow the JIT helper functions
+        ootype version
+        """
         get_policy = self.extra['jitpolicy']
         self.jitpolicy = get_policy(self)
         #
@@ -383,6 +392,9 @@ class TranslationDriver(SimpleTaskEngine):
                                   "JIT compiler generation")
 
     def task_pyjitpl_ootype(self):
+        """ Generate bytecodes for JIT and flow the JIT helper functions
+        ootype version
+        """
         get_policy = self.extra['jitpolicy']
         self.jitpolicy = get_policy(self)
         #
@@ -398,6 +410,8 @@ class TranslationDriver(SimpleTaskEngine):
                                   "JIT compiler generation")
 
     def task_backendopt_lltype(self):
+        """ Run all backend optimizations - lltype version
+        """
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
     #
@@ -407,6 +421,8 @@ class TranslationDriver(SimpleTaskEngine):
     BACKENDOPT = 'backendopt_lltype'
 
     def task_backendopt_ootype(self):
+        """ Run all backend optimizations - ootype version
+        """
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
     #
@@ -437,6 +453,8 @@ class TranslationDriver(SimpleTaskEngine):
                 raise Exception(str(e) + '\n' + i)
 
     def task_database_c(self):
+        """ Create a database for further backend generation
+        """
         translator = self.translator
         if translator.annotator is not None:
             translator.frozen = True
@@ -467,7 +485,9 @@ class TranslationDriver(SimpleTaskEngine):
                             "Creating database for generating c source",
                             earlycheck = possibly_check_for_boehm)
     
-    def task_source_c(self):  # xxx messy
+    def task_source_c(self):
+        """ Create C source files from the generated database
+        """
         translator = self.translator
         cbuilder = self.cbuilder
         database = self.database
@@ -495,6 +515,8 @@ class TranslationDriver(SimpleTaskEngine):
         return mkexename(py.path.local(newexename))
 
     def create_exe(self):
+        """ Copy the compiled executable into translator/goal
+        """
         if self.exe_name is not None:
             exename = mkexename(self.c_entryp)
             newexename = self.compute_exe_name()
@@ -502,7 +524,10 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 
-    def task_compile_c(self): # xxx messy
+    def task_compile_c(self):
+        """ Compile the generated C code using either makefile or
+        translator/platform
+        """
         cbuilder = self.cbuilder
         cbuilder.compile()
 
