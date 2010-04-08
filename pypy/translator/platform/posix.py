@@ -123,7 +123,8 @@ class BasePosix(Platform):
         else:
             path = path_to_makefile
         log.execute('make %s in %s' % (" ".join(extra_opts), path))
-        returncode, stdout, stderr = _run_subprocess(self.make_cmd, ['-C', str(path)] + extra_opts)
+        returncode, stdout, stderr = _run_subprocess(
+            self.make_cmd, ['-C', str(path)] + extra_opts)
         self._handle_error(returncode, stdout, stderr, path.join('make'))
 
 class Definition(object):

@@ -88,5 +88,6 @@ class Maemo(Linux):
         else:
             path = path_to_makefile
         log.execute('make %s in %s' % (" ".join(extra_opts), path))
-        returncode, stdout, stderr = _run_subprocess('/scratchbox/login', ['make', '-C', str(path)] + extra_opts)
+        returncode, stdout, stderr = _run_subprocess(
+            '/scratchbox/login', ['make', '-C', str(path)] + extra_opts)
         self._handle_error(returncode, stdout, stderr, path.join('make'))
