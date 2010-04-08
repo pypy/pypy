@@ -255,17 +255,17 @@ class MsvcPlatform(Platform):
 
         return m
 
-    def execute_makefile(self, path_to_makefile):
+    def execute_makefile(self, path_to_makefile, extra_opts=[]):
         if isinstance(path_to_makefile, NMakefile):
             path = path_to_makefile.makefile_dir
         else:
             path = path_to_makefile
-        log.execute('make in %s' % (path,))
+        log.execute('make %s in %s' % (" ".join(extra_opts), path))
         oldcwd = path.chdir()
         try:
             returncode, stdout, stderr = _run_subprocess(
                 'nmake',
-                ['/nologo', '/f', str(path.join('Makefile'))])
+                ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts)
         finally:
             oldcwd.chdir()
 
