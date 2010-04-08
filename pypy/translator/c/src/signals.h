@@ -70,7 +70,11 @@ int pypysig_poll(void);   /* => signum or -1 */
    cleared again.  The variable is exposed and RPython code is free to
    use the other bits in any way. */
 #define PENDING_SIGNAL_BIT   (LONG_MIN)   /* high bit */
-extern long pypysig_occurred;
+/* This is a struct for the JIT. See interp_signal.py. */
+struct pypysig_long_struct {
+    long value;
+};
+extern struct pypysig_long_struct pypysig_occurred;
 
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
@@ -87,9 +91,8 @@ void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_occurred); }
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-
-long pypysig_occurred;
-static volatile long *pypysig_occurred_v = (volatile long *)&pypysig_occurred;
+struct pypysig_long_struct pypysig_occurred;
+static volatile long *pypysig_occurred_v = (volatile long *)&pypysig_occurred.value;
 static volatile int pypysig_flags[NSIG];
 
 void pypysig_ignore(int signum)
@@ -159,7 +162,7 @@ int pypysig_poll(void)
             {
                 pypysig_flags[i] = 0;
                 /* maybe another signal is pending: */
-                pypysig_occurred |= PENDING_SIGNAL_BIT;
+                pypysig_occurred.value |= PENDING_SIGNAL_BIT;
                 return i;
             }
     }

@@ -39,7 +39,10 @@ pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # pointless and a performance issue
 
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
-LONG_STRUCT = lltype.Struct('LONG_STRUCT', ('value', lltype.Signed))
+struct_name = 'pypysig_long_struct'
+LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
+                            hints={'c_name' : struct_name, 'external' : 'C'})
+del struct_name
 
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
@@ -51,10 +54,10 @@ c_pause = external('pause', [], rffi.INT)
 class SignalActionFlag(AbstractActionFlag):
     def get(self):
         p = pypysig_getaddr_occurred()
-        return p.value
+        return p.c_value
     def set(self, value):
         p = pypysig_getaddr_occurred()
-        p.value = value
+        p.c_value = value
 
 
 class CheckSignalAction(AsyncAction):
