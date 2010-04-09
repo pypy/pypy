@@ -337,7 +337,7 @@ class FunctionGcRootTracker(object):
             else:
                 funcname = self.funcname
             while 1:
-                label = '__gcmap_%s__%s_%d' % (self.filetag, self.funcname, k)
+                label = '__gcmap_%s__%s_%d' % (self.filetag, funcname, k)
                 if label not in self.labels:
                     break
                 k += 1
@@ -833,6 +833,8 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
     LABEL   = r'([a-zA-Z_$@.][a-zA-Z0-9_$@.]*)'
     OFFSET_LABELS = 0
 
+    r_segmentstart  = re.compile(r"[_A-Z]+\tSEGMENT$")
+    r_segmentend    = re.compile(r"[_A-Z]+\tENDS$")
     r_functionstart = re.compile(r"; Function compile flags: ")
     r_codestart     = re.compile(LABEL+r"\s+PROC\s*(:?;.+)?\n$")
     r_functionend   = re.compile(LABEL+r"\s+ENDP\s*$")
@@ -1012,7 +1014,8 @@ class AssemblerParser(object):
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
         for in_function, lines in self.find_functions(iterlines):
             if in_function:
-                lines = self.process_function(lines, entrypoint, filename)
+                tracker = self.process_function(lines, entrypoint, filename)
+                lines = tracker.lines
             self.write_newfile(newfile, lines, filename.split('.')[0])
         if self.verbose == 1:
             sys.stderr.write('\n')
@@ -1040,25 +1043,24 @@ class AssemblerParser(object):
         else:
             self.gcmaptable.extend(table)
         self.seen_main |= is_main
-        return tracker.lines
+        return tracker
 
 class ElfAssemblerParser(AssemblerParser):
     format = "elf"
     FunctionGcRootTracker = ElfFunctionGcRootTracker
 
-    @classmethod
-    def find_functions(cls, iterlines):
+    def find_functions(self, iterlines):
         functionlines = []
         in_function = False
         for line in iterlines:
-            if cls.FunctionGcRootTracker.r_functionstart.match(line):
+            if self.FunctionGcRootTracker.r_functionstart.match(line):
                 assert not in_function, (
                     "missed the end of the previous function")
                 yield False, functionlines
                 in_function = True
                 functionlines = []
             functionlines.append(line)
-            if cls.FunctionGcRootTracker.r_functionend.match(line):
+            if self.FunctionGcRootTracker.r_functionend.match(line):
                 assert in_function, (
                     "missed the start of the current function")
                 yield True, functionlines
@@ -1088,22 +1090,21 @@ class DarwinAssemblerParser(AssemblerParser):
                      ]
     r_sectionstart = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
 
-    @classmethod
-    def find_functions(cls, iterlines):
+    def find_functions(self, iterlines):
         functionlines = []
         in_text = False
         in_function = False
         for n, line in enumerate(iterlines):
-            if cls.r_textstart.match(line):
+            if self.r_textstart.match(line):
                 assert not in_text, "unexpected repeated .text start: %d" % n
                 in_text = True
-            elif cls.r_sectionstart.match(line):
+            elif self.r_sectionstart.match(line):
                 if in_function:
                     yield in_function, functionlines
                     functionlines = []
                 in_text = False
                 in_function = False
-            elif in_text and cls.FunctionGcRootTracker.r_functionstart.match(line):
+            elif in_text and self.FunctionGcRootTracker.r_functionstart.match(line):
                 yield in_function, functionlines
                 functionlines = []
                 in_function = True
@@ -1121,17 +1122,16 @@ class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
 
-    @classmethod
-    def find_functions(cls, iterlines):
+    def find_functions(self, iterlines):
         functionlines = []
         in_text = False
         in_function = False
         for n, line in enumerate(iterlines):
-            if cls.r_textstart.match(line):
+            if self.r_textstart.match(line):
                 in_text = True
-            elif cls.r_sectionstart.match(line):
+            elif self.r_sectionstart.match(line):
                 in_text = False
-            elif in_text and cls.FunctionGcRootTracker.r_functionstart.match(line):
+            elif in_text and self.FunctionGcRootTracker.r_functionstart.match(line):
                 yield in_function, functionlines
                 functionlines = []
                 in_function = True
@@ -1143,19 +1143,41 @@ class MsvcAssemblerParser(AssemblerParser):
     format = "msvc"
     FunctionGcRootTracker = MsvcFunctionGcRootTracker
 
-    @classmethod
-    def find_functions(cls, iterlines):
+    def find_functions(self, iterlines):
         functionlines = []
         in_function = False
+        in_segment = False
+        ignore_public = False
+        self.inline_functions = {}
         for line in iterlines:
-            if cls.FunctionGcRootTracker.r_functionstart.match(line):
+            if line.startswith('; File '):
+                filename = line[:-1].split(' ', 2)[2]
+                ignore_public = ('wspiapi.h' in filename.lower())
+            if ignore_public:
+                # this header define __inline functions, that are
+                # still marked as PUBLIC in the generated assembler
+                if line.startswith(';\tCOMDAT '):
+                    funcname = line[:-1].split(' ', 1)[1]
+                    self.inline_functions[funcname] = True
+                elif line.startswith('PUBLIC\t'):
+                    funcname = line[:-1].split('\t')[1]
+                    self.inline_functions[funcname] = True
+
+            if self.FunctionGcRootTracker.r_segmentstart.match(line):
+                in_segment = True
+            elif self.FunctionGcRootTracker.r_functionstart.match(line):
                 assert not in_function, (
                     "missed the end of the previous function")
-                yield False, functionlines
                 in_function = True
-                functionlines = []
+                if in_segment:
+                    yield False, functionlines
+                    functionlines = []
             functionlines.append(line)
-            if cls.FunctionGcRootTracker.r_functionend.match(line):
+            if self.FunctionGcRootTracker.r_segmentend.match(line):
+                yield False, functionlines
+                in_segment = False
+                functionlines = []
+            elif self.FunctionGcRootTracker.r_functionend.match(line):
                 assert in_function, (
                     "missed the start of the current function")
                 yield True, functionlines
@@ -1181,14 +1203,18 @@ class MsvcAssemblerParser(AssemblerParser):
             # compiler: every string or float constant is exported
             # with a name built after its value, and will conflict
             # with other modules.
-            if line.startswith("PUBLIC\t__real@"):
-                line = '; ' + line
-            if line.startswith("PUBLIC\t__mask@@"):
-                line = '; ' + line
-            elif line.startswith("PUBLIC\t??_C@"):
-                line = '; ' + line
-            elif line == "PUBLIC\t__$ArrayPad$\n":
-                line = '; ' + line
+            if line.startswith("PUBLIC\t"):
+                symbol = line[:-1].split()[1]
+                if symbol.startswith('__real@'):
+                    line = '; ' + line
+                elif symbol.startswith("__mask@@"):
+                    line = '; ' + line
+                elif symbol.startswith("??_C@"):
+                    line = '; ' + line
+                elif symbol == "__$ArrayPad$":
+                    line = '; ' + line
+                elif symbol in self.inline_functions:
+                    line = '; ' + line
 
             # The msvc compiler writes "fucomip ST(1)" when the correct
             # syntax is "fucomip ST, ST(1)"
@@ -1451,7 +1477,8 @@ class GcRootTracker(object):
         parser = PARSERS[format](verbose=self.verbose, shuffle=self.shuffle)
         for in_function, lines in parser.find_functions(iterlines):
             if in_function:
-                lines = parser.process_function(lines, entrypoint, filename)
+                tracker = parser.process_function(lines, entrypoint, filename)
+                lines = tracker.lines
             parser.write_newfile(newfile, lines, filename.split('.')[0])
         if self.verbose == 1:
             sys.stderr.write('\n')
