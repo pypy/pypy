@@ -126,5 +126,13 @@ def _cast_addr(obj, _, tp):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))
     result = tp()
+
+    # The casted objects '_objects' member:
+    # It must certainly contain the source objects one.
+    # It must contain the source object itself.
+    if obj._ensure_objects() is not None:
+        result._objects = {keepalive_key(0): obj._objects,
+                           keepalive_key(1): obj}
+
     result._buffer[0] = obj._buffer[0]
     return result

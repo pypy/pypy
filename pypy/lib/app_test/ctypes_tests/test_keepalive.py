@@ -117,7 +117,14 @@ class TestKeepalive:
             pass
         cf = CFUNCTYPE(c_int, c_int)(f)
         assert cf._objects == {'0':cf}
-    
+
+    def test_cfunc_cast(self):
+        def f():
+            pass
+        cf = CFUNCTYPE(c_int, c_int)(f)
+        p1 = cast(cf, c_void_p)
+        assert p1._objects == {'1': cf, '0': {'0': cf}}
+
     def test_array_of_struct_with_pointer(self):
         class S(Structure):
             _fields_ = [('x', c_int)]
