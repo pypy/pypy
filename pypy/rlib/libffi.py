@@ -128,6 +128,7 @@ class CConfig:
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
 
     size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
+    ffi_abi = rffi_platform.SimpleType("ffi_abi", rffi.USHORT)
 
     ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
                                                  ('alignment', rffi.USHORT),
@@ -171,6 +172,7 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
+ffi_abi = cConfig.ffi_abi
 
 for name in type_names:
     locals()[name] = configure_simple_type(name)
@@ -352,7 +354,7 @@ FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
-c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, rffi.USHORT, rffi.UINT,
+c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, ffi_abi, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 if _WIN32:
     c_ffi_call_return_type = rffi.INT
