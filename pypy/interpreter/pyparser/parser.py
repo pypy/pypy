@@ -16,7 +16,7 @@ class Grammar(object):
         self.symbol_names = {}
         self.symbol_to_label = {}
         self.keyword_ids = {}
-        self.dfas = {}
+        self.dfas = []
         self.labels = [0]
         self.token_ids = {}
 
@@ -98,7 +98,7 @@ class Parser(object):
         self.root = None
         current_node = Node(start, None, [], 0, 0)
         self.stack = []
-        self.stack.append((self.grammar.dfas[start], 0, current_node))
+        self.stack.append((self.grammar.dfas[start - 256], 0, current_node))
 
     def add_token(self, token_type, value, lineno, column, line):
         label_index = self.classify(token_type, value, lineno, column, line)
@@ -124,7 +124,7 @@ class Parser(object):
                         state = dfa[0][state_index]
                     return False
                 elif sym_id >= 256:
-                    sub_node_dfa = self.grammar.dfas[sym_id]
+                    sub_node_dfa = self.grammar.dfas[sym_id - 256]
                     # Check if this token can start a child node.
                     if label_index in sub_node_dfa[1]:
                         self.push(sub_node_dfa, next_state, sym_id, lineno,
