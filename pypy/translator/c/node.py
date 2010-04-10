@@ -88,8 +88,10 @@ class StructDefNode:
         if self.varlength != 1:
             self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
         if needs_gcheader(self.STRUCT):
-            for fname, T in db.gcpolicy.struct_gcheader_definition(self):
-                self.fields.append((fname, db.gettype(T, who_asks=self)))
+            HDR = db.gcpolicy.struct_gcheader_definition(self)
+            if HDR is not None:
+                gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
+                self.fields.append(gc_field)
         for name in self.fieldnames:
             T = self.c_struct_field_type(name)
             if name == STRUCT._arrayfld:
@@ -218,8 +220,10 @@ class ArrayDefNode:
         if self.varlength != 1:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
-            for fname, T in db.gcpolicy.array_gcheader_definition(self):
-                self.gcfields.append((fname, db.gettype(T, who_asks=self)))
+            HDR = db.gcpolicy.array_gcheader_definition(self)
+            if HDR is not None:
+                gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
+                self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
     def computegcinfo(self):
@@ -558,12 +562,12 @@ class StructNode(ContainerNode):
         data = []
 
         if needs_gcheader(self.T):
-            for i, thing in enumerate(self.db.gcpolicy.struct_gcheader_initdata(self)):
-                data.append(('gcheader%d'%i, thing))
-        
+            gc_init = self.db.gcpolicy.struct_gcheader_initdata(self)
+            data.append(('gcheader', gc_init))
+
         for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
-        
+
         # Reasonably, you should only initialise one of the fields of a union
         # in C.  This is possible with the syntax '.fieldname value' or
         # '.fieldname = value'.  But here we don't know which of the
@@ -665,12 +669,11 @@ class ArrayNode(ContainerNode):
         defnode = self.db.gettypedefnode(self.T)
         yield '{'
         if needs_gcheader(self.T):
-            for i, thing in enumerate(self.db.gcpolicy.array_gcheader_initdata(self)):
-                lines = generic_initializationexpr(self.db, thing,
-                                                   'gcheader%d'%i,
-                                                   '%sgcheader%d' % (decoration, i))
-                for line in lines:
-                    yield line
+            gc_init = self.db.gcpolicy.array_gcheader_initdata(self)
+            lines = generic_initializationexpr(self.db, gc_init, 'gcheader',
+                                               '%sgcheader' % (decoration,))
+            for line in lines:
+                yield line
         if self.T._hints.get('nolength', False):
             length = ''
         else:

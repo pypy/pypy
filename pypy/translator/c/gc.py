@@ -20,16 +20,13 @@ class BasicGcPolicy(object):
 
     def common_gcheader_definition(self, defnode):
         if defnode.db.gctransformer is not None:
-            HDR = defnode.db.gctransformer.HDR
-            return [(name, HDR._flds[name]) for name in HDR._names]
-        else:
-            return []
+            return defnode.db.gctransformer.HDR
+        return None
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
             raise NotImplementedError
-        else:
-            return []
+        return None
 
     def struct_gcheader_definition(self, defnode):
         return self.common_gcheader_definition(defnode)
@@ -113,11 +110,9 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
             gct = defnode.db.gctransformer
-            hdr = gct.gcheaderbuilder.header_of_object(top_container(defnode.obj))
-            HDR = gct.HDR
-            return [getattr(hdr, fldname) for fldname in HDR._names]
-        else:
-            return []
+            top = top_container(defnode.obj)
+            return gct.gcheaderbuilder.header_of_object(top)._obj
+        return None
 
     # for structs
 
@@ -196,9 +191,10 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
-            return [lltype.identityhash_nocache(defnode.obj._as_ptr())]
-        else:
-            return []
+            hdr = lltype.malloc(defnode.db.gctransformer.HDR, immortal=True)
+            hdr.hash = lltype.identityhash_nocache(defnode.obj._as_ptr())
+            return hdr._obj
+        return None
 
     def array_setup(self, arraydefnode):
         pass
@@ -333,13 +329,11 @@ class FrameworkGcPolicy(BasicGcPolicy):
             args = [funcgen.expr(v) for v in op.args]
             return '%s = %s; /* for moving GCs */' % (args[1], args[0])
 
-    def common_gcheader_definition(self, defnode):
-        return defnode.db.gctransformer.gc_fields()
-
     def common_gcheader_initdata(self, defnode):
         o = top_container(defnode.obj)
         needs_hash = self.get_prebuilt_hash(o) is not None
-        return defnode.db.gctransformer.gc_field_values_for(o, needs_hash)
+        hdr = defnode.db.gctransformer.gc_header_for(o, needs_hash)
+        return hdr._obj
 
     def get_prebuilt_hash(self, obj):
         # for prebuilt objects that need to have their hash stored and
@@ -362,9 +356,14 @@ class FrameworkGcPolicy(BasicGcPolicy):
         # all implemented by a single call to a C macro.
         [v_obj, c_grpptr, c_skipoffset, c_vtableinfo] = op.args
         typename = funcgen.db.gettype(op.result.concretetype)
-        fieldname = c_vtableinfo.value[2]
+        tid_field = c_vtableinfo.value[2]
+        # Fish out the C name of the tid field.
+        HDR = self.db.gctransformer.HDR
+        hdr_node = self.db.gettypedefnode(HDR)
+        fieldname = hdr_node.c_struct_field_name(tid_field)
         return (
-        '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (pypy_halfword_t)%s->_%s, %s);'
+        '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (pypy_halfword_t)%s->'
+            '_gcheader.%s, %s);'
             % (funcgen.expr(op.result),
                cdecl(typename, ''),
                funcgen.expr(c_grpptr),

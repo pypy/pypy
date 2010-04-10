@@ -445,11 +445,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
         self.malloc_zero_filled = GCClass.malloc_zero_filled
 
-        HDR = self._gc_HDR = self.gcdata.gc.gcheaderbuilder.HDR
-        self._gc_fields = fields = []
-        for fldname in HDR._names:
-            FLDTYPE = getattr(HDR, fldname)
-            fields.append(('_' + fldname, FLDTYPE))
+        HDR = self.HDR = self.gcdata.gc.gcheaderbuilder.HDR
 
         size_gc_header = self.gcdata.gc.gcheaderbuilder.size_gc_header
         vtableinfo = (HDR, size_gc_header, self.gcdata.gc.typeid_is_in_field)
@@ -472,17 +468,13 @@ class FrameworkGCTransformer(GCTransformer):
     def finalizer_funcptr_for_type(self, TYPE):
         return self.layoutbuilder.finalizer_funcptr_for_type(TYPE)
 
-    def gc_fields(self):
-        return self._gc_fields
-
-    def gc_field_values_for(self, obj, needs_hash=False):
+    def gc_header_for(self, obj, needs_hash=False):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
-        HDR = self._gc_HDR
+        HDR = self.HDR
         withhash, flag = self.gcdata.gc.withhash_flag_is_in_field
-        result = []
         for fldname in HDR._names:
-            x = getattr(hdr, fldname)
             if fldname == withhash:
+                x = getattr(hdr, fldname)
                 TYPE = lltype.typeOf(x)
                 x = lltype.cast_primitive(lltype.Signed, x)
                 if needs_hash:
@@ -490,8 +482,8 @@ class FrameworkGCTransformer(GCTransformer):
                 else:
                     x &= ~flag      # clear the flag in the header
                 x = lltype.cast_primitive(TYPE, x)
-            result.append(x)
-        return result
+                setattr(hdr, fldname, x)
+        return hdr
 
     def get_hash_offset(self, T):
         type_id = self.get_type_id(T)
