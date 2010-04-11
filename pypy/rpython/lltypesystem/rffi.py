@@ -19,9 +19,6 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
-class UnhandledRPythonException(Exception):
-    pass
-
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.
     """
