@@ -1,6 +1,6 @@
-import py, sys
+import py
 
-from pypy.tool.udir import udir 
+from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from subprocess import Popen, PIPE, STDOUT
 

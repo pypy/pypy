@@ -1,15 +1,8 @@
-import os, sys, inspect, re, imp
-
 import py
 
 from pypy.tool.autopath import pypydir
 from pypy.translator.platform import host
-from pypy.tool.ansi_print import ansi_log
 from pypy.tool.udir import udir
-
-
-log = py.log.Producer("cbuild")
-py.log.setconsumer("cbuild", ansi_log)
 
 
 class ExternalCompilationInfo(object):
