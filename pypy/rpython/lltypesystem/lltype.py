@@ -1,4 +1,3 @@
-import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, base_int,
                                    normalizedinttype)
@@ -10,8 +9,6 @@ from types import NoneType
 from sys import maxint
 import struct
 import weakref
-
-log = py.log.Producer('lltype')
 
 TLS = tlsobject()
 
