@@ -1,7 +1,7 @@
 import py
-from pypy.rlib.rarithmetic import r_int, r_uint, intmask, r_singlefloat
-from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, base_int
-from pypy.rlib.rarithmetic import normalizedinttype
+from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
+                                   r_ulonglong, r_longlong, base_int,
+                                   normalizedinttype)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
