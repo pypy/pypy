@@ -472,17 +472,15 @@ class FrameworkGCTransformer(GCTransformer):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
         HDR = self.HDR
         withhash, flag = self.gcdata.gc.withhash_flag_is_in_field
-        for fldname in HDR._names:
-            if fldname == withhash:
-                x = getattr(hdr, fldname)
-                TYPE = lltype.typeOf(x)
-                x = lltype.cast_primitive(lltype.Signed, x)
-                if needs_hash:
-                    x |= flag       # set the flag in the header
-                else:
-                    x &= ~flag      # clear the flag in the header
-                x = lltype.cast_primitive(TYPE, x)
-                setattr(hdr, fldname, x)
+        x = getattr(hdr, withhash)
+        TYPE = lltype.typeOf(x)
+        x = lltype.cast_primitive(lltype.Signed, x)
+        if needs_hash:
+            x |= flag       # set the flag in the header
+        else:
+            x &= ~flag      # clear the flag in the header
+        x = lltype.cast_primitive(TYPE, x)
+        setattr(hdr, withhash, x)
         return hdr
 
     def get_hash_offset(self, T):
