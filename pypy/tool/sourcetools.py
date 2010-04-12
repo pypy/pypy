@@ -217,20 +217,15 @@ def compile_template(source, resultname):
 
 # ____________________________________________________________
 
-if sys.version_info >= (2, 3):
-    def func_with_new_name(func, newname):
-        """Make a renamed copy of a function."""
-        f = new.function(func.func_code, func.func_globals,
-                            newname, func.func_defaults,
-                            func.func_closure)
-        if func.func_dict: 
-            f.func_dict = {}
-            f.func_dict.update(func.func_dict) 
-        return f 
-else:
-    raise Exception("sorry, Python 2.2 not supported")
-    # because we need to return a new function object -- impossible in 2.2,
-    # cannot create functions with closures without using veeeery strange code
+def func_with_new_name(func, newname):
+    """Make a renamed copy of a function."""
+    f = new.function(func.func_code, func.func_globals,
+                        newname, func.func_defaults,
+                        func.func_closure)
+    if func.func_dict:
+        f.func_dict = {}
+        f.func_dict.update(func.func_dict)
+    return f
 
 PY_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
                            'a' <= chr(i) <= 'z' or
