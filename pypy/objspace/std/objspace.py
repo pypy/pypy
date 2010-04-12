@@ -249,9 +249,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         raise model.UnwrapError, "cannot unwrap: %r" % w_obj
 
     def newint(self, intval):
-        # this time-critical and circular-imports-funny method was stored
-        # on 'self' by initialize()
-        # not sure how bad this is:
         return wrapint(self, intval)
 
     def newfloat(self, floatval):
