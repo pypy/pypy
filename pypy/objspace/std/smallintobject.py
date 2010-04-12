@@ -13,6 +13,7 @@ from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.intobject import W_IntObject, _impl_int_int_pow
 from pypy.rlib.objectmodel import UnboxedValue
+from pypy.rlib.rbigint import rbigint
 
 
 class W_SmallIntObject(W_Object, UnboxedValue):
