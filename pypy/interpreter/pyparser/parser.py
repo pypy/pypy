@@ -87,7 +87,6 @@ class Parser(object):
         self.grammar = grammar
         self.root = None
         self.stack = None
-        self.start = 0
 
     def prepare(self, start=-1):
         """Setup the parser for parsing.
