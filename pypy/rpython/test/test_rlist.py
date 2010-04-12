@@ -1,4 +1,6 @@
 import sys
+import re
+import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem.lltype import *
@@ -11,7 +13,6 @@ from pypy.rpython.rint import signed_repr
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-import re
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():

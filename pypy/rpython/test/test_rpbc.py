@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.ootypesystem import ootype
