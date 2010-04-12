@@ -19,6 +19,7 @@ class Grammar(object):
         self.dfas = []
         self.labels = [0]
         self.token_ids = {}
+        self.start = -1
 
     def shared_copy(self):
         new = self.__class__()

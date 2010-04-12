@@ -128,6 +128,7 @@ class ParserGenerator(object):
 
     def build_grammar(self, grammar_cls):
         gram = grammar_cls()
+        gram.start = self.start_symbol
         names = self.dfas.keys()
         names.sort()
         names.remove(self.start_symbol)
