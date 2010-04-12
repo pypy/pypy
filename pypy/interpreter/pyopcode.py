@@ -599,7 +599,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_NAME(self, varindex, next_instr):
         varname = self.getname_u(varindex)
         w_newvalue = self.popvalue()
-        self.space.set_str_keyed_item(self.w_locals, varname, w_newvalue)
+        self.space.setitem_str(self.w_locals, varname, w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
@@ -638,7 +638,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_GLOBAL(self, nameindex, next_instr):
         varname = self.getname_u(nameindex)
         w_newvalue = self.popvalue()
-        self.space.set_str_keyed_item(self.w_globals, varname, w_newvalue)
+        self.space.setitem_str(self.w_globals, varname, w_newvalue)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)

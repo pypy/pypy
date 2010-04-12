@@ -42,7 +42,7 @@ class W_Root(object):
     def setdictvalue(self, space, attr, w_value, shadows_type=True):
         w_dict = self.getdict()
         if w_dict is not None:
-            space.set_str_keyed_item(w_dict, attr, w_value, shadows_type)
+            space.setitem_str(w_dict, attr, w_value, shadows_type)
             return True
         return False
 
@@ -628,7 +628,7 @@ class ObjSpace(object):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
 
-    def set_str_keyed_item(self, w_obj, key, w_value, shadows_type=True):
+    def setitem_str(self, w_obj, key, w_value, shadows_type=True):
         return self.setitem(w_obj, self.wrap(key), w_value)
 
     def finditem_str(self, w_obj, key):

@@ -102,9 +102,6 @@ class W_DictMultiObject(W_Object):
         else:
             return None
 
-    def set_str_keyed_item(w_dict, key, w_value, shadows_type=True):
-        w_dict.setitem_str(key, w_value, shadows_type)
-
     # _________________________________________________________________ 
     # implementation methods
     def impl_getitem(self, w_key):

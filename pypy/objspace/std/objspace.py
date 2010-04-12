@@ -459,11 +459,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
-    def set_str_keyed_item(self, w_obj, key, w_value, shadows_type=True):
+    def setitem_str(self, w_obj, key, w_value, shadows_type=True):
         # performance shortcut to avoid creating the OperationError(KeyError)
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
-            w_obj.set_str_keyed_item(key, w_value, shadows_type)
+            w_obj.setitem_str(key, w_value, shadows_type)
         else:
             self.setitem(w_obj, self.wrap(key), w_value)
 
