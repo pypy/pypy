@@ -301,8 +301,8 @@ class BaseTestOptimizeFindNode(BaseTest):
         boxes, getnode = self.find_nodes(ops,
                                          'Virtual(node_vtable, nextdescr=Not)')
         assert not getnode(boxes.p0).escaped
-        assert not getnode(boxes.p1).escaped
-        assert not getnode(boxes.p2).escaped
+        assert getnode(boxes.p1).escaped
+        assert getnode(boxes.p2).escaped
         assert getnode(boxes.p0).fromstart
         assert getnode(boxes.p1).fromstart
         assert getnode(boxes.p2).fromstart

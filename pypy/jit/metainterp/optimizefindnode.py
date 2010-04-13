@@ -343,12 +343,16 @@ class PerfectSpecializationFinder(NodeFinder):
         # computed by NodeFinder.find_nodes().
         op = loop.operations[-1]
         assert op.opnum == rop.JUMP
-        specnodes = []
         assert len(self.inputnodes) == len(op.args)
-        for i in range(len(op.args)):
-            inputnode = self.inputnodes[i]
-            exitnode = self.getnode(op.args[i])
-            specnodes.append(self.intersect(inputnode, exitnode))
+        while True:
+            self.restart_needed = False
+            specnodes = []
+            for i in range(len(op.args)):
+                inputnode = self.inputnodes[i]
+                exitnode = self.getnode(op.args[i])
+                specnodes.append(self.intersect(inputnode, exitnode))
+            if not self.restart_needed:
+                break
         loop.token.specnodes = specnodes
 
     def intersect(self, inputnode, exitnode):
@@ -363,6 +367,15 @@ class PerfectSpecializationFinder(NodeFinder):
             return prebuiltNotSpecNode
         unique = exitnode.unique
         if unique == UNIQUE_NO:
+            if inputnode is not self.node_fromstart:
+                # Mark the input node as escaped, and schedule a complete
+                # restart of intersect().  This is needed because there is
+                # an order dependency: calling inputnode.mark_escaped()
+                # might set the field exitnode.unique to UNIQUE_NO in some
+                # other node.  If inputnode is node_fromstart, there is no
+                # problem (and it must not be mutated by mark_escaped() then).
+                inputnode.mark_escaped()
+                self.restart_needed = True
             return prebuiltNotSpecNode
         if unique == UNIQUE_INST:
             return self.intersect_instance(inputnode, exitnode)
