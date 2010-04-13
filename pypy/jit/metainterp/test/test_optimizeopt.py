@@ -1763,6 +1763,29 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Virtual(node_vtable2, nextdescr=Virtual(node_vtable), otherdescr=Not)', None)
 
+    @py.test.mark.xfail
+    def test_bug_3bis(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        guard_class(p1, ConstClass(node_vtable2)) []
+        p2 = getfield_gc(p1, descr=nextdescr)
+        guard_nonnull(12) []
+        guard_class(p2, ConstClass(node_vtable)) []
+        p3 = getfield_gc(p1, descr=otherdescr)
+        guard_nonnull(12) []
+        guard_class(p3, ConstClass(node_vtable)) []
+        p1a = new_with_vtable(ConstClass(node_vtable2))
+        p2a = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p2a, descr=otherdescr)
+        p3a = new_with_vtable(ConstClass(node_vtable))
+        escape(p3a)
+        setfield_gc(p1a, p2a, descr=nextdescr)
+        setfield_gc(p1a, p3a, descr=otherdescr)
+        jump(p1a)
+        """
+        self.optimize_loop(ops, 'Virtual(node_vtable2, nextdescr=Virtual(node_vtable), otherdescr=Not)', None)
+
     def test_invalid_loop_1(self):
         ops = """
         [p1]
