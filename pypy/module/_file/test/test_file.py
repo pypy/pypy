@@ -125,6 +125,13 @@ class AppTestFile(object):
         assert type(res) is str
         f.close()
 
+    def test_oserror_has_filename(self):
+        try:
+            f = self.file("file that is clearly not there")
+        except IOError, e:
+            assert e.filename == 'file that is clearly not there'
+        else:
+            raise Exception("did not raise")
 
     def test_readline_mixed_with_read(self):
         s = '''From MAILER-DAEMON Wed Jan 14 14:42:30 2009

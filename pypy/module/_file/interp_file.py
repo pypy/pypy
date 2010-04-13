@@ -82,6 +82,7 @@ class W_File(W_AbstractStream):
 
     def direct___init__(self, w_name, mode='r', buffering=-1):
         name = self.space.str_w(w_name)
+        self.name = name
         self.direct_close()
         self.check_mode_ok(mode)
         stream = streamio.open_file_as_stream(name, mode, buffering)
@@ -239,7 +240,7 @@ class W_File(W_AbstractStream):
         try:
             self.direct_fdopen(fd, mode, buffering)
         except StreamErrors, e:
-            raise wrap_streamerror(self.space, e)
+            raise wrap_streamerror(self.space, e, self.name)
 
     _exposed_method_names = []
 
@@ -275,7 +276,7 @@ class W_File(W_AbstractStream):
                     try:
                         result = self.direct_%(name)s(%(callsig)s)
                     except StreamErrors, e:
-                        raise wrap_streamerror(space, e)
+                        raise wrap_streamerror(space, e, self.name)
                 finally:
                     self.unlock()
                 return %(wrapresult)s
