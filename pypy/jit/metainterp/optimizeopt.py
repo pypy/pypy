@@ -216,17 +216,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         self._fields[ofs] = fieldvalue
 
     def _really_force(self):
-        if self.source_op is None:
-            # this case should not occur; I only managed to get it once
-            # in pypy-c-jit and couldn't reproduce it.  The point is
-            # that it relies on optimizefindnode.py computing exactly
-            # the right level of specialization, and it seems that there
-            # is still a corner case where it gets too specialized for
-            # optimizeopt.py.  Let's not crash in release-built
-            # pypy-c-jit's.  XXX find out when
-            from pypy.rlib.debug import ll_assert
-            ll_assert(False, "_really_force: source_op is None")
-            raise InvalidLoop
+        assert self.source_op is not None
+        # ^^^ This case should not occur any more (see test_bug_3).
         #
         newoperations = self.optimizer.newoperations
         newoperations.append(self.source_op)
