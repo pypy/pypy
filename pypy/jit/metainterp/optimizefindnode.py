@@ -63,13 +63,14 @@ class InstanceNode(object):
         # invariant: if escaped=True, then dependencies is None
         if not self.escaped:
             self.escaped = True
+            self.unique = UNIQUE_NO
+            # ^^^ always set unique to UNIQUE_NO when we set escaped to True.
+            # See for example test_find_nodes_store_into_loop_constant_2.
             if self.dependencies is not None:
                 deps = self.dependencies
                 self.dependencies = None
                 for box in deps:
                     box.mark_escaped()
-                    # see test_find_nodes_store_into_loop_constant_1 for this:
-                    box.unique = UNIQUE_NO
 
     def set_unique_nodes(self):
         if self.fromstart:
