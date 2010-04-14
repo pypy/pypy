@@ -1933,11 +1933,6 @@ class MetaInterp(object):
         # boxes, in whichever direction is appropriate
         if expect_virtualizable:
             self.virtualizable_boxes = virtualizable_boxes
-            if self._already_allocated_resume_virtuals is not None:
-                # resuming from a ResumeGuardForcedDescr: load the new values
-                # currently stored on the virtualizable fields
-                self.load_fields_from_virtualizable()
-                return
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
             # is and stays 0.  Note the call to reset_vable_token() in
