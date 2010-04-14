@@ -13,3 +13,13 @@ class TestCompile(object):
         assert disassemble(code) == [
             LOAD, 0, 1, LOAD, 1, 0, ADD, 0, 1, 2, PRINT, 2
             ]
+
+    def test_return(self):
+        code = compile('''
+        LOAD 0 => r1
+        LOAD 1 => r0 # comment
+        # other comment
+        ADD r0 r1 => r2
+        RETURN r2
+        ''')
+        res = interpret(code)
