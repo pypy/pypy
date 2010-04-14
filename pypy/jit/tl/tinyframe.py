@@ -12,37 +12,70 @@ INTROSPECT r1 => r2 # frame introspection - load a register with number
                     # pointed by r1 (must be int) to r2
 PRINT r # print a register
 CALL r1 r2 # call a function in register one with argument in r2
-LOAD <name> => r # load a function named name into register r
+LOAD_FUNCTION <name> => r # load a function named name into register r
 LOAD <int constant> => r # load an integer constant into register r
 RETURN r1
+JUMP @label # jump + or - by x opcodes
+JUMP_IF_ABOVE r1 r2 @label # jump if value in r1 is above
+# value in r2
 
 function argument always comes in r0
 """
 
-opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'RETURN']
+opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',
+           'RETURN', 'JUMP', 'JUMP_IF_ABOVE']
 for i, opcode in enumerate(opcodes):
     globals()[opcode] = i
 
 class Code(object):
-    def __init__(self, code, regno):
+    def __init__(self, code, regno, functions):
         self.code = code
         self.regno = regno
+        self.functions = functions
 
 class Parser(object):
+
+    name = None
     
     def compile(self, strrepr):
         self.code = []
         self.maxregno = 0
-        for line in strrepr.splitlines():
+        self.functions = {}
+        self.labels = {}
+        lines = strrepr.splitlines()
+        for line in lines:
             comment = line.find('#')
             if comment != -1:
                 line = line[:comment]
             line = line.strip()
             if not line:
                 continue
+            if line.endswith(':'):
+                # a name
+                self.finish_currect_code()
+                self.name = line[:-1]
+                continue
+            if line.startswith('@'):
+                self.labels[line[1:]] = len(self.code)
+                continue
             opcode, args = line.split(" ", 1)
             getattr(self, 'compile_' + opcode)(args)
-        return Code("".join([chr(i) for i in self.code]), self.maxregno + 1)
+        functions = [code for i, code in sorted(self.functions.values())]
+        assert self.name == 'main'
+        return Code("".join([chr(i) for i in self.code]), self.maxregno + 1,
+                    functions)
+
+    def finish_currect_code(self):
+        if self.name is None:
+            assert not self.code
+            return
+        code = Code("".join([chr(i) for i in self.code]), self.maxregno + 1,
+                    [])
+        self.functions[self.name] = (len(self.functions), code)
+        self.name = None
+        self.labels = {}
+        self.code = []
+        self.maxregno = 0
 
     def rint(self, arg):
         assert arg.startswith('r')
@@ -69,6 +102,11 @@ class Parser(object):
         arg = self.rint(args.strip())
         self.code += [RETURN, arg]
 
+    def compile_JUMP_IF_ABOVE(self, args):
+        arg0, arg1, label = args.split(" ")
+        self.code += [JUMP_IF_ABOVE, self.rint(arg0.strip()),
+                      self.rint(arg1.strip()), self.labels[label[1:]]]
+
 def compile(strrepr):
     parser = Parser()
     return parser.compile(strrepr)
@@ -83,12 +121,18 @@ class Object(object):
     def add(self, other):
         raise NotImplementedError("abstract base class")
 
+    def gt(self, other):
+        raise NotImplementedError("abstract base class")
+
 class Int(Object):
     def __init__(self, val):
         self.val = val
 
     def add(self, other):
         return Int(self.val + other.val)
+
+    def gt(self, other):
+        return self.val > other.val
 
 class Frame(object):
     def __init__(self, code):
@@ -110,6 +154,14 @@ class Frame(object):
                 i += 4
             elif opcode == RETURN:
                 return self.registers[ord(code[i + 1])]
+            elif opcode == JUMP_IF_ABOVE:
+                arg0 = self.registers[ord(code[i + 1])]
+                arg1 = self.registers[ord(code[i + 2])]
+                tgt = ord(code[i + 3])
+                if arg0.gt(arg1):
+                    i = tgt
+                else:
+                    i += 4
             else:
                 raise Exception("unimplemented opcode %s" % opcodes[opcode])
 
