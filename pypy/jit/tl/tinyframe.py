@@ -18,11 +18,35 @@ LOAD <int constant> => r # load an integer constant into register r
 function argument always comes in r0
 """
 
+opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD']
+for i, opcode in enumerate(opcodes):
+    globals()[opcode] = i
+
 class Code(object):
     _immutable_ = True
 
     def __init__(self, code):
         code = code
 
+class Parser(object):
+    def compile(self, strrepr):
+        self.code = []
+        for line in strrepr.splitlines():
+            comment = line.find('#')
+            if comment != -1:
+                line = line[:comment]
+            line = line.strip()
+            if not line:
+                continue
+            opcode, args = line.split(" ", 1)
+            getattr(self, 'compile_' + opcode)(args)
+
+    def compile_ADD(self, args):
+        xxx
+
+    def compile_LOAD(self, args):
+        self.code.append(
+
 def compile(strrepr):
-    pass
+    parser = Parser()
+    return parser.compile(strrepr)
