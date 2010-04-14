@@ -4,7 +4,7 @@ integer values and function values. The machine is
 register based with untyped registers.
 
 Opcodes:
-ADD r1, r2 => r3 # integer addition or function combination,
+ADD r1 r2 => r3 # integer addition or function combination,
                  # depending on argument types
                  # if r1 has a function f and r2 has a function g
                  # the result will be a function lambda arg : f(g(arg))
@@ -28,6 +28,10 @@ class Code(object):
     def __init__(self, code):
         code = code
 
+def rint(arg):
+    assert arg.startswith('r')
+    return int(arg[1:])
+
 class Parser(object):
     def compile(self, strrepr):
         self.code = []
@@ -40,13 +44,25 @@ class Parser(object):
                 continue
             opcode, args = line.split(" ", 1)
             getattr(self, 'compile_' + opcode)(args)
+        return "".join([chr(i) for i in self.code])
 
     def compile_ADD(self, args):
-        xxx
+        args, result = args.split("=>")
+        arg0, arg1 = args.strip().split(" ")
+        self.code += [ADD, rint(arg0), rint(arg1), rint(result.strip())]
 
     def compile_LOAD(self, args):
-        self.code.append(
+        arg0, result = args.split("=>")
+        arg0 = arg0.strip()
+        self.code += [LOAD, int(arg0), rint(result.strip())]
+
+    def compile_PRINT(self, args):
+        arg = rint(args.strip())
+        self.code += [PRINT, arg]
 
 def compile(strrepr):
     parser = Parser()
     return parser.compile(strrepr)
+
+def disassemble(code):
+    return [ord(i) for i in code]
