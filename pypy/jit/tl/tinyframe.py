@@ -8,10 +8,12 @@ ADD r1 r2 => r3 # integer addition or function combination,
                  # depending on argument types
                  # if r1 has a function f and r2 has a function g
                  # the result will be a function lambda arg : f(g(arg))
+                 # this is also a way to achieve indirect call
 INTROSPECT r1 => r2 # frame introspection - load a register with number
                     # pointed by r1 (must be int) to r2
 PRINT r # print a register
-CALL r1 r2 # call a function in register one with argument in r2
+CALL r1 r2 => r3 # call a function in register one with argument in r2 and
+                 # result in r3
 LOAD_FUNCTION <name> => r # load a function named name into register r
 LOAD <int constant> => r # load an integer constant into register r
 RETURN r1
@@ -106,6 +108,8 @@ class Parser(object):
         arg0, arg1, label = args.split(" ")
         self.code += [JUMP_IF_ABOVE, self.rint(arg0.strip()),
                       self.rint(arg1.strip()), self.labels[label[1:]]]
+
+    #def compile_LOAD_FUNCTION(self, 
 
 def compile(strrepr):
     parser = Parser()

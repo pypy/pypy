@@ -44,13 +44,17 @@ class TestCompile(object):
         assert ret.val == 100
 
     def test_function(self):
-        py.test.skip("not yet")
+        py.test.skip("in progress")
         code = compile('''
         func: # arg comes in r0
         LOAD 1 => r1
         ADD r0 r1 => r1
         RETURN r1
         main:
-        LOAD_FUNCTION name
-        CALL 
+        LOAD_FUNCTION func => r0
+        LOAD 1 => r1
+        CALL r0 r1 => r2
+        RETURN r2
         ''')
+        ret = interpret(code)
+        assert ret.val == 1 + 1
