@@ -156,6 +156,17 @@ class Func(Object):
         f.registers[0] = arg
         return f.interpret()
 
+    def add(self, other):
+        return CombinedFunc(self, other)
+
+class CombinedFunc(Func):
+    def __init__(self, outer, inner):
+        self.outer = outer
+        self.inner = inner
+
+    def call(self, arg):
+        return self.outer.call(self.inner.call(arg))
+
 class Frame(object):
     def __init__(self, code):
         self.code = code

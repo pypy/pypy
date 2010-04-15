@@ -57,3 +57,24 @@ class TestCompile(object):
         ''')
         ret = interpret(code)
         assert ret.val == 1 + 1
+
+    def test_function_combination(self):
+        code = compile('''
+        inner:
+        LOAD 2 => r1
+        ADD r1 r0 => r0
+        RETURN r0
+        outer:
+        LOAD 1 => r1
+        ADD r1 r0 => r2
+        RETURN r2
+        main:
+        LOAD_FUNCTION inner => r0
+        LOAD_FUNCTION outer => r1
+        ADD r1 r0 => r2
+        LOAD 1 => r3
+        CALL r2 r3 => r4
+        RETURN r4
+        ''')
+        ret = interpret(code)
+        assert ret.val == 1 + 1 + 2
