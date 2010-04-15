@@ -389,22 +389,22 @@ optimizations previously implemented in the xreadlines module.""")
             head = "closed"
         else:
             head = "open"
-        w_name = self.w_name
-        if w_name is None:
-            w_name = self.space.wrap('?')
-        if self.space.is_true(self.space.isinstance(w_name,
-                                                    self.space.w_str)):
-            info = "%s file '%s', mode '%s'" % (
-                head,
-                self.space.str_w(w_name),
-                self.mode)
-        else:
-            info = "%s file %s, mode '%s'" % (
-                head,
-                self.space.str_w(self.space.repr(w_name)),
-                self.mode)
+        info = "%s file %s, mode '%s'" % (
+            head,
+            self.getdisplayname(),
+            self.mode)
         return self.getrepr(self.space, info)
     file__repr__.unwrap_spec = ['self']
+
+    def getdisplayname(self):
+        w_name = self.w_name
+        if w_name is None:
+            return '?'
+        elif self.space.is_true(self.space.isinstance(w_name,
+                                                      self.space.w_str)):
+            return "'%s'" % self.space.str_w(w_name) 
+        else:
+            return self.space.str_w(self.space.repr(w_name))
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""

@@ -222,7 +222,11 @@ class W_BZ2File(W_File):
             head = "closed"
         else:
             head = "open"
-        info = "%s bz2.BZ2File '%s', mode '%s'" % (head, self.name, self.mode)
+        w_name = self.w_name
+        if w_name is None:
+            w_name = self.space.wrap('?')
+        info = "%s bz2.BZ2File %s, mode '%s'" % (head, self.getdisplayname(),
+                                                 self.mode)
         return self.getrepr(self.space, info)
     file_bz2__repr__.unwrap_spec = ['self']
 
