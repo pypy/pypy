@@ -1,7 +1,7 @@
 import new
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
-from pypy.objspace.flow.model import flatten, mkentrymap
+from pypy.objspace.flow.model import flatten, mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace 
@@ -728,7 +728,18 @@ class TestFlowObjSpace(Base):
             return unicode("1234")
         graph = self.codetest(myfunc)
         assert graph.startblock.exits[0].target is graph.returnblock
-        
+
+    def test_unicode(self):
+        def myfunc(n):
+            try:
+                return unicode(chr(n))
+            except UnicodeDecodeError:
+                return None
+        graph = self.codetest(myfunc)
+        simplify_graph(graph)
+        assert graph.startblock.exitswitch == c_last_exception
+        assert graph.startblock.exits[0].target is graph.returnblock
+        assert graph.startblock.exits[1].target is graph.returnblock
 
     def test_getitem(self):
         def f(c, x):
