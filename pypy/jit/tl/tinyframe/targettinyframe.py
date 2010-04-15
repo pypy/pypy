@@ -1,5 +1,5 @@
 
-from pypy.jit.tl.tinyframe import main
+from pypy.jit.tl.tinyframe.tinyframe import main
 
 def entry_point(argv):
     main(argv[0], argv[1:])

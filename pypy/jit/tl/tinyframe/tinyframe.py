@@ -267,7 +267,7 @@ def main(fname, argv):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv < 2):
+    if len(sys.argv) < 2:
         print __doc__
         sys.exit(1)
     fname = sys.argv[1]
