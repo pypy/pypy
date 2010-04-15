@@ -39,9 +39,11 @@ class W_File(W_AbstractStream):
         self.clear_all_weakrefs()
         self.direct_close()
 
-    def fdopenstream(self, stream, fd, mode):
+    def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd
         self.mode = mode
+        if w_name is not None:
+            self.w_name = w_name
         self.stream = stream
         if stream.flushable():
             getopenstreams(self.space)[stream] = None
