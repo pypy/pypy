@@ -2,7 +2,7 @@
 from pypy.jit.tl.tinyframe.tinyframe import main
 
 def entry_point(argv):
-    main(argv[0], argv[1:])
+    main(argv[1], argv[2:])
     return 0
 
 # _____ Define and setup target ___

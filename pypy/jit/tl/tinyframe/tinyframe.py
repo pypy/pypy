@@ -263,7 +263,8 @@ def main(fname, argv):
     mainframe = Frame(code)
     for i in range(len(argv)):
         mainframe.registers[i] = Int(int(argv[i]))
-    print "Result:", mainframe.interpret().repr()
+    res = mainframe.interpret()
+    print "Result:", res.repr()
 
 if __name__ == '__main__':
     import sys
