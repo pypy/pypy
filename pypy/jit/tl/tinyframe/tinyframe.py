@@ -30,7 +30,7 @@ function argument always comes in r0
 from pypy.rlib.streamio import open_file_as_stream
 from pypy.jit.tl.tinyframe.support import sort
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 
 opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',
            'RETURN', 'JUMP', 'JUMP_IF_ABOVE']
@@ -144,7 +144,10 @@ class Parser(object):
                       self.rint(res.strip(" "))]
 
     def compile_INTROSPECT(self, args):
-        raise NotImplementedError
+        arg, res = args.split("=")
+        res = res[1:]
+        self.code += [INTROSPECT, self.rint(arg.strip(" ")),
+                      self.rint(res.strip(" "))]
 
     def compile_JUMP(self, args):
         raise NotImplementedError
@@ -258,8 +261,17 @@ class Frame(object):
                 arg = self.registers[ord(code[i + 1])]
                 print arg.repr()
                 i += 2
+            elif opcode == INTROSPECT:
+                self.introspect(ord(code[i + 1]), ord(code[i + 2]))
+                i += 3
             else:
                 raise Exception("unimplemented opcode %s" % opcodes[opcode])
+
+    @dont_look_inside
+    def introspect(self, rarg, rresult):
+        source = self.registers[rarg]
+        assert isinstance(source, Int)
+        self.registers[rresult] = self.registers[source.val]
 
 def interpret(code):
     return Frame(code).interpret()

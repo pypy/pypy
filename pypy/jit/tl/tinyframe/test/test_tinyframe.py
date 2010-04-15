@@ -107,3 +107,14 @@ class TestCompile(object):
             '<function name>',
             '<function <function name>(<function name>)>',
         ]
+
+    def test_introspect(self):
+        code = compile('''
+        main:
+        LOAD 100 => r0
+        LOAD 0 => r1
+        INTROSPECT r1 => r2
+        RETURN r0
+        ''')
+        res = interpret(code)
+        assert res.val == 100
