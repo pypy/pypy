@@ -28,7 +28,7 @@ function argument always comes in r0
 """
 
 from pypy.rlib.streamio import open_file_as_stream
-from pypy.jit.tl.support import sort
+from pypy.jit.tl.tinyframe.support import sort
 from pypy.rlib.unroll import unrolling_iterable
 
 opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',

@@ -1,6 +1,6 @@
 
 import py
-from pypy.jit.tl.tinyframe import *
+from pypy.jit.tl.tinyframe.tinyframe import *
 
 class TestCompile(object):
     def test_simple(self):
