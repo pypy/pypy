@@ -488,7 +488,18 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
             result = formatter.format()
         except NeedUnicodeFormattingError:
             # fall through to the unicode case
-            fmt = unicode(fmt)
+            try:
+                fmt = unicode(fmt)
+            except UnicodeDecodeError, e:
+                raise OperationError(space.w_UnicodeDecodeError,
+                    space.newtuple([
+                        space.wrap(e.encoding),
+                        space.wrap(e.object),
+                        space.wrap(e.start),
+                        space.wrap(e.end),
+                        space.wrap(e.reason),
+                    ])
+                )
         else:
             return space.wrap(result)
     else:
