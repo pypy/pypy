@@ -24,9 +24,10 @@ class W_File(W_AbstractStream):
 
     # Default values until the file is successfully opened
     stream   = None
-    name     = "<uninitialized file>"
+    w_name   = None
     mode     = "<uninitialized file>"
-    encoding = None
+    softspace= 0     # Required according to file object docs
+    encoding = None  # This is not used internally by file objects
     fd       = -1
 
     def __init__(self, space):
@@ -38,11 +39,8 @@ class W_File(W_AbstractStream):
         self.clear_all_weakrefs()
         self.direct_close()
 
-    def fdopenstream(self, stream, fd, mode, w_name):
+    def fdopenstream(self, stream, fd, mode):
         self.fd = fd
-        self.w_name = w_name
-        self.softspace = 0    # Required according to file object docs
-        self.encoding = None  # This is not used internally by file objects
         self.mode = mode
         self.stream = stream
         if stream.flushable():
@@ -82,12 +80,12 @@ class W_File(W_AbstractStream):
 
     def direct___init__(self, w_name, mode='r', buffering=-1):
         name = self.space.str_w(w_name)
-        self.name = name
         self.direct_close()
+        self.w_name = w_name
         self.check_mode_ok(mode)
         stream = streamio.open_file_as_stream(name, mode, buffering)
         fd = stream.try_to_find_file_descriptor()
-        self.fdopenstream(stream, fd, mode, w_name)
+        self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
         if self.stream is None:
@@ -103,9 +101,10 @@ class W_File(W_AbstractStream):
 
     def direct_fdopen(self, fd, mode='r', buffering=-1):
         self.direct_close()
+        self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
         stream = streamio.fdopen_as_stream(fd, mode, buffering)
-        self.fdopenstream(stream, fd, mode, self.space.wrap('<fdopen>'))
+        self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
         space = self.space
@@ -240,7 +239,7 @@ class W_File(W_AbstractStream):
         try:
             self.direct_fdopen(fd, mode, buffering)
         except StreamErrors, e:
-            raise wrap_streamerror(self.space, e, self.name)
+            raise wrap_streamerror(self.space, e, self.w_name)
 
     _exposed_method_names = []
 
@@ -276,7 +275,7 @@ class W_File(W_AbstractStream):
                     try:
                         result = self.direct_%(name)s(%(callsig)s)
                     except StreamErrors, e:
-                        raise wrap_streamerror(space, e, self.name)
+                        raise wrap_streamerror(space, e, self.w_name)
                 finally:
                     self.unlock()
                 return %(wrapresult)s
@@ -388,16 +387,19 @@ optimizations previously implemented in the xreadlines module.""")
             head = "closed"
         else:
             head = "open"
-        if self.space.is_true(self.space.isinstance(self.w_name,
+        w_name = self.w_name
+        if w_name is None:
+            w_name = self.space.wrap('?')
+        if self.space.is_true(self.space.isinstance(w_name,
                                                     self.space.w_str)):
             info = "%s file '%s', mode '%s'" % (
                 head,
-                self.space.str_w(self.w_name),
+                self.space.str_w(w_name),
                 self.mode)
         else:
             info = "%s file %s, mode '%s'" % (
                 head,
-                self.space.str_w(self.space.repr(self.w_name)),
+                self.space.str_w(self.space.repr(w_name)),
                 self.mode)
         return self.getrepr(self.space, info)
     file__repr__.unwrap_spec = ['self']

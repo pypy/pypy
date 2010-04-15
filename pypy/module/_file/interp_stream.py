@@ -10,16 +10,16 @@ from pypy.interpreter.gateway import interp2app
 
 import os
 
-def wrap_streamerror(space, e, filename):
+def wrap_streamerror(space, e, w_filename=None):
     if isinstance(e, streamio.StreamError):
         return OperationError(space.w_ValueError,
                               space.wrap(e.message))
     elif isinstance(e, OSError):
-        return wrap_oserror_as_ioerror(space, e, filename)
+        return wrap_oserror_as_ioerror(space, e, w_filename)
     else:
         return OperationError(space.w_IOError, space.w_None)
 
-def wrap_oserror_as_ioerror(space, e, filename):
+def wrap_oserror_as_ioerror(space, e, w_filename=None):
     assert isinstance(e, OSError)
     errno = e.errno
     try:
@@ -29,7 +29,7 @@ def wrap_oserror_as_ioerror(space, e, filename):
     w_error = space.call_function(space.w_IOError,
                                   space.wrap(errno),
                                   space.wrap(msg),
-                                  space.wrap(filename))
+                                  w_filename)
     return OperationError(space.w_IOError, w_error)
 
 
