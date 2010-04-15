@@ -1,5 +1,8 @@
 
-""" Interpreter for a tiny interpreter with frame introspection. Supports
+"""
+Run tinyframe.py <input file> [int value reg0] [int value reg1] ...
+
+Interpreter for a tiny interpreter with frame introspection. Supports
 integer values and function values. The machine is
 register based with untyped registers.
 
@@ -24,16 +27,19 @@ JUMP_IF_ABOVE r1 r2 @label # jump if value in r1 is above
 function argument always comes in r0
 """
 
+from pypy.rlib.streamio import open_file_as_stream
+
 opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',
            'RETURN', 'JUMP', 'JUMP_IF_ABOVE']
 for i, opcode in enumerate(opcodes):
     globals()[opcode] = i
 
 class Code(object):
-    def __init__(self, code, regno, functions):
+    def __init__(self, code, regno, functions, name):
         self.code = code
         self.regno = regno
         self.functions = functions
+        self.name = name
 
 class Parser(object):
 
@@ -65,14 +71,14 @@ class Parser(object):
         functions = [code for i, code in sorted(self.functions.values())]
         assert self.name == 'main'
         return Code("".join([chr(i) for i in self.code]), self.maxregno + 1,
-                    functions)
+                    functions, self.name)
 
     def finish_currect_code(self):
         if self.name is None:
             assert not self.code
             return
         code = Code("".join([chr(i) for i in self.code]), self.maxregno + 1,
-                    [])
+                    [], self.name)
         self.functions[self.name] = (len(self.functions), code)
         self.name = None
         self.labels = {}
@@ -137,6 +143,9 @@ class Object(object):
     def gt(self, other):
         raise NotImplementedError("abstract base class")
 
+    def repr(self):
+        raise NotImplementedError("abstract base class")
+
 class Int(Object):
     def __init__(self, val):
         self.val = val
@@ -146,6 +155,9 @@ class Int(Object):
 
     def gt(self, other):
         return self.val > other.val
+
+    def repr(self):
+        return str(self.val)
 
 class Func(Object):
     def __init__(self, code):
@@ -159,6 +171,9 @@ class Func(Object):
     def add(self, other):
         return CombinedFunc(self, other)
 
+    def repr(self):
+        return "<function %s>" % self.code.name
+
 class CombinedFunc(Func):
     def __init__(self, outer, inner):
         self.outer = outer
@@ -166,6 +181,9 @@ class CombinedFunc(Func):
 
     def call(self, arg):
         return self.outer.call(self.inner.call(arg))
+
+    def repr(self):
+        return "<function %s(%s)>" % (self.outer.repr(), self.inner.repr())
 
 class Frame(object):
     def __init__(self, code):
@@ -205,8 +223,30 @@ class Frame(object):
                 assert isinstance(f, Func)
                 self.registers[ord(code[i + 3])] = f.call(arg)
                 i += 4
+            elif opcode == PRINT:
+                arg = self.registers[ord(code[i + 1])]
+                print arg.repr()
+                i += 2
             else:
                 raise Exception("unimplemented opcode %s" % opcodes[opcode])
 
 def interpret(code):
     return Frame(code).interpret()
+
+def main(fname, argv):
+    f = open_file_as_stream(fname, "r")
+    input = f.read()
+    f.close()
+    code = compile(input)
+    mainframe = Frame(code)
+    for i in range(len(argv)):
+        mainframe.registers[i] = Int(int(argv[i]))
+    print "Result:", mainframe.interpret().repr()
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv < 2):
+        print __doc__
+        sys.exit(1)
+    fname = sys.argv[1]
+    main(fname, sys.argv[2:])

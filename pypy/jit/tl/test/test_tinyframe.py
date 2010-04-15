@@ -78,3 +78,21 @@ class TestCompile(object):
         ''')
         ret = interpret(code)
         assert ret.val == 1 + 1 + 2
+
+    def test_print(self):
+        import sys
+        from StringIO import StringIO
+
+        code = compile('''
+        main:
+        LOAD 0 => r1
+        PRINT r1
+        RETURN r1
+        ''')
+        s = StringIO()
+        sys.stdout = s
+        try:
+            interpret(code)
+            assert s.getvalue() == '0\n'
+        finally:
+            sys.stdout = sys.__stdout__
