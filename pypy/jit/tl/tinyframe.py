@@ -28,9 +28,12 @@ function argument always comes in r0
 """
 
 from pypy.rlib.streamio import open_file_as_stream
+from pypy.jit.tl.support import sort
+from pypy.rlib.unroll import unrolling_iterable
 
 opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',
            'RETURN', 'JUMP', 'JUMP_IF_ABOVE']
+unrolling_opcodes = unrolling_iterable(opcodes)
 for i, opcode in enumerate(opcodes):
     globals()[opcode] = i
 
@@ -54,8 +57,9 @@ class Parser(object):
         for line in lines:
             comment = line.find('#')
             if comment != -1:
+                assert comment >= 0
                 line = line[:comment]
-            line = line.strip()
+            line = line.strip(" ")
             if not line:
                 continue
             if line.endswith(':'):
@@ -66,9 +70,16 @@ class Parser(object):
             if line.startswith('@'):
                 self.labels[line[1:]] = len(self.code)
                 continue
-            opcode, args = line.split(" ", 1)
-            getattr(self, 'compile_' + opcode)(args)
-        functions = [code for i, code in sorted(self.functions.values())]
+            firstspace = line.find(" ")
+            assert firstspace >= 0
+            opcode = line[:firstspace]
+            args = line[firstspace + 1:]
+            for name in unrolling_opcodes:
+                if opcode == name:
+                    getattr(self, 'compile_' + name)(args)
+        values = self.functions.values()
+        sort(values)
+        functions = [code for i, code in values]
         assert self.name == 'main'
         return Code("".join([chr(i) for i in self.code]), self.maxregno + 1,
                     functions, self.name)
@@ -92,39 +103,50 @@ class Parser(object):
         return no
 
     def compile_ADD(self, args):
-        args, result = args.split("=>")
-        arg0, arg1 = args.strip().split(" ")
+        args, result = args.split("=")
+        result = result[1:]
+        arg0, arg1 = args.strip(" ").split(" ")
         self.code += [ADD, self.rint(arg0), self.rint(arg1),
-                      self.rint(result.strip())]
+                      self.rint(result.strip(" "))]
 
     def compile_LOAD(self, args):
-        arg0, result = args.split("=>")
-        arg0 = arg0.strip()
-        self.code += [LOAD, int(arg0), self.rint(result.strip())]
+        arg0, result = args.split("=")
+        result = result[1:]
+        arg0 = arg0.strip(" ")
+        self.code += [LOAD, int(arg0), self.rint(result.strip(" "))]
 
     def compile_PRINT(self, args):
-        arg = self.rint(args.strip())
+        arg = self.rint(args.strip(" "))
         self.code += [PRINT, arg]
 
     def compile_RETURN(self, args):
-        arg = self.rint(args.strip())
+        arg = self.rint(args.strip(" "))
         self.code += [RETURN, arg]
 
     def compile_JUMP_IF_ABOVE(self, args):
         arg0, arg1, label = args.split(" ")
-        self.code += [JUMP_IF_ABOVE, self.rint(arg0.strip()),
-                      self.rint(arg1.strip()), self.labels[label[1:]]]
+        self.code += [JUMP_IF_ABOVE, self.rint(arg0.strip(" ")),
+                      self.rint(arg1.strip(" ")), self.labels[label[1:]]]
 
     def compile_LOAD_FUNCTION(self, args):
-        name, res = args.split("=>")
-        no, code = self.functions[name.strip()]
-        self.code += [LOAD_FUNCTION, no, self.rint(res.strip())]
+        name, res = args.split("=")
+        res = res[1:]
+        no, code = self.functions[name.strip(" ")]
+        self.code += [LOAD_FUNCTION, no, self.rint(res.strip(" "))]
 
     def compile_CALL(self, args):
-        args, res = args.split("=>")
-        arg0, arg1 = args.strip().split(" ")
-        self.code += [CALL, self.rint(arg0.strip()), self.rint(arg1.strip()),
-                      self.rint(res.strip())]
+        args, res = args.split("=")
+        res = res[1:]
+        arg0, arg1 = args.strip(" ").split(" ")
+        self.code += [CALL, self.rint(arg0.strip(" ")),
+                      self.rint(arg1.strip(" ")),
+                      self.rint(res.strip(" "))]
+
+    def compile_INTROSPECT(self, args):
+        raise NotImplementedError
+
+    def compile_JUMP(self, args):
+        raise NotImplementedError
 
 def compile(strrepr):
     parser = Parser()
@@ -235,7 +257,7 @@ def interpret(code):
 
 def main(fname, argv):
     f = open_file_as_stream(fname, "r")
-    input = f.read()
+    input = f.readall()
     f.close()
     code = compile(input)
     mainframe = Frame(code)
