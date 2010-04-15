@@ -44,7 +44,6 @@ class TestCompile(object):
         assert ret.val == 100
 
     def test_function(self):
-        py.test.skip("in progress")
         code = compile('''
         func: # arg comes in r0
         LOAD 1 => r1

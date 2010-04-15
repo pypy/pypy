@@ -109,7 +109,16 @@ class Parser(object):
         self.code += [JUMP_IF_ABOVE, self.rint(arg0.strip()),
                       self.rint(arg1.strip()), self.labels[label[1:]]]
 
-    #def compile_LOAD_FUNCTION(self, 
+    def compile_LOAD_FUNCTION(self, args):
+        name, res = args.split("=>")
+        no, code = self.functions[name.strip()]
+        self.code += [LOAD_FUNCTION, no, self.rint(res.strip())]
+
+    def compile_CALL(self, args):
+        args, res = args.split("=>")
+        arg0, arg1 = args.strip().split(" ")
+        self.code += [CALL, self.rint(arg0.strip()), self.rint(arg1.strip()),
+                      self.rint(res.strip())]
 
 def compile(strrepr):
     parser = Parser()
@@ -137,6 +146,15 @@ class Int(Object):
 
     def gt(self, other):
         return self.val > other.val
+
+class Func(Object):
+    def __init__(self, code):
+        self.code = code
+
+    def call(self, arg):
+        f = Frame(self.code)
+        f.registers[0] = arg
+        return f.interpret()
 
 class Frame(object):
     def __init__(self, code):
@@ -166,6 +184,16 @@ class Frame(object):
                     i = tgt
                 else:
                     i += 4
+            elif opcode == LOAD_FUNCTION:
+                f = self.code.functions[ord(code[i + 1])]
+                self.registers[ord(code[i + 2])] = Func(f)
+                i += 3
+            elif opcode == CALL:
+                f = self.registers[ord(code[i + 1])]
+                arg = self.registers[ord(code[i + 2])]
+                assert isinstance(f, Func)
+                self.registers[ord(code[i + 3])] = f.call(arg)
+                i += 4
             else:
                 raise Exception("unimplemented opcode %s" % opcodes[opcode])
 
