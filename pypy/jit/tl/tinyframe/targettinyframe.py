@@ -1,5 +1,9 @@
 
 from pypy.jit.tl.tinyframe.tinyframe import main
+from pypy.jit.metainterp.policy import JitPolicy
+
+def jitpolicy(driver):
+    return JitPolicy()
 
 def entry_point(argv):
     main(argv[1], argv[2:])

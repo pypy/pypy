@@ -30,6 +30,7 @@ function argument always comes in r0
 from pypy.rlib.streamio import open_file_as_stream
 from pypy.jit.tl.tinyframe.support import sort
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.jit import JitDriver, hint
 
 opcodes = ['ADD', 'INTROSPECT', 'PRINT', 'CALL', 'LOAD', 'LOAD_FUNCTION',
            'RETURN', 'JUMP', 'JUMP_IF_ABOVE']
@@ -186,8 +187,7 @@ class Func(Object):
         self.code = code
 
     def call(self, arg):
-        f = Frame(self.code)
-        f.registers[0] = arg
+        f = Frame(self.code, arg)
         return f.interpret()
 
     def add(self, other):
@@ -207,15 +207,23 @@ class CombinedFunc(Func):
     def repr(self):
         return "<function %s(%s)>" % (self.outer.repr(), self.inner.repr())
 
+driver = JitDriver(greens = ['code', 'i'], reds = ['self'],
+                   virtualizables = ['self'])
+
 class Frame(object):
-    def __init__(self, code):
+    _virtualizable2_ = ['registers[*]', 'code']
+    
+    def __init__(self, code, arg=None):
+        self = hint(self, access_directly=True, fresh_virtualizable=True)
         self.code = code
-        self.registers = [None] * code.regno 
+        self.registers = [None] * code.regno
+        self.registers[0] = arg
 
     def interpret(self):
         i = 0
         code = self.code.code
         while True:
+            driver.jit_merge_point(self=self, code=code, i=i)
             opcode = ord(code[i])
             if opcode == LOAD:
                 self.registers[ord(code[i + 2])] = Int(ord(code[i + 1]))
@@ -233,6 +241,7 @@ class Frame(object):
                 tgt = ord(code[i + 3])
                 if arg0.gt(arg1):
                     i = tgt
+                    driver.can_enter_jit(code=code, i=tgt, self=self)
                 else:
                     i += 4
             elif opcode == LOAD_FUNCTION:
