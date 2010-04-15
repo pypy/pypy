@@ -84,15 +84,26 @@ class TestCompile(object):
         from StringIO import StringIO
 
         code = compile('''
+        name:
+        RETURN r0
         main:
         LOAD 0 => r1
         PRINT r1
+        LOAD_FUNCTION name => r1
+        PRINT r1
+        ADD r1 r1 => r2
+        PRINT r2
         RETURN r1
         ''')
         s = StringIO()
         sys.stdout = s
         try:
             interpret(code)
-            assert s.getvalue() == '0\n'
         finally:
             sys.stdout = sys.__stdout__
+        lines = s.getvalue().splitlines()
+        assert lines == [
+            '0',
+            '<function name>',
+            '<function <function name>(<function name>)>',
+        ]
