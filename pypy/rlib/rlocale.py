@@ -161,3 +161,5 @@ def setlocale(category, locale):
 isalpha = external('isalpha', [rffi.INT], rffi.INT)
 isupper = external('isupper', [rffi.INT], rffi.INT)
 islower = external('islower', [rffi.INT], rffi.INT)
+tolower = external('tolower', [rffi.INT], rffi.INT)
+isalnum = external('isalnum', [rffi.INT], rffi.INT)

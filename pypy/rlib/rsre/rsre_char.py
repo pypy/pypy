@@ -2,7 +2,7 @@
 Character categories and charsets.
 """
 import sys
-from pypy.rlib.rsre._rsre_platform import tolower, isalnum
+from pypy.rlib.rlocale import tolower, isalnum
 from pypy.rlib.unroll import unrolling_iterable
 
 # Note: the unicode parts of this module require you to call
