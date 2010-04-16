@@ -15,5 +15,5 @@ class TestLocale(object):
     def teardown_class(cls):
         setlocale(LC_ALL, cls.oldlocale)
 
-    def test_setlocale(self):
+    def test_setlocale_worked(self):
         assert u"Ą".isupper()
