@@ -3,7 +3,8 @@
 
 import py
 import locale as cpython_locale
-from pypy.rlib.rlocale import setlocale, LC_ALL, LocaleError
+from pypy.rlib.rlocale import setlocale, LC_ALL, LocaleError, isupper, \
+     islower, isalpha
 
 class TestLocale(object):
     def setup_class(cls):
@@ -19,3 +20,9 @@ class TestLocale(object):
         assert u"Ą".isupper()
         raises(LocaleError, setlocale, LC_ALL, "bla bla bla")
         raises(LocaleError, setlocale, 1234455, None)
+
+    def test_lower_upper(self):
+        assert isupper(ord("A"))
+        assert islower(ord("a"))
+        assert not isalpha(ord(" "))
+        

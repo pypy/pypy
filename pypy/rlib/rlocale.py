@@ -157,3 +157,7 @@ def setlocale(category, locale):
     if not ll_result:
         raise LocaleError("unsupported locale setting")
     return rffi.charp2str(ll_result)
+
+isalpha = external('isalpha', [rffi.INT], rffi.INT)
+isupper = external('isupper', [rffi.INT], rffi.INT)
+islower = external('islower', [rffi.INT], rffi.INT)
