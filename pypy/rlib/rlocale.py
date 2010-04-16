@@ -9,7 +9,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 
 class LocaleError(Exception):
-    pass
+    def __init__(self, message):
+        self.message = message
 
 HAVE_LANGINFO = sys.platform != 'win32'
 HAVE_LIBINTL  = sys.platform != 'win32'
