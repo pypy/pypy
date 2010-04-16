@@ -3,6 +3,7 @@ import autopath
 from pypy.conftest import option
 from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
+import sys
 
 def init_globals_via_builtins_hack(space):
     space.appexec([], """():
@@ -24,6 +25,7 @@ class AppTestAppSysTests:
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
+        cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
     
     def test_sys_in_modules(self):
         import sys
@@ -107,6 +109,10 @@ class AppTestAppSysTests:
         assert isinstance(sys.stdout, file)
         assert isinstance(sys.stderr, file)
         assert isinstance(sys.stdin, file)
+
+    def test_getfilesystemencoding(self):
+        import sys
+        assert sys.getfilesystemencoding() == self.filesystemenc
 
 class AppTestSysModulePortedFromCPython:
 

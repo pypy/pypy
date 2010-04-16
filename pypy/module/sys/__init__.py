@@ -68,13 +68,14 @@ class Module(MixedModule):
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
-}
+        'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
+        }
+    
     appleveldefs = {
         'excepthook'            : 'app.excepthook', 
         '__excepthook__'        : 'app.excepthook', 
         'exit'                  : 'app.exit', 
         'exitfunc'              : 'app.exitfunc',
-        'getfilesystemencoding' : 'app.getfilesystemencoding', 
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str', 
     }

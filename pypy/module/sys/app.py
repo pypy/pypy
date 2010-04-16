@@ -26,18 +26,6 @@ def exitfunc():
 
 #import __builtin__
 
-def getfilesystemencoding():
-    """Return the encoding used to convert Unicode filenames in
-    operating system filenames.
-    """
-    if sys.platform == "win32":
-        encoding = "mbcs"
-    elif sys.platform == "darwin":
-        encoding = "utf-8"
-    else:
-        encoding = None
-    return encoding
-
 def callstats():
     """Not implemented."""
     return None
