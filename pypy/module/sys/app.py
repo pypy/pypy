@@ -28,7 +28,7 @@ def exitfunc():
 
 def getfilesystemencoding():
     """Return the encoding used to convert Unicode filenames in
-operating system filenames.
+    operating system filenames.
     """
     if sys.platform == "win32":
         encoding = "mbcs"
@@ -43,7 +43,7 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2009 PyPy development team.
+Copyright 2003-2010 PyPy development team.
 All rights reserved.
 For further information see http://www.codespeak.net/pypy.
 
