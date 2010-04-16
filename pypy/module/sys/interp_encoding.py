@@ -26,10 +26,7 @@ def get_w_default_encoder(space):
     space.sys.w_default_encoder = w_encoder    # cache it
     return w_encoder
 
-def getfilesystemencoding(space):
-    """Return the encoding used to convert Unicode filenames in
-    operating system filenames.
-    """
+def _getfilesystemencoding(space):
     if sys.platform == "win32":
         encoding = "mbcs"
     elif sys.platform == "darwin":
@@ -48,4 +45,10 @@ def getfilesystemencoding(space):
                                         space.wrap(loc_codeset))
             if space.is_true(w_res):
                 encoding = loc_codeset
-    return space.wrap(encoding)
+    return encoding
+
+def getfilesystemencoding(space):
+    """Return the encoding used to convert Unicode filenames in
+    operating system filenames.
+    """
+    return space.wrap(space.sys.filesystemencoding)

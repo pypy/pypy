@@ -367,6 +367,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise UnpackValueError("Expected length %d, got %d" % (expected_length, len(t)))
         return t
 
+    def startup(self):
+        from pypy.module.sys.interp_encoding import _getfilesystemencoding
+        ObjSpace.startup(self)
+        self.sys.filesystemencoding = _getfilesystemencoding(self)
+
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))

@@ -10,6 +10,7 @@ class Module(MixedModule):
         self.recursionlimit = 100
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
+        self.filesystemencoding = None
         
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))', 
