@@ -1,0 +1,152 @@
+
+""" The rpython-level part of locale module
+"""
+
+import sys
+
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.tool import rffi_platform as platform
+
+class LocaleError(Exception):
+    pass
+
+HAVE_LANGINFO = sys.platform != 'win32'
+HAVE_LIBINTL  = sys.platform != 'win32'
+
+class CConfig:
+    includes = ['locale.h', 'limits.h']
+    if HAVE_LANGINFO:
+        includes += ['langinfo.h']
+    if HAVE_LIBINTL:
+        includes += ['libintl.h']
+    if sys.platform == 'win32':
+        includes += ['windows.h']
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=includes,
+    )
+    HAVE_BIND_TEXTDOMAIN_CODESET = platform.Has('bind_textdomain_codeset')
+    lconv = platform.Struct("struct lconv", [
+            # Numeric (non-monetary) information.
+            ("decimal_point", rffi.CCHARP),    # Decimal point character.
+            ("thousands_sep", rffi.CCHARP),    # Thousands separator.
+
+            ## Each element is the number of digits in each group;
+            ## elements with higher indices are farther left.
+            ## An element with value CHAR_MAX means that no further grouping is done.
+            ## An element with value 0 means that the previous element is used
+            ## for all groups farther left.  */
+            ("grouping", rffi.CCHARP),
+
+            ## Monetary information.
+
+            ## First three chars are a currency symbol from ISO 4217.
+            ## Fourth char is the separator.  Fifth char is '\0'.
+            ("int_curr_symbol", rffi.CCHARP),
+            ("currency_symbol", rffi.CCHARP),   # Local currency symbol.
+            ("mon_decimal_point", rffi.CCHARP), # Decimal point character.
+            ("mon_thousands_sep", rffi.CCHARP), # Thousands separator.
+            ("mon_grouping", rffi.CCHARP),      # Like `grouping' element (above).
+            ("positive_sign", rffi.CCHARP),     # Sign for positive values.
+            ("negative_sign", rffi.CCHARP),     # Sign for negative values.
+            ("int_frac_digits", rffi.UCHAR),    # Int'l fractional digits.
+
+            ("frac_digits", rffi.UCHAR),        # Local fractional digits.
+            ## 1 if currency_symbol precedes a positive value, 0 if succeeds.
+            ("p_cs_precedes", rffi.UCHAR),
+            ## 1 iff a space separates currency_symbol from a positive value.
+            ("p_sep_by_space", rffi.UCHAR),
+            ## 1 if currency_symbol precedes a negative value, 0 if succeeds.
+            ("n_cs_precedes", rffi.UCHAR),
+            ## 1 iff a space separates currency_symbol from a negative value.
+            ("n_sep_by_space", rffi.UCHAR),
+
+            ## Positive and negative sign positions:
+            ## 0 Parentheses surround the quantity and currency_symbol.
+            ## 1 The sign string precedes the quantity and currency_symbol.
+            ## 2 The sign string follows the quantity and currency_symbol.
+            ## 3 The sign string immediately precedes the currency_symbol.
+            ## 4 The sign string immediately follows the currency_symbol.
+            ("p_sign_posn", rffi.UCHAR),
+            ("n_sign_posn", rffi.UCHAR),
+            ])
+
+
+constants = {}
+constant_names = (
+        'LC_CTYPE',
+        'LC_NUMERIC',
+        'LC_TIME',
+        'LC_COLLATE',
+        'LC_MONETARY',
+        'LC_MESSAGES',
+        'LC_ALL',
+        'LC_PAPER',
+        'LC_NAME',
+        'LC_ADDRESS',
+        'LC_TELEPHONE',
+        'LC_MEASUREMENT',
+        'LC_IDENTIFICATION',
+        'LC_MIN',
+        'LC_MAX',
+        # from limits.h
+        'CHAR_MAX',
+        )
+
+for name in constant_names:
+    setattr(CConfig, name, platform.DefinedConstantInteger(name))
+
+langinfo_names = []
+if HAVE_LANGINFO:
+    # some of these consts have an additional #ifdef directives
+    # should we support them?
+    langinfo_names.extend('RADIXCHAR THOUSEP CRNCYSTR D_T_FMT D_FMT T_FMT '
+                        'AM_STR PM_STR CODESET T_FMT_AMPM ERA ERA_D_FMT '
+                        'ERA_D_T_FMT ERA_T_FMT ALT_DIGITS YESEXPR NOEXPR '
+                        '_DATE_FMT'.split())
+    for i in range(1, 8):
+        langinfo_names.append("DAY_%d" % i)
+        langinfo_names.append("ABDAY_%d" % i)
+    for i in range(1, 13):
+        langinfo_names.append("MON_%d" % i)
+        langinfo_names.append("ABMON_%d" % i)
+
+if sys.platform == 'win32':
+    langinfo_names.extend('LOCALE_USER_DEFAULT LOCALE_SISO639LANGNAME '
+                      'LOCALE_SISO3166CTRYNAME LOCALE_IDEFAULTLANGUAGE '
+                      ''.split())
+
+
+for name in langinfo_names:
+    setattr(CConfig, name, platform.DefinedConstantInteger(name))
+
+class cConfig(object):
+    pass
+
+for k, v in platform.configure(CConfig).items():
+    setattr(cConfig, k, v)
+
+# needed to export the constants inside and outside. see __init__.py
+for name in constant_names:
+    value = getattr(cConfig, name)
+    if value is not None:
+        constants[name] = value
+
+for name in langinfo_names:
+    value = getattr(cConfig, name)
+    if value is not None and sys.platform != 'win32':
+        constants[name] = value
+
+locals().update(constants)
+
+HAVE_BIND_TEXTDOMAIN_CODESET = cConfig.HAVE_BIND_TEXTDOMAIN_CODESET
+
+def external(name, args, result, calling_conv='c'):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv=calling_conv)
+
+_setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+
+def setlocale(category, locale):
+    _setlocale(rffi.cast(rffi.INT, category), locale)
