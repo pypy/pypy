@@ -7,9 +7,9 @@ class AppTestLocaleTrivia:
     def setup_class(cls):
         cls.space = space = gettestobjspace(usemodules=['_locale'])
         if sys.platform != 'win32':
-            cls.w_language_en = cls.space.wrap("en_US")
-            cls.w_language_utf8 = cls.space.wrap("en_US.UTF-8")
-            cls.w_language_pl = cls.space.wrap("pl_PL.UTF-8")
+            cls.w_language_en = cls.space.wrap("C")
+            cls.w_language_utf8 = cls.space.wrap("en_US.utf8")
+            cls.w_language_pl = cls.space.wrap("pl_PL.utf8")
             cls.w_encoding_pl = cls.space.wrap("utf-8")
         else:
             cls.w_language_en = cls.space.wrap("English_US")
@@ -118,11 +118,11 @@ class AppTestLocaleTrivia:
         assert string.lowercase == lcase
         assert string.uppercase == ucase
 
-        if self.language_en != self.language_utf8:
-            _locale.setlocale(_locale.LC_ALL, self.language_en)
+        _locale.setlocale(_locale.LC_ALL, self.language_en)
 
-            assert string.lowercase != lcase
-            assert string.uppercase != ucase
+        # the asserts below are just plain wrong
+        #    assert string.lowercase != lcase
+        #    assert string.uppercase != ucase
 
     def test_localeconv(self):
         import _locale
