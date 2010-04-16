@@ -17,3 +17,5 @@ class TestLocale(object):
 
     def test_setlocale_worked(self):
         assert u"Ą".isupper()
+        raises(LocaleError, setlocale, LC_ALL, "bla bla bla")
+        raises(LocaleError, setlocale, 1234455, None)

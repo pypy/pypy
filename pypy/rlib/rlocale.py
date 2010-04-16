@@ -149,4 +149,10 @@ def external(name, args, result, calling_conv='c'):
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
 def setlocale(category, locale):
-    _setlocale(rffi.cast(rffi.INT, category), locale)
+    if cConfig.LC_MAX is not None:
+        if not cConfig.LC_MIN <= category <= cConfig.LC_MAX:
+            raise LocaleError("invalid locale category")
+    ll_result = _setlocale(rffi.cast(rffi.INT, category), locale)
+    if not ll_result:
+        raise LocaleError("unsupported locale setting")
+    return rffi.charp2str(ll_result)
