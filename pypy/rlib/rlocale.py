@@ -163,3 +163,11 @@ isupper = external('isupper', [rffi.INT], rffi.INT)
 islower = external('islower', [rffi.INT], rffi.INT)
 tolower = external('tolower', [rffi.INT], rffi.INT)
 isalnum = external('isalnum', [rffi.INT], rffi.INT)
+
+if HAVE_LANGINFO:
+    _nl_langinfo = external('nl_langinfo', [rffi.INT], rffi.CCHARP)
+
+    def nl_langinfo(key):
+        if key in constants.values():
+            return rffi.charp2str(_nl_langinfo(rffi.cast(rffi.INT, key)))
+        raise ValueError

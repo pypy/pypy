@@ -172,18 +172,16 @@ def strxfrm(space, s):
 strxfrm.unwrap_spec = [ObjSpace, str]
 
 if rlocale.HAVE_LANGINFO:
-    nl_item = rffi.INT
-    _nl_langinfo = rlocale.external('nl_langinfo', [nl_item], rffi.CCHARP)
 
     def nl_langinfo(space, key):
         """nl_langinfo(key) -> string
         Return the value for the locale information associated with key."""
 
-        if key in rlocale.constants.values():
-            result = _nl_langinfo(rffi.cast(nl_item, key))
-            return space.wrap(rffi.charp2str(result))
-        raise OperationError(space.w_ValueError,
-                             space.wrap("unsupported langinfo constant"))
+        try:
+            return space.wrap(rlocale.nl_langinfo(key))
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("unsupported langinfo constant"))
 
     nl_langinfo.unwrap_spec = [ObjSpace, int]
 
