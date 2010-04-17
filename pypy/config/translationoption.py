@@ -100,7 +100,7 @@ translation_optiondescription = OptionDescription(
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
                default=False,
-               suggests=[("translation.gc", "hybrid"),     # or "boehm"
+               suggests=[("translation.gc", "hybrid"),
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
