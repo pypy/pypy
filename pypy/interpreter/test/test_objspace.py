@@ -12,7 +12,18 @@ import sys
 INT32_MAX = 2147483648
 
 
-class TestObjSpace: 
+class TestObjSpace:
+
+    def test_isinstance(self):
+        space = self.space
+        w_i = space.wrap(4)
+        w_result = space.isinstance(w_i, space.w_int)
+        assert space.is_true(w_result)
+        assert space.isinstance_w(w_i, space.w_int)
+        w_result = space.isinstance(w_i, space.w_str)
+        assert not space.is_true(w_result)
+        assert not space.isinstance_w(w_i, space.w_str)
+
     def test_newlist(self):
         w = self.space.wrap
         l = range(10)

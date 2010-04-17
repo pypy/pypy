@@ -877,6 +877,9 @@ class ObjSpace(object):
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
 
+    def isinstance_w(self, w_obj, w_type):
+        return self.is_true(self.isinstance(w_obj, w_type))
+
     # The code below only works
     # for the simple case (new-style instance).
     # These methods are patched with the full logic by the __builtin__
