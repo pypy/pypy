@@ -14,8 +14,9 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.stdlib_opcode import (
-    bytecode_spec, host_bytecode_spec, unrolling_all_opcode_descs, opmap, host_opmap)
+from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
+                                     unrolling_all_opcode_descs, opmap,
+                                     host_opmap)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
