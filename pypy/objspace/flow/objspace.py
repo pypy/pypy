@@ -446,7 +446,6 @@ class FlowObjSpace(ObjSpace):
                                                          w_exc_value)
 
     def w_KeyboardInterrupt(self):
-        # XXX XXX Ha Ha
         # the reason to do this is: if you interrupt the flowing of a function
         # with <Ctrl-C> the bytecode interpreter will raise an applevel
         # KeyboardInterrupt and you will get an AttributeError: space does not
