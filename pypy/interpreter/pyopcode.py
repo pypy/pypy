@@ -11,7 +11,7 @@ from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf
+from pypy.rlib import jit, rstackovf, rstack
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
@@ -76,8 +76,6 @@ class __extend__(pyframe.PyFrame):
 
     def dispatch(self, pycode, next_instr, ec):
         # For the sequel, force 'next_instr' to be unsigned for performance
-        from pypy.rlib import rstack # for resume points
-
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
 
@@ -90,8 +88,6 @@ class __extend__(pyframe.PyFrame):
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
-        from pypy.rlib import rstack # for resume points
-
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
             rstack.resume_point("handle_bytecode", self, co_code, ec,
@@ -235,8 +231,6 @@ class __extend__(pyframe.PyFrame):
                 return self.jump_absolute(oparg, next_instr, ec)
 
             if we_are_translated():
-                from pypy.rlib import rstack # for resume points
-
                 for opdesc in unrolling_all_opcode_descs:
                     # static checks to skip this whole case if necessary
                     if opdesc.bytecode_spec is not self.bytecode_spec:
@@ -897,7 +891,6 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
-        from pypy.rlib import rstack # for resume points
         from pypy.interpreter.function import is_builtin_code
 
         n_arguments = oparg & 0xff
@@ -930,8 +923,6 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg, next_instr):
-        from pypy.rlib import rstack # for resume points
-
         # XXX start of hack for performance
         if (oparg >> 8) & 0xff == 0:
             # Only positional arguments
