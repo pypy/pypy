@@ -6,14 +6,16 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter import pyframe, pyopcode, function
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
+from pypy.objspace.std import intobject, smallintobject
 from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.listobject import W_ListObject
 
 
 class BaseFrame(pyframe.PyFrame):
     """These opcodes are always overridden."""
 
     def LIST_APPEND(f, oparg, next_instr):
-        from pypy.objspace.std.listobject import W_ListObject
         w = f.popvalue()
         v = f.popvalue()
         if type(v) is W_ListObject:
@@ -23,13 +25,12 @@ class BaseFrame(pyframe.PyFrame):
 
 
 def small_int_BINARY_ADD(f, oparg, next_instr):
-    from pypy.objspace.std.smallintobject import (W_SmallIntObject,
-                                                  add__SmallInt_SmallInt)
     w_2 = f.popvalue()
     w_1 = f.popvalue()
-    if type(w_1) is W_SmallIntObject and type(w_2) is W_SmallIntObject:
+    if (type(w_1) is smallintobject.W_SmallIntObject and
+        type(w_2) is smallintobject.W_SmallIntObject):
         try:
-            w_result = add__SmallInt_SmallInt(f.space, w_1, w_2)
+            w_result = smallintobject.add__SmallInt_SmallInt(f.space, w_1, w_2)
         except FailedToImplement:
             w_result = f.space.add(w_1, w_2)
     else:
@@ -38,12 +39,12 @@ def small_int_BINARY_ADD(f, oparg, next_instr):
 
 
 def int_BINARY_ADD(f, oparg, next_instr):
-    from pypy.objspace.std.intobject import W_IntObject, add__Int_Int
     w_2 = f.popvalue()
     w_1 = f.popvalue()
-    if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
+    if (type(w_1) is intobject.W_IntObject and
+        type(w_2) is intobject.W_IntObject):
         try:
-            w_result = add__Int_Int(f.space, w_1, w_2)
+            w_result = intobject.add__Int_Int(f.space, w_1, w_2)
         except FailedToImplement:
             w_result = f.space.add(w_1, w_2)
     else:
@@ -52,11 +53,9 @@ def int_BINARY_ADD(f, oparg, next_instr):
 
 
 def list_BINARY_SUBSCR(f, oparg, next_instr):
-    from pypy.objspace.std.intobject import W_IntObject
-    from pypy.objspace.std.listobject import W_ListObject
     w_2 = f.popvalue()
     w_1 = f.popvalue()
-    if type(w_1) is W_ListObject and type(w_2) is W_IntObject:
+    if type(w_1) is W_ListObject and type(w_2) is intobject.W_IntObject:
         try:
             w_result = w_1.wrappeditems[w_2.intval]
         except IndexError:
@@ -67,7 +66,6 @@ def list_BINARY_SUBSCR(f, oparg, next_instr):
     f.pushvalue(w_result)
 
 def CALL_LIKELY_BUILTIN(f, oparg, next_instr):
-    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     w_globals = f.w_globals
     num = oparg >> 8
     assert isinstance(w_globals, W_DictMultiObject)
@@ -113,12 +111,12 @@ compare_table = [
 unrolling_compare_ops = unrolling_iterable(enumerate(compare_table))
 
 def fast_COMPARE_OP(f, testnum, next_instr):
-    from pypy.objspace.std.intobject import W_IntObject
     w_2 = f.popvalue()
     w_1 = f.popvalue()
     w_result = None
-    if (type(w_2) is W_IntObject and type(w_1) is W_IntObject
-        and testnum < len(compare_table)):
+    if (type(w_2) is intobject.W_IntObject and
+        type(w_1) is intobject.W_IntObject and
+        testnum < len(compare_table)):
         for i, attr in unrolling_compare_ops:
             if i == testnum:
                 op = getattr(operator, attr)
