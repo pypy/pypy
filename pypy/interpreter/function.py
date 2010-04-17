@@ -238,7 +238,8 @@ class Function(Wrappable):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            assert identifier not in Function._all, ("duplicate function ids")
+            assert Function._all.get(identifier, self) is self, ("duplicate "
+                                                                 "function ids")
             Function._all[identifier] = self
         return False
 
