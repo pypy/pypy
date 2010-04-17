@@ -426,6 +426,5 @@ def special_overrides(fs):
 def add_operations(fs):
     """Add function operations to the flow space."""
     for line in ObjSpace.MethodTable:
-        print line
         make_op(fs, *line)
     special_overrides(fs)
