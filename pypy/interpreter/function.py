@@ -237,9 +237,9 @@ class Function(Wrappable):
         if isinstance(self.code, BuiltinCode):
             # we have been seen by other means so rtyping should not choke
             # on us
-            assert self.code.identitifer not in Function._all, ("duplicate "
-                                                                "function ids")
-            Function._all[self.code.identifier] = self
+            identifier = self.code.identifier
+            assert identifier not in Function._all, ("duplicate function ids")
+            Function._all[identifier] = self
         return False
 
     def find(identifier):
