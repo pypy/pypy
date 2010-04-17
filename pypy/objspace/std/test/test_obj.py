@@ -7,11 +7,14 @@ class AppTestObject:
         cpython_behavior = (not option.runappdirect
                             or not hasattr(sys, 'pypy_translation_info'))
                 
-        cls.w_cpython_behavior = cls.space.wrap(cpython_behavior)        
+        cls.w_cpython_behavior = cls.space.wrap(cpython_behavior)
+        cls.w_cpython_version = cls.space.wrap(tuple(sys.version_info))
     
     def test_hash_builtin(self):
         if not self.cpython_behavior:
             skip("on pypy-c id == hash is not guaranteed")
+        if self.cpython_version >= (2, 7):
+            skip("on CPython >= 2.7, id != hash")
         import sys
         o = object()
         assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
@@ -33,7 +36,7 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        if self.cpython_behavior:
+        if self.cpython_behavior and self.cpython_version < (2, 7):
             assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
         assert hash(x) == object.__hash__(x)
 

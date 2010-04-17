@@ -133,7 +133,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if not we_are_translated() and isinstance(code, CPythonFakeCode):
             return CPythonFakeFrame(self, code, w_globals)
         else:
-            return self.FrameClass(self, code, w_globals, closure)
+            return ObjSpace.createframe(self, code, w_globals, closure)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)

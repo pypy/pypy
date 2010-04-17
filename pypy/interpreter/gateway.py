@@ -819,6 +819,9 @@ class interp2app_temp(interp2app):
 # and now for something completely different ... 
 #
 
+class MyStr(str):
+    pass
+
 class ApplevelClass:
     """NOT_RPYTHON
     A container for app-level source code that should be executed
@@ -828,12 +831,14 @@ class ApplevelClass:
 
     hidden_applevel = True
 
-    def __init__(self, source, filename = None, modname = '__builtin__'):
+    def __init__(self, source, filename=None, modname='__builtin__'):
+        # HAAACK (but a good one)
+        if filename is None:
+            f = sys._getframe(1)
+            filename = MyStr('<%s:%d>' % (f.f_code.co_filename, f.f_lineno))
+            filename.__source__ = py.code.Source(source)
         self.filename = filename
-        if self.filename is None:
-            self.code = py.code.Source(source).compile()
-        else:
-            self.code = NiceCompile(self.filename)(source)
+        self.source = str(py.code.Source(source).deindent())
         self.modname = modname
         # look at the first three lines for a NOT_RPYTHON tag
         first = "\n".join(source.split("\n", 3)[:3])
@@ -917,8 +922,9 @@ def build_applevel_dict(self, space):
     from pypy.interpreter.pycode import PyCode
     w_glob = space.newdict(module=True)
     space.setitem(w_glob, space.wrap('__name__'), space.wrap(self.modname))
-    space.exec_(self.code, w_glob, w_glob,
-                hidden_applevel=self.hidden_applevel)
+    space.exec_(self.source, w_glob, w_glob,
+                hidden_applevel=self.hidden_applevel,
+                filename=self.filename)
     return w_glob
 
 # __________ geninterplevel version __________
@@ -938,7 +944,7 @@ class PyPyCacheDir:
         from pypy.translator.geninterplevel import translate_as_module
         import marshal
         scramble = md5(cls.seed)
-        scramble.update(marshal.dumps(self.code))
+        scramble.update(marshal.dumps(self.source))
         key = scramble.hexdigest()
         initfunc = cls.known_code.get(key)
         if not initfunc:
@@ -959,7 +965,7 @@ class PyPyCacheDir:
         if not initfunc:
             # build it and put it into a file
             initfunc, newsrc = translate_as_module(
-                self.code, self.filename, self.modname)
+                self.source, self.filename, self.modname)
             fname = cls.cache_path.join(name+".py").strpath
             f = file(get_tmp_file_name(fname), "w")
             print >> f, """\

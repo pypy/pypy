@@ -17,7 +17,7 @@ def render_docstr(func, indent_str='', closing_str=''):
         indentation. The shorter triple quotes are
         choosen automatically.
         The result is returned as a 1-tuple."""
-    if type(func) is not str:
+    if not isinstance(func, str):
         doc = func.__doc__
     else:
         doc = func

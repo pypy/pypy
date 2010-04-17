@@ -1,7 +1,3 @@
-# NOT_RPYTHON
-# Note:
-# This *is* now explicitly RPython.
-# Please make sure not to break this.
 
 """
 
@@ -356,6 +352,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
     bitsleft = 0
     charsleft = 0
     surrogate = 0
+    startinpos = 0
     p = []
     errorHandler = None
     exc = None

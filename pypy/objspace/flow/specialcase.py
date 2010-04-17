@@ -4,6 +4,7 @@ from pypy.objspace.flow.operation import OperationName, Arity
 from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
+import py
 
 def sc_import(space, fn, args):
     args_w, kwds_w = args.unpack()
@@ -73,7 +74,7 @@ class FunctionCache(Cache):
         if app.filename is not None:
             dic['__file__'] = app.filename
         dic['__name__'] = app.modname
-        exec app.code in dic
+        exec py.code.Source(app.source).compile() in dic
         return dic
     _build = staticmethod(_build)
 

@@ -54,6 +54,14 @@ class BaseTestCompiler:
             space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                            ')', '?', mode, 0)
 
+    def test_hidden_applevel(self):
+        code = self.compiler.compile("def f(x): pass", "<test>", "exec", 0,
+                                     True)
+        assert code.hidden_applevel
+        for w_const in code.co_consts_w:
+            if isinstance(w_const, PyCode):
+                assert code.hidden_applevel
+
     def test_indentation_error(self):
         space = self.space
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,

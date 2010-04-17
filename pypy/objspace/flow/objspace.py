@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import pyframe
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
 from pypy.objspace.flow.operation import FunctionByName
@@ -24,7 +25,6 @@ if hasattr(complex.real.__get__, 'im_self'):
 else:
     type_with_bad_introspection = type(complex.real.__get__)
 
-
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     """NOT_RPYTHON.
@@ -35,6 +35,7 @@ class FlowObjSpace(ObjSpace):
     
     full_exceptions = False
     do_imports_immediately = True
+    FrameClass = flowcontext.FlowSpaceFrame
 
     def initialize(self):
         import __builtin__

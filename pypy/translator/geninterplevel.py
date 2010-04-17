@@ -71,7 +71,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.2.7'  # bump this for substantial changes
+GI_VERSION = '1.2.8'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -161,11 +161,11 @@ class GenRpy:
                          Constant(OperationError).key: late_OperationError,
                          Constant(Arguments).key: late_Arguments,
                        }
-        u = UniqueList
-        self.initcode = u()    # list of lines for the module's initxxx()
-        self.latercode = u()   # list of generators generating extra lines
-                               #   for later in initxxx() -- for recursive
-                               #   objects
+        self.initcode = UniqueList() # list of lines for the module's initxxx()
+        self.latercode = UniqueList()
+        # list of generators generating extra lines
+        #   for later in initxxx() -- for recursive
+        #   objects
         self.namespace = NameManager()
         self.namespace.make_reserved_names('__doc__ __args__ space goto')
         self.globaldecl = []
@@ -1475,10 +1475,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     """
     # create something like a module
     if type(sourcetext) is str:
-        if filename is None: 
-            code = py.code.Source(sourcetext).compile()
-        else: 
-            code = NiceCompile(filename)(sourcetext)
+        code = py.code.Source(sourcetext).compile()
     else:
         # assume we got an already compiled source
         code = sourcetext

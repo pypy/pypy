@@ -1,44 +1,25 @@
+"""
+Opcodes PyPy compiles Python source to.
+Also gives access to opcodes of the host Python PyPy was bootstrapped with
+(module attributes with the `host_` prefix).
+"""
+
 # load opcode.py as pythonopcode from our own lib
 
 __all__ = ['opmap', 'opname', 'HAVE_ARGUMENT',
            'hasconst', 'hasname', 'hasjrel', 'hasjabs',
            'haslocal', 'hascompare', 'hasfree', 'cmp_op']
 
-def load_opcode():
-    import py
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.5.2/opcode.py')
-    d = {}
-    execfile(str(opcode_path), d)
-    return d
-
-opcode_dict = load_opcode()
-del load_opcode
-
-# copy some stuff from opcode.py directly into our globals
-for name in __all__:
-    if name in opcode_dict:
-        globals()[name] = opcode_dict[name]
-globals().update(opmap)
-SLICE = opmap["SLICE+0"]
-STORE_SLICE = opmap["STORE_SLICE+0"]
-DELETE_SLICE = opmap["DELETE_SLICE+0"]
-
-opcode_method_names = ['MISSING_OPCODE'] * 256
-for name, index in opmap.items():
-    opcode_method_names[index] = name.replace('+', '_')
-
 # ____________________________________________________________
 # RPython-friendly helpers and structures
 
-from pypy.rlib.unroll import unrolling_iterable
-
-
-class OpcodeDesc(object):
-    def __init__(self, name, index):
+class _BaseOpcodeDesc(object):
+    def __init__(self, bytecode_spec, name, index, methodname):
+        self.bytecode_spec = bytecode_spec
         self.name = name
-        self.methodname = opcode_method_names[index]
+        self.methodname = methodname
         self.index = index
-        self.hasarg = index >= HAVE_ARGUMENT
+        self.hasarg = index >= self.HAVE_ARGUMENT
 
     def _freeze_(self):
         return True
@@ -64,24 +45,87 @@ class OpcodeDesc(object):
         return (cmp(self.__class__, other.__class__) or
                 cmp(self.sortkey(), other.sortkey()))
 
-opdescmap = {}
+    def __str__(self):
+        return "<OpcodeDesc code=%d name=%s at %x>" % (self.index, self.name, id(self))
+    
+    __repr__ = __str__
 
-class opcodedesc:
-    """A namespace mapping OPCODE_NAME to OpcodeDescs."""
+class _baseopcodedesc:
+    """A namespace mapping OPCODE_NAME to _BaseOpcodeDescs."""
+    pass
 
-for name, index in opmap.items():
-    desc = OpcodeDesc(name, index)
-    setattr(opcodedesc, name, desc)
-    opdescmap[index] = desc
 
-lst = opdescmap.values()
-lst.sort()
-unrolling_opcode_descs = unrolling_iterable(lst)
+class BytecodeSpec(object):
+    """A bunch of mappings describing a bytecode instruction set."""
 
-# Allow non-translated code to interpret the new 2.6 bytecodes
-import sys
-if sys.version_info >= (2, 6):
-    import opcode
-    opcode_method_names[opcode.opmap['STORE_MAP']] = 'STORE_MAP'
+    def __init__(self, name, opmap, HAVE_ARGUMENT):
+        """NOT_RPYTHON."""
+        class OpcodeDesc(_BaseOpcodeDesc):
+            HAVE_ARGUMENT = HAVE_ARGUMENT
+        class opcodedesc(_baseopcodedesc):
+            """A namespace mapping OPCODE_NAME to OpcodeDescs."""
+        
+        self.name = name
+        self.OpcodeDesc = OpcodeDesc
+        self.opcodedesc = opcodedesc
+        self.HAVE_ARGUMENT = HAVE_ARGUMENT
+        # opname -> opcode
+        self.opmap = opmap
+        # opcode -> method name
+        self.method_names = tbl = ['MISSING_OPCODE'] * 256
+        # opcode -> opdesc
+        self.opdescmap = {}
+        for name, index in opmap.items():
+            tbl[index] = methodname = name.replace('+', '_')
+            desc = OpcodeDesc(self, name, index, methodname)
+            setattr(self.opcodedesc, name, desc)
+            self.opdescmap[index] = desc
+        # fill the ordered opdesc list
+        self.ordered_opdescs = lst = self.opdescmap.values() 
+        lst.sort()
+    
+    def to_globals(self):
+        """NOT_RPYTHON. Add individual opcodes to the module constants."""
+        g = globals()
+        g.update(self.opmap)
+        g['SLICE'] = self.opmap["SLICE+0"]
+        g['STORE_SLICE'] = self.opmap["STORE_SLICE+0"]
+        g['DELETE_SLICE'] = self.opmap["DELETE_SLICE+0"]
 
-del name, index, desc, lst
+    def __str__(self):
+        return "<%s bytecode>" % (self.name,)
+    
+    __repr__ = __str__
+
+
+# Initialization
+
+from pypy.rlib.unroll import unrolling_iterable
+
+from opcode import (
+    opmap as host_opmap, HAVE_ARGUMENT as host_HAVE_ARGUMENT)
+
+def load_pypy_opcode():
+    import py
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.5.2/opcode.py')
+    d = {}
+    execfile(str(opcode_path), d)
+    for name in __all__:
+        if name in d:
+            globals()[name] = d[name]
+    return d
+
+load_pypy_opcode()
+del load_pypy_opcode
+
+bytecode_spec = BytecodeSpec('pypy', opmap, HAVE_ARGUMENT)
+host_bytecode_spec = BytecodeSpec('host', host_opmap, host_HAVE_ARGUMENT)
+bytecode_spec.to_globals()
+
+opcode_method_names = bytecode_spec.method_names
+opcodedesc = bytecode_spec.opcodedesc
+
+unrolling_all_opcode_descs = unrolling_iterable(
+    bytecode_spec.ordered_opdescs + host_bytecode_spec.ordered_opdescs)
+unrolling_opcode_descs = unrolling_iterable(
+    bytecode_spec.ordered_opdescs)

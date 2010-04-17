@@ -151,8 +151,9 @@ class PythonAstCompiler(PyCodeCompiler):
                                  e.wrap_info(space))
         return mod
 
-    def compile(self, source, filename, mode, flags):
+    def compile(self, source, filename, mode, flags, hidden_applevel=False):
         from pypy.interpreter.pyparser.pyparse import CompileInfo
-        info = CompileInfo(filename, mode, flags)
+        info = CompileInfo(filename, mode, flags,
+                           hidden_applevel=hidden_applevel)
         mod = self._compile_to_ast(source, info)
         return self._compile_ast(mod, info)

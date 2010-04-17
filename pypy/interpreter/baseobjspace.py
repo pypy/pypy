@@ -13,7 +13,7 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
-import os, sys
+import os, sys, py
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -257,8 +257,10 @@ class ObjSpace(object):
         self.actionflag.register_action(self.user_del_action)
         self.actionflag.register_action(self.frame_trace_action)
 
-        from pypy.interpreter.pyframe import PyFrame
-        self.FrameClass = PyFrame    # can be overridden to a subclass
+        from pypy.interpreter.pycode import cpython_magic, default_magic
+        self.our_magic = default_magic
+        self.host_magic = cpython_magic
+        # can be overridden to a subclass
 
         if self.config.objspace.logbytecodes:
             self.bytecodecounts = [0] * 256
@@ -931,23 +933,30 @@ class ObjSpace(object):
         import types
         from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
-            expression = compile(expression, '?', 'eval')
+            compiler = self.createcompiler()
+            expression = compiler.compile(expression, '?', 'eval', 0,
+                                         hidden_applevel=hidden_applevel)
         if isinstance(expression, types.CodeType):
-            expression = PyCode._from_code(self, expression,
-                                          hidden_applevel=hidden_applevel)
+            # XXX only used by appsupport
+            expression = PyCode._from_code(self, expression)
         if not isinstance(expression, PyCode):
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
-    def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
+    def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
+              filename=None):
         "NOT_RPYTHON: For internal debugging."
         import types
+        if filename is None:
+            filename = '?'
         from pypy.interpreter.pycode import PyCode
         if isinstance(statement, str):
-            statement = compile(statement, '?', 'exec')
+            compiler = self.createcompiler()
+            statement = compiler.compile(statement, filename, 'exec', 0,
+                                         hidden_applevel=hidden_applevel)
         if isinstance(statement, types.CodeType):
-            statement = PyCode._from_code(self, statement,
-                                          hidden_applevel=hidden_applevel)
+            # XXX only used by appsupport
+            statement = PyCode._from_code(self, statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')
@@ -1176,7 +1185,7 @@ class AppExecCache(SpaceCache):
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
         source = py.code.Source("def anonymous%s\n" % source)
         w_glob = space.newdict()
-        space.exec_(source.compile(), w_glob, w_glob)
+        space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
 class DummyLock(object):

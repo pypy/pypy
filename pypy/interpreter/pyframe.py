@@ -135,7 +135,7 @@ class PyFrame(eval.Frame):
         from pypy.rlib import rstack
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
-        # overridden in the FrameClass subclass of PyFrame.
+        # overridden in the {,Host}FrameClass subclasses of PyFrame.
         assert isinstance(self, self.space.FrameClass)
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
@@ -238,6 +238,8 @@ class PyFrame(eval.Frame):
             self.pushvalue(w_value)
         
     def peekvalue(self, index_from_top=0):
+        # NOTE: top of the stack is peekvalue(0).
+        # Contrast this with CPython where it's PEEK(-1).
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "peek past the bottom of the stack"

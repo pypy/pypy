@@ -65,14 +65,18 @@ class CompileInfo(object):
     * encoding: The source encoding.
     * last_future_import: The line number and offset of the last __future__
       import.
+    * hidden_applevel: Will this code unit and sub units be hidden at the
+      applevel?
     """
 
-    def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0)):
+    def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
+                 hidden_applevel=False):
         self.filename = filename
         self.mode = mode
         self.encoding = None
         self.flags = flags
         self.last_future_import = future_pos
+        self.hidden_applevel = hidden_applevel
 
 
 _targets = {

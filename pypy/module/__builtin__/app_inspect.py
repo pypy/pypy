@@ -64,9 +64,7 @@ def dir(*args):
 
     if isinstance(obj, types.ModuleType):
         try:
-            result = obj.__dict__.keys()
-            if not isinstance(result, list):
-                raise TypeError("expected __dict__.keys() to be a list")
+            result = list(obj.__dict__.keys())
             result.sort()
             return result
         except AttributeError:

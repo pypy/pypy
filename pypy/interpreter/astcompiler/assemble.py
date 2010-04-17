@@ -400,7 +400,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                              self.first_lineno,
                              lnotab,
                              free_names,
-                             cell_names)
+                             cell_names,
+                             self.compile_info.hidden_applevel)
 
 
 def _list_from_dict(d, offset=0):

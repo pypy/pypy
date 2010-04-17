@@ -26,7 +26,7 @@ more from os and os.path.
 """
 
 from pypy.interpreter.gateway import applevel, ObjSpace, W_Root, interp2app
-import os
+import os, py
 
 app_os_path = applevel(r'''
     from os.path import dirname, join, abspath, isfile, islink
@@ -59,6 +59,6 @@ def setup_nanos(space):
 path_module_for_testing = type(os)("os.path")
 os_module_for_testing = type(os)("os")
 os_module_for_testing.path = path_module_for_testing
-eval(app_os_path.code, path_module_for_testing.__dict__)
-eval(app_os.code, os_module_for_testing.__dict__)
+eval(py.code.Source(app_os_path.source).compile(), path_module_for_testing.__dict__)
+eval(py.code.Source(app_os.source).compile(), os_module_for_testing.__dict__)
 

@@ -233,15 +233,17 @@ class PyPyTarget(object):
 
         # manually imports app_main.py
         filename = os.path.join(this_dir, 'app_main.py')
-        w_dict = space.newdict()
-        space.exec_(open(filename).read(), w_dict, w_dict)
+        app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
+        app.hidden_applevel = False
+        app.can_use_geninterp = False
+        w_dict = app.getwdict(space)
         entry_point = create_entry_point(space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',
-                     'jitpolicy',
+                     'jitpolicy', 'get_entry_point',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
 

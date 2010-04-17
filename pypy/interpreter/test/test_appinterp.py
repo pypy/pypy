@@ -1,6 +1,7 @@
 
 import py
 from pypy.interpreter.gateway import appdef, ApplevelClass, applevel_temp, applevelinterp_temp
+from pypy.interpreter.error import OperationError
 
 def test_execwith_novars(space): 
     val = space.appexec([], """ 
@@ -18,11 +19,11 @@ def test_execwith_withvars(space):
     assert space.eq_w(val, space.wrap(42))
 
 def test_execwith_compile_error(space): 
-    excinfo = py.test.raises(SyntaxError, space.appexec, [], """
+    excinfo = py.test.raises(OperationError, space.appexec, [], """
     (): 
         y y 
     """)
-    assert str(excinfo.value).find('y y') != -1 
+    assert str(excinfo.value.errorstr(space)).find('y y') != -1 
 
 def test_simple_applevel(space):
     app = appdef("""app(x,y): 
