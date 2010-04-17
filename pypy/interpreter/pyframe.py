@@ -10,7 +10,7 @@ from pypy.interpreter import pytraceback
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
+from pypy.rlib import jit, rstack
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -132,7 +132,6 @@ class PyFrame(eval.Frame):
 
     def execute_frame(self):
         """Execute this frame.  Main entry point to the interpreter."""
-        from pypy.rlib import rstack
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
