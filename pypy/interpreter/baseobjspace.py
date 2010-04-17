@@ -1102,9 +1102,8 @@ class ObjSpace(object):
         filesystemencoding = space.sys.filesystemencoding
         if (filesystemencoding and
             space.is_true(space.isinstance(w_obj, space.w_unicode))):
-            w_obj = space.call_function(space.getattr(w_obj,
-                                                      space.wrap('encode')),
-                                        space.wrap(filesystemencoding))
+            w_obj = space.call_method(w_obj, "encode",
+                                      space.wrap(filesystemencoding))
         return space.str_w(w_obj)
 
     def bool_w(self, w_obj):
