@@ -110,7 +110,7 @@ def transform_ovfcheck(graph):
     Instead, it will be replaced by an OP_LSHIFT_OVF operation.
     """
     from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
-    from pypy.objspace.flow.objspace import implicit_exceptions
+    from pypy.objspace.flow.operation import implicit_exceptions
     covf = Constant(ovfcheck)
     covfls = Constant(ovfcheck_lshift)
 

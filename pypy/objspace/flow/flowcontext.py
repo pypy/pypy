@@ -3,17 +3,12 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe
 from pypy.interpreter.argument import ArgumentsForTranslation
+from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 from pypy.rlib import jit
 from pypy.tool.stdlib_opcode import host_bytecode_spec
 import sys
-
-class OperationThatShouldNotBePropagatedError(OperationError):
-    pass
-
-class ImplicitOperationError(OperationError):
-    pass
 
 class StopFlowing(Exception):
     pass
@@ -271,13 +266,13 @@ class FlowExecutionContext(ExecutionContext):
                     self.crnt_frame = None
                     self.topframeref = old_frameref
 
-            except OperationThatShouldNotBePropagatedError, e:
+            except operation.OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
                     'found an operation that always raises %s: %s' % (
                         self.space.unwrap(e.w_type).__name__,
                         self.space.unwrap(e.get_w_value(self.space))))
 
-            except ImplicitOperationError, e:
+            except operation.ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
                     exc_cls = e.w_type.value
                 else:
@@ -380,7 +375,7 @@ class FlowExecutionContext(ExecutionContext):
 
     def sys_exc_info(self):
         operr = ExecutionContext.sys_exc_info(self)
-        if isinstance(operr, ImplicitOperationError):
+        if isinstance(operr, operation.ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)
             operr = OperationError(operr.w_type, w_value)
@@ -491,7 +486,7 @@ class FlowSpaceFrame(pyframe.PyFrame):
 
     def handle_operation_error(self, ec, operr, *args, **kwds):
         # see test_propagate_attribute_error for why this is here
-        if isinstance(operr, OperationThatShouldNotBePropagatedError):
+        if isinstance(operr, operation.OperationThatShouldNotBePropagatedError):
             raise operr
         return pyframe.PyFrame.handle_operation_error(self, ec, operr,
                                                       *args, **kwds)

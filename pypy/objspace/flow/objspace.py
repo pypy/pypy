@@ -6,24 +6,32 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext
-from pypy.objspace.flow.operation import FunctionByName
+from pypy.objspace.flow import flowcontext, operation
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf
 
-debug = 0
-
-class UnwrapException(Exception):
-    "Attempted to unwrap a Variable."
-
-class WrapException(Exception):
-    """Attempted wrapping of a type that cannot sanely appear in flow graph or during its construction"""
 
 # method-wrappers have not enough introspection in CPython
 if hasattr(complex.real.__get__, 'im_self'):
     type_with_bad_introspection = None     # on top of PyPy
 else:
     type_with_bad_introspection = type(complex.real.__get__)
+
+# the following gives us easy access to declare more for applications:
+NOT_REALLY_CONST = {
+    Constant(sys): {
+        Constant('maxint'): True,
+        Constant('maxunicode'): True,
+        Constant('api_version'): True,
+        Constant('exit'): True,
+        Constant('exc_info'): True,
+        Constant('getrefcount'): True,
+        Constant('getdefaultencoding'): True,
+        # this is an incomplete list of true constants.
+        # if we add much more, a dedicated class
+        # might be considered for special objects.
+        }
+    }
 
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
@@ -32,7 +40,7 @@ class FlowObjSpace(ObjSpace):
     the space operations that the interpreter generates when it interprets
     (the bytecode of) some function.
     """
-    
+
     full_exceptions = False
     do_imports_immediately = True
     FrameClass = flowcontext.FlowSpaceFrame
@@ -41,7 +49,8 @@ class FlowObjSpace(ObjSpace):
         import __builtin__
         self.concrete_mode = 1
         self.w_None     = Constant(None)
-        self.builtin    = Module(self, Constant('__builtin__'), Constant(__builtin__.__dict__))
+        self.builtin    = Module(self, Constant('__builtin__'),
+                                 Constant(__builtin__.__dict__))
         def pick_builtin(w_globals):
             return self.builtin
         self.builtin.pick_builtin = pick_builtin
@@ -301,7 +310,7 @@ class FlowObjSpace(ObjSpace):
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
         w_result = self.do_operation(name, *args_w)
-        self.handle_implicit_exceptions(implicit_exceptions.get(name))
+        self.handle_implicit_exceptions(operation.implicit_exceptions.get(name))
         return w_result
 
     def is_true(self, w_obj):
@@ -347,8 +356,8 @@ class FlowObjSpace(ObjSpace):
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, w_exc_value)
         elif outcome is RuntimeError:
-            raise flowcontext.ImplicitOperationError(Constant(RuntimeError),
-                                                     w_exc_value)
+            raise operation.ImplicitOperationError(Constant(RuntimeError),
+                                                    w_exc_value)
         else:
             return w_item
 
@@ -404,7 +413,7 @@ class FlowObjSpace(ObjSpace):
         #    raise SomeError(x)
         #
         # as shown by test_objspace.test_raise3.
-        
+
         exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
@@ -414,7 +423,7 @@ class FlowObjSpace(ObjSpace):
                                    types.ClassType,
                                    types.TypeType)) and
                       c.__module__ in ['__builtin__', 'exceptions']):
-                    exceptions = implicit_exceptions.get(c, None)
+                    exceptions = operation.implicit_exceptions.get(c, None)
         self.handle_implicit_exceptions(exceptions)
         return w_res
 
@@ -442,8 +451,7 @@ class FlowObjSpace(ObjSpace):
                 #if outcome is not Exception:
                     #w_exc_cls = Constant(outcome) Now done by guessexception itself
                     #pass
-                 raise flowcontext.ImplicitOperationError(w_exc_cls,
-                                                         w_exc_value)
+                 raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
     def w_KeyboardInterrupt(self):
         # the reason to do this is: if you interrupt the flowing of a function
@@ -458,85 +466,8 @@ class FlowObjSpace(ObjSpace):
         raise RuntimeError("the interpreter raises RuntimeError during "
                            "flow graph construction")
     w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
+operation.add_operations(FlowObjSpace)
 
-# the following gives us easy access to declare more for applications:
-NOT_REALLY_CONST = {
-    Constant(sys): {
-        Constant('maxint'): True,
-        Constant('maxunicode'): True,
-        Constant('api_version'): True,
-        Constant('exit'): True,
-        Constant('exc_info'): True,
-        Constant('getrefcount'): True,
-        Constant('getdefaultencoding'): True,
-        # this is an incomplete list of true constants.
-        # if we add much more, a dedicated class
-        # might be considered for special objects.
-        }
-    }
-
-# ______________________________________________________________________
-
-op_appendices = {
-    OverflowError: 'ovf',
-    IndexError: 'idx',
-    KeyError: 'key',
-    AttributeError: 'att',
-    TypeError: 'typ',
-    ZeroDivisionError: 'zer',
-    ValueError: 'val',
-    }
-
-implicit_exceptions = {
-    int: [ValueError],      # built-ins that can always raise exceptions
-    float: [ValueError],
-    chr: [ValueError],
-    unichr: [ValueError],
-    unicode: [UnicodeDecodeError],
-    # specifying IndexError, and KeyError beyond Exception,
-    # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
-    # the annotator tests
-    'getitem': [IndexError, KeyError, Exception],
-    'setitem': [IndexError, KeyError, Exception],
-    'delitem': [IndexError, KeyError, Exception],
-    'contains': [Exception],    # from an r_dict
-    }
-
-def _add_exceptions(names, exc):
-    for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])
-        if exc in lis:
-            raise ValueError, "your list is causing duplication!"
-        lis.append(exc)
-        assert exc in op_appendices
-
-def _add_except_ovf(names):
-    # duplicate exceptions and add OverflowError
-    for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])[:]
-        lis.append(OverflowError)
-        implicit_exceptions[name+"_ovf"] = lis
-
-for _name in 'getattr', 'delattr':
-    _add_exceptions(_name, AttributeError)
-for _name in 'iter', 'coerce':
-    _add_exceptions(_name, TypeError)
-del _name
-
-_add_exceptions("""div mod divmod truediv floordiv pow
-                   inplace_div inplace_mod inplace_divmod inplace_truediv
-                   inplace_floordiv inplace_pow""", ZeroDivisionError)
-_add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
-                   inplace_rshift""", ValueError)
-_add_exceptions("""truediv divmod
-                   inplace_add inplace_sub inplace_mul inplace_truediv
-                   inplace_floordiv inplace_div inplace_mod inplace_pow
-                   inplace_lshift""", OverflowError) # without a _ovf version
-_add_except_ovf("""neg abs add sub mul
-                   floordiv div mod pow lshift""")   # with a _ovf version
-_add_exceptions("""pow""",
-                OverflowError) # for the float case
-del _add_exceptions, _add_except_ovf
 
 def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
@@ -559,127 +490,5 @@ def extract_cell_content(c):
             return x.other    # crashes if the cell is actually empty
         except AttributeError:
             raise ValueError("empty cell")
-
-def make_op(name, symbol, arity, specialnames):
-    if hasattr(FlowObjSpace, name):
-        return # Shouldn't do it
-
-    import __builtin__
-
-    op = None
-    skip = False
-    arithmetic = False
-
-    if name.startswith('del') or name.startswith('set') or name.startswith('inplace_'):
-        # skip potential mutators
-        if debug: print "Skip", name
-        skip = True
-    elif name in ['id', 'hash', 'iter', 'userdel']: 
-        # skip potential runtime context dependecies
-        if debug: print "Skip", name
-        skip = True
-    elif name in ['repr', 'str']:
-        rep = getattr(__builtin__, name)
-        def op(obj):
-            s = rep(obj)
-            if s.find("at 0x") > -1:
-                print >>sys.stderr, "Warning: captured address may be awkward"
-            return s
-    else:
-        op = FunctionByName[name]
-        arithmetic = (name + '_ovf') in FunctionByName
-
-    if not op:
-        if not skip:
-            if debug: print >> sys.stderr, "XXX missing operator:", name
-    else:
-        if debug: print "Can constant-fold operation: %s" % name
-
-    def generic_operator(self, *args_w):
-        assert len(args_w) == arity, name+" got the wrong number of arguments"
-        if op:
-            args = []
-            for w_arg in args_w:
-                try:
-                    arg = self.unwrap_for_computation(w_arg)
-                except UnwrapException:
-                    break
-                else:
-                    args.append(arg)
-            else:
-                # All arguments are constants: call the operator now
-                #print >> sys.stderr, 'Constant operation', op
-                try:
-                    result = op(*args)
-                except:
-                    etype, evalue, etb = sys.exc_info()
-                    msg = "generated by a constant operation:  %s%r" % (
-                        name, tuple(args))
-                    raise flowcontext.OperationThatShouldNotBePropagatedError(
-                        self.wrap(etype), self.wrap(msg))
-                else:
-                    # don't try to constant-fold operations giving a 'long'
-                    # result.  The result is probably meant to be sent to
-                    # an intmask(), but the 'long' constant confuses the
-                    # annotator a lot.
-                    if arithmetic and type(result) is long:
-                        pass
-                    # don't constant-fold getslice on lists, either
-                    elif name == 'getslice' and type(result) is list:
-                        pass
-                    # otherwise, fine
-                    else:
-                        try:
-                            return self.wrap(result)
-                        except WrapException:
-                            # type cannot sanely appear in flow graph,
-                            # store operation with variable result instead
-                            pass
-
-        #print >> sys.stderr, 'Variable operation', name, args_w
-        w_result = self.do_operation_with_implicit_exceptions(name, *args_w)
-        return w_result
-
-    setattr(FlowObjSpace, name, generic_operator)
-
-for line in ObjSpace.MethodTable:
-    make_op(*line)
-
-"""
-This is just a placeholder for some code I'm checking in elsewhere.
-It is provenly possible to determine constantness of certain expressions
-a little later. I introduced this a bit too early, together with tieing
-this to something being global, which was a bad idea.
-The concept is still valid, and it can  be used to force something to
-be evaluated immediately because it is supposed to be a constant.
-One good possible use of this is loop unrolling.
-This will be found in an 'experimental' folder with some use cases.
-"""
-
-def override():
-    def getattr(self, w_obj, w_name):
-        # handling special things like sys
-        # unfortunately this will never vanish with a unique import logic :-(
-        if w_obj in self.not_really_const:
-            const_w = self.not_really_const[w_obj]
-            if w_name not in const_w:
-                return self.do_operation_with_implicit_exceptions('getattr', w_obj, w_name)
-        return self.regular_getattr(w_obj, w_name)
-
-    FlowObjSpace.regular_getattr = FlowObjSpace.getattr
-    FlowObjSpace.getattr = getattr
-
-    # protect us from globals write access
-    def setitem(self, w_obj, w_key, w_val):
-        ec = self.getexecutioncontext()
-        if not (ec and w_obj is ec.w_globals):
-            return self.regular_setitem(w_obj, w_key, w_val)
-        raise SyntaxError, "attempt to modify global attribute %r in %r" % (w_key, ec.graph.func)
-
-    FlowObjSpace.regular_setitem = FlowObjSpace.setitem
-    FlowObjSpace.setitem = setitem
-
-override()
-
 # ______________________________________________________________________
 # End of objspace.py

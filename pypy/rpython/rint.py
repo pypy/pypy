@@ -1,7 +1,7 @@
 import sys
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow.objspace import op_appendices
+from pypy.objspace.flow.operation import op_appendices
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
      Void, Char, UniChar, malloc, pyobjectptr, UnsignedLongLong, \
      SignedLongLong, build_number, Number, cast_primitive, typeOf

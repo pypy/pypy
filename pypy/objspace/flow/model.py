@@ -322,6 +322,14 @@ class Constant(Hashable):
             self.concretetype = concretetype
 
 
+class UnwrapException(Exception):
+    """Attempted to unwrap a Variable."""
+
+class WrapException(Exception):
+    """Attempted wrapping of a type that cannot sanely appear in flow graph or
+    during its construction"""
+
+
 class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
 
