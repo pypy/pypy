@@ -10,6 +10,10 @@ def test_bigint():
     from pypy.rlib.rbigint import rbigint
     assert not pypypolicy.look_inside_function(rbigint.lt.im_func)
 
+def test_rlocale():
+    from pypy.rlib.rlocale import setlocale
+    assert not pypypolicy.look_inside_function(setlocale)    
+
 def test_geninterp():
     d = {'_geninterp_': True}
     exec """def f():
