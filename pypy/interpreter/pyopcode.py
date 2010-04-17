@@ -560,9 +560,8 @@ class __extend__(pyframe.PyFrame):
             # common case
             raise operror
         else:
-            from pypy.interpreter.pytraceback import check_traceback
             msg = "raise: arg 3 must be a traceback or None"
-            tb = check_traceback(space, w_traceback, msg)
+            tb = pytraceback.check_traceback(space, w_traceback, msg)
             operror.application_traceback = tb
             # special 3-arguments raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(operror)
