@@ -423,7 +423,7 @@ class FlowObjSpace(ObjSpace):
                                    types.ClassType,
                                    types.TypeType)) and
                       c.__module__ in ['__builtin__', 'exceptions']):
-                    exceptions = operation.implicit_exceptions.get(c, None)
+                    exceptions = operation.implicit_exceptions.get(c)
         self.handle_implicit_exceptions(exceptions)
         return w_res
 
