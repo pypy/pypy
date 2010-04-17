@@ -6,16 +6,20 @@ simplify_graph() applies all simplifications defined in this file.
 """
 
 import py
-from pypy.objspace.flow.model import SpaceOperation
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import c_last_exception
-from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
+from pypy.objspace.flow import operation
+from pypy.objspace.flow.model import (SpaceOperation, Variable, Constant, Block,
+                                      Link, c_last_exception, checkgraph,
+                                      traverse, mkentrymap)
+from pypy.rlib import rarithmetic
+from pypy.translator import unsimplify
+from pypy.translator.backendopt import ssa
 from pypy.rpython.lltypesystem import lloperation, lltype
 from pypy.rpython.ootypesystem import ootype
 
 def get_funcobj(func):
     """
-    Return an object which is supposed to have attributes such as graph and _callable
+    Return an object which is supposed to have attributes such as graph and
+    _callable
     """
     if hasattr(func, '_obj'): 
         return func._obj # lltypesystem
@@ -30,12 +34,9 @@ def get_functype(TYPE):
     assert False
 
 def get_graph(arg, translator):
-    from pypy.translator.translator import graphof
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    from pypy.rpython.lltypesystem import lltype
-    from pypy.rpython.ootypesystem import ootype
     if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
         return None
     funcobj = get_funcobj(f)
@@ -49,7 +50,7 @@ def get_graph(arg, translator):
         return None
     try:
         callable = funcobj._callable
-        return graphof(translator, callable)
+        return translator._graphof(callable)
     except (AttributeError, KeyError, AssertionError):
         return None
 
@@ -109,13 +110,11 @@ def transform_ovfcheck(graph):
     ovfcheck_lshift is special because there is no preceding operation.
     Instead, it will be replaced by an OP_LSHIFT_OVF operation.
     """
-    from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
-    from pypy.objspace.flow.operation import implicit_exceptions
-    covf = Constant(ovfcheck)
-    covfls = Constant(ovfcheck_lshift)
+    covf = Constant(rarithmetic.ovfcheck)
+    covfls = Constant(rarithmetic.ovfcheck_lshift)
 
     def check_syntax(opname):
-        exlis = implicit_exceptions.get("%s_ovf" % (opname,), [])
+        exlis = operation.implicit_exceptions.get("%s_ovf" % (opname,), [])
         if OverflowError not in exlis:
             raise Exception("ovfcheck in %s: Operation %s has no"
                             " overflow variant" % (graph.name, opname))
@@ -558,8 +557,7 @@ def remove_identical_vars(graph):
     #    when for all possible incoming paths they would get twice the same
     #    value (this is really the purpose of remove_identical_vars()).
     #
-    from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
-    builder = DataFlowFamilyBuilder(graph)
+    builder = ssa.DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()  # vertical removal
     while True:
         if not builder.merge_identical_phi_nodes():    # horizontal removal
@@ -655,8 +653,7 @@ def detect_list_comprehension(graph):
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
     # using the iterator.
-    from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
-    builder = DataFlowFamilyBuilder(graph)
+    builder = ssa.DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()
     c_append = Constant('append')
     newlist_v = {}
@@ -964,7 +961,6 @@ class ListComprehensionDetector(object):
                 link.args[i] = vlist2
 
         # - wherever the list exits the loop body, add a 'hint({fence})'
-        from pypy.translator.unsimplify import insert_empty_block
         for block in loopbody:
             for link in block.exits:
                 if link.target not in loopbody:
@@ -976,7 +972,7 @@ class ListComprehensionDetector(object):
                         link.target in stopblocks):
                         hints['exactlength'] = True
                     chints = Constant(hints)
-                    newblock = insert_empty_block(None, link)
+                    newblock = unsimplify.insert_empty_block(None, link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
