@@ -235,13 +235,9 @@ class Function(Wrappable):
     def _freeze_(self):
         from pypy.interpreter.gateway import BuiltinCode
         if isinstance(self.code, BuiltinCode):
-            identifier = self.code.identifier
-            if Function._all.get(identifier, self) is not self:
-                print "builtin code identifier %s used twice: %s and %s" % (
-                    identifier, self, Function._all[identifier])
             # we have been seen by other means so rtyping should not choke
             # on us
-            Function._all[identifier] = self
+            Function._all[self.code.identifier] = self
         return False
 
     def find(identifier):
