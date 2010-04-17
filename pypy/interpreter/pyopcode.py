@@ -253,7 +253,8 @@ class __extend__(pyframe.PyFrame):
                         meth = getattr(self, opdesc.methodname)
                         res = meth(oparg, next_instr)
                         if opdesc.index == self.opcodedesc.CALL_FUNCTION.index:
-                            rstack.resume_point("dispatch_call", self, co_code, next_instr, ec)
+                            rstack.resume_point("dispatch_call", self, co_code,
+                                                next_instr, ec)
                         # !! warning, for the annotator the next line is not
                         # comparing an int and None - you can't do that.
                         # Instead, it's constant-folded to either True or False
@@ -268,14 +269,18 @@ class __extend__(pyframe.PyFrame):
                 try:
                     meth = getattr(self, methodname)
                 except AttributeError:
-                    raise BytecodeCorruption("unimplemented opcode, ofs=%d, code=%d, name=%s" %
-                                             (self.last_instr, opcode, methodname))
+                    raise BytecodeCorruption("unimplemented opcode, ofs=%d, "
+                                             "code=%d, name=%s" %
+                                             (self.last_instr, opcode,
+                                              methodname))
                 try:
                     res = meth(oparg, next_instr)
                 except Exception:
                     if 0:
                         import dis, sys
-                        print "*** %s at offset %d (%s)" % (sys.exc_info()[0], self.last_instr, methodname)
+                        print "*** %s at offset %d (%s)" % (sys.exc_info()[0],
+                                                            self.last_instr,
+                                                            methodname)
                         try:
                             dis.dis(co_code)
                         except:
