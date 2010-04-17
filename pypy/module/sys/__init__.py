@@ -87,9 +87,6 @@ class Module(MixedModule):
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
 
-    def init(self, space):
-        self.filesystemencoding = _getfilesystemencoding(space)
-
     def getmodule(self, name): 
         space = self.space
         w_modules = self.get('modules') 

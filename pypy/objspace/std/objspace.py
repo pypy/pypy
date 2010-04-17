@@ -84,6 +84,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
 
+    def startup(self):
+        from pypy.module.sys.interp_encoding import _getfilesystemencoding
+
+        ObjSpace.startup(self)
+        self.sys.filesystemencoding = _getfilesystemencoding(self)
+
+
     def get_builtin_types(self):
         return self.builtin_types
 
