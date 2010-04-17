@@ -1,5 +1,4 @@
-from pypy.objspace.flow.objspace import UnwrapException
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, UnwrapException
 from pypy.objspace.flow.operation import OperationName, Arity
 from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError

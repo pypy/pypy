@@ -1,14 +1,18 @@
 # ______________________________________________________________________
-import sys, operator, types
+import __builtin__
+import sys
+import operator
+import types
+from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import pyframe
+from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext, operation
+from pypy.objspace.flow import flowcontext, operation, specialcase
 from pypy.rlib.unroll import unrolling_iterable, _unroller
-from pypy.rlib import rstackovf
+from pypy.rlib import rstackovf, rarithmetic
 
 
 # method-wrappers have not enough introspection in CPython
@@ -46,7 +50,6 @@ class FlowObjSpace(ObjSpace):
     FrameClass = flowcontext.FlowSpaceFrame
 
     def initialize(self):
-        import __builtin__
         self.concrete_mode = 1
         self.w_None     = Constant(None)
         self.builtin    = Module(self, Constant('__builtin__'),
@@ -135,9 +138,8 @@ class FlowObjSpace(ObjSpace):
 
     def uint_w(self, w_obj):
         if isinstance(w_obj, Constant):
-            from pypy.rlib.rarithmetic import r_uint
             val = w_obj.value
-            if type(val) is not r_uint:
+            if type(val) is not rarithmetic.r_uint:
                 raise TypeError("expected unsigned: " + repr(w_obj))
             return val
         return self.unwrap(w_obj)
@@ -201,7 +203,6 @@ class FlowObjSpace(ObjSpace):
 
     def setup_executioncontext(self, ec):
         self.executioncontext = ec
-        from pypy.objspace.flow import specialcase
         specialcase.setup(self)
 
     def exception_match(self, w_exc_type, w_check_class):
@@ -264,15 +265,15 @@ class FlowObjSpace(ObjSpace):
         graph.defaults = func.func_defaults or ()
         self.setup_executioncontext(ec)
 
-        from pypy.tool.error import FlowingError, format_global_error
-
         try:
             ec.build_flow()
-        except FlowingError, a:
+        except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
-            e = FlowingError(format_global_error(ec.graph, ec.crnt_offset, str(a)))
-            raise FlowingError, e, tb
+            formated = error.format_global_error(ec.graph, ec.crnt_offset,
+                                                 str(a))
+            e = error.FlowingError(formated)
+            raise error.FlowingError, e, tb
         checkgraph(graph)
         return graph
 
@@ -375,9 +376,8 @@ class FlowObjSpace(ObjSpace):
                                                           w_key, w_val)
 
     def call_function(self, w_func, *args_w):
-        from pypy.interpreter.argument import ArgumentsForTranslation
         nargs = len(args_w)
-        args = ArgumentsForTranslation(self, list(args_w))
+        args = argument.ArgumentsForTranslation(self, list(args_w))
         return self.call_args(w_func, args)
 
     def call_args(self, w_callable, args):
