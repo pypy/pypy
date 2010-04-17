@@ -26,14 +26,15 @@ def get_w_default_encoder(space):
     space.sys.w_default_encoder = w_encoder    # cache it
     return w_encoder
 
+if sys.platform == "win32":
+    base_encoding = "mbcs"
+elif sys.platform == "darwin":
+    base_encoding = "utf-8"
+else:
+    base_encoding = None
+
 def _getfilesystemencoding(space):
-    if sys.platform == "win32":
-        encoding = "mbcs"
-    elif sys.platform == "darwin":
-        encoding = "utf-8"
-    else:
-        encoding = None
-    # CPython does this at startup time, I don't thing it matter that much
+    encoding = base_encoding
     if rlocale.HAVE_LANGINFO and rlocale.CODESET:
         oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)
         rlocale.setlocale(rlocale.LC_CTYPE, "")
