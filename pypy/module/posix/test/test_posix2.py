@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 from pypy.objspace.std import StdObjSpace 
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
@@ -139,6 +142,13 @@ class AppTestPosix:
         assert stat.S_ISDIR(st.st_mode)
         st = self.posix.lstat(".")
         assert stat.S_ISDIR(st.st_mode)
+
+    def test_stat_unicode(self):
+        # test that passing unicode would not raise UnicodeDecodeError
+        try:
+            self.posix.stat(u"ą")
+        except OSError:
+            pass
 
     def test_stat_exception(self):
         import sys, errno

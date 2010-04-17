@@ -180,7 +180,7 @@ with (at least) the following attributes:
         raise wrap_oserror(space, e, path)
     else: 
         return build_stat_result(space, st)
-stat.unwrap_spec = [ObjSpace, str]
+stat.unwrap_spec = [ObjSpace, 'path']
 
 def lstat(space, path):
     "Like stat(path), but do no follow symbolic links."
@@ -190,7 +190,7 @@ def lstat(space, path):
         raise wrap_oserror(space, e, path)
     else:
         return build_stat_result(space, st)
-lstat.unwrap_spec = [ObjSpace, str]
+lstat.unwrap_spec = [ObjSpace, 'path']
 
 class StatState(object):
     def __init__(self, space):
