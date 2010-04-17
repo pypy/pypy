@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.interpreter import argument
@@ -450,6 +453,15 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g_id,w("foo")),w("foo"))
         assert len(l) == 1
         assert space.eq_w(l[0], w("foo"))
+
+    def test_interp2app_unwrap_spec_path(self):
+        space = self.space
+        def g(space, p):
+            return p
+
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'path'])
+        w_app_g = space.wrap(app_g)
+        w_res = space.call_function(w_app_g, space.wrap(u"ą"))
 
     def test_interp2app_classmethod(self):
         space = self.space
