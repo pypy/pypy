@@ -454,13 +454,14 @@ class TestGateway:
         assert len(l) == 1
         assert space.eq_w(l[0], w("foo"))
 
-    def test_interp2app_unwrap_spec_path(self):
+    def test_interp2app_unwrap_spec_path(self, monkeypatch):
         space = self.space
         def g(space, p):
             return p
 
         app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'path'])
         w_app_g = space.wrap(app_g)
+        monkeypatch.setattr(space.sys, "filesystemencoding", "utf-8")
         w_res = space.call_function(w_app_g, space.wrap(u"ą"))
 
     def test_interp2app_classmethod(self):
