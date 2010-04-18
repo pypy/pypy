@@ -6,9 +6,9 @@ translator; see pypy/bin/translatorshell.py.
 """
 import autopath, os, sys, types, copy
 
-from pypy.objspace.flow.model import *
 from pypy.translator import simplify
 from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.model import FunctionGraph, checkgraph
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
 from pypy.config.pypyoption import pypy_optiondescription
