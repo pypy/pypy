@@ -1,17 +1,18 @@
-from types import FunctionType
+import sys
+import types
 from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
-from pypy.annotation import model as annmodel
 from pypy.tool.pairtype import pair
+from pypy.tool.error import (format_blocked_annotation_error,
+                             format_someobject_error, AnnotatorError)
+from pypy.objspace.flow.model import (Variable, Constant, FunctionGraph,
+                                      c_last_exception, checkgraph)
+from pypy.translator import simplify, transform
+from pypy.annotation import model as annmodel, signature
 from pypy.annotation.bookkeeper import Bookkeeper
-from pypy.annotation import signature
-from pypy.objspace.flow.model import Variable, Constant
-from pypy.objspace.flow.model import FunctionGraph
-from pypy.objspace.flow.model import c_last_exception, checkgraph
 import py
-log = py.log.Producer("annrpython") 
-py.log.setconsumer("annrpython", ansi_log) 
+log = py.log.Producer("annrpython")
+py.log.setconsumer("annrpython", ansi_log)
 
-from pypy.tool.error import format_blocked_annotation_error, format_someobject_error, AnnotatorError
 
 FAIL = object()
 
@@ -84,7 +85,7 @@ class RPythonAnnotator(object):
 
     def build_types(self, function, input_arg_types, complete_now=True):
         """Recursively build annotations about the specific entry point."""
-        assert isinstance(function, FunctionType), "fix that!"
+        assert isinstance(function, types.FunctionType), "fix that!"
 
         # make input arguments and set their type
         inputcells = [self.typeannotation(t) for t in input_arg_types]
@@ -429,10 +430,8 @@ class RPythonAnnotator(object):
 
     def simplify(self, block_subset=None, extra_passes=None):
         # Generic simplifications
-        from pypy.translator import transform
         transform.transform_graph(self, block_subset=block_subset,
                                   extra_passes=extra_passes)
-        from pypy.translator import simplify 
         if block_subset is None:
             graphs = self.translator.graphs
         else:
@@ -534,7 +533,6 @@ class RPythonAnnotator(object):
 
         except BlockedInference, e:
             if annmodel.DEBUG:
-                import sys
                 self.why_not_annotated[block] = sys.exc_info()
 
             if (e.op is block.operations[-1] and
@@ -611,12 +609,11 @@ class RPythonAnnotator(object):
                         candidates = [c for c in candidates if c not in covered]
 
         for link in exits:
-            import types
             in_except_block = False
 
             last_exception_var = link.last_exception # may be None for non-exception link
             last_exc_value_var = link.last_exc_value # may be None for non-exception link
-            
+
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, py.builtin.BaseException):
                 assert last_exception_var and last_exc_value_var
