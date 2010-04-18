@@ -38,10 +38,12 @@ def need_sparse_files():
     if os.name == 'nt':
         py.test.skip("no sparse files on Windows")
 
+GET_POSIX = "(): import %s as m ; return m" % os.name
+
 class AppTestPosix: 
     def setup_class(cls): 
         cls.space = space 
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
+        cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
@@ -142,13 +144,6 @@ class AppTestPosix:
         assert stat.S_ISDIR(st.st_mode)
         st = self.posix.lstat(".")
         assert stat.S_ISDIR(st.st_mode)
-
-    def test_stat_unicode(self):
-        # test that passing unicode would not raise UnicodeDecodeError
-        try:
-            self.posix.stat(u"ą")
-        except OSError:
-            pass
 
     def test_stat_exception(self):
         import sys, errno
@@ -646,6 +641,25 @@ class AppTestEnvironment(object):
         f.seek(0, 0)
         assert isinstance(f, file)
         assert f.read() == 'xxx'
+
+class AppTestPosixUnicode:
+
+    def setup_class(cls):
+        cls.space = space
+        cls.w_posix = space.appexec([], GET_POSIX)
+        cls.save_fs_encoding = space.sys.filesystemencoding
+        space.sys.filesystemencoding = "utf-8"
+
+    def teardown_class(cls):
+        cls.space.sys.filesystemencoding = cls.save_fs_encoding
+
+    def test_stat_unicode(self):
+        # test that passing unicode would not raise UnicodeDecodeError
+        try:
+            self.posix.stat(u"ą")
+        except OSError:
+            pass
+
 
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible
