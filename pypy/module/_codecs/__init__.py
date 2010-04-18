@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.rlib import runicode
+from pypy.module._codecs import interp_codecs
 
 class Module(MixedModule):
     appleveldefs = {
@@ -16,7 +17,6 @@ class Module(MixedModule):
          'unicode_internal_encode' :  'app_codecs.unicode_internal_encode',
          'utf_7_decode' :  'app_codecs.utf_7_decode',
          'utf_7_encode' :  'app_codecs.utf_7_encode',
-         '_register_existing_errors': 'app_codecs._register_existing_errors',
          'charmap_build' : 'app_codecs.charmap_build'
     }
     interpleveldefs = {
@@ -57,9 +57,5 @@ class Module(MixedModule):
 
         MixedModule.__init__(self, space, *args)
 
-    def setup_after_space_initialization(self):
-        "NOT_RPYTHON"
-        self.space.appexec([], """():
-            import _codecs
-            _codecs._register_existing_errors()
-        """)
+    def startup(self, space):
+        interp_codecs.register_builtin_error_handlers(space)
