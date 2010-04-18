@@ -919,7 +919,6 @@ class ApplevelCache(SpaceCache):
 
 def build_applevel_dict(self, space):
     "NOT_RPYTHON"
-    from pypy.interpreter.pycode import PyCode
     w_glob = space.newdict(module=True)
     space.setitem(w_glob, space.wrap('__name__'), space.wrap(self.modname))
     space.exec_(self.source, w_glob, w_glob,
