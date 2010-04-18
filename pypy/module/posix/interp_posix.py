@@ -20,7 +20,7 @@ Return a file descriptor (a small integer)."""
     except OSError, e: 
         raise wrap_oserror(space, e, fname)
     return space.wrap(fd)
-open.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
+open.unwrap_spec = [ObjSpace, 'path', "c_int", "c_int"]
 
 def lseek(space, fd, pos, how):
     """Set the current position of a file descriptor.  Return the new position.

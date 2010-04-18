@@ -659,6 +659,13 @@ class AppTestPosixUnicode:
             self.posix.stat(u"ą")
         except OSError:
             pass
+    
+    def test_open_unicode(self):
+        # Ensure passing unicode doesn't raise UnicodeEncodeError
+        try:
+            self.posix.open(u"ą", self.posix.O_WRONLY)
+        except OSError:
+            pass
 
 
 class TestPexpect(object):
