@@ -3,9 +3,7 @@
 """
 
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.annotation.bookkeeper import getbookkeeper
-from pypy.objspace.flow.model import Variable, Constant
-from pypy.rpython.lltypesystem import lltype
+from pypy.objspace.flow.model import Constant
 
 class NonConstant(object):
     def __init__(self, _constant):
@@ -22,7 +20,7 @@ class NonConstant(object):
 
 class EntryNonConstant(ExtRegistryEntry):
     _about_ = NonConstant
-    
+
     def compute_result_annotation(self, arg):
         if hasattr(arg, 'const'):
             return self.bookkeeper.immutablevalue(arg.const, False)
