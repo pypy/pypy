@@ -1,14 +1,14 @@
 import collections
+import sys
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import pyframe
+from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 from pypy.rlib import jit
 from pypy.tool.stdlib_opcode import host_bytecode_spec
-import sys
 
 class StopFlowing(Exception):
     pass
@@ -196,8 +196,8 @@ class FlowExecutionContext(ExecutionContext):
         if closure is None:
             self.closure = None
         else:
-            from pypy.interpreter.nestedscope import Cell
-            self.closure = [Cell(Constant(value)) for value in closure]
+            self.closure = [nestedscope.Cell(Constant(value))
+                            for value in closure]
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         arg_list = [Variable() for i in range(formalargcount)]
