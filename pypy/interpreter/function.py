@@ -240,8 +240,11 @@ class Function(Wrappable):
             identifier = self.code.identifier
             assert Function._all.get(identifier, self) is self, ("duplicate "
                                                                  "function ids")
-            Function._all[identifier] = self
+            self.add_to_table()
         return False
+
+    def add_to_table(self):
+        Function._all[self.code.identifier] = self
 
     def find(identifier):
         return Function._all[identifier]

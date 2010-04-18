@@ -801,6 +801,8 @@ class GatewayCache(SpaceCache):
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
         fn = FunctionWithFixedCode(space, code, None, defs, forcename = gateway.name)
+        if not space.config.translating:
+            fn.add_to_table()
         if gateway.as_classmethod:
             fn = ClassMethod(space.wrap(fn))
         return fn
