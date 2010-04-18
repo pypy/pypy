@@ -1,6 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
-from pypy.module.sys.interp_encoding import _getfilesystemencoding
 
 class Module(MixedModule):
     """Sys Builtin Module. """
@@ -88,6 +87,7 @@ class Module(MixedModule):
         self.space.setitem(w_modules, w_name, w_module)
 
     def startup(self, space):
+        from pypy.module.sys.interp_encoding import _getfilesystemencoding
         self.filesystemencoding = _getfilesystemencoding(space)
 
     def getmodule(self, name): 
