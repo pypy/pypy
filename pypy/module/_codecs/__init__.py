@@ -57,5 +57,4 @@ class Module(MixedModule):
 
         MixedModule.__init__(self, space, *args)
 
-    def startup(self, space):
         interp_codecs.register_builtin_error_handlers(space)
