@@ -394,7 +394,6 @@ class BytecodeMaker(object):
         self.assembler = []
         self.constants = []
         self.positions = {}
-        self.blocks = {}
         self.seen_blocks = {}
         self.dont_minimize_variables = 0
         self.pending_exception_handlers = []
