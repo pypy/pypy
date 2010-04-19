@@ -647,8 +647,15 @@ class AppTestPosixUnicode:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
-        cls.save_fs_encoding = space.sys.filesystemencoding
-        space.sys.filesystemencoding = "utf-8"
+        if py.test.config.option.runappdirect:
+            # Can't change encoding
+            try:
+                u"ą".encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                py.test.skip("encoding not good enough")
+        else:
+            cls.save_fs_encoding = space.sys.filesystemencoding
+            space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
         cls.space.sys.filesystemencoding = cls.save_fs_encoding
@@ -659,14 +666,14 @@ class AppTestPosixUnicode:
             self.posix.stat(u"ą")
         except OSError:
             pass
-    
+
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
         try:
             self.posix.open(u"ą", self.posix.O_WRONLY)
         except OSError:
             pass
-    
+
     def test_remove_unicode(self):
         # See 2 above ;)
         try:
