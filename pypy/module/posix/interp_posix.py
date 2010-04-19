@@ -284,7 +284,7 @@ def unlink(space, path):
         os.unlink(path)
     except OSError, e: 
         raise wrap_oserror(space, e, path)
-unlink.unwrap_spec = [ObjSpace, str]
+unlink.unwrap_spec = [ObjSpace, 'path']
 
 def remove(space, path):
     """Remove a file (same as unlink(path))."""
@@ -292,7 +292,7 @@ def remove(space, path):
         os.unlink(path)
     except OSError, e: 
         raise wrap_oserror(space, e, path)
-remove.unwrap_spec = [ObjSpace, str]
+remove.unwrap_spec = [ObjSpace, 'path']
 
 def _getfullpathname(space, path):
     """helper for ntpath.abspath """

@@ -666,6 +666,13 @@ class AppTestPosixUnicode:
             self.posix.open(u"ą", self.posix.O_WRONLY)
         except OSError:
             pass
+    
+    def test_remove_unicode(self):
+        # See 2 above ;)
+        try:
+            self.posix.remove(u"ą")
+        except OSError:
+            pass
 
 
 class TestPexpect(object):
