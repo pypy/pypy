@@ -230,7 +230,8 @@ class ParserGenerator(object):
         for label, their_first in overlap_check.iteritems():
             for sub_label in their_first:
                 if sub_label in inverse:
-                    raise PgenError("ambiguous symbol %s" % (symbol,))
+                    raise PgenError("ambiguous symbol with label %s"
+                                    % (label,))
                 inverse[sub_label] = label
         self.first[name] = all_labels
         return all_labels
