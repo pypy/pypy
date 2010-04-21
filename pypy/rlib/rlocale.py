@@ -145,7 +145,8 @@ HAVE_BIND_TEXTDOMAIN_CODESET = cConfig.HAVE_BIND_TEXTDOMAIN_CODESET
 def external(name, args, result, calling_conv='c'):
     return rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           calling_conv=calling_conv)
+                           calling_conv=calling_conv,
+                           sandboxsafe=True)
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
