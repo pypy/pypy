@@ -28,14 +28,8 @@ def convert_error(space, error):
     return OperationError(w_exception_class, w_exception)
 
 def tcsetattr(space, fd, when, w_attributes):
-    from pypy.interpreter.baseobjspace import UnpackValueError
-    try:
-        w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
-                 space.unpackiterable(w_attributes, expected_length=7)
-    except UnpackValueError, e:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("tcsetattr, arg 3: must be 7 element list"))
+    w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
+             space.unpackiterable(w_attributes, expected_length=7)
     w_builtin = space.getbuiltinmodule('__builtin__')
     cc = []
     for w_c in space.unpackiterable(w_cc):

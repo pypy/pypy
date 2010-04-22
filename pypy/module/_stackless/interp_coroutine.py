@@ -15,7 +15,7 @@ allow them to be parents of each other. Needs a bit more
 experience to decide where to set the limits.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable, UnpackValueError
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
@@ -173,11 +173,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return nt([w_new_inst, nt(tup_base), nt(tup_state)])
 
     def descr__setstate__(self, space, w_args):
-        try:
-            w_flags, w_state, w_thunk, w_parent = space.unpackiterable(w_args,
-                                                             expected_length=4)
-        except UnpackValueError, e:
-            raise OperationError(space.w_ValueError, space.wrap(e.msg))
+        w_flags, w_state, w_thunk, w_parent = space.unpackiterable(w_args,
+                                                        expected_length=4)
         self.flags = space.int_w(w_flags)
         if space.is_w(w_parent, space.w_None):
             w_parent = self.w_getmain(space)
@@ -188,11 +185,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if space.is_w(w_thunk, space.w_None):
             self.thunk = None
         else:
-            try:
-                w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
-                                                             expected_length=3)
-            except UnpackValueError, e:
-                raise OperationError(space.w_ValueError, space.wrap(e.msg))
+            w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
+                                                          expected_length=3)
             args = Arguments.frompacked(space, w_args, w_kwds)
             self.bind(_AppThunk(space, self.costate, w_func, args))
 

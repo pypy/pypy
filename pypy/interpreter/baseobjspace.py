@@ -209,12 +209,6 @@ class SpaceCache(Cache):
     def ready(self, result):
         pass
 
-class UnpackValueError(ValueError):
-    def __init__(self, msg):
-        self.msg = msg
-    def __str__(self):
-        return self.msg
-
 class DescrMismatch(Exception):
     pass
 
@@ -723,7 +717,8 @@ class ObjSpace(object):
                     raise
                 break  # done
             if expected_length != -1 and len(items) == expected_length:
-                raise UnpackValueError("too many values to unpack")
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("too many values to unpack"))
             items.append(w_item)
         if expected_length != -1 and len(items) < expected_length:
             i = len(items)
@@ -731,8 +726,9 @@ class ObjSpace(object):
                 plural = ""
             else:
                 plural = "s"
-            raise UnpackValueError("need more than %d value%s to unpack" %
-                                   (i, plural))
+            raise OperationError(space.w_ValueError,
+                      space.wrap("need more than %d value%s to unpack" %
+                                 (i, plural)))
         return items
 
     def fixedview(self, w_iterable, expected_length=-1):

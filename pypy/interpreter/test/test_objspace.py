@@ -61,31 +61,40 @@ class TestObjSpace:
         assert self.space.newbool(1) == self.space.w_True
 
     def test_unpackiterable(self):
-        w = self.space.wrap
+        space = self.space
+        w = space.wrap
         l = [w(1), w(2), w(3), w(4)]
-        w_l = self.space.newlist(l)
-        assert self.space.unpackiterable(w_l) == l
-        assert self.space.unpackiterable(w_l, 4) == l
-        raises(ValueError, self.space.unpackiterable, w_l, 3)
-        raises(ValueError, self.space.unpackiterable, w_l, 5)
+        w_l = space.newlist(l)
+        assert space.unpackiterable(w_l) == l
+        assert space.unpackiterable(w_l, 4) == l
+        err = raises(OperationError, space.unpackiterable, w_l, 3)
+        assert err.value.match(space, space.w_ValueError)
+        err = raises(OperationError, space.unpackiterable, w_l, 5)
+        assert err.value.match(space, space.w_ValueError)
 
     def test_fixedview(self):
-        w = self.space.wrap
+        space = self.space
+        w = space.wrap
         l = [w(1), w(2), w(3), w(4)]
-        w_l = self.space.newtuple(l)
-        assert self.space.fixedview(w_l) == l
-        assert self.space.fixedview(w_l, 4) == l
-        raises(ValueError, self.space.fixedview, w_l, 3)
-        raises(ValueError, self.space.fixedview, w_l, 5)
+        w_l = space.newtuple(l)
+        assert space.fixedview(w_l) == l
+        assert space.fixedview(w_l, 4) == l
+        err = raises(OperationError, space.fixedview, w_l, 3)
+        assert err.value.match(space, space.w_ValueError)
+        err = raises(OperationError, space.fixedview, w_l, 5)
+        assert err.value.match(space, space.w_ValueError)
 
     def test_listview(self):
-        w = self.space.wrap
+        space = self.space
+        w = space.wrap
         l = [w(1), w(2), w(3), w(4)]
-        w_l = self.space.newtuple(l)
-        assert self.space.listview(w_l) == l
-        assert self.space.listview(w_l, 4) == l
-        raises(ValueError, self.space.listview, w_l, 3)
-        raises(ValueError, self.space.listview, w_l, 5)
+        w_l = space.newtuple(l)
+        assert space.listview(w_l) == l
+        assert space.listview(w_l, 4) == l
+        err = raises(OperationError, space.listview, w_l, 3)
+        assert err.value.match(space, space.w_ValueError)
+        err = raises(OperationError, space.listview, w_l, 5)
+        assert err.value.match(space, space.w_ValueError)
 
     def test_exception_match(self):
         assert self.space.exception_match(self.space.w_ValueError,

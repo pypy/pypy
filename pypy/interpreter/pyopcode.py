@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
@@ -638,11 +638,7 @@ class __extend__(pyframe.PyFrame):
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
-        try:
-            items = self.space.fixedview(w_iterable, itemcount)
-        except UnpackValueError, e:
-            w_msg = self.space.wrap(e.msg)
-            raise OperationError(self.space.w_ValueError, w_msg)
+        items = self.space.fixedview(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
     def STORE_ATTR(self, nameindex, next_instr):
