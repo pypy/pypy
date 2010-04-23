@@ -717,8 +717,8 @@ class ObjSpace(object):
                     raise
                 break  # done
             if expected_length != -1 and len(items) == expected_length:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("too many values to unpack"))
+                raise OperationError(self.w_ValueError,
+                                     self.wrap("too many values to unpack"))
             items.append(w_item)
         if expected_length != -1 and len(items) < expected_length:
             i = len(items)
@@ -726,8 +726,8 @@ class ObjSpace(object):
                 plural = ""
             else:
                 plural = "s"
-            raise OperationError(space.w_ValueError,
-                      space.wrap("need more than %d value%s to unpack" %
+            raise OperationError(self.w_ValueError,
+                      self.wrap("need more than %d value%s to unpack" %
                                  (i, plural)))
         return items
 
