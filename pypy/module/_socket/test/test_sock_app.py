@@ -344,7 +344,7 @@ class AppTestSocket:
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         for args in tests:
-            raises(TypeError, s.connect, args)
+            raises((TypeError, ValueError), s.connect, args)
         s.close()
 
     def test_NtoH(self):
