@@ -130,4 +130,4 @@ class AppTestTermios(object):
         
     def test_error_tcsetattr(self):
         import termios
-        raises(TypeError, termios.tcsetattr, 0, 1, (1, 2))
+        raises(ValueError, termios.tcsetattr, 0, 1, (1, 2))
