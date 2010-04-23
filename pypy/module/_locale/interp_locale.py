@@ -319,11 +319,11 @@ if sys.platform == 'win32':
         buf_country = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
 
         try:
-            if (GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
-                              cConfig.LOCALE_SISO639LANGNAME,
+            if (GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
+                              rlocale.cConfig.LOCALE_SISO639LANGNAME,
                               buf_lang, BUFSIZE) and
-                GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
-                              cConfig.LOCALE_SISO3166CTRYNAME,
+                GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
+                              rlocale.cConfig.LOCALE_SISO3166CTRYNAME,
                               buf_country, BUFSIZE)):
                 lang = rffi.charp2str(buf_lang)
                 country = rffi.charp2str(buf_country)
@@ -333,8 +333,8 @@ if sys.platform == 'win32':
             # If we end up here, this windows version didn't know about
             # ISO639/ISO3166 names (it's probably Windows 95).  Return the
             # Windows language identifier instead (a hexadecimal number)
-            elif GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
-                               cConfig.LOCALE_IDEFAULTLANGUAGE,
+            elif GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
+                               rlocale.cConfig.LOCALE_IDEFAULTLANGUAGE,
                                buf_lang, BUFSIZE):
                 lang = rffi.charp2str(buf_lang)
                 return space.newtuple([space.wrap("0x%s" % lang),
