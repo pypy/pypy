@@ -162,7 +162,7 @@ def ntohs(space, x):
     Convert a 16-bit integer from network to host byte order.
     """
     return space.wrap(rsocket.ntohs(x))
-ntohs.unwrap_spec = [ObjSpace, r_uint]
+ntohs.unwrap_spec = [ObjSpace, "c_uint"]
 
 def ntohl(space, x):
     """ntohl(integer) -> integer
@@ -170,7 +170,7 @@ def ntohl(space, x):
     Convert a 32-bit integer from network to host byte order.
     """
     return space.wrap(rsocket.ntohl(x))
-ntohl.unwrap_spec = [ObjSpace, r_uint]
+ntohl.unwrap_spec = [ObjSpace, "c_uint"]
 
 def htons(space, x):
     """htons(integer) -> integer
@@ -178,7 +178,7 @@ def htons(space, x):
     Convert a 16-bit integer from host to network byte order.
     """
     return space.wrap(rsocket.htons(x))
-htons.unwrap_spec = [ObjSpace, r_uint]
+htons.unwrap_spec = [ObjSpace, "c_uint"]
 
 def htonl(space, x):
     """htonl(integer) -> integer
@@ -186,7 +186,7 @@ def htonl(space, x):
     Convert a 32-bit integer from host to network byte order.
     """
     return space.wrap(rsocket.htonl(x))
-htonl.unwrap_spec = [ObjSpace, r_uint]
+htonl.unwrap_spec = [ObjSpace, "c_uint"]
 
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation

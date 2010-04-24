@@ -115,6 +115,9 @@ def test_ntohl():
     w_n = space.appexec([w_socket, space.wrap(0x89abcdef)],
                         "(_socket, x): return _socket.ntohl(x)")
     assert space.unwrap(w_n) in (0x89abcdef, 0xefcdab89)
+    space.raises_w(space.w_OverflowError, space.appexec,
+                   [w_socket, space.wrap(1<<32)],
+                   "(_socket, x): return _socket.ntohl(x)")
 
 def test_htons():
     w_n = space.appexec([w_socket, space.wrap(125)],
@@ -128,6 +131,9 @@ def test_htonl():
     w_n = space.appexec([w_socket, space.wrap(0x89abcdef)],
                         "(_socket, x): return _socket.htonl(x)")
     assert space.unwrap(w_n) in (0x89abcdef, 0xefcdab89)
+    space.raises_w(space.w_OverflowError, space.appexec,
+                   [w_socket, space.wrap(1<<32)],
+                   "(_socket, x): return _socket.htonl(x)")
 
 def test_aton_ntoa():
     ip = '123.45.67.89'

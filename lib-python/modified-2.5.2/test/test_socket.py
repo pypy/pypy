@@ -307,10 +307,23 @@ class GeneralModuleTests(unittest.TestCase):
             mask = (1L<<size) - 1
             for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
                 self.assertEqual(i & mask, func(func(i&mask)) & mask)
+                # should also accept ints, not only longs:
+                self.assertEqual(i & mask, func(func(int(i&mask))) & mask)
 
             swapped = func(mask)
             self.assertEqual(swapped & mask, mask)
             self.assertRaises(OverflowError, func, 1L<<34)
+            if test_support.check_impl_detail(cpython=False):
+                # XXX on 64-bit machines, it should also raise if it's an
+                # out-of-bound int, not just an out-of-bound long, but
+                # CPython 2.5/2.6 does not do it:
+                self.assertRaises(OverflowError, func, 1<<34)
+                # XXX the following check seems reasonable enough, but
+                # it does not work on CPython either; disabled for now:
+                #   self.assertRaises(OverflowError, func, 1<<size)
+                #   self.assertRaises(OverflowError, func, 1L<<size)
+                # the following was fixed on CPython >= 2.6:
+                self.assertRaises(OverflowError, func, -1)
 
     def testGetServBy(self):
         eq = self.assertEqual
