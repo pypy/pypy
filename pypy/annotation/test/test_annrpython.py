@@ -223,6 +223,17 @@ class TestAnnotateTestCase:
         # result should be a list of integers
         assert listitem(s).knowntype == int
 
+    def test_staticmethod(self):
+        class X(object):
+            @staticmethod
+            def stat(value):
+                return value + 4
+        def f(v):
+            return X().stat(v)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_methodcall1(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet._methodcall1, [int])
