@@ -658,7 +658,10 @@ class AppTestPosixUnicode:
             space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
-        cls.space.sys.filesystemencoding = cls.save_fs_encoding
+        try:
+            cls.space.sys.filesystemencoding = cls.save_fs_encoding
+        except AttributeError:
+            pass
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
