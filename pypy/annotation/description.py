@@ -595,6 +595,8 @@ class ClassDesc(Desc):
             if isinstance(value, staticmethod):   # special case
                 value = value.__get__(42)
                 classdef = None   # don't bind
+            elif isinstance(value, classmethod):
+                raise AssertionError("classmethods are not supported")
             s_value = self.bookkeeper.immutablevalue(value)
             if classdef is not None:
                 s_value = s_value.bind_callables_under(classdef, name)

@@ -234,6 +234,16 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_classmethod(self):
+        class X(object):
+            @classmethod
+            def meth(cls):
+                return None
+        def f():
+            return X().meth()
+        a = self.RPythonAnnotator()
+        py.test.raises(AssertionError, a.build_types, f,  [])
+
     def test_methodcall1(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet._methodcall1, [int])
