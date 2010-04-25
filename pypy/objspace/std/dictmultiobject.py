@@ -512,7 +512,7 @@ class DictInfo(object):
         self._dict_infos.append(self)
     def __repr__(self):
         args = []
-        for k in py.builtin.sorted(self.__dict__):
+        for k in sorted(self.__dict__):
             v = self.__dict__[k]
             if v != 0:
                 args.append('%s=%r'%(k, v))
@@ -613,7 +613,7 @@ _example = DictInfo()
 del DictInfo._dict_infos[-1]
 tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
 bodySrc = []
-for attr in py.builtin.sorted(_example.__dict__):
+for attr in sorted(_example.__dict__):
     if attr == 'sig':
         continue
     bodySrc.append(tmpl%locals())

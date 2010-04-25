@@ -151,7 +151,8 @@ def find_backedges(graph, block=None, seen=None, seeing=None):
 def compute_reachability(graph):
     reachable = {}
     blocks = list(graph.iterblocks())
-    for block in py.builtin.reversed(blocks): # this order should make the reuse path more likely
+    # Reversed order should make the reuse path more likely.
+    for block in reversed(blocks):
         reach = set()
         scheduled = [block]
         while scheduled:

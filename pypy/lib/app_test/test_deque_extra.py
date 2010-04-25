@@ -1,10 +1,5 @@
 # Deque Tests
 
-# for passing the test on top of 2.3
-from py.builtin import reversed
-import pypy.lib.collections
-pypy.lib.collections.reversed = reversed
-
 
 n = 10
 class Test_deque:

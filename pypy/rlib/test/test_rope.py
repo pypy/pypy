@@ -223,7 +223,7 @@ def test_iteration_unicode():
 def test_reverse_iteration():
     rope, real_st = make_random_string(200)
     iter = ReverseItemIterator(rope)
-    for c in py.builtin.reversed(real_st):
+    for c in reversed(real_st):
         c2 = iter.nextchar()
         assert c2 == c
     py.test.raises(StopIteration, iter.nextchar)
@@ -236,12 +236,12 @@ def test_reverse_iteration():
 def test_reverse_iteration_unicode():
     rope, real_st = make_random_string(200, unicode=True)
     iter = ReverseItemIterator(rope)
-    for c in py.builtin.reversed(real_st):
+    for c in reversed(real_st):
         c2 = iter.nextunichar()
         assert c2 == c
     py.test.raises(StopIteration, iter.nextchar)
     iter = ReverseItemIterator(rope)
-    for c in py.builtin.reversed(real_st):
+    for c in reversed(real_st):
         c2 = iter.nextint()
         assert c2 == ord(c)
     py.test.raises(StopIteration, iter.nextchar)
