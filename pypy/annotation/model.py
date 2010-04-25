@@ -695,19 +695,6 @@ def not_const(s_obj):
 # ____________________________________________________________
 # internal
 
-def setunion(d1, d2):
-    "Union of two sets represented as dictionaries."
-    d = d1.copy()
-    d.update(d2)
-    return d
-
-def set(it):
-    "Turn an iterable into a set."
-    d = {}
-    for x in it:
-        d[x] = True
-    return d
-
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     l1 = inspect.getmro(cls1)
     l2 = inspect.getmro(cls2) 

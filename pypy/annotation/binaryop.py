@@ -14,7 +14,7 @@ from pypy.annotation.model import SomePBC, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat
-from pypy.annotation.model import unionof, UnionError, set, missing_operation
+from pypy.annotation.model import unionof, UnionError, missing_operation
 from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata

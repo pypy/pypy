@@ -9,7 +9,7 @@ from pypy.annotation.model import \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      s_ImpossibleValue, s_Bool, s_None, \
-     unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
+     unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin

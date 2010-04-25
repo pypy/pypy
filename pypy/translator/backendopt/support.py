@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
 from pypy.rpython.rmodel import inputconst 
 from pypy.tool.ansi_print import ansi_log
-from pypy.annotation.model import setunion, s_ImpossibleValue
+from pypy.annotation.model import s_ImpossibleValue
 from pypy.translator.unsimplify import split_block, copyvar, insert_empty_block
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem import lltype
@@ -152,17 +152,17 @@ def compute_reachability(graph):
     reachable = {}
     blocks = list(graph.iterblocks())
     for block in py.builtin.reversed(blocks): # this order should make the reuse path more likely
-        reach = {}
+        reach = set()
         scheduled = [block]
         while scheduled:
             current = scheduled.pop()
             for link in current.exits:
                 if link.target in reachable:
-                    reach[link.target] = True
-                    reach = setunion(reach, reachable[link.target])
+                    reach.add(link.target)
+                    reach = reach | reachable[link.target]
                     continue
                 if link.target not in reach:
-                    reach[link.target] = True
+                    reach.add(link.target)
                     scheduled.append(link.target)
         reachable[block] = reach
     return reachable
