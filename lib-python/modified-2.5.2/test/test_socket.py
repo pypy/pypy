@@ -323,7 +323,7 @@ class GeneralModuleTests(unittest.TestCase):
                 #   self.assertRaises(OverflowError, func, 1<<size)
                 #   self.assertRaises(OverflowError, func, 1L<<size)
                 # the following was fixed on CPython >= 2.6:
-                self.assertRaises(OverflowError, func, -1)
+                self.assertRaises((OverflowError, ValueError), func, -1)
 
     def testGetServBy(self):
         eq = self.assertEqual
