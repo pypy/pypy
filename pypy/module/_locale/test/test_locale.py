@@ -5,7 +5,8 @@ import sys
 
 class AppTestLocaleTrivia:
     def setup_class(cls):
-        cls.space = space = gettestobjspace(usemodules=['_locale'])
+        cls.space = space = gettestobjspace(usemodules=['_locale',
+                                                        'unicodedata'])
         if sys.platform != 'win32':
             cls.w_language_en = cls.space.wrap("C")
             cls.w_language_utf8 = cls.space.wrap("en_US.utf8")
