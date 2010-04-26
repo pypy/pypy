@@ -298,49 +298,7 @@ if rlocale.HAVE_LIBINTL:
 
         bind_textdomain_codeset.unwrap_spec = [ObjSpace, str, W_Root]
 
-#___________________________________________________________________
-# getdefaultlocale() implementation for Windows and MacOSX
-
 if sys.platform == 'win32':
-    from pypy.rlib import rwin32
-    LCID = LCTYPE = rwin32.DWORD
-    GetACP = rlocale.external('GetACP',
-                      [], rffi.INT,
-                      calling_conv='win')
-    GetLocaleInfo = rlocale.external('GetLocaleInfoA',
-                             [LCID, LCTYPE, rwin32.LPSTR, rffi.INT], rffi.INT,
-                             calling_conv='win')
-
     def getdefaultlocale(space):
-        encoding = "cp%d" % GetACP()
-
-        BUFSIZE = 50
-        buf_lang = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
-        buf_country = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
-
-        try:
-            if (GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
-                              rlocale.cConfig.LOCALE_SISO639LANGNAME,
-                              buf_lang, BUFSIZE) and
-                GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
-                              rlocale.cConfig.LOCALE_SISO3166CTRYNAME,
-                              buf_country, BUFSIZE)):
-                lang = rffi.charp2str(buf_lang)
-                country = rffi.charp2str(buf_country)
-                return space.newtuple([space.wrap("%s_%s" % (lang, country)),
-                                       space.wrap(encoding)])
-
-            # If we end up here, this windows version didn't know about
-            # ISO639/ISO3166 names (it's probably Windows 95).  Return the
-            # Windows language identifier instead (a hexadecimal number)
-            elif GetLocaleInfo(rlocale.cConfig.LOCALE_USER_DEFAULT,
-                               rlocale.cConfig.LOCALE_IDEFAULTLANGUAGE,
-                               buf_lang, BUFSIZE):
-                lang = rffi.charp2str(buf_lang)
-                return space.newtuple([space.wrap("0x%s" % lang),
-                                       space.wrap(encoding)])
-            else:
-                return space.newtuple([space.w_None, space.wrap(encoding)])
-        finally:
-            lltype.free(buf_lang, flavor='raw')
-            lltype.free(buf_country, flavor='raw')
+        language, encoding = rlocale.getdefaultlocale()
+        return space.newtuple([space.wrap(language), space.wrap(encoding)])

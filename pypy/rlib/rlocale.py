@@ -172,3 +172,51 @@ if HAVE_LANGINFO:
         if key in constants.values():
             return rffi.charp2str(_nl_langinfo(rffi.cast(rffi.INT, key)))
         raise ValueError
+
+#___________________________________________________________________
+# getdefaultlocale() implementation for Windows
+
+if sys.platform == 'win32':
+    from pypy.rlib import rwin32
+    LCID = LCTYPE = rwin32.DWORD
+    GetACP = external('GetACP',
+                      [], rffi.INT,
+                      calling_conv='win')
+    GetLocaleInfo = external('GetLocaleInfoA',
+                             [LCID, LCTYPE, rwin32.LPSTR, rffi.INT], rffi.INT,
+                             calling_conv='win')
+
+    def getdefaultlocale():
+        encoding = "cp%d" % GetACP()
+
+        BUFSIZE = 50
+        buf_lang = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
+        buf_country = lltype.malloc(rffi.CCHARP.TO, BUFSIZE, flavor='raw')
+
+        try:
+            if (GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
+                              cConfig.LOCALE_SISO639LANGNAME,
+                              buf_lang, BUFSIZE) and
+                GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
+                              cConfig.LOCALE_SISO3166CTRYNAME,
+                              buf_country, BUFSIZE)):
+                lang = rffi.charp2str(buf_lang)
+                country = rffi.charp2str(buf_country)
+                language = "%s_%s" % (lang, country)
+
+            # If we end up here, this windows version didn't know about
+            # ISO639/ISO3166 names (it's probably Windows 95).  Return the
+            # Windows language identifier instead (a hexadecimal number)
+            elif GetLocaleInfo(cConfig.LOCALE_USER_DEFAULT,
+                               cConfig.LOCALE_IDEFAULTLANGUAGE,
+                               buf_lang, BUFSIZE):
+                lang = rffi.charp2str(buf_lang)
+                language = "0x%s" % (lang,)
+
+            else:
+                language = None
+        finally:
+            lltype.free(buf_lang, flavor='raw')
+            lltype.free(buf_country, flavor='raw')
+
+        return language, encoding
