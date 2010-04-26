@@ -55,7 +55,7 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         return (llmemory.offsetof(TP, 'chars') +
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
-    
+
     def copy_string_contents(src, dst, srcstart, dststart, length):
         assert srcstart >= 0
         assert dststart >= 0
@@ -121,7 +121,7 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
         AbstractStringRepr.__init__(self, *args)
         self.ll = LLHelpers
         self.malloc = mallocstr
-    
+
     def ll_decode_latin1(self, value):
         lgt = len(value.chars)
         s = mallocunicode(lgt)
@@ -234,6 +234,25 @@ def ll_construct_restart_positions(s, l):
             i += 1
             j = 0
     return T
+
+
+FAST_COUNT = 0
+FAST_FIND = 1
+FAST_RFIND = 2
+
+
+# XXX: This should be set to the number of bits in a long.  Having a lower
+# value here doesn't break anything, it just decreases the accuracy of the
+# bloom filter heuristic, which results in a worse runtime (but correct results)
+BLOOM_WIDTH = 32
+
+
+def bloom_add(mask, c):
+    return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+def bloom(mask, c):
+    return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
 
 class LLHelpers(AbstractLLHelpers):
 
@@ -493,126 +512,132 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return count
 
+    @classmethod
     @purefunction
     def ll_find(cls, s1, s2, start, end):
-        """Knuth Morris Prath algorithm for substring match"""
-        len2 = len(s2.chars)
-        if len2 == 1:
-            return cls.ll_find_char(s1, s2.chars[0], start, end)
-        len1 = len(s1.chars)
-        if end > len1:
-            end = len1
-        if len2 == 0:
-            if (end-start) < 0:
-                return -1
-            return start
-
-        T = ll_construct_restart_positions(s2, len2)
-
-        # Now the find algorithm
-        i = 0
-        m = start
-        while m+i<end:
-            if s1.chars[m+i]==s2.chars[i]:
-                i += 1
-                if i==len2:
-                    return m
-            else:
-                # mismatch, go back to the last possible starting pos
-                if i==0:
-                    m += 1
-                else:
-                    e = T[i-1]
-                    m = m + i - e
-                    i = e
-        return -1
-    ll_find = classmethod(ll_find)
-
-    @purefunction
-    def ll_rfind(cls, s1, s2, start, end):
-        """Reversed version of ll_find()"""
-        len2 = len(s2.chars)
-        if len2 == 1:
-            return cls.ll_rfind_char(s1, s2.chars[0], start, end)
+        if start < 0:
+            start = 0
         if end > len(s1.chars):
             end = len(s1.chars)
-        if len2 == 0:
-            if (end-start) < 0:
-                return -1
+        if end - start < 0:
+            return -1
+
+        m = len(s2.chars)
+        if m == 0:
+            return start
+        elif m == 1:
+            return cls.ll_find_char(s1, s2.chars[0], start, end)
+        
+        return cls.ll_search(s1, s2, start, end, FAST_FIND)
+
+    @classmethod
+    @purefunction
+    def ll_rfind(cls, s1, s2, start, end):
+        if start < 0:
+            start = 0
+        if end > len(s1.chars):
+            end = len(s1.chars)
+        if end - start < 0:
+            return -1
+
+        m = len(s2.chars)
+        if m == 0:
             return end
-        # Construct the array of possible restarting positions
-        T = malloc( SIGNED_ARRAY, len2 )
-        T[0] = 1
-        i = 1
-        j = 1
-        while i<len2:
-            if s2.chars[len2-i-1] == s2.chars[len2-j]:
-                j += 1
-                T[i] = j
-                i += 1
-            elif j>1:
-                j = T[j-2]
-            else:
-                T[i] = 1
-                i += 1
-                j = 1
+        elif m == 1:
+            return cls.ll_rfind_char(s1, s2.chars[0], start, end)
+        
+        return cls.ll_search(s1, s2, start, end, FAST_RFIND)
 
-        # Now the find algorithm
-        i = 1
-        m = end
-        while m-i>=start:
-            if s1.chars[m-i]==s2.chars[len2-i]:
-                if i==len2:
-                    return m-i
-                i += 1
-            else:
-                # mismatch, go back to the last possible starting pos
-                if i==1:
-                    m -= 1
-                else:
-                    e = T[i-2]
-                    m = m - i + e
-                    i = e
-        return -1
-    ll_rfind = classmethod(ll_rfind)
-
+    @classmethod
     @purefunction
     def ll_count(cls, s1, s2, start, end):
-        """Knuth Morris Prath algorithm for substring match"""
-        # XXX more code should be shared with ll_find
-        len1 = len(s1.chars)
-        if end > len1:
-            end = len1
-        len2 = len(s2.chars)
-        if len2 == 1:
-            return cls.ll_count_char(s1, s2.chars[0], start, end)
-        if len2 == 0:
-            if (end-start) < 0:
-                return 0
-            return end - start + 1
-        T = ll_construct_restart_positions(s2, len2)
+        if start < 0:
+            start = 0
+        if end > len(s1.chars):
+            end = len(s1.chars)
+        if end - start < 0:
+            return 0
 
-        # Now the find algorithm
-        i = 0
-        m = start
-        result = 0
-        while m+i<end:
-            if s1.chars[m+i]==s2.chars[i]:
+        m = len(s2.chars)
+        if m == 0:
+            return end - start + 1
+        elif m == 1:
+            return cls.ll_count_char(s1, s2.chars[0], start, end)
+            
+        return cls.ll_search(s1, s2, start, end, FAST_COUNT)
+
+    @purefunction
+    def ll_search(s1, s2, start, end, mode):
+        count = 0
+        n = end - start
+        m = len(s2.chars)
+
+        w = n - m
+
+        if w < 0:
+            return -1
+
+        mlast = m - 1
+        skip = mlast - 1
+        mask = 0
+
+        if mode != FAST_RFIND:
+            for i in range(mlast):
+                mask = bloom_add(mask, s2.chars[i])
+                if s2.chars[i] == s2.chars[mlast]:
+                    skip = mlast - i - 1
+            mask = bloom_add(mask, s2.chars[mlast])
+
+            i = start - 1
+            while i + 1 <= start + w:
                 i += 1
-                if i==len2:
-                    result += 1
-                    i = 0
-                    m += len2
-                continue
-            # mismatch, go back to the last possible starting pos
-            if i==0:
-                m += 1
-            else:
-                e = T[i-1]
-                m = m + i - e
-                i = e
-        return result
-    ll_count = classmethod(ll_count)
+                if s1.chars[i+m-1] == s2.chars[m-1]:
+                    for j in range(mlast):
+                        if s1.chars[i+j] != s2.chars[j]:
+                            break
+                    else:
+                        if mode != FAST_COUNT:
+                            return i
+                        count += 1
+                        i += mlast
+                        continue
+
+                    c = '\0' if i+m == len(s1.chars) else s1.chars[i+m]
+                    if not bloom(mask, c):
+                        i += m
+                    else:
+                        i += skip
+                else:
+                    c = '\0' if i+m == len(s1.chars) else s1.chars[i+m]
+                    if not bloom(mask, c):
+                        i += m
+        else:
+            mask = bloom_add(mask, s2.chars[0])
+            for i in range(mlast, 0, -1):
+                mask = bloom_add(mask, s2.chars[i])
+                if s2.chars[i] == s2.chars[0]:
+                    skip = i - 1
+
+            i = start + w + 1
+            while i - 1 >= start:
+                i -= 1
+                if s1.chars[i] == s2.chars[0]:
+                    for j in xrange(mlast, 0, -1):
+                        if s1.chars[i+j] != s2.chars[j]:
+                            break
+                    else:
+                        return i
+                    if i-1 >= 0 and not bloom(mask, s1.chars[i-1]):
+                        i -= m
+                    else:
+                        i -= skip
+                else:
+                    if i-1 >= 0 and not bloom(mask, s1.chars[i-1]):
+                        i -= m
+
+        if mode != FAST_COUNT:
+            return -1
+        return count
 
     def ll_join_strs(length, items):
         num_items = length
@@ -904,7 +929,7 @@ class BaseStringIteratorRepr(AbstractStringIteratorRepr):
         self.ll_strnext = ll_strnext
 
 class StringIteratorRepr(BaseStringIteratorRepr):
-    
+
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
                                 ('index', Signed)))
@@ -949,4 +974,3 @@ null_str = string_repr.convert_const("NULL")
 
 unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
 unboxed_instance_str_suffix = string_repr.convert_const(">")
-
