@@ -199,7 +199,7 @@ class RPythonTyper(object):
         assert dont_simplify_again in (False, True)  # safety check
         if not dont_simplify_again:
             self.annotator.simplify()
-            
+
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
         self.type_system.perform_normalizations(self)
@@ -214,11 +214,6 @@ class RPythonTyper(object):
             self.specialize_more_blocks()   # for the helpers just made
         if self.type_system.name == 'ootypesystem':
             self.attach_methods_to_subclasses()
-        
-        #
-        from pypy.annotation import listdef
-        ldef = listdef.ListDef(None, annmodel.SomeString())
-        self.list_of_str_repr = self.getrepr(annmodel.SomeList(ldef))
 
     def getannmixlevel(self):
         if self.annmixlevel is not None:
