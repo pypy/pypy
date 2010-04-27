@@ -171,7 +171,7 @@ class RPythonTyper(object):
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
         key = self.makekey(s_obj)
-        assert key[0] == s_obj.__class__
+        assert key[0] is s_obj.__class__
         try:
             result = self.reprs[key]
         except KeyError:
