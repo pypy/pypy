@@ -8,8 +8,6 @@ from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 
-rootdir = py.path.local(__file__).dirpath()
-
 # pytest settings
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../lib-python', '../demo']
@@ -515,11 +513,6 @@ class ExpectClassCollector(py.test.collect.Class):
 
 
 class Directory(py.test.collect.Directory):
-    def consider_dir(self, path):
-        if path == rootdir.join("lib", "ctypes", "test"):
-            py.test.skip("These are the original ctypes tests.\n"
-                         "You can try to run them with 'pypy-c runtests.py'.")
-        return super(Directory, self).consider_dir(path)
 
     def recfilter(self, path):
         # disable recursion in symlinked subdirectories
