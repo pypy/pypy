@@ -564,7 +564,12 @@ class LLHelpers(AbstractLLHelpers):
         elif m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
             
-        return cls.ll_search(s1, s2, start, end, FAST_COUNT)
+        res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
+        # For a few cases ll_search can return -1 to indicate an "impossible"
+        # condition for a string match, count just returns 0 in these cases.
+        if res < 0:
+            res = 0
+        return res
 
     @purefunction
     def ll_search(s1, s2, start, end, mode):
