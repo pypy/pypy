@@ -380,6 +380,8 @@ class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
 
 r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
+r_int_real = build_int('r_int_real', r_int.SIGN, r_int.BITS,
+                       force_creation=True)
 
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
