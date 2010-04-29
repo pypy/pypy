@@ -551,7 +551,7 @@ class TranslationDriver(SimpleTaskEngine):
         """
         cbuilder = self.cbuilder
         kwds = {}
-        if self.standalone:
+        if self.standalone and self.exe_name is not None:
             kwds['exe_name'] = self.compute_exe_name().basename
         cbuilder.compile(**kwds)
 
