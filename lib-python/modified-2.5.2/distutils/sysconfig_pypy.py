@@ -11,6 +11,12 @@ PYPY_PREFIX = os.path.normpath(sys.pypy_prefix)
 python_build = False
 
 
+def get_python_inc(plat_specific=0, prefix=None):
+    from os.path import join as j
+    if plat_specific:
+        return j(sys.pypy_prefix, "pypy", "_interfaces")
+    return j(sys.pypy_prefix, 'pypy', 'module', 'cpyext', 'include')
+
 def get_python_version():
     """Return a string containing the major and minor Python version,
     leaving off the patchlevel.  Sample return values could be '1.5'
@@ -47,6 +53,7 @@ def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
+    g['SO'] = ".so"
 
     global _config_vars
     _config_vars = g
@@ -56,6 +63,7 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
+    g['SO'] = ".pyd"
 
     global _config_vars
     _config_vars = g

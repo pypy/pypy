@@ -167,7 +167,7 @@ class build_ext (Command):
         # for Release and Debug builds.
         # also Python's library directory must be appended to library_dirs
         if os.name == 'nt':
-            self.library_dirs.append(os.path.join(sys.exec_prefix, 'libs'))
+            self.library_dirs.append(os.path.join(sys.pypy_prefix, 'pypy', '_interfaces'))
             if self.debug:
                 self.build_temp = os.path.join(self.build_temp, "Debug")
             else:
@@ -175,8 +175,8 @@ class build_ext (Command):
 
             # Append the source distribution include and library directories,
             # this allows distutils on windows to work in the source tree
-            self.include_dirs.append(os.path.join(sys.exec_prefix, 'PC'))
-            self.library_dirs.append(os.path.join(sys.exec_prefix, 'PCBuild'))
+            #self.include_dirs.append(os.path.join(sys.exec_prefix, 'PC'))
+            #self.library_dirs.append(os.path.join(sys.exec_prefix, 'PCBuild'))
 
         # OS/2 (EMX) doesn't support Debug vs Release builds, but has the
         # import libraries in its "Config" subdirectory
@@ -645,24 +645,12 @@ class build_ext (Command):
         shared extension.  On most platforms, this is just 'ext.libraries';
         on Windows and OS/2, we add the Python library (eg. python20.dll).
         """
-        # The python library is always needed on Windows.  For MSVC, this
-        # is redundant, since the library is mentioned in a pragma in
-        # pyconfig.h that MSVC groks.  The other Windows compilers all seem
-        # to need it mentioned explicitly, though, so that's what we do.
-        # Append '_d' to the python import library on debug builds.
+        # The python library is always needed on Windows.
         if sys.platform == "win32":
-            from distutils.msvccompiler import MSVCCompiler
-            if not isinstance(self.compiler, MSVCCompiler):
-                template = "python%d%d"
-                if self.debug:
-                    template = template + '_d'
-                pythonlib = (template %
-                       (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
-                # don't extend ext.libraries, it may be shared with other
-                # extensions, it is a reference to the original list
-                return ext.libraries + [pythonlib]
-            else:
-                return ext.libraries
+            pythonlib = 'libpypy-c.exe'
+            # don't extend ext.libraries, it may be shared with other
+            # extensions, it is a reference to the original list
+            return ext.libraries + [pythonlib]
         elif sys.platform == "os2emx":
             # EMX/GCC requires the python library explicitly, and I
             # believe VACPP does as well (though not confirmed) - AIM Apr01
