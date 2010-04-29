@@ -2,8 +2,8 @@ import os
 import sys
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.tool.pairtype import extendabletype
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
@@ -199,15 +199,6 @@ def inherit_special(space, pto, base_pto):
         if not pto.c_tp_new:
             pto.c_tp_new = base_pto.c_tp_new
 
-class __extend__(W_Root):
-    __metaclass__ = extendabletype
-    __slots__ = ("_pyolifeline", ) # hint for the annotator
-    _pyolifeline = None
-    def set_pyolifeline(self, lifeline):
-        self._pyolifeline = lifeline
-    def get_pyolifeline(self):
-        return self._pyolifeline
-
 class PyOLifeline(object):
     def __init__(self, space, pyo):
         self.pyo = pyo
@@ -219,6 +210,8 @@ class PyOLifeline(object):
             _Py_Dealloc(self.space, self.pyo)
             self.pyo = lltype.nullptr(PyObject.TO)
         # XXX handle borrowed objects here
+
+lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
 
 def check_descr(space, w_self, pto):
     w_type = from_ref(space, (rffi.cast(PyObject, pto)))
@@ -392,7 +385,7 @@ def subtype_dealloc(space, obj):
     # extension modules
 
 def pyctype_make_ref(space, w_type, w_obj, itemcount=0):
-    lifeline = w_obj.get_pyolifeline()
+    lifeline = lifeline_dict.get(w_obj)
     if lifeline is not None: # make old PyObject ready for use in C code
         py_obj = lifeline.pyo
         assert py_obj.c_ob_refcnt == 0
@@ -400,7 +393,7 @@ def pyctype_make_ref(space, w_type, w_obj, itemcount=0):
     else:
         typedescr = get_typedescr(w_obj.typedef)
         py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-        w_obj.set_pyolifeline(PyOLifeline(space, py_obj))
+        lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
     return py_obj
 
 @cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
