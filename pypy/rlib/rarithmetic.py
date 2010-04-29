@@ -127,6 +127,8 @@ def ovfcheck_float_to_int(x):
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:
+        if self_type is bool:
+            return int
         return self_type
     if other_type in (bool, int, long):
         if self_type is bool:
