@@ -143,7 +143,7 @@ class TestTypeDef:
             'some_type',
             x=prop)
         w_obj = self.space.wrap(W_SomeType())
-        assert self.space.getattr(w_obj, self.space.wrap('x')) is None
+        assert self.space.getattr(w_obj, self.space.wrap('x')) is self.space.w_None
 
 
 class AppTestTypeDef:
