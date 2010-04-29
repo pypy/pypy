@@ -43,7 +43,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     t = TranslationContext(config=config)
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
-    timelog("annotating", a.build_types, func, argtypes)
+    timelog("annotating", a.build_types, func, argtypes, main_entry_point=True)
     if viewbefore == 'auto':
         viewbefore = getattr(conftest.option, 'view', False)
     if viewbefore:
@@ -62,7 +62,6 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
             t.view()
     desc = t.annotator.bookkeeper.getdesc(func)
     graph = desc.specialize(argtypes)
-    t.entry_point_graph = graph
     return t, typer, graph
 
 _lastinterpreted = []

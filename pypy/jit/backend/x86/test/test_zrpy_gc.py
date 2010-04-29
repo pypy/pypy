@@ -82,7 +82,7 @@ def compile(f, gc, **kwds):
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
-    ann.build_types(f, [s_list_of_strings])
+    ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()
     if kwds['jit']:
         apply_jit(t, optimizer=OPTIMIZER_SIMPLE)

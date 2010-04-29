@@ -83,7 +83,8 @@ class RPythonAnnotator(object):
 
     #___ convenience high-level interface __________________
 
-    def build_types(self, function, input_arg_types, complete_now=True):
+    def build_types(self, function, input_arg_types, complete_now=True,
+                    main_entry_point=False):
         """Recursively build annotations about the specific entry point."""
         assert isinstance(function, types.FunctionType), "fix that!"
 
@@ -97,6 +98,8 @@ class RPythonAnnotator(object):
             assert isinstance(flowgraph, annmodel.SomeObject)
             return flowgraph
 
+        if main_entry_point:
+            self.translator.entry_point_graph = flowgraph
         return self.build_graph_types(flowgraph, inputcells, complete_now=complete_now)
 
     def get_call_parameters(self, function, args_s, policy):
