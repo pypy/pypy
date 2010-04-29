@@ -43,7 +43,7 @@ c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.INT,
                             threadsafe=True)  # release the GIL, but most
                                               # importantly, reacquire it
                                               # around the callback
-c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT,
+c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
                                 _nowrapper=True)    # always call directly
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
