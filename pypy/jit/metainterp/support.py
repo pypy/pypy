@@ -41,7 +41,7 @@ def annotate(func, values, inline=None, backendoptimize=True,
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
     argtypes = getargtypes(a, values)
-    a.build_types(func, argtypes)
+    a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
     if inline:
