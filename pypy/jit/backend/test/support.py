@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.rlib.debug import debug_print
 from pypy.rlib.jit import OPTIMIZER_FULL
-from pypy.translator.translator import TranslationContext
+from pypy.translator.translator import TranslationContext, graphof
 
 class BaseCompiledMixin(object):
 
@@ -58,6 +58,7 @@ class BaseCompiledMixin(object):
 
         t.buildannotator().build_types(function, [int] * len(args))
         t.buildrtyper(type_system=self.type_system).specialize()
+        t.entry_point_graph = graphof(t, function)
         warmrunnerdesc = WarmRunnerDesc(t, translate_support_code=True,
                                         CPUClass=self.CPUClass,
                                         **kwds)

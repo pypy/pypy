@@ -62,6 +62,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
             t.view()
     desc = t.annotator.bookkeeper.getdesc(func)
     graph = desc.specialize(argtypes)
+    t.entry_point_graph = graph
     return t, typer, graph
 
 _lastinterpreted = []
