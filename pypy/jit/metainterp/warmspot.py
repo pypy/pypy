@@ -231,7 +231,7 @@ class WarmRunnerDesc(object):
     def check_access_directly_sanity(self, graphs):
         from pypy.translator.backendopt.inline import collect_called_graphs
         jit_graphs = set(graphs)
-        for graph in collect_called_graphs(self.translator.graphs[0],
+        for graph in collect_called_graphs(self.translator.entry_point_graph,
                                            self.translator):
             if graph in jit_graphs:
                 continue
