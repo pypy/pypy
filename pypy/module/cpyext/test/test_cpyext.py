@@ -332,6 +332,17 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.__name__ == expected_name
 
 
+    def test_InitModuleInPackage(self):
+        """
+        If `apple.banana` is an extension module which calls Py_InitModule4 with
+        only "banana" as a name, the resulting module nevertheless is stored at
+        `sys.modules["apple.banana"]`.
+        """
+        skip("About to implement this")
+        module = self.import_module(name="apple.banana", filename="banana")
+        assert module.__name__ == "apple.banana"
+
+
     def test_modinit_func(self):
         """
         A module can use the PyMODINIT_FUNC macro to declare or define its
