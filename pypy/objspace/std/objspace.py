@@ -453,21 +453,33 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raiseattrerror(self, w_obj, name)
 
     def finditem_str(self, w_obj, key):
-        # performance shortcut to avoid creating the OperationError(KeyError)
+        """ Perform a getitem on w_obj with key (string). Returns found
+        element or None on element not found.
+
+        performance shortcut to avoid creating the OperationError(KeyError)
+        and allocating W_StringObject
+        """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             return w_obj.getitem_str(key)
         return ObjSpace.finditem_str(self, w_obj, key)
 
     def finditem(self, w_obj, w_key):
-        # performance shortcut to avoid creating the OperationError(KeyError)
+        """ Perform a getitem on w_obj with w_key (any object). Returns found
+        element or None on element not found.
+
+        performance shortcut to avoid creating the OperationError(KeyError).
+        """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
     def setitem_str(self, w_obj, key, w_value, shadows_type=True):
-        # performance shortcut to avoid creating the OperationError(KeyError)
+        """ Same as setitem, but takes string instead of any wrapped object
+
+        XXX what shadows_type means???
+        """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
             w_obj.setitem_str(key, w_value, shadows_type)
