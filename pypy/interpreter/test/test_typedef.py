@@ -138,9 +138,10 @@ class TestTypeDef:
             pass
         def fget(self, space, w_self):
             assert self is prop
+        prop = typedef.GetSetProperty(fget, use_closure=True)
         W_SomeType.typedef = typedef.TypeDef(
             'some_type',
-            x=typedef.GetSetProperty(fget, use_closure=True))
+            x=prop)
         w_obj = self.space.wrap(W_SomeType())
         assert self.space.getattr(w_obj, self.space.wrap('x')) is None
 
