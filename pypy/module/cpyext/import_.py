@@ -30,8 +30,8 @@ def PyImport_Import(space, w_name):
     else:
         w_import = space.getattr(w_builtin, space.wrap("__import__"))
 
-	# Call the __import__ function with the proper argument list
-	# Always use absolute import here.
+        # Call the __import__ function with the proper argument list
+        # Always use absolute import here.
     return space.call(w_import, space.newtuple(
         [w_name, w_globals, w_globals,
          space.newlist([space.wrap("__doc__")])]))

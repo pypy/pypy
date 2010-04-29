@@ -58,7 +58,7 @@ wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP_real, PyO], PyO))
 
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
-	("name", rffi.CCHARP),
+    ("name", rffi.CCHARP),
     ("get", getter),
     ("set", setter),
     ("doc", rffi.CCHARP),
