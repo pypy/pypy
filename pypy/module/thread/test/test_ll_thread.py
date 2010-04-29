@@ -47,15 +47,16 @@ class AbstractThreadTests(AbstractGCTestClass):
                 state.freed_counter += 1
 
         def bootstrap():
-            state.my_thread_ident = get_ident()
+            state.my_thread_ident = state.z.ident = get_ident()
             assert state.my_thread_ident == get_ident()
+            assert get_ident() == state.z.ident
             state.seen_value = state.z.value
             state.z = None
             state.done = 1
 
         def g(i):
             state.z = Z(i)
-            start_new_thread(bootstrap, ())
+            return start_new_thread(bootstrap, ())
         g._dont_inline_ = True
 
         def f():
@@ -65,7 +66,7 @@ class AbstractThreadTests(AbstractGCTestClass):
             for i in range(50):
                 state.done = 0
                 state.seen_value = 0
-                g(i)
+                ident = g(i)
                 gc.collect()
                 willing_to_wait_more = 1000
                 while not state.done:
@@ -74,6 +75,7 @@ class AbstractThreadTests(AbstractGCTestClass):
                         raise Exception("thread didn't start?")
                     time.sleep(0.01)
                 assert state.my_thread_ident != main_ident
+                assert state.my_thread_ident == ident
                 assert state.seen_value == i
             # try to force Boehm to do some freeing
             for i in range(3):

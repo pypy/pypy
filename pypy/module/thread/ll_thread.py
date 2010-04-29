@@ -35,10 +35,10 @@ def _emulated_start_new_thread(func):
         ident = thread.start_new_thread(func, ())
     except thread.error:
         ident = -1
-    return rffi.cast(rffi.INT, ident)
+    return rffi.cast(rffi.LONG, ident)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([], lltype.Void))
-c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.INT,
+c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
                             _callable=_emulated_start_new_thread,
                             threadsafe=True)  # release the GIL, but most
                                               # importantly, reacquire it
