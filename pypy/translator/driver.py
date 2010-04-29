@@ -12,6 +12,7 @@ from pypy.annotation import policy as annpolicy
 import optparse
 from pypy.tool.udir import udir
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_DETAILED, DEBUG_PROFILE, DEBUG_STEPS
+from pypy.rlib.entrypoint import secondary_entrypoints
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -93,7 +94,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         if setopts is not None:
             self.config.set(**setopts)
-        
+
         self.exe_name = exe_name
         self.extmod_name = extmod_name
 
@@ -210,12 +211,25 @@ class TranslationDriver(SimpleTaskEngine):
         self.entry_point = entry_point
         self.translator = translator
         self.libdef = None
+        self.secondary_entrypoints = []
+
+        if self.config.translation.secondaryentrypoints:
+            for key in self.config.translation.secondaryentrypoints.split(","):
+                try:
+                    points = secondary_entrypoints[key]
+                except KeyError:
+                    raise KeyError(
+                        "Entrypoints not found. I only know the keys %r." %
+                        (", ".join(secondary_entrypoints.keys()), ))
+                self.secondary_entrypoints.extend(points)
 
         self.translator.driver_instrument_result = self.instrument_result
 
     def setup_library(self, libdef, policy=None, extra={}, empty_translator=None):
+        """ Used by carbon python only. """
         self.setup(None, None, policy, extra, empty_translator)
         self.libdef = libdef
+        self.secondary_entrypoints = libdef.functions
 
     def instrument_result(self, args):
         backend, ts = self.get_backend_and_type_system()
@@ -304,23 +318,25 @@ class TranslationDriver(SimpleTaskEngine):
         annmodel.DEBUG = self.config.translation.debug
         annotator = translator.buildannotator(policy=policy)
 
+        if self.secondary_entrypoints is not None:
+            for func, inputtypes in self.secondary_entrypoints:
+                if inputtypes == Ellipsis:
+                    continue
+                rettype = annotator.build_types(func, inputtypes, False)
+
         if self.entry_point:
             s = annotator.build_types(self.entry_point, self.inputtypes)
-
-            self.sanity_check_annotation()
-            if self.standalone and s.knowntype != int:
-                raise Exception("stand-alone program entry point must return an "
-                                "int (and not, e.g., None or always raise an "
-                                "exception).")
-            annotator.simplify()
-            return s
+            translator.entry_point_graph = annotator.bookkeeper.getdesc(self.entry_point).getuniquegraph()
         else:
-            assert self.libdef is not None
-            for func, inputtypes in self.libdef.functions:
-                annotator.build_types(func, inputtypes)
-                func.c_name = func.func_name
-            self.sanity_check_annotation()
-            annotator.simplify()
+            s = None
+
+        self.sanity_check_annotation()
+        if self.entry_point and self.standalone and s.knowntype != int:
+            raise Exception("stand-alone program entry point must return an "
+                            "int (and not, e.g., None or always raise an "
+                            "exception).")
+        annotator.simplify()
+
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
 
@@ -471,7 +487,8 @@ class TranslationDriver(SimpleTaskEngine):
             else:
                 from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
             cbuilder = CBuilder(self.translator, self.entry_point,
-                                config=self.config)
+                                config=self.config,
+                                secondary_entrypoints=self.secondary_entrypoints)
             cbuilder.stackless = self.config.translation.stackless
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
@@ -521,6 +538,10 @@ class TranslationDriver(SimpleTaskEngine):
             exename = mkexename(self.c_entryp)
             newexename = self.compute_exe_name()
             shutil.copy(str(exename), str(newexename))
+            if self.cbuilder.shared_library_name is not None:
+                soname = self.cbuilder.shared_library_name
+                newsoname = newexename.new(basename=soname.basename)
+                shutil.copy(str(soname), str(newsoname))
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 
@@ -529,7 +550,10 @@ class TranslationDriver(SimpleTaskEngine):
         translator/platform
         """
         cbuilder = self.cbuilder
-        cbuilder.compile()
+        kwds = {}
+        if self.standalone:
+            kwds['exe_name'] = self.compute_exe_name().basename
+        cbuilder.compile(**kwds)
 
         if self.standalone:
             self.c_entryp = cbuilder.executable_name

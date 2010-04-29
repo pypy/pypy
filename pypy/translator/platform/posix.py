@@ -36,6 +36,10 @@ class BasePosix(Platform):
                                  cwd=str(cfile.dirpath()))
         return oname
 
+    def _link_args_from_eci(self, eci, standalone):
+        eci = eci.convert_exportsymbols_to_file()
+        return Platform._link_args_from_eci(self, eci, standalone)
+
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
@@ -55,7 +59,9 @@ class BasePosix(Platform):
         # strip compiler flags
         return [entry[2:] for entry in out.split()]
 
-    def gen_makefile(self, cfiles, eci, exe_name=None, path=None):
+    def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
+                     shared=False):
+        eci = eci.convert_exportsymbols_to_file()
         cfiles = [py.path.local(f) for f in cfiles]
         cfiles += [py.path.local(f) for f in eci.separate_module_files]
 
@@ -66,6 +72,16 @@ class BasePosix(Platform):
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
+
+        linkflags = self.link_flags
+        if shared:
+            linkflags = self._args_for_shared(linkflags)
+
+        if shared:
+            libname = exe_name.new(ext='').basename
+            target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
+        else:
+            target_name = exe_name.basename
 
         m = GnuMakefile(path)
         m.exe_name = exe_name
@@ -88,8 +104,8 @@ class BasePosix(Platform):
         m.comment('automatically generated makefile')
         definitions = [
             ('PYPYDIR', autopath.pypydir),
-            ('TARGET', exe_name.basename),
-            ('DEFAULT_TARGET', '$(TARGET)'),
+            ('TARGET', target_name),
+            ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
@@ -97,7 +113,7 @@ class BasePosix(Platform):
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', self.cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
-            ('LDFLAGS', self.link_flags),
+            ('LDFLAGS', linkflags),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
@@ -114,6 +130,16 @@ class BasePosix(Platform):
 
         for rule in rules:
             m.rule(*rule)
+
+        if shared:
+            m.definition('SHARED_IMPORT_LIB', libname),
+            m.rule('main.c', '',
+                   'echo "'
+                   'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
+                   'int main(int argc, char* argv[]) '
+                   '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
+            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
+                   '$(CC_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
 
         return m
 

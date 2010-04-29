@@ -508,12 +508,14 @@ PERTURB_SHIFT = 5
 
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
+    ENTRIES = lltype.typeOf(entries).TO
+    direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
     mask = len(entries) - 1
     i = hash & mask
     # do the first try before any looping 
     if entries.valid(i):
         checkingkey = entries[i].key
-        if checkingkey == key:
+        if direct_compare and checkingkey == key:
             return i   # found the entry
         if d.keyeq is not None and entries.hash(i) == hash:
             # correct hash, maybe the key is e.g. a different pointer to
@@ -548,7 +550,7 @@ def ll_dict_lookup(d, key, hash):
             return freeslot
         elif entries.valid(i):
             checkingkey = entries[i].key
-            if checkingkey == key:
+            if direct_compare and checkingkey == key:
                 return i
             if d.keyeq is not None and entries.hash(i) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to

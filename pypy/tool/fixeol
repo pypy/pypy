@@ -48,7 +48,7 @@ def can_set_eol_style(path):
     return True
 
 def checkeolfile(path):     
-    return path.ext in ('.txt', '.py', '.asc')
+    return path.ext in ('.txt', '.py', '.asc', '.h', '.c')
 
 def fixdirectory(path): 
     print "+ checking directory", path, 

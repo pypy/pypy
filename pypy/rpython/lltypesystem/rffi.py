@@ -48,6 +48,7 @@ class _IsLLPtrEntry(ExtRegistryEntry):
         result = isinstance(s_p, annmodel.SomePtr)
         return self.bookkeeper.immutablevalue(result)
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 def llexternal(name, args, result, _callable=None,
@@ -388,6 +389,7 @@ platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for comm
 r_int_real = rarithmetic.build_int("r_int_real", r_int.SIGN, r_int.BITS, True)
 INT_real = lltype.build_number("INT", r_int_real)
 platform.numbertype_to_rclass[INT_real] = r_int_real
+NUMBER_TYPES.append(INT_real)
 
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------

@@ -168,7 +168,7 @@ def call_final_function(translator, final_func, annhelper=None):
     if own_annhelper:
         annhelper.finish()
 
-    entry_point = translator.graphs[0]
+    entry_point = translator.entry_point_graph
     v = copyvar(translator.annotator, entry_point.getreturnvar())
     extrablock = Block([v])
     v_none = varoftype(lltype.Void)

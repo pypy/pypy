@@ -1,10 +1,14 @@
 import py
-import sys, os
+import sys, os, gc
 from pypy.translator.c.test import test_newgc
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.entrypoint import entrypoint, secondary_entrypoints
+from pypy.rpython.lltypesystem.lloperation import llop
 
 class AbstractTestAsmGCRoot:
     # the asmgcroot gc transformer doesn't generate gc_reload_possibly_moved
@@ -34,11 +38,14 @@ class AbstractTestAsmGCRoot:
         config = cls.make_config()
         t = TranslationContext(config=config)
         a = t.buildannotator()
+        for f, inputtypes in cls.secondary_entrypoints:
+            a.build_types(f, inputtypes, False)
         a.build_types(main, [s_list_of_strings])
         t.buildrtyper().specialize()
         t.checkgraphs()
 
-        cbuilder = CStandaloneBuilder(t, main, config=config)
+        cbuilder = CStandaloneBuilder(t, main, config=config,
+                secondary_entrypoints=cls.secondary_entrypoints)
         c_source_filename = cbuilder.generate_source(
             defines = cbuilder.DEBUG_DEFINES)
         cls._patch_makefile(cbuilder.targetdir)
@@ -53,7 +60,12 @@ class AbstractTestAsmGCRoot:
                 redirect = ' 2> NUL'
             else:
                 redirect = ''
-            g = os.popen('"%s" %s %d%s' % (exe_name, arg0, arg1, redirect), 'r')
+            if config.translation.shared and os.name == 'posix':
+                env = 'LD_LIBRARY_PATH="%s" ' % (exe_name.dirpath(),)
+            else:
+                env = ''
+            g = os.popen(
+                '%s"%s" %s %d%s' % (env, exe_name, arg0, arg1, redirect), 'r')
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)
@@ -101,6 +113,7 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
                                    test_newgc.TestSemiSpaceGC):
     # for the individual tests see
     # ====> ../../test/test_newgc.py
+    secondary_entrypoints = []
 
     def define_large_function(cls):
         class A(object):
@@ -123,11 +136,6 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         assert res == 1000
 
     def define_callback_simple(cls):
-        import gc
-        from pypy.rpython.lltypesystem import lltype, rffi
-        from pypy.rpython.annlowlevel import llhelper
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-
         c_source = py.code.Source("""
         int mystuff(int(*cb)(int, int))
         {
@@ -153,11 +161,44 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
 
         return f
 
-
     def test_callback_simple(self):
         res = self.run('callback_simple')
         assert res == 4900
 
+    def define_secondary_entrypoint_callback(self):
+        @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
+        def mycallback(a, b):
+            llop.gc_stack_bottom(lltype.Void)
+            rffi.stackcounter.stacks_counter += 1
+            gc.collect()
+            rffi.stackcounter.stacks_counter -= 1
+            return a + b
+
+        c_source = py.code.Source("""
+        int mystuff2()
+        {
+            return callback(40, 2) + callback(3, 4);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        z = rffi.llexternal('mystuff2', [], lltype.Signed,
+                            compilation_info=eci)
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+        self.secondary_entrypoints.extend(secondary_entrypoints["x42"])
+
+        def f():
+            p = lltype.malloc(S)
+            p.x = 100
+            result = z()
+            return result * p.x
+
+        return f
+
+    def test_secondary_entrypoint_callback(self):
+        res = self.run('secondary_entrypoint_callback')
+        assert res == 4900
 
 class TestAsmGCRootWithSemiSpaceGC_Mingw32(TestAsmGCRootWithSemiSpaceGC):
     # for the individual tests see
@@ -185,6 +226,13 @@ class TestAsmGCRootWithSemiSpaceGC_Mingw32(TestAsmGCRootWithSemiSpaceGC):
 
     def define_callback_with_collect(cls):
         return lambda: 0
+
+class TestAsmGCRootWithSemiSpaceGC_Shared(TestAsmGCRootWithSemiSpaceGC):
+    @classmethod
+    def make_config(cls):
+        config = TestAsmGCRootWithSemiSpaceGC.make_config()
+        config.translation.shared = True
+        return config
 
 class TestAsmGCRootWithHybridTagged(AbstractTestAsmGCRoot,
                                     test_newgc.TestHybridTaggedPointers):

@@ -15,6 +15,13 @@
 
 #include <limits.h>
 
+#ifndef LLONG_MAX
+#define LLONG_MAX __LONG_LONG_MAX__
+#endif
+#ifndef LLONG_MIN
+#define LLONG_MIN (-LLONG_MAX - 1LL)
+#endif
+
 #if INT_MAX != 2147483647
 #  error "unsupported value for INT_MAX"
 #endif
@@ -61,9 +68,6 @@
 #endif
 
 /********************************************************/
-
-typedef long Py_intptr_t;
-typedef unsigned long Py_uintptr_t;
 
 #if ((-1) >> 1) > 0
 #  define Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J) \

@@ -1,0 +1,27 @@
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.api import Py_ssize_t, Py_ssize_tP
+
+class TestSliceObject(BaseApiTest):
+    def test_slice(self, space, api):
+        w_i = space.wrap(10)
+        w_slice = space.newslice(w_i, w_i, w_i)
+        assert api.PySlice_Check(w_slice)
+        assert not api.PySlice_Check(w_i)
+
+    def test_GetIndicesEx(self, space, api):
+        w = space.wrap
+        def get_indices(w_start, w_stop, w_step, length):
+            w_slice = space.newslice(w_start, w_stop, w_step)
+            values = lltype.malloc(Py_ssize_tP.TO, 4, flavor='raw')
+            
+            res = api.PySlice_GetIndicesEx(w_slice, 100, values, 
+                rffi.ptradd(values, 1), 
+                rffi.ptradd(values, 2), 
+                rffi.ptradd(values, 3))
+            assert res == 0
+            rv = values[0], values[1], values[2], values[3]
+            lltype.free(values, flavor='raw')
+            return rv
+        assert get_indices(w(10), w(20), w(1), 200) == (10, 20, 1, 10)

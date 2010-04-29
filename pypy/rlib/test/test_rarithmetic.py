@@ -365,3 +365,7 @@ def test_isinf():
 
 def test_isnan():
     assert isnan(NAN)
+
+def test_int_real_union():
+    from pypy.rpython.lltypesystem.rffi import r_int_real
+    assert compute_restype(r_int_real, r_int_real) is r_int_real

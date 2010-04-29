@@ -29,7 +29,8 @@ working_modules.update(dict.fromkeys(
       "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl"]
+     "thread", "itertools", "pyexpat", "_ssl"] # "cpyext"] commented out until
+     # it stops adding _pyolifeline on W_Root
 ))
 
 working_oo_modules = default_modules.copy()
@@ -62,11 +63,14 @@ if sys.platform == "sunos5":
 
 
 module_dependencies = {}
-module_suggests = {    # the reason you want _rawffi is for ctypes, which
-                       # itself needs the interp-level struct module
-                       # because 'P' is missing from the app-level one
-                       '_rawffi': [("objspace.usemodules.struct", True)],
-                       }
+module_suggests = {
+    # the reason you want _rawffi is for ctypes, which
+    # itself needs the interp-level struct module
+    # because 'P' is missing from the app-level one
+    "_rawffi": [("objspace.usemodules.struct", True)],
+    "cpyext": [("translation.secondaryentrypoints", "cpyext"),
+               ("translation.shared", sys.platform == "win32")],
+    }
 
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.libffi raises ImportError

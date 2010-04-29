@@ -14,6 +14,7 @@ from pypy.rlib.jit import dont_look_inside, purefunction
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
+_CPYTYPE = 1 # used for non-heap types defined in C
 
 # from compiler/misc.py
 
@@ -96,7 +97,7 @@ class W_TypeObject(W_Object):
         w_self.needsdel = False
         w_self.weakrefable = False
         w_self.weak_subclasses = []
-        w_self.__flags__ = 0           # or _HEAPTYPE
+        w_self.__flags__ = 0           # or _HEAPTYPE or _CPYTYPE
         w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
@@ -352,6 +353,9 @@ class W_TypeObject(W_Object):
 
     def is_heaptype(w_self):
         return w_self.__flags__&_HEAPTYPE
+
+    def is_cpytype(w_self):
+        return w_self.__flags__ & _CPYTYPE
 
     def get_module(w_self):
         space = w_self.space

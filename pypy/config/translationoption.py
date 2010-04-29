@@ -42,6 +42,9 @@ translation_optiondescription = OptionDescription(
                      },
                  cmdline="-b --backend"),
 
+    BoolOption("shared", "Build as a shared library",
+               default=False, cmdline="--shared"),
+
     BoolOption("log", "Include debug prints in the translation (PYPYLOG=...)",
                default=True, cmdline="--log"),
 
@@ -138,6 +141,9 @@ translation_optiondescription = OptionDescription(
     ArbitraryOption("instrumentctl", "internal",
                default=None),
     StrOption("output", "Output file name", cmdline="--output"),
+    StrOption("secondaryentrypoints",
+            "Comma separated list of keys choosing secondary entrypoints",
+            cmdline="--entrypoints", default=""),
 
     BoolOption("dump_static_data_info", "Dump static data info",
                cmdline="--dump_static_data_info",

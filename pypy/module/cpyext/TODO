@@ -1,0 +1,34 @@
+ - Complete the PyTypeObject initialization code. (see XXX in the code)
+  - Implement further method callers.
+  - Copy the slots from the base.
+  - Those tasks are necessary to be able to call slots from C code correctly.
+  - Additionally, implement further slot wrappers. This is necessary to call
+    slots of PTOs defined in C.
+ - Complete the Members support.
+
+ - Use a WeakKeyDictionary to count how often a PyObject is allocated for
+   a given wrapped object and use this to assess whether optimizations are
+   useful
+
+ - replace @cpython_api(external=False) by another explicit name: all
+   it does is a lltype function pointer, no C code involved.
+
+ - Fix GIL handling (e.g. after releasing the GIL, GC operations might occur in savethreads).
+ - Fix PyEval_SaveThread: http://paste.pocoo.org/show/206521/
+
+ - Make Numpy work.
+
+ - Export pointers where pointers are expected, i.e. kill the "#define PyExc_OSError &PyExc_OSError" hack.
+
+ - refactor management of py_objects_r2w and py_objects_w2r, this can
+   probably be expressed in terms of _PyObject_GC_TRACK macros.
+
+ - sort out pypy's buffer protocol. PyPy's buffer right now don't support
+   raw memory (except array which supports it in a hackish way), which
+   should be fixed in order to make it nicely work with cpyext.
+
+ - Py_InitModule() does not seem to return the correct module when using dotted import.
+   for example: "import wx" imports "wx._core_", which calls Py_InitModule("_core_").
+   This correcly creates and populates sys.modules["wx._core_"], but returns a new empty
+   module sys.modules["_core_"]. So functions go in the correct module, but types and
+   constants go into the wrong one.

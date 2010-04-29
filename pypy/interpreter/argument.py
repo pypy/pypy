@@ -128,19 +128,6 @@ class Arguments(object):
                 kwds_w[self.keywords[i]] = self.keywords_w[i]
         return self.arguments_w, kwds_w
 
-    def unpack_cpy(self, starting_at=0):
-        assert starting_at >= 0
-        space = self.space
-        args_w = self.arguments_w
-        w_kw = space.newdict()
-        if self.keywords:
-            for i in range(len(self.keywords)):
-                space.setitem(w_kw, space.wrap(self.keywords[i]), self.keywords_w[i])
-        if starting_at != 0:
-            args_w = args_w[starting_at:]
-        args_tuple = space.newtuple([space.wrap(args_w), w_kw])
-        return args_tuple
-
     def replace_arguments(self, args_w):
         "Return a new Arguments with a args_w as positional arguments."
         return Arguments(self.space, args_w, self.keywords, self.keywords_w)

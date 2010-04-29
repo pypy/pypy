@@ -16,10 +16,12 @@ from pypy.conftest import option
 class StandaloneTests(object):
     config = None
 
-    def compile(self, entry_point, debug=True):
+    def compile(self, entry_point, debug=True, shared=False):
         t = TranslationContext(self.config)
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+
+        t.config.translation.shared = shared
 
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
         if debug:
@@ -587,6 +589,19 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
+    def test_shared(self, monkeypatch):
+        def f(argv):
+            print len(argv)
+        def entry_point(argv):
+            f(argv)
+            return 0
+        t, cbuilder = self.compile(entry_point, shared=True)
+        assert cbuilder.shared_library_name is not None
+        assert cbuilder.shared_library_name != cbuilder.executable_name
+        monkeypatch.setenv('LD_LIBRARY_PATH',
+                           cbuilder.shared_library_name.dirpath())
+        out, err = cbuilder.cmdexec("a b")
+        assert out == "3"
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

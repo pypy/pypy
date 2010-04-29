@@ -25,6 +25,11 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
+if sys.platform.startswith('win'):
+    so_extension = ".pyd"
+else:
+    so_extension = ".so"
+
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
     which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
@@ -40,15 +45,17 @@ def find_modtype(space, filepart):
     # look for a lone .pyc file.
     # The "imp" module does not respect this, and is allowed to find
     # lone .pyc files.
-    if not space.config.objspace.lonepycfiles:
-        return SEARCH_ERROR, None, None
-
     # check the .pyc file
-    if space.config.objspace.usepycfiles:
+    if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
         pycfile = filepart + ".pyc"
         if os.path.exists(pycfile) and case_ok(pycfile):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
+
+    if space.config.objspace.usemodules.cpyext:
+        pydfile = filepart + so_extension
+        if os.path.exists(pydfile) and case_ok(pydfile):
+            return C_EXTENSION, so_extension, "rb"
 
     return SEARCH_ERROR, None, None
 
@@ -332,6 +339,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     except:
                         stream.close()
                         raise
+                if modtype == C_EXTENSION:
+                    filename = filepart + suffix
+                    return FindInfo(modtype, filename, None, suffix, filemode)
             except StreamErrors:
                 pass
 
@@ -356,7 +366,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
     if find_info.modtype == C_BUILTIN:
         return space.getbuiltinmodule(find_info.filename, force_init=True)
 
-    if find_info.modtype in (PY_SOURCE, PY_COMPILED, PKG_DIRECTORY):
+    if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
         if reuse:
             try:
@@ -397,6 +407,12 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 # fetch the module again, in case of "substitution"
                 w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
+            elif find_info.modtype == C_EXTENSION and space.config.objspace.usemodules.cpyext:
+                # the next line is mandantory to init cpyext
+                space.getbuiltinmodule("cpyext")
+                from pypy.module.cpyext.api import load_extension_module
+                load_extension_module(space, find_info.filename, space.str_w(w_modulename))
+                return check_sys_modules(space, w_modulename)
         except OperationError:
             w_mods = space.sys.get('modules')
             space.call_method(w_mods, 'pop', w_modulename, space.w_None)

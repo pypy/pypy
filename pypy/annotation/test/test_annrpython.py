@@ -3185,6 +3185,13 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeList)
         assert s.listdef.listitem.resized
 
+    def test_varargs(self):
+        def f(*args):
+            return args[0] + 42
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, int])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_listitem_no_mutating(self):
         from pypy.rlib.debug import check_annotation
         called = []
@@ -3304,6 +3311,15 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype is int
 
+    def test_relax(self):
+        def f(*args):
+            return args[0] + args[1]
+        f.relax_sig_check = True
+        def g(x):
+            return f(x, x - x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert a.bookkeeper.getdesc(f).getuniquegraph()
 
 def g(n):
     return [0,1,2,n]

@@ -46,6 +46,8 @@ class TestW_SetObject:
         t = W_SetObject(self.space, None)
         _initialize_set(self.space, t, self.word)
         assert self.space.eq_w(s,t)
+        u = self.space.wrap(set('simsalabim'))
+        assert self.space.eq_w(s,u)
 
 class AppTestAppSetTest:
     def test_subtype(self):

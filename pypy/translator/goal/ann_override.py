@@ -81,7 +81,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
-        if not t.is_heaptype():
+        if not t.is_heaptype() and not t.is_cpytype():
             pol._remember_immutable(t, cached)
             setattr(t, cached, t._lookup(attr))
             return True
@@ -89,7 +89,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
     def attach_lookup_in_type_where(pol, t, attr):
         cached = "cached_where_%s" % attr
-        if not t.is_heaptype():
+        if not t.is_heaptype() and not t.is_cpytype():
             pol._remember_immutable(t, cached)
             setattr(t, cached, t._lookup_where(attr))
             return True
@@ -177,14 +177,14 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 CACHED_LOOKUP = """
 def lookup_%(attr)s(space, w_obj, name):
     w_type = space.type(w_obj)
-    if not w_type.is_heaptype():
+    if not w_type.is_heaptype() and not w_type.is_cpytype():
         return w_type.cached_%(attr)s
     return w_type.lookup("%(attr)s")
 """
 
 CACHED_LOOKUP_IN_TYPE_WHERE = """
 def lookup_in_type_where_%(attr)s(space, w_type, name):
-    if not w_type.is_heaptype():
+    if not w_type.is_heaptype() and not w_type.is_cpytype():
         return w_type.cached_where_%(attr)s
     return w_type.lookup_where("%(attr)s")
 """

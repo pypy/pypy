@@ -46,14 +46,13 @@ class WeakValueDictRepr(Repr):
         return v_result
 
     def rtype_method_set(self, hop):
+        r_object = getinstancerepr(self.rtyper, None)
         v_d, v_key, v_value = hop.inputargs(self, rstr.string_repr,
-                                            hop.args_r[2])
+                                            r_object)
         hop.exception_cannot_occur()
         if hop.args_s[2].is_constant() and hop.args_s[2].const is None:
             hop.gendirectcall(ll_set_null, v_d, v_key)
         else:
-            v_value = hop.genop("cast_pointer", [v_value],
-                                resulttype=rclass.OBJECTPTR)
             hop.gendirectcall(ll_set, v_d, v_key, v_value)
 
 
@@ -70,8 +69,8 @@ WEAKDICTENTRY = lltype.Struct("weakdictentry",
                               ("value", llmemory.WeakRefPtr))
 
 def ll_valid(entries, i):
-    return (bool(entries[i].value) and
-            bool(weakref_deref(rclass.OBJECTPTR, entries[i].value)))
+    value = entries[i].value
+    return bool(value) and bool(weakref_deref(rclass.OBJECTPTR, value))
 
 def ll_everused(entries, i):
     return bool(entries[i].value)
@@ -90,6 +89,7 @@ entrymeths = {
 WEAKDICTENTRYARRAY = lltype.GcArray(WEAKDICTENTRY,
                                     adtmeths=entrymeths,
                                     hints={'weakarray': 'value'})
+# NB. the 'hints' is not used so far ^^^
 
 ll_strhash = rstr.LLHelpers.ll_strhash
 
@@ -130,7 +130,7 @@ def ll_set_nonnull(d, llkey, llvalue):
     #llop.debug_print(lltype.Void, i, 'stored')
     if not everused:
         d.num_pristine_entries -= 1
-        if d.num_pristine_entries <= len(d.entries) / 3:
+        if d.num_pristine_entries * 3 <= len(d.entries):
             #llop.debug_print(lltype.Void, 'RESIZE')
             ll_weakdict_resize(d)
 
@@ -165,7 +165,7 @@ dictmeths = {
     'paranoia': False,
     }
 
-WEAKDICT = lltype.GcStruct("weakdict",
+WEAKDICT = lltype.GcStruct("weakvaldict",
                            ("num_items", lltype.Signed),
                            ("num_pristine_entries", lltype.Signed),
                            ("entries", lltype.Ptr(WEAKDICTENTRYARRAY)),

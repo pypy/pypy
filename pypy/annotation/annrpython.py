@@ -87,12 +87,12 @@ class RPythonAnnotator(object):
         """Recursively build annotations about the specific entry point."""
         assert isinstance(function, types.FunctionType), "fix that!"
 
+        from pypy.annotation.policy import AnnotatorPolicy
+        policy = AnnotatorPolicy()
         # make input arguments and set their type
-        inputcells = [self.typeannotation(t) for t in input_arg_types]
+        args_s = [self.typeannotation(t) for t in input_arg_types]
 
-        desc = self.bookkeeper.getdesc(function)
-        desc.getcallfamily()   # record this implicit call (hint for back-ends)
-        flowgraph = desc.specialize(inputcells)
+        flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
         if not isinstance(flowgraph, FunctionGraph):
             assert isinstance(flowgraph, annmodel.SomeObject)
             return flowgraph

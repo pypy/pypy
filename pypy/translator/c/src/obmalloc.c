@@ -225,7 +225,7 @@
 #define ulong			unsigned long	/* assuming >= 32 bits */
 
 #undef uptr
-#define uptr			Py_uintptr_t
+#define uptr			unsigned long
 
 /* When you say memory, my mind reasons in terms of (pointers to) blocks */
 typedef uchar block;
@@ -439,7 +439,7 @@ new_arena(void)
 	arenabase = bp;
 	nfreepools = ARENA_SIZE / POOL_SIZE;
 	assert(POOL_SIZE * nfreepools == ARENA_SIZE);
-	excess = (uint) ((Py_uintptr_t)bp & POOL_SIZE_MASK);
+	excess = (uint) ((uint)bp & POOL_SIZE_MASK);
 	if (excess != 0) {
 		--nfreepools;
 		arenabase += POOL_SIZE - excess;

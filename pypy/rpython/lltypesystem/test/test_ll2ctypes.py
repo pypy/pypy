@@ -432,6 +432,29 @@ class TestLL2Ctypes(object):
         rffi.free_charp(p)
         assert not ALLOCATED     # detects memory leaks in the test
 
+    def test_funcptr_cast(self):
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            long mul(long x, long y) { return x*y; }
+            long(*get_mul(long x)) () { return &mul; }
+            """],
+            export_symbols=['get_mul'])
+        get_mul = rffi.llexternal(
+            'get_mul', [],
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)),
+            compilation_info=eci)
+        # This call returns a pointer to a function taking one argument
+        funcptr = get_mul()
+        # cast it to the "real" function type
+        FUNCTYPE2 = lltype.FuncType([lltype.Signed, lltype.Signed],
+                                    lltype.Signed)
+        cmul = rffi.cast(lltype.Ptr(FUNCTYPE2), funcptr)
+        # and it can be called with the expected number of arguments
+        res = cmul(41, 42)
+        assert res == 41 * 42
+        raises(TypeError, cmul, 41)
+        raises(TypeError, cmul, 41, 42, 43)
+
     def test_qsort(self):
         CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], rffi.INT)
         qsort = rffi.llexternal('qsort', [rffi.VOIDP,

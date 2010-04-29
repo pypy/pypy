@@ -18,7 +18,7 @@ class Darwin(posix.BasePosix):
         self.cc = cc
 
     def _args_for_shared(self, args):
-        return (self.shared_only + ['-bundle', '-undefined', 'dynamic_lookup']
+        return (self.shared_only + ['-dynamiclib', '-undefined', 'dynamic_lookup']
                                  + args)
 
     def include_dirs_for_libffi(self):

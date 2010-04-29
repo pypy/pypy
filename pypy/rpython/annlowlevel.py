@@ -34,6 +34,7 @@ class KeyComp(object):
             else:
                 s = compact()        
         return s + 'Const'
+    __repr__ = __str__
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False

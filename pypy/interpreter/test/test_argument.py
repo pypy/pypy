@@ -135,12 +135,6 @@ class TestArgumentsNormal(object):
         assert args1.keywords is args.keywords
         assert args1.keywords_w is args.keywords_w
 
-    def test_unpack_cpy(self):
-        space = DummySpace()
-        args = Arguments(space, ["0"])
-        assert space.eq_w(args.unpack_cpy(), space.newtuple([space.newlist([space.wrap("0")]), space.newdict()]))
-        assert space.eq_w(args.unpack_cpy(1), space.newtuple([space.newlist(), space.newdict()]))
-
     def test_fixedunpacked(self):
         space = DummySpace()
         

@@ -9,6 +9,7 @@ from pypy.tool.udir import udir
 def translate(func, argtypes, type_system="lltype"):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
+    t.entry_point_graph = graphof(t, func)
     t.buildrtyper(type_system=type_system).specialize()
     return graphof(t, func), t
 

@@ -130,5 +130,4 @@ def test_rpython_merge_RWeakValueDictionary2():
         else:
             d = RWeakValueDictionary(Y)
         d.set("x", X())
-        return 41
     py.test.raises(Exception, interpret, g, [1])

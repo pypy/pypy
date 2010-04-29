@@ -260,24 +260,49 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] += tuple(files)
         return ExternalCompilationInfo(**d)
 
+    def convert_exportsymbols_to_file(self):
+        if not self.export_symbols:
+            return self
+        num = 0
+        while 1:
+            file_name = udir.join('dynamic-symbols-%i' % num)
+            num += 1
+            if not file_name.check():
+                break
+
+        f = file_name.open("w")
+        f.write("{\n")
+        for sym in self.export_symbols:
+            f.write("%s;\n" % (sym,))
+        f.write("};")
+        f.close()
+        d = self._copy_attributes()
+        d['link_extra'] += ("-Wl,--dynamic-list=" + str(file_name), )
+        d['export_symbols'] = ()
+        return ExternalCompilationInfo(**d)
+
+
     def get_module_files(self):
         d = self._copy_attributes()
         files = d['separate_module_files']
         d['separate_module_files'] = ()
         return files, ExternalCompilationInfo(**d)
 
-    def compile_shared_lib(self):
+    def compile_shared_lib(self, outputfilename=None):
         self = self.convert_sources_to_files()
         if not self.separate_module_files:
             return self
-        # find more or less unique name there
-        basepath = py.path.local(self.separate_module_files[0]).dirpath()
-        pth = basepath.join('externmod').new(ext=host.so_ext)
-        num = 0
-        while pth.check():
-            pth = basepath.join('externmod_%d' % (num,)).new(ext=host.so_ext)
-            num += 1
-        lib = str(host.compile([], self, outputfilename=pth.purebasename,
+        if outputfilename is None:
+            # find more or less unique name there
+            basepath = py.path.local(self.separate_module_files[0]).dirpath()
+            pth = basepath.join('externmod').new(ext=host.so_ext)
+            num = 0
+            while pth.check():
+                pth = basepath.join(
+                    'externmod_%d' % (num,)).new(ext=host.so_ext)
+                num += 1
+            outputfilename=pth.purebasename
+        lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()
         d['libraries'] += (lib,)

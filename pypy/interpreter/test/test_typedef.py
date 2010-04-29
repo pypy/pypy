@@ -1,5 +1,6 @@
 from pypy.interpreter import typedef
 from pypy.tool.udir import udir
+from pypy.interpreter.baseobjspace import Wrappable
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -131,6 +132,17 @@ class TestTypeDef:
         for cls, set in subclasses.items():
             assert len(set) <= 6, "%s has %d subclasses:\n%r" % (
                 cls, len(set), [subcls.__name__ for subcls in set])
+
+    def test_getsetproperty(self):
+        class W_SomeType(Wrappable):
+            pass
+        def fget(self, space, w_self):
+            assert self is prop
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            x=typedef.GetSetProperty(fget, use_closure=True))
+        w_obj = self.space.wrap(W_SomeType())
+        assert self.space.getattr(w_obj, self.space.wrap('x')) is None
 
 
 class AppTestTypeDef:

@@ -114,6 +114,9 @@ def really_build_fake_type(cpy_type):
             cpy_type.__name__, base, **kw)
         def __init__(w_self, space, val):
             w_self.val = val
+            w_self.space = space
+        def getdict(w_self):
+            return w_self.space.wrap(w_self.val.__dict__)
         def unwrap(w_self, space):
             return w_self.val
     W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())

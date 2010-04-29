@@ -30,6 +30,12 @@ class IdentityDictPurePython(object, DictMixin):
     def __contains__(self, arg):
         return id(arg) in self._dict
 
+    def copy(self):
+        d = type(self)()
+        d.update(self.iteritems())
+        assert len(d) == len(self)
+        return d
+
 
 class IdentityDictPyPy(object, DictMixin):
     __slots__ = ["_dict"]
@@ -52,6 +58,11 @@ class IdentityDictPyPy(object, DictMixin):
     def __contains__(self, arg):
         return arg in self._dict
 
+    def copy(self):
+        d = type(self)()
+        d.update(self.iteritems())
+        assert len(d) == len(self)
+        return d
 
 if idict is None:
     identity_dict = IdentityDictPurePython

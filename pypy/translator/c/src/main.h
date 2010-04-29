@@ -15,11 +15,15 @@ int main(int argc, char *argv[]);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+#ifndef PYPY_MAIN_FUNCTION
+#define PYPY_MAIN_FUNCTION main
+#endif
+
 #ifdef MS_WINDOWS
 #include "src/winstuff.c"
 #endif
 
-int main(int argc, char *argv[])
+int PYPY_MAIN_FUNCTION(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;

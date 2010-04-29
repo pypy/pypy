@@ -66,6 +66,12 @@ class TestUsingFramework(object):
         for fullname in dir(cls):
             if not fullname.startswith('define'):
                 continue
+            keyword = conftest.option.keyword
+            if keyword:
+                if keyword.startswith('test_'):
+                    keyword = keyword[len('test_'):]
+                if keyword not in fullname:
+                    continue
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
             func = definefunc.im_func(cls)

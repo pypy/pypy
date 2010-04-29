@@ -186,7 +186,8 @@ class MsvcPlatform(Platform):
             raise CompilationError(stdout, stderr)
 
 
-    def gen_makefile(self, cfiles, eci, exe_name=None, path=None):
+    def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
+                     shared=False):
         cfiles = [py.path.local(f) for f in cfiles]
         cfiles += [py.path.local(f) for f in eci.separate_module_files]
 
@@ -201,6 +202,17 @@ class MsvcPlatform(Platform):
         m = NMakefile(path)
         m.exe_name = exe_name
         m.eci = eci
+
+        linkflags = self.link_flags
+        if shared:
+            linkflags = self._args_for_shared(linkflags) + [
+                '/EXPORT:$(PYPY_MAIN_FUNCTION)']
+
+        if shared:
+            so_name = exe_name.new(ext=self.so_ext)
+            target_name = so_name.basename
+        else:
+            target_name = exe_name.basename
 
         def pypyrel(fpath):
             rel = py.path.local(fpath).relto(pypypath)
@@ -218,8 +230,8 @@ class MsvcPlatform(Platform):
         m.comment('automatically generated makefile')
         definitions = [
             ('PYPYDIR', autopath.pypydir),
-            ('TARGET', exe_name.basename),
-            ('DEFAULT_TARGET', '$(TARGET)'),
+            ('TARGET', target_name),
+            ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
@@ -227,12 +239,13 @@ class MsvcPlatform(Platform):
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', self.cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
-            ('LDFLAGS', self.link_flags),
+            ('LDFLAGS', linkflags),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', self.link),
             ('MASM', self.masm),
             ]
+
         for args in definitions:
             m.definition(*args)
 
@@ -252,6 +265,16 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
+
+        if shared:
+            m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename),
+            m.rule('main.c', '',
+                   'echo '
+                   'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
+                   'int main(int argc, char* argv[]) '
+                   '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
+            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
+                   '$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@')
 
         return m
 

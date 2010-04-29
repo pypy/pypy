@@ -59,7 +59,7 @@ def gettestobjspace(name=None, **kwds):
     try:
         return _SPACECACHE[key]
     except KeyError:
-        if option.runappdirect:
+        if getattr(option, 'runappdirect', None):
             if name not in (None, 'std'):
                 myname = getattr(sys, 'pypy_objspaceclass', '')
                 if not myname.lower().startswith(name):
