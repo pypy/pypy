@@ -473,7 +473,8 @@ class TestTranslatable(object):
 
     def test_args_from_rarith_int(self):
         from pypy.rpython.tool.rfficache import platform
-        from pypy.rlib.rarithmetic import r_int, r_int_real
+        from pypy.rlib.rarithmetic import r_int
+        from pypy.rpython.lltypesystem.rffi import r_int_real
         classlist = platform.numbertype_to_rclass.values()
         fnlist = []
         for r in classlist:
