@@ -290,6 +290,7 @@ def build_exported_objects():
         "Type": "space.w_type",
         "String": "space.w_str",
         "Unicode": "space.w_unicode",
+        "BaseString": "space.w_basestring",
         "Dict": "space.w_dict",
         "Tuple": "space.w_tuple",
         "List": "space.w_list",
