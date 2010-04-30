@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
-from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, check_and_print_leaks
+from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
 PyObject = api.PyObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.state import State
@@ -15,7 +15,7 @@ def PyPy_GetWrapped(space, w_arg):
 def PyPy_GetReference(space, arg):
     assert lltype.typeOf(arg) ==  PyObject
 
-class BaseApiTest:
+class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
         cls.space.getbuiltinmodule("cpyext")
@@ -47,7 +47,7 @@ class BaseApiTest:
         except OperationError, e:
             print e.errorstr(self.space)
             raise
-        if check_and_print_leaks(self):
+        if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
 
 class TestConversion(BaseApiTest):
