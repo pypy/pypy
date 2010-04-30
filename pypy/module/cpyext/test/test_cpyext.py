@@ -95,7 +95,7 @@ def check_and_print_leaks(self):
         if delta != 0:
             leaking = True
             print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-            lifeline = w_obj.get_pyolifeline()
+            lifeline = api.lifeline_dict.get(w_obj)
             if lifeline is not None:
                 refcnt = lifeline.pyo.c_ob_refcnt
                 if refcnt > 0:
