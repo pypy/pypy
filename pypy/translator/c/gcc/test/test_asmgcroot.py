@@ -38,14 +38,15 @@ class AbstractTestAsmGCRoot:
         config = cls.make_config()
         t = TranslationContext(config=config)
         a = t.buildannotator()
-        for f, inputtypes in cls.secondary_entrypoints:
+        sec_ep = getattr(cls, 'secondary_entrypoints', [])
+        for f, inputtypes in sec_ep:
             a.build_types(f, inputtypes, False)
         a.build_types(main, [s_list_of_strings])
         t.buildrtyper().specialize()
         t.checkgraphs()
 
         cbuilder = CStandaloneBuilder(t, main, config=config,
-                secondary_entrypoints=cls.secondary_entrypoints)
+                secondary_entrypoints=sec_ep)
         c_source_filename = cbuilder.generate_source(
             defines = cbuilder.DEBUG_DEFINES)
         cls._patch_makefile(cbuilder.targetdir)
@@ -165,7 +166,13 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         res = self.run('callback_simple')
         assert res == 4900
 
-    def define_secondary_entrypoint_callback(self):
+    def define_secondary_entrypoint_callback(cls):
+        # XXX this is baaaad, cleanup global state
+        try:
+            del secondary_entrypoints["x42"]
+        except KeyError:
+            pass
+        
         @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
         def mycallback(a, b):
             llop.gc_stack_bottom(lltype.Void)
@@ -186,7 +193,7 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
                             compilation_info=eci)
         S = lltype.GcStruct('S', ('x', lltype.Signed))
 
-        self.secondary_entrypoints.extend(secondary_entrypoints["x42"])
+        cls.secondary_entrypoints = secondary_entrypoints["x42"]
 
         def f():
             p = lltype.malloc(S)
