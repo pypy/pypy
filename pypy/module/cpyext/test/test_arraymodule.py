@@ -15,6 +15,14 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr.tolist() == [1, 2, 3, 4]
         assert len(arr) == 4
 
+    def test_iter(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3])
+        sum = 0
+        for i in arr: 
+            sum += i
+        assert sum == 6
+
     def test_index(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])

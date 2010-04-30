@@ -5,8 +5,9 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, \
         PyObject
 from pypy.module.cpyext.typeobjectdefs import unaryfunc, wrapperfunc,\
         ternaryfunc, PyTypeObjectPtr, binaryfunc, getattrfunc, lenfunc,\
-        ssizeargfunc, ssizessizeargfunc, ssizeobjargproc
+        ssizeargfunc, ssizessizeargfunc, ssizeobjargproc, iternextfunc
 from pypy.module.cpyext.pyobject import from_ref
+from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.unroll import unrolling_iterable
@@ -88,6 +89,15 @@ def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     start = space.int_w(args_w[0])
     end = space.int_w(args_w[1])
     return generic_cpy_call(space, func_target, w_self, start, end)
+
+def wrap_next(space, w_self, w_args, func):
+    from pypy.module.cpyext.api import generic_cpy_call_expect_null
+    func_target = rffi.cast(iternextfunc, func)
+    check_num_args(space, w_args, 0)
+    w_res = generic_cpy_call_expect_null(space, func_target, w_self)
+    if not w_res and not PyErr_Occurred(space):
+        raise OperationError(space.w_StopIteration, space.w_None)
+    return w_res
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=True)
 def slot_tp_new(space, type, w_args, w_kwds):

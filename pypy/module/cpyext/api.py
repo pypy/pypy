@@ -768,15 +768,20 @@ def load_extension_module(space, path, name):
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, True)(space, func, *args)
+    return make_generic_cpy_call(FT, True, False)(space, func, *args)
 
 @specialize.ll()
 def generic_cpy_call_dont_decref(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, False)(space, func, *args)
+    return make_generic_cpy_call(FT, False, False)(space, func, *args)
+
+@specialize.ll()    
+def generic_cpy_call_expect_null(space, func, *args):
+    FT = lltype.typeOf(func).TO
+    return make_generic_cpy_call(FT, True, True)(space, func, *args)
 
 @specialize.memo()
-def make_generic_cpy_call(FT, decref_args):
+def make_generic_cpy_call(FT, decref_args, expect_null):
     from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
     unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
@@ -843,7 +848,7 @@ def make_generic_cpy_call(FT, decref_args):
                 if has_error and has_result:
                     raise OperationError(space.w_SystemError, space.wrap(
                         "An exception was set, but function returned a value"))
-                elif not has_error and not has_result:
+                elif not expect_null and not has_error and not has_result:
                     raise OperationError(space.w_SystemError, space.wrap(
                         "Function returned a NULL result without setting an exception"))
 
