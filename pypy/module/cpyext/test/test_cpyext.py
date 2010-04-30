@@ -568,12 +568,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         raises(SystemError, module.clear)
 
     def test_new_exception(self):
-        skip("not working yet")
         mod = self.import_extension('foo', [
             ('newexc', 'METH_VARARGS',
              '''
              char *name = PyString_AsString(PyTuple_GetItem(args, 0));
-             return PyExc_NewException(name, PyTuple_GetItem(args, 1),
+             return PyErr_NewException(name, PyTuple_GetItem(args, 1),
                                        PyTuple_GetItem(args, 2));
              '''
              ),
