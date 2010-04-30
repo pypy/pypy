@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.lib.identity_dict import identity_dict
 
 def isweak(p, T):
@@ -777,3 +778,42 @@ def test_identityhash():
     assert hash1 == identityhash(a)
     p = cast_opaque_ptr(llmemory.GCREF, a)
     assert hash1 == identityhash(p)
+
+class TestTrackAllocation:
+    def setup_method(self, func):
+        start_tracking_allocations()
+
+    def teardown_method(self, func):
+        assert not lltype.ALLOCATED, "Memory was not correctly freed"
+        stop_tracking_allocations()
+
+    def test_track_allocation(self):
+        """A malloc'd buffer fills the ALLOCATED dictionary"""
+        assert lltype.TRACK_ALLOCATIONS
+        assert not lltype.ALLOCATED
+        buf = malloc(Array(Signed), 1, flavor="raw")
+        assert len(lltype.ALLOCATED) == 1
+        assert lltype.ALLOCATED.keys() == [buf._obj]
+        free(buf, flavor="raw")
+        assert not lltype.ALLOCATED
+
+    def test_str_from_buffer(self):
+        """gc-managed memory does not need to be freed"""
+        size = 50
+        raw_buf, gc_buf = rffi.alloc_buffer(size)
+        for i in range(size): raw_buf[i] = 'a'
+        rstr = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        assert not lltype.ALLOCATED
+
+    def test_leak_traceback(self):
+        """Test info stored for allocated items"""
+        buf = malloc(Array(Signed), 1, flavor="raw")
+        traceback = lltype.ALLOCATED.keys()[0]._traceback
+        lines = traceback.splitlines()
+        assert 'malloc(' in lines[-1] and 'flavor="raw")' in lines[-1]
+
+        # XXX The traceback should not be too long
+        print traceback
+
+        free(buf, flavor="raw")

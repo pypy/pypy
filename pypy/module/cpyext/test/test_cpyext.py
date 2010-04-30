@@ -29,15 +29,6 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-def set_difference(id_dict1, id_dict2):
-    d = id_dict1.copy()
-    for key in id_dict2.keys():
-        try:
-            del d[key]
-        except KeyError:
-            pass
-    return d
-
 class AppTestApi:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
@@ -75,8 +66,7 @@ def freeze_refcnts(self):
         self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
-    self.frozen_lltallocations = lltype.ALLOCATED.copy()
-    lltype.TRACK_ALLOCATIONS = True
+    lltype.start_tracking_allocations()
 
 class LeakCheckingTest(object):
     def check_and_print_leaks(self):
@@ -121,12 +111,13 @@ class LeakCheckingTest(object):
                 leaking = True
                 print >>sys.stderr, "Did not deallocate %r (ll2ctypes)" % (llvalue, )
                 print >>sys.stderr, "\t" + "\n\t".join(llvalue._traceback.splitlines())
-        for llvalue in set_difference(lltype.ALLOCATED, self.frozen_lltallocations).keys():
+        for llvalue in lltype.ALLOCATED.keys():
             leaking = True
             print >>sys.stderr, "Did not deallocate %r (llvalue)" % (llvalue, )
             print >>sys.stderr, "\t" + "\n\t".join(llvalue._traceback.splitlines())
 
-        return leaking    
+        lltype.stop_tracking_allocations()
+        return leaking
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_class(cls):

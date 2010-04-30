@@ -16,7 +16,20 @@ import struct
 import weakref
 
 TLS = tlsobject()
+
+# Track allocations to detect memory leaks
+# Don't track 'gc' and immortal mallocs
 TRACK_ALLOCATIONS = False
+ALLOCATED = identity_dict()
+
+def start_tracking_allocations():
+    global TRACK_ALLOCATIONS
+    TRACK_ALLOCATIONS = True
+    ALLOCATED.clear()
+
+def stop_tracking_allocations():
+    global TRACK_ALLOCATIONS
+    TRACK_ALLOCATIONS = False
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -1317,8 +1330,6 @@ class _container(object):
         return id(self)
     def _was_freed(self):
         return False
-
-ALLOCATED = identity_dict()
 
 class _parentable(_container):
     _kind = "?"
