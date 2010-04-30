@@ -756,8 +756,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 #endif // HAVE_LONG_LONG
 
 	case 'f': {/* float */
-    Py_FatalError("'f' unimplemented for PyArg_*\n");
-#if 0
 		float *p = va_arg(*p_va, float *);
 		double dval = PyFloat_AsDouble(arg);
 		if (PyErr_Occurred())
@@ -765,12 +763,9 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = (float) dval;
 		break;
-#endif
 	}
 	
 	case 'd': {/* double */
-    Py_FatalError("'d' unimplemented for PyArg_*\n");
-#if 0
 		double *p = va_arg(*p_va, double *);
 		double dval = PyFloat_AsDouble(arg);
 		if (PyErr_Occurred())
@@ -778,7 +773,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = dval;
 		break;
-#endif
 	}
 	
 #ifndef WITHOUT_COMPLEX

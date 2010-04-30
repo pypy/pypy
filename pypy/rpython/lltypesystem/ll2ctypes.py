@@ -1002,7 +1002,7 @@ def force_cast(RESTYPE, value):
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
 
-    if not isinstance(cvalue, (int, long)):
+    if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
 
     if isinstance(RESTYPE, lltype.Ptr):
