@@ -336,6 +336,7 @@ class TranslationDriver(SimpleTaskEngine):
                             "int (and not, e.g., None or always raise an "
                             "exception).")
         annotator.simplify()
+        return s
 
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
