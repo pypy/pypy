@@ -115,7 +115,6 @@ class TestUnicode(BaseApiTest):
         rffi.free_charp(b_encoding)
 
     def test_leak(self):
-        py.test.skip("This test seems to leak memory")
         size = 50
         raw_buf, gc_buf = rffi.alloc_buffer(size)
         for i in range(size): raw_buf[i] = 'a'
@@ -133,7 +132,3 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(wbuf)
         assert space.type(w_str) is space.w_str
         assert space.str_w(w_str) == "abc?"
-
-        # XXX this test seems to leak references, see test_leak above
-        from pypy.module.cpyext.test.test_cpyext import freeze_refcnts
-        freeze_refcnts(self)

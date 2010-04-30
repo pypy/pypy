@@ -1452,7 +1452,8 @@ class _struct(_parentable):
         first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
-                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld)
+                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld,
+                               track_allocation=track_allocation)
             else:
                 value = typ._allocate(initialization=initialization, parent=self, parentindex=fld)
             setattr(self, fld, value)
