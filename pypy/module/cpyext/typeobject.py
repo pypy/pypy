@@ -460,6 +460,8 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))
+    pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
+            PyType_GenericAlloc.api_func.get_wrapper(space))
     pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
@@ -532,6 +534,8 @@ def inherit_slots(space, pto, w_base):
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
         if not pto.c_tp_dealloc:
             pto.c_tp_dealloc = base.c_tp_dealloc
+        if not pto.c_tp_alloc:
+            pto.c_tp_alloc = base.c_tp_alloc
         # XXX check for correct GC flags!
         if not pto.c_tp_free:
             pto.c_tp_free = base.c_tp_free
