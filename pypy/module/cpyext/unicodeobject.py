@@ -277,6 +277,15 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
                              space.wrap("decoding Unicode is not supported"))
     return space.call_function(w_meth, w_encoding, w_errors)
 
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsUTF8String(space, w_unicode):
+    """Encode a Unicode object using UTF-8 and return the result as Python string
+    object.  Error handling is "strict".  Return NULL if an exception was raised
+    by the codec."""
+    if not PyUnicode_Check(space, w_unicode):
+        PyErr_BadArgument(space)
+    return unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
+
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     def PyUnicode_EncodeMBCS(space, wchar_p, length, errors):
