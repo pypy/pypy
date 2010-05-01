@@ -104,12 +104,11 @@ class W_PyCFunctionObject(Wrappable):
 
 class W_PyCMethodObject(W_PyCFunctionObject):
     w_self = None
-    def __init__(self, space, ml, pto):
+    def __init__(self, space, ml, w_type):
         self.space = space
         self.ml = ml
         self.name = rffi.charp2str(ml.c_ml_name)
-        pyo = rffi.cast(PyObject, pto)
-        self.w_objclass = from_ref(space, pyo)
+        self.w_objclass = w_type
 
     def __repr__(self):
         return self.space.unwrap(self.descr_method_repr())
@@ -226,8 +225,8 @@ def PyCFunction_NewEx(space, ml, w_self): # not exactly the API sig
     return space.wrap(W_PyCFunctionObject(space, ml, w_self))
 
 
-def PyDescr_NewMethod(space, pto, method):
-    return space.wrap(W_PyCMethodObject(space, method, pto))
+def PyDescr_NewMethod(space, w_type, method):
+    return space.wrap(W_PyCMethodObject(space, method, w_type))
 
 def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, doc, flags, func):
     # not exactly the API sig

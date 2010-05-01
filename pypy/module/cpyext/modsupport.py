@@ -52,7 +52,7 @@ def Py_InitModule4(space, name, methods, doc, w_self, apiver):
     w_mod = PyImport_AddModule(space, state.package_context)
 
     dict_w = {}
-    convert_method_defs(space, dict_w, methods, lltype.nullptr(PyTypeObjectPtr.TO), w_self)
+    convert_method_defs(space, dict_w, methods, None, w_self)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)
     if doc:
@@ -61,7 +61,7 @@ def Py_InitModule4(space, name, methods, doc, w_self, apiver):
     return w_mod
 
 
-def convert_method_defs(space, dict_w, methods, pto, w_self=None):
+def convert_method_defs(space, dict_w, methods, w_type, w_self=None):
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
     if methods:
         i = -1
@@ -77,7 +77,7 @@ def convert_method_defs(space, dict_w, methods, pto, w_self=None):
             else:
                 doc = None
 
-            if not pto:
+            if w_type is None:
                 if flags & METH_CLASS or flags & METH_STATIC:
                     raise OperationError(space.w_ValueError,
                             space.wrap("module functions cannot set METH_CLASS or METH_STATIC"))
@@ -89,14 +89,14 @@ def convert_method_defs(space, dict_w, methods, pto, w_self=None):
                     if flags & METH_STATIC:
                         raise OperationError(space.w_ValueError,
                                 space.wrap("method cannot be both class and static"))
-                    #w_obj = PyDescr_NewClassMethod(pto, method)
+                    #w_obj = PyDescr_NewClassMethod(space, w_type, method)
                     w_obj = space.w_Ellipsis # XXX
                 elif flags & METH_STATIC:
                     w_func = PyCFunction_NewEx(space, method, None)
                     w_obj = space.w_Ellipsis # XXX
                     #w_obj = PyStaticMethod_New(space, w_func)
                 else:
-                    w_obj = PyDescr_NewMethod(space, pto, method)
+                    w_obj = PyDescr_NewMethod(space, w_type, method)
 
             dict_w[methodname] = w_obj
 

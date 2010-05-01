@@ -80,12 +80,9 @@ class TestPyCMethodObject(BaseApiTest):
         ml.c_ml_name = namebuf
         ml.c_ml_meth = c_func.get_llhelper(space)
 
-        pto = make_ref(space, space.w_str)
-        method = PyDescr_NewMethod(space, pto, ml)
-
+        method = PyDescr_NewMethod(space, space.w_str, ml)
         assert repr(method).startswith(
             "<built-in method 'func' of 'str' object ")
 
-        Py_DecRef(space, pto)
         rffi.free_charp(namebuf)
         lltype.free(ml, flavor='raw')

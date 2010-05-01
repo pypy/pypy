@@ -41,10 +41,10 @@ WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 class W_GetSetPropertyEx(GetSetProperty):
-    def __init__(self, getset, pto):
+    def __init__(self, getset, w_type):
         self.getset = getset
         self.name = rffi.charp2str(getset.c_name)
-        self.pto = pto
+        self.w_type = w_type
         doc = set = get = None
         if doc:
             doc = rffi.charp2str(getset.c_doc)
@@ -56,14 +56,14 @@ class W_GetSetPropertyEx(GetSetProperty):
                                 cls=None, use_closure=True,
                                 tag="cpyext_1")
 
-def PyDescr_NewGetSet(space, getset, pto):
-    return space.wrap(W_GetSetPropertyEx(getset, pto))
+def PyDescr_NewGetSet(space, getset, w_type):
+    return space.wrap(W_GetSetPropertyEx(getset, w_type))
 
 class W_MemberDescr(GetSetProperty):
-    def __init__(self, member, pto):
+    def __init__(self, member, w_type):
         self.member = member
         self.name = rffi.charp2str(member.c_name)
-        self.pto = pto
+        self.w_type = w_type
         flags = rffi.cast(lltype.Signed, member.c_flags)
         doc = set = None
         if member.c_doc:
@@ -76,7 +76,7 @@ class W_MemberDescr(GetSetProperty):
                                 cls=None, use_closure=True,
                                 tag="cpyext_2")
 
-def convert_getset_defs(space, dict_w, getsets, pto):
+def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
     if getsets:
         i = -1
@@ -87,10 +87,10 @@ def convert_getset_defs(space, dict_w, getsets, pto):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = PyDescr_NewGetSet(space, getset, pto)
+            w_descr = PyDescr_NewGetSet(space, getset, w_type)
             dict_w[name] = w_descr
 
-def convert_member_defs(space, dict_w, members, pto):
+def convert_member_defs(space, dict_w, members, w_type):
     members = rffi.cast(rffi.CArrayPtr(PyMemberDef), members)
     if members:
         i = 0
@@ -100,7 +100,7 @@ def convert_member_defs(space, dict_w, members, pto):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = space.wrap(W_MemberDescr(member, pto))
+            w_descr = space.wrap(W_MemberDescr(member, w_type))
             dict_w[name] = w_descr
             i += 1
 
@@ -213,20 +213,19 @@ class PyOLifeline(object):
 
 lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
 
-def check_descr(space, w_self, pto):
-    w_type = from_ref(space, (rffi.cast(PyObject, pto)))
+def check_descr(space, w_self, w_type):
     if not space.is_true(space.isinstance(w_self, w_type)):
         raise DescrMismatch()
 
 class GettersAndSetters:
     def getter(self, space, w_self):
-        check_descr(space, w_self, self.pto)
+        check_descr(space, w_self, self.w_type)
         return generic_cpy_call(
             space, self.getset.c_get, w_self,
             self.getset.c_closure)
 
     def setter(self, space, w_self, w_value):
-        check_descr(space, w_self, self.pto)
+        check_descr(space, w_self, self.w_type)
         res = generic_cpy_call(
             space, self.getset.c_set, w_self, w_value,
             self.getset.c_closure)
@@ -235,15 +234,15 @@ class GettersAndSetters:
             state.check_and_raise_exception()
 
     def member_getter(self, space, w_self):
-        check_descr(space, w_self, self.pto)
+        check_descr(space, w_self, self.w_type)
         return PyMember_GetOne(space, w_self, self.member)
 
     def member_delete(self, space, w_self):
-        check_descr(space, w_self, self.pto)
+        check_descr(space, w_self, self.w_type)
         PyMember_SetOne(space, w_self, self.member, None)
 
     def member_setter(self, space, w_self, w_value):
-        check_descr(space, w_self, self.pto)
+        check_descr(space, w_self, self.w_type)
         PyMember_SetOne(space, w_self, self.member, w_value)
 
 def c_type_descr__call__(space, w_type, __args__):
@@ -291,9 +290,9 @@ class W_PyCTypeObject(W_TypeObject):
         dict_w = {}
 
         add_operators(space, dict_w, pto)
-        convert_method_defs(space, dict_w, pto.c_tp_methods, pto)
-        convert_getset_defs(space, dict_w, pto.c_tp_getset, pto)
-        convert_member_defs(space, dict_w, pto.c_tp_members, pto)
+        convert_method_defs(space, dict_w, pto.c_tp_methods, self)
+        convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
+        convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
         full_name = rffi.charp2str(pto.c_tp_name)
         if '.' in full_name:
