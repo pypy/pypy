@@ -18,6 +18,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
+
+    def test_typeobject2(self):
+        module = self.import_module(name='foo')
+        obj = module.new()
         obj2 = obj.copy()
         assert module.new().name == "Foo Example"
         c = module.fooType.copy
@@ -32,6 +36,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         print obj.foo
         assert obj.foo == 42
         assert obj.int_member == obj.foo
+
+    def test_typeobject3(self):
+        module = self.import_module(name='foo')
+        obj = module.new()
         obj.int_member = 23
         assert obj.int_member == 23
         obj.int_member = 42
@@ -44,6 +52,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(SystemError, "obj.broken_member = 42")
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
+
+    def test_typeobject4(self):
+        module = self.import_module(name='foo')
+        obj = module.new()
         assert obj.object_member is None
         obj.object_member = "hello"
         assert obj.object_member == "hello"
@@ -58,6 +70,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del obj.object_member_ex
         raises(AttributeError, "del obj.object_member_ex")
 
+    def test_typeobject5(self):
+        module = self.import_module(name='foo')
+        obj = module.new()
         assert obj.string_member == "Hello from PyPy"
         raises(TypeError, "obj.string_member = 42")
         raises(TypeError, "del obj.string_member")
