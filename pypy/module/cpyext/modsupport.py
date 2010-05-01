@@ -5,22 +5,52 @@ from pypy.module.cpyext.pyobject import PyObject, register_container
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod, PyMethodDef, PyCFunction
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
+from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
 
+#@cpython_api([rffi.CCHARP], PyObject, borrowed=True)
 def PyImport_AddModule(space, name):
-    w_name = space.wrap(name)
-    w_mod = space.wrap(Module(space, w_name))
+    """Return the module object corresponding to a module name.  The name argument
+    may be of the form package.module. First check the modules dictionary if
+    there's one there, and if not, create a new one and insert it in the modules
+    dictionary.
 
+    This function does not load or import the module; if the module wasn't already
+    loaded, you will get an empty module object. Use PyImport_ImportModule()
+    or one of its variants to import a module.  Package structures implied by a
+    dotted name for name are not created if not already present."""
+    w_name = space.wrap(name)
     w_modules = space.sys.get('modules')
-    space.setitem(w_modules, w_name, w_mod)
+
+    w_mod = space.finditem_str(w_modules, name)
+    if w_mod is None:
+        w_mod = space.wrap(Module(space, w_name))
+        space.setitem(w_modules, w_name, w_mod)
+
     return w_mod
 
 @cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
               PyObject, rffi.INT_real], PyObject, borrowed=False) # we cannot borrow here
 def Py_InitModule4(space, name, methods, doc, w_self, apiver):
+    """
+    Create a new module object based on a name and table of functions, returning
+    the new module object. If doc is non-NULL, it will be used to define the
+    docstring for the module. If self is non-NULL, it will passed to the
+    functions of the module as their (otherwise NULL) first parameter. (This was
+    added as an experimental feature, and there are no known uses in the current
+    version of Python.) For apiver, the only value which should be passed is
+    defined by the constant PYTHON_API_VERSION.
+
+    Note that the name parameter is actually ignored, and the module name is
+    taken from the package_context attribute of the cpyext.State in the space
+    cache.  CPython includes some extra checking here to make sure the module
+    being initialized lines up with what's expected, but we don't.
+    """
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     modname = rffi.charp2str(name)
-    w_mod = PyImport_AddModule(space, modname)
+    state = space.fromcache(State)
+    w_mod = PyImport_AddModule(space, state.package_context)
+
     dict_w = {}
     convert_method_defs(space, dict_w, methods, lltype.nullptr(PyTypeObjectPtr.TO), w_self)
     for key, w_value in dict_w.items():

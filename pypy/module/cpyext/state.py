@@ -22,6 +22,16 @@ class State:
         self.exc_value = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 
+        # When importing a package, use this to keep track of its name.  This is
+        # necessary because an extension module in a package might not supply
+        # its own fully qualified name to Py_InitModule.  If it doesn't, we need
+        # to be able to figure out what module is being initialized.  Recursive
+        # imports will clobber this value, which might be confusing, but it
+        # doesn't hurt anything because the code that cares about it will have
+        # already read it by that time.
+        self.package_context = None
+
+
     def _freeze_(self):
         assert not self.borrowed_objects and not self.borrow_mapping
         self.py_objects_r2w.clear() # is not valid anymore after translation

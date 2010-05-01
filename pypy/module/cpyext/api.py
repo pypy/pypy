@@ -747,24 +747,28 @@ initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
 @unwrap_spec(ObjSpace, str, str)
 def load_extension_module(space, path, name):
     state = space.fromcache(State)
-    from pypy.rlib import libffi
+    state.package_context = name
     try:
-        dll = libffi.CDLL(path, False)
-    except libffi.DLOpenError, e:
-        raise operationerrfmt(
-            space.w_ImportError,
-            "unable to load extension module '%s': %s",
-            path, e.msg)
-    try:
-        initptr = libffi.dlsym(dll.lib, 'init%s' % (name.split('.')[-1],))
-    except KeyError:
-        raise operationerrfmt(
-            space.w_ImportError,
-            "function init%s not found in library %s",
-            name, path)
-    initfunc = rffi.cast(initfunctype, initptr)
-    generic_cpy_call(space, initfunc)
-    state.check_and_raise_exception()
+        from pypy.rlib import libffi
+        try:
+            dll = libffi.CDLL(path, False)
+        except libffi.DLOpenError, e:
+            raise operationerrfmt(
+                space.w_ImportError,
+                "unable to load extension module '%s': %s",
+                path, e.msg)
+        try:
+            initptr = libffi.dlsym(dll.lib, 'init%s' % (name.split('.')[-1],))
+        except KeyError:
+            raise operationerrfmt(
+                space.w_ImportError,
+                "function init%s not found in library %s",
+                name, path)
+        initfunc = rffi.cast(initfunctype, initptr)
+        generic_cpy_call(space, initfunc)
+        state.check_and_raise_exception()
+    finally:
+        state.package_context = None
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
