@@ -21,22 +21,9 @@ JIT back-ends
 --------------------------------
 
 PyPy's Just-In-Time compiler relies on backends for actual code
-generation.  We have so far a 32-bit Intel backend, and a CLI one.  Open
-ideas are to write a backend for **Intel 64** (AMD64); or a backend for
-Java; or trying again to use LLVM-JIT (which I do not really recommend).
-
-CTypes
-------
-
-Support ctypes on more backends.  Right now ctypes is supported only
-when compiling PyPy to C, and there is a bit of unfinished work to
-support it on **Intel 64.**  A nice project would be to support it when
-compiling to .NET or the JVM. That's not too hard, the only thing needed
-is to port a small module that does the actual invocation of external
-libraries (a related project is to port this module to Jython or
-IronPython to get support for ctypes there, which is something that was
-tried but not finished as far as I know).
-
+generation.  We have so far a 32-bit Intel backend, and a CLI one. There is
+Summer of Code project for 64bit (x86_64) backend, but other options
+(ARM, llvm) remain open.
 
 .. _distribution:
 .. _persistence:
