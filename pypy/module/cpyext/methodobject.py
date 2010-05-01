@@ -112,7 +112,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         self.w_objclass = from_ref(space, pyo)
 
     def __repr__(self):
-        self.space.unwrap(self.descr_method_repr())
+        return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
         return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space, '?')))

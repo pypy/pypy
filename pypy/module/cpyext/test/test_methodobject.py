@@ -1,5 +1,10 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.methodobject import PyMethodDef
+from pypy.module.cpyext.api import ApiFunction
+from pypy.module.cpyext.pyobject import PyObject, make_ref, Py_DecRef
+from pypy.module.cpyext.methodobject import PyDescr_NewMethod
+from pypy.rpython.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
     def test_call_METH(self):
@@ -59,3 +64,28 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_OLD(1, 2) == (1, 2)
 
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
+
+class TestPyCMethodObject(BaseApiTest):
+    def test_repr(self, space):
+        """
+        W_PyCMethodObject has a repr string which describes it as a method
+        and gives its name and the name of its class.
+        """
+        def func(space, w_self, w_args):
+            return space.w_None
+        c_func = ApiFunction([PyObject, PyObject], PyObject, func)
+        func.api_func = c_func
+        ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
+        namebuf = rffi.str2charp('func')
+        ml.c_ml_name = namebuf
+        ml.c_ml_meth = c_func.get_llhelper(space)
+
+        pto = make_ref(space, space.w_str)
+        method = PyDescr_NewMethod(space, pto, ml)
+
+        assert repr(method).startswith(
+            "<built-in method 'func' of 'str' object ")
+
+        Py_DecRef(space, pto)
+        rffi.free_charp(namebuf)
+        lltype.free(ml, flavor='raw')

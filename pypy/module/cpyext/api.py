@@ -104,7 +104,8 @@ CANNOT_FAIL = object()
 #
 
 class ApiFunction:
-    def __init__(self, argtypes, restype, callable, borrowed, error):
+    def __init__(self, argtypes, restype, callable,
+                 borrowed=False, error=_NOT_SPECIFIED):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
