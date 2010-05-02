@@ -886,8 +886,6 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
-        from pypy.interpreter.function import is_builtin_code
-
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
@@ -909,7 +907,7 @@ class __extend__(pyframe.PyFrame):
         args = self.argument_factory(arguments, keywords, keywords_w, w_star,
                                      w_starstar)
         w_function  = self.popvalue()
-        if self.is_being_profiled and is_builtin_code(w_function):
+        if self.is_being_profiled and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
                                                           args)
         else:
