@@ -1014,7 +1014,7 @@ class __extend__(pyframe.PyFrame):
                                  (ofs, ord(c), name) )
 
     STOP_CODE = MISSING_OPCODE
-    
+
     def BUILD_MAP(self, itemcount, next_instr):
         if itemcount != 0:
             raise BytecodeCorruption
