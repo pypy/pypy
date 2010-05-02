@@ -50,8 +50,7 @@ class ExecutionContext(object):
 
     def enter(self, frame):
         if self.framestackdepth > self.space.sys.recursionlimit:
-            raise OperationError(self.space.w_RuntimeError,
-                                 self.space.wrap("maximum recursion depth exceeded"))
+            raise self.space.prebuilt_recursion_error
         self.framestackdepth += 1
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
