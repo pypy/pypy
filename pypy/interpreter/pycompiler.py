@@ -107,8 +107,8 @@ class PythonAstCompiler(PyCodeCompiler):
         self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
-        future_features = misc.parse_future(node)
-        info = pyparse.CompileInfo(filename, mode, flags, future_flags)
+        future_pos = misc.parse_future(node)
+        info = pyparse.CompileInfo(filename, mode, flags, future_pos)
         return self._compile_ast(node, info)
 
     def _compile_ast(self, node, info):
