@@ -4,7 +4,6 @@ from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
@@ -579,6 +578,7 @@ class ObjSpace(object):
         try:
             return self.default_compiler
         except AttributeError:
+            from pypy.interpreter.pycompiler import PythonAstCompiler
             compiler = PythonAstCompiler(self)
             self.default_compiler = compiler
             return compiler

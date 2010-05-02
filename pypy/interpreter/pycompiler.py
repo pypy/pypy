@@ -3,9 +3,12 @@ General classes for bytecode compilers.
 Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 """
 
-import sys
-from pypy.interpreter.astcompiler.consts import PyCF_DONT_IMPLY_DEDENT
+from pypy.interpreter import pycode
+from pypy.interpreter.pyparser import future, pyparse, error as parseerror
+from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
+                                          optimize)
 from pypy.interpreter.error import OperationError
+
 
 class AbstractCompiler(object):
     """Abstract base class for a bytecode compiler."""
@@ -33,7 +36,7 @@ class AbstractCompiler(object):
         # Hackish default implementation based on the stdlib 'codeop' module.
         # See comments over there.
         space = self.space
-        flags |= PyCF_DONT_IMPLY_DEDENT
+        flags |= consts.PyCF_DONT_IMPLY_DEDENT
         # Check for source consisting of only blank lines and comments
         if mode != "eval":
             in_comment = False
@@ -82,8 +85,7 @@ class PyCodeCompiler(AbstractCompiler):
     def getcodeflags(self, code):
         """Return the __future__ compiler flags that were used to compile
         the given code object."""
-        from pypy.interpreter.pycode import PyCode
-        if isinstance(code, PyCode):
+        if isinstance(code, pycode.PyCode):
             return code.co_flags & self.compiler_flags
         else:
             return 0
@@ -98,62 +100,49 @@ class PythonAstCompiler(PyCodeCompiler):
          the whole source after having only added a new '\n')
     """
     def __init__(self, space, override_version=None):
-
-        from pypy.interpreter.pyparser.pyparse import PythonParser
-        from pypy.interpreter.pyparser import future
         PyCodeCompiler.__init__(self, space)
-        self.parser = PythonParser(space)
+        self.parser = pyparse.PythonParser(space)
         self.additional_rules = {}
         self.future_flags = future.futureFlags_2_5
         self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
-        from pypy.interpreter.pyparser.pyparse import CompileInfo
-        from pypy.interpreter.astcompiler.misc import parse_future
-        info = CompileInfo(filename, mode, flags, parse_future(node))
+        future_features = misc.parse_future(node)
+        info = pyparse.CompileInfo(filename, mode, flags, future_flags)
         return self._compile_ast(node, info)
 
     def _compile_ast(self, node, info):
-        from pypy.interpreter.astcompiler import optimize
-        from pypy.interpreter.astcompiler.codegen import compile_ast
-        from pypy.interpreter.pyparser.error import SyntaxError
         space = self.space
         try:
             mod = optimize.optimize_ast(space, node, info)
-            code = compile_ast(space, mod, info)
-        except SyntaxError, e:
+            code = codegen.compile_ast(space, mod, info)
+        except parseerror.SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return code
 
     def compile_to_ast(self, source, filename, mode, flags):
-        from pypy.interpreter.pyparser.pyparse import CompileInfo
-        info = CompileInfo(filename, mode, flags)
+        info = pyparse.CompileInfo(filename, mode, flags)
         return self._compile_to_ast(source, info)
 
     def _compile_to_ast(self, source, info):
-        from pypy.interpreter.pyparser.future import get_futures
-        from pypy.interpreter.pyparser.error import (SyntaxError,
-                                                     IndentationError)
-        from pypy.interpreter.astcompiler.astbuilder import ast_from_node
         space = self.space
         try:
-            f_flags, future_info = get_futures(self.future_flags, source)
+            f_flags, future_info = future.get_futures(self.future_flags, source)
             info.last_future_import = future_info
             info.flags |= f_flags
             parse_tree = self.parser.parse_source(source, info)
-            mod = ast_from_node(space, parse_tree, info)
-        except IndentationError, e:
+            mod = astbuilder.ast_from_node(space, parse_tree, info)
+        except parseerror.IndentationError, e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
-        except SyntaxError, e:
+        except parseerror.SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return mod
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False):
-        from pypy.interpreter.pyparser.pyparse import CompileInfo
-        info = CompileInfo(filename, mode, flags,
-                           hidden_applevel=hidden_applevel)
+        info = pyparse.CompileInfo(filename, mode, flags,
+                                   hidden_applevel=hidden_applevel)
         mod = self._compile_to_ast(source, info)
         return self._compile_ast(mod, info)
