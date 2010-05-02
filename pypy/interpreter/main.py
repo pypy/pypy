@@ -1,7 +1,7 @@
-from pypy.interpreter import module, eval
+import sys
+from pypy.interpreter import eval, module
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pycode import PyCode
-import sys, types
+
 
 def ensure__main__(space):
     w_main = space.wrap('__main__')
