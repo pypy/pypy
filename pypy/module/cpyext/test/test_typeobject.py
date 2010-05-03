@@ -94,10 +94,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = type(obj)()
-        assert type(newobj) is type(obj)
+        newobj = module.FuuType(u"xyz")
+        assert newobj == u"xyz"
 
-        XXX # stuff below has to be rethought
         a = module.fooType
         assert "cannot create" in raises(TypeError, "a()").value.message
         class bar(module.fooType):
