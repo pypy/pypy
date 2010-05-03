@@ -87,6 +87,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
 
+    def test_new(self):
+        module = self.import_module(name='foo')
+        obj = module.new()
+        # call __new__
+        newobj = type(obj)()
+        assert type(newobj) is type(obj)
+
+        XXX # stuff below has to be rethought
         a = module.fooType
         assert "cannot create" in raises(TypeError, "a()").value.message
         class bar(module.fooType):
