@@ -28,6 +28,9 @@
 /* Version as a string */
 #define PY_VERSION		"2.5.5"
 
+/* PyPy version as a string */
+#define PYPY_VERSION "1.2.0"
+
 /* Subversion Revision number of this file (not of the repository) */
 #define PY_PATCHLEVEL_REVISION  "$Revision: 77872 $"
 
