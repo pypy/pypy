@@ -270,14 +270,20 @@ class ExternalCompilationInfo(object):
             if not file_name.check():
                 break
 
-        f = file_name.open("w")
-        f.write("{\n")
-        for sym in self.export_symbols:
-            f.write("%s;\n" % (sym,))
-        f.write("};")
-        f.close()
+        # XXX this logic should be moved to translator/platform/*.py
         d = self._copy_attributes()
-        d['link_extra'] += ("-Wl,--dynamic-list=" + str(file_name), )
+        f = file_name.open("w")
+        if host.name.startswith('darwin'):
+            for sym in self.export_symbols:
+                f.write("_%s\n" % (sym,))
+            d['link_extra'] += ("-Wl,-exported_symbols_list,"+str(file_name), )
+        else:
+            f.write("{\n")
+            for sym in self.export_symbols:
+                f.write("%s;\n" % (sym,))
+            f.write("};")
+            d['link_extra'] += ("-Wl,--dynamic-list=" + str(file_name), )
+        f.close()
         d['export_symbols'] = ()
         return ExternalCompilationInfo(**d)
 
