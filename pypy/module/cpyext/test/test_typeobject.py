@@ -1,6 +1,8 @@
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
+from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
 import py
 import sys
@@ -19,7 +21,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
 
-    def test_typeobject2(self):
+    def test_typeobject_method_descriptor(self):
         module = self.import_module(name='foo')
         obj = module.new()
         obj2 = obj.copy()
@@ -37,7 +39,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.foo == 42
         assert obj.int_member == obj.foo
 
-    def test_typeobject3(self):
+    def test_typeobject_data_member(self):
         module = self.import_module(name='foo')
         obj = module.new()
         obj.int_member = 23
@@ -53,7 +55,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
 
-    def test_typeobject4(self):
+    def test_typeobject_object_member(self):
         module = self.import_module(name='foo')
         obj = module.new()
         assert obj.object_member is None
@@ -70,7 +72,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del obj.object_member_ex
         raises(AttributeError, "del obj.object_member_ex")
 
-    def test_typeobject5(self):
+    def test_typeobject_string_member(self):
         module = self.import_module(name='foo')
         obj = module.new()
         assert obj.string_member == "Hello from PyPy"
@@ -128,6 +130,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         re._cache_repl.clear()
 
 class TestTypes(BaseApiTest):
+    def test_type_attributes(self, space, api):
+        w_class = space.appexec([], """():
+            class A(object):
+                pass
+            return A
+            """)
+        ref = make_ref(space, w_class)
+
+        py_type = rffi.cast(PyTypeObjectPtr, ref)
+        assert py_type.c_tp_alloc
+        assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
+
+        api.Py_DecRef(ref)
+
     def test_multiple_inheritance(self, space, api):
         w_class = space.appexec([], """():
             class A(object):

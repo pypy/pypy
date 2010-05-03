@@ -428,6 +428,7 @@ def type_dealloc(space, obj):
     type_pto = obj.c_ob_type
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
+    Py_DecRef(space, obj_pto.c_tp_mro)
     Py_DecRef(space, obj_pto.c_tp_cache) # lets do it like cpython
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         if obj_pto.c_tp_as_buffer:
@@ -569,7 +570,8 @@ def PyPyType_Ready(space, pto, w_obj):
                 bases = space.newtuple([from_ref(space, base_pyo)])
             pto.c_tp_bases = make_ref(space, bases)
         if w_obj is None:
-            PyPyType_Register(space, pto)
+            w_obj = PyPyType_Register(space, pto)
+        pto.c_tp_mro = make_ref(space, space.newtuple(w_obj.mro_w))
         if base:
             inherit_special(space, pto, base)
         for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
@@ -596,7 +598,7 @@ def PyPyType_Register(space, pto):
         state.py_objects_w2r[w_obj] = pyo
         w_obj.__init__(space, pto)
         w_obj.ready()
-    return 1
+        return w_obj
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):
