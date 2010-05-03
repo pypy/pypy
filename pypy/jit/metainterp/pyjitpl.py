@@ -1396,13 +1396,13 @@ class MetaInterp(object):
         etype, evalue = self.cpu.get_overflow_error()
         return self.finishframe_exception(
             self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue))
+            self.cpu.ts.get_exc_value_box(evalue).constbox())
 
     def raise_zero_division_error(self):
         etype, evalue = self.cpu.get_zero_division_error()
         return self.finishframe_exception(
             self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue))
+            self.cpu.ts.get_exc_value_box(evalue).constbox())
 
     def create_empty_history(self):
         warmrunnerstate = self.staticdata.state

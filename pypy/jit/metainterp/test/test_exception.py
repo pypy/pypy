@@ -556,6 +556,20 @@ class ExceptionTests:
                                optimizer=OPTIMIZER_SIMPLE)
         assert res == 8
 
+
+    def test_overflowerror_escapes(self):
+        def g(x):
+            return ovfcheck(x + 1)
+        def f(x):
+            try:
+                return g(x)
+            except Exception, e:
+                if isinstance(e, OverflowError):
+                    return -42
+                raise
+        res = self.interp_operations(f, [sys.maxint])
+        assert res == -42
+
 class MyError(Exception):
     def __init__(self, n):
         self.n = n
