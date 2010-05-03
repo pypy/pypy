@@ -175,6 +175,12 @@ static PyMethodDef Fuu_methods[] = {
     {NULL}  /* Sentinel */
 };
 
+static PyObject *
+Fuu_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+  return subtype->tp_alloc(subtype, 0);
+}
+
 PyTypeObject FuuType = {
     PyObject_HEAD_INIT(NULL)
     0,
@@ -224,7 +230,7 @@ PyTypeObject FuuType = {
 
     0,          /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
-    0,          /*tp_new*/
+    Fuu_new,    /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
     0,          /*tp_is_gc For PyObject_IS_GC */
     0,          /*tp_bases*/
@@ -248,7 +254,6 @@ foo_new(PyObject *self, PyObject *args)
 	
 	return (PyObject *)foop;
 }
-
 
 /* List of functions exported by this module */
 
