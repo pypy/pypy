@@ -180,16 +180,18 @@ class AppTestPosix:
             assert 0
 
     def test_filename_exception(self):
-        for fn in [self.posix.unlink, self.posix.remove,
-                   self.posix.chdir, self.posix.mkdir, self.posix.rmdir,
-                   self.posix.listdir, self.posix.readlink,
-                   self.posix.chroot]:
-            try:
-                fn('qowieuqw/oeiu')
-            except OSError, e:
-                assert e.filename == 'qowieuqw/oeiu'
-            else:
-                assert 0
+        for fname in ['unlink', 'remove',
+                      'chdir', 'mkdir', 'rmdir',
+                      'listdir', 'readlink',
+                      'chroot']:
+            if hasattr(self.posix, fname):
+                func = getattr(self.posix, fname)
+                try:
+                    func('qowieuqw/oeiu')
+                except OSError, e:
+                    assert e.filename == 'qowieuqw/oeiu'
+                else:
+                    assert 0
 
     def test_chmod_exception(self):
         try:
@@ -200,12 +202,13 @@ class AppTestPosix:
             assert 0
 
     def test_chown_exception(self):
-        try:
-            self.posix.chown('qowieuqw/oeiu', 0, 0)
-        except OSError, e:
-            assert e.filename == 'qowieuqw/oeiu'
-        else:
-            assert 0
+        if hasattr(self.posix, 'chown'):
+            try:
+                self.posix.chown('qowieuqw/oeiu', 0, 0)
+            except OSError, e:
+                assert e.filename == 'qowieuqw/oeiu'
+            else:
+                assert 0
 
     def test_utime_exception(self):
         for arg in [None, (0, 0)]:
