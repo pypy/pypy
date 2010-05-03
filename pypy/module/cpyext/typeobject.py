@@ -158,11 +158,11 @@ def add_operators(space, dict_w, pto):
         add_tp_new_wrapper(space, dict_w, pto)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
-def tp_new_wrapper(space, w_self, w_args, w_kwds): # XXX untested code
-    args_w = space.listview(w_args)[:]
-    args_w.insert(0, w_self)
-    w_args_new = space.newlist(args_w)
-    return space.call(space.lookup(space.w_type, "__new__"), w_args_new, w_kwds)
+def tp_new_wrapper(space, w_self, w_args, w_kwds):
+    fn = rffi.cast(PyTypeObjectPtr, make_ref(space, w_self)).c_tp_new
+    pyo = make_ref(space, w_self)
+    pto = rffi.cast(PyTypeObjectPtr, pyo)
+    return generic_cpy_call(space, fn, pto, w_args, w_kwds)
 
 @specialize.memo()
 def get_new_method_def(space):
