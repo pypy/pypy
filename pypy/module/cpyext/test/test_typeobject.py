@@ -88,6 +88,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 42")
 
     def test_new(self):
+        skip("skip")
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
