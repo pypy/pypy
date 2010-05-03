@@ -165,7 +165,7 @@ def get_build_version():
     For Python 2.3 and up, the version number is included in
     sys.version.  For earlier versions, assume the compiler is MSVC 6.
     """
-    return 8.0
+    return 9.0
 
 def normalize_and_reduce_paths(paths):
     """Return a list of normalized paths with duplicates removed.
