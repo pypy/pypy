@@ -18,9 +18,16 @@ def PyWeakref_NewRef(space, w_obj, w_callback):
 
 @cpython_api([PyObject], PyObject, borrowed=True)
 def PyWeakref_GetObject(space, w_ref):
-    """Return the referenced object from a weak reference, ref.  If the referent is
-    no longer live, returns None.
+    """Return the referenced object from a weak reference.  If the referent is
+    no longer live, returns None. This function returns a borrowed reference.
     """
     register_container(space, w_ref)
+    return space.call_function(w_ref)
+
+@cpython_api([PyObject], PyObject)
+def PyWeakref_LockObject(space, w_ref):
+    """Return the referenced object from a weak reference.  If the referent is
+    no longer live, returns None. This function returns a new reference.
+    """
     return space.call_function(w_ref)
 
