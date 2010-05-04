@@ -77,11 +77,6 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         space = cls.space
 
-        def set_errno(num):
-            ll2ctypes.TLS.errno = num
-        
-        cls.w_set_errno = space.wrap(interp2app(set_errno, unwrap_spec=[int]))
-    
     def test_occurred(self):
         module = self.import_extension('foo', [
             ("check_error", "METH_NOARGS",
@@ -118,23 +113,21 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert module.check_error()
 
     def test_SetFromErrno(self):
-        skip("The test does not set the errno in a way which "
-             "untranslated pypy can actually notice")
-
-        import errno
+        import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
+                 errno = EBADF;
                  PyErr_SetFromErrno(PyExc_OSError);
                  return NULL;
                  '''),
-                ])
+                ],
+                prologue="#include <errno.h>")
         try:
-            self.set_errno(errno.EBADF)
             module.set_from_errno()
         except OSError, e:
             assert e.errno == errno.EBADF
-            assert e.message == os.strerror(errno.EBADF)
+            assert e.strerror == os.strerror(errno.EBADF)
 
 

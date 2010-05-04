@@ -178,6 +178,7 @@ def cpython_api(argtypes, restype, borrowed=False, error=_NOT_SPECIFIED,
                 from pypy.module.cpyext.pyobject import make_ref, from_ref
                 newargs = ()
                 to_decref = []
+                assert len(args) == len(api_function.argtypes)
                 for i, (ARG, is_wrapped) in types_names_enum_ui:
                     input_arg = args[i]
                     if is_PyObject(ARG) and not is_wrapped:
@@ -408,6 +409,7 @@ def make_wrapper(space, callable):
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
+            assert len(args) == len(callable.api_func.argtypes)
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
                 if typ is PyObject and is_wrapped:
@@ -817,6 +819,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     def generic_cpy_call(space, func, *args):
         boxed_args = ()
         to_decref = []
+        assert len(args) == len(FT.ARGS)
         for i, ARG in unrolling_arg_types:
             arg = args[i]
             if ARG is PyObject:

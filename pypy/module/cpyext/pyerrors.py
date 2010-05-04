@@ -1,12 +1,13 @@
 import os
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, Py_DecRef, register_container)
 from pypy.module.cpyext.state import State
+from pypy.rlib.rposix import get_errno
 from pypy.rlib.rposix import get_errno
 
 @cpython_api([PyObject, PyObject], lltype.Void)
@@ -77,6 +78,7 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
+    Py_DecRef(space, w_traceback)
 
 @cpython_api([], lltype.Void)
 def PyErr_BadArgument(space):
@@ -114,9 +116,7 @@ def PyErr_SetFromErrno(space, w_type):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
-    errno_w = space.wrap(errno)
-    message_w = space.wrap(os.strerror(errno))
-    PyErr_SetObject(space, w_type, errno_w, message_w)
+    raise wrap_oserror(space, OSError(errno, "PyErr_SetFromErrno"))
 
 @cpython_api([], rffi.INT_real, error=-1)
 def PyErr_CheckSignals(space):
