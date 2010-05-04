@@ -219,12 +219,14 @@ def check_descr(space, w_self, w_type):
 
 class GettersAndSetters:
     def getter(self, space, w_self):
+        assert isinstance(self, W_GetSetPropertyEx)
         check_descr(space, w_self, self.w_type)
         return generic_cpy_call(
             space, self.getset.c_get, w_self,
             self.getset.c_closure)
 
     def setter(self, space, w_self, w_value):
+        assert isinstance(self, W_GetSetPropertyEx)
         check_descr(space, w_self, self.w_type)
         res = generic_cpy_call(
             space, self.getset.c_set, w_self, w_value,
@@ -234,14 +236,17 @@ class GettersAndSetters:
             state.check_and_raise_exception()
 
     def member_getter(self, space, w_self):
+        assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
         return PyMember_GetOne(space, w_self, self.member)
 
     def member_delete(self, space, w_self):
+        assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
         PyMember_SetOne(space, w_self, self.member, None)
 
     def member_setter(self, space, w_self, w_value):
+        assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
         PyMember_SetOne(space, w_self, self.member, w_value)
 

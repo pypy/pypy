@@ -14,7 +14,18 @@ from pypy.rpython.annlowlevel import llhelper
 # type description
 
 class BaseCpyTypedescr(object):
-    pass
+    basestruct = PyObject.TO
+
+    def get_dealloc(self, space):
+        raise NotImplementedError
+    def allocate(self, space, w_type, itemcount=0):
+        raise NotImplementedError
+    def make_ref(self, space, w_type, w_obj, itemcount=0):
+        raise NotImplementedError
+    def attach(self, space, pyobj, w_obj):
+        raise NotImplementedError
+    def realize(self, space, ref):
+        raise NotImplementedError
 
 typedescr_cache = {}
 
