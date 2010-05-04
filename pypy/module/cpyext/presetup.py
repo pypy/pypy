@@ -4,7 +4,7 @@ building pypy-c.
 
 Run python <this file> setup.py build in your project directory
 
-You can import resulting .so with py.py --allworingmodules
+You can import resulting .so with py.py --allworkingmodules
 """
 
 import sys, os
@@ -21,8 +21,10 @@ from distutils import sysconfig
 
 from pypy.conftest import gettestobjspace
 from pypy.module.cpyext.api import build_bridge
-space = gettestobjspace(usemodules=['cpyext', 'thread'])
-build_bridge(space)
+usemodules = ['cpyext', 'thread']
+if sys.platform == 'win32':
+    usemodules.append('_winreg') # necessary in distutils
+space = gettestobjspace(usemodules=usemodules)
 
 inc_paths = str(udir)
 
