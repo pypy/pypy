@@ -26,7 +26,7 @@ class TestMapping(BaseApiTest):
         key = rffi.str2charp("key")
         api.PyMapping_SetItemString(w_d, key, space.wrap(42))
         assert 42 == space.unwrap(
-            api.PyMapping_GetItemString(w_d, key, space.wrap(42)))
+            api.PyMapping_GetItemString(w_d, key))
         rffi.free_charp(key)
 
     def test_haskey(self, space, api):
