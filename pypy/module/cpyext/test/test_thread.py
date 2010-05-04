@@ -11,7 +11,7 @@ class TestPyThread(BaseApiTest):
     def test_get_thread_ident(self, space, api):
         results = []
         def some_thread():
-            res = api.PyThread_get_thread_ident(space)
+            res = api.PyThread_get_thread_ident()
             results.append((res, thread.get_ident()))
 
         some_thread()
