@@ -50,25 +50,26 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("a value"))
         assert api.PyErr_Occurred() is space.w_ValueError
         state = space.fromcache(State)
-        assert space.eq_w(state.exc_value, space.wrap("a value"))
+        assert space.eq_w(state.operror.get_w_value(space),
+                          space.wrap("a value"))
 
         api.PyErr_Clear()
 
     def test_SetNone(self, space, api):
         api.PyErr_SetNone(space.w_KeyError)
         state = space.fromcache(State)
-        assert space.eq_w(state.exc_type, space.w_KeyError)
-        assert space.eq_w(state.exc_value, space.w_None)
+        assert space.eq_w(state.operror.w_type, space.w_KeyError)
+        assert space.eq_w(state.operror.get_w_value(space), space.w_None)
         api.PyErr_Clear()
 
         api.PyErr_NoMemory()
-        assert space.eq_w(state.exc_type, space.w_MemoryError)
+        assert space.eq_w(state.operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
         
     def test_BadArgument(self, space, api):
         api.PyErr_BadArgument()
         state = space.fromcache(State)
-        assert space.eq_w(state.exc_type, space.w_TypeError)
+        assert space.eq_w(state.operror.w_type, space.w_TypeError)
         api.PyErr_Clear()
 
 class AppTestFetch(AppTestCpythonExtensionBase):
@@ -92,7 +93,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        module.check_error()
+        assert module.check_error()
 
     def test_fetch_and_restore(self):
         module = self.import_extension('foo', [
@@ -106,8 +107,6 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  return NULL;
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (val->ob_type != type)
-                 Py_RETURN_FALSE;
              PyErr_Restore(type, val, tb);
              if (!PyErr_Occurred())
                  Py_RETURN_FALSE;
@@ -116,7 +115,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        module.check_error()
+        assert module.check_error()
 
     def test_SetFromErrno(self):
         skip("The test does not set the errno in a way which "

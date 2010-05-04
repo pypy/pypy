@@ -14,7 +14,7 @@ def PyErr_SetObject(space, w_type, w_value):
     """This function is similar to PyErr_SetString() but lets you specify an
     arbitrary Python object for the "value" of the exception."""
     state = space.fromcache(State)
-    state.set_exception(w_type, w_value)
+    state.set_exception(OperationError(w_type, w_value))
 
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
@@ -29,8 +29,10 @@ def PyErr_SetNone(space, w_type):
 @cpython_api([], PyObject, borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
+    if state.operror is None:
+        return None
     register_container(space, lltype.nullptr(PyObject.TO))
-    return state.exc_type
+    return state.operror.w_type
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
@@ -47,10 +49,13 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     This function is normally only used by code that needs to handle exceptions or
     by code that needs to save and restore the error indicator temporarily."""
     state = space.fromcache(State)
-    ptype[0] = make_ref(space, state.exc_type, steal=True)
-    pvalue[0] = make_ref(space, state.exc_type, steal=True)
-    state.exc_type = None
-    state.exc_value = None
+    operror = state.clear_exception()
+    if operror:
+        ptype[0] = make_ref(space, operror.w_type)
+        pvalue[0] = make_ref(space, operror.get_w_value(space))
+    else:
+        ptype[0] = lltype.nullptr(PyObject.TO)
+        pvalue[0] = lltype.nullptr(PyObject.TO)
     ptraceback[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
@@ -69,8 +74,7 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
-    state.exc_type = w_type
-    state.exc_value = w_value
+    state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
 

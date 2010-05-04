@@ -210,8 +210,7 @@ def cpython_api(argtypes, restype, borrowed=False, error=_NOT_SPECIFIED,
                         if not hasattr(api_function, "error_value"):
                             raise
                         state = space.fromcache(State)
-                        e.normalize_exception(space)
-                        state.set_exception(e.w_type, e.get_w_value(space))
+                        state.set_exception(e)
                         if restype is PyObject:
                             return None
                         else:
@@ -426,11 +425,11 @@ def make_wrapper(space, callable):
                     print >>sys.stderr, " DONE"
             except OperationError, e:
                 failed = True
-                e.normalize_exception(space)
-                state.set_exception(e.w_type, e.get_w_value(space))
+                state.set_exception(e)
             except BaseException, e:
                 failed = True
-                state.set_exception(space.w_SystemError, space.wrap(str(e)))
+                state.set_exception(OperationError(space.w_SystemError,
+                                                   space.wrap(str(e))))
                 if not we_are_translated():
                     import traceback
                     traceback.print_exc()
