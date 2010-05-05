@@ -2,11 +2,6 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestImport(BaseApiTest):
-    def setup_method(self, func):
-        from pypy.module.imp.importing import importhook
-        importhook(self.space, "os") # warm up reference counts
-        BaseApiTest.setup_method(self, func)
-
     def test_import(self, space, api):
         pdb = api.PyImport_Import(space.wrap("pdb"))
         assert pdb

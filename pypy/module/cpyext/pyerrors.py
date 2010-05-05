@@ -7,6 +7,7 @@ from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, Py_DecRef, register_container)
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.rlib.rposix import get_errno
 
 @cpython_api([PyObject, PyObject], lltype.Void)
@@ -188,10 +189,14 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     For information about warning control, see the documentation for the
     warnings module and the -W option in the command line
     documentation.  There is no C API for warning control."""
-    message = rffi.charp2str(message_ptr)
     if w_category is None:
-        w_category = space.gettypeobject(W_RuntimeWarning.typedef)
-    os.write(2, "WARNING: " + message + "\n")
+        w_category = space.w_None
+    w_message = space.wrap(rffi.charp2str(message_ptr))
+    w_stacklevel = space.wrap(stacklevel)
+
+    w_module = PyImport_Import(space, space.wrap("warnings"))
+    w_warn = space.getattr(w_module, space.wrap("warn"))
+    space.call_function(w_warn, w_message, w_category, w_stacklevel)
     return 0
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)

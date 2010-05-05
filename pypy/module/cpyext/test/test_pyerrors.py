@@ -72,6 +72,13 @@ class TestExceptions(BaseApiTest):
         assert space.eq_w(state.operror.w_type, space.w_TypeError)
         api.PyErr_Clear()
 
+    def test_Warning(self, space, api, capfd):
+        message = rffi.str2charp("this is a warning")
+        api.PyErr_WarnEx(None, message, 1)
+        out, err = capfd.readouterr()
+        assert ": UserWarning: this is a warning" in err
+        rffi.free_charp(message)
+
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
@@ -129,5 +136,3 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         except OSError, e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
-
-
