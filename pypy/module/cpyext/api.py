@@ -448,6 +448,8 @@ def make_wrapper(space, callable):
                 retval = error_value
 
             elif callable.api_func.restype is PyObject:
+                if result is None:
+                    retval = lltype.nullptr(PyObject.TO)
                 if isinstance(result, BorrowedPair):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
