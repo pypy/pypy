@@ -164,22 +164,37 @@ def debug_refcount(*args, **kwargs):
     print >>sys.stderr
 
 def create_ref(space, w_obj, items=0):
+    """
+    Allocates a PyObject, and fills its fields with info from the given
+    intepreter object.
+    """
     w_type = space.type(w_obj)
     metatypedescr = get_typedescr(w_type.typedef)
     return metatypedescr.make_ref(space, w_type, w_obj, itemcount=items)
 
-def track_reference(space, py_obj, w_obj, borrowed=False):
+def track_reference(space, py_obj, w_obj, borrowed=False, replace=False):
+    """
+    Ties together a PyObject and an interpreter object.
+    """
     # XXX looks like a PyObject_GC_TRACK
     ptr = rffi.cast(ADDR, py_obj)
+    state = space.fromcache(State)
     if DEBUG_REFCOUNT:
         debug_refcount("MAKREF", py_obj, w_obj)
-    state = space.fromcache(State)
+        if not replace:
+            assert w_obj not in state.py_objects_w2r
+        assert ptr not in state.py_objects_r2w
+        assert ptr not in state.borrowed_objects
     state.py_objects_w2r[w_obj] = py_obj
     state.py_objects_r2w[ptr] = w_obj
-    if borrowed and ptr not in state.borrowed_objects:
+    if borrowed:
         state.borrowed_objects[ptr] = None
 
 def make_ref(space, w_obj, borrowed=False, steal=False, items=0):
+    """
+    Returns a reference to an intepreter object.
+    if borrowed=False, the caller owns the reference.
+    """
     if w_obj is None:
         return lltype.nullptr(PyObject.TO)
     assert isinstance(w_obj, W_Root)
@@ -204,6 +219,10 @@ def make_ref(space, w_obj, borrowed=False, steal=False, items=0):
 
 
 def from_ref(space, ref, recurse=False):
+    """
+    Finds the interpreter object corresponding to the given reference.  If the
+    object is not yet realized (see stringobject.py), creates it.
+    """
     assert lltype.typeOf(ref) == PyObject
     if not ref:
         return None

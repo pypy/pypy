@@ -6,18 +6,18 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
+from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE, call__Type
 from pypy.objspace.std.typetype import _precheck_for_new
-from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.cpyext.api import cpython_api, cpython_struct, bootstrap_function, \
-    PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, generic_cpy_call, \
-    Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, ADDR, \
-    Py_TPFLAGS_HAVE_CLASS, METH_VARARGS, METH_KEYWORDS, \
-    CANNOT_FAIL, PyBufferProcs, build_type_checkers
-from pypy.module.cpyext.pyobject import PyObject, make_ref, create_ref, from_ref
-from pypy.module.cpyext.pyobject import get_typedescr, make_typedescr, track_reference
+from pypy.module.cpyext.api import (
+    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
+    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
+    PyBufferProcs, build_type_checkers)
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
+    track_reference)
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import FunctionWithFixedCode, StaticMethod
 from pypy.module.cpyext import structmemberdefs
@@ -367,9 +367,9 @@ def init_typeobject(space):
     pto_tuple.c_tp_bases.c_ob_type = pto_tuple
 
     # Restore the mapping
-    track_reference(space, py_type, space.w_type)
-    track_reference(space, py_object, space.w_object)
-    track_reference(space, py_tuple, space.w_tuple)
+    track_reference(space, py_type, space.w_type, replace=True)
+    track_reference(space, py_object, space.w_object, replace=True)
+    track_reference(space, py_tuple, space.w_tuple, replace=True)
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -447,7 +447,9 @@ def type_dealloc(space, obj):
 
 
 def type_attach(space, py_obj, w_type):
-    """ Allocates a PyTypeObject from a w_type which must be a PyPy type. """
+    """
+    Fills a newly allocated PyTypeObject from an existing type.
+    """
     from pypy.module.cpyext.object import PyObject_Del
 
     assert isinstance(w_type, W_TypeObject)
@@ -547,15 +549,17 @@ def inherit_slots(space, pto, w_base):
     finally:
         Py_DecRef(space, base_pyo)
 
-def type_realize(space, ref):
-    PyPyType_Ready(space, rffi.cast(PyTypeObjectPtr, ref), None)
-    return from_ref(space, ref, True)
+def type_realize(space, py_obj):
+    """
+    Creates an interpreter type from a PyTypeObject structure.
+    """
+    return PyPyType_Ready(space, rffi.cast(PyTypeObjectPtr, py_obj), None)
 
 def PyPyType_Ready(space, pto, w_obj):
     try:
         pto.c_tp_dict = lltype.nullptr(PyObject.TO) # not supported
         if pto.c_tp_flags & Py_TPFLAGS_READY:
-            return 0
+            return w_obj
         assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
         pto.c_tp_flags |= Py_TPFLAGS_READYING
         base = pto.c_tp_base
@@ -588,22 +592,21 @@ def PyPyType_Ready(space, pto, w_obj):
         # tp_mro, tp_subclasses
     finally:
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
-    pto.c_tp_flags = (pto.c_tp_flags & ~Py_TPFLAGS_READYING) | Py_TPFLAGS_READY
-    return 0
+    pto.c_tp_flags |= Py_TPFLAGS_READY
+    return w_obj
 
 def PyPyType_Register(space, pto):
+    w_obj = space.allocate_instance(
+        W_PyCTypeObject,
+        space.gettypeobject(W_PyCTypeObject.typedef))
     state = space.fromcache(State)
-    ptr = rffi.cast(ADDR, pto)
-    if ptr not in state.py_objects_r2w:
-        w_obj = space.allocate_instance(W_PyCTypeObject,
-                space.gettypeobject(W_PyCTypeObject.typedef))
-        state.non_heaptypes.append(w_obj)
-        pyo = rffi.cast(PyObject, pto)
-        state.py_objects_r2w[ptr] = w_obj
-        state.py_objects_w2r[w_obj] = pyo
-        w_obj.__init__(space, pto)
-        w_obj.ready()
-        return w_obj
+    state.non_heaptypes.append(w_obj)
+    py_obj = rffi.cast(PyObject, pto)
+
+    track_reference(space, py_obj, w_obj)
+    w_obj.__init__(space, pto)
+    w_obj.ready()
+    return w_obj
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):
