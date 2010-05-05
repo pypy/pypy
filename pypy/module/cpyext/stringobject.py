@@ -1,11 +1,53 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, bootstrap_function, PyVarObjectFields, Py_ssize_t,
-    cpython_struct, PyObjectFields, ADDR, CONST_STRING, CANNOT_FAIL,
-    build_type_checkers, PyObjectP, PyTypeObjectPtr, generic_cpy_call)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, Py_DecRef, make_typedescr
-from pypy.module.cpyext.state import State
+    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
+    PyObjectFields, Py_ssize_t, CONST_STRING)
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
+    make_typedescr, get_typedescr)
+
+##
+## Implementation of PyStringObject
+## ================================
+##
+## The problem
+## -----------
+##
+## PyString_AsString() must returns a (non-movable) pointer to the underlying
+## buffer, whereas pypy strings are movable.  C code may temporarily store
+## this address and use it, as long as it owns a reference to the PyObject.
+## There is no "release" function to specify that the pointer is not needed
+## any more.
+##
+## Also, the pointer may be used to fill the initial value of string. This is
+## valid only when the string was just allocated, and is not used elsewhere.
+##
+## Solution
+## --------
+##
+## PyStringObject contains two additional members: the size and a pointer to a
+## char buffer; it may be NULL.
+##
+## - A string allocated by pypy will be converted into a PyStringObject with a
+##   NULL buffer.  The first time PyString_AsString() is called, memory is
+##   allocated (with flavor='raw') and content is copied.
+##
+## - A string allocated with PyString_FromStringAndSize(NULL, size) will
+##   allocate a PyStringObject structure, and a buffer with the specified
+##   size, but the reference won't be stored in the global map; there is no
+##   corresponding object in pypy.  When from_ref() or Py_INCREF() is called,
+##   the pypy string is created, and added to the global map of tracked
+##   objects.  The buffer is then supposed to be immutable.
+##
+## - _PyString_Resize() works only on not-yet-pypy'd strings, and returns a
+##   similar object.
+##
+## - PyString_Size() doesn't need to force the object.
+##
+## - There could be an (expensive!) check in from_ref() that the buffer still
+##   corresponds to the pypy gc-managed string.
+##
 
 PyStringObjectStruct = lltype.ForwardReference()
 PyStringObject = lltype.Ptr(PyStringObjectStruct)
@@ -15,6 +57,7 @@ cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 
 @bootstrap_function
 def init_stringobject(space):
+    "Type description of PyStringObject"
     make_typedescr(space.w_str.instancetypedef,
                    basestruct=PyStringObject.TO,
                    attach=string_attach,
@@ -24,39 +67,52 @@ def init_stringobject(space):
 PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
 
 def new_empty_str(space, length):
-    py_str = lltype.malloc(PyStringObject.TO, flavor='raw')
-    py_str.c_ob_refcnt = 1
-    
+    """
+    Allocatse a PyStringObject and its buffer, but without a corresponding
+    interpreter object.  The buffer may be mutated, until string_realize() is
+    called.
+    """
+    typedescr = get_typedescr(space.w_str.instancetypedef)
+    py_obj = typedescr.allocate(space, space.w_str)
+    py_str = rffi.cast(PyStringObject, py_obj)
+
     buflen = length + 1
+    py_str.c_size = length
     py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, buflen,
                                     flavor='raw', zero=True)
-    py_str.c_size = length
-    py_str.c_ob_type = rffi.cast(PyTypeObjectPtr, make_ref(space, space.w_str))
     return py_str
 
 def string_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyStringObject with the given string object. The
+    buffer must not be modified.
+    """
     py_str = rffi.cast(PyStringObject, py_obj)
     py_str.c_size = len(space.str_w(w_obj))
     py_str.c_buffer = lltype.nullptr(rffi.CCHARP.TO)
 
-def string_realize(space, ref):
-    state = space.fromcache(State)
-    ref = rffi.cast(PyStringObject, ref)
-    s = rffi.charpsize2str(ref.c_buffer, ref.c_size)
-    ref = rffi.cast(PyObject, ref)
-    w_str = space.wrap(s)
-    state.py_objects_w2r[w_str] = ref
-    ptr = rffi.cast(ADDR, ref)
-    state.py_objects_r2w[ptr] = w_str
-    return w_str
+def string_realize(space, py_obj):
+    """
+    Creates the string in the interpreter. The PyStringObject buffer must not
+    be modified after this call.
+    """
+    py_str = rffi.cast(PyStringObject, py_obj)
+    s = rffi.charpsize2str(py_str.c_buffer, py_str.c_size)
+    w_obj = space.wrap(s)
+    track_reference(space, py_obj, w_obj)
+    return w_obj
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def string_dealloc(space, py_obj):
+    """Frees allocated PyStringObject resources.
+    """
     py_str = rffi.cast(PyStringObject, py_obj)
     if py_str.c_buffer:
         lltype.free(py_str.c_buffer, flavor="raw")
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
+
+#_______________________________________________________________________
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject)
 def PyString_FromStringAndSize(space, char_p, length):

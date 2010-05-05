@@ -3,14 +3,16 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
-    bootstrap_function, generic_cpy_call, PyObjectFields,
-    cpython_struct, CONST_STRING, CONST_WSTRING)
+    bootstrap_function, PyObjectFields, cpython_struct, CONST_STRING,
+    CONST_WSTRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
-from pypy.module.cpyext.pyobject import PyObject, from_ref, make_ref, Py_DecRef, make_typedescr
-from pypy.module.cpyext.stringobject import PyString_Check
+from pypy.module.cpyext.pyobject import PyObject, from_ref, make_typedescr
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype
 import sys
+
+## See comment in stringobject.py.  PyUnicode_FromUnicode(NULL, size) is not
+## yet supported.
 
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
@@ -35,6 +37,7 @@ PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode", "w_unicod
 Py_UNICODE = lltype.UniChar
 
 def unicode_attach(space, py_obj, w_obj):
+    "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     py_unicode.c_size = len(space.unicode_w(w_obj))
     py_unicode.c_buffer = lltype.nullptr(rffi.CWCHARP.TO)
@@ -214,8 +217,7 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     if not wchar_p:
         raise NotImplementedError
     s = rffi.wcharpsize2unicode(wchar_p, length)
-    ptr = make_ref(space, space.wrap(s))
-    return ptr
+    return space.wrap(s)
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromWideChar(space, wchar_p, length):
