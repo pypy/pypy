@@ -494,7 +494,7 @@ def type_attach(space, py_obj, w_type):
 @cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1)
 def PyType_Ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
-        return
+        return 0
     assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
     pto.c_tp_flags |= Py_TPFLAGS_READYING
     try:
