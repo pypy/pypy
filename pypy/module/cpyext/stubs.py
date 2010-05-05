@@ -32,16 +32,17 @@ _node = lltype.Void
 def _PyObject_Del(space, op):
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, PyMethodDef], PyObject, borrowed=True)
+@cpython_api([rffi.CCHARP, PyMethodDef], PyObject)
 def Py_InitModule(space, name, methods):
     """Create a new module object based on a name and table of functions,
     returning the new module object.
     
     Older versions of Python did not support NULL as the value for the
     methods argument."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, PyMethodDef, rffi.CCHARP], PyObject, borrowed=True)
+@cpython_api([rffi.CCHARP, PyMethodDef, rffi.CCHARP], PyObject)
 def Py_InitModule3(space, name, methods, doc):
     """Create a new module object based on a name and table of functions,
     returning the new module object.  If doc is non-NULL, it will be used
@@ -49,6 +50,7 @@ def Py_InitModule3(space, name, methods, doc):
     
     Older versions of Python did not support NULL as the value for the
     methods argument."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.CCHARP, va_list], rffi.INT_real, error=0)
@@ -337,10 +339,11 @@ def PyCell_Get(space, cell):
     """Return the contents of the cell cell."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyCell_GET(space, cell):
     """Return the contents of the cell cell, but without checking that cell is
     non-NULL and a cell object."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -1059,9 +1062,10 @@ def PyFile_GetLine(space, p, n):
     raised if the end of the file is reached immediately."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFile_Name(space, p):
     """Return the name of the file specified by p as a string object."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyFileObject, rffi.INT_real], lltype.Void)
@@ -1184,27 +1188,31 @@ def PyFunction_New(space, code, globals):
     object, the argument defaults and closure are set to NULL."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFunction_GetCode(space, op):
     """Return the code object associated with the function object op."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFunction_GetGlobals(space, op):
     """Return the globals dictionary associated with the function object op."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFunction_GetModule(space, op):
     """Return the __module__ attribute of the function object op. This is normally
     a string containing the module name, but can be set to any other object by
     Python code."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFunction_GetDefaults(space, op):
     """Return the argument default values of the function object op. This can be a
     tuple of arguments or NULL."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -1215,10 +1223,11 @@ def PyFunction_SetDefaults(space, op, defaults):
     Raises SystemError and returns -1 on failure."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyFunction_GetClosure(space, op):
     """Return the closure associated with the function object op. This can be NULL
     or a tuple of cell objects."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -1352,7 +1361,7 @@ def PyImport_ReloadModule(space, m):
     with an exception set on failure (the module still exists in this case)."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject, borrowed=True)
+@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name argument
     may be of the form package.module. First check the modules dictionary if
@@ -1363,6 +1372,7 @@ def PyImport_AddModule(space, name):
     loaded, you will get an empty module object. Use PyImport_ImportModule()
     or one of its variants to import a module.  Package structures implied by a
     dotted name for name are not created if not already present."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
@@ -1398,10 +1408,11 @@ def PyImport_GetMagicNumber(space, ):
     of the bytecode file, in little-endian byte order."""
     raise NotImplementedError
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyImport_GetModuleDict(space, ):
     """Return the dictionary used for the module administration (a.k.a.
     sys.modules).  Note that this is a per-interpreter variable."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -1870,7 +1881,7 @@ def PyThreadState_Get(space, ):
     the caller needn't check for NULL)."""
     raise NotImplementedError
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyThreadState_GetDict(space, ):
     """Return a dictionary in which extensions can store thread-specific state
     information.  Each extension should use a unique key to use to store state in
@@ -1880,6 +1891,7 @@ def PyThreadState_GetDict(space, ):
     
     Previously this could only be called when a current thread is active, and NULL
     meant that an exception was raised."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([lltype.Signed, PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -2103,12 +2115,13 @@ def PyCallIter_Check(space, iter):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyList_GET_ITEM(space, list, i):
     """Macro form of PyList_GetItem() without error checking.
     
     This macro used an int for i. This might require changes in
     your code for properly supporting 64-bit systems."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], lltype.Void)
@@ -2293,15 +2306,17 @@ def PyMarshal_ReadObjectFromString(space, string, len):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyMethod_Self(space, meth):
     """Return the instance associated with the method meth if it is bound, otherwise
     return NULL."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyMethod_GET_SELF(space, meth):
     """Macro version of PyMethod_Self() which avoids error checking."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -2442,28 +2457,32 @@ def PyObject_Dir(space, o):
     is active then NULL is returned but PyErr_Occurred() will return false."""
     raise NotImplementedError
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyEval_GetBuiltins(space, ):
     """Return a dictionary of the builtins in the current execution frame,
     or the interpreter of the thread state if no frame is currently executing."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyEval_GetLocals(space, ):
     """Return a dictionary of the local variables in the current execution frame,
     or NULL if no frame is currently executing."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyEval_GetGlobals(space, ):
     """Return a dictionary of the global variables in the current execution frame,
     or NULL if no frame is currently executing."""
+    borrow_from()
     raise NotImplementedError
 
-@cpython_api([], PyFrameObject, borrowed=True)
+@cpython_api([], PyFrameObject)
 def PyEval_GetFrame(space, ):
     """Return the current thread state's frame, which is NULL if no frame is
     currently executing."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -2958,12 +2977,13 @@ def Py_AtExit(space, func):
     the cleanup function, no Python APIs should be called by func."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyTuple_GET_ITEM(space, p, pos):
     """Like PyTuple_GetItem(), but does no checking of its arguments.
     
     This function used an int type for pos. This might require
     changes in your code for properly supporting 64-bit systems."""
+    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
@@ -3856,9 +3876,10 @@ def PyWeakref_NewProxy(space, ob, callback):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyWeakref_GET_OBJECT(space, ref):
     """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
     error checking.
     """
+    borrow_from()
     raise NotImplementedError

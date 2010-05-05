@@ -7,9 +7,10 @@ from sphinx import addnodes
 
 
 TEMPLATE = """
-@cpython_api([%(paramtypes)s], %(rettype)s%(borrows)s)
+@cpython_api([%(paramtypes)s], %(rettype)s)
 def %(functionname)s(%(params)s):
 %(docstring)s    raise NotImplementedError
+    %(borrows)s
 """
 
 C_TYPE_TO_PYPY_TYPE = {
@@ -77,7 +78,7 @@ def process_doctree(app, doctree):
             if entry.result_refs is None:
                 docstring += "\nReturn value: always NULL."
             else:
-                borrows = (", borrowed=True", "")[entry.result_refs]
+                borrows = ("borrow_from()", "")[entry.result_refs]
         docstring = "\n    ".join(docstring.splitlines())
         if docstring:
             docstring = '    """%s"""\n' % (docstring,)
