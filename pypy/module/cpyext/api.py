@@ -215,7 +215,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
                             return None
                         else:
                             return api_function.error_value
-                    if isinstance(res, BorrowedPair):
+                    if res is None:
+                        return res
+                    elif isinstance(res, BorrowedPair):
                         return res.w_borrowed
                     else:
                         return res
