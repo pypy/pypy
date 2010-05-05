@@ -258,10 +258,6 @@ def Py_DecRef(space, obj):
     if obj.c_ob_refcnt == 0:
         state = space.fromcache(State)
         ptr = rffi.cast(ADDR, obj)
-        try:
-            del state.borrowed_objects[ptr]
-        except KeyError:
-            pass
         if ptr not in state.py_objects_r2w:
             w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
             if space.is_w(w_type, space.w_str) or space.is_w(w_type, space.w_unicode):
@@ -277,11 +273,12 @@ def Py_DecRef(space, obj):
                 _Py_Dealloc(space, obj)
             del state.py_objects_w2r[w_obj]
         if ptr in state.borrow_mapping: # move to lifeline __del__
+            # The object is a borrow container, clear borrowed references
             for containee in state.borrow_mapping[ptr]:
                 w_containee = state.py_objects_r2w.get(containee, None)
                 if w_containee is not None:
                     containee = state.py_objects_w2r[w_containee]
-                    Py_DecRef(space, w_containee)
+                    Py_DecRef(space, containee)
                     containee_ptr = rffi.cast(ADDR, containee)
                     try:
                         del state.borrowed_objects[containee_ptr]
@@ -342,10 +339,8 @@ def add_borrowed_object(space, obj):
         raise NullPointerException
     if container_ptr == -1:
         return
-    borrowees = state.borrow_mapping.get(container_ptr, None)
-    if borrowees is None:
-        state.borrow_mapping[container_ptr] = borrowees = {}
     obj_ptr = rffi.cast(ADDR, obj)
+    borrowees = state.borrow_mapping.setdefault(container_ptr, {})
     borrowees[obj_ptr] = None
 
 #___________________________________________________________

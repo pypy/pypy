@@ -47,9 +47,11 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
              if (!PyArg_ParseTuple(args, "O|O", &a, &b)) {
                  return NULL;
              }
-             if (!b) {
+             if (b)
+                 Py_INCREF(b);
+             else
                  b = PyInt_FromLong(42);
-             }
+             /* return an owned reference */
              return b;
              ''')])
         assert mod.oneargint(1) == 1
