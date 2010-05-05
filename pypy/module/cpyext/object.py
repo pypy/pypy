@@ -4,7 +4,6 @@ from pypy.module.cpyext.api import cpython_api, generic_cpy_call, CANNOT_FAIL,\
         Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT, Py_GE, CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef
-from pypy.module.cpyext.state import State
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr, W_PyCTypeObject
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.objectobject import W_ObjectObject

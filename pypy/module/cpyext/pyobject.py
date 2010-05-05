@@ -186,7 +186,8 @@ def track_reference(space, py_obj, w_obj, borrowed=False, replace=False):
         assert ptr not in state.py_objects_r2w
         assert ptr not in state.borrowed_objects
     state.py_objects_w2r[w_obj] = py_obj
-    state.py_objects_r2w[ptr] = w_obj
+    if ptr: # init_typeobject() bootstraps with NULL references
+        state.py_objects_r2w[ptr] = w_obj
     if borrowed:
         state.borrowed_objects[ptr] = None
 

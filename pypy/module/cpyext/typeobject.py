@@ -106,7 +106,6 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 def update_all_slots(space, w_obj, pto):
     #  XXX fill slots in pto
-    state = space.fromcache(State)
     for method_name, slot_name, slot_func, _, _, _ in slotdefs:
         w_descr = space.lookup(w_obj, method_name)
         if w_descr is None:
@@ -135,7 +134,6 @@ def update_all_slots(space, w_obj, pto):
 
 def add_operators(space, dict_w, pto):
     # XXX support PyObject_HashNotImplemented
-    state = space.fromcache(State)
     for method_name, slot_name, _, wrapper_func, wrapper_func_kwds, doc in slotdefs:
         if method_name in dict_w:
             continue
@@ -341,10 +339,9 @@ def init_typeobject(space):
     # - tuple.tp_bases is a tuple
 
     # insert null placeholders to please make_ref()
-    state = space.fromcache(State)
-    state.py_objects_w2r[space.w_type] = lltype.nullptr(PyObject.TO)
-    state.py_objects_w2r[space.w_object] = lltype.nullptr(PyObject.TO)
-    state.py_objects_w2r[space.w_tuple] = lltype.nullptr(PyObject.TO)
+    track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
+    track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
+    track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
 
     # create the objects
     py_type = create_ref(space, space.w_type)
@@ -428,7 +425,6 @@ def setup_string_buffer_procs(space, pto):
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
-    state = space.fromcache(State)
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     type_pto = obj.c_ob_type
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)

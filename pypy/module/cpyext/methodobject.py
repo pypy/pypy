@@ -13,7 +13,6 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, cpython_struct, METH_KEYWORDS,
     METH_O, CONST_STRING, METH_CLASS, METH_STATIC, METH_COEXIST, METH_NOARGS,
     METH_VARARGS, build_type_checkers, PyObjectFields, bootstrap_function)
-from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.tupleobject import W_TupleObject
