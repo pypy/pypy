@@ -192,7 +192,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     if w_category is None:
         w_category = space.w_None
     w_message = space.wrap(rffi.charp2str(message_ptr))
-    w_stacklevel = space.wrap(stacklevel)
+    w_stacklevel = space.wrap(rffi.cast(lltype.Signed, stacklevel))
 
     w_module = PyImport_Import(space, space.wrap("warnings"))
     w_warn = space.getattr(w_module, space.wrap("warn"))
