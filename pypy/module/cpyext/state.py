@@ -17,7 +17,6 @@ class State:
         self.borrow_mapping = {} # { addr of container -> { addr of containee -> None } }
         self.borrowed_objects = {} # { addr of containee -> None }
         self.non_heaptypes = [] # list of wrapped objects
-        self.last_container = 0 # addr of last container
         self.operror = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 

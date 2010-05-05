@@ -2,7 +2,7 @@ import py
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import make_ref, add_borrowed_object
+from pypy.module.cpyext.pyobject import make_ref, borrow_from
 
 
 class TestBorrowing(BaseApiTest):
@@ -11,9 +11,7 @@ class TestBorrowing(BaseApiTest):
         w_int = space.wrap(1)
         w_tuple = space.newtuple([w_int])
         api.Py_IncRef(w_tuple)
-        api.register_container(w_tuple)
-        one_pyo = make_ref(space, w_int, borrowed=True)
-        add_borrowed_object(space, one_pyo)
+        one_pyo = borrow_from(w_tuple, w_int).get_ref(space)
         print state.borrowed_objects
         api.Py_DecRef(w_tuple)
         state.print_refcounts()

@@ -1,14 +1,14 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject, register_container
+from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod, PyMethodDef, PyCFunction
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
 
-#@cpython_api([rffi.CCHARP], PyObject, borrowed=True)
+#@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name argument
     may be of the form package.module. First check the modules dictionary if
@@ -30,7 +30,7 @@ def PyImport_AddModule(space, name):
     return w_mod
 
 @cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
-              PyObject, rffi.INT_real], PyObject, borrowed=False) # we cannot borrow here
+              PyObject, rffi.INT_real], PyObject)
 def Py_InitModule4(space, name, methods, doc, w_self, apiver):
     """
     Create a new module object based on a name and table of functions, returning
@@ -58,6 +58,7 @@ def Py_InitModule4(space, name, methods, doc, w_self, apiver):
     if doc:
         space.setattr(w_mod, space.wrap("__doc__"),
                       space.wrap(rffi.charp2str(doc)))
+    # we cannot borrow here
     return w_mod
 
 
@@ -108,13 +109,12 @@ def PyModule_Check(space, w_obj):
     return int(space.is_w(w_type, w_obj_type) or
                space.is_true(space.issubtype(w_obj_type, w_type)))
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
         w_dict = w_mod.getdict()
-        register_container(space, w_mod)
-        return w_dict
+        return borrow_from(w_mod, w_dict)
     else:
         PyErr_BadInternalCall(space)
 

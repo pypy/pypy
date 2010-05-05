@@ -319,29 +319,28 @@ def _Py_Dealloc(space, obj):
 #___________________________________________________________
 # Support for borrowed references
 
-@cpython_api([PyObject], lltype.Void, external=False)
-def register_container(space, container):
-    state = space.fromcache(State)
-    if not container: # self-managed
-        container_ptr = -1
-    else:
-        container_ptr = rffi.cast(ADDR, container)
-    assert not state.last_container, "Last container was not fetched"
-    state.last_container = container_ptr
+class BorrowedPair:
+    def __init__(self, w_container, w_borrowed):
+        self.w_borrowed = w_borrowed
+        self.w_container = w_container
 
-def add_borrowed_object(space, obj):
-    state = space.fromcache(State)
-    container_ptr = state.last_container
-    state.last_container = 0
-    if not obj:
-        return
-    if not container_ptr:
-        raise NullPointerException
-    if container_ptr == -1:
-        return
-    obj_ptr = rffi.cast(ADDR, obj)
-    borrowees = state.borrow_mapping.setdefault(container_ptr, {})
-    borrowees[obj_ptr] = None
+    def get_ref(self, space):
+        if self.w_borrowed is None:
+            return lltype.nullptr(PyObject.TO)
+        state = space.fromcache(State)
+        container = make_ref(space, self.w_container)
+        Py_DecRef(space, container)
+        container_ptr = rffi.cast(ADDR, container)
+        ref = make_ref(space, self.w_borrowed, borrowed=True)
+        if self.w_container is None: # self-managed
+            return ref
+        obj_ptr = rffi.cast(ADDR, ref)
+        borrowees = state.borrow_mapping.setdefault(container_ptr, {})
+        borrowees[obj_ptr] = None
+        return ref
+
+def borrow_from(container, borrowed):
+    return BorrowedPair(container, borrowed)
 
 #___________________________________________________________
 

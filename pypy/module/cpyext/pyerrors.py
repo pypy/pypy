@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, Py_DecRef, register_container)
+    PyObject, PyObjectP, make_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.rlib.rposix import get_errno
@@ -27,13 +27,12 @@ def PyErr_SetNone(space, w_type):
     """This is a shorthand for PyErr_SetObject(type, Py_None)."""
     PyErr_SetObject(space, w_type, space.w_None)
 
-@cpython_api([], PyObject, borrowed=True)
+@cpython_api([], PyObject)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
     if state.operror is None:
         return None
-    register_container(space, lltype.nullptr(PyObject.TO))
-    return state.operror.w_type
+    return borrow_from(None, state.operror.w_type)
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):

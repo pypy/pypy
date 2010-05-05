@@ -144,7 +144,7 @@ def PyObject_GetItem(space, w_obj, w_key):
     This is the equivalent of the Python expression o[key]."""
     return space.getitem(w_obj, w_key)
 
-@cpython_api([PyObject, PyTypeObjectPtr], PyObject, borrowed=True)
+@cpython_api([PyObject, PyTypeObjectPtr], PyObject)
 def PyObject_Init(space, op, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
@@ -157,7 +157,7 @@ def PyObject_Init(space, op, type):
     op.c_ob_refcnt = 1
     return from_ref(space, op) # XXX will give an exception
 
-@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyObject_InitVar(space, op, type, size):
     """This does everything PyObject_Init() does, and also initializes the
     length information for a variable-size object."""

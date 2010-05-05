@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, register_container
+from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, borrow_from
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
@@ -39,20 +39,19 @@ def PyList_SetItem(space, w_list, index, w_item):
     wrappeditems[index] = w_item
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyList_GetItem(space, w_list, index):
     """Return the object at position pos in the list pointed to by p.  The
     position must be positive, indexing from the end of the list is not
     supported.  If pos is out of bounds, return NULL and set an
     IndexError exception."""
-    register_container(space, w_list)
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     wrappeditems = w_list.wrappeditems
     if index < 0 or index >= len(wrappeditems):
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
-    return wrappeditems[index]
+    return borrow_from(w_list, wrappeditems[index])
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

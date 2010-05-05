@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
-from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, register_container
+from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -23,14 +23,13 @@ def PyTuple_SetItem(space, w_t, pos, w_obj):
     Py_DecRef(space, w_obj) # SetItem steals a reference!
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyTuple_GetItem(space, w_t, pos):
     if not PyTuple_Check(space, w_t):
         PyErr_BadInternalCall(space)
     assert isinstance(w_t, W_TupleObject)
     w_obj = w_t.wrappeditems[pos]
-    register_container(space, w_t)
-    return w_obj
+    return borrow_from(w_t, w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyTuple_GET_SIZE(space, w_t):

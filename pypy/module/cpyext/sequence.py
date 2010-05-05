@@ -2,7 +2,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
-from pypy.module.cpyext.pyobject import PyObject, register_container
+from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
@@ -40,7 +40,7 @@ def PySequence_Fast(space, w_obj, m):
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
@@ -50,8 +50,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     else:
         assert isinstance(w_obj, tupleobject.W_TupleObject)
         w_res = w_obj.wrappeditems[index]
-    register_container(space, w_obj)
-    return w_res
+    return borrow_from(w_obj, w_res)
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):

@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, build_type_checkers,\
         Py_ssize_t, PyObjectP, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject, register_container
+from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 
@@ -11,14 +11,13 @@ def PyDict_New(space):
 
 PyDict_Check, PyDict_CheckExact = build_type_checkers("Dict")
 
-@cpython_api([PyObject, PyObject], PyObject, borrowed=True, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
 def PyDict_GetItem(space, w_dict, w_key):
     try:
         w_res = space.getitem(w_dict, w_key)
     except:
         return None
-    register_container(space, w_dict)
-    return w_res
+    return borrow_from(w_dict, w_res)
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
@@ -47,7 +46,7 @@ def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     else:
         PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject, CONST_STRING], PyObject, borrowed=True, error=CANNOT_FAIL)
+@cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL)
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
@@ -57,8 +56,7 @@ def PyDict_GetItemString(space, w_dict, key):
         w_res = None
     if w_res is None:
         return None
-    register_container(space, w_dict)
-    return w_res
+    return borrow_from(w_dict, w_res)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyDict_Size(space, w_obj):

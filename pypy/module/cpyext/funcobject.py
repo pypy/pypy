@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     PyObjectFields, generic_cpy_call,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, register_container)
+    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
 from pypy.interpreter.function import Function, Method
 
 PyFunctionObjectStruct = lltype.ForwardReference()
@@ -43,18 +43,16 @@ def PyMethod_New(space, w_func, w_self, w_cls):
     class which provides the unbound method."""
     return Method(space, w_func, w_self, w_cls)
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyMethod_Function(space, w_method):
     """Return the function object associated with the method meth."""
     assert isinstance(w_method, Method)
-    register_container(space, w_method)
-    return w_method.w_function
+    return borrow_from(w_method, w_method.w_function)
 
-@cpython_api([PyObject], PyObject, borrowed=True)
+@cpython_api([PyObject], PyObject)
 def PyMethod_Class(space, w_method):
     """Return the class object from which the method meth was created; if this was
     created from an instance, it will be the class of the instance."""
     assert isinstance(w_method, Method)
-    register_container(space, w_method)
-    return w_method.w_class
+    return borrow_from(w_method, w_method.w_class)
 
