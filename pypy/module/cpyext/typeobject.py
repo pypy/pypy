@@ -581,7 +581,7 @@ def type_realize(space, py_obj):
     finish_type_2(space, py_type, w_obj)
 
     state = space.fromcache(RefcountState)
-    state.non_heaptypes.append(w_obj)
+    state.non_heaptypes_w.append(w_obj)
 
     return w_obj
 

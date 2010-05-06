@@ -152,7 +152,7 @@ class RefcountState:
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
         self.borrow_mapping = {} # { addr of container -> { addr of containee -> None } }
         self.borrowed_objects = {} # { addr of containee -> None }
-        self.non_heaptypes = [] # list of wrapped objects
+        self.non_heaptypes_w = []
 
     def _freeze_(self):
         assert not self.borrowed_objects and not self.borrow_mapping

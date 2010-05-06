@@ -138,7 +138,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
-        state.non_heaptypes[:] = []
+        state.non_heaptypes_w[:] = []
 
     def compile_module(self, name, **kwds):
         """
@@ -262,9 +262,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         for name in self.imported_module_names:
             self.unimport_module(name)
         state = self.space.fromcache(RefcountState)
-        for w_obj in state.non_heaptypes:
+        for w_obj in state.non_heaptypes_w:
             Py_DecRef(self.space, w_obj)
-        state.non_heaptypes[:] = []
+        state.non_heaptypes_w[:] = []
         while state.borrowed_objects:
             addr, _ = state.borrowed_objects.popitem()
             w_obj = state.py_objects_r2w[addr]
