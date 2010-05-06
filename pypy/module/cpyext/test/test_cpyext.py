@@ -265,11 +265,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(self.space, w_obj)
         state.non_heaptypes_w[:] = []
-        while state.borrowed_objects:
-            addr, _ = state.borrowed_objects.popitem()
-            w_obj = state.py_objects_r2w[addr]
-            Py_DecRef(self.space, w_obj)
-        state.borrow_mapping = {}
+        state.reset_borrowed_references()
         if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
 

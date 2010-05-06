@@ -148,9 +148,10 @@ def get_typedescr(typedef):
 
 class RefcountState:
     def __init__(self, space):
+        self.space = space
         self.py_objects_w2r = {} # { w_obj -> raw PyObject }
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
-        self.borrow_mapping = {} # { addr of container -> { addr of containee -> None } }
+        self.borrow_mapping = {} # { addr of container -> { w_containee -> None } }
         self.borrowed_objects = {} # { addr of containee -> None }
         self.non_heaptypes_w = []
 
@@ -169,6 +170,13 @@ class RefcountState:
         print "REFCOUNTS"
         for w_obj, obj in self.py_objects_w2r.items():
             print "%r: %i" % (w_obj, obj.c_ob_refcnt)
+
+    def reset_borrowed_references(self):
+        while self.borrowed_objects:
+            addr, _ = self.borrowed_objects.popitem()
+            w_obj = self.py_objects_r2w[addr]
+            Py_DecRef(self.space, w_obj)
+        self.borrow_mapping = {}
 
 class NullPointerException(Exception):
     pass
@@ -342,7 +350,7 @@ def make_borrowed_ref(space, w_container, w_borrowed):
     Py_DecRef(space, container)
     container_ptr = rffi.cast(ADDR, container)
     borrowees = state.borrow_mapping.setdefault(container_ptr, {})
-    borrowees[obj_ptr] = None
+    borrowees[w_borrowed] = None
     return ref
 
 class BorrowPair:
@@ -385,14 +393,8 @@ def delete_borrower(space, py_obj):
     ptr = rffi.cast(ADDR, py_obj)
     state = space.fromcache(RefcountState)
     if ptr in state.borrow_mapping: # move to lifeline __del__
-        for containee in state.borrow_mapping[ptr]:
-            w_containee = state.py_objects_r2w.get(containee, None)
-            if w_containee is not None:
-                forget_borrowee(space, w_containee)
-            else:
-                if DEBUG_REFCOUNT:
-                    print >>sys.stderr, "Borrowed object is already gone:", \
-                            hex(containee)
+        for w_containee in state.borrow_mapping[ptr]:
+            forget_borrowee(space, w_containee)
         del state.borrow_mapping[ptr]
 
 
