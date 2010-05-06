@@ -221,9 +221,9 @@ def track_reference(space, py_obj, w_obj, replace=False):
     if ptr: # init_typeobject() bootstraps with NULL references
         state.py_objects_r2w[ptr] = w_obj
 
-def make_ref(space, w_obj, steal=False):
+def make_ref(space, w_obj):
     """
-    Returns a reference to an intepreter object.
+    Returns a new reference to an intepreter object.
     """
     if w_obj is None:
         return lltype.nullptr(PyObject.TO)
@@ -232,12 +232,9 @@ def make_ref(space, w_obj, steal=False):
     try:
         py_obj = state.py_objects_w2r[w_obj]
     except KeyError:
-        assert not steal
         py_obj = create_ref(space, w_obj)
         track_reference(space, py_obj, w_obj)
-        return py_obj
-
-    if not steal:
+    else:
         Py_IncRef(space, py_obj)
     return py_obj
 

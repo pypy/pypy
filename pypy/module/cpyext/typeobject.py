@@ -191,11 +191,12 @@ def add_tp_new_wrapper(space, dict_w, pto):
 def inherit_special(space, pto, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
-    base_object_pyo = make_ref(space, space.w_object, steal=True)
+    base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
     if base_pto != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
         if not pto.c_tp_new:
             pto.c_tp_new = base_pto.c_tp_new
+    Py_DecRef(space, base_object_pyo)
 
 class PyOLifeline(object):
     def __init__(self, space, pyo):
@@ -411,8 +412,10 @@ def str_getreadbuffer(space, w_str, segment, ref):
     if segment != 0:
         raise OperationError(space.w_SystemError, space.wrap
                              ("accessing non-existent string segment"))
-    pyref = make_ref(space, w_str, steal=True)
+    pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
+    # Stolen reference: the object has better exist somewhere else
+    Py_DecRef(space, pyref)
     return space.int_w(space.len(w_str))
 
 def setup_string_buffer_procs(space, pto):
@@ -430,7 +433,7 @@ def type_dealloc(space, obj):
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
     Py_DecRef(space, obj_pto.c_tp_mro)
-    Py_DecRef(space, obj_pto.c_tp_cache) # lets do it like cpython
+    Py_DecRef(space, obj_pto.c_tp_cache) # let's do it like cpython
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         if obj_pto.c_tp_as_buffer:
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
@@ -566,7 +569,9 @@ def type_realize(space, py_obj):
     py_type = rffi.cast(PyTypeObjectPtr, py_obj)
 
     if not py_type.c_tp_base:
-        base = make_ref(space, space.w_object, steal=True)
+        # borrowed reference, but w_object is unlikely to disappear
+        base = make_ref(space, space.w_object)
+        Py_DecRef(space, base)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
 
     finish_type_1(space, py_type)
