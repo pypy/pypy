@@ -151,7 +151,7 @@ class RefcountState:
         self.space = space
         self.py_objects_w2r = {} # { w_obj -> raw PyObject }
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
-        self.borrow_mapping = {} # { addr of container -> { w_containee -> None } }
+        self.borrow_mapping = {} # { w_container -> { w_containee -> None } }
         self.borrowed_objects = {} # { addr of containee -> None }
         self.non_heaptypes_w = []
 
@@ -295,8 +295,8 @@ def Py_DecRef(space, obj):
             if not space.is_w(w_typetype, space.gettypeobject(W_PyCTypeObject.typedef)):
                 _Py_Dealloc(space, obj)
             del state.py_objects_w2r[w_obj]
-        # if the object was a container for borrowed references
-        delete_borrower(space, obj)
+            # if the object was a container for borrowed references
+            delete_borrower(space, w_obj)
     else:
         if not we_are_translated() and obj.c_ob_refcnt < 0:
             message = "Negative refcount for obj %s with type %s" % (
@@ -344,12 +344,9 @@ def make_borrowed_ref(space, w_container, w_borrowed):
     else:
         Py_DecRef(space, ref) # already in borrowed list
 
-    container = make_ref(space, w_container)
-    if not container: # self-managed
+    if w_container is None: # self-managed
         return ref
-    Py_DecRef(space, container)
-    container_ptr = rffi.cast(ADDR, container)
-    borrowees = state.borrow_mapping.setdefault(container_ptr, {})
+    borrowees = state.borrow_mapping.setdefault(w_container, {})
     borrowees[w_borrowed] = None
     return ref
 
@@ -385,17 +382,16 @@ def forget_borrowee(space, w_obj):
     else:
         Py_DecRef(space, ref)
 
-def delete_borrower(space, py_obj):
+def delete_borrower(space, w_obj):
     """
     Called when a potential container for borrowed references has lost its
     last reference.  Removes the borrowed references it contains.
     """
-    ptr = rffi.cast(ADDR, py_obj)
     state = space.fromcache(RefcountState)
-    if ptr in state.borrow_mapping: # move to lifeline __del__
-        for w_containee in state.borrow_mapping[ptr]:
+    if w_obj in state.borrow_mapping: # move to lifeline __del__
+        for w_containee in state.borrow_mapping[w_obj]:
             forget_borrowee(space, w_containee)
-        del state.borrow_mapping[ptr]
+        del state.borrow_mapping[w_obj]
 
 
 #___________________________________________________________
