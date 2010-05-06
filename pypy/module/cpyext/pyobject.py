@@ -178,9 +178,6 @@ class RefcountState:
             Py_DecRef(self.space, w_obj)
         self.borrow_mapping = {}
 
-class NullPointerException(Exception):
-    pass
-
 class InvalidPointerException(Exception):
     pass
 

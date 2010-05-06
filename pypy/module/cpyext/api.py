@@ -401,7 +401,6 @@ def make_wrapper(space, callable):
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import BorrowPair
-        from pypy.module.cpyext.pyobject import NullPointerException
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
