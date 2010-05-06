@@ -216,7 +216,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
                         else:
                             return api_function.error_value
                     if res is None:
-                        return res
+                        return None
                     elif isinstance(res, BorrowedPair):
                         return res.w_borrowed
                     else:
@@ -448,10 +448,11 @@ def make_wrapper(space, callable):
                 retval = error_value
 
             elif callable.api_func.restype is PyObject:
-                if isinstance(result, BorrowedPair):
+                if result is None:
+                    retval = make_ref(space, None)
+                elif isinstance(result, BorrowedPair):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
-                    assert not isinstance(result, BorrowedPair)
                     retval = make_ref(space, result)
                 else:
                     retval = result

@@ -305,17 +305,17 @@ class BorrowedPair:
         Create a borrowed reference, which will live as long as the container
         has a living reference (as a PyObject!)
         """
-        if self.w_borrowed is None:
-            return lltype.nullptr(PyObject.TO)
-
         ref = make_ref(space, self.w_borrowed)
+        if not ref:
+            return ref
 
+        # state.borrowed_objects owns the reference
         state = space.fromcache(State)
         obj_ptr = rffi.cast(ADDR, ref)
         if obj_ptr not in state.borrowed_objects:
             state.borrowed_objects[obj_ptr] = None
         else:
-            Py_DecRef(space, ref)
+            Py_DecRef(space, ref) # already in borrowed list
 
         if self.w_container is None: # self-managed
             return ref
