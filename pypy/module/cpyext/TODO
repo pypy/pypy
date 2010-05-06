@@ -14,7 +14,6 @@
    it does is a lltype function pointer, no C code involved.
 
  - Fix GIL handling (e.g. after releasing the GIL, GC operations might occur in savethreads).
- - Fix PyEval_SaveThread: http://paste.pocoo.org/show/206521/
 
  - Export pointers where pointers are expected, i.e. kill the "#define PyExc_OSError &PyExc_OSError" hack.
 
