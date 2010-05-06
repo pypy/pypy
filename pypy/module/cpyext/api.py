@@ -458,8 +458,6 @@ def make_wrapper(space, callable):
                     retval = result
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
-        except NullPointerException:
-            print "Container not registered by %s" % callable.__name__
         except Exception, e:
             if not we_are_translated():
                 import traceback
