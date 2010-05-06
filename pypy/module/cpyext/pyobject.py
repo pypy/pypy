@@ -333,7 +333,7 @@ def borrow_from(container, borrowed):
 def forget_borrowee(space, w_obj):
     "De-register an object from the list of borrowed references"
     state = space.fromcache(State)
-    ref = state.py_objects_w2r.get(w_obj)
+    ref = state.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
     if not ref:
         if DEBUG_REFCOUNT:
             print >>sys.stderr, "Borrowed object is already gone:", \
