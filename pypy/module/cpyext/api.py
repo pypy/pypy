@@ -174,7 +174,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
             def unwrapper(space, *args):
                 from pypy.module.cpyext.pyobject import Py_DecRef
                 from pypy.module.cpyext.pyobject import make_ref, from_ref
-                from pypy.module.cpyext.pyobject import BorrowedPair
+                from pypy.module.cpyext.pyobject import BorrowPair
                 newargs = ()
                 to_decref = []
                 assert len(args) == len(api_function.argtypes)
@@ -217,7 +217,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
                             return api_function.error_value
                     if res is None:
                         return None
-                    elif isinstance(res, BorrowedPair):
+                    elif isinstance(res, BorrowPair):
                         return res.w_borrowed
                     else:
                         return res
@@ -400,7 +400,7 @@ def make_wrapper(space, callable):
     @specialize.ll()
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
-        from pypy.module.cpyext.pyobject import BorrowedPair
+        from pypy.module.cpyext.pyobject import BorrowPair
         from pypy.module.cpyext.pyobject import NullPointerException
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
@@ -450,7 +450,7 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is PyObject:
                 if result is None:
                     retval = make_ref(space, None)
-                elif isinstance(result, BorrowedPair):
+                elif isinstance(result, BorrowPair):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
                     retval = make_ref(space, result)

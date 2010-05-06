@@ -146,6 +146,30 @@ def get_typedescr(typedef):
 #________________________________________________________
 # refcounted object support
 
+class RefcountState:
+    def __init__(self, space):
+        self.py_objects_w2r = {} # { w_obj -> raw PyObject }
+        self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
+        self.borrow_mapping = {} # { addr of container -> { addr of containee -> None } }
+        self.borrowed_objects = {} # { addr of containee -> None }
+        self.non_heaptypes = [] # list of wrapped objects
+
+    def _freeze_(self):
+        assert not self.borrowed_objects and not self.borrow_mapping
+        self.py_objects_r2w.clear() # is not valid anymore after translation
+        return False
+
+    def init_r2w_from_w2r(self):
+        from pypy.module.cpyext.api import ADDR
+        for w_obj, obj in self.py_objects_w2r.items():
+            ptr = rffi.cast(ADDR, obj)
+            self.py_objects_r2w[ptr] = w_obj
+
+    def print_refcounts(self):
+        print "REFCOUNTS"
+        for w_obj, obj in self.py_objects_w2r.items():
+            print "%r: %i" % (w_obj, obj.c_ob_refcnt)
+
 class NullPointerException(Exception):
     pass
 
@@ -178,7 +202,7 @@ def track_reference(space, py_obj, w_obj, replace=False):
     """
     # XXX looks like a PyObject_GC_TRACK
     ptr = rffi.cast(ADDR, py_obj)
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     if DEBUG_REFCOUNT:
         debug_refcount("MAKREF", py_obj, w_obj)
         if not replace:
@@ -196,7 +220,7 @@ def make_ref(space, w_obj, steal=False, items=0):
     if w_obj is None:
         return lltype.nullptr(PyObject.TO)
     assert isinstance(w_obj, W_Root)
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     try:
         py_obj = state.py_objects_w2r[w_obj]
     except KeyError:
@@ -218,7 +242,7 @@ def from_ref(space, ref, recurse=False):
     assert lltype.typeOf(ref) == PyObject
     if not ref:
         return None
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     ptr = rffi.cast(ADDR, ref)
 
     try:
@@ -247,7 +271,7 @@ def Py_DecRef(space, obj):
     if DEBUG_REFCOUNT:
         debug_refcount("DECREF", obj, obj.c_ob_refcnt, frame_stackdepth=3)
     if obj.c_ob_refcnt == 0:
-        state = space.fromcache(State)
+        state = space.fromcache(RefcountState)
         ptr = rffi.cast(ADDR, obj)
         if ptr not in state.py_objects_r2w:
             w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
@@ -295,44 +319,49 @@ def _Py_Dealloc(space, obj):
 #___________________________________________________________
 # Support for borrowed references
 
-class BorrowedPair:
-    def __init__(self, w_container, w_borrowed):
-        self.w_borrowed = w_borrowed
-        self.w_container = w_container
-
-    def get_ref(self, space):
-        """
-        Create a borrowed reference, which will live as long as the container
-        has a living reference (as a PyObject!)
-        """
-        ref = make_ref(space, self.w_borrowed)
-        if not ref:
-            return ref
-
-        # state.borrowed_objects owns the reference
-        state = space.fromcache(State)
-        obj_ptr = rffi.cast(ADDR, ref)
-        if obj_ptr not in state.borrowed_objects:
-            state.borrowed_objects[obj_ptr] = None
-        else:
-            Py_DecRef(space, ref) # already in borrowed list
-
-        if self.w_container is None: # self-managed
-            return ref
-
-        container = make_ref(space, self.w_container)
-        Py_DecRef(space, container)
-        container_ptr = rffi.cast(ADDR, container)
-        borrowees = state.borrow_mapping.setdefault(container_ptr, {})
-        borrowees[obj_ptr] = None
+def make_borrowed_ref(space, w_container, w_borrowed):
+    """
+    Create a borrowed reference, which will live as long as the container
+    has a living reference (as a PyObject!)
+    """
+    ref = make_ref(space, w_borrowed)
+    if not ref:
         return ref
 
+    # state.borrowed_objects owns the reference
+    state = space.fromcache(RefcountState)
+    obj_ptr = rffi.cast(ADDR, ref)
+    if obj_ptr not in state.borrowed_objects:
+        state.borrowed_objects[obj_ptr] = None
+    else:
+        Py_DecRef(space, ref) # already in borrowed list
+
+    container = make_ref(space, w_container)
+    if not container: # self-managed
+        return ref
+    Py_DecRef(space, container)
+    container_ptr = rffi.cast(ADDR, container)
+    borrowees = state.borrow_mapping.setdefault(container_ptr, {})
+    borrowees[obj_ptr] = None
+    return ref
+
+class BorrowPair:
+    """
+    Delays the creation of a borrowed reference.
+    """
+    def __init__(self, w_container, w_borrowed):
+        self.w_container = w_container
+        self.w_borrowed = w_borrowed
+
+    def get_ref(self, space):
+        return make_borrowed_ref(space, self.w_container, self.w_borrowed)
+
 def borrow_from(container, borrowed):
-    return BorrowedPair(container, borrowed)
+    return BorrowPair(container, borrowed)
 
 def forget_borrowee(space, w_obj):
     "De-register an object from the list of borrowed references"
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     ref = state.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
     if not ref:
         if DEBUG_REFCOUNT:
@@ -354,7 +383,7 @@ def delete_borrower(space, py_obj):
     last reference.  Removes the borrowed references it contains.
     """
     ptr = rffi.cast(ADDR, py_obj)
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     if ptr in state.borrow_mapping: # move to lifeline __del__
         for containee in state.borrow_mapping[ptr]:
             w_containee = state.py_objects_r2w.get(containee, None)

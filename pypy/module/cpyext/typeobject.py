@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     PyBufferProcs, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference)
+    track_reference, RefcountState)
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import FunctionWithFixedCode, StaticMethod
 from pypy.module.cpyext import structmemberdefs
@@ -580,7 +580,7 @@ def type_realize(space, py_obj):
 
     finish_type_2(space, py_type, w_obj)
 
-    state = space.fromcache(State)
+    state = space.fromcache(RefcountState)
     state.non_heaptypes.append(w_obj)
 
     return w_obj

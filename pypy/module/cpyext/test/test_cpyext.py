@@ -12,6 +12,7 @@ from pypy.translator.gensupp import uniquemodulename
 from pypy.tool.udir import udir
 from pypy.module.cpyext import api, typeobject
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from pypy.translator.goal import autopath
 from pypy.lib.identity_dict import identity_dict
@@ -71,7 +72,7 @@ def compile_module(modname, **kwds):
     return str(pydname)
 
 def freeze_refcnts(self):
-    state = self.space.fromcache(State)
+    state = self.space.fromcache(RefcountState)
     self.frozen_refcounts = {}
     for w_obj, obj in state.py_objects_w2r.iteritems():
         self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
@@ -85,7 +86,7 @@ class LeakCheckingTest(object):
         import gc
 
         leaking = False
-        state = self.space.fromcache(State)
+        state = self.space.fromcache(RefcountState)
         gc.collect()
         lost_objects_w = identity_dict()
         lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
@@ -136,6 +137,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
+        state = cls.space.fromcache(RefcountState)
+        state.non_heaptypes[:] = []
 
     def compile_module(self, name, **kwds):
         """
@@ -258,7 +261,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def teardown_method(self, func):
         for name in self.imported_module_names:
             self.unimport_module(name)
-        state = self.space.fromcache(State)
+        state = self.space.fromcache(RefcountState)
         for w_obj in state.non_heaptypes:
             Py_DecRef(self.space, w_obj)
         state.non_heaptypes[:] = []
