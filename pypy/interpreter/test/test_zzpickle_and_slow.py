@@ -73,10 +73,8 @@ def _detatch_helpers(space):
                   space.wrap('restore_top_frame'))
 
 class AppTestInterpObjectPickling:
-
+    pytestmark = py.test.mark.skipif("config.option.runappdirect")
     def setup_class(cls):
-        if conftest.option.runappdirect:
-            py.test.skip("not for py.test -A")
         _attach_helpers(cls.space)
 
     def teardown_class(cls):

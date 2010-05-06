@@ -5,6 +5,14 @@ from pypy.translator.platform import CompilationError, Platform
 from pypy.translator.platform import host
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
+def test_compilationerror_repr():
+    # compilation error output/stdout may be large, make sure
+    # repr creates a limited version
+    c = CompilationError('', '*'*1000)
+    assert len(repr(c)) < 500
+    c = CompilationError('*'*1000, '')
+    assert len(repr(c)) < 500
+
 class TestPlatform(object):
     platform = host
     strict_on_stderr = True

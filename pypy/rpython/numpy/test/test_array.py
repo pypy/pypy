@@ -3,6 +3,7 @@ Test the numpy implementation.
 """
 
 import py
+numpy = py.test.importorskip("numpy")
 import pypy.rpython.numpy.implementation
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import SomeObject, SomeInteger, SomeChar, SomeTuple
@@ -14,13 +15,6 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.rint import IntegerRepr
-
-def setup_module(mod):
-    try:
-        import numpy
-    except ImportError:
-        py.test.skip("numpy not found")
-    mod.numpy = numpy
 
 from pypy.rpython.numpy.rarray import ArrayRepr
 from pypy.rpython.numpy.aarray import SomeArray

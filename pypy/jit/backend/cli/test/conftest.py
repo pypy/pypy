@@ -1,5 +1,4 @@
 import py
 
-class Directory(py.test.collect.Directory):
-    def collect(self):
-        py.test.skip("CLI backend tests skipped for now")
+def pytest_collect_directory(path):
+    py.test.skip("CLI backend tests skipped for now")

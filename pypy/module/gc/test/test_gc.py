@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+import py
 
 class AppTestGC(object):
     def test_collect(self):
@@ -76,9 +77,10 @@ class AppTestGC(object):
         assert gc.isenabled()
 
 class AppTestGcDumpHeap(object):
+    pytestmark = py.test.mark.xfail(run=False)
+
     def setup_class(cls):
         import py
-        py.test.skip("Disabled")
         from pypy.tool.udir import udir
         from pypy.rlib import rgc
         class X(object):

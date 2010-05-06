@@ -21,7 +21,7 @@ def teardown_module(mod):
 def check_crasher(func_name):
     try:
         JIT_EXECUTABLE.sysexec(CRASH_FILE, func_name)
-    except py.impl.process.cmdexec.ExecutionFailed, e:
+    except py.process.cmdexec.Error, e:
         print "stderr"
         print "------"
         print e.err

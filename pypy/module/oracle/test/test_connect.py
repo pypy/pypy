@@ -7,11 +7,6 @@ class OracleNotConnectedTestBase(object):
 
     @classmethod
     def setup_class(cls):
-        try:
-            from pypy.module.oracle import roci
-        except ImportError:
-            py.test.skip("Oracle client not available")
-
         space = gettestobjspace(usemodules=('oracle',))
         cls.space = space
         space.setitem(space.builtin.w_dict, space.wrap('oracle'),

@@ -6,7 +6,6 @@ platform.
 import sys, py, os
 
 from pypy.tool.ansi_print import ansi_log
-from py.impl.code.code import safe_repr
 log = py.log.Producer("platform")
 py.log.setconsumer("platform", ansi_log)
 
@@ -19,9 +18,9 @@ class CompilationError(Exception):
 
     def __repr__(self):
         if self.err:
-            return "<CompilationError err=%s>" % safe_repr(self.err)
+            return "<CompilationError err=%s>" % py.io.saferepr(self.err)
         else:
-            return "<CompilationError out=%s>" % safe_repr(self.out)
+            return "<CompilationError out=%s>" % py.io.saferepr(self.out)
 
     __str__ = __repr__
 

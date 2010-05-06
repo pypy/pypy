@@ -43,7 +43,8 @@ def pytest_addoption(parser):
            help="set up tests to use specified platform as compile/run target")
 
 def pytest_funcarg__space(request):
-    return gettestobjspace()
+    spaceconfig = getattr(request.cls, 'spaceconfig', {})
+    return gettestobjspace(**spaceconfig)
 
 _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
@@ -92,6 +93,14 @@ def maketestobjspace(config=None):
     space.raises_w = appsupport.raises_w.__get__(space)
     space.eq_w = appsupport.eq_w.__get__(space)
     return space
+
+def pytest_runtest_setup(item):
+    if isinstance(item, PyPyTestFunction):
+        appclass = item.getparent(PyPyClassCollector)
+        if appclass is not None:
+            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
+            if spaceconfig:
+                appclass.obj.space = gettestobjspace(**spaceconfig)
 
 class TinyObjSpace(object):
     def __init__(self, **kwds):
@@ -196,7 +205,10 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         if not hasattr(__builtin__, helper):
             setattr(__builtin__, helper, getattr(py.test, helper))
 
-class Module(py.test.collect.Module): 
+def pytest_pycollect_makemodule(path, parent):
+    return PyPyModule(path, parent)
+
+class PyPyModule(py.test.collect.Module): 
     """ we take care of collecting classes both at app level 
         and at interp-level (because we need to stick a space 
         at the class) ourselves. 
@@ -204,7 +216,7 @@ class Module(py.test.collect.Module):
     def __init__(self, *args, **kwargs):
         if hasattr(sys, 'pypy_objspaceclass'):
             option.conf_iocapture = "sys" # pypy cannot do FD-based
-        super(Module, self).__init__(*args, **kwargs)
+        super(PyPyModule, self).__init__(*args, **kwargs)
 
     def accept_regular_test(self):
         if option.runappdirect:
@@ -235,7 +247,7 @@ class Module(py.test.collect.Module):
     def setup(self): 
         # stick py.test raise in module globals -- carefully
         ensure_pytest_builtin_helpers() 
-        super(Module, self).setup() 
+        super(PyPyModule, self).setup() 
         #    if hasattr(mod, 'objspacename'): 
         #        mod.space = getttestobjspace(mod.objspacename)
 
@@ -405,11 +417,17 @@ class AppTestMethod(AppTestFunction):
 class PyPyClassCollector(py.test.collect.Class):
     def setup(self):
         cls = self.obj 
-        cls.space = LazyObjSpaceGetter()
+        if not hasattr(cls, 'spaceconfig'):
+            cls.space = LazyObjSpaceGetter() 
+        else:
+            assert hasattr(cls, 'space') # set by pytest_runtest_setup
         super(PyPyClassCollector, self).setup() 
+
+class IntInstanceCollector(py.test.collect.Instance):
+    Function = IntTestFunction 
     
 class IntClassCollector(PyPyClassCollector): 
-    Function = IntTestFunction 
+    Instance = IntInstanceCollector
 
     def _haskeyword(self, keyword):
         return keyword == 'interplevel' or \
@@ -512,9 +530,5 @@ class ExpectClassCollector(py.test.collect.Class):
             py.test.skip("pexpect not found")
 
 
-class Directory(py.test.collect.Directory):
-
-    def recfilter(self, path):
-        # disable recursion in symlinked subdirectories
-        return (py.test.collect.Directory.recfilter(self, path)
-                and path.check(link=0))
+def pytest_ignore_collect(path):
+    return path.check(link=1)

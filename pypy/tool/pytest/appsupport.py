@@ -1,10 +1,7 @@
 import autopath
 import py
-import py.impl.code.assertion
-from py.impl.code import _assertionold as exprinfo
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from py.impl.test.outcome import ExceptionFailure
 
 # ____________________________________________________________
 
@@ -158,7 +155,7 @@ def build_pytest_assertion(space):
                 source = None
             from pypy import conftest
             if source and not conftest.option.nomagic: 
-                msg = exprinfo.interpret(source, runner, should_fail=True)
+                msg = py.code._reinterpret_old(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
                 w_msg = space.wrap(msg)
@@ -254,7 +251,7 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
         if not value.match(space, w_ExpectedException):
             raise type, value, tb
         return excinfo
-    except ExceptionFailure, e:
+    except py.test.raises.Exception, e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise
 

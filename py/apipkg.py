@@ -8,15 +8,17 @@ see http://pypi.python.org/pypi/apipkg
 import sys
 from types import ModuleType
 
-__version__ = "1.0b2"
+__version__ = "1.0b6"
 
 def initpkg(pkgname, exportdefs):
     """ initialize given package from the export definitions. """
     mod = ApiModule(pkgname, exportdefs, implprefix=pkgname)
     oldmod = sys.modules[pkgname]
     mod.__file__ = getattr(oldmod, '__file__', None)
-    mod.__version__ = getattr(oldmod, '__version__', None)
-    mod.__path__ = getattr(oldmod, '__path__', None)
+    mod.__version__ = getattr(oldmod, '__version__', '0')
+    for name in ('__path__', '__loader__'):
+        if hasattr(oldmod, name):
+            setattr(mod, name, getattr(oldmod, name))
     sys.modules[pkgname]  = mod
 
 def importobj(modpath, attrname):
@@ -26,7 +28,7 @@ def importobj(modpath, attrname):
 class ApiModule(ModuleType):
     def __init__(self, name, importspec, implprefix=None):
         self.__name__ = name
-        self.__all__ = list(importspec)
+        self.__all__ = [x for x in importspec if x != '__onfirstaccess__']
         self.__map__ = {}
         self.__implprefix__ = implprefix or name
         for name, importspec in importspec.items():
@@ -45,25 +47,49 @@ class ApiModule(ModuleType):
                     self.__map__[name] = (modpath, attrname)
 
     def __repr__(self):
+        l = []
+        if hasattr(self, '__version__'):
+            l.append("version=" + repr(self.__version__))
+        if hasattr(self, '__file__'):
+            l.append('from ' + repr(self.__file__))
+        if l:
+            return '<ApiModule %r %s>' % (self.__name__, " ".join(l))
         return '<ApiModule %r>' % (self.__name__,)
 
-    def __getattr__(self, name):
+    def __makeattr(self, name):
+        """lazily compute value for name or raise AttributeError if unknown."""
+        target = None
+        if '__onfirstaccess__' in self.__map__:
+            target = self.__map__.pop('__onfirstaccess__')
+            importobj(*target)()
         try:
             modpath, attrname = self.__map__[name]
         except KeyError:
+            if target is not None and name != '__onfirstaccess__':
+                # retry, onfirstaccess might have set attrs
+                return getattr(self, name)
             raise AttributeError(name)
         else:
             result = importobj(modpath, attrname)
             setattr(self, name, result)
-            del self.__map__[name]
+            try:
+                del self.__map__[name]
+            except KeyError:
+                pass # in a recursive-import situation a double-del can happen
             return result
+
+    __getattr__ = __makeattr
 
     def __dict__(self):
         # force all the content of the module to be loaded when __dict__ is read
         dictdescr = ModuleType.__dict__['__dict__']
         dict = dictdescr.__get__(self)
         if dict is not None:
+            hasattr(self, 'some')
             for name in self.__all__:
-                hasattr(self, name)  # force attribute load, ignore errors
+                try:
+                    self.__makeattr(name)
+                except AttributeError:
+                    pass
         return dict
     __dict__ = property(__dict__)
