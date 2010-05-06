@@ -16,8 +16,6 @@
  - Fix GIL handling (e.g. after releasing the GIL, GC operations might occur in savethreads).
  - Fix PyEval_SaveThread: http://paste.pocoo.org/show/206521/
 
- - Make Numpy work.
-
  - Export pointers where pointers are expected, i.e. kill the "#define PyExc_OSError &PyExc_OSError" hack.
 
  - refactor management of py_objects_r2w and py_objects_w2r, this can
@@ -29,9 +27,3 @@
  - sort out pypy's buffer protocol. PyPy's buffer right now don't support
    raw memory (except array which supports it in a hackish way), which
    should be fixed in order to make it nicely work with cpyext.
-
- - Py_InitModule() does not seem to return the correct module when using dotted import.
-   for example: "import wx" imports "wx._core_", which calls Py_InitModule("_core_").
-   This correcly creates and populates sys.modules["wx._core_"], but returns a new empty
-   module sys.modules["_core_"]. So functions go in the correct module, but types and
-   constants go into the wrong one.
