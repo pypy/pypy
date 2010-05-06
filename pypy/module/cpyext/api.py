@@ -453,7 +453,7 @@ def make_wrapper(space, callable):
                 elif isinstance(result, BorrowedPair):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
-                    assert isinstance(retval, W_Root)
+                    assert isinstance(result, W_Root)
                     retval = make_ref(space, result)
                 else:
                     retval = result
