@@ -242,7 +242,7 @@ def make_ref(space, w_obj, steal=False, items=0):
     return py_obj
 
 
-def from_ref(space, ref, recurse=False):
+def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
     object is not yet realized (see stringobject.py), creates it.
@@ -256,13 +256,14 @@ def from_ref(space, ref, recurse=False):
     try:
         return state.py_objects_r2w[ptr]
     except KeyError:
-        if recurse:
-            raise InvalidPointerException(str(ref))
+        pass
 
     # This reference is not yet a real interpreter object.
     # Realize it.
     ref_type = rffi.cast(PyObject, ref.c_ob_type)
-    w_type = from_ref(space, ref_type, True)
+    if ref_type == ref:
+        raise InvalidPointerException(str(ref))
+    w_type = from_ref(space, ref_type)
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.instancetypedef).realize(space, ref)
 
