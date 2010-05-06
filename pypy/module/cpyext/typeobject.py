@@ -338,7 +338,7 @@ def init_typeobject(space):
     # - object.tp_bases is a tuple
     # - tuple.tp_bases is a tuple
 
-    # insert null placeholders to please make_ref()
+    # insert null placeholders to please create_ref()
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
