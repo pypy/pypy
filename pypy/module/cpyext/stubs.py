@@ -3058,10 +3058,6 @@ def PyType_IS_GC(space, o):
     """
     raise NotImplementedError
 
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
-def PyType_GenericNew(space, type, args, kwds):
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items.

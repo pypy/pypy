@@ -156,11 +156,24 @@ def add_operators(space, dict_w, pto):
         add_tp_new_wrapper(space, dict_w, pto)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
-def tp_new_wrapper(space, w_self, w_args, w_kwds):
-    fn = rffi.cast(PyTypeObjectPtr, make_ref(space, w_self)).c_tp_new
-    pyo = make_ref(space, w_self)
-    pto = rffi.cast(PyTypeObjectPtr, pyo)
-    return generic_cpy_call(space, fn, pto, w_args, w_kwds)
+def tp_new_wrapper(space, self, w_args, w_kwds):
+    tp_new = rffi.cast(PyTypeObjectPtr, self).c_tp_new
+
+    # Check that the user doesn't do something silly and unsafe like
+    # object.__new__(dict).  To do this, we check that the most
+    # derived base that's not a heap type is this type.
+    # XXX do it
+
+    args_w = space.fixedview(w_args)
+    w_subtype = args_w[0]
+    w_args = space.newtuple(args_w[1:])
+
+    subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
+    try:
+        obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
+    finally:
+        Py_DecRef(space, w_subtype)
+    return obj
 
 @specialize.memo()
 def get_new_method_def(space):
@@ -630,8 +643,12 @@ def PyType_IsSubtype(space, a, b):
 
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyType_GenericAlloc(space, type, nitems):
-    """This function used an int type for nitems. This might require
-    changes in your code for properly supporting 64-bit systems."""
     from pypy.module.cpyext.object import _PyObject_NewVar
     return _PyObject_NewVar(space, type, nitems)
+
+@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
+def PyType_GenericNew(space, type, w_args, w_kwds):
+    return generic_cpy_call(
+        space, type.c_tp_alloc, type, 0)
+
 

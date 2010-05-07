@@ -90,19 +90,18 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 42")
 
     def test_new(self):
-        skip("skip")
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
         newobj = module.FuuType(u"xyz")
         assert newobj == u"xyz"
+        assert isinstance(newobj, module.FuuType)
 
-        a = module.fooType
-        assert "cannot create" in raises(TypeError, "a()").value.message
+        assert isinstance(module.fooType(), module.fooType)
         class bar(module.fooType):
-            def baz(self):
-                return self
-        assert "cannot create" in raises(TypeError, "bar()").value.message
+            pass
+        assert isinstance(bar(), bar)
+
         fuu = module.FuuType
         class fuu2(fuu):
             def baz(self):

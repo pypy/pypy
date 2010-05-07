@@ -175,12 +175,6 @@ static PyMethodDef Fuu_methods[] = {
     {NULL}  /* Sentinel */
 };
 
-static PyObject *
-Fuu_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-  return subtype->tp_alloc(subtype, 0);
-}
-
 PyTypeObject FuuType = {
     PyObject_HEAD_INIT(NULL)
     0,
@@ -230,7 +224,7 @@ PyTypeObject FuuType = {
 
     0,          /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
-    Fuu_new,    /*tp_new*/
+    0,          /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
     0,          /*tp_is_gc For PyObject_IS_GC */
     0,          /*tp_bases*/
@@ -269,10 +263,8 @@ void initfoo(void)
 {
     PyObject *m, *d;
 
-    footype.ob_type = &PyType_Type;
+    footype.tp_new = PyType_GenericNew;
 
-    /* Workaround for quirk in Visual Studio, see
-        <http://www.python.it/faq/faq-3.html#3.24> */
     FuuType.tp_base = &PyUnicode_Type;
 
     if (PyType_Ready(&footype) < 0)
