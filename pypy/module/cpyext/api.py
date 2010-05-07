@@ -433,11 +433,14 @@ def make_wrapper(space, callable):
                 state.set_exception(e)
             except BaseException, e:
                 failed = True
-                state.set_exception(OperationError(space.w_SystemError,
-                                                   space.wrap(str(e))))
                 if not we_are_translated():
+                    message = repr(e)
                     import traceback
                     traceback.print_exc()
+                else:
+                    message = str(e)
+                state.set_exception(OperationError(space.w_SystemError,
+                                                   space.wrap(message)))
             else:
                 failed = False
 
