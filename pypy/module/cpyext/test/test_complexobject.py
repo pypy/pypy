@@ -1,3 +1,4 @@
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 
 class TestComplexObject(BaseApiTest):
@@ -17,3 +18,16 @@ class TestComplexObject(BaseApiTest):
         assert api.PyComplex_RealAsDouble(space.w_None) == -1.0
         assert api.PyErr_Occurred()
         api.PyErr_Clear()
+
+class AppTestCComplex(AppTestCpythonExtensionBase):
+    def test_AsCComplex(self):
+        module = self.import_extension('foo', [
+            ("as_tuple", "METH_O",
+             """
+                 Py_complex c = PyComplex_AsCComplex(args);
+                 if (PyErr_Occurred()) return NULL;
+                 return Py_BuildValue("dd", c.real, c.imag);
+             """)])
+        assert module.as_tuple(12-34j) == (12, -34)
+        assert module.as_tuple(-3.14) == (-3.14, 0.0)
+        raises(TypeError, module.as_tuple, "12")

@@ -11,6 +11,7 @@
 # define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
 # define PyAPI_FUNC(RTYPE) RTYPE
 # define PyAPI_DATA(RTYPE) extern RTYPE
+# define Py_LOCAL_INLINE(type) static inline type
 #else
 # define MS_WIN32 1
 # include <crtdefs.h>
@@ -23,6 +24,7 @@
 #  define PyAPI_FUNC(RTYPE) __declspec(dllimport) RTYPE
 #  define PyAPI_DATA(RTYPE) extern __declspec(dllimport) RTYPE
 # endif
+# define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
 
 #define Py_ssize_t long
@@ -101,6 +103,7 @@ typedef PY_LONG_LONG        Py_intptr_t;
 
 #include "boolobject.h"
 #include "floatobject.h"
+#include "complexobject.h"
 #include "methodobject.h"
 #include "funcobject.h"
 

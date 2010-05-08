@@ -450,15 +450,6 @@ def PyComplex_FromCComplex(space, v):
     """Create a new Python complex number object from a C Py_complex value."""
     raise NotImplementedError
 
-@cpython_api([PyObject], Py_complex)
-def PyComplex_AsCComplex(space, op):
-    """Return the Py_complex value of the complex number op.
-    
-    If op is not a Python complex number object but has a __complex__()
-    method, this method will first be called to convert op to a Python complex
-    number object."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
 def PyOS_string_to_double(space, s, endptr, overflow_exception):
     """Convert a string s to a double, raising a Python
