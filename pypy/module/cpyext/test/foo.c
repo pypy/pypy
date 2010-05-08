@@ -161,7 +161,13 @@ static PyTypeObject footype = {
 
 typedef struct {
     PyUnicodeObject HEAD;
+    int val;
 } FuuObject;
+
+
+void Fuu_init(FuuObject *self, PyObject *args, PyObject *kwargs) {
+    self->val = 42;
+}
 
 static PyObject *
 Fuu_escape(PyTypeObject* type, PyObject *args)
@@ -169,9 +175,14 @@ Fuu_escape(PyTypeObject* type, PyObject *args)
     Py_RETURN_TRUE;
 }
 
+static PyObject *
+Fuu_get_val(FuuObject *self) {
+    return PyInt_FromLong(self->val);
+}
 
 static PyMethodDef Fuu_methods[] = {
     {"escape", (PyCFunction) Fuu_escape, METH_VARARGS, NULL},
+    {"get_val", (PyCFunction) Fuu_get_val, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -222,7 +233,7 @@ PyTypeObject FuuType = {
     0,          /*tp_descr_set*/
     0,          /*tp_dictoffset*/
 
-    0,          /*tp_init*/
+    Fuu_init,          /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
     0,          /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */

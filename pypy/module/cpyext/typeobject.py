@@ -274,7 +274,20 @@ def c_type_descr__call__(space, w_type, __args__):
                 w_kw = space.newdict()
                 for key, w_obj in kw_w.items():
                     space.setitem(w_kw, space.wrap(key), w_obj)
-                return generic_cpy_call(space, tp_new, pto, w_args, w_kw)
+                w_obj = generic_cpy_call(space, tp_new, pto, w_args, w_kw)
+                if w_obj:
+                    w_obj_type = space.type(w_obj)
+                    if not int(space.is_w(w_obj_type, w_type) or
+                        space.is_true(space.issubtype(w_obj_type, w_type))):
+                        return w_obj
+                    pyo = make_ref(space, w_type)
+                    pto = rffi.cast(PyTypeObjectPtr, pyo)
+                    try:
+                        if pto.c_tp_init:
+                            generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
+                        return w_obj
+                    finally:
+                        Py_DecRef(space, pyo)
             else:
                 raise operationerrfmt(space.w_TypeError,
                     "cannot create '%s' instances", w_type.getname(space, '?'))
