@@ -46,7 +46,7 @@ def _PyObject_GC_New(space, type):
 @cpython_api([rffi.VOIDP_real], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
-    
+
 @cpython_api([PyObject], lltype.Void)
 def PyObject_GC_Track(space, op):
     """Adds the object op to the set of container objects tracked by the

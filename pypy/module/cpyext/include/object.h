@@ -481,6 +481,7 @@ int PyObject_CheckReadBuffer(PyObject *);
 /* PyPy internal ----------------------------------- */
 int PyPyType_Register(PyTypeObject *);
 #define PyObject_Length PyObject_Size
+#define _PyObject_GC_Del PyObject_GC_Del
 
 
 #ifdef __cplusplus
