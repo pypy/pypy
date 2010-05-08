@@ -14,7 +14,7 @@ typedef struct Py_complex_t {
 /* generated function */
 PyAPI_FUNC(void) _PyComplex_AsCComplex(PyObject *, Py_complex *);
 
-_inline static Py_complex PyComplex_AsCComplex(PyObject *obj)
+Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
 {
     Py_complex result;
     _PyComplex_AsCComplex(obj, &result);
