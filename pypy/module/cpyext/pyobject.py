@@ -153,6 +153,7 @@ class RefcountState:
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
         self.borrow_mapping = {} # { w_container -> { w_containee -> None } }
         self.borrowed_objects = {} # { addr of containee -> None }
+        # For tests
         self.non_heaptypes_w = []
 
     def _freeze_(self):
@@ -161,6 +162,7 @@ class RefcountState:
         return False
 
     def init_r2w_from_w2r(self):
+        """Rebuilds the dict py_objects_r2w on startup"""
         from pypy.module.cpyext.api import ADDR
         for w_obj, obj in self.py_objects_w2r.items():
             ptr = rffi.cast(ADDR, obj)
