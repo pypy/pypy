@@ -263,45 +263,50 @@ class GettersAndSetters:
         PyMember_SetOne(space, w_self, self.member, w_value)
 
 def c_type_descr__call__(space, w_type, __args__):
-    if isinstance(w_type, W_PyCTypeObject):
-        pyo = make_ref(space, w_type)
-        pto = rffi.cast(PyTypeObjectPtr, pyo)
-        tp_new = pto.c_tp_new
-        try:
-            if not tp_new:
-                raise operationerrfmt(space.w_TypeError,
-                    "cannot create '%s' instances", w_type.getname(space, '?'))
-
-            args_w, kw_w = __args__.unpack()
-            w_args = space.newtuple(args_w)
-            w_kw = space.newdict()
-            for key, w_obj in kw_w.items():
-                space.setitem(w_kw, space.wrap(key), w_obj)
-            w_obj = generic_cpy_call(space, tp_new, pto, w_args, w_kw)
-        finally:
-            Py_DecRef(space, pyo)
-
-        # call tp_init on the result
-        w_obj_type = space.type(w_obj)
-        if not int(space.is_w(w_obj_type, w_type) or
-                   space.is_true(space.issubtype(w_obj_type, w_type))):
-            return w_obj
-
-        pyo = make_ref(space, w_type)
-        pto = rffi.cast(PyTypeObjectPtr, pyo)
-        try:
-            if pto.c_tp_init:
-                generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
-            else:
-                w_descr = space.lookup(w_obj, '__init__')
-                space.get_and_call_args(w_descr, w_obj, __args__)
-        finally:
-            Py_DecRef(space, pyo)
-
-        return w_obj
-    else:
+    if not isinstance(w_type, W_PyCTypeObject):
+        # XXX is this possible?
         w_type = _precheck_for_new(space, w_type)
         return call__Type(space, w_type, __args__)
+
+    pyo = make_ref(space, w_type)
+    pto = rffi.cast(PyTypeObjectPtr, pyo)
+    tp_new = pto.c_tp_new
+    try:
+        if not tp_new:
+            raise operationerrfmt(space.w_TypeError,
+                "cannot create '%s' instances", w_type.getname(space, '?'))
+
+        args_w, kw_w = __args__.unpack()
+        w_args = space.newtuple(args_w)
+        w_kw = space.newdict()
+        for key, w_obj in kw_w.items():
+            space.setitem(w_kw, space.wrap(key), w_obj)
+        w_obj = generic_cpy_call(space, tp_new, pto, w_args, w_kw)
+    finally:
+        Py_DecRef(space, pyo)
+
+    # If the returned object is not an instance of type,
+    # it won't be initialized.
+    w_obj_type = space.type(w_obj)
+    if not (space.is_w(w_obj_type, w_type) or
+            space.is_true(space.issubtype(w_obj_type, w_type))):
+        return w_obj
+
+    # call tp_init
+    # XXX 1 w_obj_type should be used instead
+    pyo = make_ref(space, w_type)
+    pto = rffi.cast(PyTypeObjectPtr, pyo)
+    try:
+        if pto.c_tp_init:
+            generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
+        else:
+            # XXX 2 this should not necessary: tp_init should be inherited
+            w_descr = space.lookup(w_obj, '__init__')
+            space.get_and_call_args(w_descr, w_obj, __args__)
+    finally:
+        Py_DecRef(space, pyo)
+
+    return w_obj
 
 def c_type_descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     # copied from typetype.descr__new__, XXX missing logic: metaclass resolving
