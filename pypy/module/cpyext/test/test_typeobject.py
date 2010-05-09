@@ -113,6 +113,15 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name="foo")
         newobj = module.FuuType()
         assert newobj.get_val() == 42
+        
+        class Fuu2(module.FuuType):
+            def __init__(self):
+                self.foobar = 32
+                super(Fuu2, self).__init__()
+        
+        newobj = Fuu2()
+        assert newobj.get_val() == 42
+        assert newobj.foobar == 32
 
     def test_sre(self):
         module = self.import_module(name='_sre')

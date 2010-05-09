@@ -285,6 +285,9 @@ def c_type_descr__call__(space, w_type, __args__):
                     try:
                         if pto.c_tp_init:
                             generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
+                        else:
+                            w_descr = space.lookup(w_obj, '__init__')
+                            w_result = space.get_and_call_args(w_descr, w_obj, __args__)
                         return w_obj
                     finally:
                         Py_DecRef(space, pyo)

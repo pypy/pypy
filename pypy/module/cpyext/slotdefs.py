@@ -5,7 +5,8 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, \
         PyObject
 from pypy.module.cpyext.typeobjectdefs import unaryfunc, wrapperfunc,\
         ternaryfunc, PyTypeObjectPtr, binaryfunc, getattrfunc, lenfunc,\
-        ssizeargfunc, ssizessizeargfunc, ssizeobjargproc, iternextfunc
+        ssizeargfunc, ssizessizeargfunc, ssizeobjargproc, iternextfunc,\
+        initproc
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -25,6 +26,11 @@ def check_num_args(space, ob, n):
         return
     raise operationerrfmt(space.w_TypeError,
         "expected %d arguments, got %d", n, PyTuple_GET_SIZE(space, ob))
+
+def wrap_init(space, w_self, w_args, func, w_kwargs):
+    func_init = rffi.cast(initproc, func)
+    generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
+    return None
 
 def wrap_unaryfunc(space, w_self, w_args, func):
     func_unary = rffi.cast(unaryfunc, func)
