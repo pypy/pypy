@@ -293,16 +293,13 @@ def c_type_descr__call__(space, w_type, __args__):
         return w_obj
 
     # call tp_init
-    # XXX 1 w_obj_type should be used instead
-    pyo = make_ref(space, w_type)
+    pyo = make_ref(space, w_obj_type)
     pto = rffi.cast(PyTypeObjectPtr, pyo)
     try:
         if pto.c_tp_init:
-            generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
-        else:
-            # XXX 2 this should not necessary: tp_init should be inherited
-            w_descr = space.lookup(w_obj, '__init__')
-            space.get_and_call_args(w_descr, w_obj, __args__)
+            if generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw) < 0:
+                state = space.fromcache(State)
+                state.check_and_raise_exception()
     finally:
         Py_DecRef(space, pyo)
 
@@ -586,6 +583,8 @@ def inherit_slots(space, pto, w_base):
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
         if not pto.c_tp_dealloc:
             pto.c_tp_dealloc = base.c_tp_dealloc
+        if not pto.c_tp_init:
+            pto.c_tp_init = base.c_tp_init
         if not pto.c_tp_alloc:
             pto.c_tp_alloc = base.c_tp_alloc
         # XXX check for correct GC flags!

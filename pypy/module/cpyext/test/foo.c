@@ -245,6 +245,65 @@ PyTypeObject FuuType = {
     0           /*tp_weaklist*/
 };
 
+PyTypeObject Fuu2Type = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.fuu2",
+    sizeof(FuuObject),
+    0,
+    0,          /*tp_dealloc*/
+    0,          /*tp_print*/
+    0,          /*tp_getattr*/
+    0,          /*tp_setattr*/
+    0,          /*tp_compare*/
+    0,          /*tp_repr*/
+    0,          /*tp_as_number*/
+    0,          /*tp_as_sequence*/
+    0,          /*tp_as_mapping*/
+    0,          /*tp_hash */
+
+    0,          /*tp_call*/
+    0,          /*tp_str*/
+    0,          /*tp_getattro*/
+    0,          /*tp_setattro*/
+    0,          /*tp_as_buffer*/
+
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    0,          /*tp_doc*/
+
+    0,          /*tp_traverse*/
+    0,          /*tp_clear*/
+
+    0,          /*tp_richcompare*/
+    0,          /*tp_weaklistoffset*/
+
+    0,          /*tp_iter*/
+    0,          /*tp_iternext*/
+
+    /* Attribute descriptor and subclassing stuff */
+
+    0,          /*tp_methods*/
+    0,          /*tp_members*/
+    0,          /*tp_getset*/
+    0,          /*tp_base*/
+    0,          /*tp_dict*/
+
+    0,          /*tp_descr_get*/
+    0,          /*tp_descr_set*/
+    0,          /*tp_dictoffset*/
+
+    0,          /*tp_init*/
+    0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
+    0,          /*tp_new*/
+    0,          /*tp_free  Low-level free-memory routine */
+    0,          /*tp_is_gc For PyObject_IS_GC */
+    0,          /*tp_bases*/
+    0,          /*tp_mro method resolution order */
+    0,          /*tp_cache*/
+    0,          /*tp_subclasses*/
+    0           /*tp_weaklist*/
+};
+
 
 /* foo functions */
 
@@ -277,10 +336,13 @@ void initfoo(void)
     footype.tp_new = PyType_GenericNew;
 
     FuuType.tp_base = &PyUnicode_Type;
+    Fuu2Type.tp_base = &FuuType;
 
     if (PyType_Ready(&footype) < 0)
         return;
     if (PyType_Ready(&FuuType) < 0)
+        return;
+    if (PyType_Ready(&Fuu2Type) < 0)
         return;
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
@@ -290,6 +352,7 @@ void initfoo(void)
         if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
             return;
         PyDict_SetItemString(d, "FuuType", (PyObject *) &FuuType);
+        PyDict_SetItemString(d, "Fuu2Type", (PyObject *) &Fuu2Type);
     }
        /* No need to check the error here, the caller will do that */
 }

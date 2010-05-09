@@ -113,7 +113,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name="foo")
         newobj = module.FuuType()
         assert newobj.get_val() == 42
-        
+
+        # this subtype should inherit tp_init
+        newobj = module.Fuu2Type()
+        assert newobj.get_val() == 42
+
+        # this subclass redefines __init__
         class Fuu2(module.FuuType):
             def __init__(self):
                 self.foobar = 32

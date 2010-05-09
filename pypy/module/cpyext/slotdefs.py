@@ -11,6 +11,7 @@ from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
 
 space = None
@@ -115,6 +116,13 @@ def slot_tp_new(space, type, w_args, w_kwds):
     args_w = [w_type] + space.fixedview(w_args)
     w_args_new = space.newtuple(args_w)
     return space.call(w_func, w_args_new, w_kwds)
+
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def slot_tp_init(space, w_self, w_args, w_kwds):
+    w_descr = space.lookup(w_self, '__init__')
+    args = Arguments.frompacked(space, w_args, w_kwds)
+    space.get_and_call_args(w_descr, w_self, args)
+    return 0
 
 PyWrapperFlag_KEYWORDS = 1
 
