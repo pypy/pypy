@@ -14,6 +14,7 @@
 # define Py_LOCAL_INLINE(type) static inline type
 #else
 # define MS_WIN32 1
+# define MS_WINDOWS 1
 # include <crtdefs.h>
 # include <io.h>
 # define Py_DEPRECATED(VERSION_UNUSED)

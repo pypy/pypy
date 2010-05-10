@@ -1,6 +1,11 @@
 
 #include "Python.h"
 
+#ifdef MS_WINDOWS
+#include "malloc.h" /* for alloca */
+#include "windows.h"
+#endif
+
 void
 Py_FatalError(const char *msg)
 {
