@@ -40,9 +40,6 @@ class JitPolicy(object):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return True
-        # rweakvaluedict implementation
-        if mod == 'pypy.rlib.rweakrefimpl':
-            return True
         
         return False
 
