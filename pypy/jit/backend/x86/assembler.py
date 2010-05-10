@@ -629,10 +629,6 @@ class Assembler386(object):
     genop_float_mul = _binaryop('MULSD', True)
     genop_float_truediv = _binaryop('DIVSD')
 
-    genop_int_mul_ovf = genop_int_mul
-    genop_int_sub_ovf = genop_int_sub
-    genop_int_add_ovf = genop_int_add
-
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
     genop_int_eq = _cmpop("E", "E")
@@ -969,13 +965,27 @@ class Assembler386(object):
         self.mc.MOV(heap(self.cpu.pos_exc_value()), imm(0))
         return addr
 
-    def genop_guard_guard_no_overflow(self, ign_1, guard_op, addr,
-                                      locs, resloc):
-        return self.implement_guard(addr, self.mc.JO)
+    def _gen_guard_overflow(self, guard_op, addr):
+        guard_opnum = guard_op.opnum
+        if guard_opnum == rop.GUARD_NO_OVERFLOW:
+            return self.implement_guard(addr, self.mc.JO)
+        elif guard_opnum == rop.GUARD_OVERFLOW:
+            return self.implement_guard(addr, self.mc.JNO)
+        else:
+            print "int_xxx_ovf followed by", guard_op.getopname()
+            raise AssertionError
 
-    def genop_guard_guard_overflow(self, ign_1, guard_op, addr,
-                                   locs, resloc):
-        return self.implement_guard(addr, self.mc.JNO)
+    def genop_guard_int_add_ovf(self, op, guard_op, addr, arglocs, result_loc):
+        self.genop_int_add(op, arglocs, result_loc)
+        return self._gen_guard_overflow(guard_op, addr)
+
+    def genop_guard_int_sub_ovf(self, op, guard_op, addr, arglocs, result_loc):
+        self.genop_int_sub(op, arglocs, result_loc)
+        return self._gen_guard_overflow(guard_op, addr)
+
+    def genop_guard_int_mul_ovf(self, op, guard_op, addr, arglocs, result_loc):
+        self.genop_int_mul(op, arglocs, result_loc)
+        return self._gen_guard_overflow(guard_op, addr)
 
     def genop_guard_guard_false(self, ign_1, guard_op, addr, locs, ign_2):
         loc = locs[0]

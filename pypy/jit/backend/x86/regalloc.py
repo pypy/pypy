@@ -322,6 +322,12 @@ class RegAlloc(object):
             assert operations[i + 1].opnum == rop.GUARD_NOT_FORCED
             return True
         if not op.is_comparison():
+            if op.is_ovf():
+                if (operations[i + 1].opnum != rop.GUARD_NO_OVERFLOW and
+                    operations[i + 1].opnum != rop.GUARD_OVERFLOW):
+                    print "int_xxx_ovf not followed by guard_(no)_overflow"
+                    raise AssertionError
+                return True
             return False
         if (operations[i + 1].opnum != rop.GUARD_TRUE and
             operations[i + 1].opnum != rop.GUARD_FALSE):
@@ -467,9 +473,13 @@ class RegAlloc(object):
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
 
-    consider_int_mul_ovf = _consider_binop
-    consider_int_sub_ovf = _consider_binop
-    consider_int_add_ovf = _consider_binop
+    def _consider_binop_with_guard(self, op, guard_op):
+        loc, argloc = self._consider_binop_part(op)
+        self.perform_with_guard(op, guard_op, [loc, argloc], loc)
+
+    consider_int_mul_ovf = _consider_binop_with_guard
+    consider_int_sub_ovf = _consider_binop_with_guard
+    consider_int_add_ovf = _consider_binop_with_guard
 
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.args[0])
@@ -1000,6 +1010,7 @@ for name, value in RegAlloc.__dict__.iteritems():
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
         if (ResOperation(num, [], None).is_comparison()
+            or ResOperation(num, [], None).is_ovf()
             or num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)

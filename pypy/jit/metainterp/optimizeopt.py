@@ -1111,7 +1111,10 @@ class HeapOpOptimizer(object):
             prevop = newoperations[-2]
             # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
             # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
-            if ((prevop.is_comparison() or prevop.opnum == rop.CALL_MAY_FORCE)
+            # - is_ovf(): "int_add_ovf/setfield_gc/guard_no_overflow"
+            opnum = prevop.opnum
+            if ((prevop.is_comparison() or opnum == rop.CALL_MAY_FORCE
+                 or prevop.is_ovf())
                 and prevop.result not in lastop.args):
                 newoperations[-2] = lastop
                 newoperations[-1] = prevop
