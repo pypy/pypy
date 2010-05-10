@@ -603,6 +603,18 @@ class PyPyCJITTests(object):
         # XXX I would like here to say that it's 0, but unfortunately
         #     call that can raise is not exchanged into getarrayitem_gc
 
+    def test_overflow_checking(self):
+        self.run_source('''
+        def main():
+            def f(a,b):
+                if a < 0: return -1
+                return a-b
+            total = 0
+            for i in range(100000):
+                total += f(i, 5)
+            return total
+        ''', 100, ([], 4999450000L))
+
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
