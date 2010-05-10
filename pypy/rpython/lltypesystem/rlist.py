@@ -206,7 +206,6 @@ def _ll_list_resize_really(l, newsize):
             new_allocated = ovfcheck(newsize + some)
         except OverflowError:
             raise MemoryError
-    # XXX consider to have a real realloc
     # new_allocated is a bit more than newsize, enough to ensure an amortized
     # linear complexity for e.g. repeated usage of l.append().
     items = l.items
