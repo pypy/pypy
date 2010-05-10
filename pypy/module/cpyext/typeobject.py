@@ -297,7 +297,8 @@ def c_type_descr__call__(space, w_type, __args__):
     pto = rffi.cast(PyTypeObjectPtr, pyo)
     try:
         if pto.c_tp_init:
-            if generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw) < 0:
+            res = generic_cpy_call(space, pto.c_tp_init, w_obj, w_args, w_kw)
+            if rffi.cast(lltype.Signed, res) < 0:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
     finally:
