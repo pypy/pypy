@@ -2997,25 +2997,6 @@ def PyTuple_SET_ITEM(space, p, pos, o):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
-def _PyTuple_Resize(space, p, newsize):
-    """Can be used to resize a tuple.  newsize will be the new length of the tuple.
-    Because tuples are supposed to be immutable, this should only be used if there
-    is only one reference to the object.  Do not use this if the tuple may already
-    be known to some other part of the code.  The tuple will always grow or shrink
-    at the end.  Think of this as destroying the old tuple and creating a new one,
-    only more efficiently.  Returns 0 on success. Client code should never
-    assume that the resulting value of *p will be the same as before calling
-    this function. If the object referenced by *p is replaced, the original
-    *p is destroyed.  On failure, returns -1 and sets *p to NULL, and
-    raises MemoryError or SystemError.
-    
-    Removed unused third parameter, last_is_sticky.
-    
-    This function used an int type for newsize. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyTuple_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items.

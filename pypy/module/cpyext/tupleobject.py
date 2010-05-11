@@ -2,7 +2,8 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
-from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, borrow_from
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
+    borrow_from, make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -45,3 +46,29 @@ def PyTuple_Size(space, ref):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected tuple object"))
     return PyTuple_GET_SIZE(space, ref)
+
+
+@cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
+def _PyTuple_Resize(space, ref, newsize):
+    """Can be used to resize a tuple.  newsize will be the new length of the tuple.
+    Because tuples are supposed to be immutable, this should only be used if there
+    is only one reference to the object.  Do not use this if the tuple may already
+    be known to some other part of the code.  The tuple will always grow or shrink
+    at the end.  Think of this as destroying the old tuple and creating a new one,
+    only more efficiently.  Returns 0 on success. Client code should never
+    assume that the resulting value of *p will be the same as before calling
+    this function. If the object referenced by *p is replaced, the original
+    *p is destroyed.  On failure, returns -1 and sets *p to NULL, and
+    raises MemoryError or SystemError."""
+    py_tuple = from_ref(space, ref[0])
+    py_newtuple = PyTuple_New(space, newsize)
+    
+    to_cp = newsize
+    oldsize = len(py_tuple.wrappeditems)
+    if oldsize < newsize:
+        to_cp = oldsize
+    for i in range(to_cp):
+        py_newtuple.wrappeditems[i] = py_tuple.wrappeditems[i]
+    Py_DecRef(space, ref[0])
+    ref[0] = make_ref(space, py_newtuple)
+    return 0
