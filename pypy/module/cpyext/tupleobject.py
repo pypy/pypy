@@ -61,6 +61,9 @@ def _PyTuple_Resize(space, ref, newsize):
     *p is destroyed.  On failure, returns -1 and sets *p to NULL, and
     raises MemoryError or SystemError."""
     py_tuple = from_ref(space, ref[0])
+    if not PyTuple_Check(space, py_tuple):
+        PyErr_BadInternalCall(space)
+    assert isinstance(py_tuple, W_TupleObject)
     py_newtuple = PyTuple_New(space, newsize)
     
     to_cp = newsize
