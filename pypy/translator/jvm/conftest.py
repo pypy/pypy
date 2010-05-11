@@ -1,11 +1,9 @@
 
 import py, sys
 
-class Module(py.test.collect.Module):
-    def collect(self):
-        if sys.maxint > 2147483647: # 64bit platform
-            py.test.skip("jvm backend on 64bit unsupported")
-        return super(Module, self).collect()
+def pytest_runtest_setup(item):
+    if sys.maxint > 2147483647: # 64bit platform
+        py.test.skip("jvm backend on 64bit unsupported")
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy-jvm options")
