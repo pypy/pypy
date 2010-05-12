@@ -120,6 +120,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert module.check_error()
 
     def test_SetFromErrno(self):
+        import sys
+        if sys.platform != 'win32':
+            skip("callbacks through ll2ctypes modify errno")
         import errno, os
 
         module = self.import_extension('foo', [
