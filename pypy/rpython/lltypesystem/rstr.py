@@ -607,13 +607,19 @@ class LLHelpers(AbstractLLHelpers):
                         i += mlast
                         continue
 
-                    c = '\0' if i+m == len(s1.chars) else s1.chars[i+m]
+                    if i + m < len(s1.chars):
+                        c = s1.chars[i + m]
+                    else:
+                        c = '\0'
                     if not bloom(mask, c):
                         i += m
                     else:
                         i += skip
                 else:
-                    c = '\0' if i+m == len(s1.chars) else s1.chars[i+m]
+                    if i + m < len(s1.chars):
+                        c = s1.chars[i + m]
+                    else:
+                        c = '\0'
                     if not bloom(mask, c):
                         i += m
         else:
