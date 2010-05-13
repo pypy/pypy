@@ -613,7 +613,7 @@ class PyPyCJITTests(object):
             for i in range(100000):
                 total += f(i, 5)
             return total
-        ''', 100, ([], 4999450000L))
+        ''', 170, ([], 4999450000L))
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
