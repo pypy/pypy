@@ -10,6 +10,7 @@ from pypy.jit.metainterp import pyjitpl
 
 
 def test_stack_alignment():
+    # we can detect gcc 4.5.0 to test those as well
     if sys.platform != 'darwin':
         py.test.skip("tests darwin only stack alignment requirements")
         

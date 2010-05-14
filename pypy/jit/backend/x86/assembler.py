@@ -21,11 +21,9 @@ from pypy.rlib import rgc
 # our calling convention - we pass first 6 args in registers
 # and the rest stays on the stack
 
-if sys.platform == 'darwin':
-    # darwin requires the stack to be 16 bytes aligned on calls
-    CALL_ALIGN = 4
-else:
-    CALL_ALIGN = 1
+# darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
+# better safe than sorry
+CALL_ALIGN = 4
 
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
