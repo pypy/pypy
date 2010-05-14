@@ -501,9 +501,9 @@ class AppTestSocketTCP:
             return serv
             ''')
     def teardown_method(self, method):
-        space.appexec([self.w_serv], '(serv): serv.close()')
-        self.w_serv = None
-            
+        if hasattr(self, 'w_serv'):
+            space.appexec([self.w_serv], '(serv): serv.close()')
+            self.w_serv = None
 
     def test_timeout(self):
         from _socket import timeout
