@@ -1164,12 +1164,6 @@ def PyFloat_AsReprString(space, buf, v):
     Use PyObject_Repr() or PyOS_double_to_string() instead."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFunction_Check(space, o):
-    """Return true if o is a function object (has type PyFunction_Type).
-    The parameter must not be NULL."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], PyObject)
 def PyFunction_New(space, code, globals):
     """Return a new function object associated with the code object code. globals
@@ -3126,13 +3120,6 @@ def PyUnicode_EncodeUTF8(space, s, size, errors):
     
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF8String(space, unicode):
-    """Encode a Unicode object using UTF-8 and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
