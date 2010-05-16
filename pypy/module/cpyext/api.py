@@ -139,8 +139,17 @@ class ApiFunction:
             wrapper.relax_sig_check = True
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
-                external=True, name=None):
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
+    """
+    Declares a function to be exported.
+    - `argtypes`, `restype` are lltypes and describe the function signature.
+    - `error` is the value returned when an applevel exception is raised. The
+      special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
+      exception into a wrapped SystemError.  Unwrapped exceptions also cause a
+      SytemError.
+    - set `external` to False to get a C function pointer, but not exported by
+      the API headers.
+    """
     if error is _NOT_SPECIFIED:
         if restype is PyObject:
             error = lltype.nullptr(PyObject.TO)
@@ -150,15 +159,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED,
         error = rffi.cast(restype, error)
 
     def decorate(func):
-        if name is None:
-            func_name = func.func_name
-        else:
-            func_name = name
-            func = func_with_new_name(func, name)
+        func_name = func.func_name
         api_function = ApiFunction(argtypes, restype, func, error)
         func.api_func = api_function
 
-        assert func_name not in FUNCTIONS
+        assert func_name not in FUNCTIONS, "%s already registered" % func_name
         assert func_name not in FUNCTIONS_STATIC
 
         if error is _NOT_SPECIFIED:
@@ -363,6 +368,12 @@ def configure_types():
             TYPES[name].become(TYPE)
 
 def build_type_checkers(type_name, cls=None):
+    """
+    Builds two api functions: Py_XxxCheck() and Py_XxxCheckExact().
+    - if `cls` is None, the type is space.w_[type].
+    - if `cls` is a string, it is the name of a space attribute, e.g. 'w_str'.
+    - else `cls` must be a W_Class with a typedef.
+    """
     if cls is None:
         attrname = "w_" + type_name.lower()
         def get_w_type(space):
@@ -374,18 +385,23 @@ def build_type_checkers(type_name, cls=None):
         def get_w_type(space):
             return space.gettypeobject(cls.typedef)
     check_name = "Py" + type_name + "_Check"
-    @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, name=check_name)
+
     def check(space, w_obj):
+        "Implements the Py_Xxx_Check function"
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
-        return int(space.is_w(w_obj_type, w_type) or
-                   space.is_true(space.issubtype(w_obj_type, w_type)))
-    @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL,
-                 name=check_name + "Exact")
+        return (space.is_w(w_obj_type, w_type) or
+                space.is_true(space.issubtype(w_obj_type, w_type)))
     def check_exact(space, w_obj):
+        "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
-        return int(space.is_w(w_obj_type, w_type))
+        return space.is_w(w_obj_type, w_type)
+
+    check = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
+        func_with_new_name(check, check_name))
+    check_exact = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
+        func_with_new_name(check_exact, check_name + "Exact"))
     return check, check_exact
 
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
