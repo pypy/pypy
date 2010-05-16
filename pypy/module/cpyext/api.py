@@ -124,6 +124,7 @@ class ApiFunction:
     def _freeze_(self):
         return True
 
+    @specialize.memo()
     def get_llhelper(self, space):
         llh = getattr(self, '_llhelper', None)
         if llh is None:
