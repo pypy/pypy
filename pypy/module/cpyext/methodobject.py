@@ -49,6 +49,7 @@ def cfunction_attach(space, py_obj, w_obj):
     py_func.c_m_ml = w_obj.ml
     py_func.c_m_self = make_ref(space, w_obj.w_self)
 
+@cpython_api([PyObject], lltype.Void, external=False)
 def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_m_self)

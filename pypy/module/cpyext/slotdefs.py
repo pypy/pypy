@@ -106,8 +106,7 @@ def wrap_next(space, w_self, w_args, func):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
 
-# XXX why is it a "cpython_api"?
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
+@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=True)
 def slot_tp_new(space, type, w_args, w_kwds):
     from pypy.module.cpyext.tupleobject import PyTuple_Check
     pyo = rffi.cast(PyObject, type)

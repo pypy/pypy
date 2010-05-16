@@ -124,7 +124,6 @@ class ApiFunction:
     def _freeze_(self):
         return True
 
-    @specialize.memo()
     def get_llhelper(self, space):
         llh = getattr(self, '_llhelper', None)
         if llh is None:
@@ -141,27 +140,7 @@ class ApiFunction:
             wrapper.relax_sig_check = True
         return wrapper
 
-def make_static_function(argtypes, restype, error=_NOT_SPECIFIED):
-    """
-    Helper to build a static function pointer.
-    """
-    if error is _NOT_SPECIFIED:
-        if restype is PyObject:
-            error = lltype.nullptr(PyObject.TO)
-        elif restype is lltype.Void:
-            error = CANNOT_FAIL
-    if type(error) is int:
-        error = rffi.cast(restype, error)
-
-    def decorate(func):
-        func_name = func.func_name
-        api_function = ApiFunction(argtypes, restype, func, error)
-        func.api_func = api_function
-        FUNCTIONS_STATIC[func_name] = api_function
-        return func
-    return decorate
-
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED):
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -251,8 +230,6 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED):
                 finally:
                     for arg in to_decref:
                         Py_DecRef(space, arg)
-            unwrapper = func_with_new_name(unwrapper,
-                                           "unwrapper_%s" % (func_name,))
             unwrapper.func = func
             unwrapper.api_func = api_function
             unwrapper._always_inline_ = True
@@ -260,7 +237,10 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED):
 
         unwrapper_catch = make_unwrapper(True)
         unwrapper_raise = make_unwrapper(False)
-        FUNCTIONS[func_name] = api_function
+        if external:
+            FUNCTIONS[func_name] = api_function
+        else:
+            FUNCTIONS_STATIC[func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate

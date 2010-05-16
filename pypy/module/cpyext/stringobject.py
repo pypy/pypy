@@ -102,6 +102,7 @@ def string_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
+@cpython_api([PyObject], lltype.Void, external=False)
 def string_dealloc(space, py_obj):
     """Frees allocated PyStringObject resources.
     """

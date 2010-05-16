@@ -2,6 +2,7 @@ import os
 import sys
 
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -10,8 +11,8 @@ from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE, call__Type
 from pypy.objspace.std.typetype import _precheck_for_new
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, make_static_function, cpython_struct, bootstrap_function,
-    Py_ssize_t, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
+    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     PyBufferProcs, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
@@ -114,7 +115,8 @@ def update_all_slots(space, w_obj, pto):
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
                 os.write(2, method_name + " defined by the type but no slot function defined!\n")
             continue
-        slot_func_helper = slot_func.api_func.get_llhelper(space)
+        slot_func_helper = llhelper(slot_func.api_func.functype,
+                slot_func.api_func.get_wrapper(space))
         # XXX special case wrapper-functions and use a "specific" slot func
 
         # the special case of __new__ in CPython works a bit differently, hopefully
@@ -153,7 +155,7 @@ def add_operators(space, dict_w, pto):
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
-@make_static_function([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
 def tp_new_wrapper(space, self, w_args, w_kwds):
     tp_new = rffi.cast(PyTypeObjectPtr, self).c_tp_new
 
@@ -189,7 +191,8 @@ def get_new_method_def(space):
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction,
-                              tp_new_wrapper.api_func.get_llhelper(space))
+        llhelper(tp_new_wrapper.api_func.functype,
+                 tp_new_wrapper.api_func.get_wrapper(space)))
 
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
@@ -402,10 +405,12 @@ def init_typeobject(space):
     track_reference(space, py_tuple, space.w_tuple, replace=True)
 
 
+@cpython_api([PyObject], lltype.Void, external=False)
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
-    this_func_ptr = subtype_dealloc.api_func.get_llhelper(space)
+    this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
@@ -428,14 +433,15 @@ def pyctype_make_ref(space, w_type, w_obj, itemcount=0):
         lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
     return py_obj
 
-@make_static_function([PyObject, rffi.INTP], lltype.Signed, error=CANNOT_FAIL)
+@cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
+             error=CANNOT_FAIL)
 def str_segcount(space, w_obj, ref):
     if ref:
         ref[0] = rffi.cast(rffi.INT, space.int_w(space.len(w_obj)))
     return 1
 
-@make_static_function([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
-                      error=-1)
+@cpython_api([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
+             external=False, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
     if segment != 0:
@@ -449,10 +455,13 @@ def str_getreadbuffer(space, w_str, segment, ref):
 
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    c_buf.c_bf_getsegcount = str_segcount.api_func.get_llhelper(space)
-    c_buf.c_bf_getreadbuffer = str_getreadbuffer.api_func.get_llhelper(space)
+    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
+                                      str_segcount.api_func.get_wrapper(space))
+    c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
+                                 str_getreadbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
+@cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     type_pto = obj.c_ob_type
@@ -490,8 +499,10 @@ def type_attach(space, py_obj, w_type):
         setup_string_buffer_procs(space, pto)
 
     pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
-    pto.c_tp_free = PyObject_Del.api_func.get_llhelper(space)
-    pto.c_tp_alloc = PyType_GenericAlloc.api_func.get_llhelper(space)
+    pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
+            PyObject_Del.api_func.get_wrapper(space))
+    pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
+            PyType_GenericAlloc.api_func.get_wrapper(space))
     pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
