@@ -2,7 +2,6 @@ import os
 import sys
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec

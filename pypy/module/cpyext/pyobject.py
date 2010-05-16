@@ -8,7 +8,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.rpython.annlowlevel import llhelper
 
 #________________________________________________________
 # type description
