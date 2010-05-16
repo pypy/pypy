@@ -33,7 +33,7 @@ DEBUG_WRAPPER = True
 
 # update these for other platforms
 Py_ssize_t = lltype.Signed
-Py_ssize_tP = lltype.Ptr(lltype.Array(Py_ssize_t, hints={'nolength': True}))
+Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
 
