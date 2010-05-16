@@ -56,9 +56,7 @@ def make_typedescr(typedef, **kw):
         realize = tp_realize
 
         def get_dealloc(self, space):
-            return llhelper(
-                tp_dealloc.api_func.functype,
-                tp_dealloc.api_func.get_wrapper(space))
+            return tp_dealloc.api_func.get_llhelper(space)
 
         def allocate(self, space, w_type, itemcount=0):
             # similar to PyType_GenericAlloc?
