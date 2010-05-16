@@ -2,9 +2,9 @@ import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, bootstrap_function, \
-     PyObject, PyObjectP, ADDR, CANNOT_FAIL, \
-     Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr
+from pypy.module.cpyext.api import (
+    cpython_api, make_static_function, bootstrap_function, PyObject, PyObjectP,
+    ADDR, CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -36,7 +36,7 @@ def make_typedescr(typedef, **kw):
     alloc     : allocate and basic initialization of a raw PyObject
     attach    : Function called to tie a raw structure to a pypy object
     realize   : Function called to create a pypy object from a raw struct
-    dealloc   : a cpython_api(external=False), similar to PyObject_dealloc
+    dealloc   : Function called to free a structure
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)
@@ -46,22 +46,19 @@ def make_typedescr(typedef, **kw):
     tp_dealloc    = kw.pop('dealloc', None)
     assert not kw, "Extra arguments to make_typedescr"
 
-    null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
+    if not tp_dealloc:
+        from pypy.module.cpyext.typeobject import subtype_dealloc
+        tp_dealloc = subtype_dealloc
+    tp_dealloc = make_static_function([PyObject], lltype.Void)(tp_dealloc)
 
     class CpyTypedescr(BaseCpyTypedescr):
         basestruct = tp_basestruct
         realize = tp_realize
 
         def get_dealloc(self, space):
-            if tp_dealloc:
-                return llhelper(
-                    tp_dealloc.api_func.functype,
-                    tp_dealloc.api_func.get_wrapper(space))
-            else:
-                from pypy.module.cpyext.typeobject import subtype_dealloc
-                return llhelper(
-                    subtype_dealloc.api_func.functype,
-                    subtype_dealloc.api_func.get_wrapper(space))
+            return llhelper(
+                tp_dealloc.api_func.functype,
+                tp_dealloc.api_func.get_wrapper(space))
 
         def allocate(self, space, w_type, itemcount=0):
             # similar to PyType_GenericAlloc?
@@ -124,7 +121,7 @@ def init_pyobject(space):
     from pypy.module.cpyext.object import PyObject_dealloc
     # typedescr for the 'object' type
     make_typedescr(space.w_object.instancetypedef,
-                   dealloc=PyObject_dealloc)
+                   dealloc=PyObject_dealloc.func)
     # almost all types, which should better inherit from object.
     make_typedescr(None)
 

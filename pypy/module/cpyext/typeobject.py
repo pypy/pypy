@@ -11,8 +11,8 @@ from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE, call__Type
 from pypy.objspace.std.typetype import _precheck_for_new
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
-    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    cpython_api, make_static_function, cpython_struct, bootstrap_function,
+    Py_ssize_t, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     PyBufferProcs, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
@@ -155,7 +155,7 @@ def add_operators(space, dict_w, pto):
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
+@make_static_function([PyObject, PyObject, PyObject], PyObject)
 def tp_new_wrapper(space, self, w_args, w_kwds):
     tp_new = rffi.cast(PyTypeObjectPtr, self).c_tp_new
 
@@ -405,7 +405,6 @@ def init_typeobject(space):
     track_reference(space, py_tuple, space.w_tuple, replace=True)
 
 
-@cpython_api([PyObject], lltype.Void, external=False)
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
@@ -433,15 +432,14 @@ def pyctype_make_ref(space, w_type, w_obj, itemcount=0):
         lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
     return py_obj
 
-@cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
-             error=CANNOT_FAIL)
+@make_static_function([PyObject, rffi.INTP], lltype.Signed, error=CANNOT_FAIL)
 def str_segcount(space, w_obj, ref):
     if ref:
         ref[0] = rffi.cast(rffi.INT, space.int_w(space.len(w_obj)))
     return 1
 
-@cpython_api([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
-             external=False, error=-1)
+@make_static_function([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
+                      error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
     if segment != 0:
@@ -461,7 +459,6 @@ def setup_string_buffer_procs(space, pto):
                                  str_getreadbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
-@cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     type_pto = obj.c_ob_type

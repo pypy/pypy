@@ -42,7 +42,6 @@ def unicode_attach(space, py_obj, w_obj):
     py_unicode.c_size = len(space.unicode_w(w_obj))
     py_unicode.c_buffer = lltype.nullptr(rffi.CWCHARP.TO)
 
-@cpython_api([PyObject], lltype.Void, external=False)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     if py_unicode.c_buffer:
