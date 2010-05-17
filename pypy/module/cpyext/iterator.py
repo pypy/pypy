@@ -14,6 +14,28 @@ def PyCallIter_New(space, w_callable, w_sentinel):
     """
     return operation.iter_sentinel(space, w_callable, w_sentinel)
 
+@cpython_api([PyObject], PyObject)
+def PyObject_GetIter(space, w_obj):
+    """This is equivalent to the Python expression iter(o). It returns a new
+    iterator for the object argument, or the object itself if the object is
+    already an iterator.  Raises TypeError and returns NULL if the object
+    cannot be iterated."""
+    return space.iter(w_obj)
+
+@cpython_api([PyObject], PyObject, error=CANNOT_FAIL)
+def PyIter_Next(space, w_obj):
+    """Return the next value from the iteration o.  If the object is an
+    iterator, this retrieves the next value from the iteration, and returns
+    NULL with no exception set if there are no remaining items.  If the object
+    is not an iterator, TypeError is raised, or if there is an error in
+    retrieving the item, returns NULL and passes along the exception."""
+    try:
+        return space.next(w_obj)
+    except OperationError, e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+    return None
+
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyIter_Check(space, w_obj):
     """Return true if the object o supports the iterator protocol."""

@@ -13,23 +13,6 @@ def PyFile_AsFile(space, p):
     PyFile_DecUseCount() functions described below as appropriate."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyObject_GetIter(space, o):
-    """This is equivalent to the Python expression iter(o). It returns a new
-    iterator for the object argument, or the object  itself if the object is already
-    an iterator.  Raises TypeError and returns NULL if the object cannot be
-    iterated."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyIter_Next(space, o):
-    """Return the next value from the iteration o.  If the object is an iterator,
-    this retrieves the next value from the iteration, and returns NULL with no
-    exception set if there are no remaining items.  If the object is not an
-    iterator, TypeError is raised, or if there is an error in retrieving the
-    item, returns NULL and passes along the exception."""
-    raise NotImplementedError
-
 @cpython_api([rffi.ULONG], PyObject)
 def PyLong_FromUnsignedLong(space, v):
     """Return a new PyLongObject object from a C unsigned long, or
