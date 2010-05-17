@@ -288,7 +288,7 @@ def PyUnicode_AsUTF8String(space, w_unicode):
         PyErr_BadArgument(space)
     return unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
 def PyUnicode_DecodeUTF8(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the UTF-8 encoded string
     s. Return NULL if an exception was raised by the codec.
@@ -299,7 +299,7 @@ def PyUnicode_DecodeUTF8(space, s, size, errors):
     else:
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', space.wrap("utf-8"), w_errors)
-    
+
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     def PyUnicode_EncodeMBCS(space, wchar_p, length, errors):
