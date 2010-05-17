@@ -3091,15 +3091,6 @@ def PyUnicode_Encode(space, s, size, encoding, errors):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_DecodeUTF8(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the UTF-8 encoded string
-    s. Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF8(). If
