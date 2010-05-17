@@ -20,10 +20,21 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
              """
                  free(cbuf);
                  Py_RETURN_NONE;
+             """),
+            ("check_ascharbuffer", "METH_O",
+             """
+                 char *ptr;
+                 Py_ssize_t size;
+                 if (PyObject_AsCharBuffer(args, &ptr, &size) < 0)
+                     return NULL;
+                 return PyString_FromStringAndSize(ptr, size);
              """)
             ], prologue = """
             static char* cbuf = NULL;
             """)
-        buffer = module.get_FromMemory()
-        assert str(buffer) == 'abc\0'
+        buf = module.get_FromMemory()
+        assert str(buf) == 'abc\0'
+
+        assert module.check_ascharbuffer(buf) == 'abc\0'
+
         module.free_buffer()

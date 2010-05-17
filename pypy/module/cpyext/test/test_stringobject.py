@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.stringobject import new_empty_str, PyStringObject
-from pypy.module.cpyext.api import PyObjectP, PyObject
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
 
 import py
@@ -234,3 +234,15 @@ class TestString(BaseApiTest):
     def test_format(self, space, api):
         assert "1 2" == space.unwrap(
             api.PyString_Format(space.wrap('%s %d'), space.wrap((1, 2))))
+
+    def test_asbuffer(self, space, api):
+        bufp = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+
+        w_text = space.wrap("text")
+        assert api.PyObject_AsCharBuffer(w_text, bufp, lenp) == 0
+        assert lenp[0] == 4
+        assert rffi.charp2str(bufp[0]) == 'text'
+
+        lltype.free(bufp, flavor='raw')
+        lltype.free(lenp, flavor='raw')

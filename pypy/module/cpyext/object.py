@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, generic_cpy_call, CANNOT_FAIL,\
-        Py_ssize_t, PyVarObject, Py_TPFLAGS_HEAPTYPE,\
-        Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT, Py_GE, CONST_STRING
+from pypy.module.cpyext.api import (
+    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
+    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    Py_GE, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
     track_reference)
@@ -341,3 +342,29 @@ def PyObject_Hash(space, w_obj):
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
+
+@cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
+def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
+    """Returns a pointer to a read-only memory location usable as
+    character-based input.  The obj argument must support the single-segment
+    character buffer interface.  On success, returns 0, sets buffer to the
+    memory location and size to the buffer length.  Returns -1 and sets a
+    TypeError on error.
+    """
+    pto = obj.c_ob_type
+
+    pb = pto.c_tp_as_buffer
+    if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "expected a character buffer object"))
+    if generic_cpy_call(space, pb.c_bf_getsegcount,
+                        obj, lltype.nullptr(rffi.INTP.TO)) != 1:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "expected a single-segment buffer object"))
+    size = generic_cpy_call(space, pb.c_bf_getreadbuffer,
+                            obj, 0, bufferp)
+    if size < 0:
+        return -1
+    sizep[0] = size
+    return 0
+

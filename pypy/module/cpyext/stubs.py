@@ -2373,20 +2373,6 @@ def PyNumber_ToBase(space, n, base):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARPP, Py_ssize_t], rffi.INT_real, error=-1)
-def PyObject_AsCharBuffer(space, obj, buffer, buffer_len):
-    """Returns a pointer to a read-only memory location usable as character-based
-    input.  The obj argument must support the single-segment character buffer
-    interface.  On success, returns 0, sets buffer to the memory location
-    and buffer_len to the buffer length.  Returns -1 and sets a
-    TypeError on error.
-    
-    
-    
-    This function used an int * type for buffer_len. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyObject_DelAttrString(space, o, attr_name):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
