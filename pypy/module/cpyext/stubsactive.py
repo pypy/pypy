@@ -13,12 +13,6 @@ def PyFile_AsFile(space, p):
     PyFile_DecUseCount() functions described below as appropriate."""
     raise NotImplementedError
 
-@cpython_api([rffi.ULONG], PyObject)
-def PyLong_FromUnsignedLong(space, v):
-    """Return a new PyLongObject object from a C unsigned long, or
-    NULL on failure."""
-    raise NotImplementedError
-
 FILE = rffi.VOIDP_real.TO
 FILEP = lltype.Ptr(FILE)
 @cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)

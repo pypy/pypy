@@ -18,6 +18,12 @@ def PyLong_FromLongLong(space, val):
     on failure."""
     return space.wrap(val)
 
+@cpython_api([rffi.ULONG], PyObject)
+def PyLong_FromUnsignedLong(space, val):
+    """Return a new PyLongObject object from a C unsigned long, or
+    NULL on failure."""
+    return space.wrap(val)
+
 @cpython_api([rffi.ULONGLONG], PyObject)
 def PyLong_FromUnsignedLongLong(space, val):
     """Return a new PyLongObject object from a C unsigned long long,

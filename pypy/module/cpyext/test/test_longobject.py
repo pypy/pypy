@@ -70,6 +70,14 @@ class TestLongObject(BaseApiTest):
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP_real.TO)
 
 class AppTestLongObject(AppTestCpythonExtensionBase):
+    def test_fromunsignedlong(self):
+        module = self.import_extension('foo', [
+            ("from_unsignedlong", "METH_NOARGS",
+             """
+                 return PyLong_FromUnsignedLong((unsigned long)-1);
+             """)])
+        assert module.from_unsignedlong() == (1<<32) - 1
+
     def test_fromlonglong(self):
         module = self.import_extension('foo', [
             ("from_longlong", "METH_NOARGS",
