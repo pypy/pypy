@@ -954,7 +954,25 @@ class Optimizer(object):
         self.optimize_default(op)
         resvalue = self.getvalue(op.result)
         self.loop_invariant_results[op.args[0].getint()] = resvalue
-            
+
+    def optimize_INT_AND(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        if v1.is_null() or v2.is_null():
+            self.make_constant_int(op.result, 0)
+        else:
+            self.optimize_default(op)
+
+    def optimize_INT_OR(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        if v1.is_null():
+            self.make_equal_to(op.result, v2)
+        elif v2.is_null():
+            self.make_equal_to(op.result, v1)
+        else:
+            self.optimize_default(op)
+
 
 optimize_ops = _findall(Optimizer, 'optimize_')
 

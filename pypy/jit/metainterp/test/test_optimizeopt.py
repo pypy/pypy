@@ -1999,6 +1999,22 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', expected)
 
+    def test_int_and_or_with_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_and(i0, 0)
+        i3 = int_and(0, i2)
+        i4 = int_or(i2, i1)
+        i5 = int_or(i0, i3)
+        jump(i4, i5)
+        """
+        expected = """
+        [i0, i1]
+        jump(i1, i0)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+
     # ----------
 
     def make_fail_descr(self):
