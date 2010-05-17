@@ -58,13 +58,16 @@ def registering(func):
         return method
     return decorator
 
-def registering_if(ns, name):
+def registering_if(ns, name, condition=True):
     try:
         func = getattr(ns, name)
     except AttributeError:
-        return lambda method: None
-    else:
+        condition = False
+
+    if condition:
         return registering(func)
+    else:
+        return lambda method: None
 
 class LazyRegisteringMeta(type):
     def __new__(self, _name, _type, _vars):

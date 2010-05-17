@@ -1329,7 +1329,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=umask_llimpl,
                       export_name="ll_os.ll_os_umask")
 
-    @registering_if(os, 'kill')
+    @registering_if(os, 'kill', sys.platform != 'win32')
     def register_os_kill(self):
         os_kill = self.llexternal('kill', [rffi.PID_T, rffi.INT],
                                   rffi.INT)

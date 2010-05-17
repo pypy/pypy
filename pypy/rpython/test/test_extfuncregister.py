@@ -105,3 +105,9 @@ def test_registering_if():
 
     assert bar is None
  
+    @registering_if(A, 'f', False)
+    def baz():
+        pass
+
+    assert baz is None
+ 
