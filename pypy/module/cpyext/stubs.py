@@ -2084,11 +2084,6 @@ def PyInt_ClearFreeList(space, ):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyIter_Check(space, o):
-    """Return true if the object o supports the iterator protocol."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PySeqIter_Check(space, seq):
     """Return true if the type of op is PySeqIter_Type.
     """
