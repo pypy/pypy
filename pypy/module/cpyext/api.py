@@ -17,7 +17,7 @@ from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import ObjSpace, unwrap_spec
-from pypy.interpreter.nestedscope import Cell	
+from pypy.interpreter.nestedscope import Cell
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
