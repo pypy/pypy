@@ -22,10 +22,13 @@ class BaseApiTest(LeakCheckingTest):
 
         # warm up reference counts:
         # - the posix module allocates a HCRYPTPROV on Windows
-        # - writing to stderr allocates a file lock
+        # - writing to stdout and stderr allocates a file lock
         space.getbuiltinmodule("cpyext")
         space.getbuiltinmodule(os.name)
         space.call_function(space.getattr(space.sys.get("stderr"),
+                                          space.wrap("write")),
+                            space.wrap(""))
+        space.call_function(space.getattr(space.sys.get("stdout"),
                                           space.wrap("write")),
                             space.wrap(""))
 
