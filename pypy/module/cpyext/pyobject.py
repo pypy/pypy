@@ -151,8 +151,14 @@ class RefcountState:
         self.space = space
         self.py_objects_w2r = {} # { w_obj -> raw PyObject }
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
-        self.borrow_mapping = {} # { w_container -> { w_containee -> None } }
-        self.borrowed_objects = {} # { addr of containee -> None }
+
+        self.borrow_mapping = {None: {}}
+        # { w_container -> { w_containee -> None } }
+        # the None entry manages references borrowed during a call to
+        # generic_cpy_call()
+        self.borrowed_objects = {}
+        # { addr of containee -> None }
+
         # For tests
         self.non_heaptypes_w = []
 
@@ -173,12 +179,69 @@ class RefcountState:
         for w_obj, obj in self.py_objects_w2r.items():
             print "%r: %i" % (w_obj, obj.c_ob_refcnt)
 
+    def make_borrowed(self, w_container, w_borrowed):
+        """
+        Create a borrowed reference, which will live as long as the container
+        has a living reference (as a PyObject!)
+        """
+        ref = make_ref(self.space, w_borrowed)
+        obj_ptr = rffi.cast(ADDR, ref)
+        if obj_ptr not in self.borrowed_objects:
+            # borrowed_objects owns the reference
+            self.borrowed_objects[obj_ptr] = None
+        else:
+            Py_DecRef(self.space, ref) # already in borrowed list
+
+        borrowees = self.borrow_mapping.setdefault(w_container, {})
+        borrowees[w_borrowed] = None
+        return ref
+
     def reset_borrowed_references(self):
+        "Used in tests"
         while self.borrowed_objects:
             addr, _ = self.borrowed_objects.popitem()
             w_obj = self.py_objects_r2w[addr]
             Py_DecRef(self.space, w_obj)
-        self.borrow_mapping = {}
+        self.borrow_mapping = {None: {}}
+
+    def delete_borrower(self, w_obj):
+        """
+        Called when a potential container for borrowed references has lost its
+        last reference.  Removes the borrowed references it contains.
+        """
+        if w_obj in self.borrow_mapping: # move to lifeline __del__
+            for w_containee in self.borrow_mapping[w_obj]:
+                self.forget_borrowee(w_containee)
+            del self.borrow_mapping[w_obj]
+
+    def swap_borrow_container(self, container):
+        """switch the current default contained with the given one."""
+        if container is None:
+            old_container = self.borrow_mapping[None]
+            self.borrow_mapping[None] = {}
+            return old_container
+        else:
+            old_container = self.borrow_mapping[None]
+            self.borrow_mapping[None] = container
+            for w_containee in old_container:
+                self.forget_borrowee(w_containee)
+
+    def forget_borrowee(self, w_obj):
+        "De-register an object from the list of borrowed references"
+        ref = self.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
+        if not ref:
+            if DEBUG_REFCOUNT:
+                print >>sys.stderr, "Borrowed object is already gone:", \
+                      hex(containee)
+            return
+
+        containee_ptr = rffi.cast(ADDR, ref)
+        try:
+            del self.borrowed_objects[containee_ptr]
+        except KeyError:
+            pass
+        else:
+            Py_DecRef(self.space, ref)
 
 class InvalidPointerException(Exception):
     pass
@@ -293,7 +356,7 @@ def Py_DecRef(space, obj):
                 _Py_Dealloc(space, obj)
             del state.py_objects_w2r[w_obj]
             # if the object was a container for borrowed references
-            delete_borrower(space, w_obj)
+            state.delete_borrower(w_obj)
     else:
         if not we_are_translated() and obj.c_ob_refcnt < 0:
             message = "Negative refcount for obj %s with type %s" % (
@@ -329,23 +392,11 @@ def make_borrowed_ref(space, w_container, w_borrowed):
     Create a borrowed reference, which will live as long as the container
     has a living reference (as a PyObject!)
     """
-    ref = make_ref(space, w_borrowed)
-    if not ref:
-        return ref
+    if w_borrowed is None:
+        return lltype.nullptr(PyObject.TO)
 
-    # state.borrowed_objects owns the reference
     state = space.fromcache(RefcountState)
-    obj_ptr = rffi.cast(ADDR, ref)
-    if obj_ptr not in state.borrowed_objects:
-        state.borrowed_objects[obj_ptr] = None
-    else:
-        Py_DecRef(space, ref) # already in borrowed list
-
-    if w_container is None: # self-managed
-        return ref
-    borrowees = state.borrow_mapping.setdefault(w_container, {})
-    borrowees[w_borrowed] = None
-    return ref
+    return state.make_borrowed(w_container, w_borrowed)
 
 class BorrowPair:
     """
@@ -360,36 +411,6 @@ class BorrowPair:
 
 def borrow_from(container, borrowed):
     return BorrowPair(container, borrowed)
-
-def forget_borrowee(space, w_obj):
-    "De-register an object from the list of borrowed references"
-    state = space.fromcache(RefcountState)
-    ref = state.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
-    if not ref:
-        if DEBUG_REFCOUNT:
-            print >>sys.stderr, "Borrowed object is already gone:", \
-                  hex(containee)
-        return
-
-    containee_ptr = rffi.cast(ADDR, ref)
-    try:
-        del state.borrowed_objects[containee_ptr]
-    except KeyError:
-        pass
-    else:
-        Py_DecRef(space, ref)
-
-def delete_borrower(space, w_obj):
-    """
-    Called when a potential container for borrowed references has lost its
-    last reference.  Removes the borrowed references it contains.
-    """
-    state = space.fromcache(RefcountState)
-    if w_obj in state.borrow_mapping: # move to lifeline __del__
-        for w_containee in state.borrow_mapping[w_obj]:
-            forget_borrowee(space, w_containee)
-        del state.borrow_mapping[w_obj]
-
 
 #___________________________________________________________
 

@@ -29,17 +29,9 @@ class State:
         self.operror = operror
 
     def clear_exception(self):
-        """Clear the current exception state, and return the operror.
-        Also frees the borrowed reference returned by PyErr_Occurred()
-        """
+        """Clear the current exception state, and return the operror."""
         from pypy.module.cpyext.api import ADDR
-        # handling of borrowed objects, remove when we have
-        # a weakkeydict
         operror = self.operror
-        if operror is not None:
-            # we have no explicit container
-            from pypy.module.cpyext.pyobject import forget_borrowee
-            forget_borrowee(self.space, operror.w_type)
         self.operror = None
         return operror
 

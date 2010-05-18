@@ -249,14 +249,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def unimport_module(self, name):
         """
-        Remove the named module from the space's sys.modules and discard the
-        reference (owned by "the test") to it.
+        Remove the named module from the space's sys.modules.
         """
         w_modules = self.space.sys.get('modules')
         w_name = self.space.wrap(name)
-        w_mod = self.space.getitem(w_modules, w_name)
         self.space.delitem(w_modules, w_name)
-        Py_DecRef(self.space, w_mod)
 
     def teardown_method(self, func):
         for name in self.imported_module_names:

@@ -58,8 +58,7 @@ def Py_InitModule4(space, name, methods, doc, w_self, apiver):
     if doc:
         space.setattr(w_mod, space.wrap("__doc__"),
                       space.wrap(rffi.charp2str(doc)))
-    # we cannot borrow here
-    return w_mod
+    return borrow_from(None, w_mod)
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None):

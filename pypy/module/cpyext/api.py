@@ -811,6 +811,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 @specialize.memo()
 def make_generic_cpy_call(FT, decref_args, expect_null):
     from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
+    from pypy.module.cpyext.pyobject import RefcountState
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
     unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
     RESULT_TYPE = FT.RESULT
@@ -856,8 +857,17 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
                     boxed_args += (arg,)
             else:
                 boxed_args += (arg,)
-        result = call_external_function(func, *boxed_args)
+
         try:
+            # create a new container for borrowed references
+            state = space.fromcache(RefcountState)
+            old_container = state.swap_borrow_container(None)
+            try:
+                # Call the function
+                result = call_external_function(func, *boxed_args)
+            finally:
+                state.swap_borrow_container(old_container)
+
             if RESULT_TYPE is PyObject:
                 if result is None:
                     ret = result
