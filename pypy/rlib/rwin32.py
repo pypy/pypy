@@ -209,6 +209,7 @@ if WIN32:
                     rffi.cast(lltype.Signed, info.c_dwMinorVersion),
                     rffi.cast(lltype.Signed, info.c_dwBuildNumber),
                     rffi.cast(lltype.Signed, info.c_dwPlatformId),
-                    rffi.charp2str(info.c_szCSDVersion))
+                    rffi.charp2str(rffi.cast(rffi.CCHARP,
+                                             info.c_szCSDVersion)))
         finally:
             lltype.free(info, flavor='raw')
