@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
+import sys
 
 class Module(MixedModule):
     """Sys Builtin Module. """
@@ -71,6 +72,10 @@ class Module(MixedModule):
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
         }
+
+    if sys.platform == 'win32':
+        interpleveldefs['winver'] = 'version.get_winver(space)'
+        interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
     
     appleveldefs = {
         'excepthook'            : 'app.excepthook', 

@@ -58,6 +58,11 @@ def get_version(space):
         PYPY_VERSION[1],
         PYPY_VERSION[2]))
 
+def get_winver(space):
+    return space.wrap("%d.%d" % (
+        CPYTHON_VERSION[0],
+        CPYTHON_VERSION[1]))
+
 def get_hexversion(space):
     return space.wrap(tuple2hex(CPYTHON_VERSION))
 

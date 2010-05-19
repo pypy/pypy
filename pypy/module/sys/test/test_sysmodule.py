@@ -331,6 +331,10 @@ class AppTestSysModulePortedFromCPython:
             assert isinstance(v[3], int)
             assert isinstance(v[4], str)
 
+    def test_winver(self):
+        if hasattr(sys, "winver"):
+            assert sys.winver == sys.version[:3]
+
     def test_dlopenflags(self):
         if hasattr(sys, "setdlopenflags"):
             assert hasattr(sys, "getdlopenflags")

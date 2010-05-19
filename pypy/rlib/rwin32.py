@@ -50,6 +50,15 @@ class CConfig:
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
 
+        OSVERSIONINFO = rffi_platform.Struct(
+            'OSVERSIONINFO',
+            [('dwOSVersionInfoSize', rffi.UINT),
+             ('dwMajorVersion', rffi.UINT),
+             ('dwMinorVersion', rffi.UINT),
+             ('dwBuildNumber',  rffi.UINT),
+             ('dwPlatformId',  rffi.UINT),
+             ('szCSDVersion', rffi.CFixedArray(lltype.Char, 1))])
+
         LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType(
             "LPSECURITY_ATTRIBUTES", rffi.CCHARP)
 
@@ -184,3 +193,22 @@ if WIN32:
                 return ''.join([buf[i] for i in range(res)])
         finally:
             lltype.free(buf, flavor='raw')
+
+    _GetVersionEx = winexternal('GetVersionExA',
+                                [lltype.Ptr(OSVERSIONINFO)],
+                                DWORD)
+
+    def GetVersionEx():
+        info = lltype.malloc(OSVERSIONINFO, flavor='raw')
+        rffi.setintfield(info, 'c_dwOSVersionInfoSize',
+                         rffi.sizeof(OSVERSIONINFO))
+        try:
+            if not _GetVersionEx(info):
+                raise lastWindowsError()
+            return (rffi.cast(lltype.Signed, info.c_dwMajorVersion),
+                    rffi.cast(lltype.Signed, info.c_dwMinorVersion),
+                    rffi.cast(lltype.Signed, info.c_dwBuildNumber),
+                    rffi.cast(lltype.Signed, info.c_dwPlatformId),
+                    rffi.charp2str(info.c_szCSDVersion))
+        finally:
+            lltype.free(info, flavor='raw')
