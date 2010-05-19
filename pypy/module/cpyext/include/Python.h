@@ -66,7 +66,7 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
-
+#include <stdlib.h>
 
 /* Convert a possibly signed character to a nonnegative int */
 /* XXX This assumes characters are 8 bits wide */
@@ -98,7 +98,6 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #include <assert.h>
 #include <locale.h>
 #include <ctype.h>
-#include <stdlib.h>
 
 #include "pyconfig.h"
 
