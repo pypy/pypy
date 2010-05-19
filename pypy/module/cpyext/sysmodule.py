@@ -10,7 +10,7 @@ def PySys_GetObject(space, name):
     name = rffi.charp2str(name)
     w_dict = space.sys.getdict()
     w_obj = space.finditem_str(w_dict, name)
-    return borrow_from(w_dict, w_obj)
+    return borrow_from(None, w_obj)
 
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PySys_SetObject(space, name, w_obj):
