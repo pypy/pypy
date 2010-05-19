@@ -73,7 +73,17 @@ class Module(Wrappable):
                                   ])
         #already imported case
         w_import = space.builtin.get('__import__')
-        return space.newtuple([w_import, space.newtuple([w_name])])
+        tup_return = [
+            w_import,
+            space.newtuple([
+                w_name,
+                space.w_None,
+                space.w_None,
+                space.newtuple([space.wrap('')])
+            ])
+        ]
+
+        return space.newtuple(tup_return)
 
     def descr_module__repr__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule

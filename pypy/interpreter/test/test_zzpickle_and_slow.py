@@ -468,3 +468,18 @@ class AppTestInterpObjectPickling:
         l = []
         unbound_meth2(l, 1)
         assert l == [1]
+
+    def test_pickle_submodule(self):
+        import pickle
+        import sys, new
+
+        mod = new.module('pack.mod')
+        sys.modules['pack.mod'] = mod
+        pack = new.module('pack')
+        pack.mod = mod
+        sys.modules['pack'] = pack
+
+        import pack.mod
+        pckl   = pickle.dumps(pack.mod)
+        result = pickle.loads(pckl)
+        assert pack.mod is result
