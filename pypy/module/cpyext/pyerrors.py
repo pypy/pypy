@@ -214,7 +214,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
     """Print a standard traceback to sys.stderr and clear the error indicator.
     Call this function only when the error indicator is set.  (Otherwise it will
     cause a fatal error!)
-    
+
     If set_sys_last_vars is nonzero, the variables sys.last_type,
     sys.last_value and sys.last_traceback will be set to the
     type, value and traceback of the printed exception, respectively."""
@@ -222,21 +222,18 @@ def PyErr_PrintEx(space, set_sys_last_vars):
         PyErr_BadInternalCall(space)
     state = space.fromcache(State)
     operror = state.clear_exception()
-    
+
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
     w_tb = space.wrap(operror.application_traceback)
-    space.call_function(space.sys.get("excepthook"),
-        w_type,
-        w_value,
-        w_tb
-    )
-    
+
     if set_sys_last_vars:
-        w_dict = space.sys.getdict()
-        w_dict.setitem_str("last_type", w_type)
-        w_dict.setitem_str("last_value", w_value)
-        w_dict.setitem_str("last_traceback", w_tb)
+        space.sys.setdictvalue(space, "last_type", w_type)
+        space.sys.setdictvalue(space, "last_value", w_value)
+        space.sys.setdictvalue(space, "last_traceback", w_tb)
+
+    space.call_function(space.sys.get("excepthook"),
+                        w_type, w_value, w_tb)
 
 @cpython_api([], lltype.Void)
 def PyErr_Print(space):
