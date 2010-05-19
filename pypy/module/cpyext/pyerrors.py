@@ -227,7 +227,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
     w_value = operror.get_w_value(space)
     w_tb = space.wrap(operror.application_traceback)
 
-    if set_sys_last_vars:
+    if rffi.cast(lltype.Signed, set_sys_last_vars):
         space.sys.setdictvalue(space, "last_type", w_type)
         space.sys.setdictvalue(space, "last_value", w_value)
         space.sys.setdictvalue(space, "last_traceback", w_tb)
