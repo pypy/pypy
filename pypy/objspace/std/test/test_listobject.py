@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
 
 
-class TestW_ListObject:
+class TestW_ListObject(object):
 
     def test_is_true(self):
         w = self.space.wrap
@@ -342,7 +342,7 @@ class TestW_ListObject:
                            self.space.w_True)
 
 
-class AppTestW_ListObject:
+class AppTestW_ListObject(object):
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
@@ -575,6 +575,12 @@ class AppTestW_ListObject:
         l = range(2)
         l *= 2
         assert l == [0, 1, 0, 1]
+
+    def test_mul_errors(self):
+        try:
+            [1, 2, 3] * (3,)
+        except TypeError:
+            pass
 
     def test_index(self):
         c = range(10)
