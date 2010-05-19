@@ -163,7 +163,8 @@ class RefcountState:
         self.non_heaptypes_w = []
 
     def _freeze_(self):
-        assert not self.borrowed_objects and not self.borrow_mapping
+        assert not self.borrowed_objects
+        assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
         return False
 
