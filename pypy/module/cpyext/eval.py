@@ -1,11 +1,26 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (
-    cpython_api, PyObject, CANNOT_FAIL, CONST_STRING)
+from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.pyobject import PyObject, borrow_from
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
     return space.call(w_obj, w_arg, w_kwds)
+
+@cpython_api([], PyObject)
+def PyEval_GetBuiltins(space):
+    """Return a dictionary of the builtins in the current execution
+    frame, or the interpreter of the thread state if no frame is
+    currently executing."""
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    if caller is not None:
+        w_globals = caller.w_globals
+        w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
+        if not space.isinstance_w(w_builtins, space.w_dict):
+            w_builtins = w_builtins.getdict()
+    else:
+        w_builtins = space.builtin.getdict()
+    return borrow_from(None, w_builtins)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_CallObject(space, w_obj, w_arg):

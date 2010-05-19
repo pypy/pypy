@@ -76,6 +76,26 @@ class TestEval(BaseApiTest):
         assert 42 * 43 == space.unwrap(
             api.PyObject_GetItem(w_globals, space.wrap("a")))
 
+    def test_getbuiltins(self, space, api):
+        assert api.PyEval_GetBuiltins() is space.builtin.w_dict
+
+        from pypy.interpreter.gateway import ObjSpace, interp2app
+        def cpybuiltins(space):
+            return api.PyEval_GetBuiltins()
+        cpybuiltins.unwrap_spec = [ObjSpace]
+        w_cpybuiltins = space.wrap(interp2app(cpybuiltins))
+
+        w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
+            return cpybuiltins() is __builtins__.__dict__
+        """)
+        assert space.is_true(w_result)
+
+        w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
+            d = dict(__builtins__={'len':len}, cpybuiltins=cpybuiltins)
+            return eval("cpybuiltins()", d, d)
+        """)
+        assert space.int_w(space.len(w_result)) == 1
+
 
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_CallFunction(self):
