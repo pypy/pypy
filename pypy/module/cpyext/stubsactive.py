@@ -4,7 +4,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pystate import PyThreadState, PyInterpreterState
 
 
-@cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL) #XXX
+FILE = rffi.VOIDP_real.TO
+FILEP = lltype.Ptr(FILE)
+@cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
 def PyFile_AsFile(space, p):
     """Return the file object associated with p as a FILE*.
     
@@ -13,8 +15,6 @@ def PyFile_AsFile(space, p):
     PyFile_DecUseCount() functions described below as appropriate."""
     raise NotImplementedError
 
-FILE = rffi.VOIDP_real.TO
-FILEP = lltype.Ptr(FILE)
 @cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)
 def PyObject_Print(space, o, fp, flags):
     """Print an object o, on file fp.  Returns -1 on error.  The flags argument
