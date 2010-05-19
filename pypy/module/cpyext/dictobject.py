@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING)
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
+from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 
@@ -104,7 +105,7 @@ def PyDict_Items(space, w_obj):
     return space.call_method(w_obj, "items")
 
 @cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
-def PyDict_Next(space, w_obj, ppos, pkey, pvalue):
+def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     """Iterate over all key-value pairs in the dictionary p.  The
     Py_ssize_t referred to by ppos must be initialized to 0
     prior to the first call to this function to start the iteration; the
@@ -145,8 +146,30 @@ def PyDict_Next(space, w_obj, ppos, pkey, pvalue):
         }
         Py_DECREF(o);
     }"""
-    if w_obj is None:
+    if w_dict is None:
         return 0
-    raise NotImplementedError
+
+    # Note: this is not efficient. Storing an iterator would probably
+    # work, but we can't work out how to not leak it if iteration does
+    # not complete.
+
+    try:
+        w_iter = space.call_method(w_dict, "iteritems")
+        pos = ppos[0]
+        while pos:
+            space.call_method(w_iter, "next")
+            pos -= 1
+
+        w_item = space.call_method(w_iter, "next")
+        w_key, w_value = space.fixedview(w_item, 2)
+        state = space.fromcache(RefcountState)
+        pkey[0]   = state.make_borrowed(w_dict, w_key)
+        pvalue[0] = state.make_borrowed(w_dict, w_value)
+        ppos[0] += 1
+    except OperationError, e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+        return 0
+    return 1
 
 
