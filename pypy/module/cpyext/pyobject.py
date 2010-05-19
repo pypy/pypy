@@ -169,7 +169,6 @@ class RefcountState:
 
     def init_r2w_from_w2r(self):
         """Rebuilds the dict py_objects_r2w on startup"""
-        from pypy.module.cpyext.api import ADDR
         for w_obj, obj in self.py_objects_w2r.items():
             ptr = rffi.cast(ADDR, obj)
             self.py_objects_r2w[ptr] = w_obj

@@ -30,7 +30,6 @@ class State:
 
     def clear_exception(self):
         """Clear the current exception state, and return the operror."""
-        from pypy.module.cpyext.api import ADDR
         operror = self.operror
         self.operror = None
         return operror

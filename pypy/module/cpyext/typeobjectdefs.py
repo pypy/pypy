@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.module.cpyext.api import cpython_struct, \
     PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, \
-    Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, ADDR, \
+    Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, \
     PyTypeObject, PyTypeObjectPtr, PyBufferProcs
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
