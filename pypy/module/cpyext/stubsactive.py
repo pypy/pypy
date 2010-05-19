@@ -23,11 +23,6 @@ def PyObject_Print(space, o, fp, flags):
     instead of the repr()."""
     raise NotImplementedError
 
-@cpython_api([], lltype.Void)
-def PyErr_Print(space):
-    """Alias for PyErr_PrintEx(1)."""
-    raise NotImplementedError
-
 @cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL)
 def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter object.

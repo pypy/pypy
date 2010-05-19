@@ -826,17 +826,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real], lltype.Void)
-def PyErr_PrintEx(space, set_sys_last_vars):
-    """Print a standard traceback to sys.stderr and clear the error indicator.
-    Call this function only when the error indicator is set.  (Otherwise it will
-    cause a fatal error!)
-    
-    If set_sys_last_vars is nonzero, the variables sys.last_type,
-    sys.last_value and sys.last_traceback will be set to the
-    type, value and traceback of the printed exception, respectively."""
-    raise NotImplementedError
-
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc, val, tb):
     """Under certain circumstances, the values returned by PyErr_Fetch() below

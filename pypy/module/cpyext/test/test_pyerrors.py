@@ -1,3 +1,6 @@
+import sys
+import StringIO
+
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -78,6 +81,13 @@ class TestExceptions(BaseApiTest):
         out, err = capfd.readouterr()
         assert ": UserWarning: this is a warning" in err
         rffi.free_charp(message)
+
+    def test_print_err(self, space, api, capfd):
+        api.PyErr_SetObject(space.w_Exception, space.wrap("cpyext is cool"))
+        api.PyErr_Print()
+        out, err = capfd.readouterr()
+        assert "cpyext is cool" in err
+        assert not api.PyErr_Occurred()
 
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
