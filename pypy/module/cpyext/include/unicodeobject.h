@@ -16,6 +16,7 @@ typedef unsigned int Py_UCS4;
 #endif
 typedef PY_UNICODE_TYPE Py_UNICODE;
 
+#define Py_UNICODE_REPLACEMENT_CHARACTER ((Py_UNICODE) 0xFFFD)
 
 typedef struct {
     PyObject_HEAD
