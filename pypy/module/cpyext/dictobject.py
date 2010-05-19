@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, build_type_checkers,\
-        Py_ssize_t, PyObjectP, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.cpyext.api import (
+    cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
+    Py_ssize_tP, CONST_STRING)
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 
@@ -102,7 +103,7 @@ def PyDict_Items(space, w_obj):
     dictionary, as in the dictionary method dict.items()."""
     return space.call_method(w_obj, "items")
 
-@cpython_api([PyObject, Py_ssize_t, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDict_Next(space, w_obj, ppos, pkey, pvalue):
     """Iterate over all key-value pairs in the dictionary p.  The
     Py_ssize_t referred to by ppos must be initialized to 0
