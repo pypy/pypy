@@ -282,7 +282,7 @@ class ExternalCompilationInfo(object):
             for sym in self.export_symbols:
                 f.write("%s;\n" % (sym,))
             f.write("};")
-            d['link_extra'] += ("-Wl,--dynamic-list=" + str(file_name), )
+            d['link_extra'] += ("-Wl,--export-dynamic,--version-script=" + str(file_name), )
         f.close()
         d['export_symbols'] = ()
         return ExternalCompilationInfo(**d)
