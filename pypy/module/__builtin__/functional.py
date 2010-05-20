@@ -186,7 +186,7 @@ def map(space, w_func, collections_w):
     while True:
         cont = False
         args_w = [space.w_None] * num_iterators
-        for i in range(len(iterators_w)):
+        for i in range(num_iterators):
             try:
                 args_w[i] = space.next(iterators_w[i])
             except OperationError, e:
@@ -194,8 +194,8 @@ def map(space, w_func, collections_w):
                     raise
             else:
                 cont = True
-        w_args = space.newtuple(args_w)
         if cont:
+            w_args = space.newtuple(args_w)
             if none_func:
                 result_w.append(w_args)
             else:
