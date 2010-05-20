@@ -343,6 +343,18 @@ class TestLL2Ctypes(object):
         lltype.free(ll_timevalp, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
+    def test_opaque_obj_2(self):
+        FILEP = rffi.COpaquePtr('FILE')
+        fopen = rffi.llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+        fclose = rffi.llexternal('fopen', [FILEP], rffi.INT)
+        tmppath = udir.join('test_ll2ctypes.test_opaque_obj_2')
+        ll_file = fopen(str(tmppath), "w")
+        assert ll_file
+        fclose(ll_file)
+        assert tmppath.check(file=1)
+        #assert not ALLOCATED --- fails, because ll2ctypes misses the
+        #                         fact that fclose() frees 'll_file'
+
     def test_simple_cast(self):
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123456) == 0x56
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123481) == -127
