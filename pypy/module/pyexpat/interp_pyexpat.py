@@ -93,6 +93,9 @@ NB_HANDLERS = len(HANDLERS)
 class Storage:
     "Store objects under a non moving ID"
     def __init__(self):
+        self.clear()
+
+    def clear(self):
         self.next_id = 0
         self.storage = {}
 
