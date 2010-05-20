@@ -344,7 +344,6 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_opaque_obj_2(self):
-        py.test.skip("FIXME")
         FILEP = rffi.COpaquePtr('FILE')
         fopen = rffi.llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
         fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
@@ -353,8 +352,7 @@ class TestLL2Ctypes(object):
         assert ll_file
         fclose(ll_file)
         assert tmppath.check(file=1)
-        #assert not ALLOCATED --- fails, because ll2ctypes misses the
-        #                         fact that fclose() frees 'll_file'
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_simple_cast(self):
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123456) == 0x56

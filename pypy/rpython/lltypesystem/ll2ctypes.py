@@ -208,6 +208,8 @@ def build_new_ctypes_type(T, delayed_builders):
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
             return ctypes.CFUNCTYPE(restype, *argtypes)
+        elif isinstance(T.TO, lltype.OpaqueType):
+            return ctypes.c_void_p
         else:
             return ctypes.POINTER(get_ctypes_type(T.TO, delayed_builders))
     elif T is lltype.Void:
@@ -635,10 +637,15 @@ def lltype2ctypes(llobj, normalize=True):
                     cbuf = ctypes.create_string_buffer(T.TO.hints['getsize']())
                 else:
                     cbuf = ctypes.create_string_buffer("\x00")
+                cbuf = ctypes.cast(cbuf, ctypes.c_void_p)
                 add_storage(container, _parentable_mixin, cbuf)
             else:
                 raise NotImplementedError(T)
             container._ctypes_storage_was_allocated()
+
+        if isinstance(T.TO, lltype.OpaqueType):
+            return container._storage
+
         storage = container._storage
         p = ctypes.pointer(storage)
         if index:
@@ -729,6 +736,7 @@ def ctypes2lltype(T, cobj):
                 container = _llgcopaque(cobj)
             else:
                 container = lltype._opaque(T.TO)
+                container._storage = ctypes.cast(cobj, ctypes.c_void_p)
         else:
             raise NotImplementedError(T)
         llobj = lltype._ptr(T, container, solid=True)
