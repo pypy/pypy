@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.__builtin__ import compiling
@@ -110,4 +110,22 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     finally:
         lltype.free(buf, flavor='raw')
     return run_string(space, source, filename, start, w_globals, w_locals)
+
+# Undocumented function!
+@cpython_api([PyObject, Py_ssize_tP], rffi.INT_real, error=0)
+def _PyEval_SliceIndex(space, w_obj, pi):
+    """Extract a slice index from a PyInt or PyLong or an object with the
+    nb_index slot defined, and store in *pi.
+    Silently reduce values larger than PY_SSIZE_T_MAX to PY_SSIZE_T_MAX,
+    and silently boost values less than -PY_SSIZE_T_MAX-1 to -PY_SSIZE_T_MAX-1.
+
+    Return 0 on error, 1 on success.
+
+    Note:  If v is NULL, return success without storing into *pi.  This
+    is because_PyEval_SliceIndex() is called by apply_slice(), which can be
+    called by the SLICE opcode with v and/or w equal to NULL.
+    """
+    if w_obj is not None:
+        pi[0] = space.getindex_w(w_obj, None)
+    return 1
 

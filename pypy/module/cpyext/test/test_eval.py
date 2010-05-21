@@ -3,9 +3,10 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input)
-from pypy.module.cpyext.api import fopen, fclose
+from pypy.module.cpyext.api import fopen, fclose, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
+import sys
 
 class TestEval(BaseApiTest):
     def test_eval(self, space, api):
@@ -134,6 +135,18 @@ class TestEval(BaseApiTest):
         assert sorted(locals) == ['cpyvars', 'x']
         assert sorted(globals) == ['__builtins__', 'anonymous', 'y']
 
+    def test_sliceindex(self, space, api):
+        pi = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+        assert api._PyEval_SliceIndex(space.w_None, pi) == 0
+        api.PyErr_Clear()
+
+        assert api._PyEval_SliceIndex(space.wrap(123), pi) == 1
+        assert pi[0] == 123
+
+        assert api._PyEval_SliceIndex(space.wrap(1 << 66), pi) == 1
+        assert pi[0] == sys.maxint
+
+        lltype.free(pi, flavor='raw')
 
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_CallFunction(self):
