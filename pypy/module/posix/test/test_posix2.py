@@ -249,6 +249,19 @@ class AppTestPosix:
         f = posix.fdopen(fd, "r")
         f.close()
 
+    def test_fdopen_hackedbuiltins(self):
+        "Same test, with __builtins__.file removed"
+        _file = __builtins__.file
+        __builtins__.file = None
+        try:
+            path = self.path
+            posix = self.posix
+            fd = posix.open(path, posix.O_RDONLY, 0777)
+            f = posix.fdopen(fd, "r")
+            f.close()
+        finally:
+            __builtins__.file = _file
+
     def test_getcwd(self):
         assert isinstance(self.posix.getcwd(), str)
         assert isinstance(self.posix.getcwdu(), unicode)

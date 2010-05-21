@@ -62,13 +62,16 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+# Capture file.fdopen at import time, as some code replaces
+# __builtins__.file with a custom function.
+_fdopen = file.fdopen
 
 def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
 
-    return file.fdopen(fd, mode, buffering)
+    return _fdopen(fd, mode, buffering)
 
 
 def tmpfile():
