@@ -93,7 +93,7 @@ class TestEval(BaseApiTest):
 
         # retry on closed file
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        assert api.PyErr_Occurred() is space.w_OSError
+        assert api.PyErr_Occurred() is space.w_IOError
         api.PyErr_Clear()
 
         rffi.free_charp(filename)

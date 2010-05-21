@@ -1,7 +1,7 @@
 import os
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
@@ -116,7 +116,9 @@ def PyErr_SetFromErrno(space, w_type):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
-    raise wrap_oserror(space, OSError(errno, "PyErr_SetFromErrno"))
+    msg = os.strerror(errno)
+    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
 def PyErr_CheckSignals(space):
