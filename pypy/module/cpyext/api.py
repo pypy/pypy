@@ -18,6 +18,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import ObjSpace, unwrap_spec
 from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.module import Module
+from pypy.module.__builtin__.descriptor import W_Property
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
@@ -323,6 +325,8 @@ def build_exported_objects():
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',
         'Cell': 'space.gettypeobject(Cell.typedef)',
+        'Module': 'space.gettypeobject(Module.typedef)',
+        'Property': 'space.gettypeobject(W_Property.typedef)',
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 

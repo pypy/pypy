@@ -646,3 +646,21 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         h = mod.get_hash()
         assert h != 0
         assert h % 4 == 0 # it's the pointer value
+
+    def test_types(self):
+        """test the presence of random types"""
+
+        mod = self.import_extension('foo', [
+            ('get_names', 'METH_NOARGS',
+             '''
+             /* XXX in tests, the C type is not correct */
+             #define NAME(type) ((PyTypeObject*)&type)->tp_name
+             return Py_BuildValue("sss",
+                                  NAME(PyCell_Type),
+                                  NAME(PyModule_Type),
+                                  NAME(PyProperty_Type)
+                                  );
+             '''
+             ),
+            ])
+        assert mod.get_names() == ('cell', 'module', 'property')
