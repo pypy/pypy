@@ -128,6 +128,14 @@ def PyObject_DelAttr(space, w_obj, w_name):
     space.delattr(w_obj, w_name)
     return 0
 
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
+def PyObject_DelAttrString(space, w_obj, name_ptr):
+    """Delete attribute named attr_name, for object o. Returns -1 on failure.
+    This is the equivalent of the Python statement del o.attr_name."""
+    w_name = space.wrap(rffi.charp2str(name_ptr))
+    space.delattr(w_obj, w_name)
+    return 0
+
 @cpython_api([PyObject], lltype.Void)
 def PyObject_ClearWeakRefs(space, w_object):
     w_object.clear_all_weakrefs()
@@ -147,6 +155,20 @@ def PyObject_GetItem(space, w_obj, w_key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
     return space.getitem(w_obj, w_key)
+
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def PyObject_SetItem(space, w_obj, w_key, w_value):
+    """Map the object key to the value v.  Returns -1 on failure.  This is the
+    equivalent of the Python statement o[key] = v."""
+    space.setitem(w_obj, w_key, w_value)
+    return 0
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyObject_DelItem(space, w_obj, w_key):
+    """Delete the mapping for key from o.  Returns -1 on failure. This is the
+    equivalent of the Python statement del o[key]."""
+    space.delitem(w_obj, w_key)
+    return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
 def PyObject_Init(space, op, type):

@@ -63,6 +63,9 @@ class TestObject(BaseApiTest):
         assert not api.PyObject_GetAttrString(space.wrap(""), charp2)
         assert api.PyErr_Occurred() is space.w_AttributeError
         api.PyErr_Clear()
+        assert api.PyObject_DelAttrString(space.wrap(""), charp1) == -1
+        assert api.PyErr_Occurred() is space.w_AttributeError
+        api.PyErr_Clear()
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
@@ -77,6 +80,14 @@ class TestObject(BaseApiTest):
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a key!"), space.wrap(72))
         assert space.unwrap(api.PyObject_GetItem(w_d, space.wrap("a key!"))) == 72
+
+        assert api.PyObject_SetItem(w_d, space.wrap("key"), space.w_None) == 0
+        assert space.getitem(w_d, space.wrap("key")) is space.w_None
+
+        assert api.PyObject_DelItem(w_d, space.wrap("key")) == 0
+        assert api.PyObject_GetItem(w_d, space.wrap("key")) is None
+        assert api.PyErr_Occurred() is space.w_KeyError
+        api.PyErr_Clear()
 
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
