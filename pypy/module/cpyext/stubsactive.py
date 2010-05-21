@@ -1,11 +1,10 @@
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL, CConfig
+from pypy.module.cpyext.object import FILEP
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pystate import PyThreadState, PyInterpreterState
 
 
-FILE = rffi.VOIDP_real.TO
-FILEP = lltype.Ptr(FILE)
 @cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
 def PyFile_AsFile(space, p):
     """Return the file object associated with p as a FILE*.
