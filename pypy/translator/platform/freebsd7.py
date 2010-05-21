@@ -16,12 +16,12 @@ class Freebsd7(posix.BasePosix):
         return ['-shared'] + args
 
     def _preprocess_include_dirs(self, include_dirs):
-        res_incl_dirs = [dir for dir in include_dirs]
+        res_incl_dirs = list(include_dirs)
         res_incl_dirs.append('/usr/local/include')
         return res_incl_dirs
 
     def _preprocess_library_dirs(self, library_dirs):
-        res_lib_dirs = [dir for dir in library_dirs]
+        res_lib_dirs = list(library_dirs)
         res_lib_dirs.append('/usr/local/lib')
         return res_lib_dirs
 
