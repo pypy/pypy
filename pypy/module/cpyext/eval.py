@@ -98,7 +98,7 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     closeit set to 0 and flags set to NULL."""
     BUF_SIZE = 8192
     source = ""
-    filename = charp2str(filename)
+    filename = rffi.charp2str(filename)
     buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
     try:
         while True:
