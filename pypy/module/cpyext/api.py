@@ -67,6 +67,7 @@ assert CONST_WSTRING is not rffi.CWCHARP
 
 FILEP = rffi.COpaquePtr('FILE')
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
+fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 fwrite = rffi.llexternal('fwrite',
                          [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                          rffi.SIZE_T)

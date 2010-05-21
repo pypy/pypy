@@ -3,7 +3,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input)
-from pypy.module.cpyext.api import fopen
+from pypy.module.cpyext.api import fopen, fclose
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
 
@@ -87,9 +87,16 @@ class TestEval(BaseApiTest):
         filename = rffi.str2charp(str(filepath))
         w_globals = w_locals = space.newdict()
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        rffi.free_charp(filename)
+        fclose(fp)
         assert api.PyErr_Occurred() is space.w_ZeroDivisionError
         api.PyErr_Clear()
+
+        # retry on closed file
+        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
+        assert api.PyErr_Occurred() is space.w_OSError
+        api.PyErr_Clear()
+
+        rffi.free_charp(filename)
 
     def test_getbuiltins(self, space, api):
         assert api.PyEval_GetBuiltins() is space.builtin.w_dict

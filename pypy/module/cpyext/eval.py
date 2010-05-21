@@ -106,7 +106,7 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
             if count < BUF_SIZE:
                 if feof(fp):
                     break
-                PyErr_SetFromErrno(PyExc_IOError)
+                PyErr_SetFromErrno(space, space.w_IOError)
     finally:
         lltype.free(buf, flavor='raw')
     return run_string(space, source, filename, start, w_globals, w_locals)
