@@ -2275,19 +2275,6 @@ def PyMarshal_ReadObjectFromString(space, string, len):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyMethod_Self(space, meth):
-    """Return the instance associated with the method meth if it is bound, otherwise
-    return NULL."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyMethod_GET_SELF(space, meth):
-    """Macro version of PyMethod_Self() which avoids error checking."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyMethod_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items.
@@ -2357,12 +2344,6 @@ def PyNumber_ToBase(space, n, base):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyObject_DelAttrString(space, o, attr_name):
-    """Delete attribute named attr_name, for object o. Returns -1 on failure.
-    This is the equivalent of the Python statement del o.attr_name."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
 def PyObject_Cmp(space, o1, o2, result):
     """
@@ -2391,18 +2372,6 @@ def PyObject_HashNotImplemented(space, o):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_SetItem(space, o, key, v):
-    """Map the object key to the value v.  Returns -1 on failure.  This is the
-    equivalent of the Python statement o[key] = v."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_DelItem(space, o, key):
-    """Delete the mapping for key from o.  Returns -1 on failure. This is the
-    equivalent of the Python statement del o[key]."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, o):
     """This is equivalent to the Python expression dir(o), returning a (possibly
@@ -2410,27 +2379,6 @@ def PyObject_Dir(space, o):
     was an error.  If the argument is NULL, this is like the Python dir(),
     returning the names of the current locals; in this case, if no execution frame
     is active then NULL is returned but PyErr_Occurred() will return false."""
-    raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyEval_GetBuiltins(space, ):
-    """Return a dictionary of the builtins in the current execution frame,
-    or the interpreter of the thread state if no frame is currently executing."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyEval_GetLocals(space, ):
-    """Return a dictionary of the local variables in the current execution frame,
-    or NULL if no frame is currently executing."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyEval_GetGlobals(space, ):
-    """Return a dictionary of the global variables in the current execution frame,
-    or NULL if no frame is currently executing."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([], PyFrameObject)
