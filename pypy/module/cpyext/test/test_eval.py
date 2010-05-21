@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import Py_single_input, Py_file_input, Py_eval_input
+from pypy.interpreter.gateway import interp2app
 
 class TestEval(BaseApiTest):
     def test_eval(self, space, api):
@@ -79,10 +80,8 @@ class TestEval(BaseApiTest):
     def test_getbuiltins(self, space, api):
         assert api.PyEval_GetBuiltins() is space.builtin.w_dict
 
-        from pypy.interpreter.gateway import ObjSpace, interp2app
         def cpybuiltins(space):
             return api.PyEval_GetBuiltins()
-        cpybuiltins.unwrap_spec = [ObjSpace]
         w_cpybuiltins = space.wrap(interp2app(cpybuiltins))
 
         w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
@@ -95,6 +94,24 @@ class TestEval(BaseApiTest):
             return eval("cpybuiltins()", d, d)
         """)
         assert space.int_w(space.len(w_result)) == 1
+
+    def test_getglobals(self, space, api):
+        assert api.PyEval_GetLocals() is None
+        assert api.PyEval_GetGlobals() is None
+
+        def cpyvars(space):
+            return space.newtuple([api.PyEval_GetGlobals(),
+                                   api.PyEval_GetLocals()])
+        w_cpyvars = space.wrap(interp2app(cpyvars))
+
+        w_result = space.appexec([w_cpyvars], """(cpyvars):
+            x = 1
+            return cpyvars()
+        \ny = 2
+        """)
+        globals, locals = space.unwrap(w_result)
+        assert sorted(locals) == ['cpyvars', 'x']
+        assert sorted(globals) == ['__builtins__', 'anonymous', 'y']
 
 
 class AppTestCall(AppTestCpythonExtensionBase):

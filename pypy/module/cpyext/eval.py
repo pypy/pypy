@@ -22,6 +22,24 @@ def PyEval_GetBuiltins(space):
         w_builtins = space.builtin.getdict()
     return borrow_from(None, w_builtins)
 
+@cpython_api([], PyObject, error=CANNOT_FAIL)
+def PyEval_GetLocals(space):
+    """Return a dictionary of the local variables in the current execution
+    frame, or NULL if no frame is currently executing."""
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    if caller is None:
+        return None
+    return borrow_from(None, caller.getdictscope())
+
+@cpython_api([], PyObject, error=CANNOT_FAIL)
+def PyEval_GetGlobals(space):
+    """Return a dictionary of the global variables in the current execution
+    frame, or NULL if no frame is currently executing."""
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    if caller is None:
+        return None
+    return borrow_from(None, caller.w_globals)
+
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_CallObject(space, w_obj, w_arg):
     """
