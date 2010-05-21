@@ -85,10 +85,10 @@ def run_string(space, source, filename, start, w_globals, w_locals):
     return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([CONST_STRING, rffi.INT_real,PyObject, PyObject], PyObject)
-def PyRun_String(space, str, start, w_globals, w_locals):
+def PyRun_String(space, source, start, w_globals, w_locals):
     """This is a simplified interface to PyRun_StringFlags() below, leaving
     flags set to NULL."""
-    source = rffi.charp2str(str)
+    source = rffi.charp2str(source)
     filename = "<string>"
     return run_string(space, source, filename, start, w_globals, w_locals)
 
@@ -98,6 +98,7 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     closeit set to 0 and flags set to NULL."""
     BUF_SIZE = 8192
     source = ""
+    filename = charp2str(filename)
     buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
     try:
         while True:
