@@ -50,6 +50,13 @@ def PyMethod_Function(space, w_method):
     return borrow_from(w_method, w_method.w_function)
 
 @cpython_api([PyObject], PyObject)
+def PyMethod_Self(space, w_method):
+    """Return the instance associated with the method meth if it is bound,
+    otherwise return NULL."""
+    assert isinstance(w_method, Method)
+    return borrow_from(w_method, w_method.w_instance)
+
+@cpython_api([PyObject], PyObject)
 def PyMethod_Class(space, w_method):
     """Return the class object from which the method meth was created; if this was
     created from an instance, it will be the class of the instance."""
