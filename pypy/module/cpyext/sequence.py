@@ -67,11 +67,22 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
     """Return the slice of sequence object o between i1 and i2, or NULL on
-    failure. This is the equivalent of the Python expression o[i1:i2].
-
-    This function used an int type for i1 and i2. This might
-    require changes in your code for properly supporting 64-bit systems."""
+    failure. This is the equivalent of the Python expression o[i1:i2]."""
     return space.getslice(w_obj, space.wrap(start), space.wrap(end))
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+def PySequence_SetSlice(space, w_obj, start, end, w_value):
+    """Assign the sequence object v to the slice in sequence object o from i1 to
+    i2.  This is the equivalent of the Python statement o[i1:i2] = v."""
+    space.setslice(w_obj, space.wrap(start), space.wrap(end), w_value)
+    return 0
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
+def PySequence_DelSlice(space, w_obj, start, end):
+    """Delete the slice in sequence object o from i1 to i2.  Returns -1 on
+    failure.  This is the equivalent of the Python statement del o[i1:i2]."""
+    space.delslice(w_obj, space.wrap(start), space.wrap(end))
+    return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_GetItem(space, w_obj, i):

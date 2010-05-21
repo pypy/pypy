@@ -2459,24 +2459,6 @@ def PySequence_DelItem(space, o, i):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
-def PySequence_SetSlice(space, o, i1, i2, v):
-    """Assign the sequence object v to the slice in sequence object o from i1 to
-    i2.  This is the equivalent of the Python statement o[i1:i2] = v.
-    
-    This function used an int type for i1 and i2. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
-def PySequence_DelSlice(space, o, i1, i2):
-    """Delete the slice in sequence object o from i1 to i2.  Returns -1 on
-    failure.  This is the equivalent of the Python statement del o[i1:i2].
-    
-    This function used an int type for i1 and i2. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Count(space, o, value):
     """Return the number of occurrences of value in o, that is, return the number

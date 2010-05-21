@@ -41,9 +41,14 @@ class TestSequence(BaseApiTest):
         rffi.free_charp(message)
     
     def test_get_slice(self, space, api):
-        w_t = space.wrap((1, 2, 3, 4, 5))
-        assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == (3, 4)
-        assert space.unwrap(api.PySequence_GetSlice(w_t, 1, -1)) == (2, 3, 4)
+        w_t = space.wrap([1, 2, 3, 4, 5])
+        assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == [3, 4]
+        assert space.unwrap(api.PySequence_GetSlice(w_t, 1, -1)) == [2, 3, 4]
+
+        assert api.PySequence_DelSlice(w_t, 1, 4) == 0
+        assert space.eq_w(w_t, space.wrap([1, 5]))
+        assert api.PySequence_SetSlice(w_t, 1, 1, space.wrap((3,))) == 0
+        assert space.eq_w(w_t, space.wrap([1, 3, 5]))
 
     def test_iter(self, space, api):
         w_t = space.wrap((1, 2))
