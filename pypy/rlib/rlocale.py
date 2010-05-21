@@ -17,7 +17,6 @@ HAVE_LIBINTL  = sys.platform != 'win32'
 
 class CConfig:
     includes = ['locale.h', 'limits.h']
-    include_dirs = []
 
     if HAVE_LANGINFO:
         includes += ['langinfo.h']
@@ -25,11 +24,8 @@ class CConfig:
         includes += ['libintl.h']
     if sys.platform == 'win32':
         includes += ['windows.h']
-    if sys.platform == 'darwin':
-        include_dirs += ['/opt/local/include']
     _compilation_info_ = ExternalCompilationInfo(
-        includes=includes,
-        include_dirs=include_dirs
+        includes=includes
     )
     HAVE_BIND_TEXTDOMAIN_CODESET = platform.Has('bind_textdomain_codeset')
     lconv = platform.Struct("struct lconv", [

@@ -113,7 +113,6 @@ class Platform(object):
                 log.WARNING(line)
 
     def _preprocess_include_dirs(self, include_dirs):
-        # hook for maemo
         return include_dirs
 
     def _compile_args_from_eci(self, eci, standalone):
@@ -125,9 +124,13 @@ class Platform(object):
             extra = self.shared_only
         cflags = self.cflags + extra
         return (cflags + list(eci.compile_extra) + args)
+    
+    def _preprocess_library_dirs(self, library_dirs):
+        return library_dirs
 
     def _link_args_from_eci(self, eci, standalone):
-        library_dirs = self._libdirs(eci.library_dirs)
+        library_dirs = self._preprocess_library_dirs(eci.library_dirs)
+        library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
         return (library_dirs + self.link_flags +

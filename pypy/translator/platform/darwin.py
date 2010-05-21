@@ -20,6 +20,18 @@ class Darwin(posix.BasePosix):
     def _args_for_shared(self, args):
         return (self.shared_only + ['-dynamiclib', '-undefined', 'dynamic_lookup']
                                  + args)
+    
+    def _preprocess_include_dirs(self, include_dirs):
+        res_incl_dirs = [dir for dir in include_dirs]
+        res_incl_dirs.append('/usr/local/include') # Homebrew
+        res_incl_dirs.append('/opt/local/include') # MacPorts
+        return res_incl_dirs
+
+    def _preprocess_library_dirs(self, library_dirs):
+        res_lib_dirs = [dir for dir in library_dirs]
+        res_lib_dirs.append('/usr/local/lib') # Homebrew
+        res_lib_dirs.append('/opt/local/lib') # MacPorts
+        return res_lib_dirs
 
     def include_dirs_for_libffi(self):
         return ['/usr/include/ffi']
