@@ -23,7 +23,8 @@ translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
     BoolOption("stackless", "enable stackless features during compilation",
                default=False, cmdline="--stackless",
-               requires=[("translation.type_system", "lltype")]),
+               requires=[("translation.type_system", "lltype"),
+                         ("translation.gcremovetypeptr", False)]),  # XXX?
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",
                  requires={
