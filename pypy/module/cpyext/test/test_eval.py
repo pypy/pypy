@@ -1,8 +1,11 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.eval import Py_single_input, Py_file_input, Py_eval_input
+from pypy.module.cpyext.eval import (
+    Py_single_input, Py_file_input, Py_eval_input)
+from pypy.module.cpyext.api import fopen
 from pypy.interpreter.gateway import interp2app
+from pypy.tool.udir import udir
 
 class TestEval(BaseApiTest):
     def test_eval(self, space, api):
@@ -76,6 +79,17 @@ class TestEval(BaseApiTest):
                    w_globals, w_globals) == space.w_None
         assert 42 * 43 == space.unwrap(
             api.PyObject_GetItem(w_globals, space.wrap("a")))
+
+    def test_run_file(self, space, api):
+        filepath = udir / "cpyext_test_runfile.py"
+        filepath.write("raise ZeroDivisionError")
+        fp = fopen(str(filepath), "rb")
+        filename = rffi.str2charp(str(filepath))
+        w_globals = w_locals = space.newdict()
+        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
+        rffi.free_charp(filename)
+        assert api.PyErr_Occurred() is space.w_ZeroDivisionError
+        api.PyErr_Clear()
 
     def test_getbuiltins(self, space, api):
         assert api.PyEval_GetBuiltins() is space.builtin.w_dict

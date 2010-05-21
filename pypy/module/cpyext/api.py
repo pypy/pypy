@@ -65,6 +65,16 @@ CONST_WSTRING = lltype.Ptr(lltype.Array(lltype.UniChar,
 assert CONST_STRING is not rffi.CCHARP
 assert CONST_WSTRING is not rffi.CWCHARP
 
+FILEP = rffi.COpaquePtr('FILE')
+fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
+fwrite = rffi.llexternal('fwrite',
+                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                         rffi.SIZE_T)
+fread = rffi.llexternal('fread',
+                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                        rffi.SIZE_T)
+feof = rffi.llexternal('feof', [FILEP], rffi.INT)
+
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS 

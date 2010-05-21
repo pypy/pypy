@@ -1,7 +1,9 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.api import (
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.__builtin__ import compiling
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
@@ -66,13 +68,8 @@ Py_single_input = 256
 Py_file_input = 257
 Py_eval_input = 258
 
-@cpython_api([CONST_STRING, rffi.INT_real, PyObject, PyObject], PyObject)
-def PyRun_String(space, str, start, w_globals, w_locals):
-    """This is a simplified interface to PyRun_StringFlags() below, leaving
-    flags set to NULL."""
-    from pypy.module.__builtin__ import compiling
-    w_source = space.wrap(rffi.charp2str(str))
-    filename = "<string>"
+def run_string(space, source, filename, start, w_globals, w_locals):
+    w_source = space.wrap(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
         mode = 'exec'
@@ -85,4 +82,31 @@ def PyRun_String(space, str, start, w_globals, w_locals):
             "invalid mode parameter for PyRun_String"))
     w_code = compiling.compile(space, w_source, filename, mode)
     return compiling.eval(space, w_code, w_globals, w_locals)
+
+@cpython_api([CONST_STRING, rffi.INT_real,PyObject, PyObject], PyObject)
+def PyRun_String(space, str, start, w_globals, w_locals):
+    """This is a simplified interface to PyRun_StringFlags() below, leaving
+    flags set to NULL."""
+    source = rffi.charp2str(str)
+    filename = "<string>"
+    return run_string(space, source, filename, start, w_globals, w_locals)
+
+@cpython_api([FILEP, CONST_STRING, rffi.INT_real, PyObject, PyObject], PyObject)
+def PyRun_File(space, fp, filename, start, w_globals, w_locals):
+    """This is a simplified interface to PyRun_FileExFlags() below, leaving
+    closeit set to 0 and flags set to NULL."""
+    BUF_SIZE = 8192
+    source = ""
+    buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
+    try:
+        while True:
+            count = fread(buf, 1, BUF_SIZE, fp)
+            source += rffi.charpsize2str(buf, count)
+            if count < BUF_SIZE:
+                if feof(fp):
+                    break
+                PyErr_SetFromErrno(PyExc_IOError)
+    finally:
+        lltype.free(buf, flavor='raw')
+    return run_string(space, source, filename, start, w_globals, w_locals)
 
