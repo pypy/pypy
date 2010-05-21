@@ -15,14 +15,6 @@ def PyFile_AsFile(space, p):
     PyFile_DecUseCount() functions described below as appropriate."""
     raise NotImplementedError
 
-@cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_Print(space, o, fp, flags):
-    """Print an object o, on file fp.  Returns -1 on error.  The flags argument
-    is used to enable certain printing options.  The only option currently supported
-    is Py_PRINT_RAW; if given, the str() of the object is written
-    instead of the repr()."""
-    raise NotImplementedError
-
 @cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL)
 def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter object.

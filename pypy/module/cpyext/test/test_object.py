@@ -1,9 +1,11 @@
 import py
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import Py_LT, Py_LE, Py_NE, Py_EQ,\
     Py_GE, Py_GT
+from pypy.tool.udir import udir
 
 class TestObject(BaseApiTest):
     def test_IsTrue(self, space, api):
@@ -178,3 +180,28 @@ class TestObject(BaseApiTest):
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None
         api.PyErr_Clear()
+
+class AppTestObjectPrint(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+
+    def test_print(self):
+        module = self.import_extension('foo', [
+            ("dump", "METH_VARARGS",
+             """
+                 PyObject *fname = PyTuple_GetItem(args, 0);
+                 PyObject *obj = PyTuple_GetItem(args, 1);
+
+                 FILE *fp = fopen(PyString_AsString(fname), "wb");
+                 int ret;
+                 if (fp == NULL)
+                     Py_RETURN_NONE;
+                 ret = PyObject_Print(obj, fp, Py_PRINT_RAW);
+                 fclose(fp);
+                 if (ret < 0)
+                     return NULL;
+                 Py_RETURN_TRUE;
+             """)])
+        assert module.dump(self.tmpname, None)
+        assert open(self.tmpname).read() == 'None'
