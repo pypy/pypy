@@ -42,6 +42,7 @@ def gettimeout():
     from test import pystone
     timeout = option.timeout.lower()
     if timeout.endswith('mp'): 
+        from test import pystone
         megapystone = float(timeout[:-2])
         t, stone = pystone.Proc0(10000)
         pystonetime = t/stone 
