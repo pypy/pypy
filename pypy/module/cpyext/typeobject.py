@@ -23,8 +23,8 @@ from pypy.interpreter.function import FunctionWithFixedCode, StaticMethod
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.modsupport import convert_method_defs, PyCFunction
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.methodobject import PyDescr_NewWrapper, \
-     PyCFunction_NewEx
+from pypy.module.cpyext.methodobject import (
+    PyDescr_NewWrapper, PyCFunction_NewEx)
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr, PyTypeObject, \
@@ -199,7 +199,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
         return
     pyo = rffi.cast(PyObject, pto)
     dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
-            from_ref(space, pyo))
+                                          from_ref(space, pyo), None)
 
 def inherit_special(space, pto, base_pto):
     # XXX missing: copy basicsize and flags in a magical way

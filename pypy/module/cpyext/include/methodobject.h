@@ -49,6 +49,8 @@ typedef struct
 
 #define METH_COEXIST   0x0040
 
+#define PyCFunction_New(ml, self) PyCFunction_NewEx((ml), (self), NULL)
+
 /* Macros for direct access to these values. Type checks are *not*
    done, so use with care. */
 #define PyCFunction_GET_FUNCTION(func) \

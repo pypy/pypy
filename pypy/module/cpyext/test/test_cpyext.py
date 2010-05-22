@@ -298,6 +298,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
         assert module.return_pi() == 3.14
+        assert module.return_pi.__module__ == 'foo'
 
 
     def test_export_docstring(self):

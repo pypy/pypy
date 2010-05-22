@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
@@ -57,10 +57,10 @@ def cfunction_dealloc(space, py_obj):
     PyObject_dealloc(space, py_obj)
 
 class W_PyCFunctionObject(Wrappable):
-    def __init__(self, space, ml, w_self, doc=None):
+    def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
         self.w_self = w_self
-        self.doc = doc
+        self.w_module = w_module
 
     def call(self, space, w_self, w_args, w_kw):
         # Call the C function
@@ -99,6 +99,9 @@ class W_PyCFunctionObject(Wrappable):
             else:
                 w_arg = w_args
             return generic_cpy_call(space, self.ml.c_ml_meth, w_self, w_arg)
+
+    def get_doc(space, self):
+        return space.wrap(rffi.charp2str(self.ml.c_ml_doc))
 
 
 class W_PyCMethodObject(W_PyCFunctionObject):
@@ -192,7 +195,8 @@ def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
 W_PyCFunctionObject.typedef = TypeDef(
     'builtin_function_or_method',
     __call__ = interp2app(cfunction_descr_call),
-    __doc__ = interp_attrproperty('doc', cls=W_PyCFunctionObject),
+    __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
+    __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -220,9 +224,9 @@ W_PyCWrapperObject.typedef = TypeDef(
 W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 
 
-def PyCFunction_NewEx(space, ml, w_self): # not exactly the API sig
-    return space.wrap(W_PyCFunctionObject(space, ml, w_self))
-
+@cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject], PyObject)
+def PyCFunction_NewEx(space, ml, w_self, w_name):
+    return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
 
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
@@ -233,7 +237,7 @@ def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, doc, flags, func):
         wrapper_func, doc, flags, func))
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
-def Py_FindMethod(space, table, w_ob, name_ptr):
+def Py_FindMethod(space, table, w_obj, name_ptr):
     """Return a bound method object for an extension type implemented in C.  This
     can be useful in the implementation of a tp_getattro or
     tp_getattr handler that does not use the
@@ -253,7 +257,7 @@ def Py_FindMethod(space, table, w_ob, name_ptr):
             if name == "__methods__":
                 method_list_w.append(space.wrap(rffi.charp2str(method.c_ml_name)))
             elif rffi.charp2str(method.c_ml_name) == name: # XXX expensive copying
-                return PyCFunction_NewEx(space, method, w_ob)
+                return space.wrap(W_PyCFunctionObject(space, method, w_obj))
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.wrap(name))
