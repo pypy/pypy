@@ -3,10 +3,10 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input)
-from pypy.module.cpyext.api import fopen, fclose, Py_ssize_tP
+from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
-import sys
+import sys, os
 
 class TestEval(BaseApiTest):
     def test_eval(self, space, api):
@@ -92,8 +92,11 @@ class TestEval(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_ZeroDivisionError
         api.PyErr_Clear()
 
-        # retry on closed file
+        # try again, but with a closed file
+        fp = fopen(str(filepath), "rb")
+        os.close(fileno(fp))
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
+        fclose(fp)
         assert api.PyErr_Occurred() is space.w_IOError
         api.PyErr_Clear()
 

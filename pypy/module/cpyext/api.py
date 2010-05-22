@@ -67,6 +67,7 @@ CONST_WSTRING = lltype.Ptr(lltype.Array(lltype.UniChar,
 assert CONST_STRING is not rffi.CCHARP
 assert CONST_WSTRING is not rffi.CWCHARP
 
+# FILE* interface
 FILEP = rffi.COpaquePtr('FILE')
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
 fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
@@ -77,6 +78,11 @@ fread = rffi.llexternal('fread',
                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                         rffi.SIZE_T)
 feof = rffi.llexternal('feof', [FILEP], rffi.INT)
+if sys.platform == 'win32':
+    fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
+else:
+    fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
+
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
