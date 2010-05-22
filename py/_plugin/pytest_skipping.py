@@ -106,6 +106,17 @@ To specify an explicit reason to be shown with xfailure detail::
 
     @py.test.mark.xfail(..., reason="my reason")
 
+imperative xfail from within a test or setup function
+------------------------------------------------------
+
+If you cannot declare xfail-conditions at import time
+you can also imperatively produce an XFail-outcome from 
+within test or setup code.  Example::
+
+    def test_function():
+        if not valid_config():
+            py.test.xfail("unsuppored configuration")
+
 
 skipping on a missing import dependency
 --------------------------------------------------
@@ -207,11 +218,12 @@ def pytest_runtest_makereport(__multicall__, item, call):
         if not evalxfail:
             return
     if call.excinfo and call.excinfo.errisinstance(py.test.xfail.Exception):
-        rep = __multicall__.execute()
-        rep.keywords['xfail'] = "reason: " + call.excinfo.value.msg
-        rep.skipped = True
-        rep.failed = False
-        return rep
+        if not item.config.getvalue("runxfail"):
+            rep = __multicall__.execute()
+            rep.keywords['xfail'] = "reason: " + call.excinfo.value.msg
+            rep.skipped = True
+            rep.failed = False
+            return rep
     if call.when == "setup":
         rep = __multicall__.execute()
         if rep.skipped and evalxfail.istrue():
