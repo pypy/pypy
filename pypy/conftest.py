@@ -383,9 +383,14 @@ class AppTestFunction(PyPyTestFunction):
         if option.runappdirect:
             return target()
         space = gettestobjspace() 
-        func = app2interp_temp(target)
+        filename = self._getdynfilename(target)
+        func = app2interp_temp(target, filename=filename)
         print "executing", func
         self.execute_appex(space, func, space)
+
+    def _getdynfilename(self, func):
+        code = getattr(func, 'im_func', func).func_code
+        return "[%s:%s]" % (code.co_filename, code.co_firstlineno)
 
 class AppTestMethod(AppTestFunction): 
 
@@ -410,7 +415,8 @@ class AppTestMethod(AppTestFunction):
         if option.runappdirect:
             return target()
         space = target.im_self.space 
-        func = app2interp_temp(target.im_func) 
+        filename = self._getdynfilename(target)
+        func = app2interp_temp(target.im_func, filename=filename) 
         w_instance = self.parent.w_instance 
         self.execute_appex(space, func, space, w_instance) 
 

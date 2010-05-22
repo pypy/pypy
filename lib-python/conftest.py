@@ -14,7 +14,6 @@ from pypy.interpreter.main import run_string, run_file
 
 # the following adds command line options as a side effect! 
 from pypy.conftest import gettestobjspace, option as pypy_option 
-from test import pystone
 
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, libpythondir, \
@@ -40,6 +39,7 @@ def pytest_addoption(parser):
 option = py.test.config.option 
 
 def gettimeout(): 
+    from test import pystone
     timeout = option.timeout.lower()
     if timeout.endswith('mp'): 
         megapystone = float(timeout[:-2])

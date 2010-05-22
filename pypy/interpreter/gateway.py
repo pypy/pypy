@@ -821,9 +821,6 @@ class interp2app_temp(interp2app):
 # and now for something completely different ... 
 #
 
-class MyStr(str):
-    pass
-
 class ApplevelClass:
     """NOT_RPYTHON
     A container for app-level source code that should be executed
@@ -837,8 +834,7 @@ class ApplevelClass:
         # HAAACK (but a good one)
         if filename is None:
             f = sys._getframe(1)
-            filename = MyStr('<%s:%d>' % (f.f_code.co_filename, f.f_lineno))
-            filename.__source__ = py.code.Source(source)
+            filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
         self.filename = filename
         self.source = str(py.code.Source(source).deindent())
         self.modname = modname
@@ -848,6 +844,9 @@ class ApplevelClass:
             self.can_use_geninterp = False
         else:
             self.can_use_geninterp = True
+        # make source code available for tracebacks
+        lines = [x + "\n" for x in source.split("\n")]
+        py.std.linecache.cache[filename] = (1, None, lines, filename)
 
     def __repr__(self):
         return "<ApplevelClass filename=%r can_use_geninterp=%r>" % (self.filename, self.can_use_geninterp)
@@ -1081,14 +1080,14 @@ def rename_tmp_to_eventual_file_name(fname):
 
 # ____________________________________________________________
 
-def appdef(source, applevel=ApplevelClass):
+def appdef(source, applevel=ApplevelClass, filename=None):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
     myfunc = appdef('''myfunc(x, y):
                            return x+y
                     ''')
     """ 
     if not isinstance(source, str): 
-        source = str(py.code.Source(source).strip())
+        source = py.std.inspect.getsource(source).lstrip()
         while source.startswith('@py.test.mark.'):
             # these decorators are known to return the same function
             # object, we may ignore them
@@ -1100,7 +1099,11 @@ def appdef(source, applevel=ApplevelClass):
     assert p >= 0
     funcname = source[:p].strip()
     source = source[p:]
-    return applevel("def %s%s\n" % (funcname, source)).interphook(funcname)
+    assert source.strip()
+    funcsource = "def %s%s\n"  % (funcname, source)
+    #for debugging of wrong source code: py.std.parser.suite(funcsource)
+    a = applevel(funcsource, filename=filename)
+    return a.interphook(funcname)
 
 applevel = ApplevelClass   # backward compatibility
 app2interp = appdef   # backward compatibility
@@ -1118,6 +1121,6 @@ class applevelinterp_temp(ApplevelClass):
         return PyPyCacheDir.build_applevelinterp_dict(self, space)
 
 # app2interp_temp is used for testing mainly
-def app2interp_temp(func, applevel_temp=applevel_temp):
+def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
     """ NOT_RPYTHON """
-    return appdef(func, applevel_temp)
+    return appdef(func, applevel_temp, filename=filename)

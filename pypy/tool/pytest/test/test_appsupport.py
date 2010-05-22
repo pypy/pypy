@@ -70,6 +70,49 @@ class TestSpaceConfig:
         assert result.ret == 0
         result.stdout.fnmatch_lines(["*2 passed*"])
 
+def test_applevel_raises_simple_display(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        def app_test_raises():
+            raises(ValueError, x)
+        class AppTestRaises:
+            def test_func(self):
+                raises (ValueError, x)
+        #
+    """)
+    result = testdir.runpytest(p, "-s")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*NameError*x*not defined",
+        "*test_func(self)*",
+        ">*raises*ValueError*",
+        "*E*application-level*NameError*x*not defined",
+        "*test_applevel_raises_simple_display*",
+    ])
+    result = testdir.runpytest(p) # this time we may run the pyc file
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*NameError*x*not defined",
+    ])
+
+def test_applevel_raises_display(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        def app_test_raises():
+            raises(ValueError, "x")
+            pass
+    """)
+    result = testdir.runpytest(p, "-s")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*NameError*x*not defined",
+    ])
+    result = testdir.runpytest(p) # this time we may run the pyc file
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*NameError*x*not defined",
+    ])
+
 def app_test_raises():
     info = raises(TypeError, id)
     assert info.type is TypeError

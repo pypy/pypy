@@ -11,7 +11,8 @@ class AppCode(object):
         self.raw = pycode
         self.w_file = space.getattr(pycode, space.wrap('co_filename'))
         self.name = space.getattr(pycode, space.wrap('co_name'))
-        self.firstlineno = space.unwrap(space.getattr(pycode, space.wrap('co_firstlineno')))
+        self.firstlineno = space.unwrap(
+            space.getattr(pycode, space.wrap('co_firstlineno'))) - 1
         #try:
         #    self.path = space.unwrap(space.getattr(self.w_file, space.wrap('__path__')))
         #except OperationError:
@@ -20,13 +21,14 @@ class AppCode(object):
         self.space = space
     
     def fullsource(self):
+        filename = self.space.str_w(self.w_file)
+        source = py.code.Source(py.std.linecache.getlines(filename))
+        if source.lines:
+            return source
         try:
-            return self.space.str_w(self.w_file).__source__
-        except AttributeError:
-            try:
-                return py.code.Source(self.path.read(mode="rU"))
-            except py.error.Error:
-                return None
+            return py.code.Source(self.path.read(mode="rU"))
+        except py.error.Error:
+            return None
     fullsource = property(fullsource, None, None, "Full source of AppCode")
 
     def getargs(self):
@@ -211,12 +213,19 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         source = py.code.Source(expr)
         frame = space.getexecutioncontext().gettopframe()
         w_locals = frame.getdictscope()
+        pycode = frame.pycode
+        filename = "<%s:%s>" %(pycode.co_filename, frame.f_lineno)
+        lines = [x + "\n" for x in expr.split("\n")]
+        py.std.linecache.cache[filename] = (1, None, lines, filename)
         w_locals = space.call_method(w_locals, 'copy')
         for key, w_value in kwds_w.items():
             space.setitem(w_locals, space.wrap(key), w_value)
+        #filename = __file__
+        #if filename.endswith("pyc"):
+        #    filename = filename[:-1]
         try:
             space.exec_(str(source), frame.w_globals, w_locals,
-                        filename=__file__)
+                        filename=filename)
         except OperationError, e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)

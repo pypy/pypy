@@ -131,7 +131,7 @@ class WarmspotTests(object):
         assert warmrunnerdescr.state.optimize_loop is optimize.optimize_loop
         assert warmrunnerdescr.state.optimize_bridge is optimize.optimize_bridge
 
-    def test_static_debug_level(self):
+    def test_static_debug_level(self, capfd):
         py.test.skip("debug_level is being deprecated")
         from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
         from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
@@ -144,36 +144,31 @@ class WarmspotTests(object):
                 n -= 1
             return n
 
-        outerr = py.io.StdCaptureFD()
+        capfd.readouterr()
         self.meta_interp(f, [10], debug_level=DEBUG_OFF,
                                   ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
+        out, err = capfd.readouterr()
         assert not 'ENTER' in err
         assert not 'LEAVE' in err
         assert not "Running asm" in err
-        outerr = py.io.StdCaptureFD()
         self.meta_interp(f, [10], debug_level=DEBUG_PROFILE,
                                   ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
+        out, err = capfd.readouterr()
         assert not 'ENTER' in err
         assert not 'LEAVE' in err
         assert not 'compiled new' in err
         assert "Running asm" in err
-        outerr = py.io.StdCaptureFD()
+
         self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
                                   ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
+        out, err = capfd.readouterr()
         assert 'ENTER' in err
         assert 'LEAVE' in err
         assert "Running asm" in err
-        outerr = py.io.StdCaptureFD()
+
         self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
                                   ProfilerClass=EmptyProfiler)
-        out, errf = outerr.done()
-        err = errf.read()
+        out, err = capfd.readouterr()
         assert 'ENTER' in err
         assert 'LEAVE' in err
         assert not "Running asm" in err

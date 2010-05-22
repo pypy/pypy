@@ -6,11 +6,7 @@ class AppTestCodeIntrospection:
     def setup_class(cls):
         space = gettestobjspace()
         cls.space = space
-        if py.test.config.option.runappdirect:
-            filename = __file__
-        else:
-            filename = gateway.__file__
-
+        filename = __file__
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
