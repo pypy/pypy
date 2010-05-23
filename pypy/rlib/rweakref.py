@@ -5,7 +5,6 @@ LLType only for now!
 """
 
 import weakref
-from weakref import ref
 
 
 class RWeakValueDictionary(object):
