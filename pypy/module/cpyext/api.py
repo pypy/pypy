@@ -281,7 +281,9 @@ SYMBOLS_C = [
     '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
-    'Py_BuildValue', 'PyTuple_Pack', 'PyErr_Format', 'PyErr_NewException',
+    'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
+
+    'PyErr_Format', 'PyErr_NewException',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
