@@ -54,3 +54,36 @@ assert seen == range(lev, 0, -1)
 ''' in mod.__dict__
         finally:
             del sys.modules['mod']
+    
+    def test_pickle2(self):
+        # To test a bug where too much stuff gets pickled when
+        # a tasklet halted on stackless.schedule() is pickled.
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        mod.can_unpickle = self.can_unpickle
+        mod.skip = skip
+        try:
+            exec '''
+import pickle, sys
+import stackless
+import socket
+
+def task_should_be_picklable():
+    stackless.schedule()
+
+def task_socket():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    stackless.schedule()
+
+def task_pickle(ref_task):
+    p = pickle.dumps(ref_task)
+    
+ref_task = stackless.tasklet(task_should_be_picklable)()
+stackless.tasklet(task_socket)()
+stackless.tasklet(task_pickle)(ref_task)
+stackless.run()
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
