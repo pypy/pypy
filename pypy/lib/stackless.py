@@ -488,6 +488,19 @@ class tasklet(coroutine):
         # we want to get rid of the parent thing.
         # for now, we just drop it
         a, b, c, d = coro_state
+        
+        # Removing all frames related to stackless.py.
+        # They point to stuff we don't want to be pickled.
+        frame_list = list(b)
+        new_frame_list = []
+        for frame in frame_list:
+            if frame.f_code == schedule.func_code:
+                # Removing everything including and after the
+                # call to stackless.schedule()
+                break
+            new_frame_list.append(frame)
+        b = tuple(new_frame_list)
+        
         if d:
             assert isinstance(d, coroutine)
         coro_state = a, b, c, None
