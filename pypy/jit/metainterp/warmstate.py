@@ -157,16 +157,14 @@ class WarmEnterState(object):
         if self.profiler is not None:
             self.profiler.set_printing(value >= DEBUG_PROFILE)
 
-    def disable_noninlinable_function(self, metainterp):
-        greenkey = metainterp.greenkey_of_huge_function
-        if greenkey is not None:
-            cell = self.jit_cell_at_key(greenkey)
-            cell.dont_trace_here = True
-            debug_start("jit-disableinlining")
-            sd = self.warmrunnerdesc.metainterp_sd
-            loc = sd.state.get_location_str(greenkey)
-            debug_print("disabled inlining", loc)
-            debug_stop("jit-disableinlining")
+    def disable_noninlinable_function(self, greenkey):
+        cell = self.jit_cell_at_key(greenkey)
+        cell.dont_trace_here = True
+        debug_start("jit-disableinlining")
+        sd = self.warmrunnerdesc.metainterp_sd
+        loc = sd.state.get_location_str(greenkey)
+        debug_print("disabled inlining", loc)
+        debug_stop("jit-disableinlining")
 
     def attach_unoptimized_bridge_from_interp(self, greenkey,
                                               entry_loop_token):
@@ -227,11 +225,6 @@ class WarmEnterState(object):
                 cell.counter = -2
                 try:
                     loop_token = metainterp.compile_and_run_once(*args)
-                except ContinueRunningNormally:
-                    # the trace got too long, reset the counter
-                    cell.counter = 0
-                    self.disable_noninlinable_function(metainterp)
-                    raise
                 finally:
                     if cell.counter == -2:
                         cell.counter = 0

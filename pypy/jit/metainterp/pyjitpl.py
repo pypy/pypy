@@ -1304,7 +1304,6 @@ class MetaInterp(object):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
         self.portal_trace_positions = []
-        self.greenkey_of_huge_function = None
 
     def is_blackholing(self):
         return self.history is None
@@ -1503,15 +1502,20 @@ class MetaInterp(object):
         self.staticdata.stats.aborted()
         self.staticdata.profiler.end_tracing()
         self.staticdata.profiler.start_blackhole()
+        self.resumekey.reset_counter_from_failure()
     switch_to_blackhole._dont_inline_ = True
 
     def switch_to_blackhole_if_trace_too_long(self):
         if not self.is_blackholing():
             warmrunnerstate = self.staticdata.state
             if len(self.history.operations) > warmrunnerstate.trace_limit:
-                self.greenkey_of_huge_function = self.find_biggest_function()
+                greenkey_of_huge_function = self.find_biggest_function()
                 self.portal_trace_positions = None
                 self.switch_to_blackhole(ABORT_TOO_LONG)
+                if greenkey_of_huge_function is not None:
+                    warmrunnerstate = self.staticdata.state
+                    warmrunnerstate.disable_noninlinable_function(
+                        greenkey_of_huge_function)
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
@@ -1580,7 +1584,6 @@ class MetaInterp(object):
                 debug_stop('jit-tracing')
 
     def _handle_guard_failure(self, key):
-        from pypy.jit.metainterp.warmspot import ContinueRunningNormallyBase
         original_greenkey = key.original_greenkey
         # notice that here we just put the greenkey
         # use -1 to mark that we will have to give up
@@ -1588,17 +1591,12 @@ class MetaInterp(object):
         self.current_merge_points = [(original_greenkey, -1)]
         self.resumekey = key
         self.seen_can_enter_jit = False
-        started_as_blackhole = self.is_blackholing()
         try:
             self.prepare_resume_from_failure(key.guard_opnum)
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
-        except ContinueRunningNormallyBase:
-            if not started_as_blackhole:
-                key.reset_counter_from_failure(self)
-            raise
 
     def remove_consts_and_duplicates(self, boxes, startindex, endindex,
                                      duplicates):
