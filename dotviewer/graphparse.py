@@ -2,7 +2,9 @@
 Graph file parsing.
 """
 
-import os, sys, re
+import sys, re
+import subprocess
+
 import msgstruct
 
 re_nonword = re.compile(r'([^0-9a-zA-Z_.]+)')
@@ -45,7 +47,9 @@ def dot2plain(content, contenttype, use_codespeak=False):
         else:
             cmdline = 'neato -Tplain'
         #print >> sys.stderr, '* running:', cmdline
-        child_in, child_out = os.popen2(cmdline, 'b')
+        p = subprocess.Popen(cmdline, shell=True, close_fds=True,
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        (child_in, child_out) = (p.stdin, p.stdout)
         try:
             import thread
         except ImportError:
