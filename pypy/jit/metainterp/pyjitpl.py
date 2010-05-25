@@ -860,6 +860,11 @@ class MIFrame(object):
             self.debug_merge_point()
             if self.metainterp.seen_can_enter_jit:
                 self.metainterp.seen_can_enter_jit = False
+                assert not self.metainterp.in_recursion
+                # ^^^ it's impossible to arrive here with in_recursion set
+                # to a non-zero value: seen_can_enter_jit can only be set
+                # to True by opimpl_can_enter_jit, which should be executed
+                # just before opimpl_jit_merge_point (no recursion inbetween).
                 try:
                     self.metainterp.reached_can_enter_jit(self.env)
                 except GiveUp:
