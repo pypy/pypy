@@ -181,7 +181,6 @@ class WarmEnterState(object):
 
         metainterp_sd = self.warmrunnerdesc.metainterp_sd
         vinfo = metainterp_sd.virtualizable_info
-        ContinueRunningNormally = self.warmrunnerdesc.ContinueRunningNormally
         num_green_args = self.warmrunnerdesc.num_green_args
         get_jitcell = self.make_jitcell_getter()
         set_future_values = self.make_set_future_values()
