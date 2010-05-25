@@ -7,13 +7,13 @@ import os
 # __________  Entry point  __________
 
 def entry_point(argv):
-    length = 0
-    if len(argv) > 1:
+    if len(argv) > 2:
         length = int(argv[1])
     else:
         length = 100
+    fname = argv[1]
     for i in xrange(100000):
-        f = os.open(__file__, 0666, os.O_RDONLY)
+        f = os.open(fname, 0666, os.O_RDONLY)
         os.read(f, length)
         os.close(f)
     return 0
