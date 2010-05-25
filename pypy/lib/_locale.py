@@ -4,15 +4,12 @@ Support for POSIX locales.
 """
 
 from ctypes import (Structure, POINTER, create_string_buffer,
-    c_ubyte, c_int, c_char_p, c_wchar_p)
+    c_ubyte, c_int, c_char_p, c_wchar_p, c_size_t)
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
 
 # load the platform-specific cache made by running locale.ctc.py
 from ctypes_config_cache._locale_cache import *
-
-
-size_t = c_int
 
 
 # Ubuntu Gusty i386 structure
@@ -94,8 +91,8 @@ _wcscoll.argtypes = (c_wchar_p, c_wchar_p)
 _wcscoll.restype = c_int
 
 _strxfrm = libc.strxfrm
-_strxfrm.argtypes = (c_char_p, c_char_p, size_t)
-_strxfrm.restype = size_t
+_strxfrm.argtypes = (c_char_p, c_char_p, c_size_t)
+_strxfrm.restype = c_size_t
 
 HAS_LIBINTL = hasattr(libc, 'gettext')
 if HAS_LIBINTL:
