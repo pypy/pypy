@@ -8,7 +8,7 @@ import os
 
 def entry_point(argv):
     if len(argv) > 2:
-        length = int(argv[1])
+        length = int(argv[2])
     else:
         length = 100
     fname = argv[1]
