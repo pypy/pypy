@@ -12,9 +12,10 @@ def entry_point(argv):
     else:
         length = 100
     fname = argv[1]
+    l = []
     for i in xrange(100000):
         f = os.open(fname, 0666, os.O_RDONLY)
-        os.read(f, length)
+        l.append(os.read(f, length))
         os.close(f)
     return 0
 
