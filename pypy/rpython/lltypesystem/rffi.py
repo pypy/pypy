@@ -645,7 +645,7 @@ def make_string_mappings(strtype):
         """
         str_chars_offset = (offsetof(STRTYPE, 'chars') + \
                             itemoffsetof(STRTYPE.chars, 0))
-        gc_buf = rgc.malloc_nonmovable(STRTYPE, count)
+        gc_buf = lltype.nullptr(STRTYPE) # rgc.malloc_nonmovable(STRTYPE, count)
         if gc_buf:
             realbuf = cast_ptr_to_adr(gc_buf) + str_chars_offset
             raw_buf = cast(TYPEP, realbuf)
