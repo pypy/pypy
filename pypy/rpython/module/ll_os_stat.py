@@ -317,6 +317,11 @@ if sys.platform == 'win32':
             'ERROR_SHARING_VIOLATION')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
+        _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
+        _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
+        FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
+        FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
 
         WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
             'WIN32_FILE_ATTRIBUTE_DATA',
@@ -363,6 +368,12 @@ if sys.platform == 'win32':
         'GetFileInformationByHandle',
         [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
         rwin32.BOOL,
+        calling_conv='win')
+
+    GetFileType = rffi.llexternal(
+        'GetFileType',
+        [rwin32.HANDLE],
+        rwin32.DWORD,
         calling_conv='win')
 
     FindFirstFile = rffi.llexternal(
@@ -477,9 +488,29 @@ if sys.platform == 'win32':
     win32_lstat_llimpl = win32_stat_llimpl
 
     def win32_fstat_llimpl(fd):
-        info = lltype.malloc(BY_HANDLE_FILE_INFORMATION, flavor='raw')
+        handle = rwin32._get_osfhandle(fd)
+
+        filetype = GetFileType(handle)
+        if filetype == FILE_TYPE_CHAR:
+            # console or LPT device
+            return make_stat_result((_S_IFCHR,
+                                     0, 0, 0, 0, 0,
+                                     0, 0, 0, 0))
+        elif filetype == FILE_TYPE_PIPE:
+            # socket or named pipe
+            return make_stat_result((_S_IFIFO,
+                                     0, 0, 0, 0, 0,
+                                     0, 0, 0, 0))
+        elif filetype == FILE_TYPE_UNKNOWN:
+            error = rwin32.GetLastError()
+            if error != 0:
+                raise WindowsError(error, "os_fstat failed")
+            # else: unknown but valid file
+
+        # normal disk file (FILE_TYPE_DISK)
+        info = lltype.malloc(BY_HANDLE_FILE_INFORMATION, flavor='raw',
+                             zero=True)
         try:
-            handle = rwin32._get_osfhandle(fd)
             res = GetFileInformationByHandle(handle, info)
             if res == 0:
                 raise WindowsError(rwin32.GetLastError(), "os_fstat failed")

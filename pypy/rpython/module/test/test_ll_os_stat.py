@@ -15,3 +15,7 @@ class TestWin32Implementation:
         check('c:/')
         check('c:/temp')
         check('c:/pagefile.sys')
+
+    def test_fstat(self):
+        stat = ll_os_stat.win32_fstat_llimpl(0) # stdout
+        assert stat.st_mode != 0
