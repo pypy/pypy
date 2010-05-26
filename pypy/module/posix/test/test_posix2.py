@@ -490,6 +490,12 @@ class AppTestPosix:
 
             if not hasattr(os, "fork"):
                 skip("Need fork() to test wait()")
+            if hasattr(os, "waitpid") and hasattr(os, "WNOHANG"):
+                try:
+                    while os.waitpid(-1, os.WNOHANG)[0]:
+                        pass
+                except OSError:  # until we get "No child processes", hopefully
+                    pass
             child = os.fork()
             if child == 0: # in child
                 os._exit(exit_status)
