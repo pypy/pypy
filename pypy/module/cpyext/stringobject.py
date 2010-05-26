@@ -238,3 +238,12 @@ def PyString_Format(space, w_format, w_args):
     args.  The args argument must be a tuple."""
     return space.mod(w_format, w_args)
 
+@cpython_api([CONST_STRING], PyObject)
+def PyString_InternFromString(space, string):
+    """A combination of PyString_FromString() and
+    PyString_InternInPlace(), returning either a new string object that has
+    been interned, or a new ("owned") reference to an earlier interned string
+    object with the same value."""
+    s = rffi.charp2str(string)
+    return space.new_interned_str(s)
+

@@ -246,3 +246,10 @@ class TestString(BaseApiTest):
 
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
+
+    def test_intern(self, space, api):
+        buf = rffi.str2charp("test")
+        w_s1 = api.PyString_InternFromString(buf)
+        w_s2 = api.PyString_InternFromString(buf)
+        rffi.free_charp(buf)
+        assert w_s1 is w_s2
