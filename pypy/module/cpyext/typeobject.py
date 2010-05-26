@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     PyBufferProcs, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState)
+    track_reference, RefcountState, borrow_from)
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import FunctionWithFixedCode, StaticMethod
 from pypy.module.cpyext import structmemberdefs
@@ -675,4 +675,14 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
     return generic_cpy_call(
         space, type.c_tp_alloc, type, 0)
 
+@cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL)
+def _PyType_Lookup(space, type, w_name):
+    """Internal API to look for a name through the MRO.
+    This returns a borrowed reference, and doesn't set an exception!"""
+    py_type = rffi.cast(PyObject, type)
+    w_type = from_ref(space, py_type)
+    assert isinstance(w_type, W_TypeObject)
+    name = space.str_w(w_name)
+    w_obj = w_type.lookup(name)
+    return borrow_from(w_type, w_obj)
 

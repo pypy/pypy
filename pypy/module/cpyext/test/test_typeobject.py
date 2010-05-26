@@ -173,3 +173,12 @@ class TestTypes(BaseApiTest):
             """)
         ref = make_ref(space, w_class)
         api.Py_DecRef(ref)
+
+    def test_lookup(self, space, api):
+        w_type = space.w_str
+        w_obj = api._PyType_Lookup(w_type, space.wrap("upper"))
+        assert space.is_w(w_obj, space.w_str.getdictvalue(space, "upper"))
+
+        w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
+        assert w_obj is None
+        assert api.PyErr_Occurred() is None
