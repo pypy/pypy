@@ -2,7 +2,8 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float
+from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float,\
+     INFINITY, NAN
 from pypy.interpreter.error import OperationError
 import math
 
@@ -138,33 +139,6 @@ def string_to_w_long(space, s, base=10, parser=None):
             return w_result
         w_result = space.add(space.mul(w_result,w_base), space.newlong(digit))
 
-def string_to_float(s):
-    """
-    Conversion of string to float.
-    This version tries to only raise on invalid literals.
-    Overflows should be converted to infinity whenever possible.
-    """
-
-    s = strip_spaces(s)
-
-    if not s:
-        raise ParseStringError("empty string for float()")
-
-    # 1) parse the string into pieces.
-    try:
-        sign, before_point, after_point, exponent = break_up_float(s)
-    except ValueError:
-        raise ParseStringError("invalid literal for float()")
-    
-    if not before_point and not after_point:
-        raise ParseStringError("invalid literal for float()")
-
-    try:
-        return parts_to_float(sign, before_point, after_point, exponent)
-    except ValueError:
-        raise ParseStringError("invalid literal for float()")
-
-
 # Tim's comment:
 # 57 bits are more than needed in any case.
 # to allow for some rounding, we take one
@@ -187,140 +161,6 @@ MANTISSA_BITS = calc_mantissa_bits()
 del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
-# we keep this version for reference.
-def applevel_string_to_float(s):
-    """
-    Conversion of string to float.
-    This version tries to only raise on invalid literals.
-    Overflows should be converted to infinity whenever possible.
-    """
-    # this version was triggered by Python 2.4 which adds
-    # a test that breaks on overflow.
-    # XXX The test still breaks for a different reason:
-    # float must implement rich comparisons, where comparison
-    # between infinity and a too large long does not overflow!
-
-    # The problem:
-    # there can be extreme notations of floats which are not
-    # infinity.
-    # For instance, this works in CPython:
-    # float('1' + '0'*1000 + 'e-1000')
-    # should evaluate to 1.0.
-    # note: float('1' + '0'*10000 + 'e-10000')
-    # does not work in CPython, but PyPy can do it, now.
-
-    # The idea:
-    # in order to compensate between very long digit strings
-    # and extreme exponent numbers, we try to avoid overflows
-    # by adjusting the exponent by the number of mantissa
-    # digits. For simplicity, all computations are done in
-    # long math.
-
-    # The plan:
-    # 1) parse the string into pieces.
-    # 2) pre-calculate digit exponent dexp.
-    # 3) truncate and adjust dexp.
-    # 4) compute the exponent and truncate to +-400.
-    # 5) compute the value using long math and proper rounding.
-
-    # Positive results:
-    # The algorithm appears appears to produce correct round-trip
-    # values for the perfect input of _float_formatting.
-    # Note:
-    # XXX: the builtin rounding of long->float does not work, correctly.
-    # Ask Tim Peters for the reasons why no correct rounding is done.
-    # XXX: limitations:
-    # - It is possibly not too efficient.
-    # - Really optimum results need a more sophisticated algorithm
-    #   like Bellerophon from William D. Clinger, cf.
-    #   http://citeseer.csail.mit.edu/clinger90how.html
-    
-    s = strip_spaces(s)
-
-    if not s:
-        raise ParseStringError("empty string for float()")
-
-    # 1) parse the string into pieces.
-    try:
-        sign, before_point, after_point, exponent = break_up_float(s)
-    except ValueError:
-        raise ParseStringError("invalid literal for float()")
-        
-    digits = before_point + after_point
-    if digits:
-        raise ParseStringError("invalid literal for float()")
-
-    # 2) pre-calculate digit exponent dexp.
-    dexp = len(before_point)
-
-    # 3) truncate and adjust dexp.
-    p = 0
-    plim = dexp + len(after_point)
-    while p < plim and digits[p] == '0':
-        p += 1
-        dexp -= 1
-    digits = digits[p : p + MANTISSA_DIGITS]
-    p = len(digits) - 1
-    while p >= 0 and digits[p] == '0':
-        p -= 1
-    dexp -= p + 1
-    digits = digits[:p+1]
-    if len(digits) == 0:
-        digits = '0'
-
-    # 4) compute the exponent and truncate to +-400
-    if not exponent:
-        exponent = '0'
-    e = long(exponent) + dexp
-    if e >= 400:
-        e = 400
-    elif e <= -400:
-        e = -400
-
-    # 5) compute the value using long math and proper rounding.
-    lr = long(digits)
-    if e >= 0:
-        bits = 0
-        m = lr * 10L ** e
-    else:
-        # compute a sufficiently large scale
-        prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
-        bits = - (int(math.ceil(-e / math.log10(2.0) - 1e-10)) + prec)
-        scale = 2L ** -bits
-        pten = 10L ** -e
-        m = (lr * scale) // pten
-
-    # we now have a fairly large mantissa.
-    # Shift it and round the last bit.
-
-    # first estimate the bits and do a big shift
-    if m:
-        mbits = int(math.ceil(math.log(m, 2) - 1e-10))
-        needed = MANTISSA_BITS
-        if mbits > needed:
-            if mbits > needed+1:
-                shifted = mbits - (needed+1)
-                m >>= shifted
-                bits += shifted
-            # do the rounding
-            bits += 1
-            m = (m >> 1) + (m & 1)
-
-    try:
-        r = math.ldexp(m, bits)
-    except OverflowError:
-        r = 1e200 * 1e200 # produce inf, hopefully
-
-    if sign == '-':
-        r = -r
-
-    return r
-
-
-# the "real" implementation.
-# for comments, see above.
-# XXX probably this very specific thing should go into longobject?
-
 def interp_string_to_float(space, s):
     """
     Conversion of string to float.
@@ -335,6 +175,15 @@ def interp_string_to_float(space, s):
     if not s:
         raise OperationError(space.w_ValueError, space.wrap(
             "empty string for float()"))
+
+    
+    low = s.lower()
+    if low == "-inf":
+        return -INFINITY
+    elif low == "inf":
+        return INFINITY
+    elif low == "nan" or low == "-nan":
+        return NAN
 
     # 1) parse the string into pieces.
     try:
@@ -432,7 +281,7 @@ def interp_string_to_float(space, s):
         if r == 2*r and r != 0.0:
             raise OverflowError
     except OverflowError:
-        r = 1e200 * 1e200 # produce inf, hopefully
+        r = INFINITY
 
     if sign == '-':
         r = -r
