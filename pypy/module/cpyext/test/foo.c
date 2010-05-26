@@ -53,6 +53,12 @@ foo_copy(fooobject *self)
 }
 
 static PyObject *
+foo_create(fooobject *self)
+{
+    return newfooobject();
+}
+
+static PyObject *
 foo_unset(fooobject *self)
 {
     self->foo_string = NULL;
@@ -62,6 +68,7 @@ foo_unset(fooobject *self)
 
 static PyMethodDef foo_methods[] = {
     {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
+    {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
     {NULL, NULL}                 /* sentinel */
 };

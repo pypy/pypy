@@ -5,7 +5,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import BuiltinFunction, Method
+from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref, make_typedescr,
                                          Py_DecRef)
@@ -227,6 +227,10 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject], PyObject)
 def PyCFunction_NewEx(space, ml, w_self, w_name):
     return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
+
+@cpython_api([PyObject], PyObject)
+def PyStaticMethod_New(space, w_func):
+    return space.wrap(StaticMethod(w_func))
 
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))

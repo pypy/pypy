@@ -89,6 +89,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
 
+    def test_staticmethod(self):
+        module = self.import_module(name="foo")
+        obj = module.fooType.create()
+        assert obj.foo == 42
+        obj2 = obj.create()
+        assert obj2.foo == 42
+
     def test_new(self):
         module = self.import_module(name='foo')
         obj = module.new()

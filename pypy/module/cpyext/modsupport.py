@@ -3,7 +3,9 @@ from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.interpreter.module import Module
-from pypy.module.cpyext.methodobject import W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod, PyMethodDef, PyCFunction
+from pypy.module.cpyext.methodobject import (
+    W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
+    PyMethodDef, PyCFunction, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
@@ -90,8 +92,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     w_obj = space.w_Ellipsis # XXX
                 elif flags & METH_STATIC:
                     w_func = PyCFunction_NewEx(space, method, None, None)
-                    w_obj = space.w_Ellipsis # XXX
-                    #w_obj = PyStaticMethod_New(space, w_func)
+                    w_obj = PyStaticMethod_New(space, w_func)
                 else:
                     w_obj = PyDescr_NewMethod(space, w_type, method)
 
