@@ -2631,15 +2631,6 @@ def PySet_Clear(space, set):
     """Empty an existing set of all elements."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PySlice_New(space, start, stop, step):
-    """Return a new slice object with the given values.  The start, stop, and
-    step parameters are used as the values of the slice object attributes of
-    the same names.  Any of the values may be NULL, in which case the
-    None will be used for the corresponding attribute.  Return NULL if
-    the new object could not be allocated."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
 def PySlice_GetIndices(space, slice, length, start, stop, step):
     """Retrieve the start, stop and step indices from the slice object slice,

@@ -25,3 +25,17 @@ class TestSliceObject(BaseApiTest):
             lltype.free(values, flavor='raw')
             return rv
         assert get_indices(w(10), w(20), w(1), 200) == (10, 20, 1, 10)
+
+class AppTestSliceMembers(AppTestCpythonExtensionBase):
+    def test_members(self):
+        module = self.import_extension('foo', [
+            ("clone", "METH_O",
+             """
+                 PySliceObject *slice = (PySliceObject *)args;
+                 return PySlice_New(slice->start,
+                                    slice->stop,
+                                    slice->step);
+             """),
+            ])
+        s = slice(10, 20, 30)
+        assert module.clone(s) == s

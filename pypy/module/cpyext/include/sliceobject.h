@@ -12,6 +12,9 @@ PyAPI_DATA(PyObject) _Py_EllipsisObject; /* Don't use this directly */
 
 typedef struct {
     PyObject_HEAD
+    PyObject *start;
+    PyObject *stop;
+    PyObject *step;
 } PySliceObject;
 
 #ifdef __cplusplus
