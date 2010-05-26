@@ -38,3 +38,12 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         assert module.check_ascharbuffer(buf) == 'abc\0'
 
         module.free_buffer()
+
+    def test_Buffer_New(self):
+        module = self.import_extension('foo', [
+            ("buffer_new", "METH_NOARGS",
+             """
+                 return PyBuffer_New(150);
+             """),
+            ])
+        module.buffer_new()

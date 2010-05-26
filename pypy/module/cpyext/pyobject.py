@@ -342,11 +342,9 @@ def Py_DecRef(space, obj):
         state = space.fromcache(RefcountState)
         ptr = rffi.cast(ADDR, obj)
         if ptr not in state.py_objects_r2w:
-            w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-            if space.is_w(w_type, space.w_str) or space.is_w(w_type, space.w_unicode):
-                # this is a half-allocated string, lets call the deallocator
-                # without modifying the r2w/w2r dicts
-                _Py_Dealloc(space, obj)
+            # this is a half-allocated object, lets call the deallocator
+            # without modifying the r2w/w2r dicts
+            _Py_Dealloc(space, obj)
         else:
             w_obj = state.py_objects_r2w[ptr]
             del state.py_objects_r2w[ptr]

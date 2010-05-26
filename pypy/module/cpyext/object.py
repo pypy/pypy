@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference)
+    track_reference, get_typedescr)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr, W_PyCTypeObject
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -14,19 +14,32 @@ from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
 
 
+@cpython_api([Py_ssize_t], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
+def PyObject_MALLOC(space, size):
+    return lltype.malloc(rffi.VOIDP.TO, size,
+                         flavor='raw', zero=True)
+
+@cpython_api([rffi.VOIDP], lltype.Void)
+def PyObject_FREE(space, ptr):
+    return lltype.free(ptr, flavor='raw')
+
 @cpython_api([PyTypeObjectPtr], PyObject)
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
 
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
-def _PyObject_NewVar(space, type, size):
+def _PyObject_NewVar(space, type, itemcount):
     w_type = from_ref(space, rffi.cast(PyObject, type))
-    if isinstance(w_type, W_PyCTypeObject):
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        py_obj = create_ref(space, w_obj, items=size)
-        track_reference(space, py_obj, w_obj)
-        return py_obj
-    assert False, "Please add more cases in _PyObject_New"
+    assert isinstance(w_type, W_TypeObject)
+    typedescr = get_typedescr(w_type.instancetypedef)
+    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
+    py_obj.c_ob_refcnt = 0
+    if type.c_tp_itemsize == 0:
+        w_obj = PyObject_Init(space, py_obj, type)
+    else:
+        py_objvar = rffi.cast(PyVarObject, py_obj)
+        w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
+    return py_obj
 
 @cpython_api([rffi.VOIDP_real], lltype.Void)
 def PyObject_Del(space, obj):
@@ -171,28 +184,34 @@ def PyObject_DelItem(space, w_obj, w_key):
     return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
-def PyObject_Init(space, op, type):
+def PyObject_Init(space, py_obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
     object participates in the cyclic garbage detector, it is added to the
     detector's set of observed objects. Other fields of the object are not
     affected."""
-    if not op:
+    if not py_obj:
         PyErr_NoMemory(space)
-    op.c_ob_type = type
-    op.c_ob_refcnt = 1
-    return from_ref(space, op) # XXX will give an exception
+    py_obj.c_ob_type = type
+    py_obj.c_ob_refcnt = 1
+    w_type = from_ref(space, rffi.cast(PyObject, type))
+    if isinstance(w_type, W_PyCTypeObject):
+        w_obj = space.allocate_instance(W_ObjectObject, w_type)
+        track_reference(space, py_obj, w_obj)
+        from pypy.module.cpyext.typeobject import lifeline_dict, PyOLifeline
+        lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
+    else:
+        assert False, "Please add more cases in PyObject_Init"
+    return py_obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
-def PyObject_InitVar(space, op, type, size):
+def PyObject_InitVar(space, py_obj, type, size):
     """This does everything PyObject_Init() does, and also initializes the
     length information for a variable-size object."""
-    if not op:
+    if not py_obj:
         PyErr_NoMemory(space)
-    op.c_ob_size = size
-    op.c_ob_type = type
-    op.c_ob_refcnt = 1
-    return from_ref(space, rffi.cast(PyObject, op)) # XXX likewise
+    py_obj.c_ob_size = size
+    return PyObject_Init(space, rffi.cast(PyObject, py_obj), type)
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Type(space, w_obj):
