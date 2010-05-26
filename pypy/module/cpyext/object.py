@@ -413,3 +413,13 @@ def PyObject_Print(space, w_obj, fp, flags):
         rffi.free_nonmovingbuffer(data, buf)
     return 0
 
+@cpython_api([CONST_STRING, CONST_STRING], PyObject)
+def PyFile_FromString(space, filename, mode):
+    """
+    On success, return a new file object that is opened on the file given by
+    filename, with a file mode given by mode, where mode has the same
+    semantics as the standard C routine fopen().  On failure, return NULL."""
+    w_filename = space.wrap(rffi.charp2str(filename))
+    w_mode = space.wrap(rffi.charp2str(mode))
+    return space.call_method(space.builtin, 'file', w_filename, w_mode)
+

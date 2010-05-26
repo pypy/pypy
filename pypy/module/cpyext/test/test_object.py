@@ -192,6 +192,17 @@ class TestObject(BaseApiTest):
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None
         api.PyErr_Clear()
 
+    def test_file_fromstring(self, space, api):
+        filename = rffi.str2charp(str(udir / "_test_file"))
+        mode = rffi.str2charp("wb")
+        w_file = api.PyFile_FromString(filename, mode)
+        rffi.free_charp(filename)
+        rffi.free_charp(mode)
+
+        space.call_method(w_file, "write", space.wrap("text"))
+        space.call_method(w_file, "close")
+        assert (udir / "_test_file").read() == "text"
+
 class AppTestObjectPrint(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
