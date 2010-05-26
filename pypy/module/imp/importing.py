@@ -356,6 +356,12 @@ def _prepare_module(space, w_mod, filename, pkgdir):
     if pkgdir is not None:
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
+def load_c_extension(space, filename, modulename):
+    # the next line is mandatory to init cpyext
+    space.getbuiltinmodule("cpyext")
+    from pypy.module.cpyext.api import load_extension_module
+    load_extension_module(space, filename, modulename)
+
 @jit.dont_look_inside
 def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
@@ -408,10 +414,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
             elif find_info.modtype == C_EXTENSION and space.config.objspace.usemodules.cpyext:
-                # the next line is mandantory to init cpyext
-                space.getbuiltinmodule("cpyext")
-                from pypy.module.cpyext.api import load_extension_module
-                load_extension_module(space, find_info.filename, space.str_w(w_modulename))
+                load_c_extension(space, find_info.filename, space.str_w(w_modulename))
                 return check_sys_modules(space, w_modulename)
         except OperationError:
             w_mods = space.sys.get('modules')
