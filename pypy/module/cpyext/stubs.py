@@ -982,17 +982,6 @@ def PyFile_CheckExact(space, p):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyFile_FromString(space, filename, mode):
-    """
-    
-    
-    
-    On success, return a new file object that is opened on the file given by
-    filename, with a file mode given by mode, where mode has the same
-    semantics as the standard C routine fopen().  On failure, return NULL."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
@@ -2680,16 +2669,6 @@ def PyString_InternInPlace(space, string):
     This function is not available in 3.x and does not have a PyBytes alias."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyString_InternFromString(space, v):
-    """A combination of PyString_FromString() and
-    PyString_InternInPlace(), returning either a new string object that has
-    been interned, or a new ("owned") reference to an earlier interned string object
-    with the same value.
-    
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_Decode(space, s, size, encoding, errors):
     """Create an object by decoding size bytes of the encoded buffer s using the
@@ -3600,12 +3579,6 @@ def PyRun_StringFlags(space, str, start, globals, locals, flags):
     
     Returns the result of executing the code as a Python object, or NULL if an
     exception was raised."""
-    raise NotImplementedError
-
-@cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject], PyObject)
-def PyRun_File(space, fp, filename, start, globals, locals):
-    """This is a simplified interface to PyRun_FileExFlags() below, leaving
-    closeit set to 0 and flags set to NULL."""
     raise NotImplementedError
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real], PyObject)
