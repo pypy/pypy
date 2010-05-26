@@ -32,6 +32,10 @@ class AppTestSliceMembers(AppTestCpythonExtensionBase):
             ("clone", "METH_O",
              """
                  PySliceObject *slice = (PySliceObject *)args;
+                 if (slice->ob_type != &PySlice_Type) {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
                  return PySlice_New(slice->start,
                                     slice->stop,
                                     slice->step);
