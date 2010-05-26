@@ -656,12 +656,16 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              /* XXX in tests, the C type is not correct */
              #define NAME(type) ((PyTypeObject*)&type)->tp_name
-             return Py_BuildValue("sss",
+             return Py_BuildValue("sssss",
                                   NAME(PyCell_Type),
                                   NAME(PyModule_Type),
-                                  NAME(PyProperty_Type)
+                                  NAME(PyProperty_Type),
+                                  NAME(PyStaticMethod_Type),
+                                  NAME(PyCFunction_Type)
                                   );
              '''
              ),
             ])
-        assert mod.get_names() == ('cell', 'module', 'property')
+        assert mod.get_names() == ('cell', 'module', 'property',
+                                   'staticmethod',
+                                   'builtin_function_or_method')

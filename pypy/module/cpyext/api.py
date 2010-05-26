@@ -19,6 +19,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import ObjSpace, unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
+from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.rlib.entrypoint import entrypoint
@@ -337,10 +338,12 @@ def build_exported_objects():
         'Module': 'space.gettypeobject(Module.typedef)',
         'Property': 'space.gettypeobject(W_Property.typedef)',
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
+        'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
+        'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Int Long Dict Tuple'.split():
+    for cpyname in 'Method List Int Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
 build_exported_objects()
@@ -604,6 +607,7 @@ def build_bridge(space):
 
     # populate static data
     for name, (type, expr) in GLOBALS.iteritems():
+        from pypy.module import cpyext
         w_obj = eval(expr)
         name = name.replace("#", "")
         INTERPLEVEL_API[name] = w_obj
@@ -776,6 +780,7 @@ def setup_library(space):
     # populate static data
     for name, (type, expr) in GLOBALS.iteritems():
         name = name.replace("#", "")
+        from pypy.module import cpyext
         w_obj = eval(expr)
         struct_ptr = make_ref(space, w_obj)
         struct = rffi.cast(get_structtype_for_ctype(type), struct_ptr)._obj
