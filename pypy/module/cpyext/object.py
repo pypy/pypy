@@ -21,7 +21,7 @@ def PyObject_MALLOC(space, size):
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_FREE(space, ptr):
-    return lltype.free(ptr, flavor='raw')
+    lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject)
 def _PyObject_New(space, type):
