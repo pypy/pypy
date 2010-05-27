@@ -25,7 +25,7 @@ def test_find_all_graphs():
     rtyper = support.annotate(i, [7])
     cw = CodeWriter(rtyper)
     jitpolicy = JitPolicy()
-    res = cw.find_all_graphs(rtyper.annotator.translator.graphs[0], None,
+    res = cw.find_all_graphs(rtyper.annotator.translator.graphs[0],
                              jitpolicy, True)
     translator = rtyper.annotator.translator
 
@@ -41,13 +41,13 @@ def test_find_all_graphs_without_floats():
     cw = CodeWriter(rtyper)
     jitpolicy = JitPolicy()
     translator = rtyper.annotator.translator
-    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+    res = cw.find_all_graphs(translator.graphs[0], jitpolicy,
                              supports_floats=True)
     funcs = set([graph.func for graph in res])
     assert funcs == set([f, g])
 
     cw = CodeWriter(rtyper)        
-    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+    res = cw.find_all_graphs(translator.graphs[0], jitpolicy,
                              supports_floats=False)
     funcs = [graph.func for graph in res]
     assert funcs == [f]
@@ -75,7 +75,7 @@ def test_find_all_graphs_loops():
     cw = CodeWriter(rtyper)
     jitpolicy = JitPolicy()
     translator = rtyper.annotator.translator
-    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+    res = cw.find_all_graphs(translator.graphs[0], jitpolicy,
                              supports_floats=True)
     funcs = set([graph.func for graph in res])
     assert funcs == set([f, h])
@@ -96,7 +96,7 @@ def test_unroll_safe_and_inline():
     cw = CodeWriter(rtyper)
     jitpolicy = JitPolicy()
     translator = rtyper.annotator.translator
-    res = cw.find_all_graphs(translator.graphs[0], None, jitpolicy,
+    res = cw.find_all_graphs(translator.graphs[0], jitpolicy,
                              supports_floats=True)
     funcs = set([graph.func for graph in res])
     assert funcs == set([g, h])
@@ -110,7 +110,7 @@ def test_find_all_graphs_str_join():
     jitpolicy = JitPolicy()
     translator = rtyper.annotator.translator
     # does not explode
-    cw.find_all_graphs(translator.graphs[0], None, jitpolicy, True)
+    cw.find_all_graphs(translator.graphs[0], jitpolicy, True)
 
 class SomeLabel(object):
     def __eq__(self, other):

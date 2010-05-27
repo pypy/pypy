@@ -76,16 +76,13 @@ class CodeWriter(object):
         self.raise_analyzer = None
         self.jitdriver = None
 
-    def find_all_graphs(self, portal_graph, leave_graph,
-                        policy, supports_floats):
+    def find_all_graphs(self, portal_graph, policy, supports_floats):
         from pypy.translator.simplify import get_graph
         def is_candidate(graph):
             return policy.look_inside_graph(graph)
         policy.set_supports_floats(supports_floats)
         
         todo = [portal_graph]
-        if leave_graph is not None:
-            todo.append(leave_graph)        
         self.candidate_graphs = seen = set(todo)
 
         def callers():
@@ -178,15 +175,12 @@ class CodeWriter(object):
         return graph in self.candidate_graphs
 
 
-    def generate_bytecode(self, metainterp_sd, portal_graph, leave_graph,
+    def generate_bytecode(self, metainterp_sd, portal_graph,
                           portal_runner_ptr):
         self._start(metainterp_sd, portal_runner_ptr)
-        leave_code = None
-        if leave_graph:
-            leave_code = self.make_one_bytecode((leave_graph, None), False)
         portal_code = self.make_portal_bytecode(portal_graph)
 
-        self.metainterp_sd.info_from_codewriter(portal_code, leave_code,
+        self.metainterp_sd.info_from_codewriter(portal_code,
                                                 self.class_sizes,
                                                 self.list_of_addr2name,
                                                 portal_runner_ptr)
@@ -1285,8 +1279,6 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
                                                                 args,
                                                                 op.result)
-        self.emit('recursion_leave_prep')
-        self.emit_varargs(non_void_args)        
         self.emit('recursive_call')
         self.emit(self.get_position(calldescr))
         self.emit_varargs([op.args[0]] + non_void_args)

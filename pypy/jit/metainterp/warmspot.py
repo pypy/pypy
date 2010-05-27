@@ -150,10 +150,8 @@ class WarmRunnerDesc(object):
             policy = JitPolicy()
         self.set_translator(translator)
         self.find_portal()
-        self.make_leave_jit_graph()
         self.codewriter = codewriter.CodeWriter(self.rtyper)
         graphs = self.codewriter.find_all_graphs(self.portal_graph,
-                                                 self.leave_graph,
                                                  policy,
                                                  CPUClass.supports_floats)
         policy.dump_unsafe_loops()
@@ -177,7 +175,6 @@ class WarmRunnerDesc(object):
                 
         self.codewriter.generate_bytecode(self.metainterp_sd,
                                           self.portal_graph,
-                                          self.leave_graph,
                                           self.portal_runner_ptr
                                           )
         self.rewrite_can_enter_jit()
@@ -332,6 +329,7 @@ class WarmRunnerDesc(object):
         self.metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrameFloat
         self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
         self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
+
     def make_enter_function(self):
         from pypy.jit.metainterp.warmstate import WarmEnterState
         state = WarmEnterState(self)
@@ -369,18 +367,6 @@ class WarmRunnerDesc(object):
                 maybe_compile_and_run(*args)
         maybe_enter_from_start._always_inline_ = True
         self.maybe_enter_from_start_fn = maybe_enter_from_start
-
-
-    def make_leave_jit_graph(self):
-        self.leave_graph = None
-        if self.jitdriver.leave:
-            args_s = self.portal_args_s
-            from pypy.annotation import model as annmodel
-            annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-            s_result = annmodel.s_None
-            self.leave_graph = annhelper.getgraph(self.jitdriver.leave,
-                                                  args_s, s_result)
-            annhelper.finish()
         
     def make_driverhook_graphs(self):
         from pypy.rlib.jit import BaseJitCell

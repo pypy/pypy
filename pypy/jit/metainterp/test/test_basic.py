@@ -93,7 +93,7 @@ class JitMixin:
         portal_graph = rtyper.annotator.translator.graphs[0]
         cw = codewriter.CodeWriter(rtyper)
         
-        graphs = cw.find_all_graphs(portal_graph, None, JitPolicy(),
+        graphs = cw.find_all_graphs(portal_graph, JitPolicy(),
                                     self.CPUClass.supports_floats)
         cw._start(metainterp.staticdata, None)
         portal_graph.func._jit_unroll_safe_ = True

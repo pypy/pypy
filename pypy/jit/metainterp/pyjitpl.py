@@ -647,19 +647,6 @@ class MIFrame(object):
     @arguments("descr", "varargs")
     def opimpl_residual_call_loopinvariant(self, calldescr, varargs):
         return self.execute_varargs(rop.CALL_LOOPINVARIANT, varargs, calldescr, exc=True)
-
-    @arguments("varargs")
-    def opimpl_recursion_leave_prep(self, varargs):
-        warmrunnerstate = self.metainterp.staticdata.state
-        if warmrunnerstate.inlining:
-            num_green_args = self.metainterp.staticdata.num_green_args
-            greenkey = varargs[:num_green_args]
-            if warmrunnerstate.can_inline_callable(greenkey):
-                return False
-        leave_code = self.metainterp.staticdata.leave_code
-        if leave_code is None:
-            return False
-        return self.perform_call(leave_code, varargs)
         
     @arguments("orgpc", "descr", "varargs")
     def opimpl_recursive_call(self, pc, calldescr, varargs):
@@ -1133,7 +1120,6 @@ class MetaInterpStaticData(object):
         self.jit_starting_line = 'JIT starting (%s)' % backendmodule
 
         self.portal_code = None
-        self.leave_code = None
         self._class_sizes = None
         self._addr2name_keys = []
         self._addr2name_values = []
@@ -1146,10 +1132,9 @@ class MetaInterpStaticData(object):
     def _freeze_(self):
         return True
 
-    def info_from_codewriter(self, portal_code, leave_code, class_sizes,
+    def info_from_codewriter(self, portal_code, class_sizes,
                              list_of_addr2name, portal_runner_ptr):
         self.portal_code = portal_code
-        self.leave_code = leave_code
         self._class_sizes = class_sizes
         self._addr2name_keys   = [key   for key, value in list_of_addr2name]
         self._addr2name_values = [value for key, value in list_of_addr2name]

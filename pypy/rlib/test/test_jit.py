@@ -61,12 +61,10 @@ class BaseTestJIT(BaseRtypingTest):
         
         def can_inline(m): pass
         def get_printable_location(m): pass
-        def leave(m, n): pass
         
         myjitdriver = JitDriver(greens=['m'], reds=['n'],
                                 can_inline=can_inline,
-                                get_printable_location=get_printable_location,
-                                leave=leave)
+                                get_printable_location=get_printable_location)
         def fn(n):
             m = 42.5
             while n > 0:
@@ -82,9 +80,6 @@ class BaseTestJIT(BaseRtypingTest):
                 if getattr(graph, 'func', None) is func:
                     return [v.concretetype for v in graph.getargs()]
             raise Exception, 'function %r has not been annotated' % func
-
-        leave_args = getargs(leave)
-        assert leave_args == [lltype.Float, lltype.Signed]
 
         can_inline_args = getargs(can_inline)
         get_printable_location_args = getargs(get_printable_location)
