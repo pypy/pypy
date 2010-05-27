@@ -90,6 +90,14 @@ class LeakCheckingTest(object):
         gc.collect()
         lost_objects_w = identity_dict()
         lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
+
+        # Clear all lifelines, objects won't resurrect
+        for w_obj, obj in typeobject.lifeline_dict._dict.items():
+            if w_obj not in state.py_objects_w2r:
+                typeobject.lifeline_dict.set(w_obj, None)
+            del obj
+        gc.collect()
+
         for w_obj, obj in state.py_objects_w2r.iteritems():
             base_refcnt = self.frozen_refcounts.get(w_obj)
             delta = obj.c_ob_refcnt

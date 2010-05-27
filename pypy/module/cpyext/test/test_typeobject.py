@@ -135,6 +135,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
 
+    def test_metatype(self):
+        module = self.import_module(name='foo')
+        assert module.MetaType.__mro__ == (module.MetaType, type, object)
+        x = module.MetaType('name', (), {})
+        assert isinstance(x, type)
+        x()
+
     def test_sre(self):
         module = self.import_module(name='_sre')
         import sre_compile

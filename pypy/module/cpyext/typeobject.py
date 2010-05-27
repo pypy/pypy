@@ -120,10 +120,6 @@ def update_all_slots(space, w_type, pto):
                 slot_func.api_func.get_wrapper(space))
         # XXX special case wrapper-functions and use a "specific" slot func
 
-        # the special case of __new__ in CPython works a bit differently, hopefully
-        # this matches the semantics
-        if method_name == "__new__" and not pto.c_tp_new:
-            continue
         if len(slot_name) == 1:
             setattr(pto, slot_name[0], slot_func_helper)
         else:
@@ -439,6 +435,7 @@ def pyctype_make_ref(space, w_type, w_obj, itemcount=0):
         typedescr = get_typedescr(w_obj.typedef)
         py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
         lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
+        typedescr.attach(space, py_obj, w_obj)
     return py_obj
 
 @cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
@@ -486,8 +483,9 @@ def type_dealloc(space, obj):
         rffi.free_charp(obj_pto.c_tp_name)
         obj_pto_voidp = rffi.cast(rffi.VOIDP_real, obj_pto)
         generic_cpy_call(space, type_pto.c_tp_free, obj_pto_voidp)
-        pto = rffi.cast(PyObject, type_pto)
-        Py_DecRef(space, pto)
+        if type_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+            pto = rffi.cast(PyObject, type_pto)
+            Py_DecRef(space, pto)
 
 
 def type_attach(space, py_obj, w_type):

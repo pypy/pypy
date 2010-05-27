@@ -166,6 +166,8 @@ static PyTypeObject footype = {
     foo_getseters,           /*tp_getset*/
 };
 
+/* A type that inherits from 'unicode */
+
 typedef struct {
     PyUnicodeObject HEAD;
     int val;
@@ -312,6 +314,68 @@ PyTypeObject Fuu2Type = {
 };
 
 
+/* A Metatype */
+
+PyTypeObject MetaType = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.Meta",
+    sizeof(PyTypeObject),          /*tp_basicsize*/
+    0,          /*tp_itemsize*/
+    0,          /*tp_dealloc*/
+    0,          /*tp_print*/
+    0,          /*tp_getattr*/
+    0,          /*tp_setattr*/
+    0,          /*tp_compare*/
+    0,          /*tp_repr*/
+    0,          /*tp_as_number*/
+    0,          /*tp_as_sequence*/
+    0,          /*tp_as_mapping*/
+    0,          /*tp_hash */
+
+    0,          /*tp_call*/
+    0,          /*tp_str*/
+    0,          /*tp_getattro*/
+    0,          /*tp_setattro*/
+    0,          /*tp_as_buffer*/
+
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    0,          /*tp_doc*/
+
+    0,          /*tp_traverse*/
+    0,          /*tp_clear*/
+
+    0,          /*tp_richcompare*/
+    0,          /*tp_weaklistoffset*/
+
+    0,          /*tp_iter*/
+    0,          /*tp_iternext*/
+
+    /* Attribute descriptor and subclassing stuff */
+
+    0,          /*tp_methods*/
+    0,          /*tp_members*/
+    0,          /*tp_getset*/
+    0,          /*tp_base*/
+    0,          /*tp_dict*/
+
+    0,          /*tp_descr_get*/
+    0,          /*tp_descr_set*/
+    0,          /*tp_dictoffset*/
+
+    0,          /*tp_init*/
+    0,          /*tp_alloc*/
+    0,          /*tp_new*/
+    0,          /*tp_free*/
+    0,          /*tp_is_gc*/
+    0,          /*tp_bases*/
+    0,          /*tp_mro*/
+    0,          /*tp_cache*/
+    0,          /*tp_subclasses*/
+    0           /*tp_weaklist*/
+};
+
+
 /* foo functions */
 
 static PyObject *
@@ -344,6 +408,7 @@ void initfoo(void)
 
     FuuType.tp_base = &PyUnicode_Type;
     Fuu2Type.tp_base = &FuuType;
+    MetaType.tp_base = &PyType_Type;
 
     if (PyType_Ready(&footype) < 0)
         return;
@@ -351,15 +416,20 @@ void initfoo(void)
         return;
     if (PyType_Ready(&Fuu2Type) < 0)
         return;
+    if (PyType_Ready(&MetaType) < 0)
+        return;
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
         return;
     d = PyModule_GetDict(m);
-    if (d) {
-        if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
-            return;
-        PyDict_SetItemString(d, "FuuType", (PyObject *) &FuuType);
-        PyDict_SetItemString(d, "Fuu2Type", (PyObject *) &Fuu2Type);
-    }
-       /* No need to check the error here, the caller will do that */
+    if (d == NULL)
+        return;
+    if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
+        return;
+    if (PyDict_SetItemString(d, "FuuType", (PyObject *) &FuuType) < 0)
+        return;
+    if(PyDict_SetItemString(d, "Fuu2Type", (PyObject *) &Fuu2Type) < 0)
+        return;
+    if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
+        return;
 }
