@@ -208,3 +208,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.nb_int(10) == 10
         assert module.nb_int(-12.3) == -12
         raises(ValueError, module.nb_int, "123")
+
+    def test_tp_call(self):
+        module = self.import_extension('foo', [
+            ("tp_call", "METH_VARARGS",
+             '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *c_args = PyTuple_GET_ITEM(args, 1);
+                 if (!obj->ob_type->tp_call)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return obj->ob_type->tp_call(obj, c_args, NULL);
+             '''
+             )
+            ])
+        class C:
+            def __call__(self, *args):
+                return args
+        assert module.tp_call(C(), ('x', 2)) == ('x', 2)
