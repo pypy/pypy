@@ -121,8 +121,8 @@ exception mechanism.
 
 In any case, it should be obvious that the application-level implementation 
 is definitely more readable, more elegant and more maintainable than the
-interpreter-level one (and indeed, dict.update is really implemented at appleve
-in PyPy).
+interpreter-level one (and indeed, dict.update is really implemented at
+applevel in PyPy).
 
 In fact, in almost all parts of PyPy, you find application level code in
 the middle of interpreter-level code.  Apart from some bootstrapping
