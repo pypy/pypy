@@ -687,10 +687,14 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
 def _PyType_Lookup(space, type, w_name):
     """Internal API to look for a name through the MRO.
     This returns a borrowed reference, and doesn't set an exception!"""
-    py_type = rffi.cast(PyObject, type)
-    w_type = from_ref(space, py_type)
+    w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
+
+    if not space.isinstance_w(w_name, space.w_str):
+        return None
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     return borrow_from(w_type, w_obj)
+
+
 
