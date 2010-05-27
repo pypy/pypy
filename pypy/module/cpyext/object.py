@@ -19,7 +19,7 @@ def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
+@cpython_api([rffi.VOIDP_real], lltype.Void)
 def PyObject_FREE(space, ptr):
     lltype.free(ptr, flavor='raw')
 
