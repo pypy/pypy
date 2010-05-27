@@ -124,6 +124,10 @@ def slot_tp_init(space, w_self, w_args, w_kwds):
     space.get_and_call_args(w_descr, w_self, args)
     return 0
 
+@cpython_api([PyObject], PyObject)
+def slot_nb_int(space, w_self):
+    return space.int(w_self)
+
 PyWrapperFlag_KEYWORDS = 1
 
 # adopted from typeobject.c

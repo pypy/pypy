@@ -27,8 +27,9 @@ from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx)
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
-from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr, PyTypeObject, \
-        PyGetSetDef, PyMemberDef, newfunc
+from pypy.module.cpyext.typeobjectdefs import (
+    PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
+    PyNumberMethods)
 from pypy.module.cpyext.slotdefs import slotdefs
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import rsplit
@@ -104,10 +105,10 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
-def update_all_slots(space, w_obj, pto):
+def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
     for method_name, slot_name, slot_func, _, _, _ in slotdefs:
-        w_descr = space.lookup(w_obj, method_name)
+        w_descr = w_type.lookup(method_name)
         if w_descr is None:
             # XXX special case iternext
             continue
@@ -129,7 +130,14 @@ def update_all_slots(space, w_obj, pto):
             assert len(slot_name) == 2
             struct = getattr(pto, slot_name[0])
             if not struct:
-                continue
+                if slot_name[0] == 'c_tp_as_number':
+                    STRUCT_TYPE = PyNumberMethods
+                else:
+                    raise AssertionError(
+                        "Structure not allocated: %s" % (slot_name[0],))
+                struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
+                setattr(pto, slot_name[0], struct)
+
             setattr(struct, slot_name[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
@@ -472,6 +480,8 @@ def type_dealloc(space, obj):
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         if obj_pto.c_tp_as_buffer:
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
+        if obj_pto.c_tp_as_number:
+            lltype.free(obj_pto.c_tp_as_number, flavor='raw')
         Py_DecRef(space, base_pyo)
         rffi.free_charp(obj_pto.c_tp_name)
         obj_pto_voidp = rffi.cast(rffi.VOIDP_real, obj_pto)

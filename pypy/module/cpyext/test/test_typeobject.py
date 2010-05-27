@@ -189,3 +189,22 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
+
+class AppTestSlots(AppTestCpythonExtensionBase):
+    def test_nb_int(self):
+        module = self.import_extension('foo', [
+            ("nb_int", "METH_O",
+             '''
+                 if (!args->ob_type->tp_as_number ||
+                     !args->ob_type->tp_as_number->nb_int)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_as_number->nb_int(args);
+             '''
+             )
+            ])
+        assert module.nb_int(10) == 10
+        assert module.nb_int(-12.3) == -12
+        raises(ValueError, module.nb_int, "123")
