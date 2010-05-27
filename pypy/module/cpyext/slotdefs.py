@@ -106,7 +106,7 @@ def wrap_next(space, w_self, w_args, func):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
 
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=True)
+@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
 def slot_tp_new(space, type, w_args, w_kwds):
     from pypy.module.cpyext.tupleobject import PyTuple_Check
     pyo = rffi.cast(PyObject, type)
@@ -117,18 +117,18 @@ def slot_tp_new(space, type, w_args, w_kwds):
     w_args_new = space.newtuple(args_w)
     return space.call(w_func, w_args_new, w_kwds)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
 def slot_tp_init(space, w_self, w_args, w_kwds):
     w_descr = space.lookup(w_self, '__init__')
     args = Arguments.frompacked(space, w_args, w_kwds)
     space.get_and_call_args(w_descr, w_self, args)
     return 0
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
 def slot_tp_call(space, w_self, w_args, w_kwds):
     return space.call(w_self, w_args, w_kwds)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
