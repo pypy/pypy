@@ -140,7 +140,17 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert module.MetaType.__mro__ == (module.MetaType, type, object)
         x = module.MetaType('name', (), {})
         assert isinstance(x, type)
+        assert isinstance(x, module.MetaType)
         x()
+
+    @py.test.mark.xfail
+    def test_metaclass_compatible(self):
+        # metaclasses should not conflict here
+        print module.MetaType.__mro__      # (foo.Meta, type, object)
+        print type(module.fooType).__mro__ # (C_Type, type, object)
+        y = module.MetaType('other', (module.fooType,), {})
+        assert isinstance(y, module.MetaType)
+        y()
 
     def test_sre(self):
         module = self.import_module(name='_sre')
