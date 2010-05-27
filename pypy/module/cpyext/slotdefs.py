@@ -184,18 +184,6 @@ def RBINSLOTNOTINFIX(NAME, SLOT, FUNCTION, DOC):
     return ETSLOT(NAME, "tp_as_number.c_" + SLOT, FUNCTION, "wrap_binaryfunc_r", \
             "x." + NAME + "(y) <==> " + DOC)
 
-slotdef_replacements = (
-    ("\s+", " "),
-    ("static [^{]*{", "("),
-    ("};", ")"),
-    (r"(?P<start> +..SLOT\([^,]*, )(?P<fname>[^,]*), (?P<slotcname>[^,]*), (?P<wname>[^,]*)", r"\g<start>'\g<fname>', '\g<slotcname>', '\g<wname>'"),
-    (r"(?P<start> *R?[^ ]{3}SLOT(NOTINFIX)?\([^,]*, )(?P<fname>[^,]*), (?P<slotcname>[^,]*)", r"\g<start>'\g<fname>', '\g<slotcname>'"),
-    ("'NULL'", "None"),
-    ("{NULL}", ""),
-    ("\(wrapperfunc\)", ""),
-    ("\),", "),\n"),
-)
-
 """
     /* Heap types defining __add__/__mul__ have sq_concat/sq_repeat == NULL.
        The logic in abstract.c always falls back to nb_add/nb_multiply in
@@ -207,7 +195,7 @@ slotdef_replacements = (
 # Copy new slotdefs from typeobject.c
 # Remove comments and tabs
 # Done.
-slotdefs_str = """
+slotdefs_str = r"""
 static slotdef slotdefs[] = {
         SQSLOT("__len__", sq_length, slot_sq_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
@@ -399,6 +387,21 @@ static slotdef slotdefs[] = {
         {NULL}
 };
 """
+
+# Convert the above string into python code
+slotdef_replacements = (
+    ("\s+", " "),            # all on one line
+    ("static [^{]*{", "("),  # remove first line...
+    ("};", ")"),             # ...last line...
+    ("{NULL}", ""),          # ...and sentinel
+    # add quotes around function name, slot name, and wrapper name
+    (r"(?P<start> +..SLOT\([^,]*, )(?P<fname>[^,]*), (?P<slotcname>[^,]*), (?P<wname>[^,]*)", r"\g<start>'\g<fname>', '\g<slotcname>', '\g<wname>'"),
+    (r"(?P<start> *R?[^ ]{3}SLOT(NOTINFIX)?\([^,]*, )(?P<fname>[^,]*), (?P<slotcname>[^,]*)", r"\g<start>'\g<fname>', '\g<slotcname>'"),
+    ("'NULL'", "None"),      # but NULL becomes None
+    ("\(wrapperfunc\)", ""), # casts are not needed in python tuples
+    ("\),", "),\n"),         # add newlines again
+)
+
 for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
