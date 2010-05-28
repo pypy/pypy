@@ -274,6 +274,7 @@ def create_ref(space, w_obj, itemcount=0):
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     if w_type.is_cpytype():
+        state = space.fromcache(RefcountState)
         state.set_lifeline(w_obj, py_obj)
     typedescr.attach(space, py_obj, w_obj)
     return py_obj
