@@ -10,9 +10,9 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
 from pypy.translator.gensupp import uniquemodulename
 from pypy.tool.udir import udir
-from pypy.module.cpyext import api, typeobject
+from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import RefcountState
+from pypy.module.cpyext.pyobject import RefcountState, lifeline_dict
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from pypy.translator.goal import autopath
 from pypy.lib.identity_dict import identity_dict
@@ -92,9 +92,9 @@ class LeakCheckingTest(object):
         lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
 
         # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in typeobject.lifeline_dict._dict.items():
+        for w_obj, obj in lifeline_dict._dict.items():
             if w_obj not in state.py_objects_w2r:
-                typeobject.lifeline_dict.set(w_obj, None)
+                lifeline_dict.set(w_obj, None)
             del obj
         gc.collect()
 
@@ -107,7 +107,7 @@ class LeakCheckingTest(object):
             if delta != 0:
                 leaking = True
                 print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                lifeline = typeobject.lifeline_dict.get(w_obj)
+                lifeline = lifeline_dict.get(w_obj)
                 if lifeline is not None:
                     refcnt = lifeline.pyo.c_ob_refcnt
                     if refcnt > 0:

@@ -3,8 +3,6 @@ import sys
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.rweakref import RWeakKeyDictionary
-from pypy.interpreter.gateway import W_Root
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE
 from pypy.interpreter.typedef import GetSetProperty
@@ -212,20 +210,6 @@ def inherit_special(space, pto, base_pto):
             pto.c_tp_new = base_pto.c_tp_new
     Py_DecRef(space, base_object_pyo)
 
-class PyOLifeline(object):
-    def __init__(self, space, pyo):
-        self.pyo = pyo
-        self.space = space
-
-    def __del__(self):
-        if self.pyo:
-            assert self.pyo.c_ob_refcnt == 0
-            _Py_Dealloc(self.space, self.pyo)
-            self.pyo = lltype.nullptr(PyObject.TO)
-        # XXX handle borrowed objects here
-
-lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
-
 def check_descr(space, w_self, w_type):
     if not space.is_true(space.isinstance(w_self, w_type)):
         raise DescrMismatch()
@@ -289,7 +273,6 @@ def init_typeobject(space):
     make_typedescr(space.w_type.instancetypedef,
                    basestruct=PyTypeObject,
                    attach=type_attach,
-                   make_ref=type_make_ref,
                    realize=type_realize,
                    dealloc=type_dealloc)
 
@@ -349,22 +332,6 @@ def subtype_dealloc(space, obj):
     # XXX cpy decrefs the pto here but we do it in the base-dealloc
     # hopefully this does not clash with the memory model assumed in
     # extension modules
-
-def type_make_ref(space, w_type, w_obj, itemcount=0):
-    if w_type.is_cpytype():
-        lifeline = lifeline_dict.get(w_obj)
-        if lifeline is not None: # make old PyObject ready for use in C code
-            py_obj = lifeline.pyo
-            assert py_obj.c_ob_refcnt == 0
-            Py_IncRef(space, py_obj)
-            return py_obj
-
-    typedescr = get_typedescr(w_obj.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    if w_type.is_cpytype():
-        lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
-    typedescr.attach(space, py_obj, w_obj)
-    return py_obj
 
 @cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
              error=CANNOT_FAIL)

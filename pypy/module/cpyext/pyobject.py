@@ -8,6 +8,7 @@ from pypy.module.cpyext.api import cpython_api, bootstrap_function, \
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
+from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.rpython.annlowlevel import llhelper
 
 #________________________________________________________
@@ -19,8 +20,6 @@ class BaseCpyTypedescr(object):
     def get_dealloc(self, space):
         raise NotImplementedError
     def allocate(self, space, w_type, itemcount=0):
-        raise NotImplementedError
-    def make_ref(self, space, w_type, w_obj, itemcount=0):
         raise NotImplementedError
     def attach(self, space, pyobj, w_obj):
         raise NotImplementedError
@@ -40,7 +39,6 @@ def make_typedescr(typedef, **kw):
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)
-    tp_make_ref   = kw.pop('make_ref', None)
     tp_attach     = kw.pop('attach', None)
     tp_realize    = kw.pop('realize', None)
     tp_dealloc    = kw.pop('dealloc', None)
@@ -86,18 +84,6 @@ def make_typedescr(typedef, **kw):
             pyobj.c_ob_refcnt = 1
             pyobj.c_ob_type = pytype
             return pyobj
-
-        # Specialized by meta-type
-        if tp_make_ref:
-            def make_ref(self, space, w_type, w_obj, itemcount=0):
-                return tp_make_ref(space, w_type, w_obj, itemcount=itemcount)
-        else:
-            def make_ref(self, space, w_type, w_obj, itemcount=0):
-                typedescr = get_typedescr(w_obj.typedef)
-                w_type = space.type(w_obj)
-                py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-                typedescr.attach(space, py_obj, w_obj)
-                return py_obj
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj):
@@ -257,14 +243,26 @@ def debug_refcount(*args, **kwargs):
         print >>sys.stderr, arg,
     print >>sys.stderr
 
-def create_ref(space, w_obj, items=0):
+def create_ref(space, w_obj, itemcount=0):
     """
     Allocates a PyObject, and fills its fields with info from the given
     intepreter object.
     """
     w_type = space.type(w_obj)
-    metatypedescr = get_typedescr(w_type.typedef)
-    return metatypedescr.make_ref(space, w_type, w_obj, itemcount=items)
+    if w_type.is_cpytype():
+        lifeline = lifeline_dict.get(w_obj)
+        if lifeline is not None: # make old PyObject ready for use in C code
+            py_obj = lifeline.pyo
+            assert py_obj.c_ob_refcnt == 0
+            Py_IncRef(space, py_obj)
+            return py_obj
+
+    typedescr = get_typedescr(w_obj.typedef)
+    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
+    if w_type.is_cpytype():
+        lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
+    typedescr.attach(space, py_obj, w_obj)
+    return py_obj
 
 def track_reference(space, py_obj, w_obj, replace=False):
     """
@@ -379,6 +377,26 @@ def _Py_Dealloc(space, obj):
     #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
     #      "'s type which is", rffi.charp2str(pto.c_tp_name)
     generic_cpy_call_dont_decref(space, pto.c_tp_dealloc, obj)
+
+#___________________________________________________________
+# Support for "lifelines"
+#
+# Object structure must stay alive even when not referenced
+# by any C code.
+
+class PyOLifeline(object):
+    def __init__(self, space, pyo):
+        self.pyo = pyo
+        self.space = space
+
+    def __del__(self):
+        if self.pyo:
+            assert self.pyo.c_ob_refcnt == 0
+            _Py_Dealloc(self.space, self.pyo)
+            self.pyo = lltype.nullptr(PyObject.TO)
+        # XXX handle borrowed objects here
+
+lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
 
 #___________________________________________________________
 # Support for borrowed references

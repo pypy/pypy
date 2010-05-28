@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr)
+    track_reference, get_typedescr, lifeline_dict, PyOLifeline)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -199,7 +199,6 @@ def PyObject_Init(space, py_obj, type):
     if w_type.is_cpytype():
         w_obj = space.allocate_instance(W_ObjectObject, w_type)
         track_reference(space, py_obj, w_obj)
-        from pypy.module.cpyext.typeobject import lifeline_dict, PyOLifeline
         lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
     else:
         assert False, "Please add more cases in PyObject_Init"
