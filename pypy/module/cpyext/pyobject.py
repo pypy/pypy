@@ -138,6 +138,8 @@ class RefcountState:
         self.py_objects_w2r = {} # { w_obj -> raw PyObject }
         self.py_objects_r2w = {} # { addr of raw PyObject -> w_obj }
 
+        self.lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
+
         self.borrow_mapping = {None: {}}
         # { w_container -> { w_containee -> None } }
         # the None entry manages references borrowed during a call to
@@ -164,6 +166,19 @@ class RefcountState:
         print "REFCOUNTS"
         for w_obj, obj in self.py_objects_w2r.items():
             print "%r: %i" % (w_obj, obj.c_ob_refcnt)
+
+    def get_from_lifeline(self, w_obj):
+        lifeline = self.lifeline_dict.get(w_obj)
+        if lifeline is not None: # make old PyObject ready for use in C code
+            py_obj = lifeline.pyo
+            assert py_obj.c_ob_refcnt == 0
+            return py_obj
+        else:
+            lltype.nullptr(PyObject.TO)
+
+    def set_lifeline(self, w_obj, py_obj):
+        self.lifeline_dict.set(w_obj,
+                               PyOLifeline(self.space, py_obj))
 
     def make_borrowed(self, w_container, w_borrowed):
         """
@@ -250,17 +265,16 @@ def create_ref(space, w_obj, itemcount=0):
     """
     w_type = space.type(w_obj)
     if w_type.is_cpytype():
-        lifeline = lifeline_dict.get(w_obj)
-        if lifeline is not None: # make old PyObject ready for use in C code
-            py_obj = lifeline.pyo
-            assert py_obj.c_ob_refcnt == 0
+        state = space.fromcache(RefcountState)
+        py_obj = state.get_from_lifeline(w_obj)
+        if py_obj:
             Py_IncRef(space, py_obj)
             return py_obj
 
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     if w_type.is_cpytype():
-        lifeline_dict.set(w_obj, PyOLifeline(space, py_obj))
+        state.set_lifeline(w_obj, py_obj)
     typedescr.attach(space, py_obj, w_obj)
     return py_obj
 
@@ -395,8 +409,6 @@ class PyOLifeline(object):
             _Py_Dealloc(self.space, self.pyo)
             self.pyo = lltype.nullptr(PyObject.TO)
         # XXX handle borrowed objects here
-
-lifeline_dict = RWeakKeyDictionary(W_Root, PyOLifeline)
 
 #___________________________________________________________
 # Support for borrowed references
