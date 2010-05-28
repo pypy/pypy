@@ -72,6 +72,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del obj.object_member_ex
         raises(AttributeError, "del obj.object_member_ex")
 
+        obj.set_foo = 32
+        assert obj.foo == 32
+
     def test_typeobject_string_member(self):
         module = self.import_module(name='foo')
         obj = module.new()

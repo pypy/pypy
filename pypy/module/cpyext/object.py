@@ -320,9 +320,14 @@ def PyObject_GenericSetAttr(space, w_obj, w_name, w_value):
     over setting the attribute in the instance dictionary. Otherwise, the
     attribute is set in the object's __dict__ (if present).  Otherwise,
     an AttributeError is raised and -1 is returned."""
-    from pypy.objspace.descroperation import object_setattr
-    w_descr = object_setattr(space)
-    return space.get_and_call_function(w_descr, w_obj, w_name, w_value)
+    from pypy.objspace.descroperation import object_setattr, object_delattr
+    if w_value is not None:
+        w_descr = object_setattr(space)
+        space.get_and_call_function(w_descr, w_obj, w_name, w_value)
+    else:
+        w_descr = object_delattr(space)
+        space.get_and_call_function(w_descr, w_obj, w_name)
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_IsInstance(space, w_inst, w_cls):

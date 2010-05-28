@@ -114,6 +114,25 @@ foo_call(PyObject *self, PyObject *args, PyObject *kwds)
     return kwds;
 }
 
+static int
+foo_setattro(fooobject *self, PyObject *name, PyObject *value)
+{
+    char *name_str;
+    if (!PyString_Check(name)) {
+        PyErr_SetObject(PyExc_AttributeError, name);
+        return -1;
+    }
+    name_str = PyString_AsString(name);
+    if (strcmp(name_str, "set_foo") == 0)
+    {
+        long v = PyInt_AsLong(value);
+        if (v == -1 && PyErr_Occurred())
+            return -1;
+        self->foo = v;
+    }
+    return PyObject_GenericSetAttr(self, name, value);
+}
+
 static PyMemberDef foo_members[] = {
     {"int_member", T_INT, offsetof(fooobject, foo), 0,
      "A helpful docstring."},
@@ -151,7 +170,7 @@ static PyTypeObject footype = {
     foo_call,                /*tp_call*/
     0,                       /*tp_str*/
     0,                       /*tp_getattro*/
-    0,                       /*tp_setattro*/
+    foo_setattro,            /*tp_setattro*/
     0,                       /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT,      /*tp_flags*/
     0,                       /*tp_doc*/

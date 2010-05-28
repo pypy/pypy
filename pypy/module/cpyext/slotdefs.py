@@ -1,12 +1,11 @@
 import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import generic_cpy_call, cpython_api, \
-        PyObject
-from pypy.module.cpyext.typeobjectdefs import unaryfunc, wrapperfunc,\
-        ternaryfunc, PyTypeObjectPtr, binaryfunc, getattrfunc, lenfunc,\
-        ssizeargfunc, ssizessizeargfunc, ssizeobjargproc, iternextfunc,\
-        initproc
+from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
+from pypy.module.cpyext.typeobjectdefs import (
+    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
+    getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
+    ssizeobjargproc, iternextfunc, initproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -52,6 +51,24 @@ def wrap_getattr(space, w_self, w_args, func):
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:
         rffi.free_charp(name_ptr)
+
+def wrap_setattr(space, w_self, w_args, func):
+    func_target = rffi.cast(setattrofunc, func)
+    check_num_args(space, w_args, 2)
+    w_name, w_value = space.fixedview(w_args)
+    # XXX "Carlo Verre hack"?
+    if generic_cpy_call(space, func_target, w_self, w_name, w_value) < 0:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.w_None
+
+def wrap_delattr(space, w_self, w_args, func):
+    func_target = rffi.cast(setattrofunc, func)
+    check_num_args(space, w_args, 1)
+    w_name, = space.fixedview(w_args)
+    # XXX "Carlo Verre hack"?
+    if generic_cpy_call(space, func_target, w_self, w_name, None) < 0:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.w_None
 
 def wrap_call(space, w_self, w_args, func, w_kwds):
     func_target = rffi.cast(ternaryfunc, func)
@@ -135,11 +152,15 @@ PyWrapperFlag_KEYWORDS = 1
 
 # adopted from typeobject.c
 def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
-    wrapper = globals().get(WRAPPER, Ellipsis)
     if WRAPPER is None:
         wrapper = None
+    else:
+        wrapper = globals().get(WRAPPER, Ellipsis)
+
+    # irregular interface, because of tp_getattr/tp_getattro confusion
     if NAME == "__getattr__":
         wrapper = wrap_getattr
+
     function = globals().get(FUNCTION, None)
     slotname = ("c_" + SLOT).split(".")
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
