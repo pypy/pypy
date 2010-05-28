@@ -174,7 +174,7 @@ class RefcountState:
             assert py_obj.c_ob_refcnt == 0
             return py_obj
         else:
-            lltype.nullptr(PyObject.TO)
+            return lltype.nullptr(PyObject.TO)
 
     def set_lifeline(self, w_obj, py_obj):
         self.lifeline_dict.set(w_obj,
