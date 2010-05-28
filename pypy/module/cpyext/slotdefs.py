@@ -57,18 +57,18 @@ def wrap_setattr(space, w_self, w_args, func):
     check_num_args(space, w_args, 2)
     w_name, w_value = space.fixedview(w_args)
     # XXX "Carlo Verre hack"?
-    if generic_cpy_call(space, func_target, w_self, w_name, w_value) < 0:
+    res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
+    if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.w_None
 
 def wrap_delattr(space, w_self, w_args, func):
     func_target = rffi.cast(setattrofunc, func)
     check_num_args(space, w_args, 1)
     w_name, = space.fixedview(w_args)
     # XXX "Carlo Verre hack"?
-    if generic_cpy_call(space, func_target, w_self, w_name, None) < 0:
+    res = generic_cpy_call(space, func_target, w_self, w_name, None)
+    if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.w_None
 
 def wrap_call(space, w_self, w_args, func, w_kwds):
     func_target = rffi.cast(ternaryfunc, func)
