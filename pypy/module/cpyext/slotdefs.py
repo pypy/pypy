@@ -28,7 +28,9 @@ def check_num_args(space, ob, n):
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
-    generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
+    res = generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception()
     return None
 
 def wrap_unaryfunc(space, w_self, w_args, func):

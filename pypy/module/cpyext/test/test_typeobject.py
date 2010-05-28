@@ -173,6 +173,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         re._cache.clear()
         re._cache_repl.clear()
 
+    def test_init_error(self):
+        module = self.import_module("foo")
+        raises(ValueError, module.InitErrType)
+
+
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
         w_class = space.appexec([], """():
@@ -209,7 +214,7 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
-
+    
 class AppTestSlots(AppTestCpythonExtensionBase):
     def test_some_slots(self):
         module = self.import_extension('foo', [

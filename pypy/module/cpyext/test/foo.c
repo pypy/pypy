@@ -193,8 +193,9 @@ typedef struct {
 } FuuObject;
 
 
-void Fuu_init(FuuObject *self, PyObject *args, PyObject *kwargs) {
+static int Fuu_init(FuuObject *self, PyObject *args, PyObject *kwargs) {
     self->val = 42;
+    return 0;
 }
 
 static PyObject *
@@ -417,6 +418,72 @@ static PyMethodDef foo_functions[] = {
 };
 
 
+static int initerrtype_init(PyObject *self, PyObject *args, PyObject *kwargs) {
+    PyErr_SetString(PyExc_ValueError, "init raised an error!");
+    return -1;
+}
+
+
+PyTypeObject InitErrType = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.InitErr",
+    sizeof(PyObject),
+    0,
+    0,          /*tp_dealloc*/
+    0,          /*tp_print*/
+    0,          /*tp_getattr*/
+    0,          /*tp_setattr*/
+    0,          /*tp_compare*/
+    0,          /*tp_repr*/
+    0,          /*tp_as_number*/
+    0,          /*tp_as_sequence*/
+    0,          /*tp_as_mapping*/
+    0,          /*tp_hash */
+
+    0,          /*tp_call*/
+    0,          /*tp_str*/
+    0,          /*tp_getattro*/
+    0,          /*tp_setattro*/
+    0,          /*tp_as_buffer*/
+
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    0,          /*tp_doc*/
+
+    0,          /*tp_traverse*/
+    0,          /*tp_clear*/
+
+    0,          /*tp_richcompare*/
+    0,          /*tp_weaklistoffset*/
+
+    0,          /*tp_iter*/
+    0,          /*tp_iternext*/
+
+    /* Attribute descriptor and subclassing stuff */
+
+    0,          /*tp_methods*/
+    0,          /*tp_members*/
+    0,          /*tp_getset*/
+    0,          /*tp_base*/
+    0,          /*tp_dict*/
+
+    0,          /*tp_descr_get*/
+    0,          /*tp_descr_set*/
+    0,          /*tp_dictoffset*/
+
+    initerrtype_init,          /*tp_init*/
+    0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
+    0,          /*tp_new*/
+    0,          /*tp_free  Low-level free-memory routine */
+    0,          /*tp_is_gc For PyObject_IS_GC */
+    0,          /*tp_bases*/
+    0,          /*tp_mro method resolution order */
+    0,          /*tp_cache*/
+    0,          /*tp_subclasses*/
+    0           /*tp_weaklist*/
+};
+
+
 /* Initialize this module. */
 
 void initfoo(void)
@@ -437,6 +504,8 @@ void initfoo(void)
         return;
     if (PyType_Ready(&MetaType) < 0)
         return;
+    if (PyType_Ready(&InitErrType) < 0)
+        return;
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
         return;
@@ -450,5 +519,7 @@ void initfoo(void)
     if(PyDict_SetItemString(d, "Fuu2Type", (PyObject *) &Fuu2Type) < 0)
         return;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
+        return;
+    if (PyDict_SetItemString(d, "InitErrType", (PyObject *) &InitErrType) < 0)
         return;
 }
