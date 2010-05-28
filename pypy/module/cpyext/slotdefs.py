@@ -13,8 +13,7 @@ from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
-
-space = None
+from pypy.tool.sourcetools import func_with_new_name
 
 
 def check_num_args(space, ob, n):
@@ -148,12 +147,14 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         if wrapper is Ellipsis:
             def wrapper(space, w_self, w_args, func, w_kwds):
                 raise NotImplementedError("Wrapper for slot " + NAME)
+            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = None
         wrapper2 = wrapper
     else:
         if wrapper is Ellipsis:
             def wrapper(space, w_self, w_args, func):
                 raise NotImplementedError("Wrapper for slot " + NAME)
+            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = wrapper
         wrapper2 = None
     return (NAME, slotname, function, wrapper1, wrapper2, DOC)
