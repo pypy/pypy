@@ -64,3 +64,15 @@ class TestUnroll(Base):
                        'ne': 1,
                        'gt': 1,
                        'ge': 1}
+
+    def test_unroll_twice(self):
+        operations = unrolling_iterable([1, 2, 3])
+        def f(x):
+            for num1 in operations:
+                for num2 in operations:
+                    x = x + (num1 + num2)
+            return x
+
+        graph = self.codetest(f)
+        ops = self.all_operations(graph)
+        assert ops['add'] == 9

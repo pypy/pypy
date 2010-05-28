@@ -388,11 +388,14 @@ class FlowExecutionContext(ExecutionContext):
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
         stack_items_w = self.crnt_frame.valuestack_w
-        for i in range(self.crnt_frame.valuestackdepth):
+        for i in range(self.crnt_frame.valuestackdepth-1, -1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
+                    # replace the topmost item of the stack that is equal
+                    # to 'oldvalue' with 'newvalue'.
                     stack_items_w[i] = w_new
+                    break
 
 class FlowSpaceFrame(pyframe.PyFrame):
     """
