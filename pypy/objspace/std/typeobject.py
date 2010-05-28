@@ -352,7 +352,7 @@ class W_TypeObject(W_Object):
         raise UnwrapError(w_self)
 
     def is_heaptype(w_self):
-        return w_self.__flags__&_HEAPTYPE
+        return w_self.__flags__ & _HEAPTYPE
 
     def is_cpytype(w_self):
         return w_self.__flags__ & _CPYTYPE
@@ -581,6 +581,10 @@ def setup_user_defined_type(w_self):
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
     w_self.instancetypedef = w_bestbase.instancetypedef
     w_self.__flags__ = _HEAPTYPE
+    for w_base in w_self.bases_w:
+        if not isinstance(w_base, W_TypeObject):
+            continue
+        w_self.__flags__ |= w_base.__flags__
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     create_all_slots(w_self, hasoldstylebase)

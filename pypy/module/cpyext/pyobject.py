@@ -334,7 +334,6 @@ def Py_DecRef(space, obj):
         return
     assert lltype.typeOf(obj) == PyObject
 
-    from pypy.module.cpyext.typeobject import W_PyCTypeObject
     obj.c_ob_refcnt -= 1
     if DEBUG_REFCOUNT:
         debug_refcount("DECREF", obj, obj.c_ob_refcnt, frame_stackdepth=3)
@@ -349,8 +348,7 @@ def Py_DecRef(space, obj):
             w_obj = state.py_objects_r2w[ptr]
             del state.py_objects_r2w[ptr]
             w_type = space.type(w_obj)
-            w_typetype = space.type(w_type)
-            if not space.is_w(w_typetype, space.gettypeobject(W_PyCTypeObject.typedef)):
+            if not w_type.is_cpytype():
                 _Py_Dealloc(space, obj)
             del state.py_objects_w2r[w_obj]
             # if the object was a container for borrowed references

@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
     track_reference, get_typedescr)
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr, W_PyCTypeObject
+from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -195,7 +195,8 @@ def PyObject_Init(space, py_obj, type):
     py_obj.c_ob_type = type
     py_obj.c_ob_refcnt = 1
     w_type = from_ref(space, rffi.cast(PyObject, type))
-    if isinstance(w_type, W_PyCTypeObject):
+    assert isinstance(w_type, W_TypeObject)
+    if w_type.is_cpytype():
         w_obj = space.allocate_instance(W_ObjectObject, w_type)
         track_reference(space, py_obj, w_obj)
         from pypy.module.cpyext.typeobject import lifeline_dict, PyOLifeline
