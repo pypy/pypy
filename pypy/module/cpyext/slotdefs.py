@@ -150,6 +150,8 @@ def slot_nb_int(space, w_self):
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
 def slot_tp_setattro(space, w_self, w_name, w_value):
+    # XXX this is probably wrong when a subtype's tp_setattro
+    # delegates to PyType_Type.tp_setattro!
     if w_value is not None:
         space.setattr(w_self, w_name, w_value)
     else:
