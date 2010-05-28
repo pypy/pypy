@@ -211,6 +211,21 @@ class TestTypes(BaseApiTest):
         assert api.PyErr_Occurred() is None
 
 class AppTestSlots(AppTestCpythonExtensionBase):
+    def test_some_slots(self):
+        module = self.import_extension('foo', [
+            ("test_type", "METH_O",
+             '''
+                 if (!args->ob_type->tp_setattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_setattro");
+                     return NULL;
+                 }
+                 Py_RETURN_TRUE;
+             '''
+             )
+            ])
+        assert module.test_type(None)
+
     def test_nb_int(self):
         module = self.import_extension('foo', [
             ("nb_int", "METH_O",

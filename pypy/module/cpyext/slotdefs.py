@@ -148,6 +148,14 @@ def slot_tp_call(space, w_self, w_args, w_kwds):
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
+def slot_tp_setattro(space, w_self, w_name, w_value):
+    if w_value is not None:
+        space.setattr(w_self, w_name, w_value)
+    else:
+        space.delattr(w_self, w_name)
+    return 0
+
 PyWrapperFlag_KEYWORDS = 1
 
 # adopted from typeobject.c
