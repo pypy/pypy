@@ -25,9 +25,10 @@ Release Steps
   necessary
 * update pypy/doc/contributor.txt (and possibly LICENSE)
 * update README
+* update pypy.org (under extradoc/pypy.org), rebuild and commit
+XXX stuff below is out-of-date or at least needs some review
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
-  (which is getting started).
 * update pypy/doc/getting-started.txt links at the top
   and release number references, make sure it is generally up-to-date
 * use, after the necessary updates, pypy/tool/makerelease.py to
