@@ -183,6 +183,8 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_object, encoding, errors):
+    # XXX write down shortcuts for performance for common encodings,
+    #     just like CPython
     if encoding is None:
         # Get the encoder functions as a wrapped object.
         # This lookup is cached.
