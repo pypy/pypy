@@ -26,6 +26,12 @@ Release Steps
 * update pypy/doc/contributor.txt (and possibly LICENSE)
 * update README
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
+* build following binaries (supported versions for now):
+  JIT: windows, linux, os/x
+  no JIT: windows, linux, os/x
+  sandbox: linux, os/x
+  stackless: windows, linux, os/x
+
 XXX stuff below is out-of-date or at least needs some review
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
