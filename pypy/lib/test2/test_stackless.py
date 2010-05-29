@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace, option
 class AppTest_Stackless:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_stackless',))
+        space = gettestobjspace(usemodules=('_stackless','_socket'))
         cls.space = space
         # cannot test the unpickle part on top of py.py
         cls.w_can_unpickle = space.wrap(bool(option.runappdirect))
