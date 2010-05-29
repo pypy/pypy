@@ -1,4 +1,3 @@
-
 import py, sys, random, os, struct, operator
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFailDescr,
@@ -9,13 +8,11 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
+from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
-from pypy.jit.metainterp.test.oparser import parse
 
 class Runner(object):
 
