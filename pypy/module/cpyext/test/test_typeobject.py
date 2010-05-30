@@ -181,6 +181,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
         assert cmpr == 3
+        assert cmpr != 42
 
 
 class TestTypes(BaseApiTest):

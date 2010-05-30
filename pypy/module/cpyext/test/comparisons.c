@@ -6,12 +6,17 @@ typedef struct CmpObject {
 
 
 static PyObject* cmp_richcmp(PyObject *self, PyObject *other, int opid) {
-    if (opid != Py_EQ || !PyInt_CheckExact(other)) {
+    if ((opid != Py_EQ && opid != Py_NE) || !PyInt_CheckExact(other)) {
         Py_INCREF(Py_NotImplemented);
         return Py_NotImplemented;
     }
     long val = PyLong_AsLong(other);
-    return PyBool_FromLong(val == 3);
+    if (opid == Py_EQ) {
+        return PyBool_FromLong(val == 3);
+    }
+    else if (opid == Py_NE) {
+        return PyBool_FromLong(val != 3);
+    }
 }
 
 

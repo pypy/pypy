@@ -133,13 +133,18 @@ def wrap_next(space, w_self, w_args, func):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
 
-def richcmp_eq(space, w_self, w_args, func):
-    func_target = rffi.cast(richcmpfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    other_w = args_w[0]
-    return generic_cpy_call(space, func_target,
-        w_self, other_w, rffi.cast(rffi.INT_real, Py_EQ))
+def get_richcmp_func(OP_CONST):
+    def inner(space, w_self, w_args, func):
+        func_target = rffi.cast(richcmpfunc, func)
+        check_num_args(space, w_args, 1)
+        args_w = space.fixedview(w_args)
+        other_w = args_w[0]
+        return generic_cpy_call(space, func_target,
+            w_self, other_w, rffi.cast(rffi.INT_real, OP_CONST))
+    return inner
+
+richcmp_eq = get_richcmp_func(Py_EQ)
+richcmp_ne = get_richcmp_func(Py_NE)
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
 def slot_tp_new(space, type, w_args, w_kwds):
