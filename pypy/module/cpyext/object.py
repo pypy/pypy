@@ -61,7 +61,7 @@ def _PyObject_GC_New(space, type):
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
+@cpython_api([rffi.VOIDP_real], lltype.Void)
 def PyObject_GC_Track(space, op):
     """Adds the object op to the set of container objects tracked by the
     collector.  The collector can run at unexpected times so objects must be
@@ -70,7 +70,7 @@ def PyObject_GC_Track(space, op):
     end of the constructor."""
     pass
 
-@cpython_api([rffi.VOIDP], lltype.Void)
+@cpython_api([rffi.VOIDP_real], lltype.Void)
 def PyObject_GC_UnTrack(space, op):
     """Remove the object op from the set of container objects tracked by the
     collector.  Note that PyObject_GC_Track() can be called again on
@@ -283,16 +283,6 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     opid."""
     w_res = PyObject_RichCompare(space, ref1, ref2, opid)
     return int(space.is_true(w_res))
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyObject_TypeCheck(space, w_obj, w_type):
-    """Return true if the object o is of type type or a subtype of type.  Both
-    parameters must be non-NULL.
-    """
-    w_obj_type = space.type(w_obj)
-    assert isinstance(w_type, W_TypeObject)
-    return int(space.is_w(w_obj_type, w_type) or
-                   space.is_true(space.issubtype(w_obj_type, w_type)))
 
 @cpython_api([PyObject], PyObject)
 def PyObject_SelfIter(space, ref):

@@ -475,6 +475,9 @@ manually remove this flag though!
                 }                                                       \
         } while (0)
 
+#define PyObject_TypeCheck(ob, tp) \
+    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+
 /* Copied from CPython ----------------------------- */
 int PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 int PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
