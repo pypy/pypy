@@ -19,7 +19,7 @@ _FREEBSD_7 = platform.name == "freebsd7"
 if _WIN32:
     from pypy.rlib import rwin32
 
-if _MINGW:
+if _WIN32:
     includes = ['windows.h']
 else:
     includes = ['dlfcn.h']
