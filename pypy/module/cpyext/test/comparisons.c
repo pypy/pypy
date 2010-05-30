@@ -19,6 +19,10 @@ static PyObject* cmp_richcmp(PyObject *self, PyObject *other, int opid) {
     }
 }
 
+static long cmp_hashfunc(PyObject *self) {
+    return 3;
+}
+
 
 PyTypeObject CmpType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -34,7 +38,7 @@ PyTypeObject CmpType = {
     0,                                              /* tp_as_number */
     0,                                              /* tp_as_sequence */
     0,                                              /* tp_as_mapping */
-    0,                                              /* tp_hash */
+    cmp_hashfunc,                                   /* tp_hash */
     0,                                              /* tp_call */
     0,                                              /* tp_str */
     0,                                              /* tp_getattro */

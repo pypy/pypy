@@ -182,6 +182,15 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         cmpr = module.CmpType()
         assert cmpr == 3
         assert cmpr != 42
+    
+    def test_hash(self):
+        module = self.import_module("comparisons")
+        cmpr = module.CmpType()
+        assert hash(cmpr) == 3
+        d = {}
+        d[cmpr] = 72
+        assert d[cmpr] == 72
+        assert d[3] == 72
 
 
 class TestTypes(BaseApiTest):

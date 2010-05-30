@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
-    ssizeobjargproc, iternextfunc, initproc, richcmpfunc)
+    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -132,6 +132,11 @@ def wrap_next(space, w_self, w_args, func):
     if not w_res and not PyErr_Occurred(space):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
+
+def wrap_hashfunc(space, w_self, w_args, func):
+    func_target = rffi.cast(hashfunc, func)
+    check_num_args(space, w_args, 0)
+    return space.wrap(generic_cpy_call(space, func_target, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
