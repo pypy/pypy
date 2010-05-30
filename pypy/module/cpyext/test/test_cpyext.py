@@ -582,8 +582,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_InitModule("foo", methods);
         """
         body = """
-        PyObject* PyPy_Crash1(void);
-        long PyPy_Crash2(void);
+        PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
+        PyAPI_FUNC(long) PyPy_Crash2(void);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
             return PyPy_Crash1();

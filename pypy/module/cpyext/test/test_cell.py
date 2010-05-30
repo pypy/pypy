@@ -6,7 +6,7 @@ class AppTestCell(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("cell_type", "METH_O",
              """
-                 PyDict_SetItemString(args, "cell", &PyCell_Type);
+                 PyDict_SetItemString(args, "cell", (PyObject*)&PyCell_Type);
                  Py_RETURN_NONE;
              """)])
         d = {}
