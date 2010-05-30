@@ -1,15 +1,14 @@
 
-""" Tests of libffi wrappers and dl* friends
+""" Tests of libffi wrapper
 """
 
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.libffi import *
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.lltypesystem import rffi, lltype
-import os, sys
 import py
+import sys
 import time
 
 def setup_module(mod):
@@ -19,14 +18,10 @@ def setup_module(mod):
         ffistruct = globals()[name]
         rffi.cast(rffi.VOIDP, ffistruct)
 
-class TestDLOperations:
+class TestLibffi:
     def setup_method(self, meth):
         ALLOCATED.clear()
 
-    def test_dlopen(self):
-        py.test.raises(DLOpenError, "dlopen(rffi.str2charp('xxxxxxxxxxxx'))")
-        assert dlopen(rffi.str2charp(get_libc_name()))
-        
     def get_libc(self):
         return CDLL(get_libc_name())
     
