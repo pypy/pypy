@@ -176,6 +176,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_init_error(self):
         module = self.import_module("foo")
         raises(ValueError, module.InitErrType)
+    
+    def test_cmps(self):
+        module = self.import_module("comparisons")
+        cmpr = module.CmpType()
+        assert cmpr == 3
 
 
 class TestTypes(BaseApiTest):

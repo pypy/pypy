@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
-    ssizeobjargproc, iternextfunc, initproc)
+    ssizeobjargproc, iternextfunc, initproc, richcmpfunc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -13,6 +13,15 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
+
+
+# XXX: Also defined in object.h
+Py_LT = 0
+Py_LE = 1
+Py_EQ = 2
+Py_NE = 3
+Py_GT = 4
+Py_GE = 5
 
 
 def check_num_args(space, ob, n):
@@ -123,6 +132,14 @@ def wrap_next(space, w_self, w_args, func):
     if not w_res and not PyErr_Occurred(space):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
+
+def richcmp_eq(space, w_self, w_args, func):
+    func_target = rffi.cast(richcmpfunc, func)
+    check_num_args(space, w_args, 1)
+    args_w = space.fixedview(w_args)
+    other_w = args_w[0]
+    return generic_cpy_call(space, func_target,
+        w_self, other_w, rffi.cast(rffi.INT_real, Py_EQ))
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
 def slot_tp_new(space, type, w_args, w_kwds):

@@ -70,6 +70,9 @@ not implemented for a given type combination.
 #define Py_NotImplemented (&_Py_NotImplementedStruct)
 
 /* Rich comparison opcodes */
+/*
+    XXX: Also defined in slotdefs.py
+*/
 #define Py_LT 0
 #define Py_LE 1
 #define Py_EQ 2
