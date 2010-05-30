@@ -802,16 +802,18 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     state.package_context = name
     try:
-        from pypy.rlib import libffi
+        from pypy.rlib import rdynload
         try:
-            dll = libffi.CDLL(path, False)
-        except libffi.DLOpenError, e:
+            ll_libname = rffi.str2charp(path)
+            dll = rdynload.dlopen(ll_libname)
+            lltype.free(ll_libname, flavor='raw')
+        except rdynload.DLOpenError, e:
             raise operationerrfmt(
                 space.w_ImportError,
                 "unable to load extension module '%s': %s",
                 path, e.msg)
         try:
-            initptr = libffi.dlsym(dll.lib, 'init%s' % (name.split('.')[-1],))
+            initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
         except KeyError:
             raise operationerrfmt(
                 space.w_ImportError,
