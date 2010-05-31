@@ -2,7 +2,7 @@
 #include "Python.h"
 
 PyObject *
-PyString_FromFormatV(char *format, va_list vargs)
+PyString_FromFormatV(const char *format, va_list vargs)
 {
 	va_list count;
 	Py_ssize_t n = 0;
