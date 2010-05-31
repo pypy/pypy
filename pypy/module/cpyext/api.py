@@ -594,10 +594,10 @@ def build_bridge(space):
     functions = generate_decls_and_callbacks(db, export_symbols)
 
     global_objects = []
-    for name, (type, expr) in GLOBALS.iteritems():
+    for name, (typ, expr) in GLOBALS.iteritems():
         if "#" in name:
             continue
-        global_objects.append('%s %s = NULL;' % (type, name.replace("#", "")))
+        global_objects.append('%s %s = NULL;' % (typ, name))
     global_code = '\n'.join(global_objects)
 
     prologue = "#include <Python.h>\n"
@@ -772,9 +772,9 @@ def build_eci(building_bridge, export_symbols, code):
     # Generate definitions for global structures
     struct_file = udir.join('pypy_structs.c')
     structs = ["#include <Python.h>"]
-    for name, (type, expr) in GLOBALS.iteritems():
+    for name, (typ, expr) in GLOBALS.iteritems():
         if name.endswith('#'):
-            structs.append('%s %s;' % (type[:-1], name[:-1]))
+            structs.append('%s %s;' % (typ[:-1], name[:-1]))
     struct_file.write('\n'.join(structs))
 
     eci = ExternalCompilationInfo(
@@ -817,12 +817,12 @@ def setup_library(space):
     setup_va_functions(eci)
 
     # populate static data
-    for name, (type, expr) in GLOBALS.iteritems():
+    for name, (typ, expr) in GLOBALS.iteritems():
         name = name.replace("#", "")
         from pypy.module import cpyext
         w_obj = eval(expr)
         struct_ptr = make_ref(space, w_obj)
-        struct = rffi.cast(get_structtype_for_ctype(type), struct_ptr)._obj
+        struct = rffi.cast(get_structtype_for_ctype(typ), struct_ptr)._obj
         struct._compilation_info = eci
         export_struct(name, struct)
 
