@@ -569,6 +569,7 @@ class W_BZ2Compressor(Wrappable):
                     temp.append(data)
                     
                     out_bufsize = _new_buffer_size(out_bufsize)
+                    lltype.free(out_buf, flavor='raw')
                     out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize,
                                             flavor='raw', zero=True)
                     self.bzs.c_next_out = out_buf
