@@ -552,6 +552,21 @@ def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
 
+def c_function_signature(func):
+    restype = db.gettype(func.restype).replace('@', '').strip()
+    args = []
+    for i, argtype in enumerate(func.argtypes):
+        if argtype is CONST_STRING:
+            arg = 'const char *@'
+        elif argtype is CONST_WSTRING:
+            arg = 'const wchar_t *@'
+        else:
+            arg = db.gettype(argtype)
+        arg = arg.replace('@', 'arg%d' % (i,)).strip()
+        args.append(arg)
+    args = ', '.join(args) or "void"
+    return restype, args
+
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
@@ -568,19 +583,8 @@ def build_bridge(space):
     # Structure declaration code
     members = []
     structindex = {}
-    for name, func in FUNCTIONS.iteritems():
-        restype = db.gettype(func.restype).replace('@', '').strip()
-        args = []
-        for i, argtype in enumerate(func.argtypes):
-            if argtype is CONST_STRING:
-                arg = 'const char *@'
-            elif argtype is CONST_WSTRING:
-                arg = 'const wchar_t *@'
-            else:
-                arg = db.gettype(argtype)
-            arg = arg.replace('@', 'arg%d' % (i,)).strip()
-            args.append(arg)
-        args = ', '.join(args) or "void"
+    for name, func in sorted(FUNCTIONS.iteritems()):
+        restype, args = c_function_signature(db, fn)
         members.append('%s (*%s)(%s);' % (restype, name, args))
         structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
@@ -708,18 +712,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
         pypy_decls.append("%s;" % (decl,))
 
     for name, func in sorted(FUNCTIONS.iteritems()):
-        restype = db.gettype(func.restype).replace('@', '').strip()
-        args = []
-        for i, argtype in enumerate(func.argtypes):
-            if argtype is CONST_STRING:
-                arg = 'const char *@'
-            elif argtype is CONST_WSTRING:
-                arg = 'const wchar_t *@'
-            else:
-                arg = db.gettype(argtype)
-            arg = arg.replace('@', 'arg%d' % (i,)).strip()
-            args.append(arg)
-        args = ', '.join(args) or "void"
+        restype, args = c_function_signature(db, fn)
         pypy_decls.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
         if api_struct:
             callargs = ', '.join('arg%d' % (i,)
