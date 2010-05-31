@@ -552,7 +552,7 @@ def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
 
-def c_function_signature(func):
+def c_function_signature(db, func):
     restype = db.gettype(func.restype).replace('@', '').strip()
     args = []
     for i, argtype in enumerate(func.argtypes):
@@ -584,7 +584,7 @@ def build_bridge(space):
     members = []
     structindex = {}
     for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, fn)
+        restype, args = c_function_signature(db, func)
         members.append('%s (*%s)(%s);' % (restype, name, args))
         structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
@@ -712,7 +712,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
         pypy_decls.append("%s;" % (decl,))
 
     for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, fn)
+        restype, args = c_function_signature(db, func)
         pypy_decls.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
         if api_struct:
             callargs = ', '.join('arg%d' % (i,)
