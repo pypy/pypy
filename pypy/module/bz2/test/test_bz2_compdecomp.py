@@ -1,5 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
+from pypy.module.bz2 import interp_bz2
 import os, py
 
 HUGE_OK = False
@@ -27,6 +28,13 @@ def setup_module(mod):
     mod.DATA = DATA
     mod.BUGGY_DATA = py.path.local(__file__).dirpath().join('data.bz2').read()
     mod.decompress = decompress
+    #
+    # For tests, patch the value of SMALLCHUNK
+    mod.OLD_SMALLCHUNK = interp_bz2.SMALLCHUNK
+    interp_bz2.SMALLCHUNK = 32
+
+def teardown_module(mod):
+    interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
     def setup_class(cls):
