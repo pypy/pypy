@@ -127,17 +127,6 @@ class TestObject(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_SystemError
         api.PyErr_Clear()
         
-    def test_TypeCheck(self, space, api):
-        assert api.PyObject_TypeCheck(space.wrap(1), space.w_int)
-        assert api.PyObject_TypeCheck(space.wrap(1), api.PyInt_Type)
-        assert api.PyObject_TypeCheck(space.wrap('foo'), space.w_str)
-        assert api.PyObject_TypeCheck(space.wrap('foo'), api.PyString_Type)
-        assert api.PyObject_TypeCheck(space.wrap('foo'), space.w_object)
-        assert api.PyObject_TypeCheck(space.wrap(1L), api.PyLong_Type)
-        assert api.PyObject_TypeCheck(space.wrap(True), api.PyBool_Type)
-        assert api.PyObject_TypeCheck(space.wrap(1.2), api.PyFloat_Type)
-        assert api.PyObject_TypeCheck(space.w_int, api.PyType_Type)
-
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
         assert api.PyObject_IsInstance(space.wrap(1), space.w_float) == 0
@@ -203,10 +192,26 @@ class TestObject(BaseApiTest):
         space.call_method(w_file, "close")
         assert (udir / "_test_file").read() == "text"
 
-class AppTestObjectPrint(AppTestCpythonExtensionBase):
+class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+
+    def test_TypeCheck(self):
+        module = self.import_extension('foo', [
+            ("typecheck", "METH_VARARGS",
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *type = PyTuple_GET_ITEM(args, 1);
+                 return PyBool_FromLong(PyObject_TypeCheck(obj, type));
+             """)])
+        assert module.typecheck(1, int)
+        assert module.typecheck('foo', str)
+        assert module.typecheck('foo', object)
+        assert module.typecheck(1L, long)
+        assert module.typecheck(True, bool)
+        assert module.typecheck(1.2, float)
+        assert module.typecheck(int, type)
 
     def test_print(self):
         module = self.import_extension('foo', [
