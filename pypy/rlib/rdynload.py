@@ -29,10 +29,8 @@ if _MAC_OS:
 else: 
     pre_include_bits = []
 
-if _FREEBSD_7 or _MINGW: # no need of library or not supported?
+if _FREEBSD_7 or _WIN32:
     libraries = []
-elif _MSVC:
-    libraries = ['kernel32'] # not sure if needed
 else:
     libraries = ['dl']
 
@@ -57,9 +55,6 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
-
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
 class DLOpenError(Exception):
     def __init__(self, msg):
