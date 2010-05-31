@@ -1,14 +1,13 @@
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref, make_typedescr,
-                                         Py_DecRef)
+from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref,
+                                         make_typedescr, Py_DecRef)
 from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, cpython_struct, METH_KEYWORDS,
     METH_O, CONST_STRING, METH_CLASS, METH_STATIC, METH_COEXIST, METH_NOARGS,
