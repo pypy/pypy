@@ -18,6 +18,7 @@ static PyObject* cmp_richcmp(PyObject *self, PyObject *other, int opid) {
     else if (opid == Py_NE) {
         return PyBool_FromLong(val != 3);
     }
+    return Py_NotImplemented;
 }
 
 static long cmp_hashfunc(PyObject *self) {

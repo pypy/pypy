@@ -202,7 +202,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
             ("typecheck", "METH_VARARGS",
              """
                  PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyObject *type = PyTuple_GET_ITEM(args, 1);
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 1);
                  return PyBool_FromLong(PyObject_TypeCheck(obj, type));
              """)])
         assert module.typecheck(1, int)

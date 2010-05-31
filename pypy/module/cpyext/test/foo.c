@@ -55,7 +55,7 @@ foo_copy(fooobject *self)
 static PyObject *
 foo_create(fooobject *self)
 {
-    return newfooobject();
+    return (PyObject*)newfooobject();
 }
 
 static PyObject *
@@ -130,7 +130,7 @@ foo_setattro(fooobject *self, PyObject *name, PyObject *value)
             return -1;
         self->foo = v;
     }
-    return PyObject_GenericSetAttr(self, name, value);
+    return PyObject_GenericSetAttr((PyObject *)self, name, value);
 }
 
 static PyMemberDef foo_members[] = {
@@ -170,7 +170,7 @@ static PyTypeObject footype = {
     foo_call,                /*tp_call*/
     0,                       /*tp_str*/
     0,                       /*tp_getattro*/
-    foo_setattro,            /*tp_setattro*/
+    (setattrofunc)foo_setattro, /*tp_setattro*/
     0,                       /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT,      /*tp_flags*/
     0,                       /*tp_doc*/
@@ -262,7 +262,7 @@ PyTypeObject FuuType = {
     0,          /*tp_descr_set*/
     0,          /*tp_dictoffset*/
 
-    Fuu_init,          /*tp_init*/
+    (initproc) Fuu_init, /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
     0,          /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
