@@ -1476,7 +1476,7 @@ class Assembler386(object):
                 if kind == INT:
                     adr = self.fail_boxes_int.get_addr_for_num(0)
                 elif kind == REF:
-                    adr = self.fail_boxes_ref.get_addr_for_num(0)
+                    adr = self.fail_boxes_ptr.get_addr_for_num(0)
                 else:
                     raise AssertionError(kind)
                 mc.MOV(eax, heap(adr))
