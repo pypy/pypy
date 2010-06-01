@@ -125,7 +125,6 @@ class W_PyCWrapperObject(Wrappable):
         self.space = space
         self.method_name = method_name
         self.wrapper_func = wrapper_func
-        assert not isinstance(wrapper_func_kwds, str)
         self.wrapper_func_kwds = wrapper_func_kwds
         self.doc = doc
         self.func = func
