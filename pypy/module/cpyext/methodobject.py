@@ -234,10 +234,11 @@ def PyStaticMethod_New(space, w_func):
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
 
-def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, doc, flags, func):
+def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, wrapper_func_kwds,
+                       flags, func):
     # not exactly the API sig
     return space.wrap(W_PyCWrapperObject(space, pto, method_name,
-        wrapper_func, doc, flags, func))
+        wrapper_func, wrapper_func_kwds, flags, func))
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):
