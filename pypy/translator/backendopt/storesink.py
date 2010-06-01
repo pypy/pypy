@@ -1,5 +1,6 @@
 
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.translator.backendopt import removenoops
 
 def has_side_effects(op):
     if op.opname == 'debug_assert':
@@ -10,30 +11,27 @@ def has_side_effects(op):
         return True
 
 def storesink_graph(graph):
-    def rename(op, renaming):
-        for i, arg in enumerate(op.args):
-            r = renaming.get(arg, None)
-            if r is not None:
-                op.args[i] = r
-        return op
 
     def clear_cache_for(cache, concretetype, fieldname):
         for k in cache.keys():
             if k[0].concretetype == concretetype and k[1] == fieldname:
                 del cache[k]
+
+    added_some_same_as = False
     
     for block in graph.iterblocks():
         newops = []
         cache = {}
-        renaming = {}
         for op in block.operations:
             if op.opname == 'getfield':
                 tup = (op.args[0], op.args[1].value)
                 res = cache.get(tup, None)
                 if res is not None:
-                    renaming[op.result] = res
-                    continue
-                cache[tup] = op.result
+                    op.opname = 'same_as'
+                    op.args = [res]
+                    added_some_same_as = True
+                else:
+                    cache[tup] = op.result
             elif op.opname in ['setarrayitem', 'setinteriorfield']:
                 pass
             elif op.opname == 'setfield':
@@ -41,9 +39,9 @@ def storesink_graph(graph):
                                 op.args[1].value)
             elif has_side_effects(op):
                 cache = {}
-            newops.append(rename(op, renaming))
+            newops.append(op)
         if block.operations:
             block.operations = newops
-        for exit in block.exits:
-            rename(exit, renaming)
-        
+
+    if added_some_same_as:
+        removenoops.remove_same_as(graph)
