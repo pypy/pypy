@@ -656,7 +656,7 @@ class RegAlloc(object):
         portal_calldescr = self.assembler.cpu.portal_calldescr
         size = portal_calldescr.get_result_size(self.translate_support_code)
         vable_index = self.assembler.cpu.index_of_virtualizable
-        if vable_index != -1:
+        if vable_index >= 0:
             self.rm._sync_var(op.args[vable_index])
             vable = self.fm.loc(op.args[vable_index], 1)
         else:

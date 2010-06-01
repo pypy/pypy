@@ -1126,8 +1126,10 @@ class MetaInterpStaticData(object):
 
         self.__dict__.update(compile.make_done_loop_tokens())
         # store this information for fastpath of call_assembler
-        d = self.loop_tokens_done_with_this_frame_int[0].finishdescr
-        self.cpu.done_with_this_frame_int_v = self.cpu.get_fail_descr_number(d)
+        name = self.result_type
+        tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
+        num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
+        setattr(self.cpu, 'done_with_this_frame_%s_v' % name, num)
 
     def _freeze_(self):
         return True
