@@ -1433,12 +1433,15 @@ class Assembler386(object):
                         tmp=eax)
         mc = self._start_block()
         if op.result is None:
+            assert result_loc is None
             value = self.cpu.done_with_this_frame_void_v
         else:
             kind = op.result.type
             if kind == INT:
+                assert result_loc is eax
                 value = self.cpu.done_with_this_frame_int_v
             elif kind == REF:
+                assert result_loc is eax
                 value = self.cpu.done_with_this_frame_ref_v
             elif kind == FLOAT:
                 value = self.cpu.done_with_this_frame_float_v
@@ -1454,17 +1457,15 @@ class Assembler386(object):
         if isinstance(result_loc, MODRM64):
             mc.FSTP(result_loc)
         #else: result_loc is already either eax or None, checked below
-        mc.JMP(rel8_patched_later)     # done
-        jmp_location = mc.get_relative_pos()
-        #
-        # Path B: load the return value directly from fail_boxes_xxx[0]
-        offset = jmp_location - je_location
-        assert 0 < offset <= 127
-        mc.overwrite(je_location - 1, [chr(offset)])
-        #
-        if op.result is None:
-            assert result_loc is None
-        else:
+        if op.result is not None:
+            mc.JMP(rel8_patched_later)     # done
+            jmp_location = mc.get_relative_pos()
+            #
+            # Path B: load the return value directly from fail_boxes_xxx[0]
+            offset = jmp_location - je_location
+            assert 0 < offset <= 127
+            mc.overwrite(je_location - 1, [chr(offset)])
+            #
             kind = op.result.type
             if kind == FLOAT:
                 xmmtmp = X86XMMRegisterManager.all_regs[0]
@@ -1475,11 +1476,17 @@ class Assembler386(object):
                 assert result_loc is eax
                 if kind == INT:
                     adr = self.fail_boxes_int.get_addr_for_num(0)
+                    mc.MOV(eax, heap(adr))
                 elif kind == REF:
                     adr = self.fail_boxes_ptr.get_addr_for_num(0)
+                    mc.XOR(eax, eax)
+                    mc.XCHG(eax, heap(adr))
                 else:
                     raise AssertionError(kind)
-                mc.MOV(eax, heap(adr))
+        else:
+            # in that case, don't generate a JMP at all,
+            # because "Path B" is empty
+            jmp_location = je_location
         #
         # Here we join Path A and Path B again
         offset = mc.get_relative_pos() - jmp_location
