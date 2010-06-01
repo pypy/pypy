@@ -3,7 +3,7 @@
  /***  C header subsection: stack operations               ***/
 
 #ifndef MAX_STACK_SIZE
-#    define MAX_STACK_SIZE (1 << 19)
+#    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #endif
 
 /* This include must be done in any case to initialise
