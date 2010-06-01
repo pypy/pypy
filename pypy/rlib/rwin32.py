@@ -7,6 +7,7 @@ from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import jit
 import os, sys, errno
 
 # This module can be imported on any platform,
@@ -198,6 +199,7 @@ if WIN32:
                                 [lltype.Ptr(OSVERSIONINFO)],
                                 DWORD)
 
+    @jit.dont_look_inside
     def GetVersionEx():
         info = lltype.malloc(OSVERSIONINFO, flavor='raw')
         rffi.setintfield(info, 'c_dwOSVersionInfoSize',
