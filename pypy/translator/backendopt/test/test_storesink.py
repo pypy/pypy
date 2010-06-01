@@ -2,6 +2,7 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.storesink import storesink_graph
+from pypy.translator.backendopt import removenoops
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.conftest import option
 
@@ -19,6 +20,7 @@ class TestStoreSink(object):
         t = self.translate(f, argtypes)
         getfields = 0
         graph = graphof(t, f)
+        removenoops.remove_same_as(graph)
         checkgraph(graph)
         storesink_graph(graph)
         checkgraph(graph)
@@ -119,3 +121,17 @@ class TestStoreSink(object):
             return one + two
 
         self.check(f, [int], 2)
+
+    def test_bug_1(self):
+        class A(object):
+            pass
+
+        def f(i):
+            a = A()
+            a.cond = i > 0
+            n = a.cond
+            if a.cond:
+                return True
+            return n
+
+        self.check(f, [int], 1)
