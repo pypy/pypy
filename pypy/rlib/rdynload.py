@@ -138,7 +138,7 @@ if _WIN32:
         intresource = rffi.cast(rffi.CCHARP, r_uint(index) & 0xFFFF)
         res = rwin32.GetProcAddress(handle, intresource)
         if not res:
-            raise KeyError(name)
+            raise KeyError(index)
         # XXX rffi.cast here...
         return res
     
