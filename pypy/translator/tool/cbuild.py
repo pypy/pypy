@@ -276,15 +276,13 @@ class ExternalCompilationInfo(object):
         if host.name.startswith('darwin'):
             for sym in self.export_symbols:
                 f.write("_%s\n" % (sym,))
-            d['link_extra'] += ("-Wl,-exported_symbols_list,../" +
-                                file_name.basename, )
+            d['link_extra'] += ("-Wl,-exported_symbols_list,"+str(file_name), )
         else:
             f.write("{\n")
             for sym in self.export_symbols:
                 f.write("%s;\n" % (sym,))
             f.write("};")
-            d['link_extra'] += ("-Wl,--export-dynamic,--version-script=../" +
-                                file_name.basename, )
+            d['link_extra'] += ("-Wl,--export-dynamic,--version-script=" + str(file_name), )
         f.close()
         d['export_symbols'] = ()
         return ExternalCompilationInfo(**d)
