@@ -6,10 +6,7 @@ class AbstractCPU(object):
     # assembler_helper_ptr - a pointer to helper to call after a direct
     #                        assembler call
     portal_calldescr = None
-    done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
-    done_with_this_frame_ref_v = -1
-    done_with_this_frame_float_v = -1
 
     def __init__(self):
         self.fail_descr_list = []

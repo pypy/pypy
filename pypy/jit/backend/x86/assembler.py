@@ -1427,72 +1427,28 @@ class Assembler386(object):
         descr = op.descr
         assert isinstance(descr, LoopToken)
         assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
-        #
-        # Write a call to the direct_bootstrap_code of the target assembler
         self._emit_call(rel32(descr._x86_direct_bootstrap_code), arglocs, 2,
                         tmp=eax)
         mc = self._start_block()
-        if op.result is None:
-            assert result_loc is None
-            value = self.cpu.done_with_this_frame_void_v
-        else:
-            kind = op.result.type
-            if kind == INT:
-                assert result_loc is eax
-                value = self.cpu.done_with_this_frame_int_v
-            elif kind == REF:
-                assert result_loc is eax
-                value = self.cpu.done_with_this_frame_ref_v
-            elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_float_v
-            else:
-                raise AssertionError(kind)
-        mc.CMP(eax, imm(value))
-        mc.JE(rel8_patched_later)    # goto B if we get 'done_with_this_frame'
+        mc.CMP(eax, imm(self.cpu.done_with_this_frame_int_v))
+        mc.JE(rel8_patched_later)
         je_location = mc.get_relative_pos()
-        #
-        # Path A: use assembler_helper_adr
         self._emit_call(rel32(self.assembler_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx, force_mc=True, mc=mc)
-        if isinstance(result_loc, MODRM64):
-            mc.FSTP(result_loc)
-        #else: result_loc is already either eax or None, checked below
-        if op.result is not None:
-            mc.JMP(rel8_patched_later)     # done
-            jmp_location = mc.get_relative_pos()
-            #
-            # Path B: load the return value directly from fail_boxes_xxx[0]
-            offset = jmp_location - je_location
-            assert 0 < offset <= 127
-            mc.overwrite(je_location - 1, [chr(offset)])
-            #
-            kind = op.result.type
-            if kind == FLOAT:
-                xmmtmp = X86XMMRegisterManager.all_regs[0]
-                adr = self.fail_boxes_float.get_addr_for_num(0)
-                mc.MOVSD(xmmtmp, heap64(adr))
-                mc.MOVSD(result_loc, xmmtmp)
-            else:
-                assert result_loc is eax
-                if kind == INT:
-                    adr = self.fail_boxes_int.get_addr_for_num(0)
-                    mc.MOV(eax, heap(adr))
-                elif kind == REF:
-                    adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    mc.XOR(eax, eax)
-                    mc.XCHG(eax, heap(adr))
-                else:
-                    raise AssertionError(kind)
-        else:
-            # in that case, don't generate a JMP at all,
-            # because "Path B" is empty
-            jmp_location = je_location
-        #
-        # Here we join Path A and Path B again
+        mc.JMP(rel8_patched_later)
+        jmp_location = mc.get_relative_pos()
+        offset = jmp_location - je_location
+        assert 0 < offset <= 127
+        mc.overwrite(je_location - 1, [chr(offset)])
+        mc.MOV(eax, heap(self.fail_boxes_int.get_addr_for_num(0)))
         offset = mc.get_relative_pos() - jmp_location
         assert 0 < offset <= 127
         mc.overwrite(jmp_location - 1, [chr(offset)])
         self._stop_block()
+        if isinstance(result_loc, MODRM64):
+            self.mc.FSTP(result_loc)
+        else:
+            assert result_loc is eax or result_loc is None
         self.mc.CMP(mem(ebp, FORCE_INDEX_OFS), imm(0))
         return self.implement_guard(addr, self.mc.JL)
 
