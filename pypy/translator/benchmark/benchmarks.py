@@ -85,8 +85,9 @@ def run_translate(executable):
 def run_templess(executable, sizefactor=1):
     """ run some script in the templess package
 
-        templess is some simple templating language, to check out use
-        'svn co -r100 http://johnnydebris.net/templess/trunk templess'
+        templess is some simple templating language.
+        We have a copy at
+        'http://codespeak.net/svn/user/arigo/hack/pypy-hack/templess'
     """
     here = py.path.local(__file__).dirpath()
     pypath = os.path.dirname(os.path.dirname(py.__file__))
@@ -107,8 +108,7 @@ def run_templess(executable, sizefactor=1):
 
 def check_templess():
     return external_dependency('templess',
-                               'http://johnnydebris.net/templess/trunk',
-                               100)
+                 'http://codespeak.net/svn/user/arigo/hack/pypy-hack/templess')
 
 def run_gadfly(executable, sizefactor=1):
     """ run some tests in the gadfly pure Python database """
