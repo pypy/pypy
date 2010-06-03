@@ -103,7 +103,7 @@ class PythonAstCompiler(PyCodeCompiler):
         PyCodeCompiler.__init__(self, space)
         self.parser = pyparse.PythonParser(space)
         self.additional_rules = {}
-        self.future_flags = future.futureFlags_2_5
+        self.future_flags = future.futureFlags_2_7
         self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
