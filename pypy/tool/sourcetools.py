@@ -227,6 +227,12 @@ def func_with_new_name(func, newname):
         f.func_dict.update(func.func_dict)
     return f
 
+def func_renamer(newname):
+    """A function decorator which changes the name of a function."""
+    def decorate(func):
+        return func_with_new_name(func, newname)
+    return decorate
+
 PY_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
                            'a' <= chr(i) <= 'z' or
                            'A' <= chr(i) <= 'Z') and chr(i) or '_')
