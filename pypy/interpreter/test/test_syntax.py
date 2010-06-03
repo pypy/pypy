@@ -318,7 +318,7 @@ def g(): pass""" in ns
 class AppTestWith:
     def test_with_simple(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -340,7 +340,6 @@ if 1:
 
     def test_start_with_blank_line(self):
         s = """
-from __future__ import with_statement
 if 1:
         class Context:
             def __init__(self):
@@ -361,7 +360,6 @@ if 1:
 
     def test_raw_doc_string(self):
         s = """r'doc'
-from __future__ import with_statement
 class Context(object):
     def __enter__(self):
         global enter
@@ -377,7 +375,7 @@ with Context() as w:
 
     def test_with_as_var(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -403,7 +401,7 @@ if 1:
 
     def test_with_raise_exception(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -438,7 +436,7 @@ if 1:
 
     def test_with_swallow_exception(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -469,7 +467,7 @@ if 1:
 
     def test_with_break(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -500,7 +498,7 @@ if 1:
 
     def test_with_continue(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -530,7 +528,7 @@ if 1:
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_return(self):
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -558,20 +556,9 @@ if 1:
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
-    def test_with_as_identifier(self):
-        exec "with = 9"
-
     def test_with_as_keyword(self):
         try:
-            exec "from __future__ import with_statement\nwith = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
-
-    def test_with_as_keyword_and_docstring(self):
-        try:
-            exec "'Docstring'\nfrom __future__ import with_statement\nwith = 9"
+            exec "with = 9"
         except SyntaxError:
             pass
         else:
@@ -585,33 +572,11 @@ if 1:
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
 
-    def test_with_as_keyword_multiple(self):
-        try:
-            exec "from __future__ import generators\nfrom __future__ import with_statement\nwith = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
-
-    def test_as_as_identifier(self):
-        exec "as = 9"
-        exec "import sys as foo"
-
-    def test_as_as_keyword(self):
-        try:
-            exec "from __future__ import with_statement\nas = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to as did not raise SyntaxError'
-
-        exec "from __future__ import with_statement\nimport sys as foo"
-
     def test_missing_as_SyntaxError(self):
         snippets = [
             "import os.path a bar ",
             "from os import path a bar",
-            """from __future__ import with_statement
+            """
 with foo a bar:
     pass
 """]
@@ -625,7 +590,7 @@ with foo a bar:
 
 
     def test_with_propagate_compileflag(self):
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         compile('''with x:
         pass''', '', 'exec')

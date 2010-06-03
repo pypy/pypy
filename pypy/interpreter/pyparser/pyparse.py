@@ -129,15 +129,7 @@ class PythonParser(parser.Parser):
 
         flags = compile_info.flags
 
-        # In order to not raise errors when 'as' or 'with' are used as names in
-        # code that does not explicitly enable the with statement, we have two
-        # grammars.  One with 'as' and 'with' and keywords and one without.
-        # This is far better than CPython, where the parser is hacked up to
-        # check for __future__ imports and recognize new keywords accordingly.
-        if flags & consts.CO_FUTURE_WITH_STATEMENT:
-            self.grammar = pygram.python_grammar
-        else:
-            self.grammar = pygram.python_grammar_no_with_statement
+        self.grammar = pygram.python_grammar
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
