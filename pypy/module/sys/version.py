@@ -6,6 +6,10 @@ import os
 
 CPYTHON_VERSION            = (2, 7, 0, "beta", 42)
 CPYTHON_API_VERSION        = 1012
+CPYTHON_VERSION_DIR        = '%d.%d.%d' % (CPYTHON_VERSION[0],
+                                           CPYTHON_VERSION[1],
+                                           CPYTHON_VERSION[2])
+
 
 PYPY_VERSION               = (1, 2, 0, "beta", '?')
 # the last item is replaced by the svn revision ^^^

@@ -4,6 +4,7 @@ Implementation of interpreter-level 'sys' routines.
 import pypy
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
+from pypy.module.sys import version
 
 import sys, os, stat, errno
 
@@ -35,12 +36,8 @@ def checkdir(path):
 def getinitialpath(srcdir):
     # build the initial path from the srcdir, which is the path of
     # the "dist" directory of a PyPy checkout.
-    from pypy.module.sys.version import CPYTHON_VERSION
-
-    dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
-                            CPYTHON_VERSION[1],
-                            CPYTHON_VERSION[2])
     lib_python = os.path.join(srcdir, 'lib-python')
+    dirname = version.CPYTHON_VERSION_DIR
 
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)
