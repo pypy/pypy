@@ -405,6 +405,15 @@ class TestAstBuilder:
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
+        tr = self.get_first_stmt("try: x\nexcept Exc as a: 5\nexcept F: pass")
+        assert len(tr.handlers) == 2
+        h1, h2 = tr.handlers
+        assert isinstance(h1.type, ast.Name)
+        assert isinstance(h1.name, ast.Name)
+        assert isinstance(h1.body[0].value, ast.Num)
+        assert isinstance(h2.type, ast.Name)
+        assert h2.name is None
+        assert isinstance(h2.body[0], ast.Pass)
         tr = self.get_first_stmt("try: x\nexcept: 4\nfinally: pass")
         assert isinstance(tr, ast.TryFinally)
         assert len(tr.finalbody) == 1
