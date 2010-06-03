@@ -315,7 +315,7 @@ def build_exported_objects():
     # Standard exceptions
     for exc_name in exceptions.Module.interpleveldefs.keys():
         GLOBALS['PyExc_' + exc_name] = (
-            'PyObject*',
+            'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
 
     # Common types with their own struct
