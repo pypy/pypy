@@ -11,7 +11,7 @@ all_modules = [p.basename for p in modulepath.listdir()
                and p.join('__init__.py').check()]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix", "signal"]
 )
 
 default_modules = essential_modules.copy()
