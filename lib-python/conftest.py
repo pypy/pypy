@@ -532,7 +532,8 @@ class RegrDirectory(py.test.collect.Directory):
         return l 
 
 def pytest_collect_directory(parent, path):
-    return RegrDirectory(path, parent)
+    if path.basename == "test":
+        return RegrDirectory(path, parent)
 
 class RunFileExternal(py.test.collect.File):
     def __init__(self, name, parent, regrtest): 
