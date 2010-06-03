@@ -12,8 +12,9 @@ from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rlib.objectmodel import specialize
+from pypy.tool.sourcetools import func_renamer
+from pypy.rpython.annlowlevel import llhelper
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -177,19 +178,57 @@ def slot_tp_call(space, w_self, w_args, w_kwds):
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
-def slot_tp_setattro(space, w_self, w_name, w_value):
-    # XXX this is probably wrong when a subtype's tp_setattro
-    # delegates to PyType_Type.tp_setattro!
-    if w_value is not None:
-        space.setattr(w_self, w_name, w_value)
+from pypy.rlib.nonconst import NonConstant
+
+SLOTS = {}
+
+@specialize.memo()
+def get_slot_tp_function(space, typedef, name):
+    key = (typedef, name)
+    try:
+        return SLOTS[key]
+    except KeyError:
+        ret = build_slot_tp_function(space, typedef, name)
+        SLOTS[key] = ret
+        return ret
+
+def build_slot_tp_function(space, typedef, name):
+    w_type = space.gettypeobject(typedef)
+
+    if name == 'tp_setattro':
+        setattr_fn = w_type.getdictvalue(space, '__setattr__')
+        delattr_fn = w_type.getdictvalue(space, '__delattr__')
+        if setattr_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
+                     error=-1, external=True) # XXX should not be exported
+        @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
+        def slot_tp_setattro(space, w_self, w_name, w_value):
+            if w_value is not None:
+                space.call_function(setattr_fn, w_self, w_name, w_value)
+            else:
+                space.call_function(delattr_fn, w_self, w_name)
+            return 0
+        api_func = slot_tp_setattro.api_func
     else:
-        space.delattr(w_self, w_name)
-    return 0
+        return
+
+    return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
 
 PyWrapperFlag_KEYWORDS = 1
 
-# adopted from typeobject.c
+class TypeSlot:
+    def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
+        self.method_name = method_name
+        self.slot_name = slot_name
+        self.slot_names = ("c_" + slot_name).split(".")
+        self.slot_func = function
+        self.wrapper_func = wrapper1
+        self.wrapper_func_kwds = wrapper2
+        self.doc = doc
+
+# adapted from typeobject.c
 def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
     if WRAPPER is None:
         wrapper = None
@@ -201,23 +240,22 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         wrapper = wrap_getattr
 
     function = globals().get(FUNCTION, None)
-    slotname = ("c_" + SLOT).split(".")
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
     if FLAGS:
         if wrapper is Ellipsis:
+            @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func, w_kwds):
                 raise NotImplementedError("Wrapper for slot " + NAME)
-            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = None
         wrapper2 = wrapper
     else:
         if wrapper is Ellipsis:
+            @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func):
                 raise NotImplementedError("Wrapper for slot " + NAME)
-            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = wrapper
         wrapper2 = None
-    return (NAME, slotname, function, wrapper1, wrapper2, DOC)
+    return TypeSlot(NAME, SLOT, function, wrapper1, wrapper2, DOC)
 
 def TPSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC):
     return FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, 0)
@@ -470,7 +508,12 @@ slotdef_replacements = (
 for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
-slotdefs = unrolling_iterable(eval(slotdefs_str))
+slotdefs_for_tp_slots = unrolling_iterable(
+    [(x.method_name, x.slot_name, x.slot_names, x.slot_func)
+     for x in eval(slotdefs_str)])
+slotdefs_for_wrappers = unrolling_iterable(
+    [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
+     for x in eval(slotdefs_str)])
 
 if __name__ == "__main__":
     print slotdefs_str

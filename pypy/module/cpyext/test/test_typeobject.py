@@ -240,11 +240,17 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_ValueError, "missing tp_setattro");
                      return NULL;
                  }
+                 if (args->ob_type->tp_setattro ==
+                     args->ob_type->tp_base->tp_setattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "recursive tp_setattro");
+                     return NULL;
+                 }
                  Py_RETURN_TRUE;
              '''
              )
             ])
-        assert module.test_type(None)
+        assert module.test_type(type(None))
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
