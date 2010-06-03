@@ -27,6 +27,7 @@
 # endif
 # define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
+#define DL_IMPORT(RTYPE) PyAPI_FUNC(RTYPE)
 
 #include <stdlib.h>
 
