@@ -16,6 +16,10 @@ class AppTestBuiltinApp:
         except KeyError:
             cls.w_sane_lookup = cls.space.wrap(False)
 
+    def test_bytes_alias(self):
+        assert bytes is str
+        assert isinstance(eval("b'hi'"), str)
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'

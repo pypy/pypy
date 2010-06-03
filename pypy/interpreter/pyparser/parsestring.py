@@ -17,7 +17,10 @@ def parsestr(space, encoding, s):
     o = ord(quote)
     isalpha = (o>=97 and o<=122) or (o>=65 and o<=90)
     if isalpha or quote == '_':
-        if quote == 'u' or quote == 'U':
+        if quote == 'b' or quote == 'B':
+            ps += 1
+            quote = s[ps]
+        elif quote == 'u' or quote == 'U':
             ps += 1
             quote = s[ps]
             unicode = True
