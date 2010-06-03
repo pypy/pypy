@@ -19,6 +19,8 @@ error = OSError
 class stat_result:
     __metaclass__ = structseqtype
 
+    name = "posix.stat_result"
+
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
     st_dev   = structseqfield(2, "device")

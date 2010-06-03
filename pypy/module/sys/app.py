@@ -53,6 +53,8 @@ All Rights Reserved.
 class sysflags:
     __metaclass__ = structseqtype
 
+    name = "sys.flags"
+
     debug = structseqfield(0)
     py3k_warning = structseqfield(1)
     division_warning = structseqfield(2)
