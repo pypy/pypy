@@ -235,22 +235,29 @@ def setup_initial_paths(executable, nanos):
             _seen[dir] = True
     return executable
 
-
-default_options = dict.fromkeys((
+# Order is significant!
+sys_flags = (
     "debug",
     "py3k_warning",
+    "division_warning",
+    "division_new",
     "inspect",
     "interactive",
     "optimize",
+    "dont_write_bytecode",
     "no_user_site",
-    "ignore_environment",
     "no_site",
+    "ignore_environment",
     "tabcheck",
     "verbose",
     "unicode",
     "bytes_warning",
-    "dont_write_bytecode",
-    "run_command",
+)
+
+
+default_options = dict.fromkeys(
+    sys_flags +
+    ("run_command",
     "run_module",
     "run_stdin",
     "warnoptions",
@@ -354,6 +361,10 @@ def parse_command_line(argv):
                      if isinstance(value, int)]
         "(%s)" % (", ".join(flag_opts),)
         print flag_opts
+    if we_are_translated():
+        flags = [options[flag] for flag in sys_flags]
+        sys.flags = type(sys.flags)(flags)
+        sys.py3kwarning = sys.flags.py3k_warning
     return options
 
 def run_command_line(interactive,

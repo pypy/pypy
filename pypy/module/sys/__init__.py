@@ -33,9 +33,9 @@ class Module(MixedModule):
         # to the trunk of a checkout or to the dir /usr/share/pypy-1.1 .
 
         'path'                  : 'state.get(space).w_path',
-        'py3kwarning'           : 'space.w_False', # for now
         'modules'               : 'state.get(space).w_modules', 
-        'argv'                  : 'state.get(space).w_argv', 
+        'argv'                  : 'state.get(space).w_argv',
+        'py3kwarning'           : 'space.w_False',
         'warnoptions'           : 'state.get(space).w_warnoptions', 
         'builtin_module_names'  : 'state.w_None',
         'pypy_getudir'          : 'state.pypy_getudir', 
@@ -84,7 +84,8 @@ class Module(MixedModule):
         'exit'                  : 'app.exit', 
         'exitfunc'              : 'app.exitfunc',
         'callstats'             : 'app.callstats',
-        'copyright'             : 'app.copyright_str', 
+        'copyright'             : 'app.copyright_str',
+        'flags'                 : 'app.null_sysflags',
     }
 
     def setbuiltinmodule(self, w_module, name): 
