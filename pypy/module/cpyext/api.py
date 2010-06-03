@@ -99,6 +99,17 @@ udir.join('pypy_decl.h').write("/* Will be filled later */")
 udir.join('pypy_macros.h').write("/* Will be filled later */")
 globals().update(rffi_platform.configure(CConfig_constants))
 
+class BaseApiObject:
+    """Base class for all objects defined by the CPython API.  each
+    object kind may have a declaration in a header file, a definition,
+    and methods to initialize it, to retrive it in test."""
+
+    def get_llpointer(self, space):
+        raise NotImplementedError
+
+    def get_interpret(self, space):
+        raise NotImplementedError
+
 def copy_header_files():
     for name in ("pypy_decl.h", "pypy_macros.h"):
         udir.join(name).copy(interfaces_dir / name)
@@ -125,7 +136,7 @@ CANNOT_FAIL = object()
 # the error value specifed in the API.
 #
 
-class ApiFunction:
+class ApiFunction(BaseApiObject):
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED):
         self.argtypes = argtypes
         self.restype = restype
@@ -134,9 +145,10 @@ class ApiFunction:
         if error is not _NOT_SPECIFIED:
             self.error_value = error
 
-        # extract the signature from the (CPython-level) code object
+        # extract the signature from user code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(callable.func_code)
+        argnames, varargname, kwargname = pycode.cpython_code_signature(
+            callable.func_code)
 
         assert argnames[0] == 'space'
         self.argnames = argnames[1:]
@@ -145,15 +157,22 @@ class ApiFunction:
     def _freeze_(self):
         return True
 
-    def get_llhelper(self, space):
+    def get_llpointer(self, space):
+        "Returns a C function pointer"
+        assert not we_are_translated()
         llh = getattr(self, '_llhelper', None)
         if llh is None:
-            llh = llhelper(self.functype, self.get_wrapper(space))
+            llh = llhelper(self.functype, self._get_wrapper(space))
             self._llhelper = llh
         return llh
 
     @specialize.memo()
-    def get_wrapper(self, space):
+    def get_llpointer_maker(self, space):
+        "Returns a callable that builds a C function pointer"
+        return lambda: llhelper(self.functype, self._get_wrapper(space))
+
+    @specialize.memo()
+    def _get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
             wrapper = make_wrapper(space, self.callable)
@@ -377,21 +396,13 @@ cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 cpython_struct('PyBufferProcs', PyBufferProcsFields, PyBufferProcs)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
+PyObjectP = rffi.CArrayPtr(PyObject)
 
 @specialize.memo()
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
         return False
     return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
-
-# a pointer to PyObject
-PyObjectP = rffi.CArrayPtr(PyObject)
-
-VA_TP_LIST = {}
-#{'int': lltype.Signed,
-#              'PyObject*': PyObject,
-#              'PyObject**': PyObjectP,
-#              'int*': rffi.INTP}
 
 def configure_types():
     for name, TYPE in rffi_platform.configure(CConfig).iteritems():
@@ -522,16 +533,6 @@ def make_wrapper(space, callable):
     wrapper.__name__ = "wrapper for %r" % (callable, )
     return wrapper
 
-def process_va_name(name):
-    return name.replace('*', '_star')
-
-def setup_va_functions(eci):
-    for name, TP in VA_TP_LIST.iteritems():
-        name_no_star = process_va_name(name)
-        func = rffi.llexternal('pypy_va_get_%s' % name_no_star, [VA_LIST_P],
-                               TP, compilation_info=eci)
-        globals()['va_get_%s' % name_no_star] = func
-
 def setup_init_functions(eci):
     init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
     init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
@@ -657,11 +658,9 @@ def build_bridge(space):
     # implement structure initialization code
     for name, func in FUNCTIONS.iteritems():
         pypyAPI[structindex[name]] = ctypes.cast(
-            ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
+            ll2ctypes.lltype2ctypes(func.get_llpointer(space)),
             ctypes.c_void_p)
 
-    setup_va_functions(eci)
-   
     setup_init_functions(eci)
     return modulename.new(ext='')
 
@@ -722,13 +721,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             else:
                 body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
             functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
-    for name in VA_TP_LIST:
-        name_no_star = process_va_name(name)
-        header = ('%s pypy_va_get_%s(va_list* vp)' %
-                  (name, name_no_star))
-        pypy_decls.append(header + ';')
-        functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
-        export_symbols.append('pypy_va_get_%s' % (name_no_star,))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if name.endswith('#'):
@@ -807,7 +799,6 @@ def setup_library(space):
     eci = build_eci(False, export_symbols, code)
 
     run_bootstrap_functions(space)
-    setup_va_functions(eci)
 
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -821,9 +812,9 @@ def setup_library(space):
 
     for name, func in FUNCTIONS.iteritems():
         deco = entrypoint("cpyext", func.argtypes, name, relax=True)
-        deco(func.get_wrapper(space))
+        deco(func._get_wrapper(space))
     for name, func in FUNCTIONS_STATIC.iteritems():
-        func.get_wrapper(space).c_name = name
+        func._get_wrapper(space).c_name = name
 
     setup_init_functions(eci)
     copy_header_files()

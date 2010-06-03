@@ -78,7 +78,7 @@ class TestPyCMethodObject(BaseApiTest):
         ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
         namebuf = rffi.str2charp('func')
         ml.c_ml_name = namebuf
-        ml.c_ml_meth = c_func.get_llhelper(space)
+        ml.c_ml_meth = c_func.get_llpointer(space)
 
         method = PyDescr_NewMethod(space, space.w_str, ml)
         assert repr(method).startswith(

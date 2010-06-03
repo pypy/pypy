@@ -52,14 +52,10 @@ def make_typedescr(typedef, **kw):
 
         def get_dealloc(self, space):
             if tp_dealloc:
-                return llhelper(
-                    tp_dealloc.api_func.functype,
-                    tp_dealloc.api_func.get_wrapper(space))
+                return tp_dealloc.api_func.get_llpointer_maker(space)()
             else:
                 from pypy.module.cpyext.typeobject import subtype_dealloc
-                return llhelper(
-                    subtype_dealloc.api_func.functype,
-                    subtype_dealloc.api_func.get_wrapper(space))
+                return subtype_dealloc.api_func.get_llpointer_maker(space)()
 
         def allocate(self, space, w_type, itemcount=0):
             # similar to PyType_GenericAlloc?

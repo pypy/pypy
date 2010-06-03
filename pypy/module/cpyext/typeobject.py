@@ -111,8 +111,7 @@ def update_all_slots(space, w_type, pto):
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
                 os.write(2, method_name + " defined by the type but no slot function defined!\n")
             continue
-        slot_func_helper = llhelper(slot_func.api_func.functype,
-                slot_func.api_func.get_wrapper(space))
+        slot_func_helper = slot_func.api_func.get_llpointer_maker(space)()
         # XXX special case wrapper-functions and use a "specific" slot func
 
         if len(slot_name) == 1:
@@ -190,8 +189,7 @@ def get_new_method_def(space):
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction,
-        llhelper(tp_new_wrapper.api_func.functype,
-                 tp_new_wrapper.api_func.get_wrapper(space)))
+        tp_new_wrapper.api_func.get_llpointer_maker(space)())
 
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
@@ -321,8 +319,7 @@ def init_typeobject(space):
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
-    this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+    this_func_ptr = subtype_dealloc.api_func.get_llpointer_maker(space)()
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
@@ -355,10 +352,9 @@ def str_getreadbuffer(space, w_str, segment, ref):
 
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
-                                      str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
-                                 str_getreadbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getsegcount = str_segcount.api_func.get_llpointer_maker(space)()
+    c_buf.c_bf_getreadbuffer = str_getreadbuffer.api_func.get_llpointer_maker(
+        space)()
     pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -402,10 +398,8 @@ def type_attach(space, py_obj, w_type):
         setup_string_buffer_procs(space, pto)
 
     pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
-    pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
-            PyObject_Del.api_func.get_wrapper(space))
-    pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
-            PyType_GenericAlloc.api_func.get_wrapper(space))
+    pto.c_tp_free = PyObject_Del.api_func.get_llpointer_maker(space)()
+    pto.c_tp_alloc = PyType_GenericAlloc.api_func.get_llpointer_maker(space)()
     pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
