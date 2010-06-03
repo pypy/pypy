@@ -60,6 +60,7 @@ BaseException
       |    |         +-- UnicodeEncodeError
       |    |         +-- UnicodeTranslateError
       +-- Warning
+           +-- BytesWarning
            +-- DeprecationWarning
            +-- PendingDeprecationWarning
            +-- RuntimeWarning
@@ -422,6 +423,9 @@ W_WindowsError.typedef = TypeDef(
     __str__  = interp2app(W_WindowsError.descr_str),
     winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
+
+W_BytesWarning = _new_exception('BytesWarning', W_Warning,
+                                """Mixing bytes and unicode""")
 
 W_DeprecationWarning = _new_exception('DeprecationWarning', W_Warning,
                         """Base class for warnings about deprecated features.""")
