@@ -45,14 +45,21 @@ def getinitialpath(srcdir):
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)
     python_std_lib_modified = os.path.join(lib_python, 'modified-' + dirname)
-    checkdir(python_std_lib_modified)
+    have_modified = True
+    try:
+        checkdir(python_std_lib_modified)
+    except OSError, e:
+        if e.errno != errno.ENOENT:
+            raise
+        have_modified = False
     pypydir = os.path.join(srcdir, 'pypy')
     pypy_lib = os.path.join(pypydir, 'lib')
     checkdir(pypy_lib)
 
     importlist = []
     importlist.append(pypy_lib)
-    importlist.append(python_std_lib_modified)
+    if have_modified:
+        importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
     return importlist
 
