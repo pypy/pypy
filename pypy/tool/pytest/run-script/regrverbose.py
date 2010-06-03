@@ -4,7 +4,7 @@ from test import test_support
 test_support.verbose = int(sys.argv[1])
 sys.argv[:] = sys.argv[2:]
 
-modname = sys.argv[0]
+modname = sys.argv[0] 
 impname = 'test.' + modname
 try:
     mod = __import__(impname, globals(), locals(), [modname])

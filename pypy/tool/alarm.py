@@ -14,6 +14,7 @@ def _main_with_alarm(finished):
     import time
     import thread
 
+
     def timeout_thread(timeout, finished):
         stderr = sys.stderr
         interrupt_main = thread.interrupt_main
