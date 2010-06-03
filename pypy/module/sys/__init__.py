@@ -32,7 +32,8 @@ class Module(MixedModule):
         #'pypy_prefix': added by pypy_initial_path() when it succeeds, pointing
         # to the trunk of a checkout or to the dir /usr/share/pypy-1.1 .
 
-        'path'                  : 'state.get(space).w_path', 
+        'path'                  : 'state.get(space).w_path',
+        'py3kwarning'           : 'space.w_False', # for now
         'modules'               : 'state.get(space).w_modules', 
         'argv'                  : 'state.get(space).w_argv', 
         'warnoptions'           : 'state.get(space).w_warnoptions', 

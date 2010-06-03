@@ -26,7 +26,11 @@ class AppTestAppSysTests:
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
-    
+
+    def test_sys_py3kwarning(self):
+        import sys
+        assert not sys.py3kwarning
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
