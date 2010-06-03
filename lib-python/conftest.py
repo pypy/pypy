@@ -259,7 +259,6 @@ testmap = [
     RegrTest('test_hashlib.py', core=True),
     
     RegrTest('test_heapq.py', core=True),
-    RegrTest('test_hexoct.py', core=True),
     RegrTest('test_hmac.py'),
     RegrTest('test_hotshot.py', skip="unsupported extension module"),
 
@@ -287,7 +286,6 @@ testmap = [
     RegrTest('test_long.py', core=True),
     RegrTest('test_long_future.py', core=True),
     RegrTest('test_longexp.py', core=True),
-    RegrTest('test_macfs.py', skip=True),
     RegrTest('test_macostools.py', skip=True),
     RegrTest('test_macpath.py'),
     RegrTest('test_mailbox.py'),
@@ -312,7 +310,6 @@ testmap = [
     RegrTest('test_ntpath.py'),
     RegrTest('test_opcodes.py', core=True),
     RegrTest('test_openpty.py'),
-    RegrTest('test_operations.py', core=True),
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),
 
@@ -352,7 +349,6 @@ testmap = [
     RegrTest('test_repr.py', core=True),
     RegrTest('test_resource.py', skip=skip_win32),
     RegrTest('test_rfc822.py'),
-    RegrTest('test_rgbimg.py', skip="unsupported extension module"),
     RegrTest('test_richcmp.py', core=True),
 
     RegrTest('test_robotparser.py'),
@@ -372,7 +368,6 @@ testmap = [
     RegrTest('test_slice.py', core=True),
     RegrTest('test_socket.py', usemodules='thread _weakref'),
 
-    RegrTest('test_socket_ssl.py', usemodules='_ssl'),
     RegrTest('test_socketserver.py', usemodules='thread'),
 
     RegrTest('test_softspace.py', core=True),
@@ -458,7 +453,6 @@ testmap = [
 
     RegrTest('test_bigaddrspace.py'),
     RegrTest('test_bigmem.py'),
-    RegrTest('test_cProfile.py'),
     RegrTest('test_cmd_line.py'),
     RegrTest('test_code.py'),
     RegrTest('test_coding.py'),
