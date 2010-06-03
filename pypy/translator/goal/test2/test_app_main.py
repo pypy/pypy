@@ -350,6 +350,32 @@ class TestNonInteractive:
         assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
         return data
 
+    def test_sysflags(self):
+        flags = (
+            ("debug", "-d", "1"),
+            ("py3k_warning", "-3", "1"),
+            ("division_warning", "-Qwarn", "1"),
+            ("division_warning", "-Qwarnall", "2"),
+            ("division_new", "-Qnew", "1"),
+            ("inspect", "-i", "1"),
+            ("interactive", "-i", "1"),
+            ("optimize", "-O", "1"),
+            ("optimize", "-OO", "2"),
+            ("dont_write_bytecode", "-B", "1"),
+            ("no_user_site", "-s", "1"),
+            ("no_site", "-S", "1"),
+            ("ignore_environment", "-E", "1"),
+            ("tabcheck", "-t", "1"),
+            ("tabcheck", "-tt", "2"),
+            ("verbose", "-v", "1"),
+            ("unicode", "-U", "1"),
+            ("bytes_warning", "-b", "1"),
+        )
+        for flag, opt, value in flags:
+            cmd = "%s --print-sys-flags -c 'import sys; print sys.flags'"
+            data = self.run(cmd % (opt,), expect_prompt=opt == "-i")
+            assert "%s=%s" % (flag, value) in data
+
     def test_script_on_stdin(self):
         for extraargs, expected_argv in [
             ('',              ['']),

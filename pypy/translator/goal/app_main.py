@@ -236,28 +236,72 @@ def setup_initial_paths(executable, nanos):
     return executable
 
 
+default_options = dict.fromkeys((
+    "debug",
+    "py3k_warning",
+    "inspect",
+    "interactive",
+    "optimize",
+    "no_user_site",
+    "ignore_environment",
+    "no_site",
+    "tabcheck",
+    "verbose",
+    "unicode",
+    "bytes_warning",
+    "dont_write_bytecode",
+    "run_command",
+    "run_module",
+    "run_stdin",
+    "warnoptions",
+    "unbuffered"), False)
+
+
 def parse_command_line(argv):
-    go_interactive = False
-    run_command = False
-    import_site = True
+    options = default_options.copy()
+    print_sys_flags = False
     i = 0
-    run_module = False
-    run_stdin = False
-    warnoptions = []
-    unbuffered = False
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
             break
         if arg == '-i':
-            go_interactive = True
+            options["inspect"] = options["interactive"] = True
+        elif arg == '-d':
+            options["debug"] = True
+        elif arg == '-3':
+            options["py3k_warning"] = True
+        elif arg == '-E':
+            options["ignore_environment"] = True
+        elif arg == '-U':
+            options["unicode"] = True
+        elif arg.startswith('-b'):
+            options["bytes_warning"] = arg.count('b')
+        elif arg.startswith('-t'):
+            options["tabcheck"] = arg.count('t')
+        elif arg.startswith('-v'):
+            options["verbose"] += arg.count('v')
+        elif arg.startswith('-Q'):
+            div, i = get_argument("-Q", argv, i)
+            if div == "warn":
+                options["division_warning"] = 1
+            elif div == "warnall":
+                options["division_warning"] = 2
+            elif div == "new":
+                options["division_new"] = True
+            elif div != "old":
+                raise CommandLineError("invalid division option: %r" % (div,))
+        elif arg.startswith('-O'):
+            options["optimize"] = arg.count('O')
+        elif arg == '-B':
+            options["dont_write_bytecode"] = True
         elif arg.startswith('-c'):
-            cmd, i = get_argument('-c', argv, i)
+            options["cmd"], i = get_argument('-c', argv, i)
             argv[i] = '-c'
-            run_command = True
+            options["run_command"] = True
             break
         elif arg == '-u':
-            unbuffered = True
+            options["unbuffered"] = True
         elif arg == '-O':
             pass
         elif arg == '--version' or arg == '-V':
@@ -269,18 +313,20 @@ def parse_command_line(argv):
         elif arg == '-h' or arg == '--help':
             print_help()
             return
+        elif arg == '-s':
+            options["no_user_site"] = True
         elif arg == '-S':
-            import_site = False
+            options["no_site"] = True
         elif arg == '-':
-            run_stdin = True
+            options["run_stdin"] = True
             break     # not an option but a file name representing stdin
         elif arg.startswith('-m'):
             module, i = get_argument('-m', argv, i)
             argv[i] = module
-            run_module = True
+            options["run_module"] = True
             break
         elif arg.startswith('-W'):
-            warnoptions, i = get_argument('-W', argv, i)
+            options["warnoptions"], i = get_argument('-W', argv, i)
         elif arg.startswith('--jit'):
             jitparam, i = get_argument('--jit', argv, i)
             if 'pypyjit' not in sys.builtin_module_names:
@@ -291,19 +337,28 @@ def parse_command_line(argv):
                 pypyjit.set_param(jitparam)
         elif arg == '--':
             i += 1
-            break     # terminates option list    
+            break     # terminates option list
+        # for testing
+        elif not we_are_translated() and arg == "--print-sys-flags":
+            print_sys_flags = True
         else:
             raise CommandLineError('unrecognized option %r' % (arg,))
         i += 1
     sys.argv = argv[i:]
     if not sys.argv:
         sys.argv.append('')
-        run_stdin = True
-    return locals()
+        options["run_stdin"] = True
+    if print_sys_flags:
+        flag_opts = ["%s=%s" % (opt, int(value))
+                     for opt, value in options.iteritems()
+                     if isinstance(value, int)]
+        "(%s)" % (", ".join(flag_opts),)
+        print flag_opts
+    return options
 
-def run_command_line(go_interactive,
+def run_command_line(interactive,
                      run_command,
-                     import_site,
+                     no_site,
                      run_module,
                      run_stdin,
                      warnoptions,
@@ -323,7 +378,7 @@ def run_command_line(go_interactive,
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
-    if import_site:
+    if not no_site:
         try:
             import site
         except:
@@ -352,12 +407,12 @@ def run_command_line(go_interactive,
     def inspect_requested():
         # We get an interactive prompt in one of the following two cases:
         #
-        #     * go_interactive=True, either from the "-i" option or
-        #       from the fact that we printed the banner;
+        #     * insepct=True, either from the "-i" option or from the fact that
+        #     we printed the banner;
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
-        return (go_interactive or
+        return (interactive or
                 (os.getenv('PYTHONINSPECT') and sys.stdin.isatty()))
 
     success = True
@@ -377,7 +432,7 @@ def run_command_line(go_interactive,
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
-            if go_interactive or sys.stdin.isatty():
+            if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.
                 print_banner()
@@ -395,7 +450,7 @@ def run_command_line(go_interactive,
                             exec co_python_startup in mainmodule.__dict__
                         run_toplevel(run_it)
                 # Then we need a prompt.
-                go_interactive = True
+                interactive = True
             else:
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
