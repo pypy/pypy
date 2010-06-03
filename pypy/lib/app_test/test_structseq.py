@@ -5,6 +5,8 @@ from pypy.lib._structseq import *
 class mydata:
     __metaclass__ = structseqtype
 
+    name = "mydata"
+
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1)
     st_dev   = structseqfield(2)
@@ -77,3 +79,9 @@ def test_readonly():
 def test_no_extra_assignments():
     x = mydata(range(100, 113))
     py.test.raises((TypeError, AttributeError), "x.some_random_attribute = 1")
+
+def test_repr():
+    x = mydata(range(100, 113))
+    r = repr(x)
+    assert r.startswith("mydata(st_mode=100, ")
+    assert r.endswith(")")

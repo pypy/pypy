@@ -61,6 +61,8 @@ class structseqtype(type):
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
+        dict['__repr__'] = structseq_repr
+        dict['_name'] = dict.get('name', '')
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
@@ -105,3 +107,12 @@ def structseq_reduce(self):
 def structseq_setattr(self, attr, value):
     raise AttributeError("%r object has no attribute %r" % (
         self.__class__.__name__, attr))
+
+def structseq_repr(self):
+    fields = {}
+    for field in type(self).__dict__.values():
+        if isinstance(field, structseqfield):
+            fields[field._index] = field
+    parts = ["%s=%r" % (fields[index].__name__, value)
+             for index, value in enumerate(self)]
+    return "%s(%s)" % (self._name, ", ".join(parts))
