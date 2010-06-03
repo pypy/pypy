@@ -1,5 +1,8 @@
 """ Supplies the internal functions for functools.py in the standard library """
 
+# reduce() has moved to _functools in Python 2.6+.
+reduce = reduce
+
 class partial:
     """
     partial(func, *args, **keywords) - new function with partial application
