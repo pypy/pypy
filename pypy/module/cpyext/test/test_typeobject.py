@@ -289,3 +289,22 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             def __call__(self, *args):
                 return args
         assert module.tp_call(C(), ('x', 2)) == ('x', 2)
+
+    def test_tp_str(self): 
+        module = self.import_extension('foo', [
+           ("tp_str", "METH_O",
+            '''
+                 if (!args->ob_type->tp_str)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_str(args);
+             '''
+             )
+            ])
+        class C:
+            def __str__(self):
+                return "text"
+        assert module.tp_str(C()) == "text"
+            

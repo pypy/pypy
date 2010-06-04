@@ -175,6 +175,10 @@ def slot_tp_call(space, w_self, w_args, w_kwds):
     return space.call(w_self, w_args, w_kwds)
 
 @cpython_api([PyObject], PyObject, external=False)
+def slot_tp_str(space, w_self):
+    return space.str(w_self)
+     
+@cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
