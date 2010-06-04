@@ -382,6 +382,7 @@ def type_dealloc(space, obj):
     Py_DecRef(space, obj_pto.c_tp_bases)
     Py_DecRef(space, obj_pto.c_tp_mro)
     Py_DecRef(space, obj_pto.c_tp_cache) # let's do it like cpython
+    Py_DecRef(space, obj_pto.c_tp_dict)
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         if obj_pto.c_tp_as_buffer:
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
@@ -543,8 +544,6 @@ def finish_type_1(space, pto):
     """
     Sets up tp_bases, necessary before creating the interpreter type.
     """
-    pto.c_tp_dict = lltype.nullptr(PyObject.TO) # not supported
-
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
@@ -574,6 +573,10 @@ def finish_type_2(space, pto, w_obj):
         pto.c_tp_setattro = llhelper(
             PyObject_GenericSetAttr.api_func.functype,
             PyObject_GenericSetAttr.api_func.get_wrapper(space))
+
+    if w_obj.is_cpytype():
+        Py_DecRef(space, pto.c_tp_dict)
+        pto.c_tp_dict = make_ref(space, w_obj.getdict())
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

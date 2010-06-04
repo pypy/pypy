@@ -206,6 +206,27 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del obj.x
         assert obj.z == prop
 
+    def test_tp_dict(self):
+        foo = self.import_module("foo")
+        module = self.import_extension('test', [
+           ("read_tp_dict", "METH_O",
+            '''
+                 PyObject *method;
+                 if (!args->ob_type->tp_dict)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 method = PyDict_GetItemString(
+                     args->ob_type->tp_dict, "copy");
+                 Py_INCREF(method);
+                 return method;
+             '''
+             )
+            ])
+        obj = foo.new()
+        assert module.read_tp_dict(obj) == foo.fooType.copy
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
@@ -304,7 +325,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return args
         assert module.tp_call(C(), ('x', 2)) == ('x', 2)
 
-    def test_tp_str(self): 
+    def test_tp_str(self):
         module = self.import_extension('foo', [
            ("tp_str", "METH_O",
             '''
@@ -321,4 +342,3 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             def __str__(self):
                 return "text"
         assert module.tp_str(C()) == "text"
-            
