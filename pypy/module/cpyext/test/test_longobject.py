@@ -76,7 +76,11 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """
                  return PyLong_FromUnsignedLong((unsigned long)-1);
              """)])
-        assert module.from_unsignedlong() == (1<<32) - 1
+        import sys
+        if sys.maxint < 1<<32:
+            assert module.from_unsignedlong() == (1<<32) - 1
+        else:
+            assert module.from_unsignedlong() == (1<<64) - 1
 
     def test_fromlonglong(self):
         module = self.import_extension('foo', [
