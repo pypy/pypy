@@ -376,8 +376,8 @@ def setup_string_buffer_procs(space, pto):
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
+    from pypy.module.cpyext.object import PyObject_dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
-    type_pto = obj.c_ob_type
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
     Py_DecRef(space, obj_pto.c_tp_mro)
@@ -389,11 +389,7 @@ def type_dealloc(space, obj):
             lltype.free(obj_pto.c_tp_as_number, flavor='raw')
         Py_DecRef(space, base_pyo)
         rffi.free_charp(obj_pto.c_tp_name)
-        obj_pto_voidp = rffi.cast(rffi.VOIDP_real, obj_pto)
-        generic_cpy_call(space, type_pto.c_tp_free, obj_pto_voidp)
-        if type_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-            pto = rffi.cast(PyObject, type_pto)
-            Py_DecRef(space, pto)
+        PyObject_dealloc(space, obj)
 
 
 def type_attach(space, py_obj, w_type):
