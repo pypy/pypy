@@ -656,12 +656,13 @@ def build_bridge(space):
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, w_obj)),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
             if name.startswith('PyPyExc_'):
                 # we already have the pointer
+                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
             else:
                 # we have a structure, get its address
+                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             from pypy.module.cpyext.pyobject import (
                 track_reference, get_typedescr)
