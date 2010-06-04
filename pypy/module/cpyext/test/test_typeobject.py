@@ -192,6 +192,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert d[cmpr] == 72
         assert d[3] == 72
 
+    def test_descriptor(self):
+        module = self.import_module("foo")
+        prop = module.Property()
+        class C(object):
+            x = prop
+        obj = C()
+        assert obj.x == (prop, obj, C)
+        assert C.x == (prop, None, C)
+
+        obj.x = 2
+        assert obj.y == (prop, 2)
+        del obj.x
+        assert obj.z == prop
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):

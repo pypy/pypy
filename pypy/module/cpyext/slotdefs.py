@@ -5,7 +5,8 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
-    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc)
+    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc,
+    descrgetfunc, descrsetfunc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -79,6 +80,44 @@ def wrap_delattr(space, w_self, w_args, func):
     w_name, = space.fixedview(w_args)
     # XXX "Carlo Verre hack"?
     res = generic_cpy_call(space, func_target, w_self, w_name, None)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+
+def wrap_descr_get(space, w_self, w_args, func):
+    func_target = rffi.cast(descrgetfunc, func)
+    args_w = space.fixedview(w_args)
+    if len(args_w) == 1:
+        w_obj, = args_w
+        w_type = None
+    elif len(args_w) == 2:
+        w_obj, w_type = args_w
+    else:
+        raise operationerrfmt(
+            space.w_TypeError,
+            "expected 1 or 2 arguments, got %d", len(args_w))
+    if w_obj is space.w_None:
+        w_obj = None
+    if w_type is space.w_None:
+        w_type = None
+    if w_obj is None and w_type is None:
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("__get__(None, None) is invalid"))
+    return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
+
+def wrap_descr_set(space, w_self, w_args, func):
+    func_target = rffi.cast(descrsetfunc, func)
+    check_num_args(space, w_args, 2)
+    w_obj, w_value = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+
+def wrap_descr_delete(space, w_self, w_args, func):
+    func_target = rffi.cast(descrsetfunc, func)
+    check_num_args(space, w_args, 1)
+    w_obj, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_obj, None)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
 
