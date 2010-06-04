@@ -457,6 +457,16 @@ class AppTestImport:
     def test_reload_infinite(self):
         import infinite_reload
 
+    def test_explicitly_missing(self):
+        import sys
+        sys.modules['foobarbazmod'] = None
+        try:
+            import foobarbazmod
+            assert False, "should have failed, got instead %r" % (
+                foobarbazmod,)
+        except ImportError:
+            pass
+
 def _getlong(data):
     x = marshal.dumps(data)
     return x[-4:]

@@ -145,7 +145,7 @@ def importhook(space, modulename, w_globals=None,
         msg = "Attempted relative import in non-package"
         raise OperationError(space.w_ValueError, w(msg))
     w_mod = absolute_import_try(space, modulename, 0, fromlist_w)
-    if w_mod is None and not space.is_w(w_mod, space.w_None):
+    if w_mod is None or space.is_w(w_mod, space.w_None):
         w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
