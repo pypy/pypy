@@ -8,7 +8,7 @@ class TestSequence(BaseApiTest):
     def test_sequence(self, space, api):
         w_t = space.wrap((1, 2, 3, 4))
         assert api.PySequence_Fast(w_t, "message") is w_t
-        w_l = space.wrap((1, 2, 3, 4))
+        w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
         assert space.int_w(api.PySequence_Fast_GET_ITEM(w_l, 1)) == 2
@@ -22,6 +22,15 @@ class TestSequence(BaseApiTest):
         w_seq = api.PySequence_Tuple(w_set)
         assert space.type(w_seq) is space.w_tuple
         assert sorted(space.unwrap(w_seq)) == [1, 2, 3, 4]
+
+    def test_repeat(self, space, api):
+        def test(seq, count):
+            w_seq = space.wrap(seq)
+            w_repeated = api.PySequence_Repeat(w_seq, count)
+            assert space.eq_w(w_repeated, space.wrap(seq * count))
+
+        test((1, 2, 3, 4), 3)
+        test([1, 2, 3, 4], 3)
 
     def test_concat(self, space, api):
         w_t1 = space.wrap(range(4))

@@ -2363,9 +2363,7 @@ def PyObject_HashNotImplemented(space, o):
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, o):
-    """This is equivalent to the Python expression dir(o), returning a (possibly
-    empty) list of strings appropriate for the object argument, or NULL if there
-    was an error.  If the argument is NULL, this is like the Python dir(),
+    """This is equivalent to the Python expression dir(o), returning a (possibly empty) list of strings appropriate for the object argument, or NULL if there was an error.  If the argument is NULL, this is like the Python dir(),
     returning the names of the current locals; in this case, if no execution frame
     is active then NULL is returned but PyErr_Occurred() will return false."""
     raise NotImplementedError
@@ -2401,15 +2399,6 @@ def PyEval_GetFuncDesc(space, func):
     " instance", and " object".  Concatenated with the result of
     PyEval_GetFuncName(), the result will be a description of
     func."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_Repeat(space, o, count):
-    """Return the result of repeating sequence object o count times, or NULL on
-    failure.  This is the equivalent of the Python expression o * count.
-    
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], PyObject)

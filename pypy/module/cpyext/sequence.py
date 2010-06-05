@@ -6,6 +6,14 @@ from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
+@cpython_api([PyObject, Py_ssize_t], PyObject)
+def PySequence_Repeat(space, w_obj, count):
+    """Return the result of repeating sequence object o count times, or NULL on
+    failure.  This is the equivalent of the Python expression o * count.
+    
+    This function used an int type for count. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    return space.mul(w_obj, space.wrap(count))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PySequence_Check(space, w_obj):
