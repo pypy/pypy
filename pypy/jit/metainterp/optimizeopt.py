@@ -1066,7 +1066,7 @@ class HeapOpOptimizer(object):
         return None
 
     def emitting_operation(self, op):
-        if op.has_no_side_effect():
+        if op.opnum != rop.CALL_PURE and op.has_no_side_effect():
             return
         if op.is_ovf():
             return
@@ -1079,6 +1079,7 @@ class HeapOpOptimizer(object):
             return
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
+            opnum == rop.CALL_PURE or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
