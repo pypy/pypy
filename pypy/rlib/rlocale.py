@@ -149,6 +149,9 @@ def external(name, args, result, calling_conv='c'):
                            calling_conv=calling_conv,
                            sandboxsafe=True)
 
+_lconv = lltype.Ptr(cConfig.lconv)
+localeconv = external('localeconv', [], _lconv)
+
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
 def setlocale(category, locale):
