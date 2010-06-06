@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, NoneNotWrapped, applevel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.objectmodel import we_are_translated
 
 class CodecState(object):
     def __init__(self, space):
@@ -52,6 +53,9 @@ class CodecState(object):
                 return replace, newpos
         return unicode_call_errorhandler
 
+    def _freeze_(self):
+        assert not self.codec_search_path
+        return False
 
 def register_codec(space, w_search_function):
     """register(search_function)
@@ -75,6 +79,8 @@ def lookup_codec(space, encoding):
     Looks up a codec tuple in the Python codec registry and returns
     a tuple of functions.
     """
+    assert not (space.config.translating and not we_are_translated()), \
+        "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
     normalized_encoding = encoding.replace(" ", "-").lower()    
     w_result = state.codec_search_cache.get(normalized_encoding, None)
@@ -215,11 +221,8 @@ def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     else:
         encoding = space.str_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
-    if space.is_true(w_encoder):
-        w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
-        return space.getitem(w_res, space.wrap(0))
-    else:
-        assert 0, "XXX, what to do here?"
+    w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
+    return space.getitem(w_res, space.wrap(0))
 encode.unwrap_spec = [ObjSpace, W_Root, W_Root, str]
 
 def buffer_encode(space, s, errors='strict'):

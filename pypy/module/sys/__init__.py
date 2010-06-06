@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
+from pypy.rlib.objectmodel import we_are_translated
 import sys
 
 class Module(MixedModule):
@@ -92,8 +93,12 @@ class Module(MixedModule):
         self.space.setitem(w_modules, w_name, w_module)
 
     def startup(self, space):
-        from pypy.module.sys.interp_encoding import _getfilesystemencoding
-        self.filesystemencoding = _getfilesystemencoding(space)
+        if space.config.translating and not we_are_translated():
+            # don't get the filesystemencoding at translation time
+            assert self.filesystemencoding is None
+        else:
+            from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            self.filesystemencoding = _getfilesystemencoding(space)
 
     def getmodule(self, name): 
         space = self.space
