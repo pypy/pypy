@@ -51,6 +51,9 @@ make_check_function("PyDelta_Check", "timedelta")
 def PyDate_FromDate(space, year, month, day):
     """Return a datetime.date object with the specified year, month and day.
     """
+    year = rffi.cast(lltype.Signed, year)
+    month = rffi.cast(lltype.Signed, month)
+    day = rffi.cast(lltype.Signed, day)
     w_datetime = PyImport_Import(space, space.wrap("datetime"))
     return space.call_method(
         w_datetime, "date",
@@ -60,6 +63,10 @@ def PyDate_FromDate(space, year, month, day):
 def PyTime_FromTime(space, hour, minute, second, usecond):
     """Return a ``datetime.time`` object with the specified hour, minute, second and
     microsecond."""
+    hour = rffi.cast(lltype.Signed, hour)
+    minute = rffi.cast(lltype.Signed, minute)
+    second = rffi.cast(lltype.Signed, second)
+    usecond = rffi.cast(lltype.Signed, usecond)
     w_datetime = PyImport_Import(space, space.wrap("datetime"))
     return space.call_method(
         w_datetime, "time",
@@ -71,6 +78,13 @@ def PyDateTime_FromDateAndTime(space, year, month, day, hour, minute, second, us
     """Return a datetime.datetime object with the specified year, month, day, hour,
     minute, second and microsecond.
     """
+    year = rffi.cast(lltype.Signed, year)
+    month = rffi.cast(lltype.Signed, month)
+    day = rffi.cast(lltype.Signed, day)
+    hour = rffi.cast(lltype.Signed, hour)
+    minute = rffi.cast(lltype.Signed, minute)
+    second = rffi.cast(lltype.Signed, second)
+    usecond = rffi.cast(lltype.Signed, usecond)
     w_datetime = PyImport_Import(space, space.wrap("datetime"))
     return space.call_method(
         w_datetime, "datetime",
@@ -106,6 +120,9 @@ def PyDelta_FromDSU(space, days, seconds, useconds):
     number of microseconds and seconds lie in the ranges documented for
     datetime.timedelta objects.
     """
+    days = rffi.cast(lltype.Signed, days)
+    seconds = rffi.cast(lltype.Signed, seconds)
+    useconds = rffi.cast(lltype.Signed, useconds)
     w_datetime = PyImport_Import(space, space.wrap("datetime"))
     return space.call_method(
         w_datetime, "timedelta",
