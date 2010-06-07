@@ -23,7 +23,7 @@ PyFrameObject = lltype.Void
 _inittab = lltype.Void
 PyThreadState = lltype.Void
 PyInterpreterState = lltype.Void
-PyOS_sighandler_t = lltype.Void
+#PyOS_sighandler_t = lltype.Void
 Py_UNICODE = lltype.Void
 PyCompilerFlags = lltype.Void
 _node = lltype.Void
@@ -612,13 +612,6 @@ def PyTime_Check(space, ob):
 def PyTime_CheckExact(space, ob):
     """Return true if ob is of type PyDateTime_TimeType. ob must not be
     NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDelta_Check(space, ob):
-    """Return true if ob is of type PyDateTime_DeltaType or a subtype of
-    PyDateTime_DeltaType.  ob must not be NULL.
     """
     raise NotImplementedError
 
