@@ -181,7 +181,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     """
     if error is _NOT_SPECIFIED:
         if restype is PyObject:
-            error = lltype.nullptr(PyObject.TO)
+            error = lltype.nullptr(restype.TO)
         elif restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
@@ -251,7 +251,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             raise
                         state = space.fromcache(State)
                         state.set_exception(e)
-                        if restype is PyObject:
+                        if is_PyObject(restype):
                             return None
                         else:
                             return api_function.error_value
@@ -470,9 +470,9 @@ def make_wrapper(space, callable):
             assert len(args) == len(callable.api_func.argtypes)
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
-                if typ is PyObject and is_wrapped:
+                if is_PyObject(typ) and is_wrapped:
                     if arg:
-                        arg_conv = from_ref(space, arg)
+                        arg_conv = from_ref(space, rffi.cast(PyObject, arg))
                     else:
                         arg_conv = None
                 else:
