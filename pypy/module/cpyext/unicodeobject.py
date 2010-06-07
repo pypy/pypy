@@ -105,10 +105,7 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
-    checked).
-
-    This function returned an int type. This might require changes
-    in your code for properly supporting 64-bit systems."""
+    checked)."""
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.int_w(space.len(w_obj))
 

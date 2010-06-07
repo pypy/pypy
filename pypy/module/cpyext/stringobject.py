@@ -180,9 +180,7 @@ def _PyString_Resize(space, ref, newsize):
     the address in *string may differ from its input value.  If the reallocation
     fails, the original string object at *string is deallocated, *string is
     set to NULL, a memory exception is set, and -1 is returned.
-    
-    This function used an int type for newsize. This might
-    require changes in your code for properly supporting 64-bit systems."""
+    """
     # XXX always create a new string so far
     py_str = rffi.cast(PyStringObject, ref[0])
     if not py_str.c_buffer:
