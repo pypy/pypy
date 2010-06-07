@@ -79,6 +79,26 @@ def PyDateTime_FromDateAndTime(space, year, month, day, hour, minute, second, us
         space.wrap(usecond))
     raise NotImplementedError
 
+@cpython_api([PyObject], PyObject)
+def PyDateTime_FromTimestamp(space, w_args):
+    """Create and return a new datetime.datetime object given an argument tuple
+    suitable for passing to datetime.datetime.fromtimestamp().
+    """
+    w_datetime = PyImport_Import(space, space.wrap("datetime"))
+    w_type = space.getattr(w_datetime, space.wrap("datetime"))
+    w_method = space.getattr(w_type, space.wrap("fromtimestamp"))
+    return space.call(w_method, w_args)
+
+@cpython_api([PyObject], PyObject)
+def PyDate_FromTimestamp(space, w_args):
+    """Create and return a new datetime.date object given an argument tuple
+    suitable for passing to datetime.date.fromtimestamp().
+    """
+    w_datetime = PyImport_Import(space, space.wrap("datetime"))
+    w_type = space.getattr(w_datetime, space.wrap("date"))
+    w_method = space.getattr(w_type, space.wrap("fromtimestamp"))
+    return space.call(w_method, w_args)
+
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real], PyObject)
 def PyDelta_FromDSU(space, days, seconds, useconds):
     """Return a datetime.timedelta object representing the given number of days,

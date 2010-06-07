@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
+import datetime
 
 class TestDatetime(BaseApiTest):
     def test_date(self, space, api):
@@ -61,3 +62,13 @@ class TestDatetime(BaseApiTest):
         w_delta = api.PyDelta_FromDSU(10, 20, 30)
         assert api.PyDelta_Check(w_delta)
         assert api.PyDelta_CheckExact(w_delta)
+
+    def test_fromtimestamp(self, space, api):
+        w_args = space.wrap((0,))
+        w_date = api.PyDate_FromTimestamp(w_args)
+        assert space.unwrap(space.str(w_date)) == '1970-01-01'
+
+        w_args = space.wrap((0,))
+        w_date = api.PyDateTime_FromTimestamp(w_args)
+        date = datetime.datetime.fromtimestamp(0)
+        assert space.unwrap(space.str(w_date)) == str(date)

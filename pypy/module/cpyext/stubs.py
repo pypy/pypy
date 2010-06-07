@@ -587,20 +587,6 @@ def PyTZInfo_CheckExact(space, ob):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyDateTime_FromTimestamp(space, args):
-    """Create and return a new datetime.datetime object given an argument tuple
-    suitable for passing to datetime.datetime.fromtimestamp().
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyDate_FromTimestamp(space, args):
-    """Create and return a new datetime.date object given an argument tuple
-    suitable for passing to datetime.date.fromtimestamp().
-    """
-    raise NotImplementedError
-
 @cpython_api([PyTypeObjectPtr, PyGetSetDef], PyObject)
 def PyDescr_NewGetSet(space, type, getset):
     raise NotImplementedError
