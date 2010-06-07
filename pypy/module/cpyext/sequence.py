@@ -99,6 +99,12 @@ def PySequence_GetItem(space, w_obj, i):
     return space.getitem(w_obj, space.wrap(i))
 
 @cpython_api([PyObject], PyObject)
+def PySequence_List(space, w_obj):
+    """Return a list object with the same contents as the arbitrary sequence o.  The
+    returned list is guaranteed to be new."""
+    return space.call_function(space.w_list, w_obj)
+
+@cpython_api([PyObject], PyObject)
 def PySequence_Tuple(space, w_obj):
     """Return a tuple object with the same contents as the arbitrary sequence o or
     NULL on failure.  If o is a tuple, a new reference will be returned,

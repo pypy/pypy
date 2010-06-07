@@ -23,6 +23,10 @@ class TestSequence(BaseApiTest):
         assert space.type(w_seq) is space.w_tuple
         assert sorted(space.unwrap(w_seq)) == [1, 2, 3, 4]
 
+        w_seq = api.PySequence_List(w_set)
+        assert space.type(w_seq) is space.w_list
+        assert sorted(space.unwrap(w_seq)) == [1, 2, 3, 4]
+
     def test_repeat(self, space, api):
         def test(seq, count):
             w_seq = space.wrap(seq)

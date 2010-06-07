@@ -2305,12 +2305,6 @@ def PySequence_Index(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PySequence_List(space, o):
-    """Return a list object with the same contents as the arbitrary sequence o.  The
-    returned list is guaranteed to be new."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObjectP, error=lltype.nullptr(PyObjectP.TO))
 def PySequence_Fast_ITEMS(space, o):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
