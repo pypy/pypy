@@ -312,6 +312,15 @@ class DescrOperation:
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
 
+    def format(space, w_obj, w_format_spec):
+        w_descr = space.lookup(w_obj, '__format__')
+        if w_descr is None:
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' object does not define __format__",
+                                  typename)
+        return space.get_and_call_function(w_descr, w_obj, w_format_spec)
+
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)

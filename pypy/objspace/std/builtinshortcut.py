@@ -27,6 +27,8 @@ METHODS_WITH_SHORTCUT = dict.fromkeys(
      'inplace_floordiv', 'inplace_div', 'inplace_mod', 'inplace_pow',
      'inplace_lshift', 'inplace_rshift', 'inplace_and', 'inplace_or',
      'inplace_xor',
+     # other
+     'format',
  ])
 
 KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD

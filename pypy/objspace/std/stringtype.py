@@ -88,6 +88,7 @@ str_rsplit  = SMM('rsplit', 3, defaults=(None,-1),
                       ' maxsplit is given, at most maxsplit splits are\ndone.'
                       ' If sep is not specified or is None, any whitespace'
                       ' string\nis a separator.')
+str_format     = SMM('format', 1, general__args__=True)
 str_isdigit    = SMM('isdigit', 1,
                      doc='S.isdigit() -> bool\n\nReturn True if all characters'
                          ' in S are digits\nand there is at least one'

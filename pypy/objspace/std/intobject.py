@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -59,6 +60,10 @@ def repr__Int(space, w_int1):
     return space.wrap(res)
 
 str__Int = repr__Int
+
+def format__Int_ANY(space, w_int, w_format_spec):
+    form = newformat.get_formatter(space, w_format_spec)
+    return form.format_int_or_long(w_int, newformat.INT_KIND)
 
 def declare_new_int_comparison(opname):
     import operator

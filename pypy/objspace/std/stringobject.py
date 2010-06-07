@@ -7,7 +7,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import we_are_translated, compute_hash
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -962,6 +962,16 @@ def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
 # (values is of a mapping type)
 def mod__String_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=False)
+
+def str_format__String(space, w_string, __args__):
+    return newformat.format_method(space, w_string, __args__, False)
+
+def format__String_ANY(space, w_string, w_format_spec):
+    if not space.isinstance_w(w_format_spec, space.w_str):
+        w_format_spec = space.str(w_format_spec)
+    spec = space.str_w(w_format_spec)
+    formatter = newformat.str_formatter(space, spec)
+    return formatter.format_string(w_string._value)
 
 def buffer__String(space, w_string):
     from pypy.interpreter.buffer import StringBuffer

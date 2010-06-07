@@ -7,7 +7,7 @@ from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_deli
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
@@ -990,6 +990,16 @@ def repr__Unicode(space, w_unicode):
 
 def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
+
+def unicode_format__Unicode(space, w_unicode, __args__):
+    return newformat.format_method(space, w_unicode, __args__, True)
+
+def format__Unicode_ANY(space, w_unicode, w_format_spec):
+    if not space.isinstance_w(w_format_spec, space.w_unicode):
+        w_format_spec = space.call_function(space.w_unicode, w_format_spec)
+    spec = space.unicode_w(w_format_spec)
+    formatter = newformat.unicode_formatter(space, spec)
+    return formatter.format_string(w_unicode._value)
 
 def buffer__Unicode(space, w_unicode):
     from pypy.rlib.rstruct.unichar import pack_unichar

@@ -97,6 +97,13 @@ class AppTestBuiltinApp:
                 return 'a'    # not a list!
         raises(TypeError, eval, "dir()", {}, C())
 
+    def test_format(self):
+        assert format(4) == "4"
+        assert format(10, "o") == "12"
+        assert format(10, "#o") == "0o12"
+        assert format("hi") == "hi"
+        assert isinstance(format(4, u""), unicode)
+
     def test_vars(self):
         def f():
             return vars()

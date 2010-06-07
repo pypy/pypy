@@ -45,4 +45,14 @@ def bigint_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "integer", w_obj))
 
+def format__ANY_ANY(space, w_obj, w_format_spec):
+    if space.isinstance_w(w_format_spec, space.w_unicode):
+        w_as_str = space.unicode(w_obj)
+    elif space.isinstance_w(w_format_spec, space.w_str):
+        w_as_str = space.str(w_obj)
+    else:
+        msg = "format_spec must be a string"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return space.format(w_as_str)
+
 register_all(vars())

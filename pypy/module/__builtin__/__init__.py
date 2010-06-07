@@ -6,9 +6,9 @@ import pypy.module.imp.importing
 # put builtins here that should be optimized somehow
 
 OPTIMIZED_BUILTINS = ["len", "range", "xrange", "min", "max", "enumerate",
-        "isinstance", "type", "zip", "file", "open", "abs", "chr", "unichr",
-        "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp", "getattr",
-        "setattr", "delattr", "callable", "int", "str", "float"]
+        "isinstance", "type", "zip", "file", "format", "open", "abs", "chr",
+        "unichr", "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp",
+        "getattr", "setattr", "delattr", "callable", "int", "str", "float"]
 
 assert len(OPTIMIZED_BUILTINS) <= 256
 
@@ -72,6 +72,7 @@ class Module(MixedModule):
         'cmp'           : 'operation.cmp',
         'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
+        'format'        : 'operation.format',
         '_issubtype'    : 'operation._issubtype',
         'issubclass'    : 'abstractinst.app_issubclass',
         'isinstance'    : 'abstractinst.app_isinstance',

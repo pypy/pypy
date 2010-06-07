@@ -1205,6 +1205,7 @@ ObjSpace.MethodTable = [
     ('issubtype',       'issubtype', 2, []),  # not for old-style classes
     ('repr',            'repr',      1, ['__repr__']),
     ('str',             'str',       1, ['__str__']),
+    ('format',          'format',    2, ['__format__']),
     ('len',             'len',       1, ['__len__']),
     ('hash',            'hash',      1, ['__hash__']),
     ('getattr',         'getattr',   2, ['__getattribute__']),

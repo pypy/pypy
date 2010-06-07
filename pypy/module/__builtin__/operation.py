@@ -221,3 +221,8 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
+def format(space, w_obj, w_format_spec=NoneNotWrapped):
+    """Format a obj according to format_spec"""
+    if w_format_spec is None:
+        w_format_spec = space.wrap("")
+    return space.format(w_obj, w_format_spec)
