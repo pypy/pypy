@@ -41,7 +41,7 @@ def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
     res = generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
     if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception()
+        space.fromcache(State).check_and_raise_exception(always=True)
     return None
 
 def wrap_unaryfunc(space, w_self, w_args, func):
@@ -216,7 +216,7 @@ def slot_tp_call(space, w_self, w_args, w_kwds):
 @cpython_api([PyObject], PyObject, external=False)
 def slot_tp_str(space, w_self):
     return space.str(w_self)
-     
+
 @cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
