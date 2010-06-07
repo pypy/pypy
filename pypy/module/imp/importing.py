@@ -178,13 +178,11 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
     else:
         level = 0
         first = None
-        while last_dot != -1:
-            assert last_dot >= 0 # bah
+        while last_dot >= 0:
             last_dot = modulename.find('.', last_dot + 1)
-            if last_dot == -1:
+            if last_dot < 0:
                 w_mod = check_sys_modules_w(space, modulename)
             else:
-                assert last_dot >= 0
                 w_mod = check_sys_modules_w(space, modulename[:last_dot])
             if w_mod is None or space.is_w(w_mod, space.w_None):
                 return None
