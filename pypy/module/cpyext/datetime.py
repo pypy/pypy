@@ -1,17 +1,24 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import (
+    cpython_api, CANNOT_FAIL, cpython_struct, PyObjectFields)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 
+# API import function
+
 @cpython_api([], lltype.Void)
-def PyDateTime_IMPORT(space):
+def _PyDateTime_Import(space):
     return
 
 PyDateTime_Date = PyObject
 PyDateTime_Time = PyObject
 PyDateTime_DateTime = PyObject
+
+PyDeltaObjectStruct = lltype.ForwardReference()
+cpython_struct("PyDateTime_Delta", PyObjectFields, PyDeltaObjectStruct)
+PyDateTime_Delta = lltype.Ptr(PyDeltaObjectStruct)
 
 # Check functions
 
@@ -195,3 +202,19 @@ def PyDateTime_TIME_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
     return space.getattr(w_obj, space.wrap("microsecond"))
+
+# XXX these functions are not present in the Python API
+# But it does not seem possible to expose a different structure
+# for types defined in a python module like lib/datetime.py.
+
+@cpython_api([PyDateTime_Delta], rffi.INT_real, error=CANNOT_FAIL)
+def PyDateTime_DELTA_GET_DAYS(space, w_obj):
+    return space.getattr(w_obj, space.wrap("days"))
+
+@cpython_api([PyDateTime_Delta], rffi.INT_real, error=CANNOT_FAIL)
+def PyDateTime_DELTA_GET_SECONDS(space, w_obj):
+    return space.getattr(w_obj, space.wrap("seconds"))
+
+@cpython_api([PyDateTime_Delta], rffi.INT_real, error=CANNOT_FAIL)
+def PyDateTime_DELTA_GET_MICROSECONDS(space, w_obj):
+    return space.getattr(w_obj, space.wrap("microseconds"))

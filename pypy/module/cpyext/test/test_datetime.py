@@ -63,6 +63,12 @@ class TestDatetime(BaseApiTest):
         assert api.PyDelta_Check(w_delta)
         assert api.PyDelta_CheckExact(w_delta)
 
+        assert space.unwrap(space.newtuple([
+            api.PyDateTime_DELTA_GET_DAYS(w_delta),
+            api.PyDateTime_DELTA_GET_SECONDS(w_delta),
+            api.PyDateTime_DELTA_GET_MICROSECONDS(w_delta)])) == (
+            10, 20, 30)
+
     def test_fromtimestamp(self, space, api):
         w_args = space.wrap((0,))
         w_date = api.PyDate_FromTimestamp(w_args)
