@@ -66,7 +66,8 @@ class TestDatetime(BaseApiTest):
     def test_fromtimestamp(self, space, api):
         w_args = space.wrap((0,))
         w_date = api.PyDate_FromTimestamp(w_args)
-        assert space.unwrap(space.str(w_date)) == '1970-01-01'
+        date = datetime.date.fromtimestamp(0)
+        assert space.unwrap(space.str(w_date)) == str(date)
 
         w_args = space.wrap((0,))
         w_date = api.PyDateTime_FromTimestamp(w_args)
