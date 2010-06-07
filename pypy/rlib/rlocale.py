@@ -152,6 +152,14 @@ def external(name, args, result, calling_conv='c'):
 _lconv = lltype.Ptr(cConfig.lconv)
 localeconv = external('localeconv', [], _lconv)
 
+def numeric_formatting():
+    """Specialized function to get formatting for numbers"""
+    conv = localeconv()
+    decimal_point = rffi.charp2str(conv.c_decimal_point)
+    thousands_sep = rffi.charp2str(conv.c_thousands_sep)
+    grouping = rffi.charp2str(conv.c_grouping)
+    return decimal_point, thousands_sep, grouping
+
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
 def setlocale(category, locale):
