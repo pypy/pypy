@@ -552,7 +552,7 @@ A quick introduction on how to use the trace object space can be `found here`_.
 A number of options for configuration is here in `traceconfig.py`_.
 
 
-.. _`found here` : getting-started.html#tracing-bytecode-and-operations-on-objects
+.. _`found here` : getting-started-dev.html#tracing-bytecode-and-operations-on-objects
 .. _`Abstract Interpretation`: theory.html#abstract-interpretation
 .. _`traceconfig.py`: ../tool/traceconfig.py
 

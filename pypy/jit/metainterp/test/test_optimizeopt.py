@@ -2586,6 +2586,16 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         '''
         self.optimize_loop(ops, 'Not, Not', ops)
 
+    def test_call_pure_invalidates_caches(self):
+        ops = '''
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3)
+        '''
+        self.optimize_loop(ops, 'Not, Not', ops)        
+
     def test_vref_nonvirtual_nonescape(self):
         ops = """
         [p1]

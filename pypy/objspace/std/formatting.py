@@ -474,12 +474,6 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
-def is_list_of_chars_or_unichars(ann, bk):
-    from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
-    if not isinstance(ann.listdef.listitem.s_value,
-                      (SomeChar, SomeUnicodeCodePoint)):
-        raise TypeError("Formatter should return as a result a list of chars or unichars, otherwise we miss important optimization")
-
 def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
     "Entry point"
     if not do_unicode:

@@ -442,7 +442,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
         return SomeUnicodeString()
 
 class __extend__(pairtype(SomeString, SomeUnicodeString),
-                 pairtype(SomeString, SomeUnicodeString)):
+                 pairtype(SomeUnicodeString, SomeString)):
     def mod((str, unistring)):
         raise NotImplementedError(
             "string formatting mixing strings and unicode not supported")

@@ -27,6 +27,7 @@
 # endif
 # define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
+#define DL_IMPORT(RTYPE) PyAPI_FUNC(RTYPE)
 
 #include <stdlib.h>
 
@@ -95,6 +96,7 @@ typedef long Py_ssize_t;
 #include "pycobject.h"
 #include "bufferobject.h"
 #include "sliceobject.h"
+#include "datetime.h"
 #include "pystate.h"
 
 // XXX This shouldn't be included here

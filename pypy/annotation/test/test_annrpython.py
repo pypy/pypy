@@ -3321,6 +3321,17 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert a.bookkeeper.getdesc(f).getuniquegraph()
 
+    def test_unicode_decode_error(self):
+        def f():
+            try:
+                raise UnicodeDecodeError("x", "x", 0, 1, "reason")
+            except UnicodeDecodeError, ude:
+                return ude.end
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
 def g(n):
     return [0,1,2,n]
 

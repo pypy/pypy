@@ -86,11 +86,18 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         if debug_excs:
             self._excinfo = debug_excs[0]
 
+    def __repr__(self):
+        return "<AppExceptionInfo %s>" % self.operr.errorstr(self.space)
+
     def exconly(self, tryshort=True):
         return '(application-level) ' + self.operr.errorstr(self.space)
 
     def errisinstance(self, exc): 
         clsname = exc.__name__ 
+        # we can only check for builtin exceptions
+        # as there is no canonical applevel one for custom interplevel ones
+        if exc.__module__ != "exceptions":
+            return False 
         try: 
             w_exc = getattr(self.space, 'w_' + clsname) 
         except KeyboardInterrupt: 

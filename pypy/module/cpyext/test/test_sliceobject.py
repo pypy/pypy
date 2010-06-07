@@ -43,3 +43,12 @@ class AppTestSliceMembers(AppTestCpythonExtensionBase):
             ])
         s = slice(10, 20, 30)
         assert module.clone(s) == s
+
+    def test_nulls(self):
+        module = self.import_extension('foo', [
+            ("nullslice", "METH_NOARGS",
+             """
+                 return PySlice_New(NULL, NULL, NULL);
+             """),
+            ])
+        assert module.nullslice() == slice(None, None, None)

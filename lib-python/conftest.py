@@ -569,11 +569,14 @@ class RegrDirectory(py.test.collect.Directory):
         return cache.get(name, None)
         
     def collect(self): 
+        we_are_in_modified = self.fspath == modregrtestdir
         l = []
-        for x in testmap:
+        for x in self.fspath.listdir():
             name = x.basename
             regrtest = self.get(name)
-            if regrtest is not None: 
+            if regrtest is not None:
+                if bool(we_are_in_modified) ^ regrtest.ismodified():
+                    continue
                 #if option.extracttests:  
                 #    l.append(InterceptedRunModule(name, self, regrtest))
                 #else:
@@ -581,7 +584,14 @@ class RegrDirectory(py.test.collect.Directory):
         return l 
 
 def pytest_collect_directory(parent, path):
-    return RegrDirectory(path, parent)
+    # use RegrDirectory collector for both modified and unmodified tests
+    if path in (modregrtestdir, regrtestdir):
+        return RegrDirectory(path, parent)
+
+def pytest_ignore_collect(path):
+    # ignore all files - only RegrDirectory generates tests in lib-python
+    if path.check(file=1):
+        return True
 
 class RunFileExternal(py.test.collect.File):
     def __init__(self, name, parent, regrtest): 

@@ -178,12 +178,6 @@ class base_int(long):
         else:
             return super(base_int, klass).__new__(klass, val)
 
-    def __int__(self):
-        if self < LONG_TEST:
-            return long.__int__(self)
-        else:
-            return intmask(self)
-
     def __add__(self, other):
         x = long(self)
         y = long(other)
