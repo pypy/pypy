@@ -115,6 +115,14 @@ def copy_header_files():
     for name in ("pypy_decl.h", "pypy_macros.h"):
         udir.join(name).copy(interfaces_dir / name)
 
+class BaseGlobalObject:
+    """Base class for all objects (pointers and structures)"""
+
+    @classmethod
+    def declare(cls, *args, **kwargs):
+        obj = cls(*args, **kwargs)
+        GLOBALS[obj.name] = obj
+
 _NOT_SPECIFIED = object()
 CANNOT_FAIL = object()
 
@@ -329,23 +337,48 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 ]
 TYPES = {}
-GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
-    '_Py_NoneStruct#': ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
-    '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
-    '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'cpyext.datetime.build_datetime_api(space)'),
-    }
+GLOBALS = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
 
+class GlobalStaticPyObject(BaseGlobalObject):
+    def __init__(self, name, expr):
+        self.name = name + '#'
+        self.type = 'PyObject*'
+        self.expr = expr
+
+class GlobalStructurePointer(BaseGlobalObject):
+    def __init__(self, name, type, expr):
+        self.name = name
+        self.type = type
+        self.expr = expr
+
+class GlobalExceptionPointer(BaseGlobalObject):
+    def __init__(self, exc_name):
+        self.name = 'PyExc_' + exc_name
+        self.type = 'PyTypeObject*'
+        self.expr = ('space.gettypeobject(interp_exceptions.W_%s.typedef)'
+                     % (exc_name,))
+
+class GlobalTypeObject(BaseGlobalObject):
+    def __init__(self, name, expr):
+        self.name = 'Py%s_Type#' % (name,)
+        self.type = 'PyTypeObject*'
+        self.expr = expr
+
+GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
+GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
+GlobalStaticPyObject.declare('_Py_ZeroStruct', 'space.w_False')
+GlobalStaticPyObject.declare('_Py_NotImplementedStruct',
+                             'space.w_NotImplemented')
+GlobalStructurePointer.declare('PyDateTimeAPI', 'PyDateTime_CAPI*',
+                               'cpyext.datetime.build_datetime_api(space)')
+
 def build_exported_objects():
     # Standard exceptions
     for exc_name in exceptions.Module.interpleveldefs.keys():
-        GLOBALS['PyExc_' + exc_name] = (
-            'PyTypeObject*',
-            'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
+        GlobalExceptionPointer.declare(exc_name)
 
     # Common types with their own struct
     for cpyname, pypyexpr in {
@@ -371,7 +404,7 @@ def build_exported_objects():
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         }.items():
-        GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
+        GlobalTypeObject.declare(cpyname, pypyexpr)
 
     for cpyname in 'Method List Int Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
@@ -614,15 +647,15 @@ def build_bridge(space):
     functions = generate_decls_and_callbacks(db, export_symbols)
 
     global_objects = []
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if "#" in name:
+    for obj in GLOBALS.values():
+        if "#" in obj.name:
             continue
-        if typ == 'PyDateTime_CAPI*':
-            global_objects.append('%s _%s;' % (typ, name))
-        elif name.startswith('PyExc_'):
-            global_objects.append('%s _%s;' % (typ[:-1], name))
+        if obj.type == 'PyDateTime_CAPI*':
+            global_objects.append('%s _%s;' % (obj.type, obj.name))
+        elif obj.name.startswith('PyExc_'):
+            global_objects.append('%s _%s;' % (obj.type[:-1], obj.name))
         else:
-            global_objects.append('%s %s = NULL;' % (typ, name))
+            global_objects.append('%s %s = NULL;' % (obj.typ, obj.name))
     global_code = '\n'.join(global_objects)
 
     prologue = "#include <Python.h>\n"
@@ -644,13 +677,14 @@ def build_bridge(space):
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
     # populate static data
-    for name, (typ, expr) in GLOBALS.iteritems():
+    for obj in GLOBALS.values():
         from pypy.module import cpyext
-        w_obj = eval(expr)
-        if name.endswith('#'):
-            name = name[:-1]
+        w_obj = eval(obj.expr)
+        if obj.name.endswith('#'):
+            name = obj.name[:-1]
             isptr = False
         else:
+            name = obj.name
             isptr = True
         if name.startswith('PyExc_'):
             isptr = False
@@ -660,15 +694,15 @@ def build_bridge(space):
         name = name.replace('Py', 'PyPy')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
-            if typ == 'PyObject*':
+            if obj.type == 'PyObject*':
                 value = make_ref(space, w_obj)
-            elif typ == 'PyDateTime_CAPI*':
+            elif obj.type == 'PyDateTime_CAPI*':
                 value = w_obj
             else:
                 assert False, "Unknown static pointer: %s %s" % (typ, name)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*'):
+        elif obj.type in ('PyObject*', 'PyTypeObject*'):
             if name.startswith('PyPyExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
@@ -764,13 +798,15 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
                 body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
             functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
 
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if name.endswith('#'):
+    for obj in GLOBALS.values():
+        name = obj.name
+        type = obj.type
+        if obj.name.endswith('#'):
             name = name.replace("#", "")
-            typ = typ.replace("*", "")
+            type = type.replace("*", "")
         elif name.startswith('PyExc_'):
-            typ = 'PyObject*'
-        pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
+            type = 'PyObject*'
+        pypy_decls.append('PyAPI_DATA(%s) %s;' % (type, name))
 
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("}")
@@ -802,15 +838,15 @@ def build_eci(building_bridge, export_symbols, code):
     # Generate definitions for global structures
     struct_file = udir.join('pypy_structs.c')
     structs = ["#include <Python.h>"]
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if name.endswith('#'):
-            structs.append('%s %s;' % (typ[:-1], name[:-1]))
-        elif name.startswith('PyExc_'):
-            structs.append('extern PyTypeObject _%s;' % (name,))
-            structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
-        elif typ == 'PyDateTime_CAPI*':
-            structs.append('extern %s _%s;' % (typ[:-1], name))
-            structs.append('%s %s = &_%s;' % (typ, name, name))
+    for obj in GLOBALS.values():
+        if obj.name.endswith('#'):
+            structs.append('%s %s;' % (obj.type[:-1], obj.name[:-1]))
+        elif obj.name.startswith('PyExc_'):
+            structs.append('extern PyTypeObject _%s;' % (obj.name,))
+            structs.append('PyObject* %s = (PyObject*)&_%s;' % (obj.name, obj.name))
+        elif obj.type == 'PyDateTime_CAPI*':
+            structs.append('extern %s _%s;' % (obj.type[:-1], obj.name))
+            structs.append('%s %s = &_%s;' % (obj.type, obj.name, obj.name))
     struct_file.write('\n'.join(structs))
 
     eci = ExternalCompilationInfo(
@@ -853,20 +889,20 @@ def setup_library(space):
     run_bootstrap_functions(space)
 
     # populate static data
-    for name, (typ, expr) in GLOBALS.iteritems():
-        name = name.replace("#", "")
+    for obj in GLOBALS.values():
+        name = obj.name.replace("#", "")
         if name.startswith('PyExc_'):
             name = '_' + name
         from pypy.module import cpyext
-        w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*'):
+        w_obj = eval(obj.expr)
+        if obj.type in ('PyObject*', 'PyTypeObject*'):
             struct_ptr = make_ref(space, w_obj)
-        elif typ == 'PyDateTime_CAPI*':
+        elif obj.type == 'PyDateTime_CAPI*':
             struct_ptr = w_obj
             name = '_' + name
         else:
-            assert False, "Unknown static data: %s %s" % (typ, name)
-        struct = rffi.cast(get_structtype_for_ctype(typ), struct_ptr)._obj
+            assert False, "Unknown static data: %s %s" % (obj.type, name)
+        struct = rffi.cast(get_structtype_for_ctype(obj.type), struct_ptr)._obj
         struct._compilation_info = eci
         export_struct(name, struct)
 
