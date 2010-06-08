@@ -361,6 +361,14 @@ class BaseGlobalObject:
         type = self.get_type_for_declaration()
         return 'PyAPI_DATA(%s) %s;' % (type, self.name)
 
+    def get_data_definition(self):
+        type = self.get_type_for_declaration()
+        if not self.needs_hidden_global_structure:
+            return ['%s %s;' % (type, self.name)]
+        else:
+            return ['extern %s _%s;' % (self.type[:-1], self.name),
+                    '%s %s = (%s)&_%s;' % (type, self.name, type, self.name)]
+
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = name
@@ -373,7 +381,9 @@ class GlobalStaticPyObject(BaseGlobalObject):
     def get_type_for_declaration(self):
         return 'PyObject'
 
-    def get_struct_to_export(self, space, value):
+    def get_name_for_structnode(self):
+        return self.name
+    def get_value_for_structnode(self, space, value):
         from pypy.module.cpyext.pyobject import make_ref
         value = make_ref(space, value)
         return value._obj
@@ -397,7 +407,9 @@ class GlobalStructurePointer(BaseGlobalObject):
     def get_type_for_declaration(self):
         return self.type
 
-    def get_value_to_export(self, space, value):
+    def get_name_for_structnode(self):
+        return '_' + self.name
+    def get_value_for_structnode(self, space, value):
         from pypy.module.cpyext.datetime import PyDateTime_CAPI
         struct = rffi.cast(lltype.Ptr(PyDateTime_CAPI), value)._obj
 
@@ -420,7 +432,9 @@ class GlobalExceptionPointer(BaseGlobalObject):
     def get_type_for_declaration(self):
         return 'PyObject*'
 
-    def get_value_to_export(self, space, value):
+    def get_name_for_structnode(self):
+        return '_' + self.name
+    def get_value_for_structnode(self, space, value):
         from pypy.module.cpyext.pyobject import make_ref
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
@@ -444,7 +458,9 @@ class GlobalTypeObject(BaseGlobalObject):
     def get_type_for_declaration(self):
         return 'PyTypeObject'
 
-    def get_value_to_export(self, space, value):
+    def get_name_for_structnode(self):
+        return self.name
+    def get_value_for_structnode(self, space, value):
         from pypy.module.cpyext.pyobject import make_ref
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
@@ -863,13 +879,8 @@ def build_eci(building_bridge, export_symbols, code):
     # Generate definitions for global structures
     struct_file = udir.join('pypy_structs.c')
     structs = ["#include <Python.h>"]
-    for name, obj in GLOBALS.iteritems():
-        type = obj.get_type_for_declaration()
-        if not obj.needs_hidden_global_structure:
-            structs.append('%s %s;' % (type, name))
-        else:
-            structs.append('extern %s _%s;' % (obj.type[:-1], name))
-            structs.append('%s %s = (%s)&_%s;' % (type, name, type, name))
+    for obj in GLOBALS.values():
+        structs.extend(obj.get_data_definition())
     struct_file.write('\n'.join(structs))
 
     eci = ExternalCompilationInfo(
@@ -912,11 +923,9 @@ def setup_library(space):
     run_bootstrap_functions(space)
 
     # populate static data
-    for name, obj in GLOBALS.iteritems():
-        if obj.needs_hidden_global_structure:
-            name = '_' + name
-        value = obj.eval(space)
-        struct = obj.get_value_to_export(space, value)
+    for obj in GLOBALS.values():
+        name = obj.get_name_for_structnode()
+        struct = obj.get_value_for_structnode(space, obj.eval(space))
         struct._compilation_info = eci
         export_struct(name, struct)
 
