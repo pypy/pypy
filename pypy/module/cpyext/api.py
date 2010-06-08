@@ -707,7 +707,7 @@ def build_bridge(space):
     from pypy.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=True, do_deref=True)
+    generate_macros(export_symbols, rename=True)
 
     # Structure declaration code
     members = []
@@ -768,7 +768,7 @@ def build_bridge(space):
     setup_init_functions(eci)
     return modulename.new(ext='')
 
-def generate_macros(export_symbols, rename=True, do_deref=True):
+def generate_macros(export_symbols, rename=True):
     "NOT_RPYTHON"
     pypy_macros = []
     renamed_symbols = []
@@ -899,7 +899,7 @@ def setup_library(space):
     from pypy.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
-    generate_macros(export_symbols, rename=False, do_deref=False)
+    generate_macros(export_symbols, rename=False)
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
