@@ -1,10 +1,11 @@
 import py
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
 from pypy.jit.backend.llsupport import symbolic, support
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
 from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.codewriter import heaptracker
 
 # The point of the class organization in this file is to make instances
 # as compact as possible.  This is done by not storing the field size or
@@ -40,6 +41,10 @@ class SizeDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<SizeDescr %s>' % self.size
 
+class SizeDescrWithVTable(SizeDescr):
+    def as_vtable_size_descr(self):
+        return self
+
 BaseSizeDescr = SizeDescr
 
 def get_size_descr(gccache, STRUCT):
@@ -48,7 +53,10 @@ def get_size_descr(gccache, STRUCT):
         return cache[STRUCT]
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
-        sizedescr = SizeDescr(size)
+        if heaptracker.has_gcstruct_a_vtable(STRUCT):
+            sizedescr = SizeDescrWithVTable(size)
+        else:
+            sizedescr = SizeDescr(size)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
@@ -179,7 +187,6 @@ def get_array_descr(gccache, ARRAY):
 # CallDescrs
 
 class BaseCallDescr(AbstractDescr):
-    empty_box = BoxInt(0)
     _clsname = ''
     loop_token = None
     arg_classes = ''     # <-- annotation hack
@@ -191,35 +198,20 @@ class BaseCallDescr(AbstractDescr):
     def get_extra_info(self):
         return self.extrainfo
 
-    _returns_a_pointer = False        # unless overridden by GcPtrCallDescr
-    _returns_a_float   = False        # unless overridden by FloatCallDescr
-    _returns_a_void    = False        # unless overridden by VoidCallDescr
+    def get_arg_types(self):
+        return self.arg_classes
 
-    def returns_a_pointer(self):
-        return self._returns_a_pointer
-
-    def returns_a_float(self):
-        return self._returns_a_float
-
-    def returns_a_void(self):
-        return self._returns_a_void
+    def get_return_type(self):
+        return self._return_type
 
     def get_result_size(self, translate_support_code):
         raise NotImplementedError
 
-    def get_call_stub(self):
-        return self.call_stub
-
     def create_call_stub(self, rtyper, RESULT):
-        def process(no, c):
-            if c == 'i':
-                return 'args[%d].getint()' % (no,)
-            elif c == 'f':
-                return 'args[%d].getfloat()' % (no,)
-            elif c == 'r':
-                return 'args[%d].getref_base()' % (no,)
-            else:
-                raise Exception("Unknown type %s for type %s" % (c, TP))
+        def process(c):
+            arg = 'args_%s[%d]' % (c, seen[c])
+            seen[c] += 1
+            return arg
 
         def TYPE(arg):
             if arg == 'i':
@@ -230,21 +222,23 @@ class BaseCallDescr(AbstractDescr):
                 return llmemory.GCREF
             elif arg == 'v':
                 return lltype.Void
-            
-        args = ", ".join([process(i + 1, c) for i, c in
-                          enumerate(self.arg_classes)])
 
-        if self.returns_a_pointer():
-            result = 'history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, res))'
-        elif self.returns_a_float():
-            result = 'history.BoxFloat(res)'
-        elif self.returns_a_void():
+        seen = {'i': 0, 'r': 0, 'f': 0}
+        args = ", ".join([process(c) for c in self.arg_classes])
+
+        if self.get_return_type() == history.INT:
+            result = 'rffi.cast(lltype.Signed, res)'
+        elif self.get_return_type() == history.REF:
+            result = 'lltype.cast_opaque_ptr(llmemory.GCREF, res)'
+        elif self.get_return_type() == history.FLOAT:
+            result = 'res'
+        elif self.get_return_type() == history.VOID:
             result = 'None'
         else:
-            result = 'history.BoxInt(rffi.cast(lltype.Signed, res))'
+            assert 0
         source = py.code.Source("""
-        def call_stub(args):
-            fnptr = rffi.cast(lltype.Ptr(FUNC), args[0].getint())
+        def call_stub(func, args_i, args_r, args_f):
+            fnptr = rffi.cast(lltype.Ptr(FUNC), func)
             res = support.maybe_on_top_of_llinterp(rtyper, fnptr)(%(args)s)
             return %(result)s
         """ % locals())
@@ -255,35 +249,64 @@ class BaseCallDescr(AbstractDescr):
         exec source.compile() in d
         self.call_stub = d['call_stub']
 
+    def verify_types(self, args_i, args_r, args_f, return_type):
+        assert self._return_type == return_type
+        assert self.arg_classes.count('i') == len(args_i or ())
+        assert self.arg_classes.count('r') == len(args_r or ())
+        assert self.arg_classes.count('f') == len(args_f or ())
+
     def repr_of_descr(self):
         return '<%s>' % self._clsname
 
 
-class NonGcPtrCallDescr(BaseCallDescr):
+class BaseIntCallDescr(BaseCallDescr):
+    # Base class of the various subclasses of descrs corresponding to
+    # calls having a return kind of 'int' (including non-gc pointers).
+    # The inheritance hierarchy is a bit different than with other Descr
+    # classes because of the 'call_stub' attribute, which is of type
+    #
+    #     lambda func, args_i, args_r, args_f --> int/ref/float/void
+    #
+    # The purpose of BaseIntCallDescr is to be the parent of all classes
+    # in which 'call_stub' has a return kind of 'int'.
+    _return_type = history.INT
+    call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0)
+
+class NonGcPtrCallDescr(BaseIntCallDescr):
     _clsname = 'NonGcPtrCallDescr'
-    
     def get_result_size(self, translate_support_code):
         return symbolic.get_size_of_ptr(translate_support_code)
 
-class GcPtrCallDescr(NonGcPtrCallDescr):
-    empty_box = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+class GcPtrCallDescr(BaseCallDescr):
     _clsname = 'GcPtrCallDescr'
-    _returns_a_pointer = True
+    _return_type = history.REF
+    call_stub = staticmethod(lambda func, args_i, args_r, args_f:
+                             lltype.nullptr(llmemory.GCREF.TO))
+    def get_result_size(self, translate_support_code):
+        return symbolic.get_size_of_ptr(translate_support_code)
 
-class VoidCallDescr(NonGcPtrCallDescr):
-    empty_box = None
+class FloatCallDescr(BaseCallDescr):
+    _clsname = 'FloatCallDescr'
+    _return_type = history.FLOAT
+    call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0.0)
+    def get_result_size(self, translate_support_code):
+        return symbolic.get_size(lltype.Float, translate_support_code)
+
+class VoidCallDescr(BaseCallDescr):
     _clsname = 'VoidCallDescr'
-    _returns_a_void = True
-    
+    _return_type = history.VOID
+    call_stub = staticmethod(lambda func, args_i, args_r, args_f: None)
     def get_result_size(self, translate_support_code):
         return 0
 
 def getCallDescrClass(RESULT):
     if RESULT is lltype.Void:
         return VoidCallDescr
-    return getDescrClass(RESULT, BaseCallDescr, GcPtrCallDescr,
+    if RESULT is lltype.Float:
+        return FloatCallDescr
+    return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
-                         '_returns_a_float')
+                         Ellipsis)  # <= floatattrname should not be used here
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []
@@ -330,7 +353,6 @@ def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
         #
         if TYPE is lltype.Float:
             setattr(Descr, floatattrname, True)
-            Descr.empty_box = BoxFloat(0.0)
         #
         _cache[nameprefix, TYPE] = Descr
         return Descr

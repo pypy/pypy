@@ -1,204 +1,169 @@
 import py, os
-from pypy.rpython.lltypesystem import llmemory
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib import nonconst
 
 from pypy.jit.metainterp import history, compile, resume
-from pypy.jit.metainterp.history import Const, ConstInt, Box
+from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
+from pypy.jit.metainterp.history import Box
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp import codewriter, executor
+from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
-from pypy.jit.metainterp.jitprof import BLACKHOLED_OPS, EmptyProfiler
+from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
+from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
-from pypy.jit.metainterp.compile import GiveUp
+from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from pypy.jit.codewriter import heaptracker
 
 # ____________________________________________________________
 
-def check_args(*args):
-    for arg in args:
-        assert isinstance(arg, (Box, Const))
-
-class arguments(object):
-    def __init__(self, *argtypes):
-        self.argtypes = argtypes
-
-    def __eq__(self, other):
-        if not isinstance(other, arguments):
-            return NotImplemented
-        return self.argtypes == other.argtypes
-
-    def __ne__(self, other):
-        if not isinstance(other, arguments):
-            return NotImplemented
-        return self.argtypes != other.argtypes
-
-    def __call__(self, func):
-        argtypes = unrolling_iterable(self.argtypes)
-        def wrapped(self, orgpc):
-            args = (self, )
-            for argspec in argtypes:
-                if argspec == "box":
-                    box = self.load_arg()
-                    args += (box, )
-                elif argspec == "constbox":
-                    args += (self.load_const_arg(), )
-                elif argspec == "int":
-                    args += (self.load_int(), )
-                elif argspec == "jumptarget":
-                    args += (self.load_3byte(), )
-                elif argspec == "jumptargets":
-                    num = self.load_int()
-                    args += ([self.load_3byte() for i in range(num)], )
-                elif argspec == "varargs":
-                    args += (self.load_varargs(), )
-                elif argspec == "constargs":
-                    args += (self.load_constargs(), )
-                elif argspec == "descr":
-                    descr = self.load_const_arg()
-                    assert isinstance(descr, history.AbstractDescr)
-                    args += (descr, )
-                elif argspec == "bytecode":
-                    bytecode = self.load_const_arg()
-                    assert isinstance(bytecode, codewriter.JitCode)
-                    args += (bytecode, )
-                elif argspec == "orgpc":
-                    args += (orgpc, )
-                elif argspec == "methdescr":
-                    methdescr = self.load_const_arg()
-                    assert isinstance(methdescr,
-                                      history.AbstractMethDescr)
-                    args += (methdescr, )
-                else:
-                    assert 0, "unknown argtype declaration: %r" % (argspec,)
-            val = func(*args)
-            if val is None:
-                val = False
-            return val
-        name = func.func_name
-        wrapped.func_name = "wrap_" + name
-        wrapped.argspec = self
-        return wrapped
+def arguments(*args):
+    def decorate(func):
+        func.argtypes = args
+        return func
+    return decorate
 
 # ____________________________________________________________
 
 
 class MIFrame(object):
-    exception_box = None
-    exc_value_box = None
-    # for resume.py operation
-    parent_resumedata_snapshot = None
-    parent_resumedata_frame_info_list = None
 
-    def __init__(self, metainterp, jitcode, greenkey=None):
-        assert isinstance(jitcode, codewriter.JitCode)
+    def __init__(self, metainterp):
         self.metainterp = metainterp
+        self.registers_i = [None] * 256
+        self.registers_r = [None] * 256
+        self.registers_f = [None] * 256
+
+    def setup(self, jitcode, greenkey=None):
+        assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
-        self.constants = jitcode.constants
-        self.exception_target = -1
-        self.name = jitcode.name # purely for having name attribute
         # this is not None for frames that are recursive portal calls
         self.greenkey = greenkey
+        # copy the constants in place
+        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
+        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtr)
+        self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
+        self._result_argcode = 'v'
+        # for resume.py operation
+        self.parent_resumedata_snapshot = None
+        self.parent_resumedata_frame_info_list = None
+
+    def copy_constants(self, registers, constants, ConstClass):
+        """Copy jitcode.constants[0] to registers[255],
+                jitcode.constants[1] to registers[254],
+                jitcode.constants[2] to registers[253], etc."""
+        if nonconst.NonConstant(0):             # force the right type
+            constants[0] = ConstClass.value     # (useful for small tests)
+        i = len(constants) - 1
+        while i >= 0:
+            j = 255 - i
+            assert j >= 0
+            registers[j] = ConstClass(constants[i])
+            i -= 1
+    copy_constants._annspecialcase_ = 'specialize:arg(3)'
+
+    def cleanup_registers(self):
+        # To avoid keeping references alive, this cleans up the registers_r.
+        # It does not clear the references set by copy_constants(), but
+        # these are all prebuilt constants anyway.
+        for i in range(self.jitcode.num_regs_r()):
+            self.registers_r[i] = None
 
     # ------------------------------
     # Decoding of the JitCode
 
-    def load_int(self):
-        pc = self.pc
-        result = ord(self.bytecode[pc])
-        self.pc = pc + 1
-        if result > 0x7F:
-            result = self._load_larger_int(result)
-        return result
+    def prepare_list_of_boxes(self, outvalue, startindex, position, argcode):
+        assert argcode in 'IRF'
+        code = self.bytecode
+        length = ord(code[position])
+        position += 1
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argcode == 'I': reg = self.registers_i[index]
+            elif argcode == 'R': reg = self.registers_r[index]
+            elif argcode == 'F': reg = self.registers_f[index]
+            else: raise AssertionError(argcode)
+            outvalue[startindex+i] = reg
+    prepare_list_of_boxes._annspecialcase_ = 'specialize:arg(4)'
 
-    def _load_larger_int(self, result):    # slow path
-        result = result & 0x7F
-        shift = 7
-        pc = self.pc
-        while 1:
-            byte = ord(self.bytecode[pc])
-            pc += 1
-            result += (byte & 0x7F) << shift
-            shift += 7
-            if not byte & 0x80:
-                break
-        self.pc = pc
-        return intmask(result)
-    _load_larger_int._dont_inline_ = True
+    def get_current_position_info(self):
+        return self.jitcode.get_live_vars_info(self.pc)
 
-    def load_3byte(self):
-        pc = self.pc
-        result = (((ord(self.bytecode[pc + 0])) << 16) |
-                  ((ord(self.bytecode[pc + 1])) <<  8) |
-                  ((ord(self.bytecode[pc + 2])) <<  0))
-        self.pc = pc + 3
-        return result
+    def get_list_of_active_boxes(self, in_a_call):
+        if in_a_call:
+            # If we are not the topmost frame, self._result_argcode contains
+            # the type of the result of the call instruction in the bytecode.
+            # We use it to clear the box that will hold the result: this box
+            # is not defined yet.
+            argcode = self._result_argcode
+            index = ord(self.bytecode[self.pc - 1])
+            if   argcode == 'i': self.registers_i[index] = history.CONST_FALSE
+            elif argcode == 'r': self.registers_r[index] = history.CONST_NULL
+            elif argcode == 'f': self.registers_f[index] = history.CONST_FZERO
+            self._result_argcode = '?'     # done
+        #
+        info = self.get_current_position_info()
+        start_i = 0
+        start_r = start_i + info.get_register_count_i()
+        start_f = start_r + info.get_register_count_r()
+        total   = start_f + info.get_register_count_f()
+        # allocate a list of the correct size
+        env = [None] * total
+        make_sure_not_resized(env)
+        # fill it now
+        for i in range(info.get_register_count_i()):
+            index = info.get_register_index_i(i)
+            env[start_i + i] = self.registers_i[index]
+        for i in range(info.get_register_count_r()):
+            index = info.get_register_index_r(i)
+            env[start_r + i] = self.registers_r[index]
+        for i in range(info.get_register_count_f()):
+            index = info.get_register_index_f(i)
+            env[start_f + i] = self.registers_f[index]
+        return env
 
-    def load_bool(self):
-        pc = self.pc
-        result = ord(self.bytecode[pc])
-        self.pc = pc + 1
-        return bool(result)
-
-    def getenv(self, i):
-        assert i >= 0
-        j = i >> 1
-        if i & 1:
-            return self.constants[j]
+    def replace_active_box_in_frame(self, oldbox, newbox):
+        if isinstance(oldbox, history.BoxInt):
+            count = self.jitcode.num_regs_i()
+            registers = self.registers_i
+        elif isinstance(oldbox, history.BoxPtr):
+            count = self.jitcode.num_regs_r()
+            registers = self.registers_r
+        elif isinstance(oldbox, history.BoxFloat):
+            count = self.jitcode.num_regs_f()
+            registers = self.registers_f
         else:
-            assert j < len(self.env)
-            return self.env[j]
-
-    def load_arg(self):
-        return self.getenv(self.load_int())
-
-    def load_const_arg(self):
-        return self.constants[self.load_int()]
-
-    def load_varargs(self):
-        count = self.load_int()
-        return [self.load_arg() for i in range(count)]
-
-    def load_constargs(self):
-        count = self.load_int()
-        return [self.load_const_arg() for i in range(count)]
-
-    def ignore_varargs(self):
-        count = self.load_int()
+            assert 0, oldbox
         for i in range(count):
-            self.load_int()
+            if registers[i] is oldbox:
+                registers[i] = newbox
+        if not we_are_translated():
+            assert oldbox not in registers[count:]
 
-    def getvarenv(self, i):
-        return self.env[i]
-
-    def make_result_box(self, box):
-        assert isinstance(box, Box) or isinstance(box, Const)
-        self.env.append(box)
+    def make_result_of_lastop(self, resultbox):
+        if resultbox is None:
+            return
+        target_index = ord(self.bytecode[self.pc-1])
+        if resultbox.type == history.INT:
+            self.registers_i[target_index] = resultbox
+        elif resultbox.type == history.REF:
+            #debug_print(' ->', 
+            #            llmemory.cast_ptr_to_adr(resultbox.getref_base()))
+            self.registers_r[target_index] = resultbox
+        elif resultbox.type == history.FLOAT:
+            self.registers_f[target_index] = resultbox
+        else:
+            raise AssertionError("bad result box type")
 
     # ------------------------------
-
-    for _n in range(codewriter.MAX_MAKE_NEW_VARS):
-        _decl = ', '.join(["'box'" for _i in range(_n)])
-        _allargs = ', '.join(["box%d" % _i for _i in range(_n)])
-        exec py.code.Source("""
-            @arguments(%s)
-            def opimpl_make_new_vars_%d(self, %s):
-                if not we_are_translated():
-                    check_args(%s)
-                self.env = [%s]
-        """ % (_decl, _n, _allargs, _allargs, _allargs)).compile()
-
-    @arguments("varargs")
-    def opimpl_make_new_vars(self, newenv):
-        if not we_are_translated():
-            check_args(*newenv)
-        self.env = newenv
 
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
@@ -210,175 +175,241 @@ class MIFrame(object):
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
+                    'ptr_eq', 'ptr_ne',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
-                self.execute(rop.%s, b1, b2)
+                return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
-                self.execute(rop.%s, b1, b2)
-                return self.metainterp.handle_overflow_error()
+                self.metainterp.clear_exception()
+                resbox = self.execute(rop.%s, b1, b2)
+                self.make_result_of_lastop(resbox)  # same as execute_varargs()
+                self.metainterp.handle_possible_overflow_error()
+                return resbox
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
-                    'cast_ptr_to_int', 'cast_float_to_int',
-                    'cast_int_to_float', 'float_neg', 'float_abs',
-                    'float_is_true',
+    for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
+                    'cast_float_to_int', 'cast_int_to_float',
+                    'float_neg', 'float_abs',
                     ]:
         exec py.code.Source('''
             @arguments("box")
             def opimpl_%s(self, b):
-                self.execute(rop.%s, b)
+                return self.execute(rop.%s, b)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    @arguments()
-    def opimpl_return(self):
-        assert len(self.env) == 1
-        return self.metainterp.finishframe(self.env[0])
+    @arguments("box")
+    def opimpl_ptr_nonzero(self, box):
+        return self.execute(rop.PTR_NE, box, history.CONST_NULL)
+
+    @arguments("box")
+    def opimpl_ptr_iszero(self, box):
+        return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+
+    @arguments("box")
+    def _opimpl_any_return(self, box):
+        self.metainterp.finishframe(box)
+
+    opimpl_int_return = _opimpl_any_return
+    opimpl_ref_return = _opimpl_any_return
+    opimpl_float_return = _opimpl_any_return
 
     @arguments()
     def opimpl_void_return(self):
-        assert len(self.env) == 0
-        return self.metainterp.finishframe(None)
+        self.metainterp.finishframe(None)
 
-    @arguments("jumptarget")
+    @arguments("box")
+    def _opimpl_any_copy(self, box):
+        return box
+
+    opimpl_int_copy   = _opimpl_any_copy
+    opimpl_ref_copy   = _opimpl_any_copy
+    opimpl_float_copy = _opimpl_any_copy
+
+    @arguments("box")
+    def _opimpl_any_push(self, box):
+        self.pushed_box = box
+
+    opimpl_int_push   = _opimpl_any_push
+    opimpl_ref_push   = _opimpl_any_push
+    opimpl_float_push = _opimpl_any_push
+
+    @arguments()
+    def _opimpl_any_pop(self):
+        box = self.pushed_box
+        self.pushed_box = None
+        return box
+
+    opimpl_int_pop   = _opimpl_any_pop
+    opimpl_ref_pop   = _opimpl_any_pop
+    opimpl_float_pop = _opimpl_any_pop
+
+    @arguments("label")
+    def opimpl_catch_exception(self, target):
+        """This is a no-op when run normally.  We can check that
+        last_exc_value_box is None; it should have been set to None
+        by the previous instruction.  If the previous instruction
+        raised instead, finishframe_exception() should have been
+        called and we would not be there."""
+        assert self.metainterp.last_exc_value_box is None
+
+    @arguments("label")
     def opimpl_goto(self, target):
         self.pc = target
 
-    @arguments("orgpc", "jumptarget", "box", "varargs")
-    def opimpl_goto_if_not(self, pc, target, box, livelist):
+    @arguments("box", "label")
+    def opimpl_goto_if_not(self, box, target):
         switchcase = box.getint()
         if switchcase:
             opnum = rop.GUARD_TRUE
         else:
-            self.pc = target
             opnum = rop.GUARD_FALSE
-        self.env = livelist
-        self.generate_guard(pc, opnum, box)
-        # note about handling self.env explicitly here: it is done in
-        # such a way that the 'box' on which we generate the guard is
-        # typically not included in the livelist.
+        self.generate_guard(opnum, box)
+        if not switchcase:
+            self.pc = target
 
-    def follow_jump(self):
-        _op_goto_if_not = self.metainterp.staticdata._op_goto_if_not
-        assert ord(self.bytecode[self.pc]) == _op_goto_if_not
-        self.pc += 1          # past the bytecode for 'goto_if_not'
-        target = self.load_3byte()  # load the 'target' argument
-        self.pc = target      # jump
+    @arguments("box", "label")
+    def opimpl_goto_if_not_int_is_true(self, box, target):
+        condbox = self.execute(rop.INT_IS_TRUE, box)
+        self.opimpl_goto_if_not(condbox, target)
 
-    def ignore_next_guard_nullness(self, opnum):
-        _op_ooisnull = self.metainterp.staticdata._op_ooisnull
-        _op_oononnull = self.metainterp.staticdata._op_oononnull
-        bc = ord(self.bytecode[self.pc])
-        if bc == _op_ooisnull:
-            if opnum == rop.GUARD_ISNULL:
-                res = ConstInt(0)
-            else:
-                res = ConstInt(1)
+    @arguments("box", "label")
+    def opimpl_goto_if_not_int_is_zero(self, box, target):
+        condbox = self.execute(rop.INT_IS_ZERO, box)
+        self.opimpl_goto_if_not(condbox, target)
+
+    for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
+                    'ptr_eq', 'ptr_ne']:
+        exec py.code.Source('''
+            @arguments("box", "box", "label")
+            def opimpl_goto_if_not_%s(self, b1, b2, target):
+                condbox = self.execute(rop.%s, b1, b2)
+                self.opimpl_goto_if_not(condbox, target)
+        ''' % (_opimpl, _opimpl.upper())).compile()
+
+    @arguments("orgpc", "box", "label")
+    def opimpl_goto_if_not_ptr_nonzero(self, orgpc, box, target):
+        value = box.nonnull()
+        if value:
+            opnum = rop.GUARD_NONNULL
         else:
-            assert bc == _op_oononnull
-            if opnum == rop.GUARD_ISNULL:
-                res = ConstInt(1)
-            else:
-                res = ConstInt(0)
-        self.pc += 1    # past the bytecode for ptr_iszero/ptr_nonzero
-        self.load_int() # past the 'box' argument
-        self.make_result_box(res)
+            opnum = rop.GUARD_ISNULL
+        self.generate_guard(opnum, box, resumepc=orgpc)
+        if not value:
+            self.pc = target
 
-    def dont_follow_jump(self):
-        _op_goto_if_not = self.metainterp.staticdata._op_goto_if_not
-        assert ord(self.bytecode[self.pc]) == _op_goto_if_not
-        self.pc += 1          # past the bytecode for 'goto_if_not'
-        self.load_3byte()     # past the 'target' argument
-        self.load_int()       # past the 'box' argument
-        self.ignore_varargs() # past the 'livelist' argument
+    @arguments("orgpc", "box", "label")
+    def opimpl_goto_if_not_ptr_iszero(self, orgpc, box, target):
+        value = box.nonnull()
+        if value:
+            opnum = rop.GUARD_NONNULL
+        else:
+            opnum = rop.GUARD_ISNULL
+        self.generate_guard(opnum, box, resumepc=orgpc)
+        if value:
+            self.pc = target
 
-    @arguments("orgpc", "box", "constargs", "jumptargets")
-    def opimpl_switch(self, pc, valuebox, constargs, jumptargets):
-        box = self.implement_guard_value(pc, valuebox)
-        for i in range(len(constargs)):
-            casebox = constargs[i]
-            if box.same_constant(casebox):
-                self.pc = jumptargets[i]
-                break
-
-    @arguments("orgpc", "box", "constbox")
-    def opimpl_switch_dict(self, pc, valuebox, switchdict):
-        box = self.implement_guard_value(pc, valuebox)
+    @arguments("box", "descr", "orgpc")
+    def opimpl_switch(self, valuebox, switchdict, orgpc):
+        box = self.implement_guard_value(orgpc, valuebox)
         search_value = box.getint()
-        assert isinstance(switchdict, codewriter.SwitchDict)
+        assert isinstance(switchdict, SwitchDictDescr)
         try:
             self.pc = switchdict.dict[search_value]
         except KeyError:
             pass
 
+    @arguments()
+    def opimpl_unreachable(self):
+        raise AssertionError("unreachable")
+
     @arguments("descr")
-    def opimpl_new(self, size):
-        self.execute_with_descr(rop.NEW, descr=size)
+    def opimpl_new(self, sizedescr):
+        return self.execute_with_descr(rop.NEW, sizedescr)
 
-    @arguments("constbox")
-    def opimpl_new_with_vtable(self, vtablebox):
-        self.execute(rop.NEW_WITH_VTABLE, vtablebox)
+    @arguments("descr")
+    def opimpl_new_with_vtable(self, sizedescr):
+        cpu = self.metainterp.cpu
+        cls = heaptracker.descr2vtable(cpu, sizedescr)
+        return self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
 
-    @arguments("box")
-    def opimpl_runtimenew(self, classbox):
-        self.execute(rop.RUNTIMENEW, classbox)
+##    @FixME  #arguments("box")
+##    def opimpl_runtimenew(self, classbox):
+##        self.execute(rop.RUNTIMENEW, classbox)
 
-    @arguments("orgpc", "box", "descr")
-    def opimpl_instanceof(self, pc, objbox, typedescr):
-        clsbox = self.cls_of_box(objbox)
-        if isinstance(objbox, Box):
-            self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
-        self.execute_with_descr(rop.INSTANCEOF, typedescr, objbox)
+##    @FixME  #arguments("orgpc", "box", "descr")
+##    def opimpl_instanceof(self, pc, objbox, typedescr):
+##        clsbox = self.cls_of_box(objbox)
+##        if isinstance(objbox, Box):
+##            self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
+##        self.execute_with_descr(rop.INSTANCEOF, typedescr, objbox)
 
-    @arguments("box", "box")
-    def opimpl_subclassof(self, box1, box2):
-        self.execute(rop.SUBCLASSOF, box1, box2)
+##    @FixME  #arguments("box", "box")
+##    def opimpl_subclassof(self, box1, box2):
+##        self.execute(rop.SUBCLASSOF, box1, box2)
 
     @arguments("descr", "box")
-    def opimpl_new_array(self, itemsize, countbox):
-        self.execute_with_descr(rop.NEW_ARRAY, itemsize, countbox)
+    def opimpl_new_array(self, itemsizedescr, countbox):
+        return self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
 
     @arguments("box", "descr", "box")
-    def opimpl_getarrayitem_gc(self, arraybox, arraydesc, indexbox):
-        self.execute_with_descr(rop.GETARRAYITEM_GC, arraydesc, arraybox, indexbox)
+    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+        return self.execute_with_descr(rop.GETARRAYITEM_GC,
+                                       arraydescr, arraybox, indexbox)
+
+    opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
+    opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
+    opimpl_getarrayitem_gc_f = _opimpl_getarrayitem_gc_any
 
     @arguments("box", "descr", "box")
-    def opimpl_getarrayitem_gc_pure(self, arraybox, arraydesc, indexbox):
-        self.execute_with_descr(rop.GETARRAYITEM_GC_PURE, arraydesc, arraybox, indexbox)
+    def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
+        return self.execute_with_descr(rop.GETARRAYITEM_GC_PURE,
+                                       arraydescr, arraybox, indexbox)
+
+    opimpl_getarrayitem_gc_pure_i = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_pure_r = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_pure_f = _opimpl_getarrayitem_gc_pure_any
 
     @arguments("box", "descr", "box", "box")
-    def opimpl_setarrayitem_gc(self, arraybox, arraydesc, indexbox, itembox):
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydesc, arraybox, indexbox, itembox)
+    def _opimpl_setarrayitem_gc_any(self, arraybox, arraydescr,
+                                    indexbox, itembox):
+        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
+                                indexbox, itembox)
+
+    opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
+    opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
+    opimpl_setarrayitem_gc_f = _opimpl_setarrayitem_gc_any
 
     @arguments("box", "descr")
-    def opimpl_arraylen_gc(self, arraybox, arraydesc):
-        self.execute_with_descr(rop.ARRAYLEN_GC, arraydesc, arraybox)
+    def opimpl_arraylen_gc(self, arraybox, arraydescr):
+        return self.execute_with_descr(rop.ARRAYLEN_GC, arraydescr, arraybox)
 
     @arguments("descr", "box", "box", "box", "box", "box", "box", "descr")
     def opimpl_arraycopy(self, calldescr, fnptr, sourcebox, destbox,
-                         source_startbox, dest_startbox, lengthbox, arraydescr):
+                         source_startbox, dest_startbox, lengthbox,
+                         arraydescr):
         self.execute_with_descr(rop.ARRAYCOPY, arraydescr, calldescr, fnptr,
                                 sourcebox, destbox, source_startbox,
                                 dest_startbox, lengthbox)
 
     @arguments("orgpc", "box", "descr", "box")
-    def opimpl_check_neg_index(self, pc, arraybox, arraydesc, indexbox):
+    def opimpl_check_neg_index(self, orgpc, arraybox, arraydescr, indexbox):
         negbox = self.metainterp.execute_and_record(
-            rop.INT_LT, None, indexbox, ConstInt(0))
-        negbox = self.implement_guard_value(pc, negbox)
+            rop.INT_LT, None, indexbox, history.CONST_FALSE)
+        negbox = self.implement_guard_value(orgpc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
             lenbox = self.metainterp.execute_and_record(
-                rop.ARRAYLEN_GC, arraydesc, arraybox)
+                rop.ARRAYLEN_GC, arraydescr, arraybox)
             indexbox = self.metainterp.execute_and_record(
                 rop.INT_ADD, None, indexbox, lenbox)
-        self.make_result_box(indexbox)
+        return indexbox
 
     @arguments("descr", "descr", "descr", "descr", "box")
     def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
@@ -390,131 +421,87 @@ class MIFrame(object):
                                                   sizebox)
         self.metainterp.execute_and_record(rop.SETFIELD_GC, itemsdescr,
                                            sbox, abox)
-        self.make_result_box(sbox)
+        return sbox
 
     @arguments("box", "descr", "descr", "box")
-    def opimpl_getlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox):
+    def _opimpl_getlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
+                                   indexbox):
         arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
                                                       itemsdescr, listbox)
-        self.execute_with_descr(rop.GETARRAYITEM_GC, arraydescr, arraybox, indexbox)
+        return self.execute_with_descr(rop.GETARRAYITEM_GC,
+                                       arraydescr, arraybox, indexbox)
+
+    opimpl_getlistitem_gc_i = _opimpl_getlistitem_gc_any
+    opimpl_getlistitem_gc_r = _opimpl_getlistitem_gc_any
+    opimpl_getlistitem_gc_f = _opimpl_getlistitem_gc_any
 
     @arguments("box", "descr", "descr", "box", "box")
-    def opimpl_setlistitem_gc(self, listbox, itemsdescr, arraydescr, indexbox,
-                              valuebox):
+    def _opimpl_setlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
+                                   indexbox, valuebox):
         arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
                                                       itemsdescr, listbox)
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox, indexbox, valuebox)
+        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
+                                indexbox, valuebox)
+
+    opimpl_setlistitem_gc_i = _opimpl_setlistitem_gc_any
+    opimpl_setlistitem_gc_r = _opimpl_setlistitem_gc_any
+    opimpl_setlistitem_gc_f = _opimpl_setlistitem_gc_any
 
     @arguments("orgpc", "box", "descr", "box")
-    def opimpl_check_resizable_neg_index(self, pc, listbox, lengthdesc,
+    def opimpl_check_resizable_neg_index(self, orgpc, listbox, lengthdescr,
                                          indexbox):
         negbox = self.metainterp.execute_and_record(
-            rop.INT_LT, None, indexbox, ConstInt(0))
-        negbox = self.implement_guard_value(pc, negbox)
+            rop.INT_LT, None, indexbox, history.CONST_FALSE)
+        negbox = self.implement_guard_value(orgpc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
             lenbox = self.metainterp.execute_and_record(
-                rop.GETFIELD_GC, lengthdesc, listbox)
+                rop.GETFIELD_GC, lengthdescr, listbox)
             indexbox = self.metainterp.execute_and_record(
                 rop.INT_ADD, None, indexbox, lenbox)
-        self.make_result_box(indexbox)
-
-    @arguments("orgpc", "box")
-    def opimpl_check_zerodivisionerror(self, pc, box):
-        nonzerobox = self.metainterp.execute_and_record(
-            rop.INT_NE, None, box, ConstInt(0))
-        nonzerobox = self.implement_guard_value(pc, nonzerobox)
-        if nonzerobox.getint():
-            return False
-        else:
-            # division by zero!
-            return self.metainterp.raise_zero_division_error()
-
-    @arguments("orgpc", "box", "box")
-    def opimpl_check_div_overflow(self, pc, box1, box2):
-        # detect the combination "box1 = -sys.maxint-1, box2 = -1".
-        import sys
-        tmp1 = self.metainterp.execute_and_record(    # combination to detect:
-            rop.INT_ADD, None, box1, ConstInt(sys.maxint))    # tmp1=-1, box2=-1
-        tmp2 = self.metainterp.execute_and_record(
-            rop.INT_AND, None, tmp1, box2)                    # tmp2=-1
-        tmp3 = self.metainterp.execute_and_record(
-            rop.INT_EQ, None, tmp2, ConstInt(-1))             # tmp3?
-        tmp4 = self.implement_guard_value(pc, tmp3)       # tmp4?
-        if not tmp4.getint():
-            return False
-        else:
-            # division overflow!
-            return self.metainterp.raise_overflow_error()
-
-    @arguments()
-    def opimpl_overflow_error(self):
-        return self.metainterp.raise_overflow_error()
-
-    @arguments("orgpc", "box")
-    def opimpl_int_abs(self, pc, box):
-        nonneg = self.metainterp.execute_and_record(
-            rop.INT_GE, None, box, ConstInt(0))
-        nonneg = self.implement_guard_value(pc, nonneg)
-        if nonneg.getint():
-            self.make_result_box(box)
-        else:
-            self.execute(rop.INT_NEG, box)
-
-    @arguments("orgpc", "box")
-    def opimpl_oononnull(self, pc, box):
-        value = box.nonnull()
-        if value:
-            opnum = rop.GUARD_NONNULL
-            res = ConstInt(1)
-        else:
-            opnum = rop.GUARD_ISNULL
-            res = ConstInt(0)
-        self.generate_guard(pc, opnum, box, [])
-        self.make_result_box(res)
-
-    @arguments("orgpc", "box")
-    def opimpl_ooisnull(self, pc, box):
-        value = box.nonnull()
-        if value:
-            opnum = rop.GUARD_NONNULL
-            res = ConstInt(0)
-        else:
-            opnum = rop.GUARD_ISNULL
-            res = ConstInt(1)
-        self.generate_guard(pc, opnum, box, [])
-        self.make_result_box(res)
-
-    @arguments("box", "box")
-    def opimpl_ptr_eq(self, box1, box2):
-        self.execute(rop.OOIS, box1, box2)
-
-    @arguments("box", "box")
-    def opimpl_ptr_ne(self, box1, box2):
-        self.execute(rop.OOISNOT, box1, box2)
-
-    opimpl_oois = opimpl_ptr_eq
-    opimpl_ooisnot = opimpl_ptr_ne
+        return indexbox
 
     @arguments("box", "descr")
-    def opimpl_getfield_gc(self, box, fielddesc):
-        self.execute_with_descr(rop.GETFIELD_GC, fielddesc, box)
+    def _opimpl_getfield_gc_any(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+    opimpl_getfield_gc_i = _opimpl_getfield_gc_any
+    opimpl_getfield_gc_r = _opimpl_getfield_gc_any
+    opimpl_getfield_gc_f = _opimpl_getfield_gc_any
+
     @arguments("box", "descr")
-    def opimpl_getfield_gc_pure(self, box, fielddesc):
-        self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddesc, box)
+    def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddescr, box)
+    opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
+    opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
+    opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
+
     @arguments("box", "descr", "box")
-    def opimpl_setfield_gc(self, box, fielddesc, valuebox):
-        self.execute_with_descr(rop.SETFIELD_GC, fielddesc, box, valuebox)
+    def _opimpl_setfield_gc_any(self, box, fielddescr, valuebox):
+        self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+    opimpl_setfield_gc_i = _opimpl_setfield_gc_any
+    opimpl_setfield_gc_r = _opimpl_setfield_gc_any
+    opimpl_setfield_gc_f = _opimpl_setfield_gc_any
 
     @arguments("box", "descr")
-    def opimpl_getfield_raw(self, box, fielddesc):
-        self.execute_with_descr(rop.GETFIELD_RAW, fielddesc, box)
+    def _opimpl_getfield_raw_any(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW, fielddescr, box)
+    opimpl_getfield_raw_i = _opimpl_getfield_raw_any
+    opimpl_getfield_raw_r = _opimpl_getfield_raw_any
+    opimpl_getfield_raw_f = _opimpl_getfield_raw_any
+
     @arguments("box", "descr")
-    def opimpl_getfield_raw_pure(self, box, fielddesc):
-        self.execute_with_descr(rop.GETFIELD_RAW_PURE, fielddesc, box)
+    def _opimpl_getfield_raw_pure_any(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_PURE, fielddescr, box)
+    opimpl_getfield_raw_i_pure = _opimpl_getfield_raw_pure_any
+    opimpl_getfield_raw_r_pure = _opimpl_getfield_raw_pure_any
+    opimpl_getfield_raw_f_pure = _opimpl_getfield_raw_pure_any
+
     @arguments("box", "descr", "box")
-    def opimpl_setfield_raw(self, box, fielddesc, valuebox):
-        self.execute_with_descr(rop.SETFIELD_RAW, fielddesc, box, valuebox)
+    def _opimpl_setfield_raw_any(self, box, fielddescr, valuebox):
+        self.execute_with_descr(rop.SETFIELD_RAW, fielddescr, box, valuebox)
+    opimpl_setfield_raw_i = _opimpl_setfield_raw_any
+    opimpl_setfield_raw_r = _opimpl_setfield_raw_any
+    opimpl_setfield_raw_f = _opimpl_setfield_raw_any
 
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable
@@ -522,7 +509,7 @@ class MIFrame(object):
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is box:
             return False
-        eqbox = self.metainterp.execute_and_record(rop.OOIS, None,
+        eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
                                                    box, standard_box)
         eqbox = self.implement_guard_value(pc, eqbox)
         isstandard = eqbox.getint()
@@ -530,9 +517,9 @@ class MIFrame(object):
             self.metainterp.replace_box(box, standard_box)
         return not isstandard
 
-    def _get_virtualizable_field_descr(self, index):
+    def _get_virtualizable_field_index(self, fielddescr):
         vinfo = self.metainterp.staticdata.virtualizable_info
-        return vinfo.static_field_descrs[index]
+        return vinfo.static_field_by_descrs[fielddescr]
 
     def _get_virtualizable_array_field_descr(self, index):
         vinfo = self.metainterp.staticdata.virtualizable_info
@@ -542,328 +529,271 @@ class MIFrame(object):
         vinfo = self.metainterp.staticdata.virtualizable_info
         return vinfo.array_descrs[index]
 
-    @arguments("orgpc", "box", "int")
-    def opimpl_getfield_vable(self, pc, basebox, index):
-        if self._nonstandard_virtualizable(pc, basebox):
-            self.execute_with_descr(rop.GETFIELD_GC, self._get_virtualizable_field_descr(index), basebox)
-            return
+    @arguments("orgpc", "box", "descr")
+    def _opimpl_getfield_vable(self, pc, box, fielddescr):
+        if self._nonstandard_virtualizable(pc, box):
+            return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
         self.metainterp.check_synchronized_virtualizable()
-        resbox = self.metainterp.virtualizable_boxes[index]
-        self.make_result_box(resbox)
-    @arguments("orgpc", "box", "int", "box")
-    def opimpl_setfield_vable(self, pc, basebox, index, valuebox):
-        if self._nonstandard_virtualizable(pc, basebox):
-            self.execute_with_descr(rop.SETFIELD_GC, self._get_virtualizable_field_descr(index), basebox, valuebox)
+        index = self._get_virtualizable_field_index(fielddescr)
+        return self.metainterp.virtualizable_boxes[index]
+
+    opimpl_getfield_vable_i = _opimpl_getfield_vable
+    opimpl_getfield_vable_r = _opimpl_getfield_vable
+    opimpl_getfield_vable_f = _opimpl_getfield_vable
+
+    @arguments("orgpc", "box", "descr", "box")
+    def _opimpl_setfield_vable(self, pc, box, fielddescr, valuebox):
+        if self._nonstandard_virtualizable(pc, box):
+            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
             return
+        index = self._get_virtualizable_field_index(fielddescr)
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
 
-    def _get_arrayitem_vable_index(self, pc, arrayindex, indexbox):
+    opimpl_setfield_vable_i = _opimpl_setfield_vable
+    opimpl_setfield_vable_r = _opimpl_setfield_vable
+    opimpl_setfield_vable_f = _opimpl_setfield_vable
+
+    def _get_arrayitem_vable_index(self, pc, arrayfielddescr, indexbox):
         indexbox = self.implement_guard_value(pc, indexbox)
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+        arrayindex = vinfo.array_field_by_descrs[arrayfielddescr]
         index = indexbox.getint()
         if index < 0:
             index += vinfo.get_array_length(virtualizable, arrayindex)
         assert 0 <= index < vinfo.get_array_length(virtualizable, arrayindex)
         return vinfo.get_index_in_array(virtualizable, arrayindex, index)
 
-    @arguments("orgpc", "box", "int", "box")
-    def opimpl_getarrayitem_vable(self, pc, basebox, arrayindex, indexbox):
-        if self._nonstandard_virtualizable(pc, basebox):
-            descr = self._get_virtualizable_array_field_descr(arrayindex)
+    @arguments("orgpc", "box", "descr", "descr", "box")
+    def _opimpl_getarrayitem_vable(self, pc, box, fdescr, adescr, indexbox):
+        if self._nonstandard_virtualizable(pc, box):
             arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          descr, basebox)
-            descr = self._get_virtualizable_array_descr(arrayindex)
-            self.execute_with_descr(rop.GETARRAYITEM_GC, descr,
-                                    arraybox, indexbox)
-            return
+                                                          fdescr, box)
+            return self.execute_with_descr(rop.GETARRAYITEM_GC, adescr,
+                                           arraybox, indexbox)
         self.metainterp.check_synchronized_virtualizable()
-        index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
-        resbox = self.metainterp.virtualizable_boxes[index]
-        self.make_result_box(resbox)
-    @arguments("orgpc", "box", "int", "box", "box")
-    def opimpl_setarrayitem_vable(self, pc, basebox, arrayindex, indexbox,
+        index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
+        return self.metainterp.virtualizable_boxes[index]
+
+    opimpl_getarrayitem_vable_i = _opimpl_getarrayitem_vable
+    opimpl_getarrayitem_vable_r = _opimpl_getarrayitem_vable
+    opimpl_getarrayitem_vable_f = _opimpl_getarrayitem_vable
+
+    @arguments("orgpc", "box", "descr", "descr", "box", "box")
+    def _opimpl_setarrayitem_vable(self, pc, box, fdescr, adescr, indexbox,
                                   valuebox):
-        if self._nonstandard_virtualizable(pc, basebox):
-            descr = self._get_virtualizable_array_field_descr(arrayindex)
+        if self._nonstandard_virtualizable(pc, box):
             arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          descr, basebox)
-            descr = self._get_virtualizable_array_descr(arrayindex)
-            self.execute_with_descr(rop.SETARRAYITEM_GC, descr,
+                                                          fdescr, box)
+            self.execute_with_descr(rop.SETARRAYITEM_GC, adescr,
                                     arraybox, indexbox, valuebox)
             return
-        index = self._get_arrayitem_vable_index(pc, arrayindex, indexbox)
+        index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
         # XXX only the index'th field needs to be synchronized, really
-    @arguments("orgpc", "box", "int")
-    def opimpl_arraylen_vable(self, pc, basebox, arrayindex):
-        if self._nonstandard_virtualizable(pc, basebox):
-            descr = self._get_virtualizable_array_field_descr(arrayindex)
+
+    opimpl_setarrayitem_vable_i = _opimpl_setarrayitem_vable
+    opimpl_setarrayitem_vable_r = _opimpl_setarrayitem_vable
+    opimpl_setarrayitem_vable_f = _opimpl_setarrayitem_vable
+
+    @arguments("orgpc", "box", "descr", "descr")
+    def opimpl_arraylen_vable(self, pc, box, fdescr, adescr):
+        if self._nonstandard_virtualizable(pc, box):
             arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          descr, basebox)
-            descr = self._get_virtualizable_array_descr(arrayindex)
-            self.execute_with_descr(rop.ARRAYLEN_GC, descr, arraybox)
-            return
+                                                          fdescr, box)
+            return self.execute_with_descr(rop.ARRAYLEN_GC, adescr, arraybox)
         vinfo = self.metainterp.staticdata.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+        arrayindex = vinfo.array_field_by_descrs[fdescr]
         result = vinfo.get_array_length(virtualizable, arrayindex)
-        self.make_result_box(ConstInt(result))
+        return ConstInt(result)
 
-    def perform_call(self, jitcode, varargs, greenkey=None):
-        if (self.metainterp.is_blackholing() and
-            jitcode.calldescr is not None):
-            # when producing only a BlackHole, we can implement this by
-            # calling the subfunction directly instead of interpreting it
-            if jitcode.cfnptr is not None:
-                # for non-oosends
-                varargs = [jitcode.cfnptr] + varargs
-                res = self.execute_varargs(rop.CALL, varargs,
-                                             descr=jitcode.calldescr, exc=True)
-            else:
-                # for oosends (ootype only): calldescr is a MethDescr
-                res = self.execute_varargs(rop.OOSEND, varargs,
-                                             descr=jitcode.calldescr, exc=True)
-            self.metainterp.load_fields_from_virtualizable()
-            return res
-        else:
-            # when tracing, this bytecode causes the subfunction to be entered
-            f = self.metainterp.newframe(jitcode, greenkey)
-            f.setup_call(varargs)
-            return True
+    @arguments("jitcode", "boxes")
+    def _opimpl_inline_call1(self, jitcode, argboxes):
+        return self.metainterp.perform_call(jitcode, argboxes)
+    @arguments("jitcode", "boxes2")
+    def _opimpl_inline_call2(self, jitcode, argboxes):
+        return self.metainterp.perform_call(jitcode, argboxes)
+    @arguments("jitcode", "boxes3")
+    def _opimpl_inline_call3(self, jitcode, argboxes):
+        return self.metainterp.perform_call(jitcode, argboxes)
 
-    @arguments("bytecode", "varargs")
-    def opimpl_call(self, callee, varargs):
-        return self.perform_call(callee, varargs)
+    opimpl_inline_call_r_i = _opimpl_inline_call1
+    opimpl_inline_call_r_r = _opimpl_inline_call1
+    opimpl_inline_call_r_v = _opimpl_inline_call1
+    opimpl_inline_call_ir_i = _opimpl_inline_call2
+    opimpl_inline_call_ir_r = _opimpl_inline_call2
+    opimpl_inline_call_ir_v = _opimpl_inline_call2
+    opimpl_inline_call_irf_i = _opimpl_inline_call3
+    opimpl_inline_call_irf_r = _opimpl_inline_call3
+    opimpl_inline_call_irf_f = _opimpl_inline_call3
+    opimpl_inline_call_irf_v = _opimpl_inline_call3
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_call(self, calldescr, varargs):
-        return self.do_residual_call(varargs, descr=calldescr, exc=True)
+    @arguments("box", "descr", "boxes")
+    def _opimpl_residual_call1(self, funcbox, calldescr, argboxes):
+        return self.do_residual_or_indirect_call(funcbox, calldescr, argboxes)
+    @arguments("box", "descr", "boxes2")
+    def _opimpl_residual_call2(self, funcbox, calldescr, argboxes):
+        return self.do_residual_or_indirect_call(funcbox, calldescr, argboxes)
+    @arguments("box", "descr", "boxes3")
+    def _opimpl_residual_call3(self, funcbox, calldescr, argboxes):
+        return self.do_residual_or_indirect_call(funcbox, calldescr, argboxes)
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_call_loopinvariant(self, calldescr, varargs):
-        return self.execute_varargs(rop.CALL_LOOPINVARIANT, varargs, calldescr, exc=True)
-        
-    @arguments("orgpc", "descr", "varargs")
-    def opimpl_recursive_call(self, pc, calldescr, varargs):
-        warmrunnerstate = self.metainterp.staticdata.state
+    opimpl_residual_call_r_i = _opimpl_residual_call1
+    opimpl_residual_call_r_r = _opimpl_residual_call1
+    opimpl_residual_call_r_v = _opimpl_residual_call1
+    opimpl_residual_call_ir_i = _opimpl_residual_call2
+    opimpl_residual_call_ir_r = _opimpl_residual_call2
+    opimpl_residual_call_ir_v = _opimpl_residual_call2
+    opimpl_residual_call_irf_i = _opimpl_residual_call3
+    opimpl_residual_call_irf_r = _opimpl_residual_call3
+    opimpl_residual_call_irf_f = _opimpl_residual_call3
+    opimpl_residual_call_irf_v = _opimpl_residual_call3
+
+    @arguments("boxes3", "boxes3")
+    def _opimpl_recursive_call(self, greenboxes, redboxes):
+        allboxes = greenboxes + redboxes
+        metainterp_sd = self.metainterp.staticdata
+        portal_code = metainterp_sd.portal_code
+        warmrunnerstate = metainterp_sd.state
         token = None
-        if not self.metainterp.is_blackholing() and warmrunnerstate.inlining:
-            num_green_args = self.metainterp.staticdata.num_green_args
-            portal_code = self.metainterp.staticdata.portal_code
-            greenkey = varargs[1:num_green_args + 1]
-            if warmrunnerstate.can_inline_callable(greenkey):
-                return self.perform_call(portal_code, varargs[1:], greenkey)
-            token = warmrunnerstate.get_assembler_token(greenkey)
-        call_position = 0
-        if token is not None:
-            call_position = len(self.metainterp.history.operations)
+        if warmrunnerstate.inlining:
+            if warmrunnerstate.can_inline_callable(greenboxes):
+                return self.metainterp.perform_call(portal_code, allboxes,
+                                                    greenkey=greenboxes)
+            token = warmrunnerstate.get_assembler_token(greenboxes)
             # verify that we have all green args, needed to make sure
             # that assembler that we call is still correct
-            greenargs = varargs[1:num_green_args + 1]
-            self.verify_green_args(greenargs)
-        res = self.do_residual_call(varargs, descr=calldescr, exc=True)
-        if not self.metainterp.is_blackholing() and token is not None:
-            # XXX fix the call position, <UGLY!>
-            found = False
-            while True:
-                op = self.metainterp.history.operations[call_position]
-                if op.opnum == rop.CALL or op.opnum == rop.CALL_MAY_FORCE:
-                    found = True
-                    break
-                call_position += 1
-            assert found
-            # </UGLY!>
-            # this will substitute the residual call with assembler call
-            self.metainterp.direct_assembler_call(pc, varargs, token,
-                                                  call_position)
-        return res
+            self.verify_green_args(greenboxes)
+        #
+        k = llmemory.cast_ptr_to_adr(metainterp_sd._portal_runner_ptr)
+        funcbox = ConstInt(heaptracker.adr2int(k))
+        return self.do_residual_call(funcbox, portal_code.calldescr,
+                                     allboxes, assembler_call_token=token)
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_call_noexception(self, calldescr, varargs):
-        self.do_residual_call(varargs, descr=calldescr, exc=False)
+    opimpl_recursive_call_i = _opimpl_recursive_call
+    opimpl_recursive_call_r = _opimpl_recursive_call
+    opimpl_recursive_call_f = _opimpl_recursive_call
+    opimpl_recursive_call_v = _opimpl_recursive_call
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_call_pure(self, calldescr, varargs):
-        self.execute_varargs(rop.CALL_PURE, varargs, descr=calldescr, exc=False)
-
-    @arguments("orgpc", "descr", "box", "varargs")
-    def opimpl_indirect_call(self, pc, calldescr, box, varargs):
-        box = self.implement_guard_value(pc, box)
-        cpu = self.metainterp.cpu
-        key = cpu.ts.getaddr_for_box(cpu, box)
-        jitcode = self.metainterp.staticdata.bytecode_for_address(key)
-        if jitcode is not None:
-            # we should follow calls to this graph
-            return self.perform_call(jitcode, varargs)
-        else:
-            # but we should not follow calls to that graph
-            return self.do_residual_call([box] + varargs,
-                                         descr=calldescr, exc=True)
-
-    @arguments("orgpc", "methdescr", "varargs")
-    def opimpl_oosend(self, pc, methdescr, varargs):
-        objbox = varargs[0]
-        clsbox = self.cls_of_box(objbox)
-        if isinstance(objbox, Box):
-            self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
-        oocls = clsbox.getref(ootype.Class)
-        jitcode = methdescr.get_jitcode_for_class(oocls)
-        if jitcode is not None:
-            # we should follow calls to this graph
-            return self.perform_call(jitcode, varargs)
-        else:
-            # but we should not follow calls to that graph
-            return self.execute_varargs(rop.OOSEND, varargs,
-                                        descr=methdescr, exc=True)
+##    @FixME  #arguments("orgpc", "methdescr", "varargs")
+##    def opimpl_oosend(self, pc, methdescr, varargs):
+##        objbox = varargs[0]
+##        clsbox = self.cls_of_box(objbox)
+##        if isinstance(objbox, Box):
+##            self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
+##        oocls = clsbox.getref(ootype.Class)
+##        jitcode = methdescr.get_jitcode_for_class(oocls)
+##        if jitcode is not None:
+##            # we should follow calls to this graph
+##            return self.perform_call(jitcode, varargs)
+##        else:
+##            # but we should not follow calls to that graph
+##            return self.execute_varargs(rop.OOSEND, varargs,
+##                                        descr=methdescr, exc=True)
 
     @arguments("box")
-    def opimpl_strlen(self, str):
-        self.execute(rop.STRLEN, str)
+    def opimpl_strlen(self, strbox):
+        return self.execute(rop.STRLEN, strbox)
 
     @arguments("box")
-    def opimpl_unicodelen(self, str):
-        self.execute(rop.UNICODELEN, str)
+    def opimpl_unicodelen(self, unicodebox):
+        return self.execute(rop.UNICODELEN, unicodebox)
 
     @arguments("box", "box")
-    def opimpl_strgetitem(self, str, index):
-        self.execute(rop.STRGETITEM, str, index)
+    def opimpl_strgetitem(self, strbox, indexbox):
+        return self.execute(rop.STRGETITEM, strbox, indexbox)
 
     @arguments("box", "box")
-    def opimpl_unicodegetitem(self, str, index):
-        self.execute(rop.UNICODEGETITEM, str, index)
+    def opimpl_unicodegetitem(self, unicodebox, indexbox):
+        return self.execute(rop.UNICODEGETITEM, unicodebox, indexbox)
 
     @arguments("box", "box", "box")
-    def opimpl_strsetitem(self, str, index, newchar):
-        self.execute(rop.STRSETITEM, str, index, newchar)
+    def opimpl_strsetitem(self, strbox, indexbox, newcharbox):
+        return self.execute(rop.STRSETITEM, strbox, indexbox, newcharbox)
 
     @arguments("box", "box", "box")
-    def opimpl_unicodesetitem(self, str, index, newchar):
-        self.execute(rop.UNICODESETITEM, str, index, newchar)
+    def opimpl_unicodesetitem(self, unicodebox, indexbox, newcharbox):
+        self.execute(rop.UNICODESETITEM, unicodebox, indexbox, newcharbox)
 
     @arguments("box")
-    def opimpl_newstr(self, length):
-        self.execute(rop.NEWSTR, length)
+    def opimpl_newstr(self, lengthbox):
+        return self.execute(rop.NEWSTR, lengthbox)
 
     @arguments("box")
-    def opimpl_newunicode(self, length):
-        self.execute(rop.NEWUNICODE, length)
+    def opimpl_newunicode(self, lengthbox):
+        return self.execute(rop.NEWUNICODE, lengthbox)
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_oosend_canraise(self, methdescr, varargs):
-        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr, exc=True)
+##    @FixME  #arguments("descr", "varargs")
+##    def opimpl_residual_oosend_canraise(self, methdescr, varargs):
+##        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr,
+##                                    exc=True)
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_oosend_noraise(self, methdescr, varargs):
-        self.execute_varargs(rop.OOSEND, varargs, descr=methdescr, exc=False)
+##    @FixME  #arguments("descr", "varargs")
+##    def opimpl_residual_oosend_noraise(self, methdescr, varargs):
+##        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr,
+##                                    exc=False)
 
-    @arguments("descr", "varargs")
-    def opimpl_residual_oosend_pure(self, methdescr, boxes):
-        self.execute_varargs(rop.OOSEND_PURE, boxes, descr=methdescr, exc=False)
+##    @FixME  #arguments("descr", "varargs")
+##    def opimpl_residual_oosend_pure(self, methdescr, boxes):
+##        return self.execute_varargs(rop.OOSEND_PURE, boxes, descr=methdescr,
+##                                    exc=False)
 
-    @arguments("orgpc", "box")
-    def opimpl_guard_value(self, pc, box):
-        constbox = self.implement_guard_value(pc, box)
-        self.make_result_box(constbox)
+    @arguments("orgpc", "box",)
+    def _opimpl_guard_value(self, orgpc, box):
+        self.implement_guard_value(orgpc, box)
 
-    @arguments("orgpc", "int")
-    def opimpl_guard_green(self, pc, boxindex):
-        """Like guard_value, but overwrites the original box with the const.
-        Used to prevent Boxes from showing up in the greenkey of some
-        operations, like jit_merge_point.  The in-place overwriting is
-        convenient for jit_merge_point, which expects self.env to contain
-        not more than the greens+reds described in the jitdriver."""
-        box = self.env[boxindex]
-        constbox = self.implement_guard_value(pc, box)
-        self.env[boxindex] = constbox
+    opimpl_int_guard_value = _opimpl_guard_value
+    opimpl_ref_guard_value = _opimpl_guard_value
+    opimpl_float_guard_value = _opimpl_guard_value
 
     @arguments("orgpc", "box")
-    def opimpl_guard_class(self, pc, box):
+    def opimpl_guard_class(self, orgpc, box):
         clsbox = self.cls_of_box(box)
-        if isinstance(box, Box):
-            self.generate_guard(pc, rop.GUARD_CLASS, box, [clsbox])
-        self.make_result_box(clsbox)
-
-##    @arguments("orgpc", "box", "builtin")
-##    def opimpl_guard_builtin(self, pc, box, builtin):
-##        self.generate_guard(pc, "guard_builtin", box, [builtin])
-
-##    @arguments("orgpc", "box", "builtin")
-##    def opimpl_guard_len(self, pc, box, builtin):
-##        intbox = self.metainterp.cpu.execute_operation(
-##            'len', [builtin.len_func, box], 'int')
-##        self.generate_guard(pc, "guard_len", box, [intbox])
-
-    @arguments("box")
-    def opimpl_keepalive(self, box):
-        pass     # xxx?
-
-    def verify_green_args(self, varargs):
-        num_green_args = self.metainterp.staticdata.num_green_args
-        for i in range(num_green_args):
-            assert isinstance(varargs[i], Const)
-
-    def blackhole_reached_merge_point(self, varargs):
-        if self.metainterp.in_recursion:
-            portal_code = self.metainterp.staticdata.portal_code
-            # small hack: fish for the result box
-            lenenv = len(self.env)
-            raised = self.perform_call(portal_code, varargs)
-            # in general this cannot be assumed, but when blackholing,
-            # perform_call returns True only if an exception is called. In
-            # this case perform_call has called finishframe_exception
-            # already, so we need to return.
-            if raised:
-                return
-            if lenenv == len(self.env):
-                res = None
-            else:
-                assert lenenv == len(self.env) - 1
-                res = self.env.pop()
-            self.metainterp.finishframe(res)
-        else:
-            raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
+        self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+        return clsbox
 
     @arguments()
     def opimpl_can_enter_jit(self):
-        # Note: when running with a BlackHole history, this 'can_enter_jit'
-        # may be completely skipped by the logic that replaces perform_call
-        # with rop.CALL.  But in that case, no-one will check the flag anyway,
-        # so it's fine.
         if self.metainterp.in_recursion:
             from pypy.jit.metainterp.warmspot import CannotInlineCanEnterJit
             raise CannotInlineCanEnterJit()
         self.metainterp.seen_can_enter_jit = True
 
-    @arguments()
-    def opimpl_jit_merge_point(self):
-        if not self.metainterp.is_blackholing():
-            self.verify_green_args(self.env)
-            # xxx we may disable the following line in some context later
-            self.debug_merge_point()
-            if self.metainterp.seen_can_enter_jit:
-                self.metainterp.seen_can_enter_jit = False
-                assert not self.metainterp.in_recursion
-                # ^^^ it's impossible to arrive here with in_recursion set
-                # to a non-zero value: seen_can_enter_jit can only be set
-                # to True by opimpl_can_enter_jit, which should be executed
-                # just before opimpl_jit_merge_point (no recursion inbetween).
-                try:
-                    self.metainterp.reached_can_enter_jit(self.env)
-                except GiveUp:
-                    self.metainterp.switch_to_blackhole(ABORT_BRIDGE)
-        if self.metainterp.is_blackholing():
-            self.blackhole_reached_merge_point(self.env)
-        return True
-
-    def debug_merge_point(self):
-        # debugging: produce a DEBUG_MERGE_POINT operation
+    def verify_green_args(self, varargs):
         num_green_args = self.metainterp.staticdata.num_green_args
-        greenkey = self.env[:num_green_args]
+        assert len(varargs) == num_green_args
+        for i in range(num_green_args):
+            assert isinstance(varargs[i], Const)
+
+    @arguments("orgpc", "boxes3", "boxes3")
+    def opimpl_jit_merge_point(self, orgpc, greenboxes, redboxes):
+        self.verify_green_args(greenboxes)
+        # xxx we may disable the following line in some context later
+        self.debug_merge_point(greenboxes)
+        if self.metainterp.seen_can_enter_jit:
+            self.metainterp.seen_can_enter_jit = False
+            # Assert that it's impossible to arrive here with in_recursion
+            # set to a non-zero value: seen_can_enter_jit can only be set
+            # to True by opimpl_can_enter_jit, which should be executed
+            # just before opimpl_jit_merge_point (no recursion inbetween).
+            assert not self.metainterp.in_recursion
+            # Set self.pc to point to jit_merge_point instead of just after:
+            # if reached_can_enter_jit() raises SwitchToBlackhole, then the
+            # pc is still at the jit_merge_point, which is a point that is
+            # much less expensive to blackhole out of.
+            saved_pc = self.pc
+            self.pc = orgpc
+            self.metainterp.reached_can_enter_jit(greenboxes, redboxes)
+            self.pc = saved_pc
+
+    def debug_merge_point(self, greenkey):
+        # debugging: produce a DEBUG_MERGE_POINT operation
         sd = self.metainterp.staticdata
         loc = sd.state.get_location_str(greenkey)
         debug_print(loc)
@@ -871,45 +801,45 @@ class MIFrame(object):
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
                                        [constloc], None)
 
-    @arguments("jumptarget")
-    def opimpl_setup_exception_block(self, exception_target):
-        self.exception_target = exception_target
-
-    @arguments()
-    def opimpl_teardown_exception_block(self):
-        self.exception_target = -1
-
-    @arguments("constbox", "jumptarget", "orgpc")
-    def opimpl_goto_if_exception_mismatch(self, vtableref, next_exc_target, pc):
-        # XXX used to be:
-        # assert isinstance(self.exception_box, Const)    # XXX
-        # seems this can happen that self.exception_box is not a Const,
-        # but I failed to write a test so far :-(
-        self.exception_box = self.implement_guard_value(pc, self.exception_box)
-        cpu = self.metainterp.cpu
-        ts = self.metainterp.cpu.ts
-        if not ts.subclassOf(cpu, self.exception_box, vtableref):
+    @arguments("box", "label")
+    def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
+        metainterp = self.metainterp
+        last_exc_value_box = metainterp.last_exc_value_box
+        assert last_exc_value_box is not None
+        assert metainterp.class_of_last_exc_is_const
+        if not metainterp.cpu.ts.instanceOf(last_exc_value_box, vtablebox):
             self.pc = next_exc_target
 
-    @arguments("int")
-    def opimpl_put_last_exception(self, index):
-        assert index >= 0
-        self.env.insert(index, self.exception_box)
-
-    @arguments("int")
-    def opimpl_put_last_exc_value(self, index):
-        assert index >= 0
-        self.env.insert(index, self.exc_value_box)
-
-    @arguments()
-    def opimpl_raise(self):
-        assert len(self.env) == 2
-        return self.metainterp.finishframe_exception(self.env[0], self.env[1])
+    @arguments("orgpc", "box")
+    def opimpl_raise(self, orgpc, exc_value_box):
+        # xxx hack
+        clsbox = self.cls_of_box(exc_value_box)
+        self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
+                            resumepc=orgpc)
+        self.metainterp.class_of_last_exc_is_const = True
+        self.metainterp.last_exc_value_box = exc_value_box
+        self.metainterp.popframe()
+        self.metainterp.finishframe_exception()
 
     @arguments()
     def opimpl_reraise(self):
-        return self.metainterp.finishframe_exception(self.exception_box,
-                                                     self.exc_value_box)
+        assert self.metainterp.last_exc_value_box is not None
+        self.metainterp.popframe()
+        self.metainterp.finishframe_exception()
+
+    @arguments()
+    def opimpl_last_exception(self):
+        # Same comment as in opimpl_goto_if_exception_mismatch().
+        exc_value_box = self.metainterp.last_exc_value_box
+        assert exc_value_box is not None
+        assert self.metainterp.class_of_last_exc_is_const
+        return self.metainterp.cpu.ts.cls_of_box(exc_value_box)
+
+    @arguments()
+    def opimpl_last_exc_value(self):
+        exc_value_box = self.metainterp.last_exc_value_box
+        assert exc_value_box is not None
+        return exc_value_box
 
     @arguments("box")
     def opimpl_virtual_ref(self, box):
@@ -920,30 +850,26 @@ class MIFrame(object):
         #    the 'virtual_ref(frame)').
         #
         #  * if we detect that the virtual box escapes during tracing
-        #    already (by generating a CALl_MAY_FORCE that marks the flags
+        #    already (by generating a CALL_MAY_FORCE that marks the flags
         #    in the vref), then we replace the vref in the list with
         #    ConstPtr(NULL).
         #
         metainterp = self.metainterp
-        if metainterp.is_blackholing():
-            resbox = box      # good enough when blackholing
-        else:
-            vrefinfo = metainterp.staticdata.virtualref_info
-            obj = box.getref_base()
-            vref = vrefinfo.virtual_ref_during_tracing(obj)
-            resbox = history.BoxPtr(vref)
-            cindex = history.ConstInt(len(metainterp.virtualref_boxes) // 2)
-            metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], resbox)
-            # Note: we allocate a JIT_VIRTUAL_REF here
-            # (in virtual_ref_during_tracing()), in order to detect when
-            # the virtual escapes during tracing already.  We record it as a
-            # VIRTUAL_REF operation, although the backend sees this operation
-            # as a no-op.  The point is that the backend should not really see
-            # it in practice, as optimizeopt.py should either kill it or
-            # replace it with a NEW_WITH_VTABLE followed by SETFIELD_GCs.
+        vrefinfo = metainterp.staticdata.virtualref_info
+        obj = box.getref_base()
+        vref = vrefinfo.virtual_ref_during_tracing(obj)
+        resbox = history.BoxPtr(vref)
+        cindex = history.ConstInt(len(metainterp.virtualref_boxes) // 2)
+        metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], resbox)
+        # Note: we allocate a JIT_VIRTUAL_REF here
+        # (in virtual_ref_during_tracing()), in order to detect when
+        # the virtual escapes during tracing already.  We record it as a
+        # VIRTUAL_REF operation.  Later, optimizeopt.py should either kill
+        # that operation or replace it with a NEW_WITH_VTABLE followed by
+        # SETFIELD_GCs.
         metainterp.virtualref_boxes.append(box)
         metainterp.virtualref_boxes.append(resbox)
-        self.make_result_box(resbox)
+        return resbox
 
     @arguments("box")
     def opimpl_virtual_ref_finish(self, box):
@@ -953,27 +879,32 @@ class MIFrame(object):
         vrefbox = metainterp.virtualref_boxes.pop()
         lastbox = metainterp.virtualref_boxes.pop()
         assert box.getref_base() == lastbox.getref_base()
-        if not metainterp.is_blackholing():
-            vrefinfo = metainterp.staticdata.virtualref_info
-            vref = vrefbox.getref_base()
-            if vrefinfo.is_virtual_ref(vref):
-                metainterp.history.record(rop.VIRTUAL_REF_FINISH,
-                                          [vrefbox, lastbox], None)
+        vrefinfo = metainterp.staticdata.virtualref_info
+        vref = vrefbox.getref_base()
+        if vrefinfo.is_virtual_ref(vref):
+            metainterp.history.record(rop.VIRTUAL_REF_FINISH,
+                                      [vrefbox, lastbox], None)
 
     # ------------------------------
 
     def setup_call(self, argboxes):
-        if not we_are_translated():
-            check_args(*argboxes)
         self.pc = 0
-        self.env = argboxes
+        count_i = count_r = count_f = 0
+        for box in argboxes:
+            if box.type == history.INT:
+                self.registers_i[count_i] = box
+                count_i += 1
+            elif box.type == history.REF:
+                self.registers_r[count_r] = box
+                count_r += 1
+            elif box.type == history.FLOAT:
+                self.registers_f[count_f] = box
+                count_f += 1
+            else:
+                raise AssertionError(box.type)
 
-    def setup_resume_at_op(self, pc, exception_target, env):
-        if not we_are_translated():
-            check_args(*env)
+    def setup_resume_at_op(self, pc):
         self.pc = pc
-        self.exception_target = exception_target
-        self.env = env
         ##  values = ' '.join([box.repr_rpython() for box in self.env])
         ##  log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
         ##                                             self.pc, values,
@@ -984,25 +915,21 @@ class MIFrame(object):
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
         # methods) returns True.  This is the case when the current frame
         # changes, due to a call or a return.
-        while True:
-            pc = self.pc
-            op = ord(self.bytecode[pc])
-            #print self.metainterp.opcode_names[op]
-            self.pc = pc + 1
+        try:
             staticdata = self.metainterp.staticdata
-            stop = staticdata.opcode_implementations[op](self, pc)
-            #self.metainterp.most_recent_mp = None
-            if stop:
-                break
+            while True:
+                pc = self.pc
+                op = ord(self.bytecode[pc])
+                #debug_print(self.jitcode.name, pc)
+                #print staticdata.opcode_names[op]
+                staticdata.opcode_implementations[op](self, pc)
+        except ChangeFrame:
+            pass
 
-    def generate_guard(self, pc, opnum, box, extraargs=[]):
+    def generate_guard(self, opnum, box=None, extraargs=[], resumepc=-1):
         if isinstance(box, Const):    # no need for a guard
             return
         metainterp = self.metainterp
-        if metainterp.is_blackholing():
-            return
-        saved_pc = self.pc
-        self.pc = pc
         if box is not None:
             moreargs = [box] + extraargs
         else:
@@ -1020,15 +947,18 @@ class MIFrame(object):
         virtualizable_boxes = None
         if metainterp.staticdata.virtualizable_info is not None:
             virtualizable_boxes = metainterp.virtualizable_boxes
+        saved_pc = self.pc
+        if resumepc >= 0:
+            self.pc = resumepc
         resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
                                   metainterp.virtualref_boxes, resumedescr)
+        self.pc = saved_pc
         self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS)
         # count
         metainterp.attach_debug_info(guard_op)
-        self.pc = saved_pc
         return guard_op
 
-    def implement_guard_value(self, pc, box):
+    def implement_guard_value(self, orgpc, box):
         """Promote the given Box into a Const.  Note: be careful, it's a
         bit unclear what occurs if a single opcode needs to generate
         several ones and/or ones not near the beginning."""
@@ -1036,91 +966,138 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
         else:
             promoted_box = box.constbox()
-            self.generate_guard(pc, rop.GUARD_VALUE, box, [promoted_box])
+            self.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
+                                resumepc=orgpc)
             self.metainterp.replace_box(box, promoted_box)
             return promoted_box
 
     def cls_of_box(self, box):
-        return self.metainterp.cpu.ts.cls_of_box(self.metainterp.cpu, box)
+        return self.metainterp.cpu.ts.cls_of_box(box)
 
     @specialize.arg(1)
     def execute(self, opnum, *argboxes):
-        self.execute_with_descr(opnum, None, *argboxes)
+        return self.metainterp.execute_and_record(opnum, None, *argboxes)
 
     @specialize.arg(1)
     def execute_with_descr(self, opnum, descr, *argboxes):
-        resbox = self.metainterp.execute_and_record(opnum, descr, *argboxes)
-        if resbox is not None:
-            self.make_result_box(resbox)
+        return self.metainterp.execute_and_record(opnum, descr, *argboxes)
 
     @specialize.arg(1)
     def execute_varargs(self, opnum, argboxes, descr, exc):
+        self.metainterp.clear_exception()
         resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
-        if resbox is not None:
-            self.make_result_box(resbox)
+        self.make_result_of_lastop(resbox)
+        # ^^^ this is done before handle_possible_exception() because we need
+        # the box to show up in get_list_of_active_boxes()
         if exc:
-            return self.metainterp.handle_exception()
+            self.metainterp.handle_possible_exception()
         else:
-            return self.metainterp.assert_no_exception()
+            self.metainterp.assert_no_exception()
+        return resbox
 
-    def do_residual_call(self, argboxes, descr, exc):
-        effectinfo = descr.get_extra_info()
-        if effectinfo is None or effectinfo.forces_virtual_or_virtualizable:
-            # residual calls require attention to keep virtualizables in-sync
-            self.metainterp.vable_and_vrefs_before_residual_call()
-            # xxx do something about code duplication
-            resbox = self.metainterp.execute_and_record_varargs(
-                rop.CALL_MAY_FORCE, argboxes, descr=descr)
-            self.metainterp.vable_and_vrefs_after_residual_call()
-            if resbox is not None:
-                self.make_result_box(resbox)
-            self.generate_guard(self.pc, rop.GUARD_NOT_FORCED, None, [])
-            if exc:
-                return self.metainterp.handle_exception()
+    def do_residual_call(self, funcbox, descr, argboxes,
+                         assembler_call_token=None):
+        # First build allboxes: it may need some reordering from the
+        # list provided in argboxes, depending on the order in which
+        # the arguments are expected by the function
+        allboxes = [None] * (len(argboxes)+1)
+        allboxes[0] = funcbox
+        src_i = src_r = src_f = 0
+        i = 1
+        for kind in descr.get_arg_types():
+            if kind == history.INT:
+                while True:
+                    box = argboxes[src_i]
+                    src_i += 1
+                    if box.type == history.INT:
+                        break
+            elif kind == history.REF:
+                while True:
+                    box = argboxes[src_r]
+                    src_r += 1
+                    if box.type == history.REF:
+                        break
+            elif kind == history.FLOAT:
+                while True:
+                    box = argboxes[src_f]
+                    src_f += 1
+                    if box.type == history.FLOAT:
+                        break
             else:
-                return self.metainterp.assert_no_exception()
+                raise AssertionError
+            allboxes[i] = box
+            i += 1
+        assert i == len(allboxes)
+        #
+        effectinfo = descr.get_extra_info()
+        if (effectinfo is None or
+                effectinfo.extraeffect ==
+                             effectinfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE or
+                assembler_call_token is not None):
+            # residual calls require attention to keep virtualizables in-sync
+            self.metainterp.clear_exception()
+            self.metainterp.vable_and_vrefs_before_residual_call()
+            resbox = self.metainterp.execute_and_record_varargs(
+                rop.CALL_MAY_FORCE, allboxes, descr=descr)
+            self.metainterp.vrefs_after_residual_call()
+            if assembler_call_token is not None:
+                self.metainterp.direct_assembler_call(assembler_call_token)
+            if resbox is not None:
+                self.make_result_of_lastop(resbox)
+            self.metainterp.vable_after_residual_call()
+            self.generate_guard(rop.GUARD_NOT_FORCED, None)
+            self.metainterp.handle_possible_exception()
+            return resbox
         else:
-            return self.execute_varargs(rop.CALL, argboxes, descr, exc)
+            effect = effectinfo.extraeffect
+            if effect == effectinfo.EF_CANNOT_RAISE:
+                return self.execute_varargs(rop.CALL, allboxes, descr, False)
+            elif effect == effectinfo.EF_PURE:
+                return self.execute_varargs(rop.CALL_PURE, allboxes,
+                                            descr, False)
+            elif effect == effectinfo.EF_LOOPINVARIANT:
+                return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
+                                            descr, True)
+            else:
+                return self.execute_varargs(rop.CALL, allboxes, descr, True)
+
+    def do_residual_or_indirect_call(self, funcbox, calldescr, argboxes):
+        """The 'residual_call' operation is emitted in two cases:
+        when we have to generate a residual CALL operation, but also
+        to handle an indirect_call that may need to be inlined."""
+        assert isinstance(funcbox, Const)
+        sd = self.metainterp.staticdata
+        key = sd.cpu.ts.getaddr_for_box(funcbox)
+        jitcode = sd.bytecode_for_address(key)
+        if jitcode is not None:
+            # we should follow calls to this graph
+            return self.metainterp.perform_call(jitcode, argboxes)
+        else:
+            # but we should not follow calls to that graph
+            return self.do_residual_call(funcbox, calldescr, argboxes)
 
 # ____________________________________________________________
 
 class MetaInterpStaticData(object):
-    virtualizable_info = None
     logger_noopt = None
     logger_ops = None
 
-    def __init__(self, portal_graph, cpu, stats, options,
+    def __init__(self, cpu, options,
                  ProfilerClass=EmptyProfiler, warmrunnerdesc=None):
         self.cpu = cpu
-        self.stats = stats
+        self.stats = self.cpu.stats
         self.options = options
         self.logger_noopt = Logger(self)
         self.logger_ops = Logger(self, guard_number=True)
 
-        RESULT = portal_graph.getreturnvar().concretetype
-        self.result_type = history.getkind(RESULT)
-
-        self.opcode_implementations = []
-        self.opcode_names = []
-        self.opname_to_index = {}
-
         self.profiler = ProfilerClass()
-
-        self.indirectcall_keys = []
-        self.indirectcall_values = []
-
         self.warmrunnerdesc = warmrunnerdesc
-        self._op_goto_if_not = self.find_opcode('goto_if_not')
-        self._op_ooisnull    = self.find_opcode('ooisnull')
-        self._op_oononnull   = self.find_opcode('oononnull')
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
         self.jit_starting_line = 'JIT starting (%s)' % backendmodule
 
-        self.portal_code = None
-        self._class_sizes = None
         self._addr2name_keys = []
         self._addr2name_values = []
 
@@ -1132,15 +1109,44 @@ class MetaInterpStaticData(object):
     def _freeze_(self):
         return True
 
-    def info_from_codewriter(self, portal_code, class_sizes,
-                             list_of_addr2name, portal_runner_ptr):
-        self.portal_code = portal_code
-        self._class_sizes = class_sizes
-        self._addr2name_keys   = [key   for key, value in list_of_addr2name]
-        self._addr2name_values = [value for key, value in list_of_addr2name]
-        self._portal_runner_ptr = portal_runner_ptr
+    def setup_insns(self, insns):
+        self.opcode_names = ['?'] * len(insns)
+        self.opcode_implementations = [None] * len(insns)
+        for key, value in insns.items():
+            assert self.opcode_implementations[value] is None
+            self.opcode_names[value] = key
+            name, argcodes = key.split('/')
+            opimpl = _get_opimpl_method(name, argcodes)
+            self.opcode_implementations[value] = opimpl
+        self.op_catch_exception = insns.get('catch_exception/L', -1)
 
-    def finish_setup(self, optimizer=None):
+    def setup_descrs(self, descrs):
+        self.opcode_descrs = descrs
+
+    def setup_indirectcalltargets(self, indirectcalltargets):
+        self.indirectcalltargets = list(indirectcalltargets)
+
+    def setup_list_of_addr2name(self, list_of_addr2name):
+        self._addr2name_keys = [key for key, value in list_of_addr2name]
+        self._addr2name_values = [value for key, value in list_of_addr2name]
+
+    def finish_setup(self, codewriter, optimizer=None):
+        from pypy.jit.metainterp.blackhole import BlackholeInterpBuilder
+        self.blackholeinterpbuilder = BlackholeInterpBuilder(codewriter, self)
+        #
+        asm = codewriter.assembler
+        self.setup_insns(asm.insns)
+        self.setup_descrs(asm.descrs)
+        self.setup_indirectcalltargets(asm.indirectcalltargets)
+        self.setup_list_of_addr2name(asm.list_of_addr2name)
+        #
+        self.portal_code = codewriter.mainjitcode
+        self._portal_runner_ptr = codewriter.callcontrol.portal_runner_ptr
+        self.virtualref_info = codewriter.callcontrol.virtualref_info
+        self.virtualizable_info = codewriter.callcontrol.virtualizable_info
+        RESULT = codewriter.portal_graph.getreturnvar().concretetype
+        self.result_type = history.getkind(RESULT)
+        #
         warmrunnerdesc = self.warmrunnerdesc
         if warmrunnerdesc is not None:
             self.num_green_args = warmrunnerdesc.num_green_args
@@ -1156,19 +1162,11 @@ class MetaInterpStaticData(object):
         """Runtime setup needed by the various components of the JIT."""
         if not self.globaldata.initialized:
             debug_print(self.jit_starting_line)
-            self._setup_class_sizes()
             self.cpu.setup_once()
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
             self.globaldata.initialized = True
-
-    def _setup_class_sizes(self):
-        class_sizes = {}
-        for vtable, sizedescr in self._class_sizes:
-            vtable = self.cpu.ts.cast_vtable_to_hashable(self.cpu, vtable)
-            class_sizes[vtable] = sizedescr
-        self.cpu.set_class_sizes(class_sizes)
 
     def get_name_from_address(self, addr):
         # for debugging only
@@ -1200,38 +1198,15 @@ class MetaInterpStaticData(object):
                 # because the keys are function addresses, so they
                 # can change from run to run.
                 d = {}
-                keys = self.indirectcall_keys
-                values = self.indirectcall_values
-                for i in range(len(keys)):
-                    d[keys[i]] = values[i]
+                for jitcode in self.indirectcalltargets:
+                    d[jitcode.fnaddr] = jitcode
                 self.globaldata.indirectcall_dict = d
             return d.get(fnaddress, None)
         else:
-            for i in range(len(self.indirectcall_keys)):
-                if fnaddress == self.indirectcall_keys[i]:
-                    return self.indirectcall_values[i]
+            for jitcode in self.indirectcalltargets:
+                if jitcode.fnaddr == fnaddress:
+                    return jitcode
             return None
-
-    # ---------- construction-time interface ----------
-
-    def _register_indirect_call_target(self, fnaddress, jitcode):
-        self.indirectcall_keys.append(fnaddress)
-        self.indirectcall_values.append(jitcode)
-
-    def find_opcode(self, name):
-        try:
-            return self.opname_to_index[name]
-        except KeyError:
-            self._register_opcode(name)
-            return self.opname_to_index[name]
-
-    def _register_opcode(self, opname):
-        assert len(self.opcode_implementations) < 256, \
-               "too many implementations of opcodes!"
-        name = "opimpl_" + opname
-        self.opname_to_index[opname] = len(self.opcode_implementations)
-        self.opcode_names.append(opname)
-        self.opcode_implementations.append(getattr(MIFrame, name).im_func)
 
     # ---------------- logging ------------------------
 
@@ -1259,6 +1234,7 @@ class MetaInterpGlobalData(object):
         self.addr2name = None
         self.loopnumbering = 0
         self.resume_virtuals = {}
+        self.resume_virtuals_not_translated = []
         #
         state = staticdata.state
         if state is not None:
@@ -1283,23 +1259,32 @@ class MetaInterpGlobalData(object):
 
 class MetaInterp(object):
     in_recursion = 0
-    _already_allocated_resume_virtuals = None
 
     def __init__(self, staticdata):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
         self.portal_trace_positions = []
+        self.free_frames_list = []
+        self.last_exc_value_box = None
 
-    def is_blackholing(self):
-        return self.history is None
+    def perform_call(self, jitcode, boxes, greenkey=None):
+        # causes the metainterp to enter the given subfunction
+        # with a special case for recursive portal calls
+        f = self.newframe(jitcode, greenkey)
+        f.setup_call(boxes)
+        raise ChangeFrame
 
     def newframe(self, jitcode, greenkey=None):
         if jitcode is self.staticdata.portal_code:
             self.in_recursion += 1
-        if greenkey is not None and not self.is_blackholing():
+        if greenkey is not None:
             self.portal_trace_positions.append(
                     (greenkey, len(self.history.operations)))
-        f = MIFrame(self, jitcode, greenkey)
+        if len(self.free_frames_list) > 0:
+            f = self.free_frames_list.pop()
+        else:
+            f = MIFrame(self)
+        f.setup(jitcode, greenkey)
         self.framestack.append(f)
         return f
 
@@ -1307,23 +1292,27 @@ class MetaInterp(object):
         frame = self.framestack.pop()
         if frame.jitcode is self.staticdata.portal_code:
             self.in_recursion -= 1
-        if frame.greenkey is not None and not self.is_blackholing():
+        if frame.greenkey is not None:
             self.portal_trace_positions.append(
                     (None, len(self.history.operations)))
-        return frame
+        # we save the freed MIFrames to avoid needing to re-create new
+        # MIFrame objects all the time; they are a bit big, with their
+        # 3*256 register entries.
+        frame.cleanup_registers()
+        self.free_frames_list.append(frame)
 
     def finishframe(self, resultbox):
-        frame = self.popframe()
+        # handle a non-exceptional return from the current frame
+        self.last_exc_value_box = None
+        self.popframe()
         if self.framestack:
-            if resultbox is not None:
-                self.framestack[-1].make_result_box(resultbox)
-            return True
+            self.framestack[-1].make_result_of_lastop(resultbox)
+            raise ChangeFrame
         else:
-            if not self.is_blackholing():
-                try:
-                    self.compile_done_with_this_frame(resultbox)
-                except GiveUp:
-                    self.switch_to_blackhole(ABORT_BRIDGE)
+            try:
+                self.compile_done_with_this_frame(resultbox)
+            except SwitchToBlackhole, stb:
+                self.aborted_tracing(stb.reason)
             sd = self.staticdata
             if sd.result_type == 'void':
                 assert resultbox is None
@@ -1337,30 +1326,25 @@ class MetaInterp(object):
             else:
                 assert False
 
-    def finishframe_exception(self, exceptionbox, excvaluebox):
-        # detect and propagate some exceptions early:
-        #  - AssertionError
-        #  - all subclasses of JitException
-        if we_are_translated():
-            from pypy.jit.metainterp.warmspot import JitException
-            e = self.cpu.ts.get_exception_obj(excvaluebox)
-            if isinstance(e, JitException) or isinstance(e, AssertionError):
-                raise Exception, e
-        #
+    def finishframe_exception(self):
+        excvaluebox = self.last_exc_value_box
         while self.framestack:
             frame = self.framestack[-1]
-            if frame.exception_target >= 0:
-                frame.pc = frame.exception_target
-                frame.exception_target = -1
-                frame.exception_box = exceptionbox
-                frame.exc_value_box = excvaluebox
-                return True
+            code = frame.bytecode
+            position = frame.pc    # <-- just after the insn that raised
+            if position < len(code):
+                opcode = ord(code[position])
+                if opcode == self.staticdata.op_catch_exception:
+                    # found a 'catch_exception' instruction;
+                    # jump to the handler
+                    target = ord(code[position+1]) | (ord(code[position+2])<<8)
+                    frame.pc = target
+                    raise ChangeFrame
             self.popframe()
-        if not self.is_blackholing():
-            try:
-                self.compile_exit_frame_with_exception(excvaluebox)
-            except GiveUp:
-                self.switch_to_blackhole(ABORT_BRIDGE)
+        try:
+            self.compile_exit_frame_with_exception(excvaluebox)
+        except SwitchToBlackhole, stb:
+            self.aborted_tracing(stb.reason)
         raise self.staticdata.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
 
     def check_recursion_invariant(self):
@@ -1379,19 +1363,7 @@ class MetaInterp(object):
                 else:
                     print " ",
                 print jitcode.name
-            raise Exception
-
-    def raise_overflow_error(self):
-        etype, evalue = self.cpu.get_overflow_error()
-        return self.finishframe_exception(
-            self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue).constbox())
-
-    def raise_zero_division_error(self):
-        etype, evalue = self.cpu.get_zero_division_error()
-        return self.finishframe_exception(
-            self.cpu.ts.get_exception_box(etype),
-            self.cpu.ts.get_exc_value_box(evalue).constbox())
+            raise AssertionError
 
     def create_empty_history(self):
         warmrunnerstate = self.staticdata.state
@@ -1412,15 +1384,11 @@ class MetaInterp(object):
     @specialize.arg(1)
     def execute_and_record(self, opnum, descr, *argboxes):
         history.check_descr(descr)
-        assert (opnum != rop.CALL and opnum != rop.CALL_MAY_FORCE
-                and opnum != rop.OOSEND)
+        assert not (rop._CANRAISE_FIRST <= opnum <= rop._CANRAISE_LAST)
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
-        resbox = executor.execute(self.cpu, opnum, descr, *argboxes)
-        if self.is_blackholing():
-            profiler.count_ops(opnum, BLACKHOLED_OPS)            
-            return resbox
+        resbox = executor.execute(self.cpu, self, opnum, descr, *argboxes)
         if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
             return self._record_helper_pure(opnum, resbox, descr, *argboxes)
         else:
@@ -1433,16 +1401,14 @@ class MetaInterp(object):
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
-        resbox = executor.execute_varargs(self.cpu, opnum, argboxes, descr)
-        if self.is_blackholing():
-            profiler.count_ops(opnum, BLACKHOLED_OPS)
+        resbox = executor.execute_varargs(self.cpu, self,
+                                          opnum, argboxes, descr)
+        # check if the operation can be constant-folded away
+        argboxes = list(argboxes)
+        if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
+            resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
         else:
-            # check if the operation can be constant-folded away
-            argboxes = list(argboxes)
-            if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
-                resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
-            else:
-                resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
+            resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
         return resbox
 
     def _record_helper_pure(self, opnum, resbox, descr, *argboxes): 
@@ -1478,45 +1444,57 @@ class MetaInterp(object):
             op.pc = self.framestack[-1].pc
             op.name = self.framestack[-1].jitcode.name
 
-    def switch_to_blackhole(self, reason):
+    def execute_raised(self, exception, constant=False):
+        if isinstance(exception, JitException):
+            raise JitException, exception      # go through
+        llexception = get_llexception(self.cpu, exception)
+        self.execute_ll_raised(llexception, constant)
+
+    def execute_ll_raised(self, llexception, constant=False):
+        # Exception handling: when execute.do_call() gets an exception it
+        # calls metainterp.execute_raised(), which puts it into
+        # 'self.last_exc_value_box'.  This is used shortly afterwards
+        # to generate either GUARD_EXCEPTION or GUARD_NO_EXCEPTION, and also
+        # to handle the following opcodes 'goto_if_exception_mismatch'.
+        llexception = self.cpu.ts.cast_to_ref(llexception)
+        exc_value_box = self.cpu.ts.get_exc_value_box(llexception)
+        if constant:
+            exc_value_box = exc_value_box.constbox()
+        self.last_exc_value_box = exc_value_box
+        self.class_of_last_exc_is_const = constant
+        # 'class_of_last_exc_is_const' means that the class of the value
+        # stored in the exc_value Box can be assumed to be a Const.  This
+        # is only True after a GUARD_EXCEPTION or GUARD_CLASS.
+
+    def clear_exception(self):
+        self.last_exc_value_box = None
+
+    def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
-        debug_stop('jit-tracing')
-        debug_start('jit-blackhole')
-        self.history = None   # start blackholing
         self.staticdata.stats.aborted()
-        self.staticdata.profiler.end_tracing()
-        self.staticdata.profiler.start_blackhole()
         self.resumekey.reset_counter_from_failure()
-    switch_to_blackhole._dont_inline_ = True
 
-    def switch_to_blackhole_if_trace_too_long(self):
-        if not self.is_blackholing():
-            warmrunnerstate = self.staticdata.state
-            if len(self.history.operations) > warmrunnerstate.trace_limit:
-                greenkey_of_huge_function = self.find_biggest_function()
-                self.portal_trace_positions = None
-                self.switch_to_blackhole(ABORT_TOO_LONG)
-                if greenkey_of_huge_function is not None:
-                    warmrunnerstate = self.staticdata.state
-                    warmrunnerstate.disable_noninlinable_function(
-                        greenkey_of_huge_function)
+    def blackhole_if_trace_too_long(self):
+        warmrunnerstate = self.staticdata.state
+        if len(self.history.operations) > warmrunnerstate.trace_limit:
+            greenkey_of_huge_function = self.find_biggest_function()
+            self.portal_trace_positions = None
+            if greenkey_of_huge_function is not None:
+                warmrunnerstate = self.staticdata.state
+                warmrunnerstate.disable_noninlinable_function(
+                    greenkey_of_huge_function)
+            raise SwitchToBlackhole(ABORT_TOO_LONG)
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
-        # a ContinueRunningNormally, or a GenerateMergePoint exception.
+        # a ExitFrameWithException, or a GenerateMergePoint exception.
         self.staticdata.stats.entered()
-        try:
-            while True:
-                self.framestack[-1].run_one_step()
-                self.switch_to_blackhole_if_trace_too_long()
-                if not we_are_translated():
-                    self.check_recursion_invariant()
-        finally:
-            if self.is_blackholing():
-                self.staticdata.profiler.end_blackhole()
-            else:
-                self.staticdata.profiler.end_tracing()
+        while True:
+            self.framestack[-1].run_one_step()
+            self.blackhole_if_trace_too_long()
+            if not we_are_translated():
+                self.check_recursion_invariant()
 
     def interpret(self):
         if we_are_translated():
@@ -1527,20 +1505,19 @@ class MetaInterp(object):
             except:
                 import sys
                 if sys.exc_info()[0] is not None:
-                    codewriter.log.info(sys.exc_info()[0].__name__)
+                    self.staticdata.log(sys.exc_info()[0].__name__)
                 raise
 
     def compile_and_run_once(self, *args):
         debug_start('jit-tracing')
         self.staticdata._setup_once()
+        self.staticdata.profiler.start_tracing()
         self.create_empty_history()
         try:
             return self._compile_and_run_once(*args)
         finally:
-            if self.history is None:
-                debug_stop('jit-blackhole')
-            else:
-                debug_stop('jit-tracing')
+            self.staticdata.profiler.end_tracing()
+            debug_stop('jit-tracing')
 
     def _compile_and_run_once(self, *args):
         original_boxes = self.initialize_state_from_start(*args)
@@ -1553,20 +1530,22 @@ class MetaInterp(object):
         self.seen_can_enter_jit = False
         try:
             self.interpret()
-            assert False, "should always raise"
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
+        except SwitchToBlackhole, stb:
+            self.run_blackhole_interp_to_cancel_tracing(stb)
+        assert False, "should always raise"
 
     def handle_guard_failure(self, key):
+        debug_start('jit-tracing')
+        self.staticdata.profiler.start_tracing()
         assert isinstance(key, compile.ResumeGuardDescr)
         self.initialize_state_from_guard_failure(key)
         try:
             return self._handle_guard_failure(key)
         finally:
-            if self.history is None:
-                debug_stop('jit-blackhole')
-            else:
-                debug_stop('jit-tracing')
+            self.staticdata.profiler.end_tracing()
+            debug_stop('jit-tracing')
 
     def _handle_guard_failure(self, key):
         original_greenkey = key.original_greenkey
@@ -1579,13 +1558,23 @@ class MetaInterp(object):
         try:
             self.prepare_resume_from_failure(key.guard_opnum)
             self.interpret()
-            assert False, "should always raise"
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
+        except SwitchToBlackhole, stb:
+            self.run_blackhole_interp_to_cancel_tracing(stb)
+        assert False, "should always raise"
 
-    def remove_consts_and_duplicates(self, boxes, startindex, endindex,
-                                     duplicates):
-        for i in range(startindex, endindex):
+    def run_blackhole_interp_to_cancel_tracing(self, stb):
+        # We got a SwitchToBlackhole exception.  Convert the framestack into
+        # a stack of blackhole interpreters filled with the same values, and
+        # run it.
+        from pypy.jit.metainterp.blackhole import convert_and_run_from_pyjitpl
+        self.aborted_tracing(stb.reason)
+        convert_and_run_from_pyjitpl(self, stb.raising_exception)
+        assert False    # ^^^ must raise
+
+    def remove_consts_and_duplicates(self, boxes, endindex, duplicates):
+        for i in range(endindex):
             box = boxes[i]
             if isinstance(box, Const) or box in duplicates:
                 oldbox = box
@@ -1595,22 +1584,19 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
-    def reached_can_enter_jit(self, live_arg_boxes):
-        num_green_args = self.staticdata.num_green_args
+    def reached_can_enter_jit(self, greenboxes, redboxes):
         duplicates = {}
-        self.remove_consts_and_duplicates(live_arg_boxes,
-                                          num_green_args,
-                                          len(live_arg_boxes),
+        self.remove_consts_and_duplicates(redboxes, len(redboxes),
                                           duplicates)
-        live_arg_boxes = live_arg_boxes[:]
+        live_arg_boxes = greenboxes + redboxes
         if self.staticdata.virtualizable_info is not None:
-            # we use ':-1' to remove the last item, which is the virtualizable
+            # we use pop() to remove the last item, which is the virtualizable
             # itself
             self.remove_consts_and_duplicates(self.virtualizable_boxes,
-                                              0,
                                               len(self.virtualizable_boxes)-1,
                                               duplicates)
-            live_arg_boxes += self.virtualizable_boxes[:-1]
+            live_arg_boxes += self.virtualizable_boxes
+            live_arg_boxes.pop()
         assert len(self.virtualref_boxes) == 0, "missing virtual_ref_finish()?"
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:
@@ -1639,11 +1625,12 @@ class MetaInterp(object):
                 # Found!  Compile it as a loop.
                 if start < 0:
                     # we cannot reconstruct the beginning of the proper loop
-                    raise GiveUp
+                    raise SwitchToBlackhole(ABORT_BRIDGE)
 
                 # raises in case it works -- which is the common case
                 self.compile(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
+                self.staticdata.log('cancelled, going on...')
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -1658,17 +1645,39 @@ class MetaInterp(object):
         return loop_token
 
     def prepare_resume_from_failure(self, opnum):
+        frame = self.framestack[-1]
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            self.framestack[-1].follow_jump()
+            frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping
-            self.framestack[-1].dont_follow_jump()
-        elif (opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION
-              or opnum == rop.GUARD_NOT_FORCED):
-            self.handle_exception()
+            pass
+        elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
+            pass        # the pc is already set to the *start* of the opcode
+        elif (opnum == rop.GUARD_NONNULL or
+              opnum == rop.GUARD_ISNULL or
+              opnum == rop.GUARD_NONNULL_CLASS):
+            pass        # the pc is already set to the *start* of the opcode
+        elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
+            exception = self.cpu.grab_exc_value()
+            if exception:
+                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
+                                                              exception))
+            else:
+                self.clear_exception()
+            try:
+                self.handle_possible_exception()
+            except ChangeFrame:
+                pass
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.raise_overflow_error()
-        elif opnum == rop.GUARD_NONNULL or opnum == rop.GUARD_ISNULL:
-            self.framestack[-1].ignore_next_guard_nullness(opnum)
+            self.execute_raised(OverflowError(), constant=True)
+            try:
+                self.finishframe_exception()
+            except ChangeFrame:
+                pass
+        elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
+            self.clear_exception()
+        else:
+            from pypy.jit.metainterp.resoperation import opname
+            raise NotImplementedError(opname[opnum])
 
     def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.staticdata.num_green_args
@@ -1720,7 +1729,7 @@ class MetaInterp(object):
         target_loop_token = compile.compile_new_bridge(self, loop_tokens,
                                                        self.resumekey)
         if target_loop_token is not loop_tokens[0]:
-            raise GiveUp
+            compile.giveup()
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.gen_store_back_in_virtualizable()
@@ -1731,7 +1740,7 @@ class MetaInterp(object):
         target_loop_token = compile.compile_new_bridge(self, loop_tokens,
                                                        self.resumekey)
         if target_loop_token is not loop_tokens[0]:
-            raise GiveUp
+            compile.giveup()
 
     def get_residual_args(self, specnodes, args):
         if specnodes is None:     # it is None only for tests
@@ -1753,15 +1762,13 @@ class MetaInterp(object):
 
     def initialize_state_from_start(self, *args):
         self.in_recursion = -1 # always one portal around
-        self.staticdata.profiler.start_tracing()
         num_green_args = self.staticdata.num_green_args
         original_boxes = []
         self._initialize_from_start(original_boxes, num_green_args, *args)
         # ----- make a new frame -----
         self.framestack = []
         f = self.newframe(self.staticdata.portal_code)
-        f.pc = 0
-        f.env = original_boxes[:]
+        f.setup_call(original_boxes)
         self.virtualref_boxes = []
         self.initialize_virtualizable(original_boxes)
         return original_boxes
@@ -1769,20 +1776,9 @@ class MetaInterp(object):
     def initialize_state_from_guard_failure(self, resumedescr):
         # guard failure: rebuild a complete MIFrame stack
         self.in_recursion = -1 # always one portal around
-        inputargs_and_holes = self.cpu.make_boxes_from_latest_values(
-                                                                 resumedescr)
-        must_compile = resumedescr.must_compile(self.staticdata,
-                                                inputargs_and_holes)
-        if must_compile:
-            debug_start('jit-tracing')
-            self.history = history.History()
-            self.history.inputargs = [box for box in inputargs_and_holes if box]
-            self.staticdata.profiler.start_tracing()
-        else:
-            debug_start('jit-blackhole')
-            self.staticdata.profiler.start_blackhole()
-            self.history = None   # this means that is_blackholing() is true
-        self.rebuild_state_after_failure(resumedescr, inputargs_and_holes)
+        self.history = history.History()
+        inputargs_and_holes = self.rebuild_state_after_failure(resumedescr)
+        self.history.inputargs = [box for box in inputargs_and_holes if box]
 
     def initialize_virtualizable(self, original_boxes):
         vinfo = self.staticdata.virtualizable_info
@@ -1804,9 +1800,6 @@ class MetaInterp(object):
         vinfo.clear_vable_token(virtualizable)
 
     def vable_and_vrefs_before_residual_call(self):
-        if self.is_blackholing():
-            return
-        #
         vrefinfo = self.staticdata.virtualref_info
         for i in range(1, len(self.virtualref_boxes), 2):
             vrefbox = self.virtualref_boxes[i]
@@ -1827,37 +1820,31 @@ class MetaInterp(object):
                                                   force_token_box],
                                 None, descr=vinfo.vable_token_descr)
 
-    def vable_and_vrefs_after_residual_call(self):
-        if self.is_blackholing():
-            escapes = True
-        else:
-            escapes = False
-            #
-            vrefinfo = self.staticdata.virtualref_info
-            for i in range(0, len(self.virtualref_boxes), 2):
-                virtualbox = self.virtualref_boxes[i]
-                vrefbox = self.virtualref_boxes[i+1]
-                vref = vrefbox.getref_base()
-                if vrefinfo.tracing_after_residual_call(vref):
-                    # this vref was really a virtual_ref, but it escaped
-                    # during this CALL_MAY_FORCE.  Mark this fact by
-                    # generating a VIRTUAL_REF_FINISH on it and replacing
-                    # it by ConstPtr(NULL).
-                    self.stop_tracking_virtualref(i)
-            #
-            vinfo = self.staticdata.virtualizable_info
-            if vinfo is not None:
-                virtualizable_box = self.virtualizable_boxes[-1]
-                virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-                if vinfo.tracing_after_residual_call(virtualizable):
-                    # the virtualizable escaped during CALL_MAY_FORCE.
-                    escapes = True
-            #
-            if escapes:
-                self.switch_to_blackhole(ABORT_ESCAPE)
-        #
-        if escapes:
-            self.load_fields_from_virtualizable()
+    def vrefs_after_residual_call(self):
+        vrefinfo = self.staticdata.virtualref_info
+        for i in range(0, len(self.virtualref_boxes), 2):
+            virtualbox = self.virtualref_boxes[i]
+            vrefbox = self.virtualref_boxes[i+1]
+            vref = vrefbox.getref_base()
+            if vrefinfo.tracing_after_residual_call(vref):
+                # this vref was really a virtual_ref, but it escaped
+                # during this CALL_MAY_FORCE.  Mark this fact by
+                # generating a VIRTUAL_REF_FINISH on it and replacing
+                # it by ConstPtr(NULL).
+                self.stop_tracking_virtualref(i)
+
+    def vable_after_residual_call(self):
+        vinfo = self.staticdata.virtualizable_info
+        if vinfo is not None:
+            virtualizable_box = self.virtualizable_boxes[-1]
+            virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            if vinfo.tracing_after_residual_call(virtualizable):
+                # the virtualizable escaped during CALL_MAY_FORCE.
+                self.load_fields_from_virtualizable()
+                raise SwitchToBlackhole(ABORT_ESCAPE, raising_exception=True)
+                # ^^^ we set 'raising_exception' to True because we must still
+                # have the eventual exception raised (this is normally done
+                # after the call to vable_after_residual_call()).
 
     def stop_tracking_virtualref(self, i):
         virtualbox = self.virtualref_boxes[i]
@@ -1871,44 +1858,37 @@ class MetaInterp(object):
         # mark by replacing it with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 
-    def handle_exception(self):
-        etype = self.cpu.get_exception()
-        evalue = self.cpu.get_exc_value()
-        assert bool(etype) == bool(evalue)
-        self.cpu.clear_exception()
+    def handle_possible_exception(self):
         frame = self.framestack[-1]
-        if etype:
-            exception_box = self.cpu.ts.get_exception_box(etype)
-            exc_value_box = self.cpu.ts.get_exc_value_box(evalue)
-            op = frame.generate_guard(frame.pc, rop.GUARD_EXCEPTION,
+        if self.last_exc_value_box is not None:
+            exception_box = self.cpu.ts.cls_of_box(self.last_exc_value_box)
+            op = frame.generate_guard(rop.GUARD_EXCEPTION,
                                       None, [exception_box])
-            if op:
-                op.result = exc_value_box
-            return self.finishframe_exception(exception_box, exc_value_box)
+            assert op is not None
+            op.result = self.last_exc_value_box
+            self.class_of_last_exc_is_const = True
+            self.finishframe_exception()
         else:
-            frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
-            return False
+            frame.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
+
+    def handle_possible_overflow_error(self):
+        frame = self.framestack[-1]
+        if self.last_exc_value_box is not None:
+            frame.generate_guard(rop.GUARD_OVERFLOW, None)
+            assert isinstance(self.last_exc_value_box, Const)
+            assert self.class_of_last_exc_is_const
+            self.finishframe_exception()
+        else:
+            frame.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
-        assert not self.cpu.get_exception()
-        return False
+        assert self.last_exc_value_box is None
 
-    def handle_overflow_error(self):
-        frame = self.framestack[-1]
-        if self.cpu._overflow_flag:
-            self.cpu._overflow_flag = False
-            frame.generate_guard(frame.pc, rop.GUARD_OVERFLOW, None, [])
-            return self.raise_overflow_error()
-        else:
-            frame.generate_guard(frame.pc, rop.GUARD_NO_OVERFLOW, None, [])
-            return False
-
-    def rebuild_state_after_failure(self, resumedescr, newboxes):
+    def rebuild_state_after_failure(self, resumedescr):
         vinfo = self.staticdata.virtualizable_info
         self.framestack = []
-        expect_virtualizable = vinfo is not None
-        virtualizable_boxes, virtualref_boxes = resume.rebuild_from_resumedata(
-            self, newboxes, resumedescr, expect_virtualizable)
+        boxlists = resume.rebuild_from_resumedata(self, resumedescr, vinfo)
+        inputargs_and_holes, virtualizable_boxes, virtualref_boxes = boxlists
         #
         # virtual refs: make the vrefs point to the freshly allocated virtuals
         self.virtualref_boxes = virtualref_boxes
@@ -1921,7 +1901,7 @@ class MetaInterp(object):
         #
         # virtualizable: synchronize the real virtualizable and the local
         # boxes, in whichever direction is appropriate
-        if expect_virtualizable:
+        if vinfo is not None:
             self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
@@ -1930,13 +1910,14 @@ class MetaInterp(object):
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             assert not virtualizable.vable_token
-            if self._already_allocated_resume_virtuals is not None:
+            if 0:  ## self._already_allocated_resume_virtuals is not None:
                 # resuming from a ResumeGuardForcedDescr: load the new values
                 # currently stored on the virtualizable fields
                 self.load_fields_from_virtualizable()
             else:
                 # normal case: fill the virtualizable with the local boxes
                 self.synchronize_virtualizable()
+        return inputargs_and_holes
 
     def check_synchronized_virtualizable(self):
         if not we_are_translated():
@@ -1953,8 +1934,8 @@ class MetaInterp(object):
 
     def load_fields_from_virtualizable(self):
         # Force a reload of the virtualizable fields into the local
-        # boxes (called only in escaping cases)
-        assert self.is_blackholing()
+        # boxes (called only in escaping cases).  Only call this function
+        # just before SwitchToBlackhole.
         vinfo = self.staticdata.virtualizable_info
         if vinfo is not None:
             virtualizable_box = self.virtualizable_boxes[-1]
@@ -2003,11 +1984,9 @@ class MetaInterp(object):
         return boxes
 
     def replace_box(self, oldbox, newbox):
+        assert isinstance(oldbox, Box)
         for frame in self.framestack:
-            boxes = frame.env
-            for i in range(len(boxes)):
-                if boxes[i] is oldbox:
-                    boxes[i] = newbox
+            frame.replace_active_box_in_frame(oldbox, newbox)
         boxes = self.virtualref_boxes
         for i in range(len(boxes)):
             if boxes[i] is oldbox:
@@ -2019,8 +1998,6 @@ class MetaInterp(object):
                     boxes[i] = newbox
 
     def find_biggest_function(self):
-        assert not self.is_blackholing()
-
         start_stack = []
         max_size = 0
         max_key = None
@@ -2042,23 +2019,158 @@ class MetaInterp(object):
                 max_key = key
         return max_key
 
-    def direct_assembler_call(self, pc, varargs, token, call_position):
-        """ Generate a direct call to assembler for portal entry point.
+    def direct_assembler_call(self, token):
+        """ Generate a direct call to assembler for portal entry point,
+        patching the CALL_MAY_FORCE that occurred just now.
         """
-        assert not self.is_blackholing() # XXX
+        op = self.history.operations.pop()
+        assert op.opnum == rop.CALL_MAY_FORCE
         num_green_args = self.staticdata.num_green_args
-        args = varargs[num_green_args + 1:]
-        resbox = self.history.operations[call_position].result
-        rest = self.history.slice_history_at(call_position)
+        args = op.args[num_green_args + 1:]
         if self.staticdata.virtualizable_info is not None:
             vindex = self.staticdata.virtualizable_info.index_of_virtualizable
             vbox = args[vindex - num_green_args]
-            args += self.gen_load_from_other_virtualizable(vbox)
-        self.history.record(rop.CALL_ASSEMBLER, args[:], resbox, descr=token)
-        self.history.operations += rest
+            args = args + self.gen_load_from_other_virtualizable(vbox)
+            # ^^^ and not "+=", which makes 'args' a resizable list
+        op.opnum = rop.CALL_ASSEMBLER
+        op.args = args
+        op.descr = token
+        self.history.operations.append(op)
 
-class GenerateMergePoint(Exception):
+# ____________________________________________________________
+
+class GenerateMergePoint(JitException):
     def __init__(self, args, target_loop_token):
         assert target_loop_token is not None
         self.argboxes = args
         self.target_loop_token = target_loop_token
+
+class ChangeFrame(JitException):
+    """Raised after we mutated metainterp.framestack, in order to force
+    it to reload the current top-of-stack frame that gets interpreted."""
+
+class SwitchToBlackhole(JitException):
+    def __init__(self, reason, raising_exception=False):
+        self.reason = reason
+        self.raising_exception = raising_exception
+        # ^^^ must be set to True if the SwitchToBlackhole is raised at a
+        #     point where the exception on metainterp.last_exc_value_box
+        #     is supposed to be raised.  The default False means that it
+        #     should just be copied into the blackhole interp, but not raised.
+
+# ____________________________________________________________
+
+def _get_opimpl_method(name, argcodes):
+    from pypy.jit.metainterp.blackhole import signedord
+    #
+    def handler(self, position):
+        assert position >= 0
+        args = ()
+        next_argcode = 0
+        code = self.bytecode
+        orgpc = position
+        position += 1
+        for argtype in argtypes:
+            if argtype == "box":     # a box, of whatever type
+                argcode = argcodes[next_argcode]
+                next_argcode = next_argcode + 1
+                if argcode == 'i':
+                    value = self.registers_i[ord(code[position])]
+                elif argcode == 'c':
+                    value = ConstInt(signedord(code[position]))
+                elif argcode == 'r':
+                    value = self.registers_r[ord(code[position])]
+                elif argcode == 'f':
+                    value = self.registers_f[ord(code[position])]
+                else:
+                    raise AssertionError("bad argcode")
+                position += 1
+            elif argtype == "descr" or argtype == "jitcode":
+                assert argcodes[next_argcode] == 'd'
+                next_argcode = next_argcode + 1
+                index = ord(code[position]) | (ord(code[position+1])<<8)
+                value = self.metainterp.staticdata.opcode_descrs[index]
+                if argtype == "jitcode":
+                    assert isinstance(value, JitCode)
+                position += 2
+            elif argtype == "label":
+                assert argcodes[next_argcode] == 'L'
+                next_argcode = next_argcode + 1
+                value = ord(code[position]) | (ord(code[position+1])<<8)
+                position += 2
+            elif argtype == "boxes":     # a list of boxes of some type
+                length = ord(code[position])
+                value = [None] * length
+                self.prepare_list_of_boxes(value, 0, position,
+                                           argcodes[next_argcode])
+                next_argcode = next_argcode + 1
+                position += 1 + length
+            elif argtype == "boxes2":     # two lists of boxes merged into one
+                length1 = ord(code[position])
+                position2 = position + 1 + length1
+                length2 = ord(code[position2])
+                value = [None] * (length1 + length2)
+                self.prepare_list_of_boxes(value, 0, position,
+                                           argcodes[next_argcode])
+                self.prepare_list_of_boxes(value, length1, position2,
+                                           argcodes[next_argcode + 1])
+                next_argcode = next_argcode + 2
+                position = position2 + 1 + length2
+            elif argtype == "boxes3":    # three lists of boxes merged into one
+                length1 = ord(code[position])
+                position2 = position + 1 + length1
+                length2 = ord(code[position2])
+                position3 = position2 + 1 + length2
+                length3 = ord(code[position3])
+                value = [None] * (length1 + length2 + length3)
+                self.prepare_list_of_boxes(value, 0, position,
+                                           argcodes[next_argcode])
+                self.prepare_list_of_boxes(value, length1, position2,
+                                           argcodes[next_argcode + 1])
+                self.prepare_list_of_boxes(value, length1 + length2, position3,
+                                           argcodes[next_argcode + 2])
+                next_argcode = next_argcode + 3
+                position = position3 + 1 + length3
+            elif argtype == "orgpc":
+                value = orgpc
+            else:
+                raise AssertionError("bad argtype: %r" % (argtype,))
+            args += (value,)
+        #
+        num_return_args = len(argcodes) - next_argcode
+        assert num_return_args == 0 or num_return_args == 2
+        if num_return_args:
+            # Save the type of the resulting box.  This is needed if there is
+            # a get_list_of_active_boxes().  See comments there.
+            self._result_argcode = argcodes[next_argcode + 1]
+            position += 1
+        else:
+            self._result_argcode = 'v'
+        self.pc = position
+        #
+        if not we_are_translated():
+            print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+            try:
+                resultbox = unboundmethod(self, *args)
+            except Exception, e:
+                print '-> %s!' % e.__class__.__name__
+                raise
+            if num_return_args == 0:
+                print
+                assert resultbox is None
+            else:
+                print '-> %r' % (resultbox,)
+                assert argcodes[next_argcode] == '>'
+                result_argcode = argcodes[next_argcode + 1]
+                assert resultbox.type == {'i': history.INT,
+                                          'r': history.REF,
+                                          'f': history.FLOAT}[result_argcode]
+        else:
+            resultbox = unboundmethod(self, *args)
+        #
+        self.make_result_of_lastop(resultbox)
+    #
+    unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
+    argtypes = unrolling_iterable(unboundmethod.argtypes)
+    handler.func_name = 'handler_' + name
+    return handler

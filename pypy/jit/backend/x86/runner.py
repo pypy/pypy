@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history, compile
@@ -67,18 +68,19 @@ class CPU386(AbstractLLCPU):
         return self.assembler.fail_boxes_float.getitem(index)
 
     def get_latest_value_ref(self, index):
-        ptrvalue = self.assembler.fail_boxes_ptr.getitem(index)
-        # clear after reading
-        self.assembler.fail_boxes_ptr.setitem(index, lltype.nullptr(
-            llmemory.GCREF.TO))
-        return ptrvalue
+        return self.assembler.fail_boxes_ptr.getitem(index)
+
+    def get_latest_value_count(self):
+        return self.assembler.fail_boxes_count
+
+    def clear_latest_values(self, count):
+        setitem = self.assembler.fail_boxes_ptr.setitem
+        null = lltype.nullptr(llmemory.GCREF.TO)
+        for index in range(count):
+            setitem(index, null)
 
     def get_latest_force_token(self):
         return self.assembler.fail_ebp + FORCE_INDEX_OFS
-
-    def make_boxes_from_latest_values(self, faildescr):
-        return self.assembler.make_boxes_from_latest_values(
-            faildescr._x86_failure_recovery_bytecode)
 
     def execute_token(self, executable_token):
         addr = executable_token._x86_bootstrap_code
@@ -135,9 +137,6 @@ class CPU386_NO_SSE2(CPU386):
 
 
 CPU = CPU386
-
-import pypy.jit.metainterp.executor
-pypy.jit.metainterp.executor.make_execute_list(CPU)
 
 # silence warnings
 

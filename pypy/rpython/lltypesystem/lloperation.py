@@ -263,7 +263,7 @@ LL_OPERATIONS = {
     'uint_rshift':          LLOp(canfold=True),
     'uint_xor':             LLOp(canfold=True),
 
-    'float_is_true':        LLOp(canfold=True),
+    'float_is_true':        LLOp(canfold=True),  # it really means "x != 0.0"
     'float_neg':            LLOp(canfold=True),
     'float_abs':            LLOp(canfold=True),
 
@@ -410,7 +410,7 @@ LL_OPERATIONS = {
     'cast_ptr_to_adr':      LLOp(sideeffects=False),
     'cast_adr_to_ptr':      LLOp(canfold=True),
     'cast_adr_to_int':      LLOp(sideeffects=False),
-    'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
+    'cast_int_to_adr':      LLOp(canfold=True),
 
     'get_group_member':     LLOp(canfold=True),
     'get_next_group_member':LLOp(canfold=True),

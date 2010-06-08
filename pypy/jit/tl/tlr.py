@@ -12,7 +12,7 @@ ALLOCATE   = 7
 NEG_A      = 8
 
 class TLRJitDriver(JitDriver):
-    greens = ['bytecode', 'pc']
+    greens = ['pc', 'bytecode']
     reds   = ['a', 'regs']
 
 tlrjitdriver = TLRJitDriver()

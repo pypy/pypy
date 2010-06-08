@@ -624,3 +624,24 @@ def test_addr_keeps_object_alive():
     # the following line crashes if the array is dead
     ptr1 = cast_adr_to_ptr(adr, lltype.Ptr(lltype.FixedSizeArray(Address, 1)))
     ptr1[0] = NULL
+
+def test_cast_adr_to_int():
+    A = lltype.Array(Address)
+    ptr = lltype.malloc(A, 10, immortal=True)
+    adr = cast_ptr_to_adr(ptr)
+    i = cast_adr_to_int(adr, mode="symbolic")
+    assert isinstance(i, AddressAsInt)
+    assert cast_int_to_adr(i) == adr
+    assert cast_adr_to_int(NULL, mode="symbolic") == 0
+    assert cast_int_to_adr(0) == NULL
+    #
+    i = cast_adr_to_int(adr, mode="emulated")
+    assert type(i) is int
+    i = cast_adr_to_int(NULL, mode="emulated")
+    assert type(i) is int and i == 0
+    #
+    i = cast_adr_to_int(adr, mode="forced")
+    assert type(i) is int
+    #assert cast_int_to_adr(i) == adr -- depends on ll2ctypes details
+    i = cast_adr_to_int(NULL, mode="forced")
+    assert type(i) is int and i == 0

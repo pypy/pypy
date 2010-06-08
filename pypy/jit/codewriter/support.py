@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
@@ -55,6 +56,10 @@ def annotate(func, values, inline=None, backendoptimize=True,
     #    t.view()
     return rtyper
 
+def getgraph(func, values):
+    rtyper = annotate(func, values)
+    return rtyper.annotator.translator.graphs[0]
+
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Find the block with 'jit_merge_point' and split just before,
     making sure the input args are in the canonical order.
@@ -65,13 +70,36 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
         portalblock = link.target
     portalop = portalblock.operations[0]
     # split again, this time enforcing the order of the live vars
-    # specified by the user in the jit_merge_point() call
+    # specified by decode_hp_hint_args().
     assert portalop.opname == 'jit_marker'
     assert portalop.args[0].value == 'jit_merge_point'
-    livevars = [v for v in portalop.args[2:]
-                  if v.concretetype is not lltype.Void]
-    link = split_block(None, portalblock, 0, livevars)
+    greens_v, reds_v = decode_hp_hint_args(portalop)
+    link = split_block(None, portalblock, 0, greens_v + reds_v)
     return link.target
+
+def decode_hp_hint_args(op):
+    # Returns (list-of-green-vars, list-of-red-vars) without Voids.
+    # Both lists must be sorted: first INT, then REF, then FLOAT.
+    assert op.opname == 'jit_marker'
+    jitdriver = op.args[1].value
+    numgreens = len(jitdriver.greens)
+    numreds = len(jitdriver.reds)
+    greens_v = op.args[2:2+numgreens]
+    reds_v = op.args[2+numgreens:]
+    assert len(reds_v) == numreds
+    #
+    def _sort(args_v):
+        from pypy.jit.metainterp.history import getkind
+        lst = [v for v in args_v if v.concretetype is not lltype.Void]
+        _kind2count = {'int': 1, 'ref': 2, 'float': 3}
+        lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
+        # a crash here means that you have to reorder the variable named in
+        # the JitDriver.  Indeed, greens and reds must both be sorted: first
+        # all INTs, followed by all REFs, followed by all FLOATs.
+        assert lst == lst2
+        return lst
+    #
+    return (_sort(greens_v), _sort(reds_v))
 
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
@@ -144,6 +172,65 @@ def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
+def _ll_2_int_floordiv_ovf_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+        raise OverflowError
+    return llop.int_floordiv(lltype.Signed, x, y)
+
+def _ll_2_int_floordiv_ovf(x, y):
+    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+        raise OverflowError
+    return llop.int_floordiv(lltype.Signed, x, y)
+
+def _ll_2_int_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return llop.int_floordiv_zer(lltype.Signed, x, y)
+
+def _ll_2_int_mod_ovf_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+        raise OverflowError
+    return llop.int_mod(lltype.Signed, x, y)
+
+def _ll_2_int_mod_ovf(x, y):
+    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+        raise OverflowError
+    return llop.int_mod(lltype.Signed, x, y)
+
+def _ll_2_int_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return llop.int_mod(lltype.Signed, x, y)
+
+def _ll_2_int_lshift_ovf(x, y):
+    result = x << y
+    if (result >> y) != x:
+        raise OverflowError
+    return result
+
+def _ll_1_int_abs(x):
+    if x < 0:
+        return -x
+    else:
+        return x
+
+# in the following calls to builtins, the JIT is allowed to look inside:
+inline_calls_to = [
+    ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_floordiv_ovf',     [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_floordiv_zer',     [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod_ovf_zer',      [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod_ovf',          [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_abs',              [lltype.Signed],                lltype.Signed),
+    ]
+
+
 class LLtypeHelpers:
 
     # ---------- dict ----------
@@ -196,11 +283,12 @@ class LLtypeHelpers:
 
     # ---------- malloc with del ----------
 
-    def _ll_1_alloc_with_del(RESULT, vtable):
-        p = lltype.malloc(RESULT)
-        lltype.cast_pointer(rclass.OBJECTPTR, p).typeptr = vtable
-        return p
-    _ll_1_alloc_with_del.need_result_type = True
+    def build_ll_0_alloc_with_del(RESULT, vtable):
+        def _ll_0_alloc_with_del():
+            p = lltype.malloc(RESULT.TO)
+            lltype.cast_pointer(rclass.OBJECTPTR, p).typeptr = vtable
+            return p
+        return _ll_0_alloc_with_del
 
 
 class OOtypeHelpers:
@@ -280,8 +368,10 @@ class OOtypeHelpers:
 
 # -------------------------------------------------------
 
-def setup_extra_builtin(rtyper, oopspec_name, nb_args):
+def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))
+    if extra is not None:
+        name = 'build' + name
     try:
         wrapper = globals()[name]
     except KeyError:
@@ -290,6 +380,8 @@ def setup_extra_builtin(rtyper, oopspec_name, nb_args):
         else:
             Helpers = OOtypeHelpers
         wrapper = getattr(Helpers, name).im_func
+    if extra is not None:
+        wrapper = wrapper(*extra)
     return wrapper
 
 # # ____________________________________________________________
@@ -374,8 +466,10 @@ def decode_builtin_call(op):
     else:
         raise ValueError(op.opname)
 
-def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res):
-    key = (oopspec_name, tuple(ll_args), ll_res)
+def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
+                          extra=None, extrakey=None):
+    assert (extra is None) == (extrakey is None)
+    key = (oopspec_name, tuple(ll_args), ll_res, extrakey)
     try:
         return rtyper._builtin_func_for_spec_cache[key]
     except (KeyError, AttributeError):
@@ -386,14 +480,19 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res):
     else:
         LIST_OR_DICT = ll_args[0]
     s_result = annmodel.lltype_to_annotation(ll_res)
-    impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s))
+    impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper
         args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
     #
-    mixlevelann = MixLevelHelperAnnotator(rtyper)
-    c_func = mixlevelann.constfunc(impl, args_s, s_result)
-    mixlevelann.finish()
+    if hasattr(rtyper, 'annotator'):  # regular case
+        mixlevelann = MixLevelHelperAnnotator(rtyper)
+        c_func = mixlevelann.constfunc(impl, args_s, s_result)
+        mixlevelann.finish()
+    else:
+        # for testing only
+        c_func = Constant(oopspec_name,
+                          lltype.Ptr(lltype.FuncType(ll_args, ll_res)))
     #
     if not hasattr(rtyper, '_builtin_func_for_spec_cache'):
         rtyper._builtin_func_for_spec_cache = {}

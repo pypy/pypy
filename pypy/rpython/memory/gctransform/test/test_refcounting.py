@@ -175,7 +175,7 @@ def test_deallocator_array():
     assert len(ops['gc_free']) == 1
 
 def test_deallocator_with_destructor():
-    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    S = lltype.GcStruct("S", ('x', lltype.Signed), rtti=True)
     def f(s):
         s.x = 1
     def type_info_S(p):
@@ -192,9 +192,9 @@ def test_deallocator_with_destructor():
     graph, t = make_deallocator(S)
 
 def test_caching_dynamic_deallocator():
-    S = lltype.GcStruct("S", ('x', lltype.Signed))
-    S1 = lltype.GcStruct("S1", ('s', S), ('y', lltype.Signed))
-    T = lltype.GcStruct("T", ('x', lltype.Signed))
+    S = lltype.GcStruct("S", ('x', lltype.Signed), rtti=True)
+    S1 = lltype.GcStruct("S1", ('s', S), ('y', lltype.Signed), rtti=True)
+    T = lltype.GcStruct("T", ('x', lltype.Signed), rtti=True)
     def f_S(s):
         s.x = 1
     def f_S1(s1):

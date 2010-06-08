@@ -781,6 +781,24 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
 
+    def test_dict_of_addresses(self):
+        from pypy.rpython.lltypesystem import llmemory
+        TP = lltype.Struct('x')
+        a = lltype.malloc(TP, flavor='raw', immortal=True)
+        b = lltype.malloc(TP, flavor='raw', immortal=True)
+
+        def func(i):
+            d = {}
+            d[llmemory.cast_ptr_to_adr(a)] = 123
+            d[llmemory.cast_ptr_to_adr(b)] = 456
+            if i > 5:
+                key = llmemory.cast_ptr_to_adr(a)
+            else:
+                key = llmemory.cast_ptr_to_adr(b)
+            return d[key]
+
+        assert self.interpret(func, [3]) == 456
+
     def test_prebuilt_list_of_addresses(self):
         from pypy.rpython.lltypesystem import llmemory
         

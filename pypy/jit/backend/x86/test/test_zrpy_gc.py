@@ -94,7 +94,7 @@ def compile(f, gc, **kwds):
 def run(cbuilder, args=''):
     #
     pypylog = udir.join('test_zrpy_gc.log')
-    data = cbuilder.cmdexec(args, env={'PYPYLOG': str(pypylog)})
+    data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
     return data.strip()
 
 def compile_and_run(f, gc, **kwds):
@@ -174,7 +174,7 @@ class TestCompileHybrid(object):
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileHybrid.log')
         res = self.cbuilder.cmdexec("%s %d" %(name, n),
-                                    env={'PYPYLOG': str(pypylog)})
+                                    env={'PYPYLOG': ':%s' % pypylog})
         assert int(res) == 20
 
     def run_orig(self, name, n, x):

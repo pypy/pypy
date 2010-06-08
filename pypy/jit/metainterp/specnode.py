@@ -57,7 +57,8 @@ class AbstractVirtualStructSpecNode(SpecNode):
         from pypy.jit.metainterp import executor, history, resoperation
         for ofs, subspecnode in self.fields:
             assert isinstance(ofs, history.AbstractDescr)
-            fieldbox = executor.execute(cpu, resoperation.rop.GETFIELD_GC,
+            fieldbox = executor.execute(cpu, None,
+                                        resoperation.rop.GETFIELD_GC,
                                         ofs, valuebox)
             subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
@@ -95,7 +96,8 @@ class VirtualArraySpecNode(SpecNode):
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         from pypy.jit.metainterp import executor, history, resoperation
         for i in range(len(self.items)):
-            itembox = executor.execute(cpu, resoperation.rop.GETARRAYITEM_GC,
+            itembox = executor.execute(cpu, None,
+                                       resoperation.rop.GETARRAYITEM_GC,
                                        self.arraydescr,
                                        valuebox, history.ConstInt(i))
             subspecnode = self.items[i]

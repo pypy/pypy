@@ -35,7 +35,7 @@ def test_bug_int_is_true_1():
         ResOperation(rop.INT_MUL, [v1, v1], v2),
         ResOperation(rop.INT_MUL, [v2, v1], v3),
         ResOperation(rop.INT_IS_TRUE, [v2], tmp5),
-        ResOperation(rop.BOOL_NOT, [tmp5], v4),
+        ResOperation(rop.INT_IS_ZERO, [tmp5], v4),
         ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)

@@ -7,9 +7,10 @@ when executing on top of the llinterpreter.
 import sys
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
-from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr,
+from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
                                          BoxInt, BoxPtr, BoxObj, BoxFloat,
                                          REF, INT, FLOAT)
+from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
@@ -73,12 +74,12 @@ TYPES = {
     'int_eq'          : (('int', 'int'), 'bool'),
     'int_ne'          : (('int', 'int'), 'bool'),
     'int_is_true'     : (('int',), 'bool'),
+    'int_is_zero'     : (('int',), 'bool'),
     'int_neg'         : (('int',), 'int'),
     'int_invert'      : (('int',), 'int'),
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
-    'bool_not'        : (('bool',), 'bool'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),
     'uint_mul'        : (('int', 'int'), 'int'),
@@ -103,7 +104,6 @@ TYPES = {
     'float_ge'        : (('float', 'float'), 'bool'),
     'float_neg'       : (('float',), 'float'),
     'float_abs'       : (('float',), 'float'),
-    'float_is_true'   : (('float',), 'bool'),
     'cast_float_to_int':(('float',), 'int'),
     'cast_int_to_float':(('int',), 'float'),
     'same_as'         : (('int',), 'int'),      # could also be ptr=>ptr
@@ -155,16 +155,6 @@ TYPES = {
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),
-    'virtual_ref'     : (('ref', 'int'), 'ref'),
-    'virtual_ref_finish': (('ref', 'ref'), None),
-    #'getitem'         : (('void', 'ref', 'int'), 'int'),
-    #'setitem'         : (('void', 'ref', 'int', 'int'), None),
-    #'newlist'         : (('void', 'varargs'), 'ref'),
-    #'append'          : (('void', 'ref', 'int'), None),
-    #'insert'          : (('void', 'ref', 'int', 'int'), None),
-    #'pop'             : (('void', 'ref',), 'int'),
-    #'len'             : (('void', 'ref',), 'int'),
-    #'listnonzero'     : (('void', 'ref',), 'int'),
 }
 
 # ____________________________________________________________
@@ -231,19 +221,19 @@ def repr0(x):
     else:
         return repr(x)
 
-def repr_list(lst, types, memocast):
+def repr_list(lst, types):
     res_l = []
     if types and types[-1] == 'varargs':
         types = types[:-1] + ('int',) * (len(lst) - len(types) + 1)
     assert len(types) == len(lst)
     for elem, tp in zip(lst, types):
         if isinstance(elem, Constant):
-            res_l.append('(%s)' % repr1(elem, tp, memocast))
+            res_l.append('(%s)' % repr1(elem, tp))
         else:
-            res_l.append(repr1(elem, tp, memocast))
+            res_l.append(repr1(elem, tp))
     return '[%s]' % (', '.join(res_l))
 
-def repr1(x, tp, memocast):
+def repr1(x, tp):
     if tp == "intorptr":
         TYPE = lltype.typeOf(x)
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
@@ -259,7 +249,7 @@ def repr1(x, tp, memocast):
             return '(* None)'
         if isinstance(x, int):
             # XXX normalize?
-            ptr = str(cast_int_to_adr(memocast, x))
+            ptr = str(llmemory.cast_int_to_adr(x))
         elif isinstance(ootype.typeOf(x), ootype.OOType):
             return repr(x)
         else:
@@ -400,10 +390,9 @@ def compile_redirect_fail(old_loop, old_index, new_loop):
 class Frame(object):
     OPHANDLERS = [None] * (rop._LAST+1)
 
-    def __init__(self, memocast, cpu):
+    def __init__(self, cpu):
         self.verbose = False
         self.cpu = cpu
-        self.memocast = memocast
         self.opindex = 1
         self._forced = False
         self._may_force = -1
@@ -522,15 +511,14 @@ class Frame(object):
                 elif res is NotImplemented:
                     resdata = '*fail*'
                 else:
-                    resdata = '-> ' + repr1(res, restype, self.memocast)
+                    resdata = '-> ' + repr1(res, restype)
                 # fish the types
-                log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
-                                                          self.memocast),
+                log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes),
                                         resdata))
         return res
 
     def as_int(self, x):
-        return cast_to_int(x, self.memocast)
+        return cast_to_int(x)
 
     def as_ptr(self, x):
         return cast_to_ptr(x)
@@ -554,33 +542,35 @@ class Frame(object):
         try:
             op = getattr(cls, 'op_' + opname.lower())   # op_guard_true etc.
         except AttributeError:
-            name = 'do_' + opname.lower()
             try:
-                impl = globals()[name]                    # do_arraylen_gc etc.
+                impl = globals()['do_' + opname.lower()]  # do_arraylen_gc etc.
                 def op(self, descr, *args):
-                    return impl(descr, *args)
-                #
+                    if descr is None:
+                        return impl(*args)
+                    else:
+                        return impl(descr, *args)
             except KeyError:
-                from pypy.jit.backend.llgraph import llimpl
-                impl = getattr(executor, name)            # do_int_add etc.
-                def _op_default_implementation(self, descr, *args):
-                    # for all operations implemented in execute.py
-                    boxedargs = []
-                    for x in args:
-                        if type(x) is int:
-                            boxedargs.append(BoxInt(x))
-                        elif type(x) is float:
-                            boxedargs.append(BoxFloat(x))
-                        elif isinstance(ootype.typeOf(x), ootype.OOType):
-                            boxedargs.append(BoxObj(ootype.cast_to_object(x)))
-                        else:
-                            boxedargs.append(BoxPtr(x))
-                    # xxx this passes the 'llimpl' module as the CPU argument
-                    resbox = impl(llimpl, *boxedargs)
-                    return getattr(resbox, 'value', None)
-                op = _op_default_implementation
-                #
+                op = cls._make_impl_from_blackhole_interp(opname)
         cls.OPHANDLERS[opnum] = op
+
+    @classmethod
+    def _make_impl_from_blackhole_interp(cls, opname):
+        from pypy.jit.metainterp.blackhole import BlackholeInterpreter
+        name = 'bhimpl_' + opname.lower()
+        func = BlackholeInterpreter.__dict__[name]
+        for argtype in func.argtypes:
+            assert argtype in ('i', 'r', 'f')
+        #
+        def _op_default_implementation(self, descr, *args):
+            # for all operations implemented in the blackhole interpreter
+            return func(*args)
+        #
+        return _op_default_implementation
+
+    def op_debug_merge_point(self, _, value):
+        from pypy.jit.metainterp.warmspot import get_stats
+        loc = ConstPtr(value)._get_str()
+        get_stats().add_merge_point_location(loc)
 
     def op_guard_true(self, _, value):
         if not value:
@@ -596,7 +586,7 @@ class Frame(object):
     def op_guard_class(self, _, value, expected_class):
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)
         expected_class = llmemory.cast_adr_to_ptr(
-            cast_int_to_adr(self.memocast, expected_class),
+            llmemory.cast_int_to_adr(expected_class),
             rclass.CLASSTYPE)
         if value.typeptr != expected_class:
             raise GuardFailed
@@ -630,7 +620,7 @@ class Frame(object):
 
     def _cast_exception(self, exception):
         return llmemory.cast_adr_to_ptr(
-            cast_int_to_adr(self.memocast, exception),
+            llmemory.cast_int_to_adr(exception),
             rclass.CLASSTYPE)
 
     def _issubclass(self, cls1, cls2):
@@ -696,7 +686,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             return do_getarrayitem_gc_ptr(array, index)
         elif arraydescr.typeinfo == INT:
-            return do_getarrayitem_gc_int(array, index, self.memocast)
+            return do_getarrayitem_gc_int(array, index)
         elif arraydescr.typeinfo == FLOAT:
             return do_getarrayitem_gc_float(array, index)
         else:
@@ -708,7 +698,7 @@ class Frame(object):
         if fielddescr.typeinfo == REF:
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == INT:
-            return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
+            return do_getfield_gc_int(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == FLOAT:
             return do_getfield_gc_float(struct, fielddescr.ofs)
         else:
@@ -718,11 +708,11 @@ class Frame(object):
 
     def op_getfield_raw(self, fielddescr, struct):
         if fielddescr.typeinfo == REF:
-            return do_getfield_raw_ptr(struct, fielddescr.ofs, self.memocast)
+            return do_getfield_raw_ptr(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == INT:
-            return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
+            return do_getfield_raw_int(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == FLOAT:
-            return do_getfield_raw_float(struct, fielddescr.ofs, self.memocast)
+            return do_getfield_raw_float(struct, fielddescr.ofs)
         else:
             raise NotImplementedError
 
@@ -733,17 +723,17 @@ class Frame(object):
 
     def op_new_with_vtable(self, descr, vtable):
         assert descr is None
-        size = get_class_size(self.memocast, vtable)
-        result = do_new(size)
+        descr = heaptracker.vtable2descr(self.cpu, vtable)
+        result = do_new(descr.ofs)
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, result)
-        value.typeptr = cast_from_int(rclass.CLASSTYPE, vtable, self.memocast)
+        value.typeptr = cast_from_int(rclass.CLASSTYPE, vtable)
         return result
 
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
         if arraydescr.typeinfo == REF:
             do_setarrayitem_gc_ptr(array, index, newvalue)
         elif arraydescr.typeinfo == INT:
-            do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
+            do_setarrayitem_gc_int(array, index, newvalue)
         elif arraydescr.typeinfo == FLOAT:
             do_setarrayitem_gc_float(array, index, newvalue)
         else:
@@ -753,8 +743,7 @@ class Frame(object):
         if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == INT:
-            do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
-                               self.memocast)
+            do_setfield_gc_int(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == FLOAT:
             do_setfield_gc_float(struct, fielddescr.ofs, newvalue)
         else:
@@ -762,30 +751,41 @@ class Frame(object):
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
-            do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue,
-                                self.memocast)
+            do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == INT:
-            do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
-                                self.memocast)
+            do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == FLOAT:
-            do_setfield_raw_float(struct, fielddescr.ofs, newvalue,
-                                  self.memocast)
+            do_setfield_raw_float(struct, fielddescr.ofs, newvalue)
         else:
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
-        _call_args[:] = args
-        if calldescr.typeinfo == 'v':
-            err_result = None
-        elif calldescr.typeinfo == REF:
-            err_result = lltype.nullptr(llmemory.GCREF.TO)
-        elif calldescr.typeinfo == INT:
-            err_result = 0
-        elif calldescr.typeinfo == FLOAT:
-            err_result = 0.0
-        else:
-            raise NotImplementedError
-        return _do_call_common(func, self.memocast, err_result)
+        global _last_exception
+        assert _last_exception is None, "exception left behind"
+        assert _call_args_i == _call_args_r == _call_args_f == []
+        args_in_order = []
+        for x in args:
+            T = lltype.typeOf(x)
+            if T is lltype.Signed:
+                args_in_order.append('i')
+                _call_args_i.append(x)
+            elif T == llmemory.GCREF:
+                args_in_order.append('r')
+                _call_args_r.append(x)
+            elif T is lltype.Float:
+                args_in_order.append('f')
+                _call_args_f.append(x)
+            else:
+                raise TypeError(x)
+        try:
+            return _do_call_common(func, args_in_order)
+        except LLException, lle:
+            _last_exception = lle
+            d = {'v': None,
+                 REF: lltype.nullptr(llmemory.GCREF.TO),
+                 INT: 0,
+                 FLOAT: 0.0}
+            return d[calldescr.typeinfo]
 
     op_call_pure = op_call
 
@@ -801,7 +801,7 @@ class Frame(object):
         return do_new_array(arraydescr.ofs, count)
 
     def op_cast_ptr_to_int(self, descr, ptr):
-        return cast_to_int(ptr, self.memocast)
+        return cast_to_int(ptr)
 
     def op_uint_xor(self, descr, arg1, arg2):
         return arg1 ^ arg2
@@ -858,12 +858,6 @@ class Frame(object):
         self._forced = False
         if forced:
             raise GuardFailed
-
-    def op_virtual_ref(self, _, virtual, index):
-        return virtual
-
-    def op_virtual_ref_finish(self, _, vref, virtual):
-        pass
 
 
 class OOFrame(Frame):
@@ -925,7 +919,7 @@ class OOFrame(Frame):
 
     def op_call(self, calldescr, func, *args):
         sm = ootype.cast_from_object(calldescr.FUNC, func)
-        newargs = cast_call_args(calldescr.FUNC.ARGS, args, self.memocast)
+        newargs = cast_call_args(calldescr.FUNC.ARGS, args)
         res = call_maybe_on_top_of_llinterp(sm, newargs)
         if isinstance(calldescr.FUNC.RESULT, ootype.OOType):
             return ootype.cast_to_object(res)
@@ -937,7 +931,7 @@ class OOFrame(Frame):
         METH = descr.METH
         obj = ootype.cast_from_object(descr.SELFTYPE, obj)
         meth = getattr(obj, descr.methname)
-        newargs = cast_call_args(METH.ARGS, args, self.memocast)
+        newargs = cast_call_args(METH.ARGS, args)
         res = call_maybe_on_top_of_llinterp(meth, newargs)
         if isinstance(METH.RESULT, ootype.OOType):
             return ootype.cast_to_object(res)
@@ -973,27 +967,27 @@ class OOFrame(Frame):
 
 # ____________________________________________________________
 
-def cast_to_int(x, memocast):
+def cast_to_int(x):
     TP = lltype.typeOf(x)
     if isinstance(TP, lltype.Ptr):
-        return cast_adr_to_int(memocast, llmemory.cast_ptr_to_adr(x))
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
-        return cast_adr_to_int(memocast, x)
+        return heaptracker.adr2int(x)
     return lltype.cast_primitive(lltype.Signed, x)
 
-def cast_from_int(TYPE, x, memocast):
+def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
-        if isinstance(x, (int, long)):
-            x = cast_int_to_adr(memocast, x)
+        if isinstance(x, (int, long, llmemory.AddressAsInt)):
+            x = llmemory.cast_int_to_adr(x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
     elif TYPE == llmemory.Address:
-        if isinstance(x, (int, long)):
-            x = cast_int_to_adr(memocast, x)
+        if isinstance(x, (int, long, llmemory.AddressAsInt)):
+            x = llmemory.cast_int_to_adr(x)
         assert lltype.typeOf(x) == llmemory.Address
         return x
     else:
         if lltype.typeOf(x) == llmemory.Address:
-            x = cast_adr_to_int(memocast, x)
+            x = heaptracker.adr2int(x)
         return lltype.cast_primitive(TYPE, x)
 
 def cast_to_ptr(x):
@@ -1013,11 +1007,11 @@ def cast_from_float(TYPE, x):   # not really a cast, just a type check
     return x
 
 
-def new_frame(memocast, is_oo, cpu):
+def new_frame(is_oo, cpu):
     if is_oo:
-        frame = OOFrame(memocast, cpu)
+        frame = OOFrame(cpu)
     else:
-        frame = Frame(memocast, cpu)
+        frame = Frame(cpu)
     return _to_opaque(frame)
 
 _future_values = []
@@ -1067,69 +1061,68 @@ def frame_execute(frame):
 
 def frame_int_getvalue(frame, num):
     frame = _from_opaque(frame)
-    return frame.fail_args[num]
+    assert num >= 0
+    x = frame.fail_args[num]
+    assert lltype.typeOf(x) is lltype.Signed
+    return x
 
 def frame_float_getvalue(frame, num):
     frame = _from_opaque(frame)
-    return frame.fail_args[num]
+    assert num >= 0
+    x = frame.fail_args[num]
+    assert lltype.typeOf(x) is lltype.Float
+    return x
 
 def frame_ptr_getvalue(frame, num):
     frame = _from_opaque(frame)
-    result = frame.fail_args[num]
-    frame.fail_args[num] = None
-    return result
+    assert num >= 0
+    x = frame.fail_args[num]
+    assert lltype.typeOf(x) == llmemory.GCREF
+    return x
+
+def frame_get_value_count(frame):
+    frame = _from_opaque(frame)
+    return len(frame.fail_args)
+
+def frame_clear_latest_values(frame, count):
+    frame = _from_opaque(frame)
+    assert count == len(frame.fail_args)
+    del frame.fail_args
 
 _last_exception = None
 
-def get_exception():
-    if _last_exception:
-        return llmemory.cast_ptr_to_adr(_last_exception.args[0])
-    else:
-        return llmemory.NULL
-
-def get_exc_value():
-    if _last_exception:
-        return lltype.cast_opaque_ptr(llmemory.GCREF, _last_exception.args[1])
+def grab_exc_value():
+    global _last_exception
+    if _last_exception is not None:
+        result = _last_exception.args[1]
+        _last_exception = None
+        return lltype.cast_opaque_ptr(llmemory.GCREF, result)
     else:
         return lltype.nullptr(llmemory.GCREF.TO)
 
-def clear_exception():
-    global _last_exception
-    _last_exception = None
+##_pseudo_exceptions = {}
 
-_pseudo_exceptions = {}
+##def _get_error(Class):
+##    if _llinterp.typer is not None:
+##        llframe = _llinterp.frame_class(None, None, _llinterp)
+##        try:
+##            llframe.make_llexception(Class())
+##        except LLException, e:
+##            return e
+##        else:
+##            assert 0, "should have raised"
+##    else:
+##        # for tests, a random emulated ll_inst will do
+##        if Class not in _pseudo_exceptions:
+##            ll_inst = lltype.malloc(rclass.OBJECT, zero=True)
+##            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+##                                            immortal=True)
+##            _pseudo_exceptions[Class] = LLException(ll_inst.typeptr, ll_inst)
+##        return _pseudo_exceptions[Class]
 
-def _get_error(Class):
-    if _llinterp.typer is not None:
-        llframe = _llinterp.frame_class(None, None, _llinterp)
-        try:
-            llframe.make_llexception(Class())
-        except LLException, e:
-            return e
-        else:
-            assert 0, "should have raised"
-    else:
-        # for tests, a random emulated ll_inst will do
-        if Class not in _pseudo_exceptions:
-            ll_inst = lltype.malloc(rclass.OBJECT, zero=True)
-            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
-                                            immortal=True)
-            _pseudo_exceptions[Class] = LLException(ll_inst.typeptr, ll_inst)
-        return _pseudo_exceptions[Class]
-
-def get_overflow_error():
-    return llmemory.cast_ptr_to_adr(_get_error(OverflowError).args[0])
-
-def get_overflow_error_value():
-    return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                  _get_error(OverflowError).args[1])
-
-def get_zero_division_error():
-    return llmemory.cast_ptr_to_adr(_get_error(ZeroDivisionError).args[0])
-
-def get_zero_division_error_value():
-    return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                  _get_error(ZeroDivisionError).args[1])
+##def get_overflow_error_value():
+##    return lltype.cast_opaque_ptr(llmemory.GCREF,
+##                                  _get_error(OverflowError).args[1])
 
 def force(opaque_frame):
     frame = _from_opaque(opaque_frame)
@@ -1151,40 +1144,30 @@ def get_forced_token_frame(force_token):
 def get_frame_forced_token(opaque_frame):
     return llmemory.cast_ptr_to_adr(opaque_frame)
 
-class MemoCast(object):
-    def __init__(self):
-        self.addresses = [llmemory.NULL]
-        self.rev_cache = {}
-        self.vtable_to_size = {}
+##def cast_adr_to_int(memocast, adr):
+##    # xxx slow
+##    assert lltype.typeOf(adr) == llmemory.Address
+##    memocast = _from_opaque(memocast)
+##    addresses = memocast.addresses
+##    for i in xrange(len(addresses)-1, -1, -1):
+##        if addresses[i] == adr:
+##            return i
+##    i = len(addresses)
+##    addresses.append(adr)
+##    return i
 
-def new_memo_cast():
-    memocast = MemoCast()
-    return _to_opaque(memocast)
+##def cast_int_to_adr(memocast, int):
+##    memocast = _from_opaque(memocast)
+##    assert 0 <= int < len(memocast.addresses)
+##    return memocast.addresses[int]
 
-def cast_adr_to_int(memocast, adr):
-    # xxx slow
-    assert lltype.typeOf(adr) == llmemory.Address
-    memocast = _from_opaque(memocast)
-    addresses = memocast.addresses
-    for i in xrange(len(addresses)-1, -1, -1):
-        if addresses[i] == adr:
-            return i
-    i = len(addresses)
-    addresses.append(adr)
-    return i
+##def get_class_size(memocast, vtable):
+##    memocast = _from_opaque(memocast)
+##    return memocast.vtable_to_size[vtable]
 
-def cast_int_to_adr(memocast, int):
-    memocast = _from_opaque(memocast)
-    assert 0 <= int < len(memocast.addresses)
-    return memocast.addresses[int]
-
-def get_class_size(memocast, vtable):
-    memocast = _from_opaque(memocast)
-    return memocast.vtable_to_size[vtable]
-
-def set_class_size(memocast, vtable, size):
-    memocast = _from_opaque(memocast)
-    memocast.vtable_to_size[vtable] = size
+##def set_class_size(memocast, vtable, size):
+##    memocast = _from_opaque(memocast)
+##    memocast.vtable_to_size[vtable] = size
 
 class GuardFailed(Exception):
     pass
@@ -1192,29 +1175,32 @@ class GuardFailed(Exception):
 # ____________________________________________________________
 
 
+def do_same_as(x):
+    return x
+
 def do_arraylen_gc(arraydescr, array):
     array = array._obj.container
     return array.getlength()
 
-def do_strlen(_, string):
+def do_strlen(string):
     str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
     return len(str.chars)
 
-def do_strgetitem(_, string, index):
+def do_strgetitem(string, index):
     str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
     return ord(str.chars[index])
 
-def do_unicodelen(_, string):
+def do_unicodelen(string):
     uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
     return len(uni.chars)
 
-def do_unicodegetitem(_, string, index):
+def do_unicodegetitem(string, index):
     uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
     return ord(uni.chars[index])
 
-def do_getarrayitem_gc_int(array, index, memocast):
+def do_getarrayitem_gc_int(array, index):
     array = array._obj.container
-    return cast_to_int(array.getitem(index), memocast)
+    return cast_to_int(array.getitem(index))
 
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
@@ -1229,8 +1215,8 @@ def _getfield_gc(struct, fieldnum):
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     return getattr(ptr, fieldname)
 
-def do_getfield_gc_int(struct, fieldnum, memocast):
-    return cast_to_int(_getfield_gc(struct, fieldnum), memocast)
+def do_getfield_gc_int(struct, fieldnum):
+    return cast_to_int(_getfield_gc(struct, fieldnum))
 
 def do_getfield_gc_float(struct, fieldnum):
     return cast_to_float(_getfield_gc(struct, fieldnum))
@@ -1238,19 +1224,19 @@ def do_getfield_gc_float(struct, fieldnum):
 def do_getfield_gc_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_gc(struct, fieldnum))
 
-def _getfield_raw(struct, fieldnum, memocast):
+def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
     return getattr(ptr, fieldname)
 
-def do_getfield_raw_int(struct, fieldnum, memocast):
-    return cast_to_int(_getfield_raw(struct, fieldnum, memocast), memocast)
+def do_getfield_raw_int(struct, fieldnum):
+    return cast_to_int(_getfield_raw(struct, fieldnum))
 
-def do_getfield_raw_float(struct, fieldnum, memocast):
-    return cast_to_float(_getfield_raw(struct, fieldnum, memocast))
+def do_getfield_raw_float(struct, fieldnum):
+    return cast_to_float(_getfield_raw(struct, fieldnum))
 
-def do_getfield_raw_ptr(struct, fieldnum, memocast):
-    return cast_to_ptr(_getfield_raw(struct, fieldnum, memocast))
+def do_getfield_raw_ptr(struct, fieldnum):
+    return cast_to_ptr(_getfield_raw(struct, fieldnum))
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
@@ -1262,10 +1248,10 @@ def do_new_array(arraynum, count):
     x = lltype.malloc(TYPE, count, zero=True)
     return cast_to_ptr(x)
 
-def do_setarrayitem_gc_int(array, index, newvalue, memocast):
+def do_setarrayitem_gc_int(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue, memocast)
+    newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
 def do_setarrayitem_gc_float(array, index, newvalue):
@@ -1280,11 +1266,11 @@ def do_setarrayitem_gc_ptr(array, index, newvalue):
     newvalue = cast_from_ptr(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setfield_gc_int(struct, fieldnum, newvalue, memocast):
+def do_setfield_gc_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
+    newvalue = cast_from_int(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_gc_float(struct, fieldnum, newvalue):
@@ -1301,108 +1287,129 @@ def do_setfield_gc_ptr(struct, fieldnum, newvalue):
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_int(struct, fieldnum, newvalue, memocast):
+def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
+    newvalue = cast_from_int(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_float(struct, fieldnum, newvalue, memocast):
+def do_setfield_raw_float(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_float(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_ptr(struct, fieldnum, newvalue, memocast):
+def do_setfield_raw_ptr(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = cast_from_int(lltype.Ptr(STRUCT), struct, memocast)
+    ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
-def do_newstr(_, length):
+def do_newstr(length):
     x = rstr.mallocstr(length)
     return cast_to_ptr(x)
 
-def do_newunicode(_, length):
+def do_newunicode(length):
     return cast_to_ptr(rstr.mallocunicode(length))
 
-def do_strsetitem(_, string, index, newvalue):
+def do_strsetitem(string, index, newvalue):
     str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
     str.chars[index] = chr(newvalue)
 
-def do_unicodesetitem(_, string, index, newvalue):
+def do_unicodesetitem(string, index, newvalue):
     uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
     uni.chars[index] = unichr(newvalue)
 
 # ---------- call ----------
 
-_call_args = []
+_call_args_i = []
+_call_args_r = []
+_call_args_f = []
 
 def do_call_pushint(x):
-    _call_args.append(x)
-
-def do_call_pushfloat(x):
-    _call_args.append(x)
+    _call_args_i.append(x)
 
 def do_call_pushptr(x):
-    _call_args.append(x)
+    _call_args_r.append(x)
 
-def _do_call_common(f, memocast, err_result=None):
-    global _last_exception
-    assert _last_exception is None, "exception left behind"
-    ptr = cast_int_to_adr(memocast, f).ptr
+def do_call_pushfloat(x):
+    _call_args_f.append(x)
+
+def _do_call_common(f, args_in_order=None):
+    ptr = llmemory.cast_int_to_adr(f).ptr
     FUNC = lltype.typeOf(ptr).TO
     ARGS = FUNC.ARGS
-    args = cast_call_args(ARGS, _call_args, memocast)
-    del _call_args[:]
+    args = cast_call_args(ARGS, _call_args_i, _call_args_r, _call_args_f,
+                          args_in_order)
+    del _call_args_i[:]
+    del _call_args_r[:]
+    del _call_args_f[:]
     assert len(ARGS) == len(args)
-    try:
-        if hasattr(ptr._obj, 'graph'):
-            llinterp = _llinterp      # it's a global set here by CPU.__init__()
-            result = llinterp.eval_graph(ptr._obj.graph, args)
-        else:
-            result = ptr._obj._callable(*args)
-    except LLException, e:
-        _last_exception = e
-        result = err_result
+    if hasattr(ptr._obj, 'graph'):
+        llinterp = _llinterp      # it's a global set here by CPU.__init__()
+        result = llinterp.eval_graph(ptr._obj.graph, args)
+        # ^^^ may raise, in which case we get an LLException
+    else:
+        result = ptr._obj._callable(*args)
     return result
 
-def do_call_void(f, memocast):
-    _do_call_common(f, memocast)
+def do_call_void(f):
+    _do_call_common(f)
 
-def do_call_int(f, memocast):
-    x = _do_call_common(f, memocast, 0)
-    return cast_to_int(x, memocast)
+def do_call_int(f):
+    x = _do_call_common(f)
+    return cast_to_int(x)
 
-def do_call_float(f, memocast):
-    x = _do_call_common(f, memocast, 0)
+def do_call_float(f):
+    x = _do_call_common(f)
     return cast_to_float(x)
 
-def do_call_ptr(f, memocast):
-    x = _do_call_common(f, memocast, lltype.nullptr(llmemory.GCREF.TO))
+def do_call_ptr(f):
+    x = _do_call_common(f)
     return cast_to_ptr(x)
 
-def cast_call_args(ARGS, args, memocast):
-    argsiter = iter(args)
+def cast_call_args(ARGS, args_i, args_r, args_f, args_in_order=None):
+    argsiter_i = iter(args_i)
+    argsiter_r = iter(args_r)
+    argsiter_f = iter(args_f)
+    if args_in_order is not None:
+        orderiter = iter(args_in_order)
     args = []
     for TYPE in ARGS:
         if TYPE is lltype.Void:
             x = None
         else:
-            x = argsiter.next()
             if isinstance(TYPE, ootype.OOType):
+                if args_in_order is not None:
+                    n = orderiter.next()
+                    assert n == 'r'
+                x = argsiter_r.next()
                 x = ootype.cast_from_object(TYPE, x)
             elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+                if args_in_order is not None:
+                    n = orderiter.next()
+                    assert n == 'r'
+                x = argsiter_r.next()
                 x = cast_from_ptr(TYPE, x)
             elif TYPE is lltype.Float:
+                if args_in_order is not None:
+                    n = orderiter.next()
+                    assert n == 'f'
+                x = argsiter_f.next()
                 x = cast_from_float(TYPE, x)
             else:
-                x = cast_from_int(TYPE, x, memocast)
+                if args_in_order is not None:
+                    n = orderiter.next()
+                    assert n == 'i'
+                x = argsiter_i.next()
+                x = cast_from_int(TYPE, x)
         args.append(x)
-    assert list(argsiter) == []
+    assert list(argsiter_i) == []
+    assert list(argsiter_r) == []
+    assert list(argsiter_f) == []
     return args
 
 
@@ -1421,7 +1428,7 @@ def call_maybe_on_top_of_llinterp(meth, args):
             result = llinterp.eval_graph(mymethod.graph, myargs)
         else:
             result = meth(*args)
-    except LLException, e:
+    except XXX-LLException, e:
         _last_exception = e
         result = get_err_result_for_type(mymethod._TYPE.RESULT)
     return result
@@ -1474,16 +1481,13 @@ def setannotation(func, annotation, specialize_as_constant=False):
 COMPILEDLOOP = lltype.Ptr(lltype.OpaqueType("CompiledLoop"))
 FRAME = lltype.Ptr(lltype.OpaqueType("Frame"))
 OOFRAME = lltype.Ptr(lltype.OpaqueType("OOFrame"))
-MEMOCAST = lltype.Ptr(lltype.OpaqueType("MemoCast"))
 
 _TO_OPAQUE[CompiledLoop] = COMPILEDLOOP.TO
 _TO_OPAQUE[Frame] = FRAME.TO
 _TO_OPAQUE[OOFrame] = OOFRAME.TO
-_TO_OPAQUE[MemoCast] = MEMOCAST.TO
 
 s_CompiledLoop = annmodel.SomePtr(COMPILEDLOOP)
 s_Frame = annmodel.SomePtr(FRAME)
-s_MemoCast = annmodel.SomePtr(MEMOCAST)
 
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
@@ -1512,22 +1516,13 @@ setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
 setannotation(frame_float_getvalue, annmodel.SomeFloat())
+setannotation(frame_get_value_count, annmodel.SomeInteger())
+setannotation(frame_clear_latest_values, annmodel.s_None)
 
-setannotation(get_exception, annmodel.SomeAddress())
-setannotation(get_exc_value, annmodel.SomePtr(llmemory.GCREF))
-setannotation(clear_exception, annmodel.s_None)
-setannotation(get_overflow_error, annmodel.SomeAddress())
-setannotation(get_overflow_error_value, annmodel.SomePtr(llmemory.GCREF))
-setannotation(get_zero_division_error, annmodel.SomeAddress())
-setannotation(get_zero_division_error_value, annmodel.SomePtr(llmemory.GCREF))
+setannotation(grab_exc_value, annmodel.SomePtr(llmemory.GCREF))
 setannotation(force, annmodel.SomeInteger())
 setannotation(get_forced_token_frame, s_Frame)
 setannotation(get_frame_forced_token, annmodel.SomeAddress())
-
-setannotation(new_memo_cast, s_MemoCast)
-setannotation(cast_adr_to_int, annmodel.SomeInteger())
-setannotation(cast_int_to_adr, annmodel.SomeAddress())
-setannotation(set_class_size, annmodel.s_None)
 
 setannotation(do_arraylen_gc, annmodel.SomeInteger())
 setannotation(do_strlen, annmodel.SomeInteger())

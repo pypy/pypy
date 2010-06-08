@@ -2,14 +2,15 @@ import py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.jit.codewriter.policy import StopAtXPolicy
+from pypy.jit.codewriter import heaptracker
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
-from pypy.jit.metainterp import history, heaptracker
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
 def promote_virtualizable(*args):
@@ -461,7 +462,7 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtualizable_with_array(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'frame', 'x'],
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'frame'],
                                 virtualizables = ['frame'])
 
         class Frame(object):
@@ -521,7 +522,7 @@ class ImplicitVirtualizableTests:
 
 
     def test_external_pass(self):
-        jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 'z'],
+        jitdriver = JitDriver(greens = [], reds = ['n', 'z', 'frame'],
                               virtualizables = ['frame'])
 
         class BaseFrame(object):
@@ -575,6 +576,45 @@ class ImplicitVirtualizableTests:
                 jitdriver.can_enter_jit(frame=frame)
                 jitdriver.jit_merge_point(frame=frame)
                 frame.x -= g()
+                frame.y += 1
+            return frame.x
+
+        res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
+        assert res == f(123)
+        self.check_aborted_count(2)
+        self.check_tree_loop_count(0)
+
+    def test_external_read_with_exception(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame'],
+                              virtualizables = ['frame'])
+        
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y']
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
+
+        class FooError(Exception):
+            def __init__(self, value):
+                self.value = value
+
+        def g():
+            result = somewhere_else.top_frame.y     # external read
+            debug_print(lltype.Void, '-+-+-+-+- external read:', result)
+            raise FooError(result)
+
+        def f(n):
+            frame = Frame()
+            frame.x = n
+            frame.y = 10
+            somewhere_else.top_frame = frame
+            while frame.x > 0:
+                jitdriver.can_enter_jit(frame=frame)
+                jitdriver.jit_merge_point(frame=frame)
+                try:
+                    g()
+                except FooError, e:
+                    frame.x -= e.value
                 frame.y += 1
             return frame.x
 
@@ -821,7 +861,7 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_recursive(self):
-        jitdriver = JitDriver(greens = [], reds = ['frame', 'rec'],
+        jitdriver = JitDriver(greens = [], reds = ['rec', 'frame'],
                               virtualizables = ['frame'])
         
         class Frame(object):
@@ -941,7 +981,7 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_promote_index_in_virtualizable_list(self):
-        jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
+        jitdriver = JitDriver(greens = [], reds = ['n', 'frame'],
                               virtualizables = ['frame'])
         class Frame(object):
             _virtualizable2_ = ['stackpos', 'stack[*]']
@@ -1084,7 +1124,7 @@ class ImplicitVirtualizableTests:
  
          res = self.meta_interp(f, [10])
          assert res == 55
-         self.check_loops(new_with_vtable=0, oois=1)
+         self.check_loops(new_with_vtable=0, ptr_eq=1)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -1196,7 +1236,7 @@ class ImplicitVirtualizableTests:
         if not self.basic:
             py.test.skip("purely frontend test")
 
-        myjitdriver = JitDriver(greens = [], reds = ['frame', 'fail'],
+        myjitdriver = JitDriver(greens = [], reds = ['fail', 'frame'],
                                 virtualizables = ['frame'])
 
         class Frame(object):
@@ -1251,7 +1291,7 @@ class ImplicitVirtualizableTests:
                 self.x = x
                 self.next = None
 
-        driver = JitDriver(greens=[], reds=['frame', 'result'],
+        driver = JitDriver(greens=[], reds=['result', 'frame'],
                            virtualizables=['frame'])
 
         def interp(caller):
@@ -1284,15 +1324,15 @@ class ImplicitVirtualizableTests:
                 self.n = n
                 self.next = None
 
-        driver = JitDriver(greens=[], reds=['frame', 'result'],
+        driver = JitDriver(greens=[], reds=['result', 'frame'],
                            virtualizables=['frame'])
 
-        def p(code, pc):
+        def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
-        def c(code, pc):
+        def c(pc, code):
             return "l" not in hlstr(code)
-        myjitdriver = JitDriver(greens=['code', 'pc'], reds=['frame'],
+        myjitdriver = JitDriver(greens=['pc', 'code'], reds=['frame'],
                                 virtualizables=["frame"],
                                 get_printable_location=p, can_inline=c)
         def f(code, frame):

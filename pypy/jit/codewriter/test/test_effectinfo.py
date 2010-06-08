@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.metainterp.effectinfo import effectinfo_from_writeanalyze
+from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
 
 class FakeCPU:
     def fielddescrof(self, T, fieldname):

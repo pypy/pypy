@@ -111,16 +111,14 @@ class LLInterpreter(object):
         self.traceback_frames = []
         lines = []
         for frame in frames:
-            logline = frame.graph.name
+            logline = frame.graph.name + "()"
             if frame.curr_block is None:
                 logline += " <not running yet>"
                 lines.append(logline)
                 continue
             try:
-                logline += " " + self.typer.annotator.annotated[frame.curr_block].__module__
-            except (KeyError, AttributeError):
-                # if the graph is from the GC it was not produced by the same
-                # translator :-(
+                logline += " " + self.typer.annotator.annotated[frame.curr_block].func.__module__
+            except (KeyError, AttributeError, TypeError):
                 logline += " <unknown module>"
             lines.append(logline)
             for i, operation in enumerate(frame.curr_block.operations):
@@ -808,9 +806,9 @@ class LLFrame(object):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
 
-    def op_cast_adr_to_int(self, adr):
+    def op_cast_adr_to_int(self, adr, mode):
         checkadr(adr)
-        return llmemory.cast_adr_to_int(adr)
+        return llmemory.cast_adr_to_int(adr, mode)
 
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py

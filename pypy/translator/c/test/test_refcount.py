@@ -130,9 +130,8 @@ def test_write_barrier():
 
 def test_del_basic():
     for gcpolicy in ["ref"]: #, "framework"]:
-        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        S = lltype.GcStruct('S', ('x', lltype.Signed), rtti=True)
         TRASH = lltype.GcStruct('TRASH', ('x', lltype.Signed))
-        lltype.attachRuntimeTypeInfo(S)
         GLOBAL = lltype.Struct('GLOBAL', ('x', lltype.Signed))
         glob = lltype.malloc(GLOBAL, immortal=True)
         def destructor(s):

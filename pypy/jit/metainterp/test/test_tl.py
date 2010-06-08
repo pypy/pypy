@@ -1,6 +1,6 @@
 import py
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.rlib.jit import OPTIMIZER_SIMPLE
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
 
 

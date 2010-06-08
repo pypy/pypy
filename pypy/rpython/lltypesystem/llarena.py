@@ -223,7 +223,8 @@ class fakearenaaddress(llmemory.fakeaddress):
         else:
             return self.arena._getid() < arena._getid()
 
-    def _cast_to_int(self):
+    def _cast_to_int(self, symbolic=False):
+        assert not symbolic
         return self.arena._getid() + self.offset
 
 

@@ -2,7 +2,7 @@ import py, sys
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.jit.codewriter.policy import StopAtXPolicy
 
 
 class ExceptionTests:
@@ -516,11 +516,10 @@ class ExceptionTests:
         assert res == -1
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
-        #    ENTER             - compile the new loop
-        #    ENTER (BlackHole) - leave
-        #    ENTER             - compile the entry bridge
-        #    ENTER             - compile the leaving path (raising MyError)
-        self.check_enter_count(4)
+        #    ENTER    - compile the new loop
+        #    ENTER    - compile the entry bridge
+        #    ENTER    - compile the leaving path (raising MyError)
+        self.check_enter_count(3)
 
 
     def test_bridge_from_interpreter_exc_2(self):
@@ -556,7 +555,6 @@ class ExceptionTests:
                                optimizer=OPTIMIZER_SIMPLE)
         assert res == 8
 
-
     def test_overflowerror_escapes(self):
         def g(x):
             return ovfcheck(x + 1)
@@ -569,6 +567,26 @@ class ExceptionTests:
                 raise
         res = self.interp_operations(f, [sys.maxint])
         assert res == -42
+
+    def test_bug_1(self):
+        def h(i):
+            if i > 10:
+                raise ValueError
+            if i > 5:
+                raise KeyError
+            return 5
+        def g(i):
+            try:
+                return h(i)
+            except ValueError:
+                return 21
+        def f(i):
+            try:
+                return g(i)
+            except KeyError:
+                return 42
+        res = self.interp_operations(f, [99])
+        assert res == 21
 
 class MyError(Exception):
     def __init__(self, n):

@@ -637,9 +637,14 @@ def rtype_cast_adr_to_ptr(hop):
 
 def rtype_cast_adr_to_int(hop):
     assert isinstance(hop.args_r[0], raddress.AddressRepr)
-    adr, = hop.inputargs(hop.args_r[0])
+    adr = hop.inputarg(hop.args_r[0], arg=0)
+    if len(hop.args_s) == 1:
+        mode = "emulated"
+    else:
+        mode = hop.args_s[1].const
     hop.exception_cannot_occur()
-    return hop.genop('cast_adr_to_int', [adr],
+    return hop.genop('cast_adr_to_int',
+                     [adr, hop.inputconst(lltype.Void, mode)],
                      resulttype = lltype.Signed)
 
 def rtype_cast_int_to_adr(hop):

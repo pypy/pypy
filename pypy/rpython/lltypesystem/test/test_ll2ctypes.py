@@ -1242,6 +1242,15 @@ class TestLL2Ctypes(object):
         res = interpret(f, [])
         assert res == 6
 
+    def test_force_to_int(self):
+        S = lltype.Struct('S')
+        p = lltype.malloc(S, flavor='raw')
+        a = llmemory.cast_ptr_to_adr(p)
+        i = llmemory.cast_adr_to_int(a, "forced")
+        assert type(i) is int
+        assert i == llmemory.cast_adr_to_int(a, "forced")
+        lltype.free(p, flavor='raw')
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform

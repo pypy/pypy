@@ -346,7 +346,7 @@ def llmemory_cast_adr_to_ptr(s, s_type):
     assert s_type.is_constant()
     return SomePtr(s_type.const)
 
-def llmemory_cast_adr_to_int(s):
+def llmemory_cast_adr_to_int(s, s_mode=None):
     return SomeInteger() # xxx
 
 def llmemory_cast_int_to_adr(s):

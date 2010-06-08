@@ -301,9 +301,17 @@ class Struct(ContainerType):
 class RttiStruct(Struct):
     _runtime_type_info = None
 
+    def _install_extras(self, rtti=False, **kwds):
+        if rtti:
+            self._runtime_type_info = opaqueptr(RuntimeTypeInfo,
+                                                name=self._name,
+                                                about=self)._obj
+        Struct._install_extras(self, **kwds)
+
     def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
         if self._runtime_type_info is None:
-            self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)._obj
+            raise TypeError("attachRuntimeTypeInfo: %r must have been built "
+                            "with the rtti=True argument" % (self,))
         if funcptr is not None:
             T = typeOf(funcptr)
             if (not isinstance(T, Ptr) or
@@ -1877,7 +1885,8 @@ def cast_ptr_to_int(ptr):
 def cast_int_to_ptr(PTRTYPE, oddint):
     if oddint == 0:
         return nullptr(PTRTYPE.TO)
-    assert oddint & 1, "only odd integers can be cast back to ptr"
+    if not (oddint & 1):
+        raise ValueError("only odd integers can be cast back to ptr")
     return _ptr(PTRTYPE, oddint, solid=True)
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):

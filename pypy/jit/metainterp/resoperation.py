@@ -22,10 +22,11 @@ class ResOperation(object):
         self.setdescr(descr)
 
     def setdescr(self, descr):
-        # for 'call', 'new', 'getfield_gc'...: the descr is a number provided
-        # by the backend holding details about the type of the operation --
-        # actually an instance of a class, typically Descr, that inherits
-        # from AbstractDescr
+        # for 'call', 'new', 'getfield_gc'...: the descr is a prebuilt
+        # instance provided by the backend holding details about the type
+        # of the operation.  It must inherit from AbstractDescr.  The
+        # backend provides it with cpu.fielddescrof(), cpu.arraydescrof(),
+        # cpu.calldescrof(), and cpu.typedescrof().
         from pypy.jit.metainterp.history import check_descr
         check_descr(descr)
         self.descr = descr
@@ -134,10 +135,9 @@ _oplist = [
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
     '_ALWAYS_PURE_FIRST', # ----- start of always_pure operations -----
-    'OOSEND_PURE',    # ootype operation
+    #'OOSEND_PURE',    # ootype operation
     'CALL_PURE',
     #
-    'CAST_PTR_TO_INT/1',
     'INT_ADD/2',
     'INT_SUB/2',
     'INT_MUL/2',
@@ -156,7 +156,6 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'FLOAT_IS_TRUE/1b',
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
     #
@@ -177,15 +176,15 @@ _oplist = [
     'FLOAT_GT/2b',
     'FLOAT_GE/2b',
     #
+    'INT_IS_ZERO/1b',
     'INT_IS_TRUE/1b',
     'INT_NEG/1',
     'INT_INVERT/1',
-    'BOOL_NOT/1b',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
     #
-    'OOIS/2b',
-    'OOISNOT/2b',
+    'PTR_EQ/2b',
+    'PTR_NE/2b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -197,8 +196,8 @@ _oplist = [
     'UNICODEGETITEM/2',
     #
     # ootype operations
-    'INSTANCEOF/1db',
-    'SUBCLASSOF/2b',
+    #'INSTANCEOF/1db',
+    #'SUBCLASSOF/2b',
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
@@ -209,29 +208,29 @@ _oplist = [
     'NEW_WITH_VTABLE/1',
     'NEW_ARRAY/1d',
     'FORCE_TOKEN/0',
-    'VIRTUAL_REF/2',
+    'VIRTUAL_REF/2',         # removed before it's passed to the backend
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',#only added by backend.llsupport.gc.rewrite_assembler
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
-    'ARRAYCOPY/7d',
+    'ARRAYCOPY/7d',      # removed before it's passed to the backend
     'NEWSTR/1',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     'NEWUNICODE/1',
-    'RUNTIMENEW/1',     # ootype operation
+    #'RUNTIMENEW/1',     # ootype operation
     'COND_CALL_GC_WB',  # [objptr, newvalue]   (for the write barrier)
     'DEBUG_MERGE_POINT/1',      # debugging only
-    'VIRTUAL_REF_FINISH/2',
+    'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL',
     'CALL_ASSEMBLER',
     'CALL_MAY_FORCE',
     'CALL_LOOPINVARIANT',
-    'OOSEND',                     # ootype operation
+    #'OOSEND',                     # ootype operation
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----

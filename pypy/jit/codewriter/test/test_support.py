@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.jit.metainterp.support import decode_builtin_call
+from pypy.jit.codewriter.support import decode_builtin_call
 
 def newconst(x):
     return Constant(x, lltype.typeOf(x))

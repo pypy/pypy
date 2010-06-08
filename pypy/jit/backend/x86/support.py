@@ -4,6 +4,8 @@ def values_array(TP, size):
     ATP = lltype.GcArray(TP)
     
     class ValuesArray(object):
+        SIZE = size
+
         def __init__(self):
             self.ar = lltype.malloc(ATP, size, zero=True, immortal=True)
 

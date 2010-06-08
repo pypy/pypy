@@ -21,8 +21,6 @@ REGEXES = [
     (('recorded_ops.calls',), '^\s+calls:\s+(\d+)$'),
     (('recorded_ops.pure_calls',), '^\s+pure calls:\s+(\d+)$'),
     (('guards',), '^guards:\s+(\d+)$'),
-    (('blackholed_ops.total',), '^blackholed ops:\s+(\d+)$'),
-    (('blackholed_ops.pure_calls',), '^\s+pure calls:\s+(\d+)$'),
     (('opt_ops',), '^opt ops:\s+(\d+)$'),
     (('opt_guards',), '^opt guards:\s+(\d+)$'),
     (('forcings',), '^forcings:\s+(\d+)$'),
@@ -62,7 +60,6 @@ class OutputInfo(object):
     def __init__(self):
         self.ops = Ops()
         self.recorded_ops = Ops()
-        self.blackholed_ops = Ops()
         self.abort = Aborts()
 
 def parse_prof(output):

@@ -128,8 +128,7 @@ def test_make_set_future_values():
     class FakeWarmRunnerDesc:
         cpu = FakeCPU()
         red_args_types = ["int", "float"]
-        class metainterp_sd:
-            virtualizable_info = None
+        virtualizable_info = None
     #
     state = WarmEnterState(FakeWarmRunnerDesc())
     set_future_values = state.make_set_future_values()

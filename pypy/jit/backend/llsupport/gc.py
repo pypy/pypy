@@ -170,7 +170,7 @@ class GcRefList:
         # first look in the hashtable, using an inexact hash (fails after
         # the object moves)
         addr = llmemory.cast_ptr_to_adr(gcref)
-        hash = llmemory.cast_adr_to_int(addr)
+        hash = llmemory.cast_adr_to_int(addr, "forced")
         hash -= hash >> self.HASHTABLE_BITS
         hash &= self.HASHTABLE_SIZE - 1
         addr_ref = self.hashtable[hash]

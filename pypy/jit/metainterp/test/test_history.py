@@ -9,10 +9,3 @@ def test_repr():
     s = lltype.cast_pointer(lltype.Ptr(S), t)
     const = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
     assert const._getrepr_() == "*T"
-
-def test_slicing():
-    h = History()
-    h.operations = [1, 2, 3, 4, 5]
-    rest = h.slice_history_at(2)
-    assert rest == [4, 5]
-    assert h.operations == [1, 2]

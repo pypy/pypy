@@ -5,7 +5,6 @@ from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.ootypesystem import ootype
 
 class TranslationTest:
 
@@ -40,7 +39,7 @@ class TranslationTest:
         def can_inline():
             return False
 
-        jitdriver = JitDriver(greens = [], reds = ['frame', 'total'],
+        jitdriver = JitDriver(greens = [], reds = ['total', 'frame'],
                               virtualizables = ['frame'],
                               get_jitcell_at=get_jitcell_at,
                               set_jitcell_at=set_jitcell_at,

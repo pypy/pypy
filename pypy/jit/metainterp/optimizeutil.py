@@ -2,8 +2,9 @@ from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation, history
+from pypy.jit.metainterp.jitexc import JitException
 
-class InvalidLoop(Exception):
+class InvalidLoop(JitException):
     """Raised when the optimize*.py detect that the loop that
     we are trying to build cannot possibly make sense as a
     long-running loop (e.g. it cannot run 2 complete iterations)."""

@@ -210,7 +210,7 @@ class MODRM8(MODRM):
 class REL32(OPERAND):
     width = 4
     def __init__(self, absolute_target):
-        self.absolute_target = absolute_target
+        self.absolute_target = get_real_int(absolute_target)
     def assembler(self):
         return '%d' % (self.absolute_target,)    
 
@@ -286,11 +286,14 @@ imm16 = IMM16
 rel32 = REL32
 rel8 = REL8
 
+def get_real_int(x):
+    from pypy.rpython.lltypesystem import rffi, lltype
+    return rffi.cast(lltype.Signed, x)    # force as a real int
+
 def imm(value):
     if isinstance(value, ComputedIntSymbolic):
         value = value.compute_fn()
-    if not we_are_translated():
-        assert type(value) is int
+    value = get_real_int(value)
     if single_byte(value):
         return imm8(value)
     else:

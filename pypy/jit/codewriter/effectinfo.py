@@ -4,28 +4,39 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
+
 class EffectInfo(object):
     _cache = {}
 
+    # the 'extraeffect' field is one of the following values:
+    EF_PURE                            = 0 #pure function (and cannot raise)
+    EF_CANNOT_RAISE                    = 1 #a function which cannot raise
+    EF_CAN_RAISE                       = 2 #normal function (can raise)
+    EF_LOOPINVARIANT                   = 3 #special: call it only once per loop
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
+
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,
-                forces_virtual_or_virtualizable=False):
+                extraeffect=EF_CAN_RAISE):
         key = (frozenset(readonly_descrs_fields),
                frozenset(write_descrs_fields),
                frozenset(write_descrs_arrays),
-               forces_virtual_or_virtualizable)
+               extraeffect)
         if key in cls._cache:
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
         result.write_descrs_fields = write_descrs_fields
         result.write_descrs_arrays = write_descrs_arrays
-        result.forces_virtual_or_virtualizable= forces_virtual_or_virtualizable
+        result.extraeffect = extraeffect
         cls._cache[key] = result
         return result
 
+    def check_forces_virtual_or_virtualizable(self):
+        return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+
 def effectinfo_from_writeanalyze(effects, cpu,
-                                 forces_virtual_or_virtualizable=False):
+                                 extraeffect=EffectInfo.EF_CAN_RAISE):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
@@ -62,7 +73,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
     return EffectInfo(readonly_descrs_fields,
                       write_descrs_fields,
                       write_descrs_arrays,
-                      forces_virtual_or_virtualizable)
+                      extraeffect)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:

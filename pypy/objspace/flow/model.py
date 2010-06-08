@@ -416,13 +416,14 @@ def mkentrymap(funcgraph):
         lst.append(link)
     return result
 
-def copygraph(graph, shallow=False, varmap={}):
+def copygraph(graph, shallow=False, varmap={}, shallowvars=False):
     "Make a copy of a flow graph."
     blockmap = {}
     varmap = varmap.copy()
+    shallowvars = shallowvars or shallow
 
     def copyvar(v):
-        if shallow:
+        if shallowvars:
             return v
         try:
             return varmap[v]

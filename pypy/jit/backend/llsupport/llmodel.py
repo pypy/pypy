@@ -6,16 +6,19 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
      BoxFloat
+from pypy.jit.metainterp import history
+from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import get_size_descr,  BaseSizeDescr
 from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
-from pypy.jit.backend.llsupport.descr import get_call_descr,  BaseCallDescr
+from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
+from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
-empty_int_box = BoxInt(0)
 
 class AbstractLLCPU(AbstractCPU):
     from pypy.jit.metainterp.typesystem import llhelper as ts
@@ -47,7 +50,7 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.clear_exception()
+        self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         self.setup()
         if translate_support_code:
             self._setup_on_leave_jitted_translated()
@@ -56,9 +59,6 @@ class AbstractLLCPU(AbstractCPU):
 
     def setup(self):
         pass
-
-    def set_class_sizes(self, class_sizes):
-        self.class_sizes = class_sizes
 
     def _setup_prebuilt_error(self, prefix, Class):
         if self.rtyper is not None:   # normal case
@@ -104,12 +104,10 @@ class AbstractLLCPU(AbstractCPU):
 
         def save_exception():
             # copy from _exception_emulator to the real attributes on self
-            tp_i = _exception_emulator[0]
-            v_i  = _exception_emulator[1]
+            v_i = _exception_emulator[1]
             _exception_emulator[0] = 0
             _exception_emulator[1] = 0
-            self.saved_exception = tp_i
-            self.saved_exc_value = self._cast_int_to_gcref(v_i)
+            self.saved_exc_value = rffi.cast(llmemory.GCREF, v_i)
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
@@ -120,15 +118,14 @@ class AbstractLLCPU(AbstractCPU):
 
         def pos_exception():
             addr = llop.get_exception_addr(llmemory.Address)
-            return llmemory.cast_adr_to_int(addr)
+            return heaptracker.adr2int(addr)
 
         def pos_exc_value():
             addr = llop.get_exc_value_addr(llmemory.Address)
-            return llmemory.cast_adr_to_int(addr)
+            return heaptracker.adr2int(addr)
 
         def save_exception():
             addr = llop.get_exception_addr(llmemory.Address)
-            exception = rffi.cast(lltype.Signed, addr.address[0])
             addr.address[0] = llmemory.NULL
             addr = llop.get_exc_value_addr(llmemory.Address)
             exc_value = rffi.cast(llmemory.GCREF, addr.address[0])
@@ -136,7 +133,6 @@ class AbstractLLCPU(AbstractCPU):
             # from now on, the state is again consistent -- no more RPython
             # exception is set.  The following code produces a write barrier
             # in the assignment to self.saved_exc_value, as needed.
-            self.saved_exception = exception
             self.saved_exc_value = exc_value
 
         self.pos_exception = pos_exception
@@ -174,16 +170,10 @@ class AbstractLLCPU(AbstractCPU):
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
         return rffi.cast(lltype.Signed, f)
 
-    def get_exception(self):
-        return self.saved_exception
-
-    def get_exc_value(self):
-        return self.saved_exc_value
-
-    def clear_exception(self):
-        self.saved_exception = 0
+    def grab_exc_value(self):
+        exc = self.saved_exc_value
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
-
+        return exc
 
     # ------------------- helpers and descriptions --------------------
 
@@ -213,24 +203,30 @@ class AbstractLLCPU(AbstractCPU):
 
     def unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
+        return fielddescr.offset
+    unpack_fielddescr._always_inline_ = True
+
+    def unpack_fielddescr_size(self, fielddescr):
+        assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
-        ptr = fielddescr.is_pointer_field()
-        float = fielddescr.is_float_field()
-        return ofs, size, ptr, float
-    unpack_fielddescr._always_inline_ = True
+        return ofs, size
+    unpack_fielddescr_size._always_inline_ = True
 
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
+        return arraydescr.get_base_size(self.translate_support_code)
+    unpack_arraydescr._always_inline_ = True
+
+    def unpack_arraydescr_size(self, arraydescr):
+        assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
-        ptr = arraydescr.is_array_of_pointers()
-        float = arraydescr.is_array_of_floats()
-        return ofs, size, ptr, float
-    unpack_arraydescr._always_inline_ = True
+        return ofs, size
+    unpack_arraydescr_size._always_inline_ = True
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
@@ -249,254 +245,222 @@ class AbstractLLCPU(AbstractCPU):
 
     # ____________________________________________________________
 
-    def do_arraylen_gc(self, arraybox, arraydescr):
+    def bh_arraylen_gc(self, arraydescr, array):
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_ofs_length(self.translate_support_code)
-        gcref = arraybox.getref_base()
-        length = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs/WORD]
-        return BoxInt(length)
+        return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
-    def do_getarrayitem_gc(self, arraybox, indexbox, arraydescr):
-        itemindex = indexbox.getint()
-        gcref = arraybox.getref_base()
-        ofs, size, ptr, float = self.unpack_arraydescr(arraydescr)
+    def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
+        ofs, size = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        #
-        if ptr:
-            items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-            pval = self._cast_int_to_gcref(items[itemindex])
-            # --- end of GC unsafe code ---
-            return BoxPtr(pval)
-        #
-        if float:
-            items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
-            fval = items[itemindex]
-            # --- end of GC unsafe code ---
-            return BoxFloat(fval)
-        #
         for TYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 items = rffi.cast(rffi.CArrayPtr(TYPE), items) 
                 val = items[itemindex]
                 # --- end of GC unsafe code ---
-                return BoxInt(rffi.cast(lltype.Signed, val))
+                return rffi.cast(lltype.Signed, val)
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def do_setarrayitem_gc(self, arraybox, indexbox, vbox, arraydescr):
-        itemindex = indexbox.getint()
-        gcref = arraybox.getref_base()
-        ofs, size, ptr, float = self.unpack_arraydescr(arraydescr)
-        #
-        if ptr:
-            vboxptr = vbox.getref_base()
-            self.gc_ll_descr.do_write_barrier(gcref, vboxptr)
-            # --- start of GC unsafe code (no GC operation!) ---
-            items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-            items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-            items[itemindex] = self.cast_gcref_to_int(vboxptr)
-            # --- end of GC unsafe code ---
-            return
-        #
-        if float:
-            fval = vbox.getfloat()
-            # --- start of GC unsafe code (no GC operation!) ---
-            items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-            items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
-            items[itemindex] = fval
-            # --- end of GC unsafe code ---
-            return
-        #
-        val = vbox.getint()
-        for TYPE, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                # --- start of GC unsafe code (no GC operation!) ---
-                items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[itemindex] = rffi.cast(TYPE, val)
-                # --- end of GC unsafe code ---
-                return
-        else:
-            raise NotImplementedError("size = %d" % size)
-
-    def _new_do_len(TP):
-        def do_strlen(self, stringbox):
-            basesize, itemsize, ofs_length = symbolic.get_array_token(TP,
-                                                self.translate_support_code)
-            gcref = stringbox.getref_base()
-            v = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs_length/WORD]
-            return BoxInt(v)
-        return do_strlen
-
-    do_strlen = _new_do_len(rstr.STR)
-    do_unicodelen = _new_do_len(rstr.UNICODE)
-
-    def do_strgetitem(self, stringbox, indexbox):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                                    self.translate_support_code)
-        gcref = stringbox.getref_base()
-        i = indexbox.getint()
-        v = rffi.cast(rffi.CArrayPtr(lltype.Char), gcref)[basesize + i]
-        return BoxInt(ord(v))
-
-    def do_unicodegetitem(self, stringbox, indexbox):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                                    self.translate_support_code)
-        gcref = stringbox.getref_base()
-        i = indexbox.getint()
-        basesize = basesize // itemsize
-        v = rffi.cast(rffi.CArrayPtr(lltype.UniChar), gcref)[basesize + i]
-        return BoxInt(ord(v))
-
-    @specialize.argtype(1)
-    def _base_do_getfield(self, gcref, fielddescr):
-        ofs, size, ptr, float = self.unpack_fielddescr(fielddescr)
+    def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
+        ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
-        field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        #
-        if ptr:
-            pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), field)[0]
-            pval = self._cast_int_to_gcref(pval)
-            # --- end of GC unsafe code ---
-            return BoxPtr(pval)
-        #
-        if float:
-            fval = rffi.cast(rffi.CArrayPtr(lltype.Float), field)[0]
-            # --- end of GC unsafe code ---
-            return BoxFloat(fval)
-        #
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        pval = self._cast_int_to_gcref(items[itemindex])
+        # --- end of GC unsafe code ---
+        return pval
+
+    def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
+        ofs = self.unpack_arraydescr(arraydescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+        fval = items[itemindex]
+        # --- end of GC unsafe code ---
+        return fval
+
+    def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
+        ofs, size = self.unpack_arraydescr_size(arraydescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for TYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                val = rffi.cast(rffi.CArrayPtr(TYPE), field)[0]
-                # --- end of GC unsafe code ---
-                val = rffi.cast(lltype.Signed, val)
-                return BoxInt(val)
-        else:
-            raise NotImplementedError("size = %d" % size)
-
-    def do_getfield_gc(self, structbox, fielddescr):
-        gcref = structbox.getref_base()
-        return self._base_do_getfield(gcref, fielddescr)
-
-    def do_getfield_raw(self, structbox, fielddescr):
-        return self._base_do_getfield(structbox.getint(), fielddescr)
-
-    @specialize.argtype(1)
-    def _base_do_setfield(self, gcref, vbox, fielddescr):
-        ofs, size, ptr, float = self.unpack_fielddescr(fielddescr)
-        #
-        if ptr:
-            assert lltype.typeOf(gcref) is not lltype.Signed, (
-                "can't handle write barriers for setfield_raw")
-            ptr = vbox.getref_base()
-            self.gc_ll_descr.do_write_barrier(gcref, ptr)
-            # --- start of GC unsafe code (no GC operation!) ---
-            field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-            field = rffi.cast(rffi.CArrayPtr(lltype.Signed), field)
-            field[0] = self.cast_gcref_to_int(ptr)
-            # --- end of GC unsafe code ---
-            return
-        #
-        if float:
-            fval = vbox.getfloat()
-            # --- start of GC unsafe code (no GC operation!) ---
-            field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-            field = rffi.cast(rffi.CArrayPtr(lltype.Float), field)
-            field[0] = fval
-            # --- end of GC unsafe code ---
-            return
-        #
-        val = vbox.getint()
-        for TYPE, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                # --- start of GC unsafe code (no GC operation!) ---
-                field = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-                field = rffi.cast(rffi.CArrayPtr(TYPE), field)
-                field[0] = rffi.cast(TYPE, val)
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[itemindex] = rffi.cast(TYPE, newvalue)
                 # --- end of GC unsafe code ---
                 return
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def do_setfield_gc(self, structbox, vbox, fielddescr):
-        gcref = structbox.getref_base()
-        self._base_do_setfield(gcref, vbox, fielddescr)
+    def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
+        ofs = self.unpack_arraydescr(arraydescr)
+        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        items[itemindex] = self.cast_gcref_to_int(newvalue)
+        # --- end of GC unsafe code ---
 
-    def do_setfield_raw(self, structbox, vbox, fielddescr):
-        self._base_do_setfield(structbox.getint(), vbox, fielddescr)
+    def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
+        ofs = self.unpack_arraydescr(arraydescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+        items[itemindex] = newvalue
+        # --- end of GC unsafe code ---
 
-    def do_new(self, sizedescr):
+    def bh_strlen(self, string):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        return len(s.chars)
+
+    def bh_unicodelen(self, string):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        return len(u.chars)
+
+    def bh_strgetitem(self, string, index):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        return ord(s.chars[index])
+
+    def bh_unicodegetitem(self, string, index):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        return ord(u.chars[index])
+
+    @specialize.argtype(1)
+    def _base_do_getfield_i(self, struct, fielddescr):
+        ofs, size = self.unpack_fielddescr_size(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        for TYPE, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                val = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)[0]
+                # --- end of GC unsafe code ---
+                return rffi.cast(lltype.Signed, val)
+        else:
+            raise NotImplementedError("size = %d" % size)
+
+    @specialize.argtype(1)
+    def _base_do_getfield_r(self, struct, fielddescr):
+        ofs = self.unpack_fielddescr(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
+        pval = self._cast_int_to_gcref(pval)
+        # --- end of GC unsafe code ---
+        return pval
+
+    @specialize.argtype(1)
+    def _base_do_getfield_f(self, struct, fielddescr):
+        ofs = self.unpack_fielddescr(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        fval = rffi.cast(rffi.CArrayPtr(lltype.Float), fieldptr)[0]
+        # --- end of GC unsafe code ---
+        return fval
+
+    bh_getfield_gc_i = _base_do_getfield_i
+    bh_getfield_gc_r = _base_do_getfield_r
+    bh_getfield_gc_f = _base_do_getfield_f
+    bh_getfield_raw_i = _base_do_getfield_i
+    bh_getfield_raw_r = _base_do_getfield_r
+    bh_getfield_raw_f = _base_do_getfield_f
+
+    @specialize.argtype(1)
+    def _base_do_setfield_i(self, struct, fielddescr, newvalue):
+        ofs, size = self.unpack_fielddescr_size(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        for TYPE, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                fieldptr = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)
+                fieldptr[0] = rffi.cast(TYPE, newvalue)
+                # --- end of GC unsafe code ---
+                return
+        else:
+            raise NotImplementedError("size = %d" % size)
+
+    @specialize.argtype(1)
+    def _base_do_setfield_r(self, struct, fielddescr, newvalue):
+        ofs = self.unpack_fielddescr(fielddescr)
+        assert lltype.typeOf(struct) is not lltype.Signed, (
+            "can't handle write barriers for setfield_raw")
+        self.gc_ll_descr.do_write_barrier(struct, newvalue)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)
+        fieldptr[0] = self.cast_gcref_to_int(newvalue)
+        # --- end of GC unsafe code ---
+
+    @specialize.argtype(1)
+    def _base_do_setfield_f(self, struct, fielddescr, newvalue):
+        ofs = self.unpack_fielddescr(fielddescr)
+        # --- start of GC unsafe code (no GC operation!) ---
+        fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Float), fieldptr)
+        fieldptr[0] = newvalue
+        # --- end of GC unsafe code ---
+
+    bh_setfield_gc_i = _base_do_setfield_i
+    bh_setfield_gc_r = _base_do_setfield_r
+    bh_setfield_gc_f = _base_do_setfield_f
+    bh_setfield_raw_i = _base_do_setfield_i
+    bh_setfield_raw_r = _base_do_setfield_r
+    bh_setfield_raw_f = _base_do_setfield_f
+
+    def bh_new(self, sizedescr):
+        return self.gc_ll_descr.gc_malloc(sizedescr)
+
+    def bh_new_with_vtable(self, sizedescr, vtable):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
-        return BoxPtr(res)
-
-    def do_new_with_vtable(self, classbox):
-        classint = classbox.getint()
-        descrsize = self.class_sizes[classint]
-        res = self.gc_ll_descr.gc_malloc(descrsize)
         if self.vtable_offset is not None:
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-            as_array[self.vtable_offset/WORD] = classint
-        return BoxPtr(res)
+            as_array[self.vtable_offset/WORD] = vtable
+        return res
 
-    def do_new_array(self, countbox, arraydescr):
-        num_elem = countbox.getint()
-        res = self.gc_ll_descr.gc_malloc_array(arraydescr, num_elem)
-        return BoxPtr(res)
+    def bh_classof(self, struct):
+        struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
+        result = struct.typeptr
+        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
+        return heaptracker.adr2int(result_adr)
 
-    def do_newstr(self, countbox):
-        num_elem = countbox.getint()
-        res = self.gc_ll_descr.gc_malloc_str(num_elem)
-        return BoxPtr(res)
+    def bh_new_array(self, arraydescr, length):
+        return self.gc_ll_descr.gc_malloc_array(arraydescr, length)
 
-    def do_newunicode(self, countbox):
-        num_elem = countbox.getint()
-        res = self.gc_ll_descr.gc_malloc_unicode(num_elem)
-        return BoxPtr(res)
+    def bh_newstr(self, length):
+        return self.gc_ll_descr.gc_malloc_str(length)
 
-    def do_strsetitem(self, stringbox, indexbox, vbox):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                                self.translate_support_code)
-        index = indexbox.getint()
-        v = vbox.getint()
-        a = stringbox.getref_base()
-        rffi.cast(rffi.CArrayPtr(lltype.Char), a)[index + basesize] = chr(v)
+    def bh_newunicode(self, length):
+        return self.gc_ll_descr.gc_malloc_unicode(length)
 
-    def do_unicodesetitem(self, stringbox, indexbox, vbox):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                                self.translate_support_code)
-        index = indexbox.getint()
-        v = vbox.getint()
-        a = stringbox.getref_base()
-        basesize = basesize // itemsize
-        rffi.cast(rffi.CArrayPtr(lltype.UniChar), a)[index + basesize] = unichr(v)
+    def bh_strsetitem(self, string, index, newvalue):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        s.chars[index] = chr(newvalue)
 
-    def do_call(self, args, calldescr):
-        assert isinstance(calldescr, BaseCallDescr)
-        assert len(args) == 1 + len(calldescr.arg_classes)
+    def bh_unicodesetitem(self, string, index, newvalue):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        u.chars[index] = unichr(newvalue)
+
+    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+        assert isinstance(calldescr, BaseIntCallDescr)
         if not we_are_translated():
-            assert (list(calldescr.arg_classes) ==
-                    [arg.type for arg in args[1:]])
-        callstub = calldescr.get_call_stub()
-        try:
-            return callstub(args)
-        except Exception, e:
-            if not we_are_translated():
-                if not type(e) is LLException:
-                    raise
-                self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                              e.args[1])
-                self.saved_exception = rffi.cast(lltype.Signed, e.args[0])
-            else:
-                ptr = cast_instance_to_base_ptr(e)
-                self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                              ptr)
-                self.saved_exception = rffi.cast(lltype.Signed, ptr.typeptr)
-            return calldescr.empty_box
-            
-    def do_cast_ptr_to_int(self, ptrbox):
-        return BoxInt(self.cast_gcref_to_int(ptrbox.getref_base()))
+            calldescr.verify_types(args_i, args_r, args_f, history.INT)
+        return calldescr.call_stub(func, args_i, args_r, args_f)
 
+    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
+        assert isinstance(calldescr, GcPtrCallDescr)
+        if not we_are_translated():
+            calldescr.verify_types(args_i, args_r, args_f, history.REF)
+        return calldescr.call_stub(func, args_i, args_r, args_f)
 
-import pypy.jit.metainterp.executor
-pypy.jit.metainterp.executor.make_execute_list(AbstractLLCPU)
+    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+        assert isinstance(calldescr, FloatCallDescr)
+        if not we_are_translated():
+            calldescr.verify_types(args_i, args_r, args_f, history.FLOAT)
+        return calldescr.call_stub(func, args_i, args_r, args_f)
+
+    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
+        assert isinstance(calldescr, VoidCallDescr)
+        if not we_are_translated():
+            calldescr.verify_types(args_i, args_r, args_f, history.VOID)
+        return calldescr.call_stub(func, args_i, args_r, args_f)
