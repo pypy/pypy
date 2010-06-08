@@ -375,6 +375,12 @@ class GlobalStructurePointer(BaseGlobalObject):
     def get_global_code_for_bridge(self):
         return ['%s _%s;' % (self.type, self.name)]
 
+    def set_value_in_ctypes_dll(self, dll, value):
+        name = self.name.replace('Py', 'PyPy')
+        ptr = ctypes.c_void_p.in_dll(dll, name)
+        ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
+                                ctypes.c_void_p).value
+
 class GlobalExceptionPointer(BaseGlobalObject):
     def __init__(self, exc_name):
         self.name = 'PyExc_' + exc_name
@@ -701,27 +707,16 @@ def build_bridge(space):
         value = obj.eval(space)
         INTERPLEVEL_API[name] = value
 
-        if obj.name.endswith('#'):
-            name = obj.name[:-1]
-            isptr = False
-        else:
-            name = obj.name
-            isptr = True
-        if name.startswith('PyExc_'):
-            isptr = False
-
-        name = name.replace('Py', 'PyPy')
-        if isptr:
-            ptr = ctypes.c_void_p.in_dll(bridge, name)
-            if obj.type == 'PyObject*':
-                value = make_ref(space, value)
-            elif obj.type == 'PyDateTime_CAPI*':
-                value = value
-            else:
-                assert False, "Unknown static pointer: %s %s" % (typ, name)
-            ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
-                                    ctypes.c_void_p).value
+        if isinstance(obj, GlobalStructurePointer):
+            obj.set_value_in_ctypes_dll(bridge, value)
         elif obj.type in ('PyObject*', 'PyTypeObject*'):
+            if obj.name.endswith('#'):
+                name = obj.name[:-1]
+            else:
+                name = obj.name
+
+            name = name.replace('Py', 'PyPy')
+
             if name.startswith('PyPyExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
