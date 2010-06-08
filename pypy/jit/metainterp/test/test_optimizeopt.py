@@ -2587,6 +2587,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         self.optimize_loop(ops, 'Not, Not', ops)
 
     def test_call_pure_invalidates_caches(self):
+        # CALL_PURE should still force the setfield_gc() to occur before it
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
