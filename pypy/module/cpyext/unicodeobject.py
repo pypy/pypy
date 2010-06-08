@@ -203,6 +203,16 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
         errors = rffi.charp2str(llerrors)
     return unicodetype.encode_object(space, w_unicode, encoding, errors)
 
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
+    """Encode a Unicode object using Unicode-Escape and return the result as Python
+    string object.  Error handling is "strict". Return NULL if an exception was
+    raised by the codec."""
+    if not PyUnicode_Check(space, w_unicode):
+        PyErr_BadArgument(space)
+
+    return unicodetype.encode_object(space, w_unicode, 'unicode-escape', 'strict')
+
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromUnicode(space, wchar_p, length):
     """Create a Unicode Object from the Py_UNICODE buffer u of the given size. u

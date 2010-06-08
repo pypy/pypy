@@ -150,3 +150,14 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(wbuf)
         assert space.type(w_str) is space.w_str
         assert space.str_w(w_str) == "abc?"
+
+    def test_escape(self, space, api):
+        def test(ustr):
+            w_ustr = space.wrap(ustr.decode('Unicode-Escape'))
+            result = api.PyUnicode_AsUnicodeEscapeString(w_ustr)
+            assert space.eq_w(space.wrap(ustr), result)
+
+        test('\\u674f\\u7f8e')
+        test('\\u0105\\u0107\\u017c\\u017a')
+        test('El Ni\\xf1o')
+
