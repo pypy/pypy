@@ -180,6 +180,7 @@ class BaseIntegralFormattingTest:
         assert format(self.i(6), "=3") == "  6"
         assert format(self.i(6), "=+3") == "+ 6"
         assert format(self.i(6), "a^3") == "a6a"
+        assert format(self.i(6), "03") == "006"
 
     def test_width_overflow(self):
         big = "92387405982730948052983740958230948524"
@@ -200,6 +201,8 @@ class BaseIntegralFormattingTest:
         assert format(self.i(123456789), ",") == "123,456,789"
         assert format(self.i(12345), "7,") == " 12,345"
         assert format(self.i(12345), "<7,") == "12,345 "
+        assert format(self.i(1234), "0=10,") == "00,001,234"
+        assert format(self.i(1234), "010,") == "00,001,234"
 
 
 class AppTestIntFormatting(BaseIntegralFormattingTest):

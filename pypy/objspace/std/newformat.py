@@ -493,7 +493,8 @@ class Formatter(BaseFormatter):
             buf.extend(thousands_sep)
         for i in range(d_state - 1, d_state - n_chars - 1, -1):
             buf.append(digits[i])
-        buf.extend(digits[d_state:d_state - n_chars])
+        for i in range(n_zeros):
+            buf.append("0")
 
     def _group_digits(self, spec, digits):
         buf = []
@@ -515,14 +516,14 @@ class Formatter(BaseFormatter):
                 previous = group
             else:
                 group = previous
-            final_grouping = min(group, max(group, min_width, 1))
+            final_grouping = min(group, max(left, min_width, 1))
             n_zeros = max(0, final_grouping - left)
             n_chars = max(0, min(left, final_grouping))
             ts = self._loc_thousands if need_separator else None
             self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
             need_separator = True
             left -= n_chars
-            min_width -= 1
+            min_width -= final_grouping
             if left <= 0 and min_width <= 0:
                 done = True
                 break
