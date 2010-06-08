@@ -365,7 +365,7 @@ class BaseGlobalObject:
 
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
-        self.name = name + '#'
+        self.name = name
         self.type = 'PyObject*'
         self.expr = expr
 
@@ -417,7 +417,7 @@ class GlobalExceptionPointer(BaseGlobalObject):
 
 class GlobalTypeObject(BaseGlobalObject):
     def __init__(self, name, expr):
-        self.name = 'Py%s_Type#' % (name,)
+        self.name = 'Py%s_Type' % (name,)
         self.type = 'PyTypeObject*'
         self.expr = expr
 
@@ -734,8 +734,7 @@ def build_bridge(space):
         if isinstance(obj, GlobalStructurePointer):
             obj.set_value_in_ctypes_dll(bridge, value)
         elif obj.type in ('PyObject*', 'PyTypeObject*'):
-            name = obj.name.replace('#', '')
-            name = name.replace('Py', 'PyPy')
+            name = obj.name.replace('Py', 'PyPy')
 
             if name.startswith('PyPyExc_'):
                 # we already have the pointer
@@ -772,7 +771,6 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
             continue
         if not rename:
             continue
-        name = name.replace("#", "")
         newname = name.replace('Py', 'PyPy')
         if not rename:
             newname = name
@@ -782,9 +780,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         renamed_symbols.append(newname)
     if rename:
         export_symbols[:] = renamed_symbols
-    else:
-        export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
-    
+
     # Generate defines
     for macro_name, size in [
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
@@ -825,7 +821,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
 
     for obj in GLOBALS.values():
-        name = obj.name.replace("#", "")
+        name = obj.name
         type = obj.get_type_for_declaration()
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (type, name))
 
@@ -861,7 +857,7 @@ def build_eci(building_bridge, export_symbols, code):
     structs = ["#include <Python.h>"]
     for obj in GLOBALS.values():
         type = obj.get_type_for_declaration()
-        name = obj.name.replace('#', '')
+        name = obj.name
         if not obj.needs_hidden_global_structure:
             structs.append('%s %s;' % (type, name))
         else:
@@ -910,7 +906,7 @@ def setup_library(space):
 
     # populate static data
     for obj in GLOBALS.values():
-        name = obj.name.replace("#", "")
+        name = obj.name
         if obj.needs_hidden_global_structure:
             name = '_' + name
         value = obj.eval(space)
