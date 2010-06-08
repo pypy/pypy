@@ -411,7 +411,7 @@ class GlobalStructurePointer(BaseGlobalObject):
         return '_' + self.name
     def get_value_for_structnode(self, space, value):
         from pypy.module.cpyext.datetime import PyDateTime_CAPI
-        struct = rffi.cast(lltype.Ptr(PyDateTime_CAPI), value)._obj
+        return rffi.cast(lltype.Ptr(PyDateTime_CAPI), value)._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         name = self.name.replace('Py', 'PyPy')
