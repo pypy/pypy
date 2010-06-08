@@ -115,14 +115,6 @@ def copy_header_files():
     for name in ("pypy_decl.h", "pypy_macros.h"):
         udir.join(name).copy(interfaces_dir / name)
 
-class BaseGlobalObject:
-    """Base class for all objects (pointers and structures)"""
-
-    @classmethod
-    def declare(cls, *args, **kwargs):
-        obj = cls(*args, **kwargs)
-        GLOBALS[obj.name] = obj
-
 _NOT_SPECIFIED = object()
 CANNOT_FAIL = object()
 
@@ -342,17 +334,31 @@ FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
 
+class BaseGlobalObject:
+    """Base class for all objects (pointers and structures)"""
+
+    @classmethod
+    def declare(cls, *args, **kwargs):
+        obj = cls(*args, **kwargs)
+        GLOBALS[obj.name] = obj
+
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = name + '#'
         self.type = 'PyObject*'
         self.expr = expr
 
+    def get_global_code_for_bridge(self):
+        return []
+
 class GlobalStructurePointer(BaseGlobalObject):
     def __init__(self, name, type, expr):
         self.name = name
         self.type = type
         self.expr = expr
+
+    def get_global_code_for_bridge(self):
+        return ['%s _%s;' % (self.type, self.name)]
 
 class GlobalExceptionPointer(BaseGlobalObject):
     def __init__(self, exc_name):
@@ -361,11 +367,17 @@ class GlobalExceptionPointer(BaseGlobalObject):
         self.expr = ('space.gettypeobject(interp_exceptions.W_%s.typedef)'
                      % (exc_name,))
 
+    def get_global_code_for_bridge(self):
+        return ['%s _%s;' % (self.type[:-1], self.name)]
+
 class GlobalTypeObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = 'Py%s_Type#' % (name,)
         self.type = 'PyTypeObject*'
         self.expr = expr
+
+    def get_global_code_for_bridge(self):
+        return []
 
 GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
 GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
@@ -648,14 +660,7 @@ def build_bridge(space):
 
     global_objects = []
     for obj in GLOBALS.values():
-        if "#" in obj.name:
-            continue
-        if obj.type == 'PyDateTime_CAPI*':
-            global_objects.append('%s _%s;' % (obj.type, obj.name))
-        elif obj.name.startswith('PyExc_'):
-            global_objects.append('%s _%s;' % (obj.type[:-1], obj.name))
-        else:
-            global_objects.append('%s %s = NULL;' % (obj.typ, obj.name))
+        global_objects.extend(obj.get_global_code_for_bridge())
     global_code = '\n'.join(global_objects)
 
     prologue = "#include <Python.h>\n"
