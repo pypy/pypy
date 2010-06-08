@@ -394,8 +394,7 @@ class GlobalStaticPyObject(BaseGlobalObject):
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a structure, get its adress
-        name = self.name.replace('Py', 'PyPy')
-        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, name)
+        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, self.name)
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
         attach_and_track(space, py_obj, value)
 
@@ -416,8 +415,7 @@ class GlobalStructurePointer(BaseGlobalObject):
         return rffi.cast(lltype.Ptr(PyDateTime_CAPI), value)._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
-        name = self.name.replace('Py', 'PyPy')
-        ptr = ctypes.c_void_p.in_dll(dll, name)
+        ptr = ctypes.c_void_p.in_dll(dll, self.name)
         ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                 ctypes.c_void_p).value
 
@@ -441,8 +439,7 @@ class GlobalExceptionPointer(BaseGlobalObject):
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a pointer
-        name = self.name.replace('Py', 'PyPy')
-        in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(dll, name)
+        in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(dll, self.name)
         py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
         attach_and_track(space, py_obj, value)
 
@@ -465,8 +462,7 @@ class GlobalTypeObject(BaseGlobalObject):
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a structure, get its adress
-        name = self.name.replace('Py', 'PyPy')
-        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, name)
+        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, self.name)
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
         attach_and_track(space, py_obj, value)
 
@@ -725,6 +721,8 @@ def build_bridge(space):
     db = LowLevelDatabase()
 
     generate_macros(export_symbols, rename=True)
+    for obj in GLOBALS.values():
+        obj.name = obj.name.replace('Py', 'PyPy')
 
     # Structure declaration code
     members = []
