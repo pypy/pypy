@@ -201,7 +201,7 @@ class AppTestZipimport:
         self.writefile(self, "xxuuu/__init__.py", "")
         self.writefile(self, "xxuuu/yy.py", "def f(x): return x")
         mod = __import__("xxuuu", globals(), locals(), ['yy'])
-        assert mod.__path__
+        assert mod.__path__ == [self.zipfile + "/xxuuu"]
         assert mod.yy.f(3) == 3
 
     def test_functions(self):
