@@ -32,6 +32,8 @@ class BaseStringFormatTests:
     def test_positional_args(self):
         assert self.s("{1}{0}").format(2, 3) == self.s("32")
         raises(IndexError, self.s("{2}").format, 2)
+        big = self.s("{123476028570192873049182730984172039840712934}")
+        raises(ValueError, big.format)
 
     def test_kwargs(self):
         assert self.s("{what}").format(what=42) == self.s("42")
@@ -45,6 +47,8 @@ class BaseStringFormatTests:
     def test_index(self):
         seq = (1, 42)
         assert self.s("{[1]}").format(seq) == self.s("42")
+        big = self.s("{[1092837041982035981720398471029384012937412]}")
+        raises(ValueError, big.format, [0])
 
     def test_getitem(self):
         d = {"hi" : 32}
@@ -176,6 +180,10 @@ class BaseIntegralFormattingTest:
         assert format(self.i(6), "=3") == "  6"
         assert format(self.i(6), "=+3") == "+ 6"
         assert format(self.i(6), "a^3") == "a6a"
+
+    def test_width_overflow(self):
+        big = "92387405982730948052983740958230948524"
+        raises(ValueError, format, self.i(2), big)
 
     def test_sign(self):
         assert format(self.i(-6)) == "-6"

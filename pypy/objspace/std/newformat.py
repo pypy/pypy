@@ -3,8 +3,30 @@
 import string
 
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rstring, runicode, rlocale
+from pypy.rlib import rstring, runicode, rlocale, rarithmetic
 from pypy.rlib.objectmodel import specialize
+
+
+@specialize.argtype(1)
+def _parse_int(space, s, start, end):
+    """Parse a number and check for overflows"""
+    result = 0
+    i = start
+    while i < end:
+        c = ord(s[i])
+        if ord("0") <= c <= ord("9"):
+            try:
+                result = rarithmetic.ovfcheck(result * 10)
+            except OverflowError:
+                msg = "too many decimal digits in format string"
+                raise OperationError(space.w_ValueError, space.wrap(msg))
+            result += c - ord("0")
+        else:
+            break
+        i += 1
+    if i == start:
+        result = -1
+    return result, i
 
 
 # Auto number state
@@ -121,12 +143,11 @@ class TemplateFormatter(object):
             if c == "[" or c == ".":
                 break
             i += 1
-        arg_ref = name[:i]
-        try:
-            index = int(arg_ref)
-        except ValueError:
-            index = -1
         empty = not i
+        if empty:
+            index = -1
+        else:
+            index = _parse_int(self.space, name, 0, i)[0]
         use_numeric = empty or index != -1
         if self.auto_numbering_state == ANS_INIT and use_numeric:
             if empty:
@@ -147,10 +168,11 @@ class TemplateFormatter(object):
             index = self.auto_numbering
             self.auto_numbering += 1
         if index == -1:
+            arg_key = name[:i]
             try:
-                w_arg = self.kwargs[arg_ref]
+                w_arg = self.kwargs[arg_key]
             except KeyError:
-                raise OperationError(space.w_KeyError, space.wrap(arg_ref))
+                raise OperationError(space.w_KeyError, space.wrap(arg_key))
         else:
             try:
                 w_arg = self.args[index]
@@ -184,14 +206,12 @@ class TemplateFormatter(object):
                 if not got_bracket:
                     raise OperationError(space.w_ValueError,
                                          space.wrap("Missing ']'"))
-                item = name[start:i]
-                i += 1 # Skip "]"
-                try:
-                    index = int(item)
-                except ValueError:
-                    w_item = space.wrap(item)
-                else:
+                index, reached = _parse_int(self.space, name, start, i)
+                if index != -1 and reached == i:
                     w_item = space.wrap(index)
+                else:
+                    w_item = space.wrap(name[start:i])
+                i += 1 # Skip "]"
                 w_obj = space.getitem(w_obj, w_item)
             else:
                 msg = "Only '[' and '.' may follow ']'"
@@ -270,16 +290,6 @@ class Formatter(BaseFormatter):
                 c == "+" or
                 c == "-")
 
-    def _get_integer(self, spec, i, length):
-        start_width = i
-        while i < length:
-            char_index = ord(spec[i])
-            if char_index < ord("0") or ord("9") < char_index:
-                break
-            i += 1
-        num = int(spec[start_width:i]) if start_width != i else -1
-        return num, i
-
     def _parse_spec(self, default_type, default_align):
         space = self.space
         self._fill_char = "\0"
@@ -315,13 +325,14 @@ class Formatter(BaseFormatter):
             if not got_align:
                 self._align = "="
             i += 1
-        self._width, i = self._get_integer(spec, i, length)
+        start_i = i
+        self._width, i = _parse_int(self.space, spec, i, length)
         if length - i and spec[i] == ",":
             self._thousands_sep = True
             i += 1
         if length - i and spec[i] == ".":
             i += 1
-            self._precision, i = self._get_integer(spec, i, length)
+            self._precision, i = _parse_int(self.space, spec, i, length)
             if self._precision == -1:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("no precision given"))
