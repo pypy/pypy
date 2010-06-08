@@ -187,7 +187,7 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     return 0
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedString(space, w_unicode, encoding, errors):
+def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     """Encode a Unicode object and return the result as Python string object.
     encoding and errors have the same meaning as the parameters of the same name
     in the Unicode encode() method. The codec to be used is looked up using
@@ -196,12 +196,12 @@ def PyUnicode_AsEncodedString(space, w_unicode, encoding, errors):
     if not PyUnicode_Check(space, w_unicode):
         PyErr_BadArgument(space)
 
-    w_encoding = w_errors = None
-    if encoding:
-        w_encoding = rffi.charp2str(encoding)
-    if errors:
-        w_errors = rffi.charp2str(encoding)
-    return unicodetype.encode_object(space, w_unicode, w_encoding, w_errors)
+    encoding = errors = None
+    if llencoding:
+        encoding = rffi.charp2str(llencoding)
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    return unicodetype.encode_object(space, w_unicode, encoding, errors)
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromUnicode(space, wchar_p, length):
