@@ -369,6 +369,12 @@ class BaseGlobalObject:
             return ['extern %s _%s;' % (self.type[:-1], self.name),
                     '%s %s = (%s)&_%s;' % (type, self.name, type, self.name)]
 
+    def get_global_code_for_bridge(self):
+        if not self.needs_hidden_global_structure:
+            return []
+        else:
+            return ['%s _%s;' % (self.type[:-1], self.name)]
+
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = name
@@ -376,8 +382,6 @@ class GlobalStaticPyObject(BaseGlobalObject):
         self.expr = expr
 
     needs_hidden_global_structure = False
-    def get_global_code_for_bridge(self):
-        return []
     def get_type_for_declaration(self):
         return 'PyObject'
 
@@ -402,8 +406,6 @@ class GlobalStructurePointer(BaseGlobalObject):
         self.expr = expr
 
     needs_hidden_global_structure = True
-    def get_global_code_for_bridge(self):
-        return ['%s _%s;' % (self.type[:-1], self.name)]
     def get_type_for_declaration(self):
         return self.type
 
@@ -427,8 +429,6 @@ class GlobalExceptionPointer(BaseGlobalObject):
                      % (exc_name,))
 
     needs_hidden_global_structure = True
-    def get_global_code_for_bridge(self):
-        return ['%s _%s;' % (self.type[:-1], self.name)]
     def get_type_for_declaration(self):
         return 'PyObject*'
 
@@ -453,8 +453,6 @@ class GlobalTypeObject(BaseGlobalObject):
         self.expr = expr
 
     needs_hidden_global_structure = False
-    def get_global_code_for_bridge(self):
-        return []
     def get_type_for_declaration(self):
         return 'PyTypeObject'
 
