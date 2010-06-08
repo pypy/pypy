@@ -6,6 +6,9 @@
 extern "C" {
 #endif
 
+/* generated function */
+PyAPI_FUNC(void) _PyComplex_AsCComplex(PyObject *, Py_complex *);
+
 Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
 {
     Py_complex result;
