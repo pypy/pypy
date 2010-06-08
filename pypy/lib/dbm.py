@@ -1,4 +1,4 @@
-from ctypes import *
+from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL
 import ctypes.util
 import os, sys
 
@@ -14,6 +14,11 @@ class datum(Structure):
     ('dptr', c_char_p),
     ('dsize', c_int),
     ]
+
+    def __init__(self, text):
+        if not isinstance(text, str):
+            raise TypeError("datum: expected string, not %s" % type(text))
+        Structure.__init__(self, text, len(text))
 
 class dbm(object):
     def __init__(self, dbmobj):
@@ -42,9 +47,7 @@ class dbm(object):
     def get(self, key, default=None):
         if not self._aobj:
             raise error('DBM object has already been closed')
-        dat = datum()
-        dat.dptr = c_char_p(key)
-        dat.dsize = c_int(len(key))
+        dat = datum(key)
         k = getattr(lib, funcs['fetch'])(self._aobj, dat)
         if k.dptr:
             return k.dptr[:k.dsize]
@@ -65,12 +68,8 @@ class dbm(object):
     def __setitem__(self, key, value):
         if not self._aobj: 
             raise error('DBM object has already been closed')
-        dat = datum()
-        dat.dptr = c_char_p(key)
-        dat.dsize = c_int(len(key))
-        data = datum()
-        data.dptr = c_char_p(value)
-        data.dsize = c_int(len(value))
+        dat = datum(key)
+        data = datum(value)
         status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
         if getattr(lib, funcs['error'])(self._aobj):
             getattr(lib, funcs['clearerr'])(self._aobj)
@@ -80,15 +79,11 @@ class dbm(object):
     def setdefault(self, key, default=''):
         if not self._aobj:
             raise error('DBM object has already been closed')
-        dat = datum()
-        dat.dptr = c_char_p(key)
-        dat.dsize = c_int(len(key))
+        dat = datum(key)
         k = getattr(lib, funcs['fetch'])(self._aobj, dat)
         if k.dptr:
             return k.dptr[:k.dsize]
-        data = datum()
-        data.dptr = c_char_p(default)
-        data.dsize = c_int(len(default))
+        data = datum(default)
         status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_INSERT)
         if status < 0:
             getattr(lib, funcs['clearerr'])(self._aobj)
@@ -98,9 +93,7 @@ class dbm(object):
     def has_key(self, key):
         if not self._aobj:
             raise error('DBM object has already been closed')
-        dat = datum()
-        dat.dptr = c_char_p(key)
-        dat.dsize = c_int(len(key))
+        dat = datum(key)
         k = getattr(lib, funcs['fetch'])(self._aobj, dat)
         if k.dptr:
             return True
@@ -109,9 +102,7 @@ class dbm(object):
     def __delitem__(self, key):
         if not self._aobj:
             raise error('DBM object has already been closed')
-        dat = datum()
-        dat.dptr = c_char_p(key)
-        dat.dsize = c_int(len(key))
+        dat = datum(key)
         status = getattr(lib, funcs['delete'])(self._aobj, dat)
         if status < 0:
             raise KeyError(key)
@@ -146,7 +137,7 @@ else:
 library = "GNU gdbm"
 
 funcs = {}
-_init_func('open', [c_char_p, c_int, c_int])
+_init_func('open', (c_char_p, c_int, c_int))
 _init_func('close', restype=c_void_p)
 _init_func('firstkey', restype=datum)
 _init_func('nextkey', restype=datum)
@@ -160,6 +151,9 @@ lib.DBM_REPLACE = 1
 
 def open(filename, flag='r', mode=0666):
     "open a DBM database"
+    if not isinstance(filename, str):
+        raise TypeError("expected string")
+
     openflag = 0
 
     try:
@@ -177,3 +171,6 @@ def open(filename, flag='r', mode=0666):
     if a_db == 0:
         raise error("Could not open file %s.db" % filename)
     return dbm(a_db)
+
+__all__ = ('datum', 'dbm', 'error', 'funcs', 'open', 'library')
+
