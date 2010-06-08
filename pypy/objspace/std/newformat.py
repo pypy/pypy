@@ -3,7 +3,7 @@
 import string
 
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rstring, runicode
+from pypy.rlib import rstring, runicode, rlocale
 from pypy.rlib.objectmodel import specialize
 
 
@@ -411,16 +411,11 @@ class Formatter(BaseFormatter):
     def _get_locale(self, locale_kind):
         space = self.space
         if locale_kind == CURRENT_LOCALE:
-            _locale = space.getbuiltnmodule("_locale")
-            w_lconv = space.call_method(_locale, "localeconv")
-            w = space.wrap
-            dec = space.str_w(space.getitem(w_lconv, w("decimal_point")))
-            thousands = space.str_w(space.getitem(w_lconv, w("thousands_sep")))
-            grouping = space.str_w(space.getitem(w_lconv, w("grouping")))
+            dec, thousands, grouping = rlocale.numeric_formatting()
         elif locale_kind == DEFAULT_LOCALE:
             dec = "."
             thousands = ","
-            grouping = "\3"
+            grouping = "\3\0"
         elif locale_kind == NO_LOCALE:
             dec = "."
             thousands = ""
@@ -434,7 +429,7 @@ class Formatter(BaseFormatter):
         self._loc_grouping = grouping
 
     def _calc_num_width(self, n_prefix, sign_char, to_number, n_number,
-                        n_remainder, has_dec):
+                        n_remainder, has_dec, digits):
         spec = NumberSpec()
         spec.n_digits = n_number - n_remainder - has_dec
         spec.n_prefix = n_prefix
@@ -443,6 +438,7 @@ class Formatter(BaseFormatter):
         spec.n_remainder = n_remainder
         spec.n_spadding = 0
         spec.n_rpadding = 0
+        spec.n_min_width = 0
         spec.sign = "\0"
         spec.n_sign = 0
         sign = self._sign
@@ -459,7 +455,12 @@ class Formatter(BaseFormatter):
                         spec.n_remainder) # Not padding or digits
         if self._fill_char == "0" and self._align == "=":
             spec.n_min_width = self._width - extra_length
-        n_padding = self._width - (extra_length + spec.n_digits)
+        if self._loc_thousands:
+            self._group_digits(spec, digits)
+            n_grouped_digits = len(self._grouped_digits)
+        else:
+            n_grouped_digits = spec.n_digits
+        n_padding = self._width - (extra_length + n_grouped_digits)
         if n_padding > 0:
             align = self._align
             if align == "<":
@@ -474,6 +475,55 @@ class Formatter(BaseFormatter):
             else:
                 raise AssertionError("shouldn't reach")
         return spec
+
+    def _fill_digits(self, buf, digits, d_state, n_chars, n_zeros,
+                     thousands_sep):
+        if thousands_sep:
+            buf.extend(thousands_sep)
+        for i in range(d_state - 1, d_state - n_chars - 1, -1):
+            buf.append(digits[i])
+        buf.extend(digits[d_state:d_state - n_chars])
+
+    def _group_digits(self, spec, digits):
+        buf = []
+        grouping = self._loc_grouping
+        min_width = spec.n_min_width
+        i = 0
+        count = 0
+        left = spec.n_digits
+        n_ts = len(self._loc_thousands)
+        need_separator = False
+        done = False
+        groupings = len(grouping)
+        while True:
+            group = ord(grouping[i])
+            if group > 0:
+                if group == 256:
+                    break
+                i += 1
+                previous = group
+            else:
+                group = previous
+            final_grouping = min(group, max(group, min_width, 1))
+            n_zeros = max(0, final_grouping - left)
+            n_chars = max(0, min(left, final_grouping))
+            ts = self._loc_thousands if need_separator else None
+            self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
+            need_separator = True
+            left -= n_chars
+            min_width -= 1
+            if left <= 0 and min_width <= 0:
+                done = True
+                break
+            min_width -= n_ts
+        if not done:
+            group = max(max(left, min_width), 1)
+            n_zeros = max(0, group - left)
+            n_chars = max(0, min(left, group))
+            ts = thousands_sep if need_separator else None
+            self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
+        buf.reverse()
+        self._grouped_digits = self.empty.join(buf)
 
     def _upcase_string(self, s):
         buf = []
@@ -500,7 +550,10 @@ class Formatter(BaseFormatter):
         if spec.n_spadding:
             out.append_multiple_char(fill_char, spec.n_spadding)
         if spec.n_digits != 0:
-            num = num[to_digits:]
+            if self._loc_thousands:
+                num = self._grouped_digits
+            else:
+                num = num[to_digits:]
             if upper:
                 num = self._upcase_string(num)
             out.append(num)
@@ -564,8 +617,15 @@ class Formatter(BaseFormatter):
             n_digits = len(result) - skip_leading
             n_remainder = 0
             to_numeric = skip_leading
+        if tp == "n":
+            locale_kind = CURRENT_LOCALE
+        elif self._thousands_sep:
+            locale_kind = DEFAULT_LOCALE
+        else:
+            locale_kind = NO_LOCALE
+        self._get_locale(locale_kind)
         spec = self._calc_num_width(n_prefix, sign_char, to_numeric, n_digits,
-                                    n_remainder, False)
+                                    n_remainder, False, result)
         fill = " " if self._fill_char == "\0" else self._fill_char
         upper = self._type == "X"
         return self._fill_number(spec, result, to_numeric, n_digits, to_prefix,

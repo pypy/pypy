@@ -186,6 +186,13 @@ class BaseIntegralFormattingTest:
         assert format(self.i(6), "-") == "6"
         assert format(self.i(6), "+") == "+6"
 
+    def test_thousands_separator(self):
+        assert format(self.i(123), ",") == "123"
+        assert format(self.i(12345), ",") == "12,345"
+        assert format(self.i(123456789), ",") == "123,456,789"
+        assert format(self.i(12345), "7,") == " 12,345"
+        assert format(self.i(12345), "<7,") == "12,345 "
+
 
 class AppTestIntFormatting(BaseIntegralFormattingTest):
 
