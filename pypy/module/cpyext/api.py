@@ -357,6 +357,10 @@ class BaseGlobalObject:
         from pypy.module import cpyext
         return eval(self.expr)
 
+    def get_data_declaration(self):
+        type = self.get_type_for_declaration()
+        return 'PyAPI_DATA(%s) %s;' % (type, self.name)
+
     def get_structtype_for_ctype(self):
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         from pypy.module.cpyext.datetime import PyDateTime_CAPI
@@ -369,14 +373,16 @@ class GlobalStaticPyObject(BaseGlobalObject):
         self.type = 'PyObject*'
         self.expr = expr
 
+    needs_hidden_global_structure = False
     def get_global_code_for_bridge(self):
         return []
 
     def get_type_for_declaration(self):
         return 'PyObject'
 
-    needs_hidden_global_structure = False
     is_pyobject = True
+    def get_structtype_for_ctype(self):
+        return PyObject
 
 class GlobalStructurePointer(BaseGlobalObject):
     def __init__(self, name, type, expr):
@@ -384,8 +390,9 @@ class GlobalStructurePointer(BaseGlobalObject):
         self.type = type
         self.expr = expr
 
+    needs_hidden_global_structure = True
     def get_global_code_for_bridge(self):
-        return ['%s _%s;' % (self.type, self.name)]
+        return ['%s _%s;' % (self.type[:-1], self.name)]
 
     def set_value_in_ctypes_dll(self, dll, value):
         name = self.name.replace('Py', 'PyPy')
@@ -396,8 +403,10 @@ class GlobalStructurePointer(BaseGlobalObject):
     def get_type_for_declaration(self):
         return self.type
 
-    needs_hidden_global_structure = True
     is_pyobject = False
+    def get_structtype_for_ctype(self):
+        from pypy.module.cpyext.datetime import PyDateTime_CAPI
+        return PyDateTime_CAPI # XXX
 
 class GlobalExceptionPointer(BaseGlobalObject):
     def __init__(self, exc_name):
@@ -406,14 +415,17 @@ class GlobalExceptionPointer(BaseGlobalObject):
         self.expr = ('space.gettypeobject(interp_exceptions.W_%s.typedef)'
                      % (exc_name,))
 
+    needs_hidden_global_structure = True
     def get_global_code_for_bridge(self):
         return ['%s _%s;' % (self.type[:-1], self.name)]
 
     def get_type_for_declaration(self):
         return 'PyObject*'
 
-    needs_hidden_global_structure = True
     is_pyobject = True
+    def get_structtype_for_ctype(self):
+        from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+        return PyTypeObjectPtr
 
 class GlobalTypeObject(BaseGlobalObject):
     def __init__(self, name, expr):
@@ -421,14 +433,16 @@ class GlobalTypeObject(BaseGlobalObject):
         self.type = 'PyTypeObject*'
         self.expr = expr
 
+    needs_hidden_global_structure = False
     def get_global_code_for_bridge(self):
         return []
 
     def get_type_for_declaration(self):
         return 'PyTypeObject'
 
-    needs_hidden_global_structure = False
     is_pyobject = True
+    def get_structtype_for_ctype(self):
+        return PyTypeObjectPtr
 
 GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
 GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
@@ -727,7 +741,7 @@ def build_bridge(space):
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
     # populate static data
-    for obj in GLOBALS.values():
+    for name, obj in GLOBALS.iteritems():
         value = obj.eval(space)
         INTERPLEVEL_API[name] = value
 
@@ -821,9 +835,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
 
     for obj in GLOBALS.values():
-        name = obj.name
-        type = obj.get_type_for_declaration()
-        pypy_decls.append('PyAPI_DATA(%s) %s;' % (type, name))
+        pypy_decls.append(obj.get_data_declaration())
 
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("}")
@@ -855,9 +867,8 @@ def build_eci(building_bridge, export_symbols, code):
     # Generate definitions for global structures
     struct_file = udir.join('pypy_structs.c')
     structs = ["#include <Python.h>"]
-    for obj in GLOBALS.values():
+    for name, obj in GLOBALS.iteritems():
         type = obj.get_type_for_declaration()
-        name = obj.name
         if not obj.needs_hidden_global_structure:
             structs.append('%s %s;' % (type, name))
         else:
@@ -905,8 +916,7 @@ def setup_library(space):
     run_bootstrap_functions(space)
 
     # populate static data
-    for obj in GLOBALS.values():
-        name = obj.name
+    for name, obj in GLOBALS.iteritems():
         if obj.needs_hidden_global_structure:
             name = '_' + name
         value = obj.eval(space)
