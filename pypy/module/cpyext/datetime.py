@@ -1,14 +1,42 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, make_ref
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, cpython_struct, PyObjectFields)
 from pypy.module.cpyext.import_ import PyImport_Import
+from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 
 # API import function
 
-@cpython_api([], lltype.Void)
+PyDateTime_CAPI = cpython_struct(
+    'PyDateTime_CAPI',
+    (('DateType', PyTypeObjectPtr),
+     ('DateTimeType', PyTypeObjectPtr),
+     ('TimeType', PyTypeObjectPtr),
+     ('DeltaType', PyTypeObjectPtr),
+     ))
+
+def build_datetime_api(space):
+    w_datetime = PyImport_Import(space, space.wrap("datetime"))
+    datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw')
+
+    w_type = space.getattr(w_datetime, space.wrap("date"))
+    datetimeAPI.c_DateType = rffi.cast(
+        PyTypeObjectPtr, make_ref(space, w_type))
+    w_type = space.getattr(w_datetime, space.wrap("datetime"))
+    datetimeAPI.c_DateTimeType = rffi.cast(
+        PyTypeObjectPtr, make_ref(space, w_type))
+    w_type = space.getattr(w_datetime, space.wrap("time"))
+    datetimeAPI.c_TimeType = rffi.cast(
+        PyTypeObjectPtr, make_ref(space, w_type))
+    w_type = space.getattr(w_datetime, space.wrap("timedelta"))
+    datetimeAPI.c_DeltaType = rffi.cast(
+        PyTypeObjectPtr, make_ref(space, w_type))
+
+    return datetimeAPI
+
+@cpython_api([], PyObject)
 def _PyDateTime_Import(space):
     return
 

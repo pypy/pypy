@@ -315,6 +315,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'cpyext.datetime.build_datetime_api(space)'),
     }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -360,7 +361,9 @@ build_exported_objects()
 
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr}[ctype]
+    from pypy.module.cpyext.datetime import PyDateTime_CAPI
+    return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
+            "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 PyTypeObject = lltype.ForwardReference()
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
@@ -506,13 +509,14 @@ def make_wrapper(space, callable):
                                       % (callable.__name__,))
                 retval = error_value
 
-            elif callable.api_func.restype is PyObject:
+            elif is_PyObject(callable.api_func.restype):
                 if result is None:
                     retval = make_ref(space, None)
                 elif isinstance(result, BorrowPair):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
-                    retval = make_ref(space, result)
+                    retval = rffi.cast(callable.api_func.restype,
+                                       make_ref(space, result))
                 else:
                     retval = result
             elif callable.api_func.restype is not lltype.Void:
@@ -612,8 +616,10 @@ def build_bridge(space):
     for name, (typ, expr) in GLOBALS.iteritems():
         if "#" in name:
             continue
-        if name.startswith('PyExc_'):
-            global_objects.append('%s %s;' % (typ[:-1], '_' + name))
+        if typ == 'PyDateTime_CAPI*':
+            global_objects.append('%s _%s;' % (typ, name))
+        elif name.startswith('PyExc_'):
+            global_objects.append('%s _%s;' % (typ[:-1], name))
         else:
             global_objects.append('%s %s = NULL;' % (typ, name))
     global_code = '\n'.join(global_objects)
@@ -653,7 +659,13 @@ def build_bridge(space):
         name = name.replace('Py', 'PyPy')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
-            ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(make_ref(space, w_obj)),
+            if typ == 'PyObject*':
+                value = make_ref(space, w_obj)
+            elif typ == 'PyDateTime_CAPI*':
+                value = w_obj
+            else:
+                assert False, "Unknown static pointer: %s %s" % (typ, name)
+            ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
             if name.startswith('PyPyExc_'):
@@ -804,6 +816,9 @@ def build_eci(building_bridge, export_symbols, code):
         elif name.startswith('PyExc_'):
             structs.append('extern PyTypeObject _%s;' % (name,))
             structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
+        elif typ == 'PyDateTime_CAPI*':
+            structs.append('extern %s _%s;' % (typ[:-1], name))
+            structs.append('%s %s = &_%s;' % (typ, name, name))
     struct_file.write('\n'.join(structs))
 
     eci = ExternalCompilationInfo(
@@ -853,7 +868,13 @@ def setup_library(space):
             name = '_' + name
         from pypy.module import cpyext
         w_obj = eval(expr)
-        struct_ptr = make_ref(space, w_obj)
+        if typ in ('PyObject*', 'PyTypeObject*'):
+            struct_ptr = make_ref(space, w_obj)
+        elif typ == 'PyDateTime_CAPI*':
+            struct_ptr = w_obj
+            name = '_' + name
+        else:
+            assert False, "Unknown static data: %s %s" % (typ, name)
         struct = rffi.cast(get_structtype_for_ctype(typ), struct_ptr)._obj
         struct._compilation_info = eci
         export_struct(name, struct)
@@ -946,7 +967,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
         assert len(args) == len(FT.ARGS)
         for i, ARG in unrolling_arg_types:
             arg = args[i]
-            if ARG is PyObject:
+            if is_PyObject(ARG):
                 if arg is None:
                     boxed_args += (lltype.nullptr(PyObject.TO),)
                 elif isinstance(arg, W_Root):
@@ -969,7 +990,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
             finally:
                 state.swap_borrow_container(old_container)
 
-            if RESULT_TYPE is PyObject:
+            if is_PyObject(RESULT_TYPE):
                 if result is None:
                     ret = result
                 elif isinstance(result, W_Root):

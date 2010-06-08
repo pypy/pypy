@@ -4,6 +4,16 @@
 extern "C" {
 #endif
 
+/* Define structure for C API. */
+typedef struct {
+    /* type objects */
+    PyTypeObject *DateType;
+    PyTypeObject *DateTimeType;
+    PyTypeObject *TimeType;
+    PyTypeObject *DeltaType;
+} PyDateTime_CAPI;
+
+PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 #define PyDateTime_IMPORT _PyDateTime_Import()
 
 typedef struct {
