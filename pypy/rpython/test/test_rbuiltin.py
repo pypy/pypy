@@ -496,6 +496,35 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
         assert res == 123
 
+    def test_unicode_errors(self):
+        def f():
+            try:
+                raise UnicodeDecodeError("xx", "x", 0, 1, "reason")
+            except UnicodeDecodeError, ude:
+                assert ude.start == 0
+                assert ude.encoding == "xx"
+                assert ude.object == "x"
+                assert ude.start == 0
+                assert ude.reason == "reason"
+                return ude.end
+
+        res = self.interpret(f, [])
+        assert res == f()
+
+        def f():
+            try:
+                raise UnicodeEncodeError("xx", u"x", 0, 1, "reason")
+            except UnicodeEncodeError, ude:
+                assert ude.start == 0
+                assert ude.encoding == "xx"
+                assert ude.object == u"x"
+                assert ude.start == 0
+                assert ude.reason == "reason"
+                return ude.end 
+
+        res = self.interpret(f, [])
+        assert res == f()        
+
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 
     def test_isinstance_obj(self):

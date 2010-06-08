@@ -114,7 +114,10 @@ class Test_r_uint:
         #self.binary_test(lambda x, y: pow(x, y, 42), (2, 3, 5, 1000))
 
     def test_back_to_int(self):
-        assert int(r_uint(-1)) == -1
+        #assert int(r_uint(-1)) == -1
+        # ^^^ that looks wrong IMHO: int(x) should not by itself return
+        #     an integer that has a different value than x, especially
+        #     if x is a subclass of long.
         assert int(r_uint(1)) == 1
 
     def unary_test(self, f):

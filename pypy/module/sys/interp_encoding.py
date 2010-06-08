@@ -1,5 +1,6 @@
 import sys
 from pypy.rlib import rlocale
+from pypy.rlib.objectmodel import we_are_translated
 
 def getdefaultencoding(space):
     """Return the current default string encoding used by the Unicode 
@@ -18,6 +19,8 @@ implementation."""
     space.sys.defaultencoding = encoding
 
 def get_w_default_encoder(space):
+    assert not (space.config.translating and not we_are_translated()), \
+        "get_w_default_encoder() should not be called during translation"
     w_encoding = space.wrap(space.sys.defaultencoding)
     mod = space.getbuiltinmodule("_codecs")
     w_lookup = space.getattr(mod, space.wrap("lookup"))
@@ -40,6 +43,8 @@ def _getfilesystemencoding(space):
         rlocale.setlocale(rlocale.LC_CTYPE, "")
         loc_codeset = rlocale.nl_langinfo(rlocale.CODESET)
         if loc_codeset:
+            if loc_codeset == 'ANSI_X3.4-1968':
+                loc_codeset = 'ascii'
             codecmod = space.getbuiltinmodule('_codecs')
             w_res = space.call_function(space.getattr(codecmod,
                                                       space.wrap('lookup')),

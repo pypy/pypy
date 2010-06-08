@@ -105,10 +105,7 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
-    checked).
-
-    This function returned an int type. This might require changes
-    in your code for properly supporting 64-bit systems."""
+    checked)."""
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.int_w(space.len(w_obj))
 
@@ -190,7 +187,7 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     return 0
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedString(space, w_unicode, encoding, errors):
+def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     """Encode a Unicode object and return the result as Python string object.
     encoding and errors have the same meaning as the parameters of the same name
     in the Unicode encode() method. The codec to be used is looked up using
@@ -199,12 +196,22 @@ def PyUnicode_AsEncodedString(space, w_unicode, encoding, errors):
     if not PyUnicode_Check(space, w_unicode):
         PyErr_BadArgument(space)
 
-    w_encoding = w_errors = None
-    if encoding:
-        w_encoding = rffi.charp2str(encoding)
-    if errors:
-        w_errors = rffi.charp2str(encoding)
-    return unicodetype.encode_object(space, w_unicode, w_encoding, w_errors)
+    encoding = errors = None
+    if llencoding:
+        encoding = rffi.charp2str(llencoding)
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    return unicodetype.encode_object(space, w_unicode, encoding, errors)
+
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
+    """Encode a Unicode object using Unicode-Escape and return the result as Python
+    string object.  Error handling is "strict". Return NULL if an exception was
+    raised by the codec."""
+    if not PyUnicode_Check(space, w_unicode):
+        PyErr_BadArgument(space)
+
+    return unicodetype.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromUnicode(space, wchar_p, length):

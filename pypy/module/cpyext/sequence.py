@@ -6,6 +6,12 @@ from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
+@cpython_api([PyObject, Py_ssize_t], PyObject)
+def PySequence_Repeat(space, w_obj, count):
+    """Return the result of repeating sequence object o count times, or NULL on
+    failure.  This is the equivalent of the Python expression o * count.
+    """
+    return space.mul(w_obj, space.wrap(count))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PySequence_Check(space, w_obj):
@@ -89,6 +95,12 @@ def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
     return space.getitem(w_obj, space.wrap(i))
+
+@cpython_api([PyObject], PyObject)
+def PySequence_List(space, w_obj):
+    """Return a list object with the same contents as the arbitrary sequence o.  The
+    returned list is guaranteed to be new."""
+    return space.call_function(space.w_list, w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PySequence_Tuple(space, w_obj):

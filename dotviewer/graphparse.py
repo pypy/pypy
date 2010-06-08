@@ -47,7 +47,8 @@ def dot2plain(content, contenttype, use_codespeak=False):
         else:
             cmdline = 'neato -Tplain'
         #print >> sys.stderr, '* running:', cmdline
-        p = subprocess.Popen(cmdline, shell=True, close_fds=True,
+        close_fds = sys.platform != 'win32'
+        p = subprocess.Popen(cmdline, shell=True, close_fds=close_fds,
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         (child_in, child_out) = (p.stdin, p.stdout)
         try:

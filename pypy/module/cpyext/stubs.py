@@ -23,7 +23,7 @@ PyFrameObject = lltype.Void
 _inittab = lltype.Void
 PyThreadState = lltype.Void
 PyInterpreterState = lltype.Void
-PyOS_sighandler_t = lltype.Void
+#PyOS_sighandler_t = lltype.Void
 Py_UNICODE = lltype.Void
 PyCompilerFlags = lltype.Void
 _node = lltype.Void
@@ -574,62 +574,6 @@ def PyOS_strnicmp(space, s1, s2, size):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDate_Check(space, ob):
-    """Return true if ob is of type PyDateTime_DateType or a subtype of
-    PyDateTime_DateType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDate_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_DateType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_Check(space, ob):
-    """Return true if ob is of type PyDateTime_DateTimeType or a subtype of
-    PyDateTime_DateTimeType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_DateTimeType. ob must not
-    be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTime_Check(space, ob):
-    """Return true if ob is of type PyDateTime_TimeType or a subtype of
-    PyDateTime_TimeType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTime_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_TimeType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDelta_Check(space, ob):
-    """Return true if ob is of type PyDateTime_DeltaType or a subtype of
-    PyDateTime_DeltaType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDelta_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_DeltaType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTZInfo_Check(space, ob):
     """Return true if ob is of type PyDateTime_TZInfoType or a subtype of
     PyDateTime_TZInfoType.  ob must not be NULL.
@@ -640,108 +584,6 @@ def PyTZInfo_Check(space, ob):
 def PyTZInfo_CheckExact(space, ob):
     """Return true if ob is of type PyDateTime_TZInfoType. ob must not be
     NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real], PyObject)
-def PyDate_FromDate(space, year, month, day):
-    """Return a datetime.date object with the specified year, month and day.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real], PyObject)
-def PyDateTime_FromDateAndTime(space, year, month, day, hour, minute, second, usecond):
-    """Return a datetime.datetime object with the specified year, month, day, hour,
-    minute, second and microsecond.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real], PyObject)
-def PyDelta_FromDSU(space, days, seconds, useconds):
-    """Return a datetime.timedelta object representing the given number of days,
-    seconds and microseconds.  Normalization is performed so that the resulting
-    number of microseconds and seconds lie in the ranges documented for
-    datetime.timedelta objects.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Date], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_GET_YEAR(space, o):
-    """Return the year, as a positive int.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Date], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_GET_MONTH(space, o):
-    """Return the month, as an int from 1 through 12.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Date], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_GET_DAY(space, o):
-    """Return the day, as an int from 1 through 31.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_DateTime], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_DATE_GET_HOUR(space, o):
-    """Return the hour, as an int from 0 through 23.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_DateTime], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_DATE_GET_MINUTE(space, o):
-    """Return the minute, as an int from 0 through 59.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_DateTime], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_DATE_GET_SECOND(space, o):
-    """Return the second, as an int from 0 through 59.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_DateTime], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_DATE_GET_MICROSECOND(space, o):
-    """Return the microsecond, as an int from 0 through 999999.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Time], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_TIME_GET_HOUR(space, o):
-    """Return the hour, as an int from 0 through 23.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Time], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_TIME_GET_MINUTE(space, o):
-    """Return the minute, as an int from 0 through 59.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Time], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_TIME_GET_SECOND(space, o):
-    """Return the second, as an int from 0 through 59.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyDateTime_Time], rffi.INT_real, error=CANNOT_FAIL)
-def PyDateTime_TIME_GET_MICROSECOND(space, o):
-    """Return the microsecond, as an int from 0 through 999999.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyDateTime_FromTimestamp(space, args):
-    """Create and return a new datetime.datetime object given an argument tuple
-    suitable for passing to datetime.datetime.fromtimestamp().
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyDate_FromTimestamp(space, args):
-    """Create and return a new datetime.date object given an argument tuple
-    suitable for passing to datetime.date.fromtimestamp().
     """
     raise NotImplementedError
 
@@ -2363,9 +2205,7 @@ def PyObject_HashNotImplemented(space, o):
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, o):
-    """This is equivalent to the Python expression dir(o), returning a (possibly
-    empty) list of strings appropriate for the object argument, or NULL if there
-    was an error.  If the argument is NULL, this is like the Python dir(),
+    """This is equivalent to the Python expression dir(o), returning a (possibly empty) list of strings appropriate for the object argument, or NULL if there was an error.  If the argument is NULL, this is like the Python dir(),
     returning the names of the current locals; in this case, if no execution frame
     is active then NULL is returned but PyErr_Occurred() will return false."""
     raise NotImplementedError
@@ -2401,15 +2241,6 @@ def PyEval_GetFuncDesc(space, func):
     " instance", and " object".  Concatenated with the result of
     PyEval_GetFuncName(), the result will be a description of
     func."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_Repeat(space, o, count):
-    """Return the result of repeating sequence object o count times, or NULL on
-    failure.  This is the equivalent of the Python expression o * count.
-    
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], PyObject)
@@ -2472,12 +2303,6 @@ def PySequence_Index(space, o, value):
     
     This function returned an int type. This might require changes
     in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PySequence_List(space, o):
-    """Return a list object with the same contents as the arbitrary sequence o.  The
-    returned list is guaranteed to be new."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObjectP, error=lltype.nullptr(PyObjectP.TO))
@@ -3140,13 +2965,6 @@ def PyUnicode_EncodeUnicodeEscape(space, s, size):
     
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUnicodeEscapeString(space, unicode):
-    """Encode a Unicode object using Unicode-Escape and return the result as Python
-    string object.  Error handling is "strict". Return NULL if an exception was
-    raised by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)

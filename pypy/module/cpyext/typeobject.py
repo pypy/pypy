@@ -25,7 +25,8 @@ from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods)
-from pypy.module.cpyext.slotdefs import slotdefs
+from pypy.module.cpyext.slotdefs import (
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rstring import rsplit
 from pypy.rlib.objectmodel import specialize
@@ -102,47 +103,59 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
-    for method_name, slot_name, slot_func, _, _, _ in slotdefs:
+
+    typedef = w_type.instancetypedef
+    for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
         w_descr = w_type.lookup(method_name)
         if w_descr is None:
             # XXX special case iternext
             continue
-        if slot_func is None:
+
+        slot_func_helper = None
+
+        if slot_func is None and typedef is not None:
+            get_slot = get_slot_tp_function(space, typedef, slot_name)
+            if get_slot:
+                slot_func_helper = get_slot()
+        elif slot_func:
+            slot_func_helper = slot_func.api_func.get_llpointer_maker(space)()
+
+        if slot_func_helper is None:
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
                 os.write(2, method_name + " defined by the type but no slot function defined!\n")
             continue
-        slot_func_helper = slot_func.api_func.get_llpointer_maker(space)()
+
         # XXX special case wrapper-functions and use a "specific" slot func
 
-        if len(slot_name) == 1:
-            setattr(pto, slot_name[0], slot_func_helper)
+        if len(slot_names) == 1:
+            setattr(pto, slot_names[0], slot_func_helper)
         else:
-            assert len(slot_name) == 2
-            struct = getattr(pto, slot_name[0])
+            assert len(slot_names) == 2
+            struct = getattr(pto, slot_names[0])
             if not struct:
-                if slot_name[0] == 'c_tp_as_number':
+                if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
                 else:
                     raise AssertionError(
-                        "Structure not allocated: %s" % (slot_name[0],))
+                        "Structure not allocated: %s" % (slot_names[0],))
                 struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
-                setattr(pto, slot_name[0], struct)
+                setattr(pto, slot_names[0], struct)
 
-            setattr(struct, slot_name[1], slot_func_helper)
+            setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     # XXX support PyObject_HashNotImplemented
-    for method_name, slot_name, _, wrapper_func, wrapper_func_kwds, doc in slotdefs:
+    for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
-        if len(slot_name) == 1:
-            func = getattr(pto, slot_name[0])
+        if len(slot_names) == 1:
+            func = getattr(pto, slot_names[0])
         else:
-            assert len(slot_name) == 2
-            struct = getattr(pto, slot_name[0])
+            assert len(slot_names) == 2
+            struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
-            func = getattr(struct, slot_name[1])
+            func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP_real, func)
         if not func:
             continue
@@ -359,12 +372,13 @@ def setup_string_buffer_procs(space, pto):
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
+    from pypy.module.cpyext.object import PyObject_dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
-    type_pto = obj.c_ob_type
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
     Py_DecRef(space, obj_pto.c_tp_mro)
     Py_DecRef(space, obj_pto.c_tp_cache) # let's do it like cpython
+    Py_DecRef(space, obj_pto.c_tp_dict)
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         if obj_pto.c_tp_as_buffer:
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
@@ -372,11 +386,7 @@ def type_dealloc(space, obj):
             lltype.free(obj_pto.c_tp_as_number, flavor='raw')
         Py_DecRef(space, base_pyo)
         rffi.free_charp(obj_pto.c_tp_name)
-        obj_pto_voidp = rffi.cast(rffi.VOIDP_real, obj_pto)
-        generic_cpy_call(space, type_pto.c_tp_free, obj_pto_voidp)
-        if type_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-            pto = rffi.cast(PyObject, type_pto)
-            Py_DecRef(space, pto)
+        PyObject_dealloc(space, obj)
 
 
 def type_attach(space, py_obj, w_type):
@@ -488,6 +498,8 @@ def inherit_slots(space, pto, w_base):
         # XXX check for correct GC flags!
         if not pto.c_tp_free:
             pto.c_tp_free = base.c_tp_free
+        if not pto.c_tp_setattro:
+            pto.c_tp_setattro = base.c_tp_setattro
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -526,8 +538,6 @@ def finish_type_1(space, pto):
     """
     Sets up tp_bases, necessary before creating the interpreter type.
     """
-    pto.c_tp_dict = lltype.nullptr(PyObject.TO) # not supported
-
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
@@ -551,6 +561,16 @@ def finish_type_2(space, pto, w_obj):
         inherit_special(space, pto, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
         inherit_slots(space, pto, w_base)
+
+    if not pto.c_tp_setattro:
+        from pypy.module.cpyext.object import PyObject_GenericSetAttr
+        pto.c_tp_setattro = llhelper(
+            PyObject_GenericSetAttr.api_func.functype,
+            PyObject_GenericSetAttr.api_func._get_wrapper(space))
+
+    if w_obj.is_cpytype():
+        Py_DecRef(space, pto.c_tp_dict)
+        pto.c_tp_dict = make_ref(space, w_obj.getdict())
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

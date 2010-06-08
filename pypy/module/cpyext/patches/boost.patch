@@ -1,16 +1,3 @@
-Index: libs/python/src/object/class.cpp
-===================================================================
---- libs/python/src/object/class.cpp	2009-11-13 01:40:01 +0100
-+++ libs/python/src/object/class.cpp	2010-06-02 23:25:08 +0200
-@@ -195,7 +195,7 @@
- 
- namespace objects
- {
--#if PY_VERSION_HEX < 0x03000000
-+#if PY_VERSION_HEX < 0x03000000 && !defined(PYPY_VERSION)
-   // XXX Not sure why this run into compiling error in Python 3
-   extern "C"
-   {
 Index: libs/python/src/object/function.cpp
 ===================================================================
 --- libs/python/src/object/function.cpp	2010-04-04 07:19:57 +0200
@@ -50,14 +37,21 @@ Index: tools/build/v2/user-config.jam
 ===================================================================
 --- tools/build/v2/user-config.jam	2008-07-15 15:53:41 +0200
 +++ tools/build/v2/user-config.jam	2010-06-02 23:46:13 +0200
-@@ -84,3 +84,9 @@
+@@ -84,3 +84,16 @@
  
  # Configure with an explicit installation prefix.
  # using qt : /usr/opt/qt ;
 +
++# -------------------
++# PyPy configuration.
++# -------------------
++
++PYPY_HOME = /home/amaury/trunk ;
++
 +using python : 2.5
-+             : /home/amaury/trunk/pypy/pypy-c 
-+             : /home/amaury/trunk/pypy/module/cpyext/include 
-+               /home/amaury/trunk/pypy/_interfaces
++             : $(PYPY_HOME)/pypy/pypy-c                # interpreter
++             : $(PYPY_HOME)/pypy/module/cpyext/include # include paths 
++               $(PYPY_HOME)/pypy/_interfaces
++             : $(PYPY_HOME)/pypy/_interfaces           # library path
 +             ;
 

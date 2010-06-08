@@ -5,15 +5,17 @@ from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
-    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc)
+    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc,
+    descrgetfunc, descrsetfunc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rlib.objectmodel import specialize
+from pypy.tool.sourcetools import func_renamer
+from pypy.rpython.annlowlevel import llhelper
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -39,7 +41,7 @@ def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
     res = generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
     if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception()
+        space.fromcache(State).check_and_raise_exception(always=True)
     return None
 
 def wrap_unaryfunc(space, w_self, w_args, func):
@@ -78,6 +80,44 @@ def wrap_delattr(space, w_self, w_args, func):
     w_name, = space.fixedview(w_args)
     # XXX "Carlo Verre hack"?
     res = generic_cpy_call(space, func_target, w_self, w_name, None)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+
+def wrap_descr_get(space, w_self, w_args, func):
+    func_target = rffi.cast(descrgetfunc, func)
+    args_w = space.fixedview(w_args)
+    if len(args_w) == 1:
+        w_obj, = args_w
+        w_type = None
+    elif len(args_w) == 2:
+        w_obj, w_type = args_w
+    else:
+        raise operationerrfmt(
+            space.w_TypeError,
+            "expected 1 or 2 arguments, got %d", len(args_w))
+    if w_obj is space.w_None:
+        w_obj = None
+    if w_type is space.w_None:
+        w_type = None
+    if w_obj is None and w_type is None:
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("__get__(None, None) is invalid"))
+    return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
+
+def wrap_descr_set(space, w_self, w_args, func):
+    func_target = rffi.cast(descrsetfunc, func)
+    check_num_args(space, w_args, 2)
+    w_obj, w_value = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+
+def wrap_descr_delete(space, w_self, w_args, func):
+    func_target = rffi.cast(descrsetfunc, func)
+    check_num_args(space, w_args, 1)
+    w_obj, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_obj, None)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
 
@@ -174,22 +214,64 @@ def slot_tp_call(space, w_self, w_args, w_kwds):
     return space.call(w_self, w_args, w_kwds)
 
 @cpython_api([PyObject], PyObject, external=False)
+def slot_tp_str(space, w_self):
+    return space.str(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
-def slot_tp_setattro(space, w_self, w_name, w_value):
-    # XXX this is probably wrong when a subtype's tp_setattro
-    # delegates to PyType_Type.tp_setattro!
-    if w_value is not None:
-        space.setattr(w_self, w_name, w_value)
+from pypy.rlib.nonconst import NonConstant
+
+SLOTS = {}
+
+@specialize.memo()
+def get_slot_tp_function(space, typedef, name):
+    key = (typedef, name)
+    try:
+        return SLOTS[key]
+    except KeyError:
+        ret = build_slot_tp_function(space, typedef, name)
+        SLOTS[key] = ret
+        return ret
+
+def build_slot_tp_function(space, typedef, name):
+    w_type = space.gettypeobject(typedef)
+
+    if name == 'tp_setattro':
+        setattr_fn = w_type.getdictvalue(space, '__setattr__')
+        delattr_fn = w_type.getdictvalue(space, '__delattr__')
+        if setattr_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
+                     error=-1, external=True) # XXX should not be exported
+        @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
+        def slot_tp_setattro(space, w_self, w_name, w_value):
+            if w_value is not None:
+                space.call_function(setattr_fn, w_self, w_name, w_value)
+            else:
+                space.call_function(delattr_fn, w_self, w_name)
+            return 0
+        api_func = slot_tp_setattro.api_func
     else:
-        space.delattr(w_self, w_name)
-    return 0
+        return
+
+    return lambda: llhelper(api_func.functype, api_func._get_wrapper(space))
 
 PyWrapperFlag_KEYWORDS = 1
 
-# adopted from typeobject.c
+class TypeSlot:
+    def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
+        self.method_name = method_name
+        self.slot_name = slot_name
+        self.slot_names = ("c_" + slot_name).split(".")
+        self.slot_func = function
+        self.wrapper_func = wrapper1
+        self.wrapper_func_kwds = wrapper2
+        self.doc = doc
+
+# adapted from typeobject.c
 def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
     if WRAPPER is None:
         wrapper = None
@@ -201,23 +283,22 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         wrapper = wrap_getattr
 
     function = globals().get(FUNCTION, None)
-    slotname = ("c_" + SLOT).split(".")
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
     if FLAGS:
         if wrapper is Ellipsis:
+            @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func, w_kwds):
                 raise NotImplementedError("Wrapper for slot " + NAME)
-            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = None
         wrapper2 = wrapper
     else:
         if wrapper is Ellipsis:
+            @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func):
                 raise NotImplementedError("Wrapper for slot " + NAME)
-            wrapper = func_with_new_name(wrapper, WRAPPER)
         wrapper1 = wrapper
         wrapper2 = None
-    return (NAME, slotname, function, wrapper1, wrapper2, DOC)
+    return TypeSlot(NAME, SLOT, function, wrapper1, wrapper2, DOC)
 
 def TPSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC):
     return FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, 0)
@@ -470,7 +551,12 @@ slotdef_replacements = (
 for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
-slotdefs = unrolling_iterable(eval(slotdefs_str))
+slotdefs_for_tp_slots = unrolling_iterable(
+    [(x.method_name, x.slot_name, x.slot_names, x.slot_func)
+     for x in eval(slotdefs_str)])
+slotdefs_for_wrappers = unrolling_iterable(
+    [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
+     for x in eval(slotdefs_str)])
 
 if __name__ == "__main__":
     print slotdefs_str

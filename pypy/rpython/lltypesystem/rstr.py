@@ -18,6 +18,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.annlowlevel import hlstr
 
 # ____________________________________________________________
 #
@@ -296,7 +297,7 @@ class LLHelpers(AbstractLLHelpers):
         s = mallocunicode(lgt)
         for i in range(lgt):
             if ord(str.chars[i]) > 127:
-                raise UnicodeDecodeError
+                raise UnicodeDecodeError("ascii", hlstr(str), 0, lgt, "ascii codec can't encode %d" % ord(str.chars[i]))
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
     ll_str2unicode.oopspec = 'str.str2unicode(str)'

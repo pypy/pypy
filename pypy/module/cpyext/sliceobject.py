@@ -56,6 +56,12 @@ def PySlice_New(space, w_start, w_stop, w_step):
     the same names.  Any of the values may be NULL, in which case the
     None will be used for the corresponding attribute.  Return NULL if
     the new object could not be allocated."""
+    if w_start is None:
+        w_start = space.w_None
+    if w_stop is None:
+        w_stop = space.w_None
+    if w_step is None:
+        w_step = space.w_None
     return W_SliceObject(w_start, w_stop, w_step)
 
 @cpython_api([PySliceObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP,

@@ -2,9 +2,9 @@ import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, bootstrap_function, \
-     PyObject, PyObjectP, ADDR, CANNOT_FAIL, \
-     Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr
+from pypy.module.cpyext.api import (
+    cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
+    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -259,9 +259,9 @@ def create_ref(space, w_obj, itemcount=0):
     Allocates a PyObject, and fills its fields with info from the given
     intepreter object.
     """
+    state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
     if w_type.is_cpytype():
-        state = space.fromcache(RefcountState)
         py_obj = state.get_from_lifeline(w_obj)
         if py_obj:
             Py_IncRef(space, py_obj)
@@ -270,7 +270,6 @@ def create_ref(space, w_obj, itemcount=0):
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     if w_type.is_cpytype():
-        state = space.fromcache(RefcountState)
         state.set_lifeline(w_obj, py_obj)
     typedescr.attach(space, py_obj, w_obj)
     return py_obj
@@ -329,7 +328,7 @@ def from_ref(space, ref):
     # This reference is not yet a real interpreter object.
     # Realize it.
     ref_type = rffi.cast(PyObject, ref.c_ob_type)
-    if ref_type == ref:
+    if ref_type == ref: # recursion!
         raise InvalidPointerException(str(ref))
     w_type = from_ref(space, ref_type)
     assert isinstance(w_type, W_TypeObject)

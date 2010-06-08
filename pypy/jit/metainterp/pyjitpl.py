@@ -1719,7 +1719,8 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, exits, None)
         target_loop_token = compile.compile_new_bridge(self, loop_tokens,
                                                        self.resumekey)
-        assert target_loop_token is loop_tokens[0]
+        if target_loop_token is not loop_tokens[0]:
+            raise GiveUp
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.gen_store_back_in_virtualizable()
@@ -1729,7 +1730,8 @@ class MetaInterp(object):
         loop_tokens = sd.loop_tokens_exit_frame_with_exception_ref
         target_loop_token = compile.compile_new_bridge(self, loop_tokens,
                                                        self.resumekey)
-        assert target_loop_token is loop_tokens[0]
+        if target_loop_token is not loop_tokens[0]:
+            raise GiveUp
 
     def get_residual_args(self, specnodes, args):
         if specnodes is None:     # it is None only for tests

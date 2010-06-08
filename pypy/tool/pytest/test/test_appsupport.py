@@ -113,6 +113,19 @@ def test_applevel_raises_display(testdir):
         "*E*application-level*NameError*x*not defined",
     ])
 
+def test_applevel_raise_keyerror(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        def app_test_raises():
+            raise KeyError(42)
+            pass
+    """)
+    result = testdir.runpytest(p, "-s")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*KeyError*42*",
+    ])
+
 def app_test_raises():
     info = raises(TypeError, id)
     assert info.type is TypeError
