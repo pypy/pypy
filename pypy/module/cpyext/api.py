@@ -374,6 +374,7 @@ class GlobalStaticPyObject(BaseGlobalObject):
         return 'PyObject'
 
     def get_struct_to_export(self, space, value):
+        from pypy.module.cpyext.pyobject import make_ref
         value = make_ref(space, value)
         return value._obj
 
@@ -420,6 +421,7 @@ class GlobalExceptionPointer(BaseGlobalObject):
         return 'PyObject*'
 
     def get_value_to_export(self, space, value):
+        from pypy.module.cpyext.pyobject import make_ref
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
 
@@ -443,6 +445,7 @@ class GlobalTypeObject(BaseGlobalObject):
         return 'PyTypeObject'
 
     def get_value_to_export(self, space, value):
+        from pypy.module.cpyext.pyobject import make_ref
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
 
