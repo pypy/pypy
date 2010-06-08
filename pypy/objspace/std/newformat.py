@@ -730,6 +730,12 @@ class Formatter(BaseFormatter):
         tp = self._type
         if tp == "\0":
             tp = "g"
+        value = space.float_w(w_float)
+        if tp == "%":
+            tp = "f"
+            value *= 100
+        if self._precision = -1:
+            self._precision = 6
 
     def format_float(self, w_float):
         space = self.space
