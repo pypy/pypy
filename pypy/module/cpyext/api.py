@@ -361,12 +361,6 @@ class BaseGlobalObject:
         type = self.get_type_for_declaration()
         return 'PyAPI_DATA(%s) %s;' % (type, self.name)
 
-    def get_structtype_for_ctype(self):
-        from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-        from pypy.module.cpyext.datetime import PyDateTime_CAPI
-        return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
-                "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[self.type]
-
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = name
@@ -384,6 +378,13 @@ class GlobalStaticPyObject(BaseGlobalObject):
     def get_structtype_for_ctype(self):
         return PyObject
 
+    def set_value_in_ctypes_dll(self, space, dll, value):
+        # it's a structure, get its adress
+        name = self.name.replace('Py', 'PyPy')
+        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, name)
+        py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
+        attach_and_track(space, py_obj, value)
+
 class GlobalStructurePointer(BaseGlobalObject):
     def __init__(self, name, type, expr):
         self.name = name
@@ -394,7 +395,7 @@ class GlobalStructurePointer(BaseGlobalObject):
     def get_global_code_for_bridge(self):
         return ['%s _%s;' % (self.type[:-1], self.name)]
 
-    def set_value_in_ctypes_dll(self, dll, value):
+    def set_value_in_ctypes_dll(self, space, dll, value):
         name = self.name.replace('Py', 'PyPy')
         ptr = ctypes.c_void_p.in_dll(dll, name)
         ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
@@ -406,7 +407,7 @@ class GlobalStructurePointer(BaseGlobalObject):
     is_pyobject = False
     def get_structtype_for_ctype(self):
         from pypy.module.cpyext.datetime import PyDateTime_CAPI
-        return PyDateTime_CAPI # XXX
+        return lltype.Ptr(PyDateTime_CAPI) # XXX
 
 class GlobalExceptionPointer(BaseGlobalObject):
     def __init__(self, exc_name):
@@ -427,6 +428,13 @@ class GlobalExceptionPointer(BaseGlobalObject):
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
         return PyTypeObjectPtr
 
+    def set_value_in_ctypes_dll(self, space, dll, value):
+        # it's a pointer
+        name = self.name.replace('Py', 'PyPy')
+        in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(dll, name)
+        py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
+        attach_and_track(space, py_obj, value)
+
 class GlobalTypeObject(BaseGlobalObject):
     def __init__(self, name, expr):
         self.name = 'Py%s_Type' % (name,)
@@ -443,6 +451,13 @@ class GlobalTypeObject(BaseGlobalObject):
     is_pyobject = True
     def get_structtype_for_ctype(self):
         return PyTypeObjectPtr
+
+    def set_value_in_ctypes_dll(self, space, dll, value):
+        # it's a structure, get its adress
+        name = self.name.replace('Py', 'PyPy')
+        in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(dll, name)
+        py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
+        attach_and_track(space, py_obj, value)
 
 GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
 GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
@@ -744,23 +759,7 @@ def build_bridge(space):
     for name, obj in GLOBALS.iteritems():
         value = obj.eval(space)
         INTERPLEVEL_API[name] = value
-
-        if isinstance(obj, GlobalStructurePointer):
-            obj.set_value_in_ctypes_dll(bridge, value)
-        elif obj.type in ('PyObject*', 'PyTypeObject*'):
-            name = obj.name.replace('Py', 'PyPy')
-
-            if name.startswith('PyPyExc_'):
-                # we already have the pointer
-                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
-                py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
-            else:
-                # we have a structure, get its address
-                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
-                py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            attach_and_track(space, py_obj, value)
-        else:
-            assert False, "Unknown static object: %s %s" % (typ, name)
+        obj.set_value_in_ctypes_dll(space, bridge, value)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
