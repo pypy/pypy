@@ -370,13 +370,12 @@ class GlobalStaticPyObject(BaseGlobalObject):
     needs_hidden_global_structure = False
     def get_global_code_for_bridge(self):
         return []
-
     def get_type_for_declaration(self):
         return 'PyObject'
 
-    is_pyobject = True
-    def get_structtype_for_ctype(self):
-        return PyObject
+    def get_struct_to_export(self, space, value):
+        value = make_ref(space, value)
+        return value._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a structure, get its adress
@@ -394,20 +393,18 @@ class GlobalStructurePointer(BaseGlobalObject):
     needs_hidden_global_structure = True
     def get_global_code_for_bridge(self):
         return ['%s _%s;' % (self.type[:-1], self.name)]
+    def get_type_for_declaration(self):
+        return self.type
+
+    def get_value_to_export(self, space, value):
+        from pypy.module.cpyext.datetime import PyDateTime_CAPI
+        struct = rffi.cast(lltype.Ptr(PyDateTime_CAPI), value)._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         name = self.name.replace('Py', 'PyPy')
         ptr = ctypes.c_void_p.in_dll(dll, name)
         ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                 ctypes.c_void_p).value
-
-    def get_type_for_declaration(self):
-        return self.type
-
-    is_pyobject = False
-    def get_structtype_for_ctype(self):
-        from pypy.module.cpyext.datetime import PyDateTime_CAPI
-        return lltype.Ptr(PyDateTime_CAPI) # XXX
 
 class GlobalExceptionPointer(BaseGlobalObject):
     def __init__(self, exc_name):
@@ -419,14 +416,12 @@ class GlobalExceptionPointer(BaseGlobalObject):
     needs_hidden_global_structure = True
     def get_global_code_for_bridge(self):
         return ['%s _%s;' % (self.type[:-1], self.name)]
-
     def get_type_for_declaration(self):
         return 'PyObject*'
 
-    is_pyobject = True
-    def get_structtype_for_ctype(self):
+    def get_value_to_export(self, space, value):
         from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-        return PyTypeObjectPtr
+        return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a pointer
@@ -444,13 +439,12 @@ class GlobalTypeObject(BaseGlobalObject):
     needs_hidden_global_structure = False
     def get_global_code_for_bridge(self):
         return []
-
     def get_type_for_declaration(self):
         return 'PyTypeObject'
 
-    is_pyobject = True
-    def get_structtype_for_ctype(self):
-        return PyTypeObjectPtr
+    def get_value_to_export(self, space, value):
+        from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+        return rffi.cast(PyTypeObjectPtr, make_ref(space, value))._obj
 
     def set_value_in_ctypes_dll(self, space, dll, value):
         # it's a structure, get its adress
@@ -919,9 +913,7 @@ def setup_library(space):
         if obj.needs_hidden_global_structure:
             name = '_' + name
         value = obj.eval(space)
-        if obj.is_pyobject:
-            value = make_ref(space, value)
-        struct = rffi.cast(obj.get_structtype_for_ctype(), value)._obj
+        struct = obj.get_value_to_export(space, value)
         struct._compilation_info = eci
         export_struct(name, struct)
 
