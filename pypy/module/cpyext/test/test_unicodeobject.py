@@ -49,7 +49,14 @@ class TestUnicode(BaseApiTest):
                space.newtuple([1, 2, 3]), None, None)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
                space.wrap(''), None, None)
+        ascii = rffi.str2charp('ascii')
+        replace = rffi.str2charp('replace')
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+                                                ascii, replace)
+        assert space.unwrap(encoded) == 'sp?m'
         rffi.free_charp(utf_8)
+        rffi.free_charp(replace)
+        rffi.free_charp(ascii)
 
         buf = rffi.unicode2wcharp(u"12345")
         api.PyUnicode_AsWideChar(space.wrap(u'longword'), buf, 5)
