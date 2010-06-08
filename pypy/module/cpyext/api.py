@@ -334,6 +334,17 @@ FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
 
+def attach_and_track(space, py_obj, w_obj):
+    from pypy.module.cpyext.pyobject import (
+        track_reference, get_typedescr, make_ref)
+    w_type = space.type(w_obj)
+    typedescr = get_typedescr(w_type.instancetypedef)
+    py_obj.c_ob_refcnt = 1
+    py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                 make_ref(space, w_type))
+    typedescr.attach(space, py_obj, w_obj)
+    track_reference(space, py_obj, w_obj)
+
 class BaseGlobalObject:
     """Base class for all objects (pointers and structures)"""
 
@@ -341,6 +352,10 @@ class BaseGlobalObject:
     def declare(cls, *args, **kwargs):
         obj = cls(*args, **kwargs)
         GLOBALS[obj.name] = obj
+
+    def eval(self, space):
+        from pypy.module import cpyext
+        return eval(self.expr)
 
 class GlobalStaticPyObject(BaseGlobalObject):
     def __init__(self, name, expr):
@@ -683,8 +698,9 @@ def build_bridge(space):
 
     # populate static data
     for obj in GLOBALS.values():
-        from pypy.module import cpyext
-        w_obj = eval(obj.expr)
+        value = obj.eval(space)
+        INTERPLEVEL_API[name] = value
+
         if obj.name.endswith('#'):
             name = obj.name[:-1]
             isptr = False
@@ -694,15 +710,13 @@ def build_bridge(space):
         if name.startswith('PyExc_'):
             isptr = False
 
-        INTERPLEVEL_API[name] = w_obj
-
         name = name.replace('Py', 'PyPy')
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if obj.type == 'PyObject*':
-                value = make_ref(space, w_obj)
+                value = make_ref(space, value)
             elif obj.type == 'PyDateTime_CAPI*':
-                value = w_obj
+                value = value
             else:
                 assert False, "Unknown static pointer: %s %s" % (typ, name)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
@@ -716,15 +730,7 @@ def build_bridge(space):
                 # we have a structure, get its address
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            from pypy.module.cpyext.pyobject import (
-                track_reference, get_typedescr)
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.instancetypedef)
-            py_obj.c_ob_refcnt = 1
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
-            track_reference(space, py_obj, w_obj)
+            attach_and_track(space, py_obj, value)
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
 
@@ -898,8 +904,7 @@ def setup_library(space):
         name = obj.name.replace("#", "")
         if name.startswith('PyExc_'):
             name = '_' + name
-        from pypy.module import cpyext
-        w_obj = eval(obj.expr)
+        value = obj.eval(space)
         if obj.type in ('PyObject*', 'PyTypeObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif obj.type == 'PyDateTime_CAPI*':
