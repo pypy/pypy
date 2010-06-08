@@ -479,13 +479,12 @@ manually remove this flag though!
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
 
 /* Copied from CPython ----------------------------- */
-int PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
-int PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
-int PyObject_CheckReadBuffer(PyObject *);
+PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
+PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
+PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
 
 
 /* PyPy internal ----------------------------------- */
-int PyPyType_Register(PyTypeObject *);
 #define PyObject_Length PyObject_Size
 #define _PyObject_GC_Del PyObject_GC_Del
 

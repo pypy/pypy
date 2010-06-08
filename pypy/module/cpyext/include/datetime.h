@@ -13,7 +13,6 @@ typedef struct {
     PyTypeObject *DeltaType;
 } PyDateTime_CAPI;
 
-PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 #define PyDateTime_IMPORT _PyDateTime_Import()
 
 typedef struct {

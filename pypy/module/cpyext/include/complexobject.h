@@ -11,16 +11,6 @@ typedef struct Py_complex_t {
     double imag;
 } Py_complex;
 
-/* generated function */
-PyAPI_FUNC(void) _PyComplex_AsCComplex(PyObject *, Py_complex *);
-
-Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
-{
-    Py_complex result;
-    _PyComplex_AsCComplex(obj, &result);
-    return result;
-}
-
 #ifdef __cplusplus
 }
 #endif

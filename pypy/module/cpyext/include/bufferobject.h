@@ -15,18 +15,18 @@ PyAPI_DATA(PyTypeObject) PyBuffer_Type;
 
 #define Py_END_OF_BUFFER	(-1)
 
-PyObject* PyBuffer_FromObject(PyObject *base,
-                                           Py_ssize_t offset, Py_ssize_t size);
-PyObject* PyBuffer_FromReadWriteObject(PyObject *base,
-                                                    Py_ssize_t offset,
-                                                    Py_ssize_t size);
+PyAPI_FUNC(PyObject*) PyBuffer_FromObject(PyObject *base,
+                                          Py_ssize_t offset, Py_ssize_t size);
+PyAPI_FUNC(PyObject*) PyBuffer_FromReadWriteObject(PyObject *base,
+                                                   Py_ssize_t offset,
+                                                   Py_ssize_t size);
 
-PyObject* PyBuffer_FromMemory(void *ptr, Py_ssize_t size);
-PyObject* PyBuffer_FromReadWriteMemory(void *ptr, Py_ssize_t size);
+PyAPI_FUNC(PyObject*) PyBuffer_FromMemory(void *ptr, Py_ssize_t size);
+PyAPI_FUNC(PyObject*) PyBuffer_FromReadWriteMemory(void *ptr, Py_ssize_t size);
 
-PyObject* PyBuffer_New(Py_ssize_t size);
+PyAPI_FUNC(PyObject*) PyBuffer_New(Py_ssize_t size);
 
-void init_bufferobject(void);
+PyAPI_FUNC(void) init_bufferobject(void);
 
 #ifdef __cplusplus
 }

@@ -306,28 +306,32 @@ def cpython_struct(name, fields, forward=None):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
-SYMBOLS_C = [
-    'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
-    'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
-    '_PyArg_NoKeywords',
-    'PyString_FromFormat', 'PyString_FromFormatV',
-    'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
-    'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
+SYMBOLS_C = []
 
-    'PyErr_Format', 'PyErr_NewException',
+def gather_PyAPI_symbols():
+    import os, re
+    include_dir = py.path.local(__file__).dirpath() / 'include'
+    for filename in include_dir.listdir("*.h"):
+        for line in filename.open():
+            if 'PyAPI_' not in line:
+                continue
+            if re.match('# *define', line):
+                continue
 
-    'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
-    'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
+            match = re.match(r'PyAPI_FUNC\(.+?\)\s+(.+)\(', line)
+            if match:
+                name = match.group(1)
+                SYMBOLS_C.append(name)
+                continue
+            match = re.match(r'PyAPI_DATA\(.+?\)\s+(.+);', line)
+            if match:
+                name = match.group(1)
+                SYMBOLS_C.append(name)
+                continue
 
-    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
+            assert False, "unknown PyAPI declaration: %r" % (line,)
+gather_PyAPI_symbols()
 
-    'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
-    'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', 'init_pycobject',
-
-    'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-]
 TYPES = {}
 GLOBALS = {}
 FORWARD_DECLS = []
@@ -469,6 +473,7 @@ class GlobalTypeObject(BaseGlobalObject):
 GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
 GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
 GlobalStaticPyObject.declare('_Py_ZeroStruct', 'space.w_False')
+GlobalStaticPyObject.declare('_Py_EllipsisObject', 'space.w_Ellipsis')
 GlobalStaticPyObject.declare('_Py_NotImplementedStruct',
                              'space.w_NotImplemented')
 GlobalStructurePointer.declare('PyDateTimeAPI', 'PyDateTime_CAPI*',

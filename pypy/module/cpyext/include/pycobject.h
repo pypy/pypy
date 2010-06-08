@@ -47,7 +47,9 @@ typedef struct {
     void (*destructor)(void *);
 } PyCObject;
 #endif
- 
+
+PyAPI_FUNC(void) init_pycobject(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -5,9 +5,6 @@ extern "C" {
 #endif
 
 /* The unique ellipsis object "..." */
-
-PyAPI_DATA(PyObject) _Py_EllipsisObject; /* Don't use this directly */
-
 #define Py_Ellipsis (&_Py_EllipsisObject)
 
 typedef struct {

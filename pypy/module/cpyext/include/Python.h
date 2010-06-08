@@ -82,6 +82,7 @@ typedef long Py_ssize_t;
 #include "funcobject.h"
 
 #include "modsupport.h"
+#include "mysnprintf.h"
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "stringobject.h"
@@ -103,6 +104,8 @@ typedef long Py_ssize_t;
 #include "structmember.h"
 
 #include <pypy_decl.h>
+
+#include "complexobject.inl"
 
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]
