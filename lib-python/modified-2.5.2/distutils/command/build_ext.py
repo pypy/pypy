@@ -647,7 +647,9 @@ class build_ext (Command):
         """
         # The python library is always needed on Windows.
         if sys.platform == "win32":
-            pythonlib = 'libpypy-c.exe'
+            template = "python%d%d"
+            pythonlib = (template %
+                         (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
             # don't extend ext.libraries, it may be shared with other
             # extensions, it is a reference to the original list
             return ext.libraries + [pythonlib]
