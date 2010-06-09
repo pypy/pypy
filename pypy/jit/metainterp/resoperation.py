@@ -135,9 +135,6 @@ _oplist = [
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
     '_ALWAYS_PURE_FIRST', # ----- start of always_pure operations -----
-    #'OOSEND_PURE',    # ootype operation
-    'CALL_PURE',
-    #
     'INT_ADD/2',
     'INT_SUB/2',
     'INT_MUL/2',
@@ -231,6 +228,9 @@ _oplist = [
     'CALL_MAY_FORCE',
     'CALL_LOOPINVARIANT',
     #'OOSEND',                     # ootype operation
+    #'OOSEND_PURE',                # ootype operation
+    'CALL_PURE',             # removed before it's passed to the backend
+                             # CALL_PURE(result, func, arg_1,..,arg_n)
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----

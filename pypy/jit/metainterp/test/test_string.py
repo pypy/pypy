@@ -23,7 +23,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, 'h'], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL_PURE: 1})
+        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0})
 
     def test_eq_folded(self):
         jitdriver = JitDriver(greens = ['s'], reds = ['n', 'i'])
@@ -42,7 +42,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, 'h'], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL_PURE: 0})
+        self.check_loops(**{self.CALL: 0, self.CALL_PURE: 0})
 
     def test_newstr(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'm'])
@@ -73,7 +73,9 @@ class StringTests:
         assert res == 6
 
 class TestOOtype(StringTests, OOJitMixin):
+    CALL = "oosend"
     CALL_PURE = "oosend_pure"
 
 class TestLLtype(StringTests, LLJitMixin):
+    CALL = "call"
     CALL_PURE = "call_pure"

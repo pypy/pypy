@@ -127,7 +127,6 @@ TYPES = {
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('ref', 'varargs'), 'intorptr'),
-    'call_pure'       : (('ref', 'varargs'), 'intorptr'),
     'cond_call_gc_wb' : (('ptr', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
@@ -787,8 +786,6 @@ class Frame(object):
                  FLOAT: 0.0}
             return d[calldescr.typeinfo]
 
-    op_call_pure = op_call
-
     def op_cond_call_gc_wb(self, descr, a, b):
         py.test.skip("cond_call_gc_wb not supported")
 
@@ -924,8 +921,6 @@ class OOFrame(Frame):
         if isinstance(calldescr.FUNC.RESULT, ootype.OOType):
             return ootype.cast_to_object(res)
         return res
-
-    op_call_pure = op_call
 
     def op_oosend(self, descr, obj, *args):
         METH = descr.METH

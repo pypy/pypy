@@ -15,7 +15,8 @@ from pypy.jit.metainterp.blackhole import BlackholeInterpreter, NULL
 
 # ____________________________________________________________
 
-def _prepare_call(argboxes, descr):
+def do_call(cpu, metainterp, argboxes, descr):
+    assert metainterp is not None
     # count the number of arguments of the different types
     count_i = count_r = count_f = 0
     for i in range(1, len(argboxes)):
@@ -47,11 +48,6 @@ def _prepare_call(argboxes, descr):
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
     rettype = descr.get_return_type()
-    return func, args_i, args_r, args_f, rettype
-
-def do_call(cpu, metainterp, argboxes, descr):
-    assert metainterp is not None
-    func, args_i, args_r, args_f, rettype = _prepare_call(argboxes, descr)
     if rettype == INT:
         try:
             result = cpu.bh_call_i(func, descr, args_i, args_r, args_f)
@@ -83,21 +79,6 @@ def do_call(cpu, metainterp, argboxes, descr):
 
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
-
-def do_call_pure(cpu, _, argboxes, descr):
-    # this version does not deal with exceptions at all
-    # xxx in case of MemoryError, it crashes the JIT
-    func, args_i, args_r, args_f, rettype = _prepare_call(argboxes, descr)
-    if rettype == INT:
-        return BoxInt(cpu.bh_call_i(func, descr, args_i, args_r, args_f))
-    if rettype == REF:
-        return BoxPtr(cpu.bh_call_r(func, descr, args_i, args_r, args_f))
-    if rettype == FLOAT:
-        return BoxFloat(cpu.bh_call_f(func, descr, args_i, args_r, args_f))
-    if rettype == VOID:
-        cpu.bh_call_v(func, descr, args_i, args_r, args_f)
-        return None
-    raise AssertionError("bad rettype")
 
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()

@@ -34,7 +34,7 @@ def _setup():
     ncounters = len(names)
 _setup()
 
-JITPROF_LINES = ncounters + 1 + 4 # one for TOTAL, 4 for calls, update if needed
+JITPROF_LINES = ncounters + 1 + 1 # one for TOTAL, 1 for calls, update if needed
 
 class BaseProfiler(object):
     pass
@@ -88,7 +88,7 @@ class Profiler(BaseProfiler):
     t1 = 0
     times = None
     counters = None
-    calls = None
+    calls = 0
     current = None
     printing = True
 
@@ -97,7 +97,7 @@ class Profiler(BaseProfiler):
         self.t1 = self.starttime
         self.times = [0, 0]
         self.counters = [0] * ncounters
-        self.calls = [[0, 0], [0, 0]]
+        self.calls = 0
         self.current = []
 
     def finish(self):
@@ -150,10 +150,8 @@ class Profiler(BaseProfiler):
     def count_ops(self, opnum, kind=OPS):
         from pypy.jit.metainterp.resoperation import rop
         self.counters[kind] += 1
-        if opnum == rop.CALL:  # or opnum == rop.OOSEND:
-            self.calls[kind-OPS][0] += 1
-        elif opnum == rop.CALL_PURE:  # or opnum == rop.OOSEND_PURE:
-            self.calls[kind-OPS][1] += 1
+        if opnum == rop.CALL and kind == RECORDED_OPS:# or opnum == rop.OOSEND:
+            self.calls += 1
 
     def print_stats(self):
         cnt = self.counters
@@ -166,11 +164,8 @@ class Profiler(BaseProfiler):
         line = "TOTAL:      \t\t%f\n" % (self.tk - self.starttime, )
         os.write(2, line)
         self._print_intline("ops", cnt[OPS])
-        self._print_intline("  calls", calls[0][0])
-        self._print_intline("  pure calls", calls[0][1])
         self._print_intline("recorded ops", cnt[RECORDED_OPS])
-        self._print_intline("  calls", calls[1][0])
-        self._print_intline("  pure calls", calls[1][1])
+        self._print_intline("  calls", calls)
         self._print_intline("guards", cnt[GUARDS])
         self._print_intline("opt ops", cnt[OPT_OPS])
         self._print_intline("opt guards", cnt[OPT_GUARDS])

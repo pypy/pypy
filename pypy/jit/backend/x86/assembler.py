@@ -1346,8 +1346,6 @@ class Assembler386(object):
             self.mc.AND(eax, imm(0xff))
         elif size == 2:
             self.mc.AND(eax, imm(0xffff))
-
-    genop_call_pure = genop_call
     
     def genop_guard_call_may_force(self, op, guard_op, addr,
                                    arglocs, result_loc):

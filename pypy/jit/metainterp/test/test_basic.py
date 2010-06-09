@@ -364,7 +364,38 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
-        self.check_operations_history(int_add=0, int_mul=0, call=0)
+        # CALL_PURE is not recorded in the history if all-constant args
+        self.check_operations_history(int_add=0, int_mul=0,
+                                      call=0, call_pure=0)
+
+    def test_residual_call_pure_1(self):
+        def externfn(x, y):
+            return x * y
+        externfn._pure_function_ = True
+        def f(n):
+            return externfn(n, n+1)
+        res = self.interp_operations(f, [6])
+        assert res == 42
+        # CALL_PURE is recorded in the history if not-all-constant args
+        self.check_operations_history(int_add=1, int_mul=0,
+                                      call=0, call_pure=1)
+
+    def test_residual_call_pure_2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def externfn(x):
+            return x - 1
+        externfn._pure_function_ = True
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n = externfn(n)
+            return n
+        res = self.meta_interp(f, [7])
+        assert res == 0
+        # CALL_PURE is recorded in the history, but turned into a CALL
+        # by optimizeopt.py
+        self.check_loops(int_sub=0, call=1, call_pure=0)
 
     def test_constfold_call_pure(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -379,6 +410,8 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [21, 5])
         assert res == -1
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
 
     def test_constfold_call_pure_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -397,6 +430,8 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [21, 5])
         assert res == -1
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])

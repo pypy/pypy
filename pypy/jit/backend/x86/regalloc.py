@@ -630,7 +630,6 @@ class RegAlloc(object):
 
     def consider_call(self, op):
         self._consider_call(op)
-    consider_call_pure = consider_call
 
     def consider_call_may_force(self, op, guard_op):
         assert guard_op is not None

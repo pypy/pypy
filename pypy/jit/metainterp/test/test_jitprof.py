@@ -84,8 +84,7 @@ class TestProfile(ProfilerMixin):
         res = self.meta_interp(f, [6, 7])
         assert res == 84
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        # calls = (executed, recorded) x (inpure, pure)
-        assert profiler.calls == [[1, 0], [1, 0]]
+        assert profiler.calls == 1
 
     def test_blackhole_pure(self):
         @purefunction
@@ -105,5 +104,4 @@ class TestProfile(ProfilerMixin):
         res = self.meta_interp(f, [6, 7, 2])
         assert res == f(6, 7, 2)
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        # calls = (executed, recorded) x (inpure, pure)
-        assert profiler.calls == [[0, 1], [0, 0]]
+        assert profiler.calls == 1

@@ -15,11 +15,8 @@ REGEXES = [
          '^Blackhole:\s+([\d.]+)$'),
     (None, '^TOTAL.*$'),
     (('ops.total',), '^ops:\s+(\d+)$'),
-    (('ops.calls',), '^\s+calls:\s+(\d+)$'),
-    (('ops.pure_calls',), '^\s+pure calls:\s+(\d+)$'),
     (('recorded_ops.total',), '^recorded ops:\s+(\d+)$'),
     (('recorded_ops.calls',), '^\s+calls:\s+(\d+)$'),
-    (('recorded_ops.pure_calls',), '^\s+pure calls:\s+(\d+)$'),
     (('guards',), '^guards:\s+(\d+)$'),
     (('opt_ops',), '^opt ops:\s+(\d+)$'),
     (('opt_guards',), '^opt guards:\s+(\d+)$'),
@@ -34,8 +31,9 @@ REGEXES = [
 
 class Ops(object):
     total = 0
+
+class RecordedOps(Ops):
     calls = 0
-    pure_calls = 0
 
 class Aborts(object):
     trace_too_long = 0
@@ -59,7 +57,7 @@ class OutputInfo(object):
 
     def __init__(self):
         self.ops = Ops()
-        self.recorded_ops = Ops()
+        self.recorded_ops = RecordedOps()
         self.abort = Aborts()
 
 def parse_prof(output):

@@ -1054,8 +1054,8 @@ class MIFrame(object):
             if effect == effectinfo.EF_CANNOT_RAISE:
                 return self.execute_varargs(rop.CALL, allboxes, descr, False)
             elif effect == effectinfo.EF_PURE:
-                return self.execute_varargs(rop.CALL_PURE, allboxes,
-                                            descr, False)
+                return self.metainterp.record_result_of_call_pure(
+                    self.execute_varargs(rop.CALL, allboxes, descr, False))
             elif effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
                                             descr, True)
@@ -2018,6 +2018,26 @@ class MetaInterp(object):
                 max_size = size
                 max_key = key
         return max_key
+
+    def record_result_of_call_pure(self, resbox):
+        """ Patch a CALL into a CALL_PURE.
+        """
+        op = self.history.operations[-1]
+        assert op.opnum == rop.CALL
+        resbox_as_const = resbox.constbox()
+        for arg in op.args:
+            if not isinstance(arg, Const):
+                break
+        else:
+            # all-constants: remove the CALL operation now and propagate a
+            # constant result
+            self.history.operations.pop()
+            return resbox_as_const
+        # not all constants (so far): turn CALL into CALL_PURE, which might
+        # be either removed later by optimizeopt or turned back into CALL.
+        op.opnum = rop.CALL_PURE
+        op.args = [resbox_as_const] + op.args
+        return resbox
 
     def direct_assembler_call(self, token):
         """ Generate a direct call to assembler for portal entry point,

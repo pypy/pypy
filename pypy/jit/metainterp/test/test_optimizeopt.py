@@ -2611,11 +2611,41 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(42, p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
-        self.optimize_loop(ops, 'Not, Not', ops)        
+        expected = '''
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=plaincalldescr)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3)
+        '''
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_call_pure_constant_folding(self):
+        # CALL_PURE is not marked as is_always_pure(), because it is wrong
+        # to call the function arbitrary many times at arbitrary points in
+        # time.  Check that it is either constant-folded (and replaced by
+        # the result of the call, recorded as the first arg), or turned into
+        # a regular CALL.
+        ops = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i3 = call_pure(42, 123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, i3, i4)
+        '''
+        expected = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, 42, i4)
+        '''
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
 
     def test_vref_nonvirtual_nonescape(self):
         ops = """
