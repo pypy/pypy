@@ -752,7 +752,7 @@ def build_bridge(space):
     struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols)
+    functions = generate_decls_and_callbacks(db)
 
     global_objects = []
     for obj in GLOBALS.values():
@@ -830,7 +830,7 @@ def generate_macros(export_symbols, rename=True):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
+def generate_decls_and_callbacks(db, api_struct=True):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
@@ -924,7 +924,7 @@ def setup_library(space):
 
     generate_macros(export_symbols, rename=False)
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False)
+    functions = generate_decls_and_callbacks(db, api_struct=False)
     code = "#include <Python.h>\n" + "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code)
