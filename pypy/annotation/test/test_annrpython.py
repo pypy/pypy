@@ -3332,16 +3332,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])
 
-    def test_unicode_decode_error(self):
-        def f():
-            try:
-                raise UnicodeDecodeError("x", "x", 0, 1, "reason")
-            except UnicodeDecodeError, ude:
-                return ude.end
-
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInteger)
 
 def g(n):
     return [0,1,2,n]

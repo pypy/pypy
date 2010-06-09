@@ -3,7 +3,7 @@ Type inference for user-defined classes.
 """
 from pypy.annotation.model import SomePBC, s_ImpossibleValue, unionof
 from pypy.annotation.model import SomeInteger, isdegenerated, SomeTuple,\
-     SomeString, SomeUnicodeString
+     SomeString
 from pypy.annotation import description
 
 
@@ -439,16 +439,6 @@ class NoSuchAttrError(Exception):
 
 FORCE_ATTRIBUTES_INTO_CLASSES = {
     OSError: {'errno': SomeInteger()},
-    UnicodeDecodeError: {'end': SomeInteger(),
-                         'start': SomeInteger(),
-                         'object': SomeString(),
-                         'encoding': SomeString(),
-                         'reason': SomeString()},
-    UnicodeEncodeError: {'end': SomeInteger(),
-                         'start': SomeInteger(),
-                         'object': SomeUnicodeString(),
-                         'encoding': SomeString(),
-                         'reason': SomeString()}
     }
 
 try:

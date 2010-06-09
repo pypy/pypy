@@ -270,37 +270,6 @@ def rtype_OSError__init__(hop):
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
-def rtype_UnicodeDecodeError_init(hop):
-    if hop.nb_args != 6:
-        raise TypeError("UnicodeDecodeError() should be called with 5 "
-                        "arguments")
-    r_self = hop.args_r[0]
-    r_str = hop.rtyper.type_system.rstr.string_repr
-    TPS = [hop.args_r[0], r_str, r_str, lltype.Signed, lltype.Signed,
-           r_str]
-    v_self, v_encoding, v_obj, v_start, v_end, v_msg = hop.inputargs(*TPS)
-    r_self.setfield(v_self, 'encoding', v_encoding, hop.llops)
-    r_self.setfield(v_self, 'object', v_obj, hop.llops)
-    r_self.setfield(v_self, 'start', v_start, hop.llops)
-    r_self.setfield(v_self, 'end', v_end, hop.llops)
-    r_self.setfield(v_self, 'reason', v_msg, hop.llops)
-
-def rtype_UnicodeEncodeError_init(hop):
-    if hop.nb_args != 6:
-        raise TypeError("UnicodeEncodeError() should be called with 5 "
-                        "arguments")
-    r_self = hop.args_r[0]
-    r_str = hop.rtyper.type_system.rstr.string_repr
-    r_unicode = hop.rtyper.type_system.rstr.unicode_repr
-    TPS = [hop.args_r[0], r_str, r_unicode, lltype.Signed, lltype.Signed,
-           r_str]
-    v_self, v_encoding, v_obj, v_start, v_end, v_msg = hop.inputargs(*TPS)
-    r_self.setfield(v_self, 'encoding', v_encoding, hop.llops)
-    r_self.setfield(v_self, 'object', v_obj, hop.llops)
-    r_self.setfield(v_self, 'start', v_start, hop.llops)
-    r_self.setfield(v_self, 'end', v_end, hop.llops)
-    r_self.setfield(v_self, 'reason', v_msg, hop.llops)
-
 def rtype_WindowsError__init__(hop):
     if hop.nb_args == 2:
         raise TyperError("WindowsError() should not be called with "
@@ -360,8 +329,6 @@ for name, value in globals().items():
 
 BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     rtype_OSError__init__)
-BUILTIN_TYPER[getattr(UnicodeDecodeError.__init__, 'im_func', UnicodeDecodeError.__init__)] = rtype_UnicodeDecodeError_init
-BUILTIN_TYPER[getattr(UnicodeEncodeError.__init__, 'im_func', UnicodeEncodeError.__init__)] = rtype_UnicodeEncodeError_init
 
 try:
     WindowsError
