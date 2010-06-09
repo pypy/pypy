@@ -204,6 +204,19 @@ class AppTestZipimport:
         assert mod.__path__ == [self.zipfile + "/xxuuu"]
         assert mod.yy.f(3) == 3
 
+    def test_package_bug(self):
+        import os, sys
+        import new
+        mod = new.module('xxuuv')
+        mod.__path__ = [self.zipfile + '/xxuuv']
+        sys.modules['xxuuv'] = mod
+        #
+        self.writefile(self, "xxuuv/__init__.py", "")
+        self.writefile(self, "xxuuv/yy.py", "def f(x): return x")
+        mod = __import__("xxuuv.yy", globals(), locals(), ['__doc__'])
+        assert mod.__file__ == self.zipfile + "/xxuuv/yy.py"
+        assert mod.f(3) == 3
+
     def test_functions(self):
         import os
         import zipimport
