@@ -21,6 +21,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.rlib.entrypoint import entrypoint
@@ -453,6 +454,14 @@ class GlobalTypeObject(BaseGlobalObject):
         self.type = 'PyTypeObject*'
         self.expr = expr
 
+    def eval(self, space):
+        if isinstance(self.expr, str):
+            return BaseGlobalObject.eval(self, space)
+        elif isinstance(self.expr, TypeDef):
+            return space.gettypeobject(self.expr)
+        else:
+            raise ValueError, "Unknonwn expression: %r" % (self.expr)
+
     needs_hidden_global_structure = False
     def get_type_for_declaration(self):
         return 'PyTypeObject'
@@ -470,50 +479,49 @@ class GlobalTypeObject(BaseGlobalObject):
         py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
         attach_and_track(space, py_obj, value)
 
-GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
-GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
-GlobalStaticPyObject.declare('_Py_ZeroStruct', 'space.w_False')
-GlobalStaticPyObject.declare('_Py_EllipsisObject', 'space.w_Ellipsis')
-GlobalStaticPyObject.declare('_Py_NotImplementedStruct',
-                             'space.w_NotImplemented')
-GlobalStructurePointer.declare('PyDateTimeAPI', 'PyDateTime_CAPI*',
-                               'cpyext.datetime.build_datetime_api(space)')
-
 def build_exported_objects():
     # Standard exceptions
     for exc_name in exceptions.Module.interpleveldefs.keys():
         GlobalExceptionPointer.declare(exc_name)
 
+    # Global object structures
+    GlobalStaticPyObject.declare('_Py_NoneStruct', 'space.w_None')
+    GlobalStaticPyObject.declare('_Py_TrueStruct', 'space.w_True')
+    GlobalStaticPyObject.declare('_Py_ZeroStruct', 'space.w_False')
+    GlobalStaticPyObject.declare('_Py_EllipsisObject', 'space.w_Ellipsis')
+    GlobalStaticPyObject.declare('_Py_NotImplementedStruct',
+                                 'space.w_NotImplemented')
+
+    GlobalStructurePointer.declare('PyDateTimeAPI', 'PyDateTime_CAPI*',
+                                   'cpyext.datetime.build_datetime_api(space)')
+
     # Common types with their own struct
-    for cpyname, pypyexpr in {
-        "Type": "space.w_type",
-        "String": "space.w_str",
-        "Unicode": "space.w_unicode",
-        "BaseString": "space.w_basestring",
-        "Dict": "space.w_dict",
-        "Tuple": "space.w_tuple",
-        "List": "space.w_list",
-        "Int": "space.w_int",
-        "Bool": "space.w_bool",
-        "Float": "space.w_float",
-        "Long": "space.w_long",
-        "Complex": "space.w_complex",
-        "BaseObject": "space.w_object",
-        'None': 'space.type(space.w_None)',
-        'NotImplemented': 'space.type(space.w_NotImplemented)',
-        'Cell': 'space.gettypeobject(Cell.typedef)',
-        'Module': 'space.gettypeobject(Module.typedef)',
-        'Property': 'space.gettypeobject(W_Property.typedef)',
-        'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
-        'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
-        'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        }.items():
-        GlobalTypeObject.declare(cpyname, pypyexpr)
+    GlobalTypeObject.declare("Type", "space.w_type")
+    GlobalTypeObject.declare("String", "space.w_str")
+    GlobalTypeObject.declare("Unicode", "space.w_unicode")
+    GlobalTypeObject.declare("BaseString", "space.w_basestring")
+    GlobalTypeObject.declare("Dict", "space.w_dict")
+    GlobalTypeObject.declare("Tuple", "space.w_tuple")
+    GlobalTypeObject.declare("List", "space.w_list")
+    GlobalTypeObject.declare("Int", "space.w_int")
+    GlobalTypeObject.declare("Bool", "space.w_bool")
+    GlobalTypeObject.declare("Float", "space.w_float")
+    GlobalTypeObject.declare("Long", "space.w_long")
+    GlobalTypeObject.declare("Complex", "space.w_complex")
+    GlobalTypeObject.declare("BaseObject", "space.w_object")
+    GlobalTypeObject.declare("None", "space.type(space.w_None)")
+    GlobalTypeObject.declare("NotImplemented", "space.type(space.w_NotImplemented)")
+    GlobalTypeObject.declare("Cell", Cell.typedef)
+    GlobalTypeObject.declare("Module", Module.typedef)
+    GlobalTypeObject.declare("Property", W_Property.typedef)
+    GlobalTypeObject.declare("Slice", W_SliceObject.typedef)
+    GlobalTypeObject.declare("StaticMethod", StaticMethod.typedef)
+    from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+    GlobalTypeObject.declare("CFunction", W_PyCFunctionObject.typedef)
 
     for cpyname in 'Method List Int Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
-build_exported_objects()
 
 PyTypeObject = lltype.ForwardReference()
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
@@ -719,7 +727,7 @@ def c_function_signature(db, func):
 # Do not call this more than once per process
 def build_bridge(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
+    build_exported_objects()
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from pypy.translator.c.database import LowLevelDatabase
@@ -908,7 +916,7 @@ def build_eci(building_bridge, export_symbols, code):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
+    build_exported_objects()
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from pypy.translator.c.database import LowLevelDatabase
