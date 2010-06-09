@@ -1,3 +1,5 @@
+import py
+
 try:
     from pypy.lib import dbm
 except ImportError:
