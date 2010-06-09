@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api, CONST_STRING
+from pypy.module.cpyext.gateway import CANNOT_FAIL, cpython_api
+from pypy.module.cpyext.api import CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 
 @cpython_api([CONST_STRING], PyObject, error=CANNOT_FAIL)

@@ -73,7 +73,7 @@ class TestPyCMethodObject(BaseApiTest):
         """
         def func(space, w_self, w_args):
             return space.w_None
-        c_func = ApiFunction([PyObject, PyObject], PyObject, func)
+        c_func = ApiFunction([PyObject, PyObject], PyObject, func, error=None)
         func.api_func = c_func
         ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
         namebuf = rffi.str2charp('func')

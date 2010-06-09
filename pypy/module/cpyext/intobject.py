@@ -1,8 +1,7 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (cpython_api, PyObject, CANNOT_FAIL,
-                                    build_type_checkers, Py_ssize_t)
-
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import PyObject, Py_ssize_t, build_type_checkers
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
 

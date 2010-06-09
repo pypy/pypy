@@ -2,7 +2,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
+from pypy.module.cpyext.api import ADDR, PyObjectP
+from pypy.module.cpyext.gateway import cpython_api
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref

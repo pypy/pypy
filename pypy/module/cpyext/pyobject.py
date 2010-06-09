@@ -2,9 +2,11 @@ import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import (
+    cpython_api, CANNOT_FAIL)
 from pypy.module.cpyext.api import (
-    cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
-    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
+    bootstrap_function, PyObject, PyObjectP, ADDR,
+    Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -382,7 +384,7 @@ def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
 
 def _Py_Dealloc(space, obj):
-    from pypy.module.cpyext.api import generic_cpy_call_dont_decref
+    from pypy.module.cpyext.gateway import generic_cpy_call_dont_decref
     pto = obj.c_ob_type
     #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
     #      "'s type which is", rffi.charp2str(pto.c_tp_name)

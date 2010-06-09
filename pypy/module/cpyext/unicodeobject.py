@@ -1,10 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
-    bootstrap_function, PyObjectFields, cpython_struct, CONST_STRING,
-    CONST_WSTRING)
+    cpython_struct, build_type_checkers, bootstrap_function,
+    PyObjectFields, Py_ssize_t, CONST_STRING, CONST_WSTRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import PyObject, from_ref, make_typedescr
 from pypy.module.sys.interp_encoding import setdefaultencoding

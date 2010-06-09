@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import cpython_api, generic_cpy_call
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call,
-    cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
+    cpython_struct, build_type_checkers, PyObjectFields, bootstrap_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
 from pypy.interpreter.function import Function, Method

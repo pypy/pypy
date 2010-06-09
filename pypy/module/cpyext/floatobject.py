@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (CANNOT_FAIL, cpython_api, PyObject,
-                                    build_type_checkers)
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import PyObject, build_type_checkers
 from pypy.interpreter.error import OperationError
 
 PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")

@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
-                                    CONST_STRING, ADDR)
+from pypy.module.cpyext.gateway import cpython_api
+from pypy.module.cpyext.api import (
+    PyObject, CONST_STRING, ADDR, build_type_checkers)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 

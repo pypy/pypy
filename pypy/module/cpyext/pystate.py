@@ -1,5 +1,6 @@
-from pypy.module.cpyext.api import cpython_api, generic_cpy_call, CANNOT_FAIL,\
-        cpython_struct
+from pypy.module.cpyext.gateway import (
+    cpython_api, generic_cpy_call, CANNOT_FAIL)
+from pypy.module.cpyext.api import cpython_struct
 from pypy.rpython.lltypesystem import rffi, lltype
 
 

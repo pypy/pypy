@@ -1,9 +1,9 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
-                                    build_type_checkers)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
-    borrow_from, make_ref, from_ref)
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import Py_ssize_t, build_type_checkers
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, Py_DecRef, borrow_from, make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 

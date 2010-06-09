@@ -1,6 +1,6 @@
 from pypy.interpreter import module
-from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, CONST_STRING)
+from pypy.module.cpyext.gateway import cpython_api, generic_cpy_call
+from pypy.module.cpyext.api import PyObject, CONST_STRING
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import OperationError
 

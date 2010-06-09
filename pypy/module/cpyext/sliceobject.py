@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields)
+    cpython_struct, build_type_checkers, bootstrap_function,
+    Py_ssize_t, Py_ssize_tP, PyObjectFields)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall

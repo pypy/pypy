@@ -1,10 +1,12 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.api import (
-    PyObjectFields, CANNOT_FAIL,
-    cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, Py_DecRef, make_typedescr
+    PyObjectFields, bootstrap_function, cpython_struct, build_type_checkers)
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.__builtin__.interp_classobj import W_ClassObject, W_InstanceObject
+from pypy.module.__builtin__.interp_classobj import (
+    W_ClassObject, W_InstanceObject)
 
 PyClass_Check, PyClass_CheckExact = build_type_checkers("Class", W_ClassObject)
 PyInstance_Check, PyInstance_CheckExact = build_type_checkers("Instance", W_InstanceObject)

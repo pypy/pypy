@@ -1,7 +1,9 @@
 import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
+from pypy.module.cpyext.gateway import (
+    cpython_api, generic_cpy_call, generic_cpy_call_expect_null)
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
@@ -165,7 +167,6 @@ def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     return generic_cpy_call(space, func_target, w_self, start, end)
 
 def wrap_next(space, w_self, w_args, func):
-    from pypy.module.cpyext.api import generic_cpy_call_expect_null
     func_target = rffi.cast(iternextfunc, func)
     check_num_args(space, w_args, 0)
     w_res = generic_cpy_call_expect_null(space, func_target, w_self)

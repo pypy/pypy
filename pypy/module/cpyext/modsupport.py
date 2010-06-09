@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, cpython_struct, \
-        METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import (
+    cpython_struct, METH_STATIC, METH_CLASS, METH_COEXIST, CONST_STRING)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (

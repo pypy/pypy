@@ -6,11 +6,13 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE
 from pypy.interpreter.typedef import GetSetProperty
+from pypy.module.cpyext.gateway import (
+    cpython_api, generic_cpy_call, CANNOT_FAIL)
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
-    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
-    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    PyBufferProcs, build_type_checkers)
+    cpython_struct, build_type_checkers, bootstrap_function,
+    Py_ssize_t, PyBufferProcs, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS)
+
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, RefcountState, borrow_from)

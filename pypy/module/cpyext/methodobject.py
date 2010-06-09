@@ -6,12 +6,14 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref,
-                                         make_typedescr, Py_DecRef)
+from pypy.module.cpyext.pyobject import (
+    PyObject, from_ref, make_ref, make_typedescr, Py_DecRef)
+from pypy.module.cpyext.gateway import cpython_api, generic_cpy_call
 from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, cpython_struct, METH_KEYWORDS,
-    METH_O, CONST_STRING, METH_CLASS, METH_STATIC, METH_COEXIST, METH_NOARGS,
-    METH_VARARGS, build_type_checkers, PyObjectFields, bootstrap_function)
+    PyObject, cpython_struct, PyObjectFields, bootstrap_function,
+    build_type_checkers, METH_KEYWORDS, METH_O, METH_CLASS,
+    METH_STATIC, METH_COEXIST, METH_NOARGS, METH_VARARGS,
+    CONST_STRING)
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.tupleobject import W_TupleObject

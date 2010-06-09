@@ -1,8 +1,10 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import (
+    cpython_api, generic_cpy_call, CANNOT_FAIL)
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite)
+    Py_ssize_t, Py_ssize_tP, PyVarObject, CONST_STRING,
+    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT, Py_GE,
+    FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
     track_reference, get_typedescr, RefcountState)

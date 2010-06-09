@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP)
+    CONST_STRING, FILEP, fread, feof, Py_ssize_tP)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.__builtin__ import compiling

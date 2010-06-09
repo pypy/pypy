@@ -1,5 +1,6 @@
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL, CConfig
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import Py_ssize_t, CConfig
 from pypy.module.cpyext.object import FILEP
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pystate import PyThreadState, PyInterpreterState

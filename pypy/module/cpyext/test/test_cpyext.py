@@ -11,17 +11,18 @@ from pypy.translator import platform
 from pypy.translator.gensupp import uniquemodulename
 from pypy.tool.udir import udir
 from pypy.module.cpyext import api
+from pypy.module.cpyext.gateway import cpython_api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from pypy.translator.goal import autopath
 from pypy.lib.identity_dict import identity_dict
 
-@api.cpython_api([], api.PyObject)
+@cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
     1/0
 
-@api.cpython_api([], lltype.Signed, error=-1)
+@cpython_api([], lltype.Signed, error=-1)
 def PyPy_Crash2(space):
     1/0
 
@@ -533,6 +534,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_DECREF(true);
             Py_DECREF(true);
             fprintf(stderr, "REFCNT %i %i\\n", refcnt, refcnt_after);
+            fflush(stderr);
             return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
@@ -549,6 +551,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             refcnt_after = true->ob_refcnt;
             Py_DECREF(tup);
             fprintf(stderr, "REFCNT2 %i %i\\n", refcnt, refcnt_after);
+            fflush(stderr);
             return PyBool_FromLong(refcnt_after == refcnt);
         }
 

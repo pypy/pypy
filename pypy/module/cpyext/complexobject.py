@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, PyObject, build_type_checkers)
+from pypy.module.cpyext.gateway import cpython_api
+from pypy.module.cpyext.api import cpython_struct, build_type_checkers
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.objspace.std.complexobject import W_ComplexObject

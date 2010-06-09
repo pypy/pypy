@@ -1,18 +1,19 @@
 from pypy.conftest import gettestobjspace
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.module.cpyext.api import INTERPLEVEL_API
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext import api
+from pypy.module.cpyext.gateway import cpython_api
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
-PyObject = api.PyObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.state import State
 import os
 
-@api.cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void)
 def PyPy_GetWrapped(space, w_arg):
     assert isinstance(w_arg, W_Root)
-@api.cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void)
 def PyPy_GetReference(space, arg):
     assert lltype.typeOf(arg) ==  PyObject
 
@@ -36,7 +37,7 @@ class BaseApiTest(LeakCheckingTest):
             def __getattr__(self, name):
                 return getattr(cls.space, name)
         cls.api = CAPI()
-        CAPI.__dict__.update(api.INTERPLEVEL_API)
+        CAPI.__dict__.update(INTERPLEVEL_API)
 
     def raises(self, space, api, expected_exc, f, *args):
         if not callable(f):

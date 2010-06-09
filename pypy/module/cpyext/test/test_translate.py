@@ -1,6 +1,6 @@
 from pypy.translator.c.test.test_genc import compile
-import pypy.module.cpyext.api
-from pypy.module.cpyext.api import cpython_api
+import pypy.module.cpyext.gateway
+from pypy.module.cpyext.gateway import cpython_api
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.objectmodel import specialize
@@ -15,7 +15,7 @@ def test_llhelper(monkeypatch):
         def wrapper():
             return func(space)
         return wrapper
-    monkeypatch.setattr(pypy.module.cpyext.api, 'make_wrapper', make_wrapper)
+    monkeypatch.setattr(pypy.module.cpyext.gateway, 'make_wrapper', make_wrapper)
 
     @specialize.memo()
     def get_tp_function(space, typedef):

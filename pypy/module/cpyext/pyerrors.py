@@ -2,7 +2,8 @@ import os
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, Py_DecRef, borrow_from)

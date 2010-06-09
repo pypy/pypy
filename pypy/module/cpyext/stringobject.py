@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.module.cpyext.gateway import cpython_api
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
+    cpython_struct, build_type_checkers, bootstrap_function,
     PyObjectFields, Py_ssize_t, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,

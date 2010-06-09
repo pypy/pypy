@@ -1,6 +1,6 @@
 
 from pypy.module.thread import ll_thread
-from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api
+from pypy.module.cpyext.gateway import CANNOT_FAIL, cpython_api
 from pypy.rpython.lltypesystem import rffi
 
 @cpython_api([], rffi.LONG, error=CANNOT_FAIL)

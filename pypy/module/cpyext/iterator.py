@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import (generic_cpy_call, cpython_api, PyObject,
-    CANNOT_FAIL)
+from pypy.module.cpyext.gateway import (
+    generic_cpy_call, cpython_api, CANNOT_FAIL)
+from pypy.module.cpyext.pyobject import PyObject
 import pypy.module.__builtin__.operation as operation
 from pypy.rpython.lltypesystem import rffi
 

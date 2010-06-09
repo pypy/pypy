@@ -1,7 +1,7 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
-                                    build_type_checkers)
+from pypy.module.cpyext.gateway import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import Py_ssize_t, build_type_checkers
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, borrow_from
 from pypy.objspace.std.listobject import W_ListObject

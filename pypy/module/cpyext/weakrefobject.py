@@ -1,4 +1,4 @@
-from pypy.module.cpyext.api import cpython_api
+from pypy.module.cpyext.gateway import cpython_api
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module._weakref.interp__weakref import W_Weakref
 
