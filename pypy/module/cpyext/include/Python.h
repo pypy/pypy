@@ -104,6 +104,8 @@ typedef long Py_ssize_t;
 
 #include <pypy_decl.h>
 
+#include "modsupport.inl"
+
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]
 #define PyDoc_STRVAR(name,str) PyDoc_VAR(name) = PyDoc_STR(str)
