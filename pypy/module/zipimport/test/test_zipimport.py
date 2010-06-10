@@ -202,6 +202,9 @@ class AppTestZipimport:
         self.writefile(self, "xxuuu/yy.py", "def f(x): return x")
         mod = __import__("xxuuu", globals(), locals(), ['yy'])
         assert mod.__path__ == [self.zipfile + "/xxuuu"]
+        assert mod.__file__ == (self.zipfile + os.path.sep
+                                + "xxuuu" + os.path.sep
+                                + "__init__.py")
         assert mod.yy.f(3) == 3
 
     def test_package_bug(self):
@@ -214,7 +217,9 @@ class AppTestZipimport:
         self.writefile(self, "xxuuv/__init__.py", "")
         self.writefile(self, "xxuuv/yy.py", "def f(x): return x")
         mod = __import__("xxuuv.yy", globals(), locals(), ['__doc__'])
-        assert mod.__file__ == self.zipfile + "/xxuuv/yy.py"
+        assert mod.__file__ == (self.zipfile + os.path.sep
+                                + "xxuuv" + os.path.sep
+                                + "yy.py")
         assert mod.f(3) == 3
 
     def test_functions(self):
