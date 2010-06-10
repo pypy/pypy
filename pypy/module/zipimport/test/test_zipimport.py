@@ -222,6 +222,22 @@ class AppTestZipimport:
                                 + "yy.py")
         assert mod.f(3) == 3
 
+    def test_pyc_in_package(self):
+        import os, sys
+        import new
+        mod = new.module('xxuuw')
+        mod.__path__ = [self.zipfile + '/xxuuw']
+        sys.modules['xxuuw'] = mod
+        #
+        self.writefile(self, "xxuuw/__init__.py", "")
+        self.writefile(self, "xxuuw/zz.pyc", self.test_pyc)
+        mod = __import__("xxuuw.zz", globals(), locals(), ['__doc__'])
+        assert mod.__file__ == (self.zipfile + os.path.sep
+                                + "xxuuw" + os.path.sep
+                                + "zz.pyc")
+        assert mod.get_file() == mod.__file__
+        assert mod.get_name() == mod.__name__
+
     def test_functions(self):
         import os
         import zipimport
