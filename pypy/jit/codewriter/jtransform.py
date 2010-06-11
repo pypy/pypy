@@ -140,7 +140,6 @@ class Transformer(object):
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
                                      'int_is_zero', 'int_is_true',
-                                     'uint_lt','uint_le','uint_gt','uint_ge',
                                      'ptr_eq', 'ptr_ne',
                                      'ptr_iszero', 'ptr_nonzero'):
                     return False    # not a supported operation
