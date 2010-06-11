@@ -62,9 +62,20 @@ class Platform(object):
     def execute(self, executable, args=None, env=None, compilation_info=None):
         if env is None:
             env = os.environ.copy()
-        if compilation_info is not None:
+        else:
+            env = env.copy()
+
+        # On Windows, %SystemRoot% must be present for most programs to start
+        if (os.name == 'nt' and
+            "SystemRoot" not in env and
+            "SystemRoot" in os.environ):
+            env["SystemRoot"] = os.environ["SystemRoot"]
+
+        # Set LD_LIBRARY_PATH on posix platforms
+        if os.name == 'posix' and compilation_info is not None:
             env['LD_LIBRARY_PATH'] = ':'.join(
                 [str(i) for i in compilation_info.library_dirs])
+
         returncode, stdout, stderr = _run_subprocess(str(executable), args,
                                                      env)
         return ExecutionResult(returncode, stdout, stderr)
