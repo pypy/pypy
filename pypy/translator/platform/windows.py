@@ -267,7 +267,8 @@ class MsvcPlatform(Platform):
                     ])
 
         if shared:
-            m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename),
+            m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename)
+            m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo '
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
