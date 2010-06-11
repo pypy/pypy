@@ -604,8 +604,10 @@ class WarmRunnerDesc(object):
         if vinfo is not None:
             self.cpu.index_of_virtualizable = (vinfo.index_of_virtualizable -
                                                self.num_green_args)
+            self.cpu.vable_token_descr = vinfo.vable_token_descr
         else:
             self.cpu.index_of_virtualizable = -1
+            self.cpu.vable_token_descr = None
 
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr

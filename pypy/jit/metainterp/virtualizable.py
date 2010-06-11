@@ -11,7 +11,7 @@ from pypy.jit.metainterp.warmstate import wrap, unwrap
 
 
 class VirtualizableInfo:
-    TOKEN_NONE            = 0
+    TOKEN_NONE            = 0      # must be 0 -- see also x86.call_assembler
     TOKEN_TRACING_RESCALL = -1
 
     def __init__(self, warmrunnerdesc):

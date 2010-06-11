@@ -1,6 +1,7 @@
 import py
 from pypy.rlib.jit import JitDriver, we_are_jitted, OPTIMIZER_SIMPLE, hint
-from pypy.rlib.jit import unroll_safe
+from pypy.rlib.jit import unroll_safe, dont_look_inside
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
@@ -743,6 +744,60 @@ class RecursiveTests:
                     subframe = Frame()
                     subframe.thing = Thing(nextval)
                     nextval = portal(1, subframe)
+                frame.thing = Thing(nextval + 1)
+                i += 1
+            return frame.thing.val
+
+        res = self.meta_interp(main, [0], inline=True)
+        assert res == main(0)
+
+    def test_directly_call_assembler_virtualizable_reset_token(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rlib.debug import llinterpcall
+
+        class Thing(object):
+            def __init__(self, val):
+                self.val = val
+        
+        class Frame(object):
+            _virtualizable2_ = ['thing']
+        
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+                           virtualizables = ['frame'],
+                           get_printable_location = lambda codeno : str(codeno),
+                           can_inline = lambda codeno : False)
+
+        @dont_look_inside
+        def check_frame(subframe):
+            if we_are_translated():
+                llinterpcall(lltype.Void, check_ll_frame, subframe)
+        def check_ll_frame(ll_subframe):
+            # This is called with the low-level Struct that is the frame.
+            # Check that the vable_token was correctly reset to zero.
+            # Note that in order for that test to catch failures, it needs
+            # three levels of recursion: the vable_token of the subframe
+            # at the level 2 is set to a non-zero value when doing the
+            # call to the level 3 only.  This used to fail when the test
+            # is run via pypy.jit.backend.x86.test.test_recursive.
+            assert ll_subframe.vable_token == 0
+
+        def main(codeno):
+            frame = Frame()
+            frame.thing = Thing(0)
+            portal(codeno, frame)
+            return frame.thing.val
+
+        def portal(codeno, frame):
+            i = 0
+            while i < 5:
+                driver.can_enter_jit(frame=frame, codeno=codeno, i=i)
+                driver.jit_merge_point(frame=frame, codeno=codeno, i=i)
+                nextval = frame.thing.val
+                if codeno < 2:
+                    subframe = Frame()
+                    subframe.thing = Thing(nextval)
+                    nextval = portal(codeno + 1, subframe)
+                    check_frame(subframe)
                 frame.thing = Thing(nextval + 1)
                 i += 1
             return frame.thing.val

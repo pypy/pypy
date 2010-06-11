@@ -1102,9 +1102,6 @@ class MetaInterpStaticData(object):
         self._addr2name_values = []
 
         self.__dict__.update(compile.make_done_loop_tokens())
-        # store this information for fastpath of call_assembler
-        d = self.loop_tokens_done_with_this_frame_int[0].finishdescr
-        self.cpu.done_with_this_frame_int_v = self.cpu.get_fail_descr_number(d)
 
     def _freeze_(self):
         return True
@@ -1146,6 +1143,12 @@ class MetaInterpStaticData(object):
         self.virtualizable_info = codewriter.callcontrol.virtualizable_info
         RESULT = codewriter.portal_graph.getreturnvar().concretetype
         self.result_type = history.getkind(RESULT)
+        #
+        # store this information for fastpath of call_assembler
+        name = self.result_type
+        tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
+        num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
+        setattr(self.cpu, 'done_with_this_frame_%s_v' % name, num)
         #
         warmrunnerdesc = self.warmrunnerdesc
         if warmrunnerdesc is not None:
