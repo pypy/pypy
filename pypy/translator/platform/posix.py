@@ -84,7 +84,7 @@ class BasePosix(Platform):
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
 
-        linkflags = self.link_flags
+        linkflags = self.link_flags[:]
         if shared:
             linkflags = self._args_for_shared(linkflags)
 

@@ -213,7 +213,7 @@ class MsvcPlatform(Platform):
         m.exe_name = exe_name
         m.eci = eci
 
-        linkflags = self.link_flags
+        linkflags = self.link_flags[:]
         if shared:
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
