@@ -71,17 +71,6 @@ class TestEci:
         e = ExternalCompilationInfo()
         assert e.convert_sources_to_files() is e
 
-    def test_convert_sources_to_c_files(self):
-        eci = ExternalCompilationInfo(
-                export_symbols=("foo", )
-        )
-        neweci = eci.convert_exportsymbols_to_file()
-        le = neweci.link_extra[-1]
-        assert "foo;" in file(le.rsplit("=", 1)[1]).read()
-        e = ExternalCompilationInfo()
-        assert e.convert_exportsymbols_to_file() is e
-
-
     def test_make_shared_lib(self):
         eci = ExternalCompilationInfo(
             separate_module_sources = ['''

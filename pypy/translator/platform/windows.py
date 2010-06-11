@@ -139,8 +139,18 @@ class MsvcPlatform(Platform):
 
     def _link_args_from_eci(self, eci, standalone):
         # Windows needs to resolve all symbols even for DLLs
-        args = super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
-        return args + ['/EXPORT:%s' % symbol for symbol in eci.export_symbols]
+        return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
+
+    def _exportsymbols_link_flags(self, eci):
+        if not eci.export_symbols:
+            return []
+
+        response_file = self._make_response_file("exported_symbols_")
+        f = response_file.open("w")
+        for sym in eci.export_symbols:
+            f.write("/EXPORT:%s\n" % (sym,))
+        f.close()
+        return ["@%s" % (response_file,)]
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
@@ -179,7 +189,7 @@ class MsvcPlatform(Platform):
             # Microsoft compilers write compilation errors to stdout
             stderr = stdout + stderr
             errorfile = outname.new(ext='errors')
-            errorfile.write(stderr)
+            errorfile.write(stderr, mode='wb')
             stderrlines = stderr.splitlines()
             for line in stderrlines:
                 log.ERROR(line)
@@ -207,6 +217,7 @@ class MsvcPlatform(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
+        linkflags += self._exportsymbols_link_flags(eci)
 
         if shared:
             so_name = exe_name.new(ext=self.so_ext)
@@ -243,6 +254,7 @@ class MsvcPlatform(Platform):
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', self.link),
+            ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
             ]
 
@@ -262,7 +274,7 @@ class MsvcPlatform(Platform):
                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
 

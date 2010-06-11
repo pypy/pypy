@@ -37,8 +37,20 @@ class BasePosix(Platform):
         return oname
 
     def _link_args_from_eci(self, eci, standalone):
-        eci = eci.convert_exportsymbols_to_file()
         return Platform._link_args_from_eci(self, eci, standalone)
+
+    def _exportsymbols_link_flags(self, eci):
+        if not eci.export_symbols:
+            return []
+
+        response_file = self._make_response_file("dynamic-symbols-")
+        f = response_file.open("w")
+        f.write("{\n")
+        for sym in eci.export_symbols:
+            f.write("%s;\n" % (sym,))
+        f.write("};")
+        f.close()
+        return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
@@ -61,7 +73,6 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False):
-        eci = eci.convert_exportsymbols_to_file()
         cfiles = [py.path.local(f) for f in cfiles]
         cfiles += [py.path.local(f) for f in eci.separate_module_files]
 
@@ -76,6 +87,8 @@ class BasePosix(Platform):
         linkflags = self.link_flags
         if shared:
             linkflags = self._args_for_shared(linkflags)
+
+        linkflags += self._exportsymbols_link_flags(eci)
 
         if shared:
             libname = exe_name.new(ext='').basename

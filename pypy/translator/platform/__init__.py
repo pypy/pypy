@@ -5,6 +5,7 @@ platform.
 
 import sys, py, os
 
+from pypy.tool.udir import udir
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("platform")
 py.log.setconsumer("platform", ansi_log)
@@ -123,6 +124,18 @@ class Platform(object):
             for line in stderr.splitlines():
                 log.WARNING(line)
 
+    def _make_response_file(self, prefix):
+        """Creates a temporary file with the specified prefix,
+        and returns its name"""
+        # Build unique filename
+        num = 0
+        while 1:
+            response_file = udir.join('%s%i' % (prefix, num))
+            num += 1
+            if not response_file.check():
+                break
+        return response_file
+
     def _preprocess_include_dirs(self, include_dirs):
         return include_dirs
 
@@ -144,8 +157,14 @@ class Platform(object):
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        return (library_dirs + self.link_flags +
+        export_flags = self._exportsymbols_link_flags(eci)
+        return (library_dirs + self.link_flags + export_flags +
                 link_files + list(eci.link_extra) + libraries)
+
+    def _exportsymbols_link_flags(self, eci):
+        if eci.export_symbols:
+            raise ValueError("This platform does not support export symbols")
+        return []
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
