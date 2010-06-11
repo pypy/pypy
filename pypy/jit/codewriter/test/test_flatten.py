@@ -7,7 +7,7 @@ from pypy.jit.metainterp.history import AbstractDescr
 from pypy.rpython.lltypesystem import lltype, rclass, rstr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.translator.unsimplify import varoftype
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, r_uint
 from pypy.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
@@ -703,5 +703,15 @@ class TestFlatten:
             strgetitem %r0, $1 -> %i1
             strlen %r0 -> %i2
             int_add %i1, %i2 -> %i3
+            int_return %i3
+        """, transform=True)
+
+    def test_uint_operations(self):
+        def f(n):
+            return ((r_uint(n) - 123) >> 1) <= r_uint(456)
+        self.encoding_test(f, [200], """
+            int_sub %i0, $123L -> %i1
+            uint_rshift %i1, $1L -> %i2
+            uint_le %i2, $456L -> %i3
             int_return %i3
         """, transform=True)

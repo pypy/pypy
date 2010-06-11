@@ -538,6 +538,16 @@ class BasicTests:
         res = self.meta_interp(f, [10])
         assert res == 0
 
+    def test_uint_operations(self):
+        from pypy.rlib.rarithmetic import r_uint
+        def f(n):
+            return ((r_uint(n) - 123) >> 1) <= r_uint(456)
+        res = self.interp_operations(f, [50])
+        assert res == False
+        self.check_operations_history(int_rshift=0, uint_rshift=1,
+                                      int_le=0, uint_le=1,
+                                      int_sub=1)
+
     def test_getfield(self):
         class A:
             pass

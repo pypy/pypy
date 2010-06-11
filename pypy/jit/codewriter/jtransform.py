@@ -140,6 +140,7 @@ class Transformer(object):
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
                                      'int_is_zero', 'int_is_true',
+                                     'uint_lt','uint_le','uint_gt','uint_ge',
                                      'ptr_eq', 'ptr_ne',
                                      'ptr_iszero', 'ptr_nonzero'):
                     return False    # not a supported operation
@@ -190,6 +191,10 @@ class Transformer(object):
                            'int_le': 'int_ge',
                            'int_gt': 'int_lt',
                            'int_ge': 'int_le',
+                           'uint_lt': 'uint_gt',
+                           'uint_le': 'uint_ge',
+                           'uint_gt': 'uint_lt',
+                           'uint_ge': 'uint_le',
                            'float_lt': 'float_gt',
                            'float_le': 'float_ge',
                            'float_gt': 'float_lt',
@@ -210,6 +215,10 @@ class Transformer(object):
     rewrite_op_int_le  = _rewrite_symmetric
     rewrite_op_int_gt  = _rewrite_symmetric
     rewrite_op_int_ge  = _rewrite_symmetric
+    rewrite_op_uint_lt = _rewrite_symmetric
+    rewrite_op_uint_le = _rewrite_symmetric
+    rewrite_op_uint_gt = _rewrite_symmetric
+    rewrite_op_uint_ge = _rewrite_symmetric
 
     rewrite_op_float_add = _rewrite_symmetric
     rewrite_op_float_mul = _rewrite_symmetric
@@ -707,16 +716,11 @@ class Transformer(object):
                        ('uint_floordiv_zer', 'int_floordiv_zer'),
                        ('uint_mod', 'int_mod'),
                        ('uint_mod_zer', 'int_mod_zer'),
-                       ('uint_lt', 'int_lt'),
-                       ('uint_le', 'int_le'),
                        ('uint_eq', 'int_eq'),
                        ('uint_ne', 'int_ne'),
-                       ('uint_gt', 'int_gt'),
-                       ('uint_ge', 'int_ge'),
                        ('uint_and', 'int_and'),
                        ('uint_or', 'int_or'),
                        ('uint_lshift', 'int_lshift'),
-                       ('uint_rshift', 'int_rshift'),
                        ('uint_xor', 'int_xor'),
                        ]:
         assert _old not in locals()
