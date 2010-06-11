@@ -233,8 +233,8 @@ class BasicTests:
             b = r_uint(b)
             return a/b
 
-        res = self.interp_operations(f, [4, 3])
-        assert res == 1
+        res = self.interp_operations(f, [-4, 3])
+        assert res == long(r_uint(-4)) // 3
 
     def test_direct_call(self):
         def g(n):
