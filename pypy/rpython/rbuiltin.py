@@ -529,8 +529,6 @@ BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 # _________________________________________________________________
 # memory addresses
 
-from pypy.rpython.lltypesystem import llmemory
-
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)

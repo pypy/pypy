@@ -77,7 +77,6 @@ class BaseTestRfloat(BaseRtypingTest):
         assert res == fn(2.34) 
 
     def test_longlong_conversion(self):
-        import sys
         def fn(f):
             return r_longlong(f)
 

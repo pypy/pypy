@@ -169,7 +169,6 @@ class BaseTestRint(BaseRtypingTest):
         assert res == 0
 
     def test_truediv(self):
-        import operator
         def f(n, m):
             return operator.truediv(n, m)
         res = self.interpret(f, [20, 4])

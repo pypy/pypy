@@ -2,7 +2,6 @@ import py
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
-from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.resoperation import rop

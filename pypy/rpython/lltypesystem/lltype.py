@@ -12,7 +12,6 @@ from pypy.tool.tls import tlsobject
 from pypy.lib.identity_dict import identity_dict
 from types import NoneType
 from sys import maxint
-import struct
 import weakref
 
 TLS = tlsobject()

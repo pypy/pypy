@@ -16,7 +16,6 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
-from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
 

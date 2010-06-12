@@ -180,7 +180,6 @@ class RecursiveTests:
             py.test.fail("DID NOT RAISE")
 
     def test_guard_failure_in_inlined_function(self):
-        from pypy.rpython.annlowlevel import hlstr
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
@@ -217,7 +216,6 @@ class RecursiveTests:
         assert res == 0
 
     def test_guard_failure_and_then_exception_in_inlined_function(self):
-        from pypy.rpython.annlowlevel import hlstr
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
@@ -261,7 +259,6 @@ class RecursiveTests:
         assert res == main(1000)
 
     def test_exception_in_inlined_function(self):
-        from pypy.rpython.annlowlevel import hlstr
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
@@ -307,7 +304,6 @@ class RecursiveTests:
         # this passes, if the blackholing shortcut for calls is turned off
         # it fails, it is very delicate in terms of parameters,
         # bridge/loop creation order
-        from pypy.rpython.annlowlevel import hlstr
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])

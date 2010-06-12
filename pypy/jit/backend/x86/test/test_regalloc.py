@@ -3,7 +3,7 @@
 """
 
 import py
-from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
+from pypy.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, LoopToken, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache

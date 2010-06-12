@@ -722,7 +722,6 @@ def test_pyobject():
 
 def test_name_clash():
     import re
-    from pypy.rpython.lltypesystem import lltype
     fn = lltype.__file__
     if fn.lower().endswith('pyc') or fn.lower().endswith('pyo'):
         fn = fn[:-1]

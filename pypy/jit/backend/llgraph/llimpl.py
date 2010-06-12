@@ -4,7 +4,6 @@ This contains all the code that is directly run
 when executing on top of the llinterpreter.
 """
 
-import sys
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr,

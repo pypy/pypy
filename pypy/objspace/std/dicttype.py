@@ -4,7 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
 from pypy.objspace.std.register_all import register_all
-from pypy.interpreter.error import OperationError
 
 dict_copy       = SMM('copy',          1,
                       doc='D.copy() -> a shallow copy of D')

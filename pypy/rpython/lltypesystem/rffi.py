@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
-from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof, raw_memcopy
+from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
 from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
@@ -11,7 +11,6 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
@@ -785,7 +784,6 @@ def sizeof(tp):
         # the hint is present in structures probed by rffi_platform.
         size = tp._hints.get('size')
         if size is None:
-            from pypy.rpython.lltypesystem import llmemory
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr):
@@ -814,7 +812,6 @@ def offsetof(STRUCT, fieldname):
             if name == fieldname:
                 return fieldoffsets[index]
     # a symbolic result as a fallback
-    from pypy.rpython.lltypesystem import llmemory
     return llmemory.offsetof(STRUCT, fieldname)
 offsetof._annspecialcase_ = 'specialize:memo'
 

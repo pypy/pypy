@@ -307,7 +307,6 @@ def test_obj_obj_add():
     assert res._obj.value == 3L
 
 def test_ovf():
-    import sys
     def f(x):
         try:
             return ovfcheck(sys.maxint + x)
@@ -328,7 +327,6 @@ def test_ovf():
     assert res == 15
 
 def test_floordiv_ovf_zer():
-    import sys
     def f(x):
         try:
             return ovfcheck((-sys.maxint - 1) // x)
@@ -344,7 +342,6 @@ def test_floordiv_ovf_zer():
     assert res == (-sys.maxint - 1) // 30
 
 def test_mod_ovf_zer():
-    import sys
     def f(x):
         try:
             return ovfcheck((-sys.maxint - 1) % x)

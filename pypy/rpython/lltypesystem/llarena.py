@@ -1,5 +1,5 @@
 import array, weakref
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import llmemory
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by

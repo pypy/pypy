@@ -130,7 +130,7 @@ def fast_COMPARE_OP(f, testnum, next_instr):
                 w_result = getattr(f, attr)(w_1, w_2)
                 break
         else:
-            raise pyopcde.BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise pyopcode.BytecodeCorruption, "bad COMPARE_OP oparg"
     f.pushvalue(w_result)
 
 
@@ -154,6 +154,7 @@ def build_frame(space):
     if space.config.objspace.std.optimized_comparison_op:
         StdObjSpaceFrame.COMPARE_OP = fast_COMPARE_OP
     if space.config.objspace.std.logspaceoptypes:
+        assert 0, "logspaceoptypes: a few fixes a missing here"
         StdObjSpace._space_op_types = []
         for name, new in get_logging():
             setattr(StdObjSpaceFrame, name, new)

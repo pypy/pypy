@@ -3,7 +3,7 @@
 """
 
 import py
-from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
+from pypy.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
@@ -22,7 +22,6 @@ from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
      X86XMMRegisterManager
-from pypy.rpython.annlowlevel import llhelper
 
 class MockGcRootMap(object):
     def get_basic_shape(self):

@@ -15,7 +15,6 @@ from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.tool.udir import udir
 
 class TestLL2Ctypes(object):
 
