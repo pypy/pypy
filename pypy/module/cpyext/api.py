@@ -801,7 +801,7 @@ def build_eci(building_bridge, export_symbols, code):
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
-        else:
+        elif sys.platform == 'linux2':
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
     else:
