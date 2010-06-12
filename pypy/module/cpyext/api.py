@@ -315,7 +315,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'cpyext.datetime.build_datetime_api(space)'),
+    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'cpyext.cdatetime.build_datetime_api(space)'),
     }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -361,7 +361,7 @@ build_exported_objects()
 
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    from pypy.module.cpyext.datetime import PyDateTime_CAPI
+    from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
