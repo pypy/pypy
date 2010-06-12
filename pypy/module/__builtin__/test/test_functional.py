@@ -58,6 +58,23 @@ class AppTestMap:
       b = []
       assert map(lambda x, y: x, a, b) == a
 
+   def test_map_iterables(self):
+      class A(object):
+         def __init__(self, n):
+            self.n = n
+         def __iter__(self):
+            return B(self.n)
+      class B(object):
+         def __init__(self, n):
+            self.n = n
+         def next(self):
+            self.n -= 1
+            if self.n == 0: raise StopIteration
+            return self.n
+      result = map(None, A(3), A(8))
+      assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
+                        (None, 3), (None, 2), (None, 1)]
+
 class AppTestZip:
    def test_one_list(self):
       assert zip([1,2,3]) == [(1,), (2,), (3,)]
