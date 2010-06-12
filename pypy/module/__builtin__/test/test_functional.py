@@ -72,6 +72,8 @@ class AppTestMap:
             if self.n == 0: raise StopIteration
             return self.n
       result = map(None, A(3), A(8))
+      # this also checks that B.next() is not called any more after it
+      # raised StopIteration once
       assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
                         (None, 3), (None, 2), (None, 1)]
 
