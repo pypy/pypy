@@ -158,13 +158,6 @@ class AppTestFunction:
         assert res[0] == 42
         assert res[1] == {'something': 23}
 
-    def test_kwargs_sets_positional_mixed(self):
-        def func(arg1, **kw):
-            return arg1, kw
-        res = func(arg1=42, something=23)
-        assert res[0] == 42
-        assert res[1] == {'something': 23}
-
     def test_kwargs_sets_positional_twice(self):
         def func(arg1, **kw):
             return arg1, kw

@@ -373,7 +373,7 @@ class AppTestPartialEvaluation:
         decoded = _codecs.unicode_escape_decode(s)[0]
         assert decoded == ''
 
-    def test_charmap_decode(self):
+    def test_charmap_decode_1(self):
         import codecs
         res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab")
         assert res == (u"ab\ufffd", 3)
@@ -525,7 +525,7 @@ class AppTestPartialEvaluation:
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
 
-    def test_charmap_decode(self):
+    def test_charmap_decode_2(self):
         assert 'foo'.decode('charmap') == 'foo'
 
     def test_utf7_start_end_in_exception(self):

@@ -122,14 +122,6 @@ class TestInterpreted:
         res = interpret(f, [3], type_system="ootype")
         assert res == 3 
 
-    def test_initialize(self):
-        def f(x):
-            l = [1, 2]
-            l.append(x)
-            return l[2]
-        res = interpret(f, [3], type_system="ootype")
-        assert res == 3 
-
     def test_listtype_explosion(self):
         def f(x):
             l1 = [x]

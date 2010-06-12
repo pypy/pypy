@@ -71,7 +71,8 @@ class AppTestImpModule:
         import test_imp_extra_AUTO1
         assert mod is test_imp_extra_AUTO1
 
-    def test_load_module_pyc(self):
+    def test_load_module_pyc_1(self):
+        import os
         fn = self._pyc_file()
         try:
             descr = ('.pyc', 'rb', self.imp.PY_COMPILED)
@@ -91,7 +92,7 @@ class AppTestImpModule:
         import test_imp_extra_AUTO3
         assert mod is test_imp_extra_AUTO3
 
-    def test_load_module_pyc(self):
+    def test_load_module_pyc_2(self):
         import os
         fn = self._pyc_file()
         try:

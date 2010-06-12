@@ -90,7 +90,7 @@ else:
             assert func(u"abc") == "abc"
             assert func(u"дцья") == ""
 
-        def test_ascii_replace(self):
+        def test_ascii_replace_2(self):
             ctypes.set_conversion_mode("ascii", "replace")
             assert func("abc") == "abc"
             assert func(u"abc") == "abc"

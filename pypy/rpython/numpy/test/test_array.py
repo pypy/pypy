@@ -3,7 +3,8 @@ Test the numpy implementation.
 """
 
 import py
-numpy = py.test.importorskip("numpy")
+py.test.skip("numpy - broken")
+
 import pypy.rpython.numpy.implementation
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import SomeObject, SomeInteger, SomeChar, SomeTuple
@@ -270,7 +271,7 @@ class Test_annotation:
         assert s.ndim == 1
         assert s.typecode == 'l'
 
-    def test_annotate_indexing(self):
+    def test_annotate_indexing_2(self):
         def f():
             a = numpy.empty((4,3), dtype='i')
             c = a[:,0]

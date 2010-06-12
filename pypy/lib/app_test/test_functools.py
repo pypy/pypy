@@ -31,7 +31,7 @@ class TestPartial:
         p = self.thetype(map, lambda x: x*10)
         assert p([1,2,3,4]) == [10, 20, 30, 40]
 
-    def test_attributes(self):
+    def test_attributes_1(self):
         p = self.thetype(capture, 1, 2, a=10, b=20)
         # attributes should be readable
         assert p.func == capture
@@ -118,7 +118,7 @@ class TestPartial:
         py.test.raises(ZeroDivisionError, self.thetype(f), 1, 0)
         py.test.raises(ZeroDivisionError, self.thetype(f, y=0), 1)
 
-    def test_attributes(self):
+    def test_attributes_2(self):
         p = self.thetype(hex)
         try:
             del p.__dict__

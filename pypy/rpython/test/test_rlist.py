@@ -10,7 +10,6 @@ from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newl
 from pypy.rpython.lltypesystem import rlist as ll_rlist
 from pypy.rpython.ootypesystem import rlist as oo_rlist
 from pypy.rpython.rint import signed_repr
-from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
@@ -1070,7 +1069,7 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == 0
 
 
-    def test_getitem_exc(self):
+    def test_getitem_exc_1(self):
         def f(x):
             l = [1]
             return l[x]
@@ -1115,7 +1114,7 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == 1
         
-    def test_getitem_exc(self):
+    def test_getitem_exc_2(self):
         def f(x):
             l = [1]
             return l[x]

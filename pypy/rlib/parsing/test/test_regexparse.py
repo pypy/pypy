@@ -24,7 +24,7 @@ def test_simple():
     assert r.recognize("kjsadfq3jlflASDF@#$")
     assert r.recognize("vka afj ASF# A")
 
-def test_quoted():
+def test_quoted_1():
     r = make_runner("\\(*")
     assert r.recognize("(")
     assert not r.recognize("\\(")
@@ -77,7 +77,7 @@ def test_plus():
     assert not r.recognize("a")
     assert not r.recognize("c")
 
-def test_quoted():
+def test_quoted_2():
     r = make_runner('\\[|\\]|\\|')
     assert r.recognize("[")
     assert r.recognize("|")

@@ -477,7 +477,7 @@ class AppTestOldstyle(object):
         assert a is a1
         assert a.l == [1, 2]
 
-    def test_cmp(self):
+    def test_cmp_and_coerce(self):
         class A:
             def __coerce__(self, other):
                 return (1, 2)

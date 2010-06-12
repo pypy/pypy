@@ -321,7 +321,7 @@ class AppTestUnicodeString:
         assert U(u'test') == u'test'
         assert U(u'test').__class__ is U
 
-    def test_call_unicode(self):
+    def test_call_unicode_2(self):
         class X(object):
             def __unicode__(self):
                 return u'x'

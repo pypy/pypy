@@ -210,7 +210,7 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(byref(c_int(99)))
         assert not result.contents == 99
 
-    def test_errors(self):
+    def test_errors_1(self):
         f = dll._testfunc_p_p
         f.restype = c_int
 
@@ -305,7 +305,7 @@ class TestFunctions(BaseCTypesTestChecker):
 
         assert 13577625587 == f(1000000000000, cb)
 
-    def test_errors(self):
+    def test_errors_2(self):
         raises(AttributeError, getattr, dll, "_xxx_yyy")
         raises(ValueError, c_int.in_dll, dll, "_xxx_yyy")
 
