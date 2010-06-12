@@ -47,6 +47,14 @@
 #define OP_INT_LT(x,y,r)	  r = ((x) <  (y))
 #define OP_INT_GE(x,y,r)	  r = ((x) >= (y))
 
+/* Implement INT_BETWEEN by optimizing for the common case where a and c
+   are constants (the 2nd subtraction below is then constant-folded), or
+   for the case of a == 0 (both subtractions are then constant-folded).
+   Note that the following line only works if a <= c in the first place,
+   which we assume is true. */
+#define OP_INT_BETWEEN(a,b,c,r)   r = (((unsigned long)b - (unsigned long)a) \
+                                     < ((unsigned long)c - (unsigned long)a))
+
 /* addition, subtraction */
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)

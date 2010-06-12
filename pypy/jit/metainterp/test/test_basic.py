@@ -145,6 +145,9 @@ class JitMixin:
 
     def check_operations_history(self, expected=None, **isns):
         # this can be used after interp_operations
+        if expected is not None:
+            expected = dict(expected)
+            expected['jump'] = 1
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 
@@ -560,6 +563,53 @@ class BasicTests:
         self.check_operations_history(int_rshift=0, uint_rshift=1,
                                       int_le=0, uint_le=1,
                                       int_sub=1)
+
+    def test_int_between(self):
+        #
+        def check(arg1, arg2, arg3, expect_result, **expect_operations):
+            from pypy.rpython.lltypesystem import lltype
+            from pypy.rpython.lltypesystem.lloperation import llop
+            loc = locals().copy()
+            exec py.code.Source("""
+                def f(n, m, p):
+                    arg1 = %(arg1)s
+                    arg2 = %(arg2)s
+                    arg3 = %(arg3)s
+                    return llop.int_between(lltype.Bool, arg1, arg2, arg3)
+            """ % locals()).compile() in loc
+            res = self.interp_operations(loc['f'], [5, 6, 7])
+            assert res == expect_result
+            self.check_operations_history(expect_operations)
+        #
+        check('n', 'm', 'p', True,  int_sub=2, uint_lt=1)
+        check('n', 'p', 'm', False, int_sub=2, uint_lt=1)
+        #
+        check('n', 'm', 6, False, int_sub=2, uint_lt=1)
+        #
+        check('n', 4, 'p', False, int_sub=2, uint_lt=1)
+        check('n', 5, 'p', True,  int_sub=2, uint_lt=1)
+        check('n', 8, 'p', False, int_sub=2, uint_lt=1)
+        #
+        check('n', 6, 7, True, int_sub=2, uint_lt=1)
+        #
+        check(-2, 'n', 'p', True,  int_sub=2, uint_lt=1)
+        check(-2, 'm', 'p', True,  int_sub=2, uint_lt=1)
+        check(-2, 'p', 'm', False, int_sub=2, uint_lt=1)
+        #check(0, 'n', 'p', True,  uint_lt=1)   xxx implement me
+        #check(0, 'm', 'p', True,  uint_lt=1)
+        #check(0, 'p', 'm', False, uint_lt=1)
+        #
+        check(2, 'n', 6, True,  int_sub=1, uint_lt=1)
+        check(2, 'm', 6, False, int_sub=1, uint_lt=1)
+        check(2, 'p', 6, False, int_sub=1, uint_lt=1)
+        check(5, 'n', 6, True,  int_eq=1)    # 6 == 5+1
+        check(5, 'm', 6, False, int_eq=1)    # 6 == 5+1
+        #
+        check(2, 6, 'm', False, int_sub=1, uint_lt=1)
+        check(2, 6, 'p', True,  int_sub=1, uint_lt=1)
+        #
+        check(2, 40, 6,  False)
+        check(2, 40, 60, True)
 
     def test_getfield(self):
         class A:

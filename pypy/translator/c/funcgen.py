@@ -318,6 +318,7 @@ class FunctionCodeGenerator(object):
 
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
+        line = None
         if op.opname.startswith('gc_'):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
@@ -326,7 +327,7 @@ class FunctionCodeGenerator(object):
             meth = getattr(self, macro, None)
             if meth:
                 line = meth(op)
-        if meth is None:
+        if line is None:
             lst = [self.expr(v) for v in op.args]
             lst.append(self.expr(op.result))
             line = '%s(%s);' % (macro, ', '.join(lst))
@@ -849,5 +850,16 @@ class FunctionCodeGenerator(object):
         return 'PYPY_DEBUG_CATCH_EXCEPTION("%s", %s, %s);' % (
             self.getdebugfunctionname(), gottype, ' || '.join(exprs))
 
+    def OP_INT_BETWEEN(self, op):
+        if (isinstance(op.args[0], Constant) and
+            isinstance(op.args[2], Constant) and
+            op.args[2].value - op.args[0].value == 1):
+            # (a <= b < a+1) ----> (b == a)
+            return '%s = (%s == %s);  /* was INT_BETWEEN */' % (
+                self.expr(op.result),
+                self.expr(op.args[1]),
+                self.expr(op.args[0]))
+        else:
+            return None    # use the default
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

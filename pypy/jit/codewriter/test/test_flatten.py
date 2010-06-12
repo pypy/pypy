@@ -715,3 +715,12 @@ class TestFlatten:
             uint_le %i2, $456L -> %i3
             int_return %i3
         """, transform=True)
+
+    def test_int_between(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        def f(n, m, p):
+            return llop.int_between(lltype.Bool, n, m, p)
+        self.encoding_test(f, [5, 6, 7], """
+            int_between %i0, %i1, %i2 -> %i3
+            int_return %i3
+        """, transform=True)

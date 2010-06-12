@@ -315,6 +315,16 @@ class MIFrame(object):
         if value:
             self.pc = target
 
+    @arguments("box", "box", "box")
+    def opimpl_int_between(self, b1, b2, b3):
+        b5 = self.execute(rop.INT_SUB, b3, b1)
+        if isinstance(b5, ConstInt) and b5.getint() == 1:
+            # the common case of int_between(a, b, a+1) turns into just INT_EQ
+            return self.execute(rop.INT_EQ, b2, b1)
+        else:
+            b4 = self.execute(rop.INT_SUB, b2, b1)
+            return self.execute(rop.UINT_LT, b4, b5)
+
     @arguments("box", "descr", "orgpc")
     def opimpl_switch(self, valuebox, switchdict, orgpc):
         box = self.implement_guard_value(orgpc, valuebox)
