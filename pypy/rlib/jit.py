@@ -6,17 +6,38 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.unroll import unrolling_iterable
 
 def purefunction(func):
+    """ Decorate a function as pure. Pure means precisely that:
+
+    (1) the result of the call should not change if the arguments are
+        the same (same numbers or same pointers)
+    (2) it's fine to remove the call completely if we can guess the result
+    according to rule 1
+
+    Most importantly it doesn't mean that pure function has no observable
+    side effect, but those side effects can be ommited (ie caching).
+    """
     func._pure_function_ = True
     return func
 
 def hint(x, **kwds):
+    """ Hint for the JIT
+
+    possible arguments are:
+    XXX
+    """
     return x
 
 def dont_look_inside(func):
+    """ Make sure the JIT does not trace inside decorated function
+    (it becomes a call instead)
+    """
     func._jit_look_inside_ = False
     return func
 
 def unroll_safe(func):
+    """ JIT can safely unroll loops in this function and this will
+    not lead to code explosion
+    """
     func._jit_unroll_safe_ = True
     return func
 
@@ -26,6 +47,9 @@ def loop_invariant(func):
     return func
 
 def purefunction_promote(promote_args='all'):
+    """ A decorator that promotes all arguments and then calls the supplied
+    function
+    """
     def decorator(func):
         import inspect
         purefunction(func)
