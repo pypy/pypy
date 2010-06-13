@@ -223,11 +223,6 @@ class W_ZipImporter(Wrappable):
 
     def load_module(self, space, fullname):
         w = space.wrap
-        w_modules = space.sys.get('modules')
-        try:
-            return space.getitem(w_modules, w(fullname))
-        except OperationError, e:
-            pass
         filename = self.mangle(fullname)
         last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
