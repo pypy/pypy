@@ -13,9 +13,14 @@ from xml.dom import minidom
 import re
 
 def browse_nightly(branch,
-                   baseurl='http://buildbot.pypy.org/nightly/'):
-    url = baseurl + branch + '/'
-    dom = minidom.parseString(urllib2.urlopen(url).read())
+                   baseurl='http://buildbot.pypy.org/nightly/',
+                   override_xml=None):
+    if override_xml is None:
+        url = baseurl + branch + '/'
+        xml = urllib2.urlopen(url).read()
+    else:
+        xml = override_xml
+    dom = minidom.parseString(xml)
     refs = [node.getAttribute('href') for node in dom.getElementsByTagName('a')]
     # all refs are of form: pypy-{type}-{revision}-{platform}.tar.bz2
     r = re.compile('pypy-c-([\w\d]+)-(\d+)-([\w\d]+).tar.bz2$')

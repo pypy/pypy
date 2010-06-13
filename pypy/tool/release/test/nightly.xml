@@ -1,0 +1,94 @@
+ 
+<html> 
+ <head> 
+  <title>Directory listing for /nightly/release/1.3.x/</title> 
+  <style> 
+    .even-dir { background-color: #efe0ef }
+    .even { background-color: #eee }
+    .odd-dir {background-color: #f0d0ef }
+    .odd { background-color: #dedede }
+    .icon { text-align: center }
+    .listing {
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+        padding: 0.1em;
+        }
+ 
+    body { border: 0; padding: 0; margin: 0; background-color: #efefef; }
+    h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin white dashed;}
+ 
+    </style> 
+ </head> 
+ <body> 
+  <h1>Directory listing for /nightly/release/1.3.x/
+  </h1> 
+  <table> 
+   <tr pattern="listHeader"> 
+    <th>Filename</th> 
+    <th>Content type</th> 
+    <th>Content encoding</th> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-jit-75357-linux.tar.bz2">pypy-c-jit-75357-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-jit-75357-win32.tar.bz2">pypy-c-jit-75357-win32.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-jit-75362-linux.tar.bz2">pypy-c-jit-75362-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-jit-75362-win32.tar.bz2">pypy-c-jit-75362-win32.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-nojit-75357-linux.tar.bz2">pypy-c-nojit-75357-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-nojit-75357-linux64.tar.bz2">pypy-c-nojit-75357-linux64.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-nojit-75357-win32.tar.bz2">pypy-c-nojit-75357-win32.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-nojit-75362-linux.tar.bz2">pypy-c-nojit-75362-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-nojit-75362-linux64.tar.bz2">pypy-c-nojit-75362-linux64.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-nojit-75362-win32.tar.bz2">pypy-c-nojit-75362-win32.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="even"> 
+    <td><a href="pypy-c-stackless-75357-linux.tar.bz2">pypy-c-stackless-75357-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+   <tr class="odd"> 
+    <td><a href="pypy-c-stackless-75362-linux.tar.bz2">pypy-c-stackless-75362-linux.tar.bz2</a></td> 
+    <td>[application/x-tar]</td> 
+    <td>[bzip2]</td> 
+   </tr> 
+  </table> 
+ </body> 
+</html>
