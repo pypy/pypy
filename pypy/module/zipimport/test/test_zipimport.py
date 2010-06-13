@@ -114,7 +114,7 @@ class AppTestZipimport:
         from zipimport import _zip_directory_cache, zipimporter
         new_importer = zipimporter(self.zipfile)
         try:
-            assert zipimporter(self.zipfile) is new_importer
+            assert zipimporter(self.zipfile) is not new_importer
         finally:
             del _zip_directory_cache[self.zipfile]
 
@@ -128,7 +128,7 @@ class AppTestZipimport:
 
         assert main_importer is not sub_importer
         assert main_importer.prefix == ""
-        assert sub_importer.prefix == "sub\\"
+        assert sub_importer.prefix == "sub/"
 
     def test_good_bad_arguments(self):
         from zipimport import zipimporter
@@ -205,8 +205,7 @@ class AppTestZipimport:
         import zipimport
         z = zipimport.zipimporter(self.zipfile)
         sys.modules['uuu'] = lambda x : x + 1
-        mod = z.load_module('uuu')
-        assert mod(3) == 4
+        raises(ImportError, z.load_module, 'uuu')
 
     def test_package(self):
         import os, sys
@@ -287,7 +286,7 @@ class AppTestZipimport:
         archive = importer.archive
         realprefix = importer.prefix
         allbutlast = self.zipfile.split(os.path.sep)[:-1]
-        prefix = 'directory'
+        prefix = 'directory/'
         assert archive == self.zipfile
         assert realprefix == prefix
 
