@@ -27,7 +27,9 @@ def _run(executable, args, env, cwd):   # unless overridden below
 
 
 if __name__ == '__main__':
+    import gc
     while True:
+        gc.collect()
         operation = sys.stdin.readline()
         if not operation:
             sys.exit()
@@ -51,6 +53,11 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
         _child = Popen([sys.executable, _source], bufsize=0,
                        stdin=PIPE, stdout=PIPE, close_fds=True)
     spawn_subprocess()
+
+    def cleanup_subprocess():
+        global _child
+        _child = None
+    import atexit; atexit.register(cleanup_subprocess)
 
     def _run(*args):
         try:
