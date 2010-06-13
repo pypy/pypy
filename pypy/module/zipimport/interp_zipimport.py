@@ -351,7 +351,6 @@ def descr_new_zipimporter(space, w_type, name):
             raise operationerrfmt(w_ZipImportError,
                 "Cannot import %s from zipfile, recursion detected or"
                 "already tried and failed", name)
-        return w_result
     except KeyError:
         zip_cache.cache[filename] = None
     try:
