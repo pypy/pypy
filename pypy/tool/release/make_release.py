@@ -4,7 +4,7 @@
 into release packages. Note: you must run apropriate buildbots first and
 make sure there are no failures. Use force-builds.py from the same directory.
 
-Usage: release.py release/<release name>
+Usage: make_release.py release/<release name>
 """
 
 import sys
