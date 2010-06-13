@@ -15,6 +15,7 @@ def purefunction(func):
 
     Most importantly it doesn't mean that pure function has no observable
     side effect, but those side effects can be ommited (ie caching).
+    For now, such a function should never raise an exception.
     """
     func._pure_function_ = True
     return func
