@@ -42,6 +42,11 @@ def unroll_safe(func):
     return func
 
 def loop_invariant(func):
+    """ Describes a function with no argument that returns an object that
+    is always the same in a loop.
+
+    Use it only if you know what you're doing.
+    """
     dont_look_inside(func)
     func._jit_loop_invariant_ = True
     return func
