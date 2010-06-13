@@ -217,7 +217,7 @@ class TestFunctions(BaseCTypesTestChecker):
         class X(Structure):
             _fields_ = [("y", c_int)]
 
-        raises(TypeError, f, X()) #cannot convert parameter
+        raises(ArgumentError, f, X()) #cannot convert parameter
 
     ################################################################
     def test_shorts(self):
