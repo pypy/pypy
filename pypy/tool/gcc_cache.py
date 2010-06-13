@@ -33,9 +33,9 @@ def try_compile_cache(c_files, eci):
         try:
             platform.compile(c_files, eci)
             data = 'True'
+            path.write(data)
         except CompilationError, e:
             data = 'FAIL\n%s\n' % (e,)
-        path.write(data)
     if data.startswith('True'):
         return True
     else:
