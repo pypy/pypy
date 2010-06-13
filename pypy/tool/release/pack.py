@@ -10,7 +10,7 @@ goal_dir = py.path.local(__file__).join('..', '..', '..', 'translator', 'goal')
 def filenames_from_platform(platform):
     if platform == 'win32':
         files = [goal_dir / 'pypy-c.exe']
-        dll = goal_dir.join('pypy-c.dll')
+        dll = goal_dir.join('libpypy-c.exe.dll')
         if dll.check():
             files.append(dll)
     else:
