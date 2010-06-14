@@ -287,7 +287,9 @@ class MsvcPlatform(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   '$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@')
+                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFESTFILE:$*.manifest',
+                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
 
         return m
 
