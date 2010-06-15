@@ -325,9 +325,12 @@ class GraphFlattener(object):
         # Write 'last_exc_xxx' operations that load the last exception
         # directly into the locations specified by 'inputargs'.  This
         # must be done at the end of the link renamings.
+        if link.last_exception is link.last_exc_value is None:
+            return
         for v, w in zip(link.args, inputargs):
             if v is link.last_exception:
                 self.emitline("last_exception", "->", self.getcolor(w))
+        for v, w in zip(link.args, inputargs):
             if v is link.last_exc_value:
                 self.emitline("last_exc_value", "->", self.getcolor(w))
 

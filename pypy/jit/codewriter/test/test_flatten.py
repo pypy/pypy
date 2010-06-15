@@ -430,8 +430,8 @@ class TestFlatten:
         void_return
         ---
         L1:
-        last_exc_value -> %r0
         last_exception -> %i1
+        last_exc_value -> %r0
         setfield_gc_i $<* struct test.Foo>, <Descr>, $5
         -live-
         raise %r0
