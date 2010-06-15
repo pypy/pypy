@@ -268,6 +268,10 @@ class __extend__(annmodel.SomeIterator):
     # NOTE: SomeIterator is for iterators over any container, not just list
     def rtyper_makerepr(self, rtyper):
         r_container = rtyper.getrepr(self.s_container)
+        if self.variant == ("enumerate",):
+            from pypy.rpython.rrange import EnumerateIteratorRepr
+            r_baseiter = r_container.make_iterator_repr()
+            return EnumerateIteratorRepr(r_baseiter)
         return r_container.make_iterator_repr(*self.variant)
     def rtyper_makekey_ex(self, rtyper):
         return self.__class__, rtyper.makekey(self.s_container), self.variant

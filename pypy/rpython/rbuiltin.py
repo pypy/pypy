@@ -7,6 +7,7 @@ from pypy.rlib import rarithmetic, objectmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
+from pypy.rpython.rrange import rtype_builtin_enumerate
 from pypy.rpython import rstr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
@@ -228,6 +229,8 @@ def rtype_builtin_list(hop):
 #def rtype_builtin_range(hop): see rrange.py
 
 #def rtype_builtin_xrange(hop): see rrange.py
+
+#def rtype_builtin_enumerate(hop): see rrange.py
 
 #def rtype_r_dict(hop): see rdict.py
 

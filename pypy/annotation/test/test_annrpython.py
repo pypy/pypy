@@ -3332,6 +3332,16 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])
 
+    def test_enumerate(self):
+        def f():
+            for i, x in enumerate(['a', 'b', 'c', 'd']):
+                if i == 2:
+                    return x
+            return '?'
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeChar)
+
 
 def g(n):
     return [0,1,2,n]

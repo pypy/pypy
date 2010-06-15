@@ -185,3 +185,28 @@ def ll_rangenext_updown(iter):
         return ll_rangenext_up(iter, step)
     else:
         return ll_rangenext_down(iter, step)
+
+# ____________________________________________________________
+#
+# Support for enumerate().
+
+class EnumerateIteratorRepr(IteratorRepr):
+    def __init__(self, r_baseiter):
+        self.r_baseiter = r_baseiter
+        self.lowleveltype = r_baseiter.lowleveltype
+        # only supports for now enumerate() on sequence types whose iterators
+        # have a method ll_getnextindex.  It's easy to add one for most
+        # iterator types, but I didn't do it so far.
+        self.ll_getnextindex = r_baseiter.ll_getnextindex
+
+    def rtype_next(self, hop):
+        v_enumerate, = hop.inputargs(self)
+        v_index = hop.gendirectcall(self.ll_getnextindex, v_enumerate)
+        hop2 = hop.copy()
+        hop2.args_r = [self.r_baseiter]
+        v_item = self.r_baseiter.rtype_next(hop2)
+        return hop.r_result.newtuple(hop.llops, hop.r_result,
+                                     [v_index, v_item])
+
+def rtype_builtin_enumerate(hop):
+    return hop.r_result.r_baseiter.newiter(hop)

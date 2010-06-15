@@ -245,6 +245,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
                 {"iterable": r_list.lowleveltype, "index": ootype.Signed})
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
+        self.ll_getnextindex = ll_getnextindex
 
 
 def ll_listiter(ITER, lst):
@@ -261,3 +262,5 @@ def ll_listnext(iter):
     iter.index = index + 1
     return l.ll_getitem_fast(index)
 
+def ll_getnextindex(iter):
+    return iter.index

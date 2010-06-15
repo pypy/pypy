@@ -160,6 +160,15 @@ class BaseTestRrange(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res == 0
 
+    def test_enumerate(self):
+        def fn(n):
+            for i, x in enumerate([123, 456, 789, 654]):
+                if i == n:
+                    return x
+            return 5
+        res = self.interpret(fn, [2])
+        assert res == 789
+
 
 class TestLLtype(BaseTestRrange, LLRtypeMixin):
     from pypy.rpython.lltypesystem import rrange 
