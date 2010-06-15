@@ -513,7 +513,12 @@ class TranslationDriver(SimpleTaskEngine):
             defines = cbuilder.DEBUG_DEFINES
         else:
             defines = {}
-        c_source_filename = cbuilder.generate_source(database, defines)
+        if self.exe_name is not None:
+            exe_name = self.exe_name % self.get_info()
+        else:
+            exe_name = None
+        c_source_filename = cbuilder.generate_source(database, defines,
+                                                     exe_name=exe_name)
         self.log.info("written: %s" % (c_source_filename,))
         if self.config.translation.dump_static_data_info:
             from pypy.translator.tool.staticsizereport import dump_static_data_info
@@ -530,19 +535,20 @@ class TranslationDriver(SimpleTaskEngine):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        return mkexename(py.path.local(newexename))
+        return py.path.local(newexename)
 
     def create_exe(self):
         """ Copy the compiled executable into translator/goal
         """
         if self.exe_name is not None:
-            exename = mkexename(self.c_entryp)
-            newexename = self.compute_exe_name()
+            exename = self.c_entryp
+            newexename = mkexename(self.compute_exe_name())
             shutil.copy(str(exename), str(newexename))
             if self.cbuilder.shared_library_name is not None:
                 soname = self.cbuilder.shared_library_name
                 newsoname = newexename.new(basename=soname.basename)
                 shutil.copy(str(soname), str(newsoname))
+                self.log.info("copied: %s" % (newsoname,))
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 

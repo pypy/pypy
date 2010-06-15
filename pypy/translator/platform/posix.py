@@ -83,6 +83,8 @@ class BasePosix(Platform):
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
+        else:
+            exe_name = exe_name.new(ext=self.exe_ext)
 
         linkflags = self.link_flags[:]
         if shared:
@@ -146,6 +148,7 @@ class BasePosix(Platform):
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', libname),
+            m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo "'
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '

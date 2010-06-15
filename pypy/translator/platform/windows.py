@@ -208,6 +208,8 @@ class MsvcPlatform(Platform):
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
+        else:
+            exe_name = exe_name.new(ext=self.exe_ext)
 
         m = NMakefile(path)
         m.exe_name = exe_name
@@ -220,7 +222,8 @@ class MsvcPlatform(Platform):
         linkflags += self._exportsymbols_link_flags(eci)
 
         if shared:
-            so_name = exe_name.new(ext=self.so_ext)
+            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+                                   ext=self.so_ext)
             target_name = so_name.basename
         else:
             target_name = exe_name.basename
@@ -334,6 +337,7 @@ class MingwPlatform(posix.BasePosix):
     shared_only = []
     cflags = ['-O3']
     link_flags = []
+    exe_ext = 'exe'
     so_ext = 'dll'
 
     def __init__(self, cc=None):
