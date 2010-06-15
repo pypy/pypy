@@ -15,7 +15,9 @@
 #else
 # define MS_WIN32 1
 # define MS_WINDOWS 1
-# include <crtdefs.h>
+# ifdef _MSC_VER
+#  include <crtdefs.h>
+# endif
 # include <io.h>
 # define Py_DEPRECATED(VERSION_UNUSED)
 # ifdef Py_BUILD_CORE
