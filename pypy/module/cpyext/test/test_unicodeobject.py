@@ -161,3 +161,15 @@ class TestUnicode(BaseApiTest):
         test('\\u0105\\u0107\\u017c\\u017a')
         test('El Ni\\xf1o')
 
+    def test_ascii(self, space, api):
+        ustr = "abcdef"
+        w_ustr = space.wrap(ustr.decode("ascii"))
+        result = api.PyUnicode_AsASCIIString(w_ustr)
+        
+        assert space.eq_w(space.wrap(ustr), result)
+
+        w_ustr = space.wrap(u"abcd\xe9f")
+        result = api.PyUnicode_AsASCIIString(w_ustr)
+        assert result is None
+
+

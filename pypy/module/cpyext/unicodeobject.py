@@ -307,6 +307,19 @@ def PyUnicode_DecodeUTF8(space, s, size, errors):
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', space.wrap("utf-8"), w_errors)
 
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsASCIIString(space, w_unicode):
+    """Encode a Unicode object using ASCII and return the result as Python string
+    object.  Error handling is "strict".  Return NULL if an exception was raised
+    by the codec."""
+    try:
+        return space.call_method(w_unicode, 'encode', space.wrap('ascii')) #space.w_None for errors?
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeEncodeError):
+            return None
+        else:
+            raise
+
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     def PyUnicode_EncodeMBCS(space, wchar_p, length, errors):
