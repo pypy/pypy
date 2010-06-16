@@ -1,7 +1,7 @@
 
 import py
 from pypy.tool.autopath import pypydir
-from pypy.tool.release.package import main
+from pypy.tool.release.package import package
 import tarfile, os
 
 def test_dir_structure():
@@ -13,7 +13,7 @@ def test_dir_structure():
     else:
         fake_pypy_c = False
     try:
-        builddir = main(py.path.local(pypydir).dirpath(), 'test')
+        builddir = package(py.path.local(pypydir).dirpath(), 'test')
         assert builddir.join('test', 'lib-python', '2.5.2', 'test').check()
         assert builddir.join('test', 'bin', 'pypy-c').check()
         assert builddir.join('test', 'pypy', 'lib', 'syslog.py').check()

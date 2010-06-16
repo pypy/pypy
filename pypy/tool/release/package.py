@@ -31,9 +31,13 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
-def main(basedir, name='pypy-nightly', rename_pypy_c='pypy-c'):
+def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
+         override_pypy_c = None):
     basedir = py.path.local(basedir)
-    pypy_c = basedir.join('pypy', 'translator', 'goal', 'pypy-c')
+    if override_pypy_c is None:
+        pypy_c = basedir.join('pypy', 'translator', 'goal', 'pypy-c')
+    else:
+        pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
     builddir = udir.ensure("build", dir=True)
@@ -67,4 +71,4 @@ if __name__ == '__main__':
         print >>sys.stderr, __doc__
         sys.exit(1)
     else:
-        main(*sys.argv[1:])
+        package(*sys.argv[1:])
