@@ -14,7 +14,11 @@ typedef struct {
 } PyDateTime_CAPI;
 
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
-#define PyDateTime_IMPORT _PyDateTime_Import()
+#define PyDateTime_IMPORT                           \
+    do {                                            \
+        if(PyDateTimeAPI==NULL)                     \
+            PyDateTimeAPI = _PyDateTime_Import();   \
+    } while (0)
 
 typedef struct {
     PyObject_HEAD

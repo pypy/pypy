@@ -85,6 +85,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("get_types", "METH_NOARGS",
              """
+                 PyDateTime_IMPORT;
                  return PyTuple_Pack(4,
                                      PyDateTimeAPI->DateType,
                                      PyDateTimeAPI->DateTimeType,

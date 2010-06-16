@@ -315,7 +315,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'cpyext.cdatetime.build_datetime_api(space)'),
+    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -617,7 +617,7 @@ def build_bridge(space):
         if "#" in name:
             continue
         if typ == 'PyDateTime_CAPI*':
-            global_objects.append('%s _%s;' % (typ, name))
+            continue
         elif name.startswith('PyExc_'):
             global_objects.append('%s _%s;' % (typ[:-1], name))
         else:
@@ -817,8 +817,7 @@ def build_eci(building_bridge, export_symbols, code):
             structs.append('extern PyTypeObject _%s;' % (name,))
             structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
         elif typ == 'PyDateTime_CAPI*':
-            structs.append('extern %s _%s;' % (typ[:-1], name))
-            structs.append('%s %s = &_%s;' % (typ, name, name))
+            structs.append('%s %s = NULL;' % (typ, name))
     struct_file.write('\n'.join(structs))
 
     eci = ExternalCompilationInfo(
@@ -871,8 +870,7 @@ def setup_library(space):
         if typ in ('PyObject*', 'PyTypeObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
-            struct_ptr = w_obj
-            name = '_' + name
+            continue
         else:
             assert False, "Unknown static data: %s %s" % (typ, name)
         struct = rffi.cast(get_structtype_for_ctype(typ), struct_ptr)._obj
