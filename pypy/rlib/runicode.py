@@ -17,7 +17,7 @@ if MAXUNICODE > sys.maxunicode:
     # Note that Python3 uses a similar implementation.
     def UNICHR(c):
         assert not we_are_translated()
-        if c < sys.maxunicode or c > MAXUNICODE:
+        if c <= sys.maxunicode or c > MAXUNICODE:
             return unichr(c)
         else:
             c -= 0x10000

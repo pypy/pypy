@@ -2,6 +2,16 @@ import py
 import sys, random
 from pypy.rlib import runicode
 
+def test_unichr():
+    a = runicode.UNICHR(0xffff)
+    assert a == u'\uffff'
+    a = runicode.UNICHR(0x10000)
+    if sys.maxunicode < 0x10000:
+        assert len(a) == 2      # surrogates
+    else:
+        assert len(a) == 1
+
+
 class UnicodeTests(object):
     def typeequals(self, x, y):
         assert x == y
