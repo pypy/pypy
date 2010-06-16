@@ -227,6 +227,10 @@ class TestEncoding(UnicodeTests):
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
 
 class TestTranslation(object):
+    def setup_class(cls):
+        if len(runicode.UNICHR(0x10000)) == 2:
+            py.test.skip("these tests cannot run on the llinterp")
+
     def test_utf8(self):
         from pypy.rpython.test.test_llinterp import interpret
         def f(x):
