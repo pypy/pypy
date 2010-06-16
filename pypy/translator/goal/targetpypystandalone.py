@@ -2,7 +2,6 @@ import py
 
 import os, sys
 
-from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
