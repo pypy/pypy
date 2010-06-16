@@ -1,7 +1,7 @@
 
 import py
 from pypy.tool.autopath import pypydir
-from pypy.tool.package import main
+from pypy.tool.release.package import main
 import tarfile, os
 
 def test_dir_structure():
