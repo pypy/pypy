@@ -84,7 +84,7 @@ class AppTestCodecs:
         assert str(UnicodeTranslateError(
             u"g\uffffrk", 1, 2, "ouch"))== "can't translate character u'\\uffff' in position 1: ouch"
         
-        if sys.maxunicode > 0xffff:
+        if sys.maxunicode > 0xffff and len(unichr(0x10000)) == 1:
             assert str(UnicodeTranslateError(
                 u"g\U00010000rk", 1, 2, "ouch"))== "can't translate character u'\\U00010000' in position 1: ouch"
             
@@ -107,7 +107,7 @@ class AppTestCodecs:
        
         assert str(UnicodeEncodeError(
             "ascii", u"\uffffx", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\uffff' in position 0: ouch"
-        if sys.maxunicode > 0xffff:
+        if sys.maxunicode > 0xffff and len(unichr(0x10000)) == 1:
             assert str(UnicodeEncodeError(
                 "ascii", u"\U00010000x", 0, 1, "ouch")) =="'ascii' codec can't encode character u'\\U00010000' in position 0: ouch"
     
@@ -229,7 +229,9 @@ class AppTestPartialEvaluation:
 
     def test_unicode_internal_encode(self):
         import sys
-        enc = u"a".encode("unicode_internal")
+        class U(unicode):
+            pass
+        enc = U(u"a").encode("unicode_internal")
         if sys.maxunicode == 65535: # UCS2 build
             if sys.byteorder == "big":
                 assert enc == "\x00a"

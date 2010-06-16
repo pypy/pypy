@@ -39,8 +39,6 @@ Copyright (c) Corporation for National Research Initiatives.
 # XXX move some of these functions to RPython (like charmap_encode,
 # charmap_build) to make them faster
 
-import sys
-
 def escape_encode( obj, errors='strict'):
     """None
     """
@@ -84,36 +82,36 @@ def charmap_encode(obj, errors='strict', mapping=None):
     res = ''.join(res)
     return res, len(res)
 
-if sys.maxunicode == 65535:
-    unicode_bytes = 2
-else:
-    unicode_bytes = 4
-
 def unicode_internal_encode( obj, errors='strict'):
     """None
     """
-    if type(obj) == unicode:
-        p = []
-        t = [ord(x) for x in obj]
-        for i in t:
-            bytes = []
-            for j in xrange(unicode_bytes):
-                bytes += chr(i%256)
-                i >>= 8
-            if sys.byteorder == "big":
-                bytes.reverse()
-            p += bytes
-        res = ''.join(p)
-        return res, len(res)
+    import sys
+    if sys.maxunicode == 65535:
+        unicode_bytes = 2
     else:
-        res = "You can do better than this" # XXX make this right
-        return res, len(res)
+        unicode_bytes = 4
+    p = []
+    for x in obj:
+        i = ord(x)
+        bytes = []
+        for j in xrange(unicode_bytes):
+            bytes += chr(i%256)
+            i >>= 8
+        if sys.byteorder == "big":
+            bytes.reverse()
+        p += bytes
+    res = ''.join(p)
+    return res, len(res)
 
 def unicode_internal_decode( unistr, errors='strict'):
-    import sys
     if type(unistr) == unicode:
         return unistr, len(unistr)
     else:
+        import sys
+        if sys.maxunicode == 65535:
+            unicode_bytes = 2
+        else:
+            unicode_bytes = 4
         p = []
         i = 0
         if sys.byteorder == "big":
@@ -541,6 +539,7 @@ def unicode_call_errorhandler(errors,  encoding,
 hexdigits = [hex(i)[-1] for i in range(16)]+[hex(i)[-1].upper() for i in range(10, 16)]
 
 def hexescape(s, pos, digits, message, errors):
+    import sys
     chr = 0
     p = []
     if (pos+digits>len(s)):
@@ -580,6 +579,7 @@ def hexescape(s, pos, digits, message, errors):
     return res, pos
 
 def PyUnicode_DecodeUnicodeEscape(s, size, errors):
+    import sys
 
     if (size == 0):
         return u''
@@ -762,6 +762,7 @@ def PyUnicode_EncodeCharmap(p, mapping='latin-1', errors='strict'):
 
 
 def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
+    import sys
 
     if (size == 0):
         return u''
