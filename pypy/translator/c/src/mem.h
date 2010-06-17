@@ -6,8 +6,7 @@
 extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
-extern void *__gcrootanchor;
-extern long pypy_asm_stackwalk(void*);
+extern long pypy_asm_stackwalk(void*, void*);
 #define __gcnoreorderhack __gcmapend
 
 /* The following pseudo-instruction is used by --gcrootfinder=asmgcc
@@ -47,15 +46,13 @@ extern long pypy_asm_stackwalk(void*);
                i == 0 ? (void*)&__gcmapstart :         \
                i == 1 ? (void*)&__gcmapend :           \
                i == 2 ? (void*)&__gccallshapes :       \
-               i == 3 ? (void*)&__gcrootanchor :       \
                NULL
 
 #else
 extern void* __gcmapstart;
 extern void* __gcmapend;
 extern char* __gccallshapes;
-extern void* __gcrootanchor;
-extern long pypy_asm_stackwalk(void*);
+extern long pypy_asm_stackwalk(void*, void*);
 
 /* With the msvc Microsoft Compiler, the optimizer seems free to move
    any code (even asm) that involves local memory (registers and stack).
@@ -82,7 +79,6 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
                i == 0 ? (void*)__gcmapstart :         \
                i == 1 ? (void*)__gcmapend :           \
                i == 2 ? (void*)&__gccallshapes :       \
-               i == 3 ? (void*)&__gcrootanchor :       \
                NULL
 
 #endif

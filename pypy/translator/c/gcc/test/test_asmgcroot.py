@@ -65,8 +65,13 @@ class AbstractTestAsmGCRoot:
                 env = 'LD_LIBRARY_PATH="%s" ' % (exe_name.dirpath(),)
             else:
                 env = ''
-            g = os.popen(
-                '%s"%s" %s %d%s' % (env, exe_name, arg0, arg1, redirect), 'r')
+            cwd = os.getcwd()
+            try:
+                os.chdir(str(exe_name.dirpath()))
+                g = os.popen(
+                    '%s"%s" %s %d%s' % (env, exe_name, arg0, arg1, redirect), 'r')
+            finally:
+                os.chdir(cwd)
             for line in g:
                 print >> sys.stderr, 'RUN:', line.rstrip()
                 lines.append(line)
