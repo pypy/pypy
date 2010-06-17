@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value

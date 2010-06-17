@@ -8,7 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable,\
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
