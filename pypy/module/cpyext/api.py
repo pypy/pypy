@@ -736,6 +736,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         ("SIZEOF_INT", rffi.INT)
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
+    pypy_macros.append('')
     
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))

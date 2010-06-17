@@ -18,6 +18,9 @@
 # ifdef _MSC_VER
 #  include <crtdefs.h>
 # endif
+# ifdef __MINGW32__
+#  include <limits.h>
+# endif
 # include <io.h>
 # define Py_DEPRECATED(VERSION_UNUSED)
 # ifdef Py_BUILD_CORE
