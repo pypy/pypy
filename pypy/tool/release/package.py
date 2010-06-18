@@ -70,7 +70,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
     return builddir # for tests
 
 if __name__ == '__main__':
-    if len(sys.argv) == 1 or len(sys.argv) > 4:
+    if len(sys.argv) == 1:
         print >>sys.stderr, __doc__
         sys.exit(1)
     else:
