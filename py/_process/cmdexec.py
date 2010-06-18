@@ -18,8 +18,10 @@ def cmdexec(cmd):
             universal_newlines=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = process.communicate()
-    out = py.builtin._totext(out, sys.stdout.encoding)
-    err = py.builtin._totext(err, sys.stderr.encoding)
+    out = py.builtin._totext(out, sys.stdout.encoding or
+                             sys.getdefaultencoding())
+    err = py.builtin._totext(err, sys.stderr.encoding or
+                             sys.getdefaultencoding())
     status = process.poll()
     if status:
         raise ExecutionFailed(status, status, cmd, out, err)
