@@ -32,7 +32,7 @@ class PyPyCNotFound(Exception):
     pass
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
-         override_pypy_c = None):
+            copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         pypy_c = basedir.join('pypy', 'translator', 'goal', 'pypy-c')
@@ -64,6 +64,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
                   " " + name)
     finally:
         os.chdir(old_dir)
+    if copy_to_dir is not None:
+        print "Copying to %s" % copy_to_dir
+        shutil.copy(str(builddir.join(name + '.tar.bz2')), copy_to_dir)
     return builddir # for tests
 
 if __name__ == '__main__':
