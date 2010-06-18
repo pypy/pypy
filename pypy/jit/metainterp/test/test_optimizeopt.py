@@ -597,6 +597,25 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not', ops)
 
+    def test_int_is_true_of_bool(self):
+        ops = """
+        [i0, i1]
+        i2 = int_gt(i0, i1)
+        i3 = int_is_true(i2)
+        i4 = int_is_true(i3)
+        guard_value(i4, 0) [i0, i1]
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_gt(i0, i1)
+        guard_false(i2) [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+
+
 
     def test_p123_simple(self):
         ops = """

@@ -554,7 +554,7 @@ class Optimizer(object):
         elif op.can_raise():
             self.exception_might_have_happened = True
         elif op.returns_bool_result():
-            self.bool_boxes[op.result] = None
+            self.bool_boxes[self.getvalue(op.result)] = None
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
@@ -568,7 +568,7 @@ class Optimizer(object):
         descr.store_final_boxes(op, newboxes)
         #
         if op.opnum == rop.GUARD_VALUE:
-            if op.args[0] in self.bool_boxes:
+            if self.getvalue(op.args[0]) in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
                 # This is done after the operation is emitted, to let
                 # store_final_boxes_in_guard set the guard_opnum field
@@ -746,6 +746,9 @@ class Optimizer(object):
             self.optimize_default(op)
 
     def optimize_INT_IS_TRUE(self, op):
+        if self.getvalue(op.args[0]) in self.bool_boxes:
+            self.make_equal_to(op.result, self.getvalue(op.args[0]))
+            return
         self._optimize_nullness(op, op.args[0], True)
 
     def optimize_INT_IS_ZERO(self, op):
