@@ -33,7 +33,7 @@ class ProfOpt(object):
 
     def first(self):
         platform = self.compiler.platform
-        if platform.name == 'darwin':
+        if platform.name.startswith('darwin'):
             # XXX incredible hack for darwin
             cfiles = self.compiler.cfiles
             STR = '/*--no-profiling-for-this-file!--*/'
