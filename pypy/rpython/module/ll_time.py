@@ -24,7 +24,7 @@ else:
     STRUCT_TIMEB = 'struct timeb'
     includes = [TIME_H, 'time.h', 'errno.h', 'sys/select.h',
                 'sys/types.h', 'unistd.h', 'sys/timeb.h',
-                'sys/resource.h']
+                'sys/time.h', 'sys/resource.h']
     need_rusage = True
 
 

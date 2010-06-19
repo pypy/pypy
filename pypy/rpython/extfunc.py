@@ -94,6 +94,7 @@ class LazyRegisteringMeta(type):
 
 class BaseLazyRegistering(object):
     __metaclass__ = LazyRegisteringMeta
+    compilation_info = None
 
     def configure(self, CConfig):
         classes_seen = self.__dict__.setdefault('__classes_seen', {})
@@ -101,7 +102,11 @@ class BaseLazyRegistering(object):
             return
         from pypy.rpython.tool import rffi_platform as platform
         # copy some stuff
-        self.compilation_info = CConfig._compilation_info_
+        if self.compilation_info is None:
+            self.compilation_info = CConfig._compilation_info_
+        else:
+            self.compilation_info = self.compilation_info.merge(
+                CConfig._compilation_info_)
         self.__dict__.update(platform.configure(CConfig))
         classes_seen[CConfig] = True
 
