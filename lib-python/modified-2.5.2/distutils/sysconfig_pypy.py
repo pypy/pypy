@@ -13,6 +13,9 @@ python_build = False
 
 def get_python_inc(plat_specific=0, prefix=None):
     from os.path import join as j
+    cand = j(sys.pypy_prefix, 'include')
+    if os.path.exists(cand):
+        return cand
     if plat_specific:
         return j(sys.pypy_prefix, "pypy", "_interfaces")
     return j(sys.pypy_prefix, 'pypy', 'module', 'cpyext', 'include')
