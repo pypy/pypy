@@ -3,10 +3,14 @@ from pypy.jit.metainterp import history, compile
 
 class AbstractCPU(object):
     supports_floats = False
+    _got_exception = None
     # assembler_helper_ptr - a pointer to helper to call after a direct
     #                        assembler call
     portal_calldescr = None
+    done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
+    done_with_this_frame_ref_v = -1
+    done_with_this_frame_float_v = -1
 
     def __init__(self):
         self.fail_descr_list = []
@@ -23,9 +27,6 @@ class AbstractCPU(object):
 
     def get_fail_descr_from_number(self, n):
         return self.fail_descr_list[n]
-
-    def set_class_sizes(self, class_sizes):
-        self.class_sizes = class_sizes
 
     def setup_once(self):
         """Called once by the front-end when the program starts."""
@@ -87,38 +88,31 @@ class AbstractCPU(object):
         or from 'args' if it was a FINISH).  Returns a ptr or an obj."""
         raise NotImplementedError
 
+    def get_latest_value_count(self):
+        """Return how many values are ready to be returned by
+        get_latest_value_xxx().  Only after a guard failure; not
+        necessarily correct after a FINISH."""
+        raise NotImplementedError
+
     def get_latest_force_token(self):
         """After a GUARD_NOT_FORCED fails, this function returns the
         same FORCE_TOKEN result as the one in the just-failed loop."""
         raise NotImplementedError
 
-    def make_boxes_from_latest_value(self, faildescr):
-        """Build a list of Boxes (and None for holes) that contains
-        the current values, as would be returned by calls to
-        get_latest_value_xxx()."""
+    def clear_latest_values(self, count):
+        """Clear the latest values (at least the ref ones), so that
+        they no longer keep objects alive.  'count' is the number of
+        values -- normally get_latest_value_count()."""
         raise NotImplementedError
 
-    def get_exception(self):
-        raise NotImplementedError
-
-    def get_exc_value(self):
-        raise NotImplementedError
-
-    def clear_exception(self):
-        raise NotImplementedError
-
-    def get_overflow_error(self):
-        raise NotImplementedError
-
-    def get_zero_division_error(self):
+    def grab_exc_value(self):
+        """Return and clear the exception set by the latest execute_token(),
+        when it exits due to a failure of a GUARD_EXCEPTION or
+        GUARD_NO_EXCEPTION.  (Returns a GCREF)"""        # XXX remove me
         raise NotImplementedError
 
     @staticmethod
     def sizeof(S):
-        raise NotImplementedError
-
-    @staticmethod
-    def numof(S):
         raise NotImplementedError
 
     @staticmethod
@@ -157,101 +151,87 @@ class AbstractCPU(object):
 
     # lltype specific operations
     # --------------------------
-    
-    def do_arraylen_gc(self, arraybox, arraydescr):
+
+    def bh_getarrayitem_gc_i(self, arraydescr, array, index):
+        raise NotImplementedError
+    def bh_getarrayitem_gc_r(self, arraydescr, array, index):
+        raise NotImplementedError
+    def bh_getarrayitem_gc_f(self, arraydescr, array, index):
         raise NotImplementedError
 
-    def do_strlen(self, stringbox):
+    def bh_getfield_gc_i(self, struct, fielddescr):
+        raise NotImplementedError
+    def bh_getfield_gc_r(self, struct, fielddescr):
+        raise NotImplementedError
+    def bh_getfield_gc_f(self, struct, fielddescr):
         raise NotImplementedError
 
-    def do_strgetitem(self, stringbox, indexbox):
+    def bh_getfield_raw_i(self, struct, fielddescr):
+        raise NotImplementedError
+    def bh_getfield_raw_r(self, struct, fielddescr):
+        raise NotImplementedError
+    def bh_getfield_raw_f(self, struct, fielddescr):
         raise NotImplementedError
 
-    def do_unicodelen(self, stringbox):
+    def bh_new(self, sizedescr):
+        raise NotImplementedError
+    def bh_new_with_vtable(self, sizedescr, vtable):
+        raise NotImplementedError
+    def bh_new_array(self, arraydescr, length):
+        raise NotImplementedError
+    def bh_newstr(self, length):
+        raise NotImplementedError
+    def bh_newunicode(self, length):
         raise NotImplementedError
 
-    def do_unicodegetitem(self, stringbox, indexbox):
+    def bh_arraylen_gc(self, arraydescr, array):
         raise NotImplementedError
 
-    def do_getarrayitem_gc(self, arraybox, indexbox, arraydescr):
+    def bh_classof(self, struct):
         raise NotImplementedError
 
-    def do_arraycopy(self, calldescr, fnptr, sourcebox, destbox,
-                     source_startbox, dest_startbox, lengthbox, arraydescr):
-        return self.do_call([fnptr, sourcebox, destbox, source_startbox,
-                             dest_startbox, lengthbox], calldescr)
-    
-    def do_getfield_gc(self, structbox, fielddescr):
+    def bh_setarrayitem_gc_i(self, arraydescr, array, index, newvalue):
         raise NotImplementedError
-    
-    def do_getfield_raw(self, structbox, fielddescr):
+    def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
+        raise NotImplementedError
+    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
         raise NotImplementedError
 
-    def do_new(self, sizedescr):
+    def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
+        raise NotImplementedError
+    def bh_setfield_gc_r(self, struct, fielddescr, newvalue):
+        raise NotImplementedError
+    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
         raise NotImplementedError
 
-    def do_new_with_vtable(self, classbox):
+    def bh_setfield_raw_i(self, struct, fielddescr, newvalue):
         raise NotImplementedError
-    
-    def do_new_array(self, lengthbox, arraydescr):
+    def bh_setfield_raw_r(self, struct, fielddescr, newvalue):
         raise NotImplementedError
-    
-    def do_setarrayitem_gc(self, arraybox, indexbox, newvaluebox, arraydescr):
+    def bh_setfield_raw_f(self, struct, fielddescr, newvalue):
         raise NotImplementedError
 
-    def do_setarrayitem_raw(self, arraybox, indexbox, newvaluebox, arraydescr):
+    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+        raise NotImplementedError
+    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
+        raise NotImplementedError
+    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+        raise NotImplementedError
+    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
         raise NotImplementedError
 
-    def do_setfield_gc(self, structbox, newvaluebox, fielddescr):
+    def bh_strlen(self, string):
         raise NotImplementedError
-
-    def do_setfield_raw(self, structbox, newvaluebox, fielddescr):
+    def bh_strgetitem(self, string, index):
         raise NotImplementedError
-        
-    def do_newstr(self, lengthbox):
+    def bh_unicodelen(self, string):
         raise NotImplementedError
-
-    def do_newunicode(self, lengthbox):
+    def bh_unicodegetitem(self, string, index):
         raise NotImplementedError
-
-    def do_strsetitem(self, stringbox, indexbox, charbox):
+    def bh_strsetitem(self, string, index, newvalue):
         raise NotImplementedError
-
-    def do_unicodesetitem(self, stringbox, indexbox, charbox):
+    def bh_unicodesetitem(self, string, index, newvalue):
         raise NotImplementedError
-
-    def do_call(self, args, calldescr):
-        raise NotImplementedError
-
-    def do_call_assembler(self, args, token):
-        raise NotImplementedError
-
-    def do_call_loopinvariant(self, args, calldescr):
-        return self.do_call(args, calldescr)
-
-    def do_cond_call_gc_wb(self, args, calldescr):
-        raise NotImplementedError
-
-    def do_cast_ptr_to_int(self, ptrbox):
-        raise NotImplementedError
-
-    def do_call_may_force(self, args, calldescr):
-        return self.do_call(args, calldescr)
 
     def force(self, force_token):
-        raise NotImplementedError
-
-    # ootype specific operations
-    # --------------------------
-
-    def do_runtimenew(self, classbox):
-        raise NotImplementedError
-
-    def do_oosend(self, args, descr):
-        raise NotImplementedError
-
-    def do_instanceof(self, instancebox, typedescr):
-        raise NotImplementedError
-
-    def typedescr2classbox(self, descr):
         raise NotImplementedError

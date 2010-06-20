@@ -4,30 +4,97 @@ from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
-from pypy.jit.metainterp import support, codewriter, pyjitpl, history
-from pypy.jit.metainterp.policy import JitPolicy, StopAtXPolicy
+from pypy.jit.metainterp import pyjitpl, history
+from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
-def _get_bare_metainterp(func, values, CPUClass, type_system,
-                         listops=False):
-    from pypy.annotation.policy import AnnotatorPolicy
-    from pypy.annotation.model import lltype_to_annotation
-    from pypy.rpython.test.test_llinterp import gengraph
+def _get_jitcodes(testself, CPUClass, func, values, type_system):
+    from pypy.jit.codewriter import support, codewriter
+    from pypy.jit.metainterp import simple_optimize
 
+    class FakeWarmRunnerState:
+        def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
+            pass
+
+        # pick the optimizer this way
+        optimize_loop = staticmethod(simple_optimize.optimize_loop)
+        optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
+
+        trace_limit = sys.maxint
+        debug_level = 2
+
+    func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
-
+    graphs = rtyper.annotator.translator.graphs
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)
-    graphs = rtyper.annotator.translator.graphs
-    opt = history.Options(listops=listops)
-    metainterp_sd = pyjitpl.MetaInterpStaticData(graphs[0], cpu, stats, opt)
-    metainterp_sd.finish_setup(optimizer="bogus")
+    cw = codewriter.CodeWriter(cpu, graphs[0])
+    testself.cw = cw
+    cw.find_all_graphs(JitPolicy())
+    #
+    testself.warmrunnerstate = FakeWarmRunnerState()
+    testself.warmrunnerstate.cpu = cpu
+    if hasattr(testself, 'finish_setup_for_interp_operations'):
+        testself.finish_setup_for_interp_operations()
+    #
+    cw.make_jitcodes(verbose=True)
+
+def _run_with_blackhole(testself, args):
+    from pypy.jit.metainterp.blackhole import BlackholeInterpBuilder
+    cw = testself.cw
+    blackholeinterpbuilder = BlackholeInterpBuilder(cw)
+    blackholeinterp = blackholeinterpbuilder.acquire_interp()
+    count_i = count_r = count_f = 0
+    for value in args:
+        T = lltype.typeOf(value)
+        if T == lltype.Signed:
+            blackholeinterp.setarg_i(count_i, value)
+            count_i += 1
+        elif T == llmemory.GCREF:
+            blackholeinterp.setarg_r(count_r, value)
+            count_r += 1
+        elif T == lltype.Float:
+            blackholeinterp.setarg_f(count_f, value)
+            count_f += 1
+        else:
+            raise TypeError(T)
+    blackholeinterp.setposition(cw.mainjitcode, 0)
+    blackholeinterp.run()
+    return blackholeinterp._final_result_anytype()
+
+def _run_with_pyjitpl(testself, args):
+
+    class DoneWithThisFrame(Exception):
+        pass
+
+    class DoneWithThisFrameRef(DoneWithThisFrame):
+        def __init__(self, cpu, *args):
+            DoneWithThisFrame.__init__(self, *args)
+
+    cw = testself.cw
+    opt = history.Options(listops=True)
+    metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+    metainterp_sd.finish_setup(cw, optimizer="bogus")
+    metainterp_sd.state = testself.warmrunnerstate
+    metainterp_sd.state.cpu = metainterp_sd.cpu
     metainterp = pyjitpl.MetaInterp(metainterp_sd)
-    return metainterp, rtyper
+    metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrame
+    metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
+    metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrame
+    testself.metainterp = metainterp
+    try:
+        metainterp.compile_and_run_once(*args)
+    except DoneWithThisFrame, e:
+        #if conftest.option.view:
+        #    metainterp.stats.view()
+        return e.args[0]
+    else:
+        raise Exception("FAILED")
+
 
 class JitMixin:
     basic = True
@@ -63,56 +130,14 @@ class JitMixin:
         return ll_meta_interp(*args, **kwds)
 
     def interp_operations(self, f, args, **kwds):
-        from pypy.jit.metainterp import simple_optimize
-
-        class DoneWithThisFrame(Exception):
-            pass
-
-        class DoneWithThisFrameRef(DoneWithThisFrame):
-            def __init__(self, cpu, *args):
-                DoneWithThisFrame.__init__(self, *args)
-        
-        class FakeWarmRunnerState:
-            def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
-                pass
-
-            # pick the optimizer this way
-            optimize_loop = staticmethod(simple_optimize.optimize_loop)
-            optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
-
-            trace_limit = sys.maxint
-            debug_level = 2
-        
-        metainterp, rtyper = _get_bare_metainterp(f, args, self.CPUClass,
-                                                  self.type_system,
-                                                  **kwds)
-        metainterp.staticdata.state = FakeWarmRunnerState()
-        metainterp.staticdata.state.cpu = metainterp.staticdata.cpu
-        if hasattr(self, 'finish_metainterp_for_interp_operations'):
-            self.finish_metainterp_for_interp_operations(metainterp)
-        portal_graph = rtyper.annotator.translator.graphs[0]
-        cw = codewriter.CodeWriter(rtyper)
-        
-        graphs = cw.find_all_graphs(portal_graph, JitPolicy(),
-                                    self.CPUClass.supports_floats)
-        cw._start(metainterp.staticdata, None)
-        portal_graph.func._jit_unroll_safe_ = True
-        maingraph = cw.make_one_bytecode((portal_graph, None), False)
-        cw.finish_making_bytecodes()
-        metainterp.staticdata.portal_code = maingraph
-        metainterp.staticdata._class_sizes = cw.class_sizes
-        metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
-        metainterp.staticdata.DoneWithThisFrameRef = DoneWithThisFrameRef
-        metainterp.staticdata.DoneWithThisFrameFloat = DoneWithThisFrame
-        self.metainterp = metainterp
-        try:
-            metainterp.compile_and_run_once(*args)
-        except DoneWithThisFrame, e:
-            #if conftest.option.view:
-            #    metainterp.stats.view()
-            return e.args[0]
-        else:
-            raise Exception("FAILED")
+        # get the JitCodes for the function f
+        _get_jitcodes(self, self.CPUClass, f, args, self.type_system)
+        # try to run it with blackhole.py
+        result1 = _run_with_blackhole(self, args)
+        # try to run it with pyjitpl.py
+        result2 = _run_with_pyjitpl(self, args)
+        assert result1 == result2
+        return result1
 
     def check_history(self, expected=None, **isns):
         # this can be used after calling meta_interp
@@ -120,6 +145,9 @@ class JitMixin:
 
     def check_operations_history(self, expected=None, **isns):
         # this can be used after interp_operations
+        if expected is not None:
+            expected = dict(expected)
+            expected['jump'] = 1
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 
@@ -151,7 +179,7 @@ class LLJitMixin(JitMixin):
     
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
-    CPUClass = runner.OOtypeCPU
+    #CPUClass = runner.OOtypeCPU
 
     def setup_class(cls):
         py.test.skip("ootype tests skipped for now")
@@ -204,10 +232,12 @@ class BasicTests:
         from pypy.rlib.rarithmetic import r_uint
         
         def f(a, b):
+            a = r_uint(a)
+            b = r_uint(b)
             return a/b
 
-        res = self.interp_operations(f, [r_uint(4), r_uint(3)])
-        assert res == 1
+        res = self.interp_operations(f, [-4, 3])
+        assert res == long(r_uint(-4)) // 3
 
     def test_direct_call(self):
         def g(n):
@@ -337,7 +367,74 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
-        self.check_operations_history(int_add=0, int_mul=0, call=0)
+        # CALL_PURE is not recorded in the history if all-constant args
+        self.check_operations_history(int_add=0, int_mul=0,
+                                      call=0, call_pure=0)
+
+    def test_residual_call_pure_1(self):
+        def externfn(x, y):
+            return x * y
+        externfn._pure_function_ = True
+        def f(n):
+            return externfn(n, n+1)
+        res = self.interp_operations(f, [6])
+        assert res == 42
+        # CALL_PURE is recorded in the history if not-all-constant args
+        self.check_operations_history(int_add=1, int_mul=0,
+                                      call=0, call_pure=1)
+
+    def test_residual_call_pure_2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def externfn(x):
+            return x - 1
+        externfn._pure_function_ = True
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n = externfn(n)
+            return n
+        res = self.meta_interp(f, [7])
+        assert res == 0
+        # CALL_PURE is recorded in the history, but turned into a CALL
+        # by optimizeopt.py
+        self.check_loops(int_sub=0, call=1, call_pure=0)
+
+    def test_constfold_call_pure(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        def externfn(x):
+            return x - 3
+        externfn._pure_function_ = True
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                n -= externfn(m)
+            return n
+        res = self.meta_interp(f, [21, 5])
+        assert res == -1
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
+
+    def test_constfold_call_pure_2(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        def externfn(x):
+            return x - 3
+        externfn._pure_function_ = True
+        class V:
+            def __init__(self, value):
+                self.value = value
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                v = V(m)
+                n -= externfn(v.value)
+            return n
+        res = self.meta_interp(f, [21, 5])
+        assert res == -1
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -444,6 +541,76 @@ class BasicTests:
         res = self.meta_interp(f, [10])
         assert res == 0
 
+    def test_uint_operations(self):
+        from pypy.rlib.rarithmetic import r_uint
+        def f(n):
+            return ((r_uint(n) - 123) >> 1) <= r_uint(456)
+        res = self.interp_operations(f, [50])
+        assert res == False
+        self.check_operations_history(int_rshift=0, uint_rshift=1,
+                                      int_le=0, uint_le=1,
+                                      int_sub=1)
+
+    def test_uint_condition(self):
+        from pypy.rlib.rarithmetic import r_uint
+        def f(n):
+            if ((r_uint(n) - 123) >> 1) <= r_uint(456):
+                return 24
+            else:
+                return 12
+        res = self.interp_operations(f, [50])
+        assert res == 12
+        self.check_operations_history(int_rshift=0, uint_rshift=1,
+                                      int_le=0, uint_le=1,
+                                      int_sub=1)
+
+    def test_int_between(self):
+        #
+        def check(arg1, arg2, arg3, expect_result, **expect_operations):
+            from pypy.rpython.lltypesystem import lltype
+            from pypy.rpython.lltypesystem.lloperation import llop
+            loc = locals().copy()
+            exec py.code.Source("""
+                def f(n, m, p):
+                    arg1 = %(arg1)s
+                    arg2 = %(arg2)s
+                    arg3 = %(arg3)s
+                    return llop.int_between(lltype.Bool, arg1, arg2, arg3)
+            """ % locals()).compile() in loc
+            res = self.interp_operations(loc['f'], [5, 6, 7])
+            assert res == expect_result
+            self.check_operations_history(expect_operations)
+        #
+        check('n', 'm', 'p', True,  int_sub=2, uint_lt=1)
+        check('n', 'p', 'm', False, int_sub=2, uint_lt=1)
+        #
+        check('n', 'm', 6, False, int_sub=2, uint_lt=1)
+        #
+        check('n', 4, 'p', False, int_sub=2, uint_lt=1)
+        check('n', 5, 'p', True,  int_sub=2, uint_lt=1)
+        check('n', 8, 'p', False, int_sub=2, uint_lt=1)
+        #
+        check('n', 6, 7, True, int_sub=2, uint_lt=1)
+        #
+        check(-2, 'n', 'p', True,  int_sub=2, uint_lt=1)
+        check(-2, 'm', 'p', True,  int_sub=2, uint_lt=1)
+        check(-2, 'p', 'm', False, int_sub=2, uint_lt=1)
+        #check(0, 'n', 'p', True,  uint_lt=1)   xxx implement me
+        #check(0, 'm', 'p', True,  uint_lt=1)
+        #check(0, 'p', 'm', False, uint_lt=1)
+        #
+        check(2, 'n', 6, True,  int_sub=1, uint_lt=1)
+        check(2, 'm', 6, False, int_sub=1, uint_lt=1)
+        check(2, 'p', 6, False, int_sub=1, uint_lt=1)
+        check(5, 'n', 6, True,  int_eq=1)    # 6 == 5+1
+        check(5, 'm', 6, False, int_eq=1)    # 6 == 5+1
+        #
+        check(2, 6, 'm', False, int_sub=1, uint_lt=1)
+        check(2, 6, 'p', True,  int_sub=1, uint_lt=1)
+        #
+        check(2, 40, 6,  False)
+        check(2, 40, 60, True)
+
     def test_getfield(self):
         class A:
             pass
@@ -513,6 +680,39 @@ class BasicTests:
         res = self.interp_operations(f, [15])
         assert res == -1
 
+    def test_int_add_ovf(self):
+        def f(x, y):
+            try:
+                return ovfcheck(x + y)
+            except OverflowError:
+                return -42
+        res = self.interp_operations(f, [-100, 2])
+        assert res == -98
+        res = self.interp_operations(f, [1, sys.maxint])
+        assert res == -42
+
+    def test_int_sub_ovf(self):
+        def f(x, y):
+            try:
+                return ovfcheck(x - y)
+            except OverflowError:
+                return -42
+        res = self.interp_operations(f, [-100, 2])
+        assert res == -102
+        res = self.interp_operations(f, [1, -sys.maxint])
+        assert res == -42
+
+    def test_int_mul_ovf(self):
+        def f(x, y):
+            try:
+                return ovfcheck(x * y)
+            except OverflowError:
+                return -42
+        res = self.interp_operations(f, [-100, 2])
+        assert res == -200
+        res = self.interp_operations(f, [-3, sys.maxint//2])
+        assert res == -42
+
     def test_mod_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
         def f(n, x, y):
@@ -523,6 +723,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
+        self.check_loops(call=0)
 
     def test_abs(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
@@ -581,10 +782,9 @@ class BasicTests:
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
         #    ENTER             - compile the new loop
-        #    ENTER (BlackHole) - leave
         #    ENTER             - compile the entry bridge
         #    ENTER             - compile the leaving path
-        self.check_enter_count(4)
+        self.check_enter_count(3)
 
     def test_bridge_from_interpreter_2(self):
         # one case for backend - computing of framesize on guard failure
@@ -731,21 +931,26 @@ class BasicTests:
     def test_zerodivisionerror(self):
         # test the case of exception-raising operation that is not delegated
         # to the backend at all: ZeroDivisionError
-        from pypy.rpython.lltypesystem.lloperation import llop
         #
         def f(n):
+            assert n >= 0
             try:
-                return llop.int_mod_ovf_zer(lltype.Signed, 5, n)
+                return ovfcheck(5 % n)
             except ZeroDivisionError:
                 return -666
+            except OverflowError:
+                return -777
         res = self.interp_operations(f, [0])
         assert res == -666
         #
         def f(n):
+            assert n >= 0
             try:
-                return llop.int_floordiv_ovf_zer(lltype.Signed, 6, n)
+                return ovfcheck(6 // n)
             except ZeroDivisionError:
                 return -667
+            except OverflowError:
+                return -778
         res = self.interp_operations(f, [0])
         assert res == -667
 
@@ -795,7 +1000,7 @@ class BasicTests:
         assert not res
 
     def test_isinstance_2(self):
-        driver = JitDriver(greens = [], reds = ['x', 'n', 'sum'])
+        driver = JitDriver(greens = [], reds = ['n', 'sum', 'x'])
         class A:
             pass
         class B(A):
@@ -836,7 +1041,9 @@ class BasicTests:
             return obj.a
         res = self.interp_operations(fn, [1])
         assert res == 1
-        self.check_operations_history(guard_class=0, instanceof=0)
+        self.check_operations_history(guard_class=0)
+        if self.type_system == 'ootype':
+            self.check_operations_history(instanceof=0)
 
     def test_r_dict(self):
         from pypy.rlib.objectmodel import r_dict
@@ -1017,10 +1224,10 @@ class BasicTests:
 
     def test_residual_external_call(self):
         import math
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         def f(x, y):
             x = float(x)
-            res = 0
+            res = 0.0
             while y > 0:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
@@ -1259,7 +1466,7 @@ class BasicTests:
         self.check_loops(call=1)
 
     def test_bug_optimizeopt_mutates_ops(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'a', 'const'])
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'const', 'a'])
         class A(object):
             pass
         class B(A):
@@ -1325,6 +1532,16 @@ class BasicTests:
         self.check_loop_count(1)
         # this checks that the logic triggered by make_a_counter_per_value()
         # works and prevents generating tons of bridges
+
+    def test_swap_values(self):
+        def f(x, y):
+            if x > 5:
+                x, y = y, x
+            return x - y
+        res = self.interp_operations(f, [10, 2])
+        assert res == -8
+        res = self.interp_operations(f, [3, 2])
+        assert res == 1
 
 
 class TestOOtype(BasicTests, OOJitMixin):
@@ -1426,33 +1643,47 @@ class BaseLLtypeTests(BasicTests):
         from pypy.rpython.lltypesystem import lltype
         
         TP = lltype.Struct('x')
-        def f(p1, p2):
+        def f(i1, i2):
+            p1 = prebuilt[i1]
+            p2 = prebuilt[i2]
             a = p1 is p2
             b = p1 is not p2
             c = bool(p1)
             d = not bool(p2)
             return 1000*a + 100*b + 10*c + d
-        x = lltype.malloc(TP, flavor='raw')
-        expected = f(x, x)
-        assert self.interp_operations(f, [x, x]) == expected
-        lltype.free(x, flavor='raw')
+        prebuilt = [lltype.malloc(TP, flavor='raw')] * 2
+        expected = f(0, 1)
+        assert self.interp_operations(f, [0, 1]) == expected
 
     def test_casts(self):
+        py.test.skip("xxx fix or kill")
         if not self.basic:
             py.test.skip("test written in a style that "
                          "means it's frontend only")
-        from pypy.rpython.lltypesystem import lltype, llmemory
-        
-        TP = lltype.GcStruct('x')
+        from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+
+        TP = lltype.GcStruct('S1')
         def f(p):
             n = lltype.cast_ptr_to_int(p)
             return n
-
         x = lltype.malloc(TP)
-        res = self.interp_operations(f, [x])
-        expected = self.metainterp.cpu.do_cast_ptr_to_int(
-            history.BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, x))).value
-        assert res == expected
+        xref = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        res = self.interp_operations(f, [xref])
+        y = llmemory.cast_ptr_to_adr(x)
+        y = llmemory.cast_adr_to_int(y)
+        assert rffi.get_real_int(res) == rffi.get_real_int(y)
+        #
+        TP = lltype.Struct('S2')
+        prebuilt = [lltype.malloc(TP, immortal=True),
+                    lltype.malloc(TP, immortal=True)]
+        def f(x):
+            p = prebuilt[x]
+            n = lltype.cast_ptr_to_int(p)
+            return n
+        res = self.interp_operations(f, [1])
+        y = llmemory.cast_ptr_to_adr(prebuilt[1])
+        y = llmemory.cast_adr_to_int(y)
+        assert rffi.get_real_int(res) == rffi.get_real_int(y)
 
     def test_collapsing_ptr_eq(self):
         S = lltype.GcStruct('S')

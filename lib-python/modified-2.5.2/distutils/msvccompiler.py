@@ -159,13 +159,59 @@ you can try compiling with MingW32, by passing "-c mingw32" to setup.py.""")
             s = s.replace(k, v)
         return s
 
+def get_manifests():
+    """Retrieves the manifest(s) embedded in the current executable"""
+    import ctypes.wintypes
+    EnumResourceNames = ctypes.windll.kernel32.EnumResourceNamesA
+    EnumResourceNameCallback = ctypes.WINFUNCTYPE(
+        ctypes.wintypes.BOOL,
+        ctypes.wintypes.HMODULE, ctypes.wintypes.LONG,
+        ctypes.wintypes.LONG, ctypes.wintypes.LONG)
+    FindResource = ctypes.windll.kernel32.FindResourceA
+    LoadResource = ctypes.windll.kernel32.LoadResource
+    FreeResource = ctypes.windll.kernel32.FreeResource
+    SizeofResource = ctypes.windll.kernel32.SizeofResource
+    LockResource = ctypes.windll.kernel32.LockResource
+    UnlockResource = lambda x: None # hehe
+
+    manifests = []
+
+    def callback(hModule, lpType, lpName, lParam):
+        hResource = FindResource(hModule, lpName, lpType)
+        size = SizeofResource(hModule, hResource)
+        hData = LoadResource(hModule, hResource)
+        try:
+            ptr = LockResource(hData)
+            try:
+                manifests.append(ctypes.string_at(ptr, size))
+            finally:
+                UnlockResource(hData)
+        finally:
+            FreeResource(hData)
+        return True
+
+    hModule = None       # main executable
+    RT_MANIFEST = 24     # from WinUser.h
+    EnumResourceNames(hModule, RT_MANIFEST,
+                      EnumResourceNameCallback(callback), None)
+    return manifests
+
 def get_build_version():
     """Return the version of MSVC that was used to build Python.
-
-    For Python 2.3 and up, the version number is included in
-    sys.version.  For earlier versions, assume the compiler is MSVC 6.
     """
+    try:
+        manifests = get_manifests()
+        for manifest in manifests:
+            match = re.search('"Microsoft.VC([0-9]+).CRT"', manifest)
+            if match:
+                return int(match.group(1)) / 10.0
+    except BaseException:
+        pass
+    # No manifest embedded, use default compiler version
     return 9.0
+
+def get_build_architecture():
+    return 'Intel'
 
 def normalize_and_reduce_paths(paths):
     """Return a list of normalized paths with duplicates removed.

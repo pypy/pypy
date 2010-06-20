@@ -2,9 +2,8 @@ import py
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
-from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import history
 
@@ -342,7 +341,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_loop_unicode(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         def f(n):
             x = u''
             while n > 13:
@@ -356,7 +355,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_loop_string(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         def f(n):
             x = ''
             while n > 13:

@@ -577,6 +577,9 @@ class __extend__(SomeIterator):
         return can_throw
 
     def next(itr):
+        if itr.variant == ("enumerate",):
+            s_item = itr.s_container.getanyitem()
+            return SomeTuple((SomeInteger(nonneg=True), s_item))
         return itr.s_container.getanyitem(*itr.variant)
     next.can_only_throw = _can_only_throw
     method_next = next

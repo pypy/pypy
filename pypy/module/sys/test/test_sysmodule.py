@@ -177,6 +177,26 @@ class AppTestSysModulePortedFromCPython:
         sys.stderr = savestderr
         assert err.getvalue().endswith("ValueError: 42\n")
 
+    def test_excepthook_failsafe_path(self):
+        import traceback
+        original_print_exception = traceback.print_exception
+        import cStringIO
+        savestderr = sys.stderr
+        err = cStringIO.StringIO()
+        sys.stderr = err
+        try:
+            traceback.print_exception = "foo"
+            eh = sys.__excepthook__
+            try:
+                raise ValueError(42)
+            except ValueError, exc:
+                eh(*sys.exc_info())
+        finally:
+            traceback.print_exception = original_print_exception
+            sys.stderr = savestderr
+
+        assert err.getvalue() == "ValueError: 42\n"
+
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 

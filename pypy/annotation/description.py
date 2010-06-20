@@ -539,9 +539,18 @@ class ClassDesc(Desc):
                 try:
                     args.fixedunpack(0)
                 except ValueError:
-
                     raise Exception("default __init__ takes no argument"
                                     " (class %s)" % (self.name,))
+            elif self.pyobj is Exception:
+                # check explicitly against "raise Exception, x" where x
+                # is a low-level exception pointer
+                try:
+                    [s_arg] = args.fixedunpack(1)
+                except ValueError:
+                    pass
+                else:
+                    from pypy.annotation.model import SomePtr
+                    assert not isinstance(s_arg, SomePtr)
         else:
             # call the constructor
             args = args.prepend(s_instance)

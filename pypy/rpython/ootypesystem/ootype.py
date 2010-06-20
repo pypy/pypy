@@ -3,7 +3,7 @@ from py.builtin import set
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
-from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
+from pypy.rpython.lltypesystem.lltype import frozendict
 from pypy.rpython.lltypesystem.lltype import identityhash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import objectmodel

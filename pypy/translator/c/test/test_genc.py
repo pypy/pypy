@@ -144,10 +144,8 @@ def test_empty_string():
     assert f1() == '\x00'
 
 def test_runtime_type_info():
-    S = GcStruct('s', ('is_actually_s1', Bool))
-    S1 = GcStruct('s1', ('sub', S))
-    attachRuntimeTypeInfo(S)
-    attachRuntimeTypeInfo(S1)
+    S = GcStruct('s', ('is_actually_s1', Bool), rtti=True)
+    S1 = GcStruct('s1', ('sub', S), rtti=True)
     def rtti_S(p):
         if p.is_actually_s1:
             return getRuntimeTypeInfo(S1)

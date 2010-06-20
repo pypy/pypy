@@ -118,7 +118,7 @@ class AppTestZipImport:
         import zipimport, os
         zip_path = self.temp_zipfile(self.created_paths)
         try:
-            prefix = '_pkg'
+            prefix = '_pkg/'
             path = os.path.join(zip_path, prefix)
             zip_importer = zipimport.zipimporter(path)
             assert isinstance(zip_importer, zipimport.zipimporter)

@@ -3,7 +3,6 @@ import os
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib import rmmap as mmap
 from pypy.rlib.rmmap import RTypeError, RValueError, alloc, free
-import sys
 
 class TestMMap:
     def setup_class(cls):

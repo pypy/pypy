@@ -2,6 +2,16 @@ import py
 import sys, random
 from pypy.rlib import runicode
 
+def test_unichr():
+    a = runicode.UNICHR(0xffff)
+    assert a == u'\uffff'
+    a = runicode.UNICHR(0x10000)
+    if sys.maxunicode < 0x10000:
+        assert len(a) == 2      # surrogates
+    else:
+        assert len(a) == 1
+
+
 class UnicodeTests(object):
     def typeequals(self, x, y):
         assert x == y
@@ -217,6 +227,10 @@ class TestEncoding(UnicodeTests):
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
 
 class TestTranslation(object):
+    def setup_class(cls):
+        if len(runicode.UNICHR(0x10000)) == 2:
+            py.test.skip("these tests cannot run on the llinterp")
+
     def test_utf8(self):
         from pypy.rpython.test.test_llinterp import interpret
         def f(x):

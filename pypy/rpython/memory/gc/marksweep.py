@@ -242,7 +242,6 @@ class MarkSweepGC(GCBase):
         # 3. walk the list of objects-with-del and for the ones not marked:
         #    call __del__, move the object to the list of object-without-del
         import time
-        from pypy.rpython.lltypesystem.lloperation import llop
         debug_start("gc-collect")
         start_time = time.time()
         self.collect_in_progress = True

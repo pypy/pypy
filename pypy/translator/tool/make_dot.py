@@ -152,7 +152,7 @@ class FlowGraphDotGen(DotGen):
             shape = "octagon"
 
         if block.exitswitch is not None:
-            lines.append("exitswitch: %s" % block.exitswitch)
+            lines.append("exitswitch: %s" % (block.exitswitch,))
 
         iargs = " ".join(map(repr, block.inputargs))
         if self.VERBOSE:

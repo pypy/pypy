@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.codewriter.policy import JitPolicy
 
 class PyPyJitPolicy(JitPolicy):
 

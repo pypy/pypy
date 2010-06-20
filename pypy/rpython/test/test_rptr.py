@@ -36,8 +36,7 @@ def test_cast_pointer():
     assert s.ll_ptrtype == PS2
 
 def test_runtime_type_info():
-    S = GcStruct('s', ('x', Signed))
-    attachRuntimeTypeInfo(S)
+    S = GcStruct('s', ('x', Signed), rtti=True)
     def ll_example(p):
         return (runtime_type_info(p),
                 runtime_type_info(p) == getRuntimeTypeInfo(S))
@@ -175,6 +174,31 @@ def test_address():
     assert res is False
     res = interpret(fn, [5])
     assert res is True
+
+def test_cast_adr_to_int():
+    S = Struct('S')
+    p = malloc(S, immortal=True)
+    def fn(n):
+        a = llmemory.cast_ptr_to_adr(p)
+        if n == 2:
+            return llmemory.cast_adr_to_int(a, "emulated")
+        elif n == 4:
+            return llmemory.cast_adr_to_int(a, "symbolic")
+        else:
+            return llmemory.cast_adr_to_int(a, "forced")
+
+    res = interpret(fn, [2])
+    assert type(res) is int
+    assert res == cast_ptr_to_int(p)
+    #
+    res = interpret(fn, [4])
+    assert isinstance(res, llmemory.AddressAsInt)
+    assert llmemory.cast_int_to_adr(res) == llmemory.cast_ptr_to_adr(p)
+    #
+    res = interpret(fn, [6])
+    assert type(res) is int
+    from pypy.rpython.lltypesystem import rffi
+    assert res == rffi.cast(Signed, p)
 
 def test_flavored_malloc():
     T = GcStruct('T', ('y', Signed))

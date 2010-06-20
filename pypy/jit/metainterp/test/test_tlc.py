@@ -21,7 +21,7 @@ class TLCTests:
         pool = tlc.ConstantPool()
         bytecode = tlc.compile(src, pool)
         interp = self._get_interp(bytecode, pool)
-        return self.meta_interp(interp, [0, inputarg], view=False)
+        return self.meta_interp(interp, [0, inputarg])
 
     def test_method(self):
         code = """

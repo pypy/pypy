@@ -3,7 +3,6 @@
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.function import Function
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject

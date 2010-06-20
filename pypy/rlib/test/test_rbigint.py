@@ -55,8 +55,6 @@ class TestRLong(object):
                 assert r1.tolong() == r2
 
     def test_touint(self):
-        import sys
-        from pypy.rlib.rarithmetic import r_uint
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
         assert rl.touint() == result

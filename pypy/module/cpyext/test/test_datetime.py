@@ -79,3 +79,22 @@ class TestDatetime(BaseApiTest):
         w_date = api.PyDateTime_FromTimestamp(w_args)
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
+
+class AppTestDatetime(AppTestCpythonExtensionBase):
+    def test_CAPI(self):
+        module = self.import_extension('foo', [
+            ("get_types", "METH_NOARGS",
+             """
+                 PyDateTime_IMPORT;
+                 return PyTuple_Pack(4,
+                                     PyDateTimeAPI->DateType,
+                                     PyDateTimeAPI->DateTimeType,
+                                     PyDateTimeAPI->TimeType,
+                                     PyDateTimeAPI->DeltaType);
+             """),
+            ])
+        import datetime
+        assert module.get_types() == (datetime.date,
+                                      datetime.datetime,
+                                      datetime.time,
+                                      datetime.timedelta)

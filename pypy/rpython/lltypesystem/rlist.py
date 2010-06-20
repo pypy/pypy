@@ -388,6 +388,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
                                          ('index', Signed)))
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
+        self.ll_getnextindex = ll_getnextindex
 
 def ll_listiter(ITERPTR, lst):
     iter = malloc(ITERPTR.TO)
@@ -402,3 +403,6 @@ def ll_listnext(iter):
         raise StopIteration
     iter.index = index + 1      # cannot overflow because index < l.length
     return l.ll_getitem_fast(index)
+
+def ll_getnextindex(iter):
+    return iter.index

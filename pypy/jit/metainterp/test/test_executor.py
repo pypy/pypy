@@ -1,60 +1,87 @@
 import py
 import sys, random
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.jit.metainterp.executor import make_execute_list, execute
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.executor import execute_varargs, execute_nonspec
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxPtr, ConstPtr
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat
 from pypy.jit.metainterp.history import AbstractDescr, Box
+from pypy.jit.metainterp import history
 from pypy.jit.backend.model import AbstractCPU
 
 
 class FakeDescr(AbstractDescr):
     pass
 
-class FakeBox(Box):
+class FakeCallDescr(FakeDescr):
+    def get_return_type(self):
+        return history.FLOAT
+
+class FakeFieldDescr(FakeDescr):
+    def is_pointer_field(self):
+        return False
+    def is_float_field(self):
+        return True
+
+class FakeArrayDescr(FakeDescr):
+    def is_array_of_pointers(self):
+        return False
+    def is_array_of_floats(self):
+        return True
+
+class FakeResultR:
+    _TYPE = llmemory.GCREF
     def __init__(self, *args):
-        self.args = args
+        self.fakeargs = args
+
+class FakeMetaInterp:
+    pass
 
 class FakeCPU(AbstractCPU):
     supports_floats = True
 
-    def do_new(self, descr):
-        return FakeBox('new', descr)
+    def bh_new(self, descr):
+        return FakeResultR('new', descr)
 
-    def do_arraylen_gc(self, box1, descr):
-        return FakeBox('arraylen_gc', box1, descr)
+    def bh_arraylen_gc(self, descr, array):
+        assert not array
+        assert isinstance(descr, FakeDescr)
+        return 55
 
-    def do_setfield_gc(self, box1, box2, descr):
-        return FakeBox('setfield_gc', box1, box2, descr)
+    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
+        self.fakesetfield = (struct, newvalue, fielddescr)
 
-    def do_setarrayitem_gc(self, box1, box2, box3, descr):
-        return FakeBox('setarrayitem_gc', box1, box2, box3, descr)
+    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
+        self.fakesetarrayitem = (array, index, newvalue, arraydescr)
 
-    def do_call(self, args, descr):
-        return FakeBox('call', args, descr)
+    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+        self.fakecalled = (func, calldescr, args_i, args_r, args_f)
+        return 42.5
 
-    def do_strsetitem(self, box1, box2, box3):
-        return FakeBox('strsetitem', box1, box2, box3)
-
-make_execute_list(FakeCPU)
+    def bh_strsetitem(self, string, index, newvalue):
+        self.fakestrsetitem = (string, index, newvalue)
 
 
 def test_execute():
     cpu = FakeCPU()
     descr = FakeDescr()
-    box = execute(cpu, rop.INT_ADD, None, BoxInt(40), ConstInt(2))
+    box = execute(cpu, None, rop.INT_ADD, None, BoxInt(40), ConstInt(2))
     assert box.value == 42
-    box = execute(cpu, rop.NEW, descr)
-    assert box.args == ('new', descr)
+    box = execute(cpu, None, rop.NEW, descr)
+    assert box.value.fakeargs == ('new', descr)
 
 def test_execute_varargs():
     cpu = FakeCPU()
-    descr = FakeDescr()
-    argboxes = [BoxInt(321), ConstInt(123)]
-    box = execute_varargs(cpu, rop.CALL, argboxes, descr)
-    assert box.args == ('call', argboxes, descr)
+    descr = FakeCallDescr()
+    argboxes = [BoxInt(99999), BoxInt(321), ConstFloat(2.25), ConstInt(123),
+                BoxPtr(), BoxFloat(5.5)]
+    box = execute_varargs(cpu, FakeMetaInterp(), rop.CALL, argboxes, descr)
+    assert box.value == 42.5
+    assert cpu.fakecalled == (99999, descr, [321, 123],
+                              [ConstPtr.value], [2.25, 5.5])
 
 def test_execute_nonspec():
     cpu = FakeCPU()
@@ -62,33 +89,38 @@ def test_execute_nonspec():
     # cases with a descr
     # arity == -1
     argboxes = [BoxInt(321), ConstInt(123)]
-    box = execute_nonspec(cpu, rop.CALL, argboxes, descr)
-    assert box.args == ('call', argboxes, descr)
+    box = execute_nonspec(cpu, FakeMetaInterp(), rop.CALL,
+                          argboxes, FakeCallDescr())
+    assert box.value == 42.5
     # arity == 0
-    box = execute_nonspec(cpu, rop.NEW, [], descr)
-    assert box.args == ('new', descr)
+    box = execute_nonspec(cpu, None, rop.NEW, [], descr)
+    assert box.value.fakeargs == ('new', descr)
     # arity == 1
-    box1 = BoxInt(515)
-    box = execute_nonspec(cpu, rop.ARRAYLEN_GC, [box1], descr)
-    assert box.args == ('arraylen_gc', box1, descr)
+    box1 = BoxPtr()
+    box = execute_nonspec(cpu, None, rop.ARRAYLEN_GC, [box1], descr)
+    assert box.value == 55
     # arity == 2
-    box2 = BoxInt(222)
-    box = execute_nonspec(cpu, rop.SETFIELD_GC, [box1, box2], descr)
-    assert box.args == ('setfield_gc', box1, box2, descr)
+    box2 = BoxFloat(222.2)
+    fielddescr = FakeFieldDescr()
+    execute_nonspec(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
+    assert cpu.fakesetfield == (box1.value, box2.value, fielddescr)
     # arity == 3
-    box3 = BoxInt(-33)
-    box = execute_nonspec(cpu, rop.SETARRAYITEM_GC, [box1, box2, box3], descr)
-    assert box.args == ('setarrayitem_gc', box1, box2, box3, descr)
+    box3 = BoxInt(33)
+    arraydescr = FakeArrayDescr()
+    execute_nonspec(cpu, None, rop.SETARRAYITEM_GC, [box1, box3, box2],
+                    arraydescr)
+    assert cpu.fakesetarrayitem == (box1.value, box3.value, box2.value,
+                                    arraydescr)
     # cases without descr
     # arity == 1
-    box = execute_nonspec(cpu, rop.INT_INVERT, [box1])
-    assert box.value == ~515
+    box = execute_nonspec(cpu, None, rop.INT_INVERT, [box3])
+    assert box.value == ~33
     # arity == 2
-    box = execute_nonspec(cpu, rop.INT_LSHIFT, [box1, BoxInt(3)])
-    assert box.value == 515 << 3
+    box = execute_nonspec(cpu, None, rop.INT_LSHIFT, [box3, BoxInt(3)])
+    assert box.value == 33 << 3
     # arity == 3
-    box = execute_nonspec(cpu, rop.STRSETITEM, [box1, box2, box3])
-    assert box.args == ('strsetitem', box1, box2, box3)
+    execute_nonspec(cpu, None, rop.STRSETITEM, [box1, BoxInt(3), box3])
+    assert cpu.fakestrsetitem == (box1.value, 3, box3.value)
 
 # ints
 
@@ -181,7 +213,7 @@ def _int_unary_operations():
         (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
         (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
         (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
-        (rop.BOOL_NOT, [(0, 1), (1, 0)]),
+        (rop.INT_IS_ZERO, [(0, 1), (1, 0), (2, 0), (-1, 0), (minint, 0)]),
         ]:
         for x, y in testcases:
             yield opnum, [x], y
@@ -204,7 +236,7 @@ def get_int_tests():
 def test_int_ops():
     cpu = FakeCPU()
     for opnum, boxargs, retvalue in get_int_tests():
-        box = execute_nonspec(cpu, opnum, boxargs)
+        box = execute_nonspec(cpu, None, opnum, boxargs)
         assert box.getint() == retvalue
 
 # floats
@@ -242,9 +274,6 @@ def _float_unary_operations():
     yield (rop.FLOAT_NEG, [15.9], 'float', -15.9)
     yield (rop.FLOAT_ABS, [-5.9], 'float', 5.9)
     yield (rop.FLOAT_ABS, [15.9], 'float', 15.9)
-    yield (rop.FLOAT_IS_TRUE, [-5.9], 'int', 1)
-    yield (rop.FLOAT_IS_TRUE, [0.0], 'int', 0)
-    yield (rop.FLOAT_IS_TRUE, [-0.0], 'int', 0)
     yield (rop.CAST_FLOAT_TO_INT, [-5.9], 'int', -5)
     yield (rop.CAST_FLOAT_TO_INT, [5.9], 'int', 5)
     yield (rop.CAST_INT_TO_FLOAT, [123], 'float', 123.0)
@@ -276,7 +305,7 @@ def get_float_tests(cpu):
 def test_float_ops():
     cpu = FakeCPU()
     for opnum, boxargs, rettype, retvalue in get_float_tests(cpu):
-        box = execute_nonspec(cpu, opnum, boxargs)
+        box = execute_nonspec(cpu, None, opnum, boxargs)
         if rettype == 'float':
             assert box.getfloat() == retvalue
         elif rettype == 'int':

@@ -7,6 +7,7 @@ from pypy.rlib import rarithmetic, objectmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
+from pypy.rpython.rrange import rtype_builtin_enumerate
 from pypy.rpython import rstr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
@@ -229,6 +230,8 @@ def rtype_builtin_list(hop):
 
 #def rtype_builtin_xrange(hop): see rrange.py
 
+#def rtype_builtin_enumerate(hop): see rrange.py
+
 #def rtype_r_dict(hop): see rdict.py
 
 def rtype_intmask(hop):
@@ -269,37 +272,6 @@ def rtype_OSError__init__(hop):
         r_self = hop.args_r[0]
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
-
-def rtype_UnicodeDecodeError_init(hop):
-    if hop.nb_args != 6:
-        raise TypeError("UnicodeDecodeError() should be called with 5 "
-                        "arguments")
-    r_self = hop.args_r[0]
-    r_str = hop.rtyper.type_system.rstr.string_repr
-    TPS = [hop.args_r[0], r_str, r_str, lltype.Signed, lltype.Signed,
-           r_str]
-    v_self, v_encoding, v_obj, v_start, v_end, v_msg = hop.inputargs(*TPS)
-    r_self.setfield(v_self, 'encoding', v_encoding, hop.llops)
-    r_self.setfield(v_self, 'object', v_obj, hop.llops)
-    r_self.setfield(v_self, 'start', v_start, hop.llops)
-    r_self.setfield(v_self, 'end', v_end, hop.llops)
-    r_self.setfield(v_self, 'reason', v_msg, hop.llops)
-
-def rtype_UnicodeEncodeError_init(hop):
-    if hop.nb_args != 6:
-        raise TypeError("UnicodeEncodeError() should be called with 5 "
-                        "arguments")
-    r_self = hop.args_r[0]
-    r_str = hop.rtyper.type_system.rstr.string_repr
-    r_unicode = hop.rtyper.type_system.rstr.unicode_repr
-    TPS = [hop.args_r[0], r_str, r_unicode, lltype.Signed, lltype.Signed,
-           r_str]
-    v_self, v_encoding, v_obj, v_start, v_end, v_msg = hop.inputargs(*TPS)
-    r_self.setfield(v_self, 'encoding', v_encoding, hop.llops)
-    r_self.setfield(v_self, 'object', v_obj, hop.llops)
-    r_self.setfield(v_self, 'start', v_start, hop.llops)
-    r_self.setfield(v_self, 'end', v_end, hop.llops)
-    r_self.setfield(v_self, 'reason', v_msg, hop.llops)
 
 def rtype_WindowsError__init__(hop):
     if hop.nb_args == 2:
@@ -360,8 +332,6 @@ for name, value in globals().items():
 
 BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     rtype_OSError__init__)
-BUILTIN_TYPER[getattr(UnicodeDecodeError.__init__, 'im_func', UnicodeDecodeError.__init__)] = rtype_UnicodeDecodeError_init
-BUILTIN_TYPER[getattr(UnicodeEncodeError.__init__, 'im_func', UnicodeEncodeError.__init__)] = rtype_UnicodeEncodeError_init
 
 try:
     WindowsError
@@ -562,8 +532,6 @@ BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 # _________________________________________________________________
 # memory addresses
 
-from pypy.rpython.lltypesystem import llmemory
-
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
@@ -637,9 +605,14 @@ def rtype_cast_adr_to_ptr(hop):
 
 def rtype_cast_adr_to_int(hop):
     assert isinstance(hop.args_r[0], raddress.AddressRepr)
-    adr, = hop.inputargs(hop.args_r[0])
+    adr = hop.inputarg(hop.args_r[0], arg=0)
+    if len(hop.args_s) == 1:
+        mode = "emulated"
+    else:
+        mode = hop.args_s[1].const
     hop.exception_cannot_occur()
-    return hop.genop('cast_adr_to_int', [adr],
+    return hop.genop('cast_adr_to_int',
+                     [adr, hop.inputconst(lltype.Void, mode)],
                      resulttype = lltype.Signed)
 
 def rtype_cast_int_to_adr(hop):

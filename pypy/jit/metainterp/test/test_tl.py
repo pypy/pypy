@@ -1,6 +1,6 @@
 import py
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.rlib.jit import OPTIMIZER_SIMPLE
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
 
 
@@ -74,8 +74,7 @@ class ToyLanguageTests:
                                backendopt=True)
         assert res == 5040
         self.check_loops({'int_mul':1, 'jump':1,
-                          'int_sub':1, 'int_is_true':1, 'int_le':1,
-                          'guard_false':1})
+                          'int_sub':1, 'int_le':1, 'guard_false':1})
 
     def test_tl_2(self):
         main = self._get_main()
@@ -83,7 +82,7 @@ class ToyLanguageTests:
                                backendopt=True)
         assert res == main(1, 10)
         self.check_loops({'int_sub':1, 'int_le':1,
-                         'int_is_true':1, 'guard_false':1, 'jump':1})
+                          'guard_false':1, 'jump':1})
 
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp

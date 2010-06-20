@@ -16,12 +16,13 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
-from pypy.jit.metainterp import codewriter
-from pypy.jit.metainterp import support, history, pyjitpl, gc
+from pypy.jit.metainterp import history, pyjitpl, gc
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
-from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
+from pypy.jit.metainterp.jitexc import JitException
+from pypy.jit.codewriter import support, codewriter
+from pypy.jit.codewriter.policy import JitPolicy
 from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
 
 # ____________________________________________________________
@@ -130,9 +131,6 @@ def debug_checks():
     stats.maybe_view()
     stats.check_consistency()
 
-class JitException(Exception):
-    _go_through_llinterp_uncaught_ = True     # ugh
-
 class ContinueRunningNormallyBase(JitException):
     pass
 
@@ -144,47 +142,49 @@ class CannotInlineCanEnterJit(JitException):
 class WarmRunnerDesc(object):
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 optimizer=None, **kwds):
+                 optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
+        self.set_translator(translator)
+        self.build_cpu(CPUClass, **kwds)
+        self.find_portal()
+        self.codewriter = codewriter.CodeWriter(self.cpu, self.portal_graph)
         if policy is None:
             policy = JitPolicy()
-        self.set_translator(translator)
-        self.find_portal()
-        self.codewriter = codewriter.CodeWriter(self.rtyper)
-        graphs = self.codewriter.find_all_graphs(self.portal_graph,
-                                                 policy,
-                                                 CPUClass.supports_floats)
+        policy.set_supports_floats(self.cpu.supports_floats)
+        graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
 
-        self.build_meta_interp(CPUClass, **kwds)
+        self.build_meta_interp(ProfilerClass)
         self.make_args_specification()
         #
         from pypy.jit.metainterp.virtualref import VirtualRefInfo
-        self.metainterp_sd.virtualref_info = VirtualRefInfo(self)
+        vrefinfo = VirtualRefInfo(self)
+        self.codewriter.setup_vrefinfo(vrefinfo)
         if self.jitdriver.virtualizables:
             from pypy.jit.metainterp.virtualizable import VirtualizableInfo
-            self.metainterp_sd.virtualizable_info = VirtualizableInfo(self)
+            self.virtualizable_info = VirtualizableInfo(self)
+            self.codewriter.setup_virtualizable_info(self.virtualizable_info)
+        else:
+            self.virtualizable_info = None
         #
         self.make_exception_classes()
         self.make_driverhook_graphs()
         self.make_enter_function()
         self.rewrite_jit_merge_point(policy)
-                
-        self.codewriter.generate_bytecode(self.metainterp_sd,
-                                          self.portal_graph,
-                                          self.portal_runner_ptr
-                                          )
+
+        verbose = not self.cpu.translate_support_code
+        self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jit()
         self.rewrite_set_param()
-        self.rewrite_force_virtual()
+        self.rewrite_force_virtual(vrefinfo)
         self.add_finish()
-        self.metainterp_sd.finish_setup(optimizer=optimizer)
+        self.metainterp_sd.finish_setup(self.codewriter, optimizer=optimizer)
 
     def finish(self):
-        vinfo = self.metainterp_sd.virtualizable_info
+        vinfo = self.virtualizable_info
         if vinfo is not None:
             vinfo.finish()
         if self.cpu.translate_support_code:
@@ -244,11 +244,10 @@ class WarmRunnerDesc(object):
                               remove_asserts=True,
                               really_remove_asserts=True)
 
-    def build_meta_interp(self, CPUClass, translate_support_code=False,
-                          view="auto", no_stats=False,
-                          ProfilerClass=EmptyProfiler, **kwds):
+    def build_cpu(self, CPUClass, translate_support_code=False,
+                  no_stats=False, **kwds):
         assert CPUClass is not None
-        opt = history.Options(**kwds)
+        self.opt = history.Options(**kwds)
         if no_stats:
             stats = history.NoStats()
         else:
@@ -259,18 +258,18 @@ class WarmRunnerDesc(object):
             annhelper = self.annhelper
         else:
             annhelper = None
-        cpu = CPUClass(self.translator.rtyper, self.stats, opt,
+        cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
-        self.metainterp_sd = MetaInterpStaticData(self.portal_graph, # xxx
-                                                  cpu,
-                                                  self.stats, opt,
+
+    def build_meta_interp(self, ProfilerClass):
+        self.metainterp_sd = MetaInterpStaticData(self.cpu,
+                                                  self.opt,
                                                   ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self)
 
     def make_exception_classes(self):
-        portalfunc_ARGS = unrolling_iterable(
-            [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(self.PORTAL_FUNCTYPE.ARGS)])
+
         class DoneWithThisFrameVoid(JitException):
             def __str__(self):
                 return 'DoneWithThisFrameVoid()'
@@ -304,18 +303,19 @@ class WarmRunnerDesc(object):
                 return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
 
         class ContinueRunningNormally(ContinueRunningNormallyBase):
-            def __init__(self, argboxes):
-                # accepts boxes as argument, but unpacks them immediately
-                # before we raise the exception -- the boxes' values will
-                # be modified in a 'finally' by restore_patched_boxes().
-                from pypy.jit.metainterp.warmstate import unwrap
-                for i, name, ARG in portalfunc_ARGS:
-                    v = unwrap(ARG, argboxes[i])
-                    setattr(self, name, v)
-
+            def __init__(self, gi, gr, gf, ri, rr, rf):
+                # the six arguments are: lists of green ints, greens refs,
+                # green floats, red ints, red refs, and red floats.
+                self.green_int = gi
+                self.green_ref = gr
+                self.green_float = gf
+                self.red_int = ri
+                self.red_ref = rr
+                self.red_float = rf
             def __str__(self):
-                return 'ContinueRunningNormally(%s)' % (
-                    ', '.join(map(str, self.args)),)
+                return 'ContinueRunningNormally(%s, %s, %s, %s, %s, %s)' % (
+                    self.green_int, self.green_ref, self.green_float,
+                    self.red_int, self.red_ref, self.red_float)
 
         self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
         self.DoneWithThisFrameInt = DoneWithThisFrameInt
@@ -411,17 +411,10 @@ class WarmRunnerDesc(object):
     def make_args_specification(self):
         graph, block, index = self.jit_merge_point_pos
         op = block.operations[index]
-        args = op.args[2:]
-        ALLARGS = []
-        self.green_args_spec = []
-        self.red_args_types = []
-        for i, v in enumerate(args):
-            TYPE = v.concretetype
-            ALLARGS.append(TYPE)
-            if i < len(self.jitdriver.greens):
-                self.green_args_spec.append(TYPE)
-            else:
-                self.red_args_types.append(history.getkind(TYPE))
+        greens_v, reds_v = support.decode_hp_hint_args(op)
+        ALLARGS = [v.concretetype for v in (greens_v + reds_v)]
+        self.green_args_spec = [v.concretetype for v in greens_v]
+        self.red_args_types = [history.getkind(v.concretetype) for v in reds_v]
         self.num_green_args = len(self.green_args_spec)
         RESTYPE = graph.getreturnvar().concretetype
         (self.JIT_ENTER_FUNCTYPE,
@@ -443,7 +436,7 @@ class WarmRunnerDesc(object):
                 continue
 
             op = block.operations[index]
-            greens_v, reds_v = decode_hp_hint_args(op)
+            greens_v, reds_v = support.decode_hp_hint_args(op)
             args_v = greens_v + reds_v
 
             vlist = [Constant(jit_enter_fnptr, FUNCPTR)] + args_v
@@ -500,13 +493,24 @@ class WarmRunnerDesc(object):
         # ____________________________________________________________
         # Prepare the portal_runner() helper
         #
+        from pypy.jit.metainterp.warmstate import specialize_value
         portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
                                          graph = portalgraph)
         self.portal_ptr = portal_ptr
-        portalfunc_ARGS = unrolling_iterable(
-            [(i, 'arg%d' % i, ARG) for i, ARG in enumerate(PORTALFUNC.ARGS)])
-
-
+        #
+        portalfunc_ARGS = []
+        nums = {}
+        for i, ARG in enumerate(PORTALFUNC.ARGS):
+            if i < len(self.jitdriver.greens):
+                color = 'green'
+            else:
+                color = 'red'
+            attrname = '%s_%s' % (color, history.getkind(ARG))
+            count = nums.get(attrname, 0)
+            nums[attrname] = count + 1
+            portalfunc_ARGS.append((ARG, attrname, count))
+        portalfunc_ARGS = unrolling_iterable(portalfunc_ARGS)
+        #
         rtyper = self.translator.rtyper
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
@@ -520,21 +524,22 @@ class WarmRunnerDesc(object):
                                                       portal_ptr)(*args)
                 except self.ContinueRunningNormally, e:
                     args = ()
-                    for _, name, _ in portalfunc_ARGS:
-                        v = getattr(e, name)
-                        args = args + (v,)
+                    for ARGTYPE, attrname, count in portalfunc_ARGS:
+                        x = getattr(e, attrname)[count]
+                        x = specialize_value(ARGTYPE, x)
+                        args = args + (x,)
                 except self.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return
                 except self.DoneWithThisFrameInt, e:
                     assert result_kind == 'int'
-                    return lltype.cast_primitive(RESULT, e.result)
+                    return specialize_value(RESULT, e.result)
                 except self.DoneWithThisFrameRef, e:
                     assert result_kind == 'ref'
-                    return ts.cast_from_ref(RESULT, e.result)
+                    return specialize_value(RESULT, e.result)
                 except self.DoneWithThisFrameFloat, e:
                     assert result_kind == 'float'
-                    return e.result
+                    return specialize_value(RESULT, e.result)
                 except self.ExitFrameWithExceptionRef, e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
@@ -550,8 +555,9 @@ class WarmRunnerDesc(object):
             self.PTR_PORTAL_FUNCTYPE.TO,
             self.PTR_PORTAL_FUNCTYPE.TO.ARGS,
             self.PTR_PORTAL_FUNCTYPE.TO.RESULT)
+        self.codewriter.setup_portal_runner_ptr(self.portal_runner_ptr)
 
-        vinfo = self.metainterp_sd.virtualizable_info
+        vinfo = self.virtualizable_info
 
         def assembler_call_helper(failindex, virtualizableref):
             fail_descr = self.cpu.get_fail_descr_from_number(failindex)
@@ -565,22 +571,23 @@ class WarmRunnerDesc(object):
                     fail_descr = self.cpu.execute_token(loop_token)
                 except self.ContinueRunningNormally, e:
                     args = ()
-                    for _, name, _ in portalfunc_ARGS:
-                        v = getattr(e, name)
-                        args = args + (v,)
+                    for ARGTYPE, attrname, count in portalfunc_ARGS:
+                        x = getattr(e, attrname)[count]
+                        x = specialize_value(ARGTYPE, x)
+                        args = args + (x,)
                     return ll_portal_runner(*args)
                 except self.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return
                 except self.DoneWithThisFrameInt, e:
                     assert result_kind == 'int'
-                    return lltype.cast_primitive(RESULT, e.result)
+                    return specialize_value(RESULT, e.result)
                 except self.DoneWithThisFrameRef, e:
                     assert result_kind == 'ref'
-                    return ts.cast_from_ref(RESULT, e.result)
+                    return specialize_value(RESULT, e.result)
                 except self.DoneWithThisFrameFloat, e:
                     assert result_kind == 'float'
-                    return e.result
+                    return specialize_value(RESULT, e.result)
                 except self.ExitFrameWithExceptionRef, e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
@@ -597,8 +604,10 @@ class WarmRunnerDesc(object):
         if vinfo is not None:
             self.cpu.index_of_virtualizable = (vinfo.index_of_virtualizable -
                                                self.num_green_args)
+            self.cpu.vable_token_descr = vinfo.vable_token_descr
         else:
             self.cpu.index_of_virtualizable = -1
+            self.cpu.vable_token_descr = None
 
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr
@@ -607,7 +616,7 @@ class WarmRunnerDesc(object):
         op = origblock.operations[origindex]
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
-        greens_v, reds_v = decode_hp_hint_args(op)
+        greens_v, reds_v = support.decode_hp_hint_args(op)
         vlist = [Constant(self.portal_runner_ptr, self.PTR_PORTAL_FUNCTYPE)]
         vlist += greens_v
         vlist += reds_v
@@ -651,22 +660,8 @@ class WarmRunnerDesc(object):
             op.opname = 'direct_call'
             op.args[:3] = [closures[funcname]]
 
-    def rewrite_force_virtual(self):
+    def rewrite_force_virtual(self, vrefinfo):
         if self.cpu.ts.name != 'lltype':
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
-        vrefinfo = self.metainterp_sd.virtualref_info
         vrefinfo.replace_force_virtual_with_call(all_graphs)
-
-
-def decode_hp_hint_args(op):
-    # Returns (list-of-green-vars, list-of-red-vars) without Voids.
-    assert op.opname == 'jit_marker'
-    jitdriver = op.args[1].value
-    numgreens = len(jitdriver.greens)
-    numreds = len(jitdriver.reds)
-    greens_v = op.args[2:2+numgreens]
-    reds_v = op.args[2+numgreens:]
-    assert len(reds_v) == numreds
-    return ([v for v in greens_v if v.concretetype is not lltype.Void],
-            [v for v in reds_v if v.concretetype is not lltype.Void])

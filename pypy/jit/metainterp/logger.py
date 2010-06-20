@@ -1,9 +1,11 @@
 import os
 from pypy.rlib.debug import have_debug_prints
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
-     BoxInt, ConstAddr, ConstFloat, BoxFloat, AbstractFailDescr
+     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr
 
 class Logger(object):
 
@@ -46,10 +48,16 @@ class Logger(object):
             mv = len(memo)
             memo[arg] = mv
         if isinstance(arg, ConstInt):
+            if int_could_be_an_address(arg.value):
+                addr = arg.getaddr()
+                name = self.metainterp_sd.get_name_from_address(addr)
+                if name:
+                    return 'ConstClass(' + name + ')'
             return str(arg.value)
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
+            # XXX for ootype, this should also go through get_name_from_address
             return 'ConstPtr(ptr' + str(mv) + ')'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
@@ -57,12 +65,6 @@ class Logger(object):
             return str(arg.value)
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
-        elif isinstance(arg, self.ts.ConstAddr):
-            addr = arg.getaddr(self.metainterp_sd.cpu)
-            name = self.metainterp_sd.get_name_from_address(addr)
-            if not name:
-                name = 'cls' + str(mv)
-            return 'ConstClass(' + name + ')'
         elif arg is None:
             return 'None'
         else:
@@ -102,3 +104,11 @@ class Logger(object):
                 fail_args = ''
             debug_print(res + op.getopname() +
                         '(' + args + ')' + fail_args)
+
+
+def int_could_be_an_address(x):
+    if we_are_translated():
+        x = rffi.cast(lltype.Signed, x)       # force it
+        return not (-32768 <= x <= 32767)
+    else:
+        return isinstance(x, llmemory.AddressAsInt)

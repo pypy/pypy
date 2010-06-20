@@ -2,7 +2,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr, SMM
-from pypy.interpreter import gateway
 
 set_add                         = SMM('add', 2,
                                       doc='Add an element to a set.\n\nThis'

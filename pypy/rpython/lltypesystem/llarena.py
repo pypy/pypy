@@ -1,5 +1,5 @@
 import array, weakref
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import llmemory
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by
@@ -223,7 +223,8 @@ class fakearenaaddress(llmemory.fakeaddress):
         else:
             return self.arena._getid() < arena._getid()
 
-    def _cast_to_int(self):
+    def _cast_to_int(self, symbolic=False):
+        assert not symbolic
         return self.arena._getid() + self.offset
 
 

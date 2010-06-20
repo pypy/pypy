@@ -55,7 +55,7 @@ class __extend__(optimizefindnode.InstanceNode):
             if isinstance(self.knownclsbox.value, int):
                 name += str(self.knownclsbox.value)
             else:
-                name += str(self.knownclsbox.value.ptr).rpartition("_vtable")[0].rpartition('.')[2]
+                name += str(self.knownclsbox.value.adr.ptr).rpartition("_vtable")[0].rpartition('.')[2]
         elif self.structdescr:
             name = "Struct " + str(self.structdescr)
         elif self.arraydescr:

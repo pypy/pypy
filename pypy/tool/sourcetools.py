@@ -129,7 +129,6 @@ def newcode(fromcode, **kwargs):
     for name in names:
         if name not in kwargs:
             kwargs[name] = getattr(fromcode, name)
-    import new
     return new.code(
              kwargs['co_argcount'],
              kwargs['co_nlocals'],

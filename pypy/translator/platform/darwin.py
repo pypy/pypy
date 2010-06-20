@@ -56,6 +56,17 @@ class Darwin(posix.BasePosix):
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
 
+    def _exportsymbols_link_flags(self, eci):
+        if not eci.export_symbols:
+            return []
+
+        response_file = self._make_response_file("dynamic-symbols-")
+        f = response_file.open("w")
+        for sym in eci.export_symbols:
+            f.write("_%s\n" % (sym,))
+        f.close()
+        return ["-Wl,-exported_symbols_list,%s" % (response_file,)]
+
 class Darwin_i386(Darwin):
     name = "darwin_i386"
     link_flags = ['-arch', 'i386', '-mmacosx-version-min=10.4']

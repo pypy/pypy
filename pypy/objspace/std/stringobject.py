@@ -974,7 +974,6 @@ def format__String_ANY(space, w_string, w_format_spec):
     return formatter.format_string(w_string._value)
 
 def buffer__String(space, w_string):
-    from pypy.interpreter.buffer import StringBuffer
     return space.wrap(StringBuffer(w_string._value))
 
 # register all methods

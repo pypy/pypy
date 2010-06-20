@@ -260,34 +260,6 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] += tuple(files)
         return ExternalCompilationInfo(**d)
 
-    def convert_exportsymbols_to_file(self):
-        if not self.export_symbols:
-            return self
-        num = 0
-        while 1:
-            file_name = udir.join('dynamic-symbols-%i' % num)
-            num += 1
-            if not file_name.check():
-                break
-
-        # XXX this logic should be moved to translator/platform/*.py
-        d = self._copy_attributes()
-        f = file_name.open("w")
-        if host.name.startswith('darwin'):
-            for sym in self.export_symbols:
-                f.write("_%s\n" % (sym,))
-            d['link_extra'] += ("-Wl,-exported_symbols_list,"+str(file_name), )
-        else:
-            f.write("{\n")
-            for sym in self.export_symbols:
-                f.write("%s;\n" % (sym,))
-            f.write("};")
-            d['link_extra'] += ("-Wl,--export-dynamic,--version-script=" + str(file_name), )
-        f.close()
-        d['export_symbols'] = ()
-        return ExternalCompilationInfo(**d)
-
-
     def get_module_files(self):
         d = self._copy_attributes()
         files = d['separate_module_files']

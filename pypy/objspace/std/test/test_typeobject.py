@@ -1001,12 +1001,12 @@ class AppTestGetattributeShortcut:
         y.x = 3
         assert y.x == 3
 
-        def ga(self, name):
-            return 'GA'
+        def ga2(self, name):
+            return 'GA2'
 
-        X.__getattribute__ = ga
+        X.__getattribute__ = ga2
 
-        assert y.x == 'GA'
+        assert y.x == 'GA2'
 
 class TestNewShortcut:
 

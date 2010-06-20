@@ -16,7 +16,7 @@ from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.history import AbstractDescr
+from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
 
 def optimize_loop_1(metainterp_sd, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
@@ -89,7 +89,7 @@ class OptValue(object):
         if level == LEVEL_KNOWNCLASS:
             return self.known_class
         elif level == LEVEL_CONSTANT:
-            return cpu.ts.cls_of_box(cpu, self.box)
+            return cpu.ts.cls_of_box(self.box)
         else:
             return None
 
@@ -554,7 +554,7 @@ class Optimizer(object):
         elif op.can_raise():
             self.exception_might_have_happened = True
         elif op.returns_bool_result():
-            self.bool_boxes[op.result] = None
+            self.bool_boxes[self.getvalue(op.result)] = None
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
@@ -564,11 +564,11 @@ class Optimizer(object):
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, pendingfields)
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
-            raise compile.GiveUp
+            compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
         if op.opnum == rop.GUARD_VALUE:
-            if op.args[0] in self.bool_boxes:
+            if self.getvalue(op.args[0]) in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
                 # This is done after the operation is emitted, to let
                 # store_final_boxes_in_guard set the guard_opnum field
@@ -594,7 +594,8 @@ class Optimizer(object):
             else:
                 # all constant arguments: constant-fold away
                 argboxes = [self.get_constant_box(arg) for arg in op.args]
-                resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
+                resbox = execute_nonspec(self.cpu, None,
+                                         op.opnum, argboxes, op.descr)
                 self.make_constant(op.result, resbox.constbox())
                 return
 
@@ -745,7 +746,13 @@ class Optimizer(object):
             self.optimize_default(op)
 
     def optimize_INT_IS_TRUE(self, op):
+        if self.getvalue(op.args[0]) in self.bool_boxes:
+            self.make_equal_to(op.result, self.getvalue(op.args[0]))
+            return
         self._optimize_nullness(op, op.args[0], True)
+
+    def optimize_INT_IS_ZERO(self, op):
+        self._optimize_nullness(op, op.args[0], False)
 
     def _optimize_oois_ooisnot(self, op, expect_isnot):
         value0 = self.getvalue(op.args[0])
@@ -775,10 +782,10 @@ class Optimizer(object):
                     return
             self.optimize_default(op)
 
-    def optimize_OOISNOT(self, op):
+    def optimize_PTR_NE(self, op):
         self._optimize_oois_ooisnot(op, True)
 
-    def optimize_OOIS(self, op):
+    def optimize_PTR_EQ(self, op):
         self._optimize_oois_ooisnot(op, False)
 
     def optimize_VIRTUAL_REF(self, op):
@@ -944,7 +951,8 @@ class Optimizer(object):
         if not funcvalue.is_constant():
             self.optimize_default(op)
             return
-        resvalue = self.loop_invariant_results.get(op.args[0].getint(), None)
+        key = make_hashable_int(op.args[0].getint())
+        resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
             return
@@ -953,7 +961,19 @@ class Optimizer(object):
         op.opnum = rop.CALL
         self.optimize_default(op)
         resvalue = self.getvalue(op.result)
-        self.loop_invariant_results[op.args[0].getint()] = resvalue
+        self.loop_invariant_results[key] = resvalue
+
+    def optimize_CALL_PURE(self, op):
+        for arg in op.args:
+            if self.get_constant_box(arg) is None:
+                break
+        else:
+            # all constant arguments: constant-fold away
+            self.make_constant(op.result, op.args[0])
+            return
+        # replace CALL_PURE with just CALL
+        self.emit_operation(ResOperation(rop.CALL, op.args[1:], op.result,
+                                         op.descr))
 
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.args[0])
@@ -1066,7 +1086,7 @@ class HeapOpOptimizer(object):
         return None
 
     def emitting_operation(self, op):
-        if op.opnum != rop.CALL_PURE and op.has_no_side_effect():
+        if op.has_no_side_effect():
             return
         if op.is_ovf():
             return
@@ -1077,9 +1097,9 @@ class HeapOpOptimizer(object):
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.DEBUG_MERGE_POINT):
             return
+        assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
-            opnum == rop.CALL_PURE or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
@@ -1101,7 +1121,7 @@ class HeapOpOptimizer(object):
                         del self.cached_arrayitems[arraydescr]
                     except KeyError:
                         pass
-                if effectinfo.forces_virtual_or_virtualizable:
+                if effectinfo.check_forces_virtual_or_virtualizable():
                     vrefinfo = self.optimizer.metainterp_sd.virtualref_info
                     self.force_lazy_setfield(vrefinfo.descr_forced)
                     # ^^^ we only need to force this field; the other fields

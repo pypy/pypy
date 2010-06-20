@@ -71,10 +71,10 @@ NEWSTR    = 8
 
 # ____________________________________________________________
 
-def get_printable_location(bytecode, pc):
+def get_printable_location(pc, bytecode):
     return str(pc)
 
-jitdriver = JitDriver(greens=['bytecode', 'pc'],
+jitdriver = JitDriver(greens=['pc', 'bytecode'],
                       reds=['self'],
                       virtualizables=['self'],
                       get_printable_location=get_printable_location)

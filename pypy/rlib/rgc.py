@@ -201,7 +201,6 @@ class DumpHeapEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
-        from pypy.rpython.lltypesystem import lltype
         hop.exception_is_here()
         return hop.genop('gc_heap_stats', [], resulttype=hop.r_result)
 

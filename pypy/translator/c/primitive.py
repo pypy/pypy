@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rffi, llgroup
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset, GCREF
+     GCHeaderOffset, GCREF, AddressAsInt
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
@@ -61,6 +61,8 @@ def name_signed(value, db):
             name = name_small_integer(value.lowpart, db)
             assert (value.rest & value.MASK) == 0
             return '(%s+%dL)' % (name, value.rest)
+        elif isinstance(value, AddressAsInt):
+            return '((long)%s)' % name_address(value.adr, db)
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:

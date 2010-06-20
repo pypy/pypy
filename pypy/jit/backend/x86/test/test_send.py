@@ -2,7 +2,6 @@
 import py
 from pypy.jit.metainterp.test.test_send import SendTests
 from pypy.jit.backend.x86.test.test_basic import Jit386Mixin
-from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.rlib import jit
 
 class TestSend(Jit386Mixin, SendTests):

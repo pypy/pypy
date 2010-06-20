@@ -2,7 +2,8 @@ from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt
 from pypy.jit.metainterp.specnode import NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
-from pypy.jit.metainterp.compile import ResumeGuardDescr, ResumeGuardCounters
+from pypy.jit.metainterp.compile import ResumeGuardDescr
+from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp import optimize, jitprof, typesystem
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
@@ -107,49 +108,49 @@ def test_compile_new_loop():
 
 
 def test_resume_guard_counters():
-    rgc = ResumeGuardCounters()
+    rgc = ResumeGuardCountersInt()
     # fill in the table
     for i in range(5):
-        count = rgc.see(BoxInt(100+i))
+        count = rgc.see_int(100+i)
         assert count == 1
-        count = rgc.see(BoxInt(100+i))
+        count = rgc.see_int(100+i)
         assert count == 2
         assert rgc.counters == [0] * (4-i) + [2] * (1+i)
     for i in range(5):
-        count = rgc.see(BoxInt(100+i))
+        count = rgc.see_int(100+i)
         assert count == 3
     # make a distribution:  [5, 4, 7, 6, 3]
     assert rgc.counters == [3, 3, 3, 3, 3]
-    count = rgc.see(BoxInt(101))
+    count = rgc.see_int(101)
     assert count == 4
-    count = rgc.see(BoxInt(101))
+    count = rgc.see_int(101)
     assert count == 5
-    count = rgc.see(BoxInt(101))
+    count = rgc.see_int(101)
     assert count == 6
-    count = rgc.see(BoxInt(102))
+    count = rgc.see_int(102)
     assert count == 4
-    count = rgc.see(BoxInt(102))
+    count = rgc.see_int(102)
     assert count == 5
-    count = rgc.see(BoxInt(102))
+    count = rgc.see_int(102)
     assert count == 6
-    count = rgc.see(BoxInt(102))
+    count = rgc.see_int(102)
     assert count == 7
-    count = rgc.see(BoxInt(103))
+    count = rgc.see_int(103)
     assert count == 4
-    count = rgc.see(BoxInt(104))
+    count = rgc.see_int(104)
     assert count == 4
-    count = rgc.see(BoxInt(104))
+    count = rgc.see_int(104)
     assert count == 5
     assert rgc.counters == [5, 4, 7, 6, 3]
     # the next new item should throw away 104, as 5 is the middle counter
-    count = rgc.see(BoxInt(190))
+    count = rgc.see_int(190)
     assert count == 1
     assert rgc.counters == [1, 4, 7, 6, 3]
     # the next new item should throw away 103, as 4 is the middle counter
-    count = rgc.see(BoxInt(191))
+    count = rgc.see_int(191)
     assert count == 1
     assert rgc.counters == [1, 1, 7, 6, 3]
     # the next new item should throw away 100, as 3 is the middle counter
-    count = rgc.see(BoxInt(192))
+    count = rgc.see_int(192)
     assert count == 1
     assert rgc.counters == [1, 1, 7, 6, 1]

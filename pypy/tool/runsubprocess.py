@@ -5,7 +5,6 @@ if the current process already grew very large.
 
 import sys
 import os
-import warnings
 from subprocess import PIPE, Popen
 
 def run_subprocess(executable, args, env=None, cwd=None):
@@ -28,7 +27,9 @@ def _run(executable, args, env, cwd):   # unless overridden below
 
 
 if __name__ == '__main__':
+    import gc
     while True:
+        gc.collect()
         operation = sys.stdin.readline()
         if not operation:
             sys.exit()
@@ -46,16 +47,26 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
     # do this at import-time, when the process is still tiny
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
-    # Let's not hear about os.popen2's deprecation.
-    warnings.filterwarnings("ignore", ".*popen2.*", DeprecationWarning,
-                            "pypy.tool.runsubprocess")
-    _child_stdin, _child_stdout = os.popen2(
-        "'%s' '%s'" % (sys.executable, _source))
+
+    def spawn_subprocess():
+        global _child
+        _child = Popen([sys.executable, _source], bufsize=0,
+                       stdin=PIPE, stdout=PIPE, close_fds=True)
+    spawn_subprocess()
+
+    def cleanup_subprocess():
+        global _child
+        _child = None
+    import atexit; atexit.register(cleanup_subprocess)
 
     def _run(*args):
-        _child_stdin.write('%r\n' % (args,))
-        _child_stdin.flush()
-        results = _child_stdout.readline()
+        try:
+            _child.stdin.write('%r\n' % (args,))
+        except (OSError, IOError):
+            # lost the child.  Try again...
+            spawn_subprocess()
+            _child.stdin.write('%r\n' % (args,))
+        results = _child.stdout.readline()
         assert results.startswith('(')
         results = eval(results)
         if results[0] is None:

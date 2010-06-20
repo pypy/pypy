@@ -172,6 +172,32 @@ from pypy.objspace.std.stringtype import str_decode as unicode_decode
 
 # ____________________________________________________________
 
+def decode_error_handler(space):
+    def raise_unicode_exception_decode(errors, encoding, msg, s,
+                                       startingpos, endingpos):
+        raise OperationError(space.w_UnicodeDecodeError,
+                             space.newtuple([space.wrap(encoding),
+                                             space.wrap(s),
+                                             space.wrap(startingpos),
+                                             space.wrap(endingpos),
+                                             space.wrap(msg)]))
+    return raise_unicode_exception_decode
+decode_error_handler._annspecialcase_ = 'specialize:memo'
+
+def encode_error_handler(space):
+    def raise_unicode_exception_encode(errors, encoding, msg, u,
+                                       startingpos, endingpos):
+        raise OperationError(space.w_UnicodeEncodeError,
+                             space.newtuple([space.wrap(encoding),
+                                             space.wrap(u),
+                                             space.wrap(startingpos),
+                                             space.wrap(endingpos),
+                                             space.wrap(msg)]))
+    return raise_unicode_exception_encode
+encode_error_handler._annspecialcase_ = 'specialize:memo'
+
+# ____________________________________________________________
+
 def getdefaultencoding(space):
     return space.sys.defaultencoding
 
@@ -193,21 +219,16 @@ def encode_object(space, w_object, encoding, errors):
         w_encoder = space.sys.get_w_default_encoder()
     else:
         if errors is None or errors == 'strict':
-            try:
-                if encoding == 'ascii':
-                    u = space.unicode_w(w_object)
-                    return space.wrap(unicode_encode_ascii(u, len(u), None))
-                if encoding == 'utf-8':
-                    u = space.unicode_w(w_object)
-                    return space.wrap(unicode_encode_utf_8(u, len(u), None))
-            except UnicodeEncodeError, uee:
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([
-                                         space.wrap(uee.encoding),
-                                         space.wrap(uee.object),
-                                         space.wrap(uee.start),
-                                         space.wrap(uee.end),
-                                         space.wrap(uee.reason)]))
+            if encoding == 'ascii':
+                u = space.unicode_w(w_object)
+                eh = encode_error_handler(space)
+                return space.wrap(unicode_encode_ascii(u, len(u), None,
+                                                       errorhandler=eh))
+            if encoding == 'utf-8':
+                u = space.unicode_w(w_object)
+                eh = encode_error_handler(space)
+                return space.wrap(unicode_encode_utf_8(u, len(u), None,
+                                                       errorhandler=eh))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -226,19 +247,17 @@ def decode_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
-        try:
-            if encoding == 'ascii':
-                # XXX error handling
-                s = space.bufferstr_w(w_obj)
-                return space.wrap(str_decode_ascii(s, len(s), None)[0])
-            if encoding == 'utf-8':
-                s = space.bufferstr_w(w_obj)
-                return space.wrap(str_decode_utf_8(s, len(s), None)[0])
-        except UnicodeDecodeError, ude:
-            raise OperationError(space.w_UnicodeDecodeError, space.newtuple(
-                [space.wrap(ude.encoding), space.wrap(ude.object),
-                 space.wrap(ude.start), space.wrap(ude.end),
-                 space.wrap(ude.reason)]))
+        if encoding == 'ascii':
+            # XXX error handling
+            s = space.bufferstr_w(w_obj)
+            eh = decode_error_handler(space)
+            return space.wrap(str_decode_ascii(s, len(s), None,
+                                               errorhandler=eh)[0])
+        if encoding == 'utf-8':
+            s = space.bufferstr_w(w_obj)
+            eh = decode_error_handler(space)
+            return space.wrap(str_decode_utf_8(s, len(s), None,
+                                               errorhandler=eh)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
     if errors is None:

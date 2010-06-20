@@ -187,13 +187,15 @@ def map(space, w_func, collections_w):
         cont = False
         args_w = [space.w_None] * num_iterators
         for i in range(num_iterators):
-            try:
-                args_w[i] = space.next(iterators_w[i])
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-            else:
-                cont = True
+            if iterators_w[i] is not None:
+                try:
+                    args_w[i] = space.next(iterators_w[i])
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    iterators_w[i] = None
+                else:
+                    cont = True
         if cont:
             w_args = space.newtuple(args_w)
             if none_func:

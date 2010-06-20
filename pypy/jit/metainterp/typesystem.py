@@ -4,6 +4,7 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.jit.metainterp import history
+from pypy.jit.codewriter import heaptracker
 from pypy.rlib.objectmodel import r_dict
 
 def deref(T):
@@ -44,9 +45,9 @@ class LLTypeHelper(TypeSystemHelper):
     BASETYPE = llmemory.GCREF
     BoxRef = history.BoxPtr
     ConstRef = history.ConstPtr
-    ConstAddr = history.ConstAddr
     loops_done_with_this_frame_ref = None # patched by compile.py
-    CONST_NULL = history.ConstPtr(history.ConstPtr.value)
+    NULLREF = history.ConstPtr.value
+    CONST_NULL = history.ConstPtr(NULLREF)
     CVAL_NULLREF = None # patched by optimizeopt.py
 
     def new_ConstRef(self, x):
@@ -71,17 +72,16 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_fnptr_to_root(self, fnptr):
         return llmemory.cast_ptr_to_adr(fnptr)
 
-    def cls_of_box(self, cpu, box):
+    def cls_of_box(self, box):
         obj = box.getref(lltype.Ptr(rclass.OBJECT))
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
-        return history.ConstInt(cpu.cast_adr_to_int(cls))
+        return history.ConstInt(heaptracker.adr2int(cls))
 
-    def subclassOf(self, cpu, clsbox1, clsbox2):
-        adr = clsbox2.getaddr(cpu)
+    def instanceOf(self, instbox, clsbox):
+        adr = clsbox.getaddr()
         bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        adr = clsbox1.getaddr(cpu)
-        real_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        return rclass.ll_issubclass(real_class, bounding_class)
+        real_instance = instbox.getref(rclass.OBJECTPTR)
+        return rclass.ll_isinstance(real_instance, bounding_class)
 
     def get_exception_box(self, etype):
         return history.ConstInt(etype)
@@ -120,7 +120,7 @@ class LLTypeHelper(TypeSystemHelper):
 
     def cast_vtable_to_hashable(self, cpu, ptr):
         adr = llmemory.cast_ptr_to_adr(ptr)
-        return cpu.cast_adr_to_int(adr)
+        return heaptracker.adr2int(adr)
 
     def cast_from_ref(self, TYPE, value):
         return lltype.cast_opaque_ptr(TYPE, value)
@@ -130,8 +130,8 @@ class LLTypeHelper(TypeSystemHelper):
         return lltype.cast_opaque_ptr(llmemory.GCREF, value)
     cast_to_ref._annspecialcase_ = 'specialize:ll'
     
-    def getaddr_for_box(self, cpu, box):
-        return box.getaddr(cpu)
+    def getaddr_for_box(self, box):
+        return box.getaddr()
 
 def rd_eq(ref1, ref2):
     return ref1 == ref2
@@ -151,9 +151,9 @@ class OOTypeHelper(TypeSystemHelper):
     BASETYPE = ootype.Object
     BoxRef = history.BoxObj
     ConstRef = history.ConstObj
-    ConstAddr = history.ConstObj
     loops_done_with_this_frame_ref = None # patched by compile.py
-    CONST_NULL = history.ConstObj(history.ConstObj.value)
+    NULLREF = history.ConstObj.value
+    CONST_NULL = history.ConstObj(NULLREF)
     CVAL_NULLREF = None # patched by optimizeopt.py
     
     def new_ConstRef(self, x):
@@ -233,7 +233,7 @@ class OOTypeHelper(TypeSystemHelper):
         return ootype.cast_to_object(value)
     cast_to_ref._annspecialcase_ = 'specialize:ll'
 
-    def getaddr_for_box(self, cpu, box):
+    def getaddr_for_box(self, box):
         return box.getref_base()
     
 llhelper = LLTypeHelper()

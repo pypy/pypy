@@ -1,7 +1,5 @@
 import py
 from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.policy import StopAtXPolicy
-from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 

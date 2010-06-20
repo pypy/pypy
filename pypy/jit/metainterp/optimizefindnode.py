@@ -160,7 +160,8 @@ class NodeFinder(object):
             else:
                 # all constant arguments: we can constant-fold
                 argboxes = [self.get_constant_box(arg) for arg in op.args]
-                resbox = execute_nonspec(self.cpu, op.opnum, argboxes, op.descr)
+                resbox = execute_nonspec(self.cpu, None,
+                                         op.opnum, argboxes, op.descr)
                 self.set_constant_node(op.result, resbox.constbox())
         # default case: mark the arguments as escaping
         for box in op.args:
@@ -169,8 +170,8 @@ class NodeFinder(object):
     def find_nodes_no_escape(self, op):
         pass    # for operations that don't escape their arguments
 
-    find_nodes_OOIS          = find_nodes_no_escape
-    find_nodes_OOISNOT       = find_nodes_no_escape
+    find_nodes_PTR_EQ        = find_nodes_no_escape
+    find_nodes_PTR_NE        = find_nodes_no_escape
     find_nodes_INSTANCEOF    = find_nodes_no_escape
     find_nodes_GUARD_NONNULL = find_nodes_no_escape
     find_nodes_GUARD_ISNULL  = find_nodes_no_escape

@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict, SomeList
-from pypy.annotation.model import SomeWeakRef
+from pypy.annotation.model import SomeWeakRef, SomeIterator
 from pypy.annotation.model import SomeOOObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
@@ -84,6 +84,9 @@ def builtin_range(*args):
     return getbookkeeper().newlist(s_item, range_step=step)
 
 builtin_xrange = builtin_range # xxx for now allow it
+
+def builtin_enumerate(s_obj):
+    return SomeIterator(s_obj, "enumerate")
 
 def builtin_bool(s_obj):
     return s_obj.is_true()
@@ -272,12 +275,6 @@ def builtin_apply(*stuff):
 def OSError_init(s_self, *args):
     pass
 
-def UnicodeDecodeError_init(s_self, *args):
-    pass
-
-def UnicodeEncodeError_init(s_self, *args):
-    pass
-
 def WindowsError_init(s_self, *args):
     pass
 
@@ -346,7 +343,7 @@ def llmemory_cast_adr_to_ptr(s, s_type):
     assert s_type.is_constant()
     return SomePtr(s_type.const)
 
-def llmemory_cast_adr_to_int(s):
+def llmemory_cast_adr_to_int(s, s_mode=None):
     return SomeInteger() # xxx
 
 def llmemory_cast_int_to_adr(s):
@@ -396,8 +393,6 @@ BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_int_to_adr] = llmemory
 
 BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     OSError_init)
-BUILTIN_ANALYZERS[getattr(UnicodeDecodeError.__init__, 'im_func', UnicodeDecodeError.__init__)] = UnicodeDecodeError_init
-BUILTIN_ANALYZERS[getattr(UnicodeEncodeError.__init__, 'im_func', UnicodeEncodeError.__init__)] = UnicodeEncodeError_init
 
 try:
     WindowsError

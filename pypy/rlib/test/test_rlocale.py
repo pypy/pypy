@@ -14,7 +14,8 @@ class TestLocale(object):
             py.test.skip("polish locale unsupported")
 
     def teardown_class(cls):
-        setlocale(LC_ALL, cls.oldlocale)
+        if hasattr(cls, "oldlocale"):
+            setlocale(LC_ALL, cls.oldlocale)
 
     def test_setlocale_worked(self):
         assert u"Ą".isupper()

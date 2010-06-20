@@ -72,9 +72,7 @@ def PyList_Insert(space, w_list, index, w_item):
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
-    
-    This macro returned an int. This might require changes in your
-    code for properly supporting 64-bit systems."""
+    """
     assert isinstance(w_list, W_ListObject)
     return len(w_list.wrappeditems)
 
@@ -83,9 +81,7 @@ def PyList_GET_SIZE(space, w_list):
 def PyList_Size(space, ref):
     """Return the length of the list object in list; this is equivalent to
     len(list) on a list object.
-    
-    This function returned an int. This might require changes in
-    your code for properly supporting 64-bit systems."""
+    """
     if not PyList_Check(space, ref):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected list object"))

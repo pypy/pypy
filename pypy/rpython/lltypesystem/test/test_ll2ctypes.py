@@ -15,7 +15,6 @@ from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.tool.udir import udir
 
 class TestLL2Ctypes(object):
 
@@ -1241,6 +1240,15 @@ class TestLL2Ctypes(object):
             return u.x
         res = interpret(f, [])
         assert res == 6
+
+    def test_force_to_int(self):
+        S = lltype.Struct('S')
+        p = lltype.malloc(S, flavor='raw')
+        a = llmemory.cast_ptr_to_adr(p)
+        i = llmemory.cast_adr_to_int(a, "forced")
+        assert type(i) is int
+        assert i == llmemory.cast_adr_to_int(a, "forced")
+        lltype.free(p, flavor='raw')
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):

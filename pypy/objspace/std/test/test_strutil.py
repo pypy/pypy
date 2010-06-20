@@ -2,8 +2,6 @@ import py, random
 from pypy.objspace.std.strutil import *
 from pypy.interpreter.error import OperationError
 
-import py
-
 
 class TestStrUtil:
 

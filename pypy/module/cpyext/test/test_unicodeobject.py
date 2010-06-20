@@ -49,7 +49,14 @@ class TestUnicode(BaseApiTest):
                space.newtuple([1, 2, 3]), None, None)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
                space.wrap(''), None, None)
+        ascii = rffi.str2charp('ascii')
+        replace = rffi.str2charp('replace')
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+                                                ascii, replace)
+        assert space.unwrap(encoded) == 'sp?m'
         rffi.free_charp(utf_8)
+        rffi.free_charp(replace)
+        rffi.free_charp(ascii)
 
         buf = rffi.unicode2wcharp(u"12345")
         api.PyUnicode_AsWideChar(space.wrap(u'longword'), buf, 5)
@@ -143,3 +150,26 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(wbuf)
         assert space.type(w_str) is space.w_str
         assert space.str_w(w_str) == "abc?"
+
+    def test_escape(self, space, api):
+        def test(ustr):
+            w_ustr = space.wrap(ustr.decode('Unicode-Escape'))
+            result = api.PyUnicode_AsUnicodeEscapeString(w_ustr)
+            assert space.eq_w(space.wrap(ustr), result)
+
+        test('\\u674f\\u7f8e')
+        test('\\u0105\\u0107\\u017c\\u017a')
+        test('El Ni\\xf1o')
+
+    def test_ascii(self, space, api):
+        ustr = "abcdef"
+        w_ustr = space.wrap(ustr.decode("ascii"))
+        result = api.PyUnicode_AsASCIIString(w_ustr)
+        
+        assert space.eq_w(space.wrap(ustr), result)
+
+        w_ustr = space.wrap(u"abcd\xe9f")
+        result = api.PyUnicode_AsASCIIString(w_ustr)
+        assert result is None
+
+

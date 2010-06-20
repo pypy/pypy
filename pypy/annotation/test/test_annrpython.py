@@ -3321,16 +3321,27 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert a.bookkeeper.getdesc(f).getuniquegraph()
 
-    def test_unicode_decode_error(self):
+    def test_cannot_raise_ll_exception(self):
+        from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+        #
         def f():
-            try:
-                raise UnicodeDecodeError("x", "x", 0, 1, "reason")
-            except UnicodeDecodeError, ude:
-                return ude.end
+            e = OverflowError()
+            lle = cast_instance_to_base_ptr(e)
+            raise Exception, lle
+            # ^^^ instead, must cast back from a base ptr to an instance
+        a = self.RPythonAnnotator()
+        py.test.raises(AssertionError, a.build_types, f, [])
 
+    def test_enumerate(self):
+        def f():
+            for i, x in enumerate(['a', 'b', 'c', 'd']):
+                if i == 2:
+                    return x
+            return '?'
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInteger)
+        assert isinstance(s, annmodel.SomeChar)
+
 
 def g(n):
     return [0,1,2,n]

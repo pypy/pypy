@@ -79,11 +79,6 @@ class TestTypedTestCase(CompilationTestCase):
         nested_whiles = self.getcompiled(snippet.nested_whiles, [int, int])
         assert nested_whiles(5,3) == '!!!!!'
 
-    def test_call_five(self):
-        call_five = self.getcompiled(snippet.call_five, [int])
-        result = call_five()
-        assert result == [5]
-
     def test_call_unpack_56(self):
         call_unpack_56 = self.getcompiled(snippet.call_unpack_56, [])
         result = call_unpack_56()
@@ -115,13 +110,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert fn(3) == 789
         assert fn(4) == 789
         assert fn(5) == 101112
-
-    def test_get_set_del_slice(self):
-        fn = self.getcompiled(snippet.get_set_del_slice, [list])
-        l = list('abcdefghij')
-        result = fn(l)
-        assert l == [3, 'c', 8, 11, 'h', 9]
-        assert result == ([3, 'c'], [9], [11, 'h'])
 
     def test_type_conversion(self):
         # obfuscated test case specially for typer.insert_link_conversions()

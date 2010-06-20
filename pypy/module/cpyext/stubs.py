@@ -2967,13 +2967,6 @@ def PyUnicode_EncodeUnicodeEscape(space, s, size):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUnicodeEscapeString(space, unicode):
-    """Encode a Unicode object using Unicode-Escape and return the result as Python
-    string object.  Error handling is "strict". Return NULL if an exception was
-    raised by the codec."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeRawUnicodeEscape(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the Raw-Unicode-Escape
@@ -3041,13 +3034,6 @@ def PyUnicode_EncodeASCII(space, s, size, errors):
     
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsASCIIString(space, unicode):
-    """Encode a Unicode object using ASCII and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)

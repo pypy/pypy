@@ -139,8 +139,18 @@ class MsvcPlatform(Platform):
 
     def _link_args_from_eci(self, eci, standalone):
         # Windows needs to resolve all symbols even for DLLs
-        args = super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
-        return args + ['/EXPORT:%s' % symbol for symbol in eci.export_symbols]
+        return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
+
+    def _exportsymbols_link_flags(self, eci):
+        if not eci.export_symbols:
+            return []
+
+        response_file = self._make_response_file("exported_symbols_")
+        f = response_file.open("w")
+        for sym in eci.export_symbols:
+            f.write("/EXPORT:%s\n" % (sym,))
+        f.close()
+        return ["@%s" % (response_file,)]
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
@@ -179,7 +189,7 @@ class MsvcPlatform(Platform):
             # Microsoft compilers write compilation errors to stdout
             stderr = stdout + stderr
             errorfile = outname.new(ext='errors')
-            errorfile.write(stderr)
+            errorfile.write(stderr, mode='wb')
             stderrlines = stderr.splitlines()
             for line in stderrlines:
                 log.ERROR(line)
@@ -198,18 +208,22 @@ class MsvcPlatform(Platform):
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
+        else:
+            exe_name = exe_name.new(ext=self.exe_ext)
 
         m = NMakefile(path)
         m.exe_name = exe_name
         m.eci = eci
 
-        linkflags = self.link_flags
+        linkflags = self.link_flags[:]
         if shared:
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
+        linkflags += self._exportsymbols_link_flags(eci)
 
         if shared:
-            so_name = exe_name.new(ext=self.so_ext)
+            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+                                   ext=self.so_ext)
             target_name = so_name.basename
         else:
             target_name = exe_name.basename
@@ -243,6 +257,7 @@ class MsvcPlatform(Platform):
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', self.link),
+            ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
             ]
 
@@ -262,19 +277,22 @@ class MsvcPlatform(Platform):
                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
 
         if shared:
-            m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename),
+            m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename)
+            m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo '
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   '$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@')
+                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFESTFILE:$*.manifest',
+                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
 
         return m
 
@@ -319,6 +337,7 @@ class MingwPlatform(posix.BasePosix):
     shared_only = []
     cflags = ['-O3']
     link_flags = []
+    exe_ext = 'exe'
     so_ext = 'dll'
 
     def __init__(self, cc=None):

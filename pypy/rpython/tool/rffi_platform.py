@@ -752,7 +752,7 @@ if __name__ == '__main__':
                            'struct sockaddr_in'
                            sin_port  INT
     """
-    import sys, getopt
+    import getopt
     opts, args = getopt.gnu_getopt(sys.argv[1:], 'h:')
     if not args:
         print >> sys.stderr, doc

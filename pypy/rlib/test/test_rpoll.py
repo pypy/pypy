@@ -1,4 +1,4 @@
-import thread
+import thread, errno
 from pypy.rlib.rsocket import *
 from pypy.rlib.rpoll import *
 from pypy.rpython.test.test_llinterp import interpret
@@ -34,8 +34,10 @@ def test_simple():
     assert events[0][1] & POLLOUT
 
     err = cli.connect_ex(servaddr)
-    # win32 oddity: returns WSAEISCONN when the connection finally succeed.
-    assert err == 0 or err == 10056
+    # win32: returns WSAEISCONN when the connection finally succeed.
+    # Mac OS/X: returns EISCONN.
+    assert (err == 0 or err == 10056 or
+            err == getattr(errno, 'EISCONN', '???'))
 
     events = poll({servconn.fileno(): POLLIN,
                    cli.fileno(): POLLIN}, timeout=100)

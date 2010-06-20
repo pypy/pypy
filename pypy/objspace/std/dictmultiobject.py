@@ -467,7 +467,7 @@ class RDictIteratorImplementation(IteratorImplementation):
 
 
 # XXX fix this thing
-import time, py
+import time
 
 class DictInfo(object):
     _dict_infos = []

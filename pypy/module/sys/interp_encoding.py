@@ -43,8 +43,6 @@ def _getfilesystemencoding(space):
         rlocale.setlocale(rlocale.LC_CTYPE, "")
         loc_codeset = rlocale.nl_langinfo(rlocale.CODESET)
         if loc_codeset:
-            if loc_codeset == 'ANSI_X3.4-1968':
-                loc_codeset = 'ascii'
             codecmod = space.getbuiltinmodule('_codecs')
             w_res = space.call_function(space.getattr(codecmod,
                                                       space.wrap('lookup')),

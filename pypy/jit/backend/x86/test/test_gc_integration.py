@@ -3,9 +3,10 @@
 """
 
 import py
-from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
+from pypy.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.x86.runner import CPU
@@ -21,7 +22,6 @@ from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
      X86XMMRegisterManager
-from pypy.rpython.annlowlevel import llhelper
 
 class MockGcRootMap(object):
     def get_basic_shape(self):
@@ -225,10 +225,12 @@ class TestMallocFastpath(BaseTestRegalloc):
         self.nodedescr = nodedescr
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         vtable_int = cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(vtable))
-        NODE2 = lltype.Struct('node2', ('tid', lltype.Signed),
+        NODE2 = lltype.GcStruct('node2',
+                                  ('parent', rclass.OBJECT),
+                                  ('tid', lltype.Signed),
                                   ('vtable', lltype.Ptr(rclass.OBJECT_VTABLE)))
         descrsize = cpu.sizeof(NODE2)
-        cpu.set_class_sizes({vtable_int: descrsize})
+        heaptracker.register_known_gctype(cpu, vtable, NODE2)
         self.descrsize = descrsize
         self.vtable_int = vtable_int
 
@@ -282,4 +284,4 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.nursery[0] == self.descrsize.tid
         assert gc_ll_descr.nursery[1] == self.vtable_int
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        assert gc_ll_descr.addrs[0] == nurs_adr + 8
+        assert gc_ll_descr.addrs[0] == nurs_adr + 12

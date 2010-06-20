@@ -7,7 +7,6 @@ translator; see pypy/bin/translatorshell.py.
 import autopath, os, sys, types, copy
 
 from pypy.translator import simplify
-from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.model import FunctionGraph, checkgraph, Block
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
@@ -67,6 +66,7 @@ class TranslationContext(object):
         else:
             if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
+            from pypy.objspace.flow.objspace import FlowObjSpace
             space = FlowObjSpace(self.flowconfig)
             if self.annotator:
                 # ZZZ

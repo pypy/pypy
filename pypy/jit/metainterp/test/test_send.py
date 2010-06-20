@@ -1,7 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver, hint, purefunction
-from pypy.jit.metainterp.policy import StopAtXPolicy
-from pypy.rpython.ootypesystem import ootype
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
@@ -375,7 +374,7 @@ class SendTests:
         self.check_loop_count(2)
 
     def test_behavior_change_after_a_while(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x'])
         class Base:
             def __init__(self, value):
                 self.value = value
@@ -455,7 +454,7 @@ class SendTests:
         self.check_tree_loop_count(2)
 
     def test_bug1(self):
-        myjitdriver = JitDriver(greens = [], reds = ['node', 'n'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         class Base:
             pass
         class A(Base):

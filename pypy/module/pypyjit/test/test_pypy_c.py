@@ -222,7 +222,7 @@ class PyPyCJITTests(object):
                 while i < n+OFFSET:
                     i = f(f(i))
                 return i
-        ''', 96,
+        ''', 98,
                    ([20], 20),
                     ([31], 32))
         ops = self.get_by_bytecode("LOAD_GLOBAL")
@@ -263,7 +263,7 @@ class PyPyCJITTests(object):
                     x = a.f(i)
                     i = a.f(x)
                 return i
-        ''', 92,
+        ''', 93,
                    ([20], 20),
                     ([31], 32))
         ops = self.get_by_bytecode("LOOKUP_METHOD")
@@ -308,7 +308,7 @@ class PyPyCJITTests(object):
                     x = a.f(i)
                     i = a.g(x)
                 return i
-        ''', 105,
+        ''', 106,
                    ([20], 20),
                    ([31], 31))
         ops = self.get_by_bytecode("LOOKUP_METHOD")

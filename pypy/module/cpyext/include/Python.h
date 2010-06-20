@@ -15,7 +15,12 @@
 #else
 # define MS_WIN32 1
 # define MS_WINDOWS 1
-# include <crtdefs.h>
+# ifdef _MSC_VER
+#  include <crtdefs.h>
+# endif
+# ifdef __MINGW32__
+#  include <limits.h>
+# endif
 # include <io.h>
 # define Py_DEPRECATED(VERSION_UNUSED)
 # ifdef Py_BUILD_CORE
@@ -103,6 +108,8 @@ typedef long Py_ssize_t;
 #include "structmember.h"
 
 #include <pypy_decl.h>
+
+#include "modsupport.inl"
 
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]

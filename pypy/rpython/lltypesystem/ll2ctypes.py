@@ -505,7 +505,7 @@ def _find_parent(llobj):
 # additionally, this adds mess to __del__ "semantics"
 _all_callbacks = {}
 _all_callbacks_results = []
-_callback2obj = {}
+_int2obj = {}
 _callback_exc_info = None
 
 def get_rtyper():
@@ -522,6 +522,13 @@ def lltype2ctypes(llobj, normalize=True):
     """
     if isinstance(llobj, lltype._uninitialized):
         return uninitialized2ctypes(llobj.TYPE)
+    if isinstance(llobj, llmemory.AddressAsInt):
+        cobj = ctypes.cast(lltype2ctypes(llobj.adr), ctypes.c_void_p)
+        res = intmask(cobj.value)
+        _int2obj[res] = llobj.adr.ptr._obj
+        return res
+    if isinstance(llobj, llmemory.fakeaddress):
+        llobj = llobj.ptr or 0
 
     T = lltype.typeOf(llobj)
 
@@ -614,8 +621,9 @@ def lltype2ctypes(llobj, normalize=True):
             else:
                 ctypes_func_type = get_ctypes_type(T)
                 res = ctypes_func_type(callback)
-            _callback2obj[ctypes.cast(res, ctypes.c_void_p).value] = container
             _all_callbacks[key] = res
+            key2 = intmask(ctypes.cast(res, ctypes.c_void_p).value)
+            _int2obj[key2] = container
             return res
 
         index = 0
@@ -724,9 +732,9 @@ def ctypes2lltype(T, cobj):
                 container = _array_of_known_length(T.TO)
                 container._storage = cobj.contents
         elif isinstance(T.TO, lltype.FuncType):
-            cobjkey = ctypes.cast(cobj, ctypes.c_void_p).value
-            if cobjkey in _callback2obj:
-                container = _callback2obj[cobjkey]
+            cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
+            if cobjkey in _int2obj:
+                container = _int2obj[cobjkey]
             else:
                 _callable = get_ctypes_trampoline(T.TO, cobj)
                 return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
@@ -993,6 +1001,8 @@ def force_cast(RESTYPE, value):
     """Cast a value to a result type, trying to use the same rules as C."""
     if not isinstance(RESTYPE, lltype.LowLevelType):
         raise TypeError("rffi.cast() first arg should be a TYPE")
+    if isinstance(value, llmemory.AddressAsInt):
+        value = value.adr
     if isinstance(value, llmemory.fakeaddress):
         value = value.ptr or 0
     TYPE1 = lltype.typeOf(value)

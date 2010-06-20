@@ -33,7 +33,7 @@ class ProfOpt(object):
 
     def first(self):
         platform = self.compiler.platform
-        if platform.name == 'darwin':
+        if platform.name.startswith('darwin'):
             # XXX incredible hack for darwin
             cfiles = self.compiler.cfiles
             STR = '/*--no-profiling-for-this-file!--*/'
@@ -227,7 +227,7 @@ class CBuilder(object):
                     funcgen.patch_graph(copy_graph=False)
         return db
 
-    def generate_source(self, db=None, defines={}):
+    def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
         translator = self.translator
 
@@ -271,7 +271,7 @@ class CBuilder(object):
                                                  defines = defines)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = self.eventually_copy(extra)
-        self.gen_makefile(targetdir)
+        self.gen_makefile(targetdir, exe_name=exe_name)
         return cfile
 
     def eventually_copy(self, cfiles):
@@ -482,7 +482,7 @@ class CStandaloneBuilder(CBuilder):
         # build main program
         eci = self.get_eci()
         kw = {}
-        if self.translator.platform.so_ext == 'so':
+        if self.translator.platform.cc == 'gcc':
             kw['libraries'] = [self.shared_library_name.purebasename[3:]]
             kw['library_dirs'] = [self.targetdir]
         else:
@@ -516,6 +516,10 @@ class CStandaloneBuilder(CBuilder):
                 extra_opts += ['-j', str(self.config.translation.make_jobs)]
             self.translator.platform.execute_makefile(self.targetdir,
                                                       extra_opts)
+            if shared:
+                self.shared_library_name = self.executable_name.new(
+                    purebasename='lib' + self.executable_name.purebasename,
+                    ext=self.translator.platform.so_ext)
         else:
             compiler = CCompilerDriver(self.translator.platform,
                                        [self.c_source_filename] + self.extrafiles,
@@ -531,6 +535,8 @@ class CStandaloneBuilder(CBuilder):
 
     def gen_makefile(self, targetdir, exe_name=None):
         cfiles = [self.c_source_filename] + self.extrafiles
+        if exe_name is not None:
+            exe_name = targetdir.join(exe_name)
         mk = self.translator.platform.gen_makefile(
             cfiles, self.eci,
             path=targetdir, exe_name=exe_name,

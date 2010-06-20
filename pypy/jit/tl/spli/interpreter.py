@@ -24,7 +24,7 @@ compare_ops = [
 unrolling_compare_dispatch_table = unrolling_iterable(
     enumerate(compare_ops))
 
-jitdriver = JitDriver(greens = ['code', 'instr_index'],
+jitdriver = JitDriver(greens = ['instr_index', 'code'],
                       reds = ['frame'],
                       virtualizables = ['frame'])
 

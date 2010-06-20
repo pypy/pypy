@@ -130,7 +130,7 @@ class AppTestItertools:
 
         raises(StopIteration, it.next)
 
-    def test_takewhile_wrongargs(self):
+    def test_dropwhile_wrongargs(self):
         import itertools
 
         it = itertools.dropwhile(None, [1])

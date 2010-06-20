@@ -160,6 +160,17 @@ class AppTestFfi:
         {
             return 42;
         }
+
+        typedef union {
+            short x;
+            long y;
+        } UN;
+
+        UN ret_un_func(UN inp)
+        {
+            inp.y = inp.x * 100;
+            return inp;
+        }
         
         '''))
         symbols = """get_char char_check get_raw_pointer
@@ -927,6 +938,17 @@ class AppTestFfi:
         b[3:5] = 'zt'
         assert a[3] == 'z'
         assert a[4] == 't'
+
+    def test_union(self):
+        skip("segfaulting")
+        import _rawffi
+        longsize = _rawffi.sizeof('l')
+        S = _rawffi.Structure((longsize, longsize))
+        s = S(autofree=False)
+        lib = _rawffi.CDLL(self.lib_name)
+        f = lib.ptr('ret_un_func', [(S, 1)], (S, 1))
+        ret = f(s)
+        s.free()
 
 class AppTestAutoFree:
     def setup_class(cls):

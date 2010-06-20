@@ -11,9 +11,24 @@ from pypy.rlib.jit import PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.jit import DEBUG_PROFILE
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp import support, history
+from pypy.jit.metainterp import history
+from pypy.jit.codewriter import support, heaptracker
 
 # ____________________________________________________________
+
+@specialize.arg(0)
+def specialize_value(TYPE, x):
+    """'x' must be a Signed, a GCREF or a Float.
+    This function casts it to a more specialized type, like Char or Ptr(..).
+    """
+    INPUT = lltype.typeOf(x)
+    if INPUT is lltype.Signed:
+        return lltype.cast_primitive(TYPE, x)    # XXX missing: Ptr(non-gc)
+    elif INPUT is lltype.Float:
+        assert TYPE is lltype.Float
+        return x
+    else:
+        return lltype.cast_opaque_ptr(TYPE, x)
 
 @specialize.arg(0)
 def unwrap(TYPE, box):
@@ -39,7 +54,7 @@ def wrap(cpu, value, in_const_box=False):
                 return history.BoxPtr(value)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
-            value = cpu.cast_adr_to_int(adr)
+            value = heaptracker.adr2int(adr)
             # fall through to the end of the function
     elif isinstance(lltype.typeOf(value), ootype.OOType):
         value = ootype.cast_to_object(value)
@@ -180,7 +195,7 @@ class WarmEnterState(object):
             return self.maybe_compile_and_run
 
         metainterp_sd = self.warmrunnerdesc.metainterp_sd
-        vinfo = metainterp_sd.virtualizable_info
+        vinfo = self.warmrunnerdesc.virtualizable_info
         num_green_args = self.warmrunnerdesc.num_green_args
         get_jitcell = self.make_jitcell_getter()
         set_future_values = self.make_set_future_values()
@@ -401,7 +416,7 @@ class WarmEnterState(object):
 
         warmrunnerdesc = self.warmrunnerdesc
         cpu = warmrunnerdesc.cpu
-        vinfo = warmrunnerdesc.metainterp_sd.virtualizable_info
+        vinfo = warmrunnerdesc.virtualizable_info
         red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
         #
         def set_future_values(*redargs):

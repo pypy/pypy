@@ -311,7 +311,7 @@ class BaseTest(BaseRtypingTest):
         assert res == 2323
 
     def test_access_directly_stop_at_dont_look_inside(self):
-        from pypy.rlib.jit import hint, dont_look_inside
+        from pypy.rlib.jit import dont_look_inside
 
         class A:
             _virtualizable2_ = ['x']

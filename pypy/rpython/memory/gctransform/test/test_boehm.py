@@ -40,7 +40,7 @@ def test_boehm_finalizer_pyobj():
     assert f is not None
 
 def test_boehm_finalizer___del__():
-    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    S = lltype.GcStruct("S", ('x', lltype.Signed), rtti=True)
     def f(s):
         s.x = 1
     def type_info_S(p):
@@ -58,7 +58,8 @@ def test_boehm_finalizer___del__():
     assert f is not None
 
 def test_boehm_finalizer_nomix___del___and_pyobj():
-    S = lltype.GcStruct("S", ('x', lltype.Signed), ('y', lltype.Ptr(lltype.PyObject)))
+    S = lltype.GcStruct("S", ('x', lltype.Signed),
+                             ('y', lltype.Ptr(lltype.PyObject)), rtti=True)
     def f(s):
         s.x = 1
     def type_info_S(p):

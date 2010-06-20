@@ -100,7 +100,7 @@ class intaddr(object):
     _TYPE = llmemory.Address
     def __init__(self, intval):
         self.intval = intval
-    def _cast_to_int(self):
+    def _cast_to_int(self, symbolic="?"):
         return self.intval
     def __repr__(self):
         return '<intaddr 0x%x>' % (self.intval & (sys.maxint*2+1),)

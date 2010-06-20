@@ -289,7 +289,7 @@ class AppTestW_TupleObject:
         assert (t * 1) is not t
         assert (t * 1) == t
 
-    def test_getslice(self):
+    def test_getslice_2(self):
         assert (5,2,3)[1:2] == (2,)
 
     def test_eq(self):

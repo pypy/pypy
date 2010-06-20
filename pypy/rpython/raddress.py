@@ -7,6 +7,8 @@ from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.objectmodel import we_are_translated
+
 
 class __extend__(annmodel.SomeAddress):
     def rtyper_makerepr(self, rtyper):
@@ -33,7 +35,7 @@ class AddressRepr(Repr):
 
     def ll_str(self, a):
         from pypy.rpython.lltypesystem.rstr import ll_str
-        id = cast_adr_to_int(a)
+        id = ll_addrhash(a)
         return ll_str.ll_int2hex(r_uint(id), True)
 
     def rtype_getattr(self, hop):
@@ -55,7 +57,7 @@ class AddressRepr(Repr):
     get_ll_fasthash_function = get_ll_hash_function
 
 def ll_addrhash(addr1):
-    return cast_adr_to_int(addr1)
+    return cast_adr_to_int(addr1, "forced")
 
 address_repr = AddressRepr()
 

@@ -1283,20 +1283,13 @@ class GcRootTracker(object):
 
         if self.format == 'msvc':
             print >> output, """\
-            /* A circular doubly-linked list of all
-             * the ASM_FRAMEDATAs currently alive
-             */
-            struct asm_framedata {
-                struct asm_framedata* prev;
-                struct asm_framedata* next;
-            } __gcrootanchor = { &__gcrootanchor, &__gcrootanchor };
-
             /* See description in asmgcroot.py */
             __declspec(naked)
             long pypy_asm_stackwalk(void *callback)
             {
                __asm {
-                mov\tedx, DWORD PTR [esp+4]\t; my argument, which is the callback
+                mov\tedx, DWORD PTR [esp+4]\t; 1st argument, which is the callback
+                mov\tecx, DWORD PTR [esp+8]\t; 2nd argument, which is gcrootanchor
                 mov\teax, esp\t\t; my frame top address
                 push\teax\t\t\t; ASM_FRAMEDATA[6]
                 push\tebp\t\t\t; ASM_FRAMEDATA[5]
@@ -1307,10 +1300,10 @@ class GcRootTracker(object):
             ; Add this ASM_FRAMEDATA to the front of the circular linked
             ; list.  Let's call it 'self'.
 
-                mov\teax, DWORD PTR [__gcrootanchor+4]\t\t; next = gcrootanchor->next
+                mov\teax, DWORD PTR [ecx+4]\t\t; next = gcrootanchor->next
                 push\teax\t\t\t\t\t\t\t\t\t; self->next = next
-                push\tOFFSET __gcrootanchor              ; self->prev = gcrootanchor
-                mov\tDWORD PTR [__gcrootanchor+4], esp\t\t; gcrootanchor->next = self
+                push\tecx              ; self->prev = gcrootanchor
+                mov\tDWORD PTR [ecx+4], esp\t\t; gcrootanchor->next = self
                 mov\tDWORD PTR [eax+0], esp\t\t\t\t\t; next->prev = self
 
                 call\tedx\t\t\t\t\t\t; invoke the callback
@@ -1343,7 +1336,8 @@ class GcRootTracker(object):
 
             print >> output, """\
             /* See description in asmgcroot.py */
-            movl\t4(%esp), %edx\t/* my argument, which is the callback */
+            movl\t4(%esp), %edx\t/* 1st argument, which is the callback */
+            movl\t8(%esp), %ecx\t/* 2nd argument, which is gcrootanchor */
             movl\t%esp, %eax\t/* my frame top address */
             pushl\t%eax\t\t/* ASM_FRAMEDATA[6] */
             pushl\t%ebp\t\t/* ASM_FRAMEDATA[5] */
@@ -1354,10 +1348,10 @@ class GcRootTracker(object):
             /* Add this ASM_FRAMEDATA to the front of the circular linked */
             /* list.  Let's call it 'self'.                               */
 
-            movl\t__gcrootanchor + 4, %eax\t/* next = gcrootanchor->next */
+            movl\t4(%ecx), %eax\t/* next = gcrootanchor->next */
             pushl\t%eax\t\t\t\t/* self->next = next */
-            pushl\t$__gcrootanchor\t\t\t/* self->prev = gcrootanchor */
-            movl\t%esp, __gcrootanchor + 4\t/* gcrootanchor->next = self */
+            pushl\t%ecx\t\t\t/* self->prev = gcrootanchor */
+            movl\t%esp, 4(%ecx)\t/* gcrootanchor->next = self */
             movl\t%esp, 0(%eax)\t\t\t/* next->prev = self */
 
             /* note: the Mac OS X 16 bytes aligment must be respected. */
@@ -1378,7 +1372,7 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %eax (and possibly %edx) are unmodified  */
             ret
-            """.replace("__gcrootanchor", _globalname("__gcrootanchor"))
+            """
 
             _variant(elf='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                      darwin='',
@@ -1388,17 +1382,6 @@ class GcRootTracker(object):
             for label, state, is_range in self.gcmaptable:
                 label = label[1:]
                 print >> output, "extern void* %s;" % label
-        else:
-            print >> output, """\
-            /* A circular doubly-linked list of all */
-            /* the ASM_FRAMEDATAs currently alive */
-            .data
-            .align 4
-            .globl __gcrootanchor
-            __gcrootanchor:
-            .long\t__gcrootanchor       /* prev */
-            .long\t__gcrootanchor       /* next */
-            """.replace("__gcrootanchor", _globalname("__gcrootanchor"))
 
         shapes = {}
         shapelines = []
@@ -1437,6 +1420,8 @@ class GcRootTracker(object):
             """
         else:
             print >> output, """\
+            .data
+            .align 4
             .globl __gcmapstart
             __gcmapstart:
             """.replace("__gcmapstart", _globalname("__gcmapstart"))

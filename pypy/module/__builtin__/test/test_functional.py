@@ -48,15 +48,34 @@ class AppTestMap:
       b = [ 2, 3, 4, 5, 6]
       assert map(None, a, b) == [('1', 2), (2, 3), (3, 4), ('b', 5), (None, 6)]
 
-   def test_map_multiply(self):
+   def test_map_add(self):
       a = [1, 2, 3, 4]
       b = [0, 1, 1, 1]
-      assert map(lambda x, y: x+y, a, b) == [1, 2, 4, 5]
+      assert map(lambda x, y: x+y, a, b) == [1, 3, 4, 5]
 
-   def test_map_multiply(self):
+   def test_map_first_item(self):
       a = [1, 2, 3, 4, 5]
       b = []
       assert map(lambda x, y: x, a, b) == a
+
+   def test_map_iterables(self):
+      class A(object):
+         def __init__(self, n):
+            self.n = n
+         def __iter__(self):
+            return B(self.n)
+      class B(object):
+         def __init__(self, n):
+            self.n = n
+         def next(self):
+            self.n -= 1
+            if self.n == 0: raise StopIteration
+            return self.n
+      result = map(None, A(3), A(8))
+      # this also checks that B.next() is not called any more after it
+      # raised StopIteration once
+      assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
+                        (None, 3), (None, 2), (None, 1)]
 
 class AppTestZip:
    def test_one_list(self):

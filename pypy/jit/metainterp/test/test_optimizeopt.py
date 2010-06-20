@@ -1,8 +1,7 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_resume import MyMetaInterp
 from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
-                                                            OOtypeMixin,
+                                                            #OOtypeMixin,
                                                             BaseTest)
 from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
 from pypy.jit.metainterp import optimizeopt
@@ -10,18 +9,17 @@ from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
-from pypy.jit.metainterp import executor, compile, resume
+from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.test.oparser import pure_parse
 
-class FakeFrame(object):
-    parent_resumedata_snapshot = None
-    parent_resumedata_frame_info_list = None
+##class FakeFrame(object):
+##    parent_resumedata_snapshot = None
+##    parent_resumedata_frame_info_list = None
 
-    def __init__(self, code="", pc=0, exc_target=-1):
-        self.jitcode = code
-        self.pc = pc
-        self.exception_target = exc_target
+##    def __init__(self, code="", pc=0):
+##        self.jitcode = code
+##        self.pc = pc
 
 class Fake(object):
     failargs_limit = 1000
@@ -45,9 +43,8 @@ def test_store_final_boxes_in_guard():
     fdescr = ResumeGuardDescr(None, None)
     op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
     # setup rd data
-    fi0 = resume.FrameInfo(None, FakeFrame("code0", 1, 2))
-    fdescr.rd_frame_info_list = resume.FrameInfo(fi0,
-                                                 FakeFrame("code1", 3, -1))
+    fi0 = resume.FrameInfo(None, "code0", 11)
+    fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
     snapshot0 = resume.Snapshot(None, [b0])
     fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
     #
@@ -215,14 +212,18 @@ class Storage(compile.ResumeGuardDescr):
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
 
+def _sortboxes(boxes):
+    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
+    return sorted(boxes, key=lambda box: _kind2count[box.type])
+
 class BaseTestOptimizeOpt(BaseTest):
 
     def invent_fail_descr(self, fail_args):
         if fail_args is None:
             return None
         descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, FakeFrame())
-        descr.rd_snapshot = resume.Snapshot(None, fail_args)
+        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
+        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
         return descr
 
     def assert_equal(self, optimized, expected):
@@ -273,7 +274,7 @@ class BaseTestOptimizeOpt(BaseTest):
         i0 = int_add(2, 3)
         i1 = int_is_true(i0)
         guard_true(i1) []
-        i2 = bool_not(i1)
+        i2 = int_is_zero(i1)
         guard_false(i2) []
         guard_value(i0, 5) []
         jump()
@@ -289,7 +290,7 @@ class BaseTestOptimizeOpt(BaseTest):
         from pypy.jit.metainterp.executor import execute_nonspec
         from pypy.jit.metainterp.history import BoxInt
         import random
-        for opnum in range(rop.INT_ADD, rop.BOOL_NOT+1):
+        for opnum in range(rop.INT_ADD, rop.SAME_AS+1):
             try:
                 op = opname[opnum]
             except KeyError:
@@ -309,7 +310,7 @@ class BaseTestOptimizeOpt(BaseTest):
             jump()
             """ % (op.lower(), ', '.join(map(str, args)))
             argboxes = [BoxInt(a) for a in args]
-            expected_value = execute_nonspec(self.cpu, opnum,
+            expected_value = execute_nonspec(self.cpu, None, opnum,
                                              argboxes).getint()
             expected = """
             []
@@ -410,13 +411,31 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_int_is_true_1(self):
-        py.test.skip("too bad")
+        py.test.skip("XXX implement me")
         ops = """
         [i0]
         i1 = int_is_true(i0)
         guard_true(i1) []
         i2 = int_is_true(i0)
         guard_true(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
+    def test_int_is_true_is_zero(self):
+        py.test.skip("XXX implement me")
+        ops = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
         jump(i0)
         """
         expected = """
@@ -478,13 +497,13 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
-        i0 = ooisnot(p0, NULL)
+        i0 = ptr_ne(p0, NULL)
         guard_true(i0) []
-        i1 = oois(p0, NULL)
+        i1 = ptr_eq(p0, NULL)
         guard_false(i1) []
-        i2 = ooisnot(NULL, p0)
+        i2 = ptr_ne(NULL, p0)
         guard_true(i0) []
-        i3 = oois(NULL, p0)
+        i3 = ptr_eq(NULL, p0)
         guard_false(i1) []
         jump(p0)
         """
@@ -499,13 +518,13 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p0]
         setfield_gc(p0, 5, descr=valuedescr)     # forces p0 != NULL
-        i0 = ooisnot(p0, NULL)
+        i0 = ptr_ne(p0, NULL)
         guard_true(i0) []
-        i1 = oois(p0, NULL)
+        i1 = ptr_eq(p0, NULL)
         guard_false(i1) []
-        i2 = ooisnot(NULL, p0)
+        i2 = ptr_ne(NULL, p0)
         guard_true(i0) []
-        i3 = oois(NULL, p0)
+        i3 = ptr_eq(NULL, p0)
         guard_false(i1) []
         guard_nonnull(p0) []
         jump(p0)
@@ -577,6 +596,25 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i)
         """
         self.optimize_loop(ops, 'Not', ops)
+
+    def test_int_is_true_of_bool(self):
+        ops = """
+        [i0, i1]
+        i2 = int_gt(i0, i1)
+        i3 = int_is_true(i2)
+        i4 = int_is_true(i3)
+        guard_value(i4, 0) [i0, i1]
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_gt(i0, i1)
+        guard_false(i2) [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+
 
 
     def test_p123_simple(self):
@@ -728,25 +766,25 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p0, p1, p2]
         guard_nonnull(p0) []
-        i3 = ooisnot(p0, NULL)
+        i3 = ptr_ne(p0, NULL)
         guard_true(i3) []
-        i4 = oois(p0, NULL)
+        i4 = ptr_eq(p0, NULL)
         guard_false(i4) []
-        i5 = ooisnot(NULL, p0)
+        i5 = ptr_ne(NULL, p0)
         guard_true(i5) []
-        i6 = oois(NULL, p0)
+        i6 = ptr_eq(NULL, p0)
         guard_false(i6) []
-        i7 = ooisnot(p0, p1)
+        i7 = ptr_ne(p0, p1)
         guard_true(i7) []
-        i8 = oois(p0, p1)
+        i8 = ptr_eq(p0, p1)
         guard_false(i8) []
-        i9 = ooisnot(p0, p2)
+        i9 = ptr_ne(p0, p2)
         guard_true(i9) []
-        i10 = oois(p0, p2)
+        i10 = ptr_eq(p0, p2)
         guard_false(i10) []
-        i11 = ooisnot(p2, p1)
+        i11 = ptr_ne(p2, p1)
         guard_true(i11) []
-        i12 = oois(p2, p1)
+        i12 = ptr_eq(p2, p1)
         guard_false(i12) []
         jump(p0, p1, p2)
         """
@@ -766,17 +804,17 @@ class BaseTestOptimizeOpt(BaseTest):
         expected2 = """
         [p0, p1, p2]
         guard_nonnull(p0) []
-        i7 = ooisnot(p0, p1)
+        i7 = ptr_ne(p0, p1)
         guard_true(i7) []
-        i8 = oois(p0, p1)
+        i8 = ptr_eq(p0, p1)
         guard_false(i8) []
-        i9 = ooisnot(p0, p2)
+        i9 = ptr_ne(p0, p2)
         guard_true(i9) []
-        i10 = oois(p0, p2)
+        i10 = ptr_eq(p0, p2)
         guard_false(i10) []
-        i11 = ooisnot(p2, p1)
+        i11 = ptr_ne(p2, p1)
         guard_true(i11) []
-        i12 = oois(p2, p1)
+        i12 = ptr_eq(p2, p1)
         guard_false(i12) []
         jump(p0, p1, p2)
         """
@@ -870,7 +908,7 @@ class BaseTestOptimizeOpt(BaseTest):
         p0 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p0, NULL, descr=nextdescr)
         p2 = getfield_gc(p0, descr=nextdescr)
-        i1 = oois(p2, NULL)
+        i1 = ptr_eq(p2, NULL)
         jump(i1)
         """
         expected = """
@@ -886,7 +924,7 @@ class BaseTestOptimizeOpt(BaseTest):
         p0 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
         p2 = getfield_gc(p0, descr=nextdescr)
-        i1 = oois(p2, NULL)
+        i1 = ptr_eq(p2, NULL)
         jump(i1)
         """
         expected = """
@@ -1514,7 +1552,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         expected = """
         [p1, i2, i3]
-        guard_true(i3) [p1, i2]
+        guard_true(i3) [i2, p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
@@ -1920,7 +1958,7 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ooisnot(ConstPtr(myptr), p1)
+        i = ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -1936,9 +1974,9 @@ class BaseTestOptimizeOpt(BaseTest):
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
         p2 = getfield_gc(p0, descr=nextdescr)
-        i1 = oois(p1, p2)
+        i1 = ptr_eq(p1, p2)
         guard_true(i1) []
-        i2 = ooisnot(p1, p2)
+        i2 = ptr_ne(p1, p2)
         guard_false(i2) []
         jump(p0)
         """
@@ -1952,8 +1990,8 @@ class BaseTestOptimizeOpt(BaseTest):
     def test_remove_duplicate_pure_op(self):
         ops = """
         [p1, p2]
-        i1 = oois(p1, p2)
-        i2 = oois(p1, p2)
+        i1 = ptr_eq(p1, p2)
+        i2 = ptr_eq(p1, p2)
         i3 = int_add(i1, 1)
         i3b = int_is_true(i3)
         guard_true(i3b) []
@@ -1968,7 +2006,7 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         expected = """
         [p1, p2]
-        i1 = oois(p1, p2)
+        i1 = ptr_eq(p1, p2)
         i3 = int_add(i1, 1)
         i3b = int_is_true(i3)
         guard_true(i3b) []
@@ -2024,7 +2062,7 @@ class BaseTestOptimizeOpt(BaseTest):
                 # typically called twice, before and after optimization
                 if self.oparse is None:
                     fdescr.rd_frame_info_list = resume.FrameInfo(None,
-                                                                 FakeFrame())
+                                                                 "code", 11)
                     fdescr.rd_snapshot = resume.Snapshot(None, fail_args)
                 self.oparse = oparse
         #
@@ -2096,7 +2134,7 @@ class BaseTestOptimizeOpt(BaseTest):
         for pvar, pfieldname, pfieldvar in pendingfields:
             box = oparse.getvar(pvar)
             fielddescr = self.namespace[pfieldname.strip()]
-            fieldbox = executor.execute(self.cpu,
+            fieldbox = executor.execute(self.cpu, None,
                                         rop.GETFIELD_GC,
                                         fielddescr,
                                         box)
@@ -2114,13 +2152,13 @@ class BaseTestOptimizeOpt(BaseTest):
                 if tag[0] in ('virtual', 'vstruct'):
                     fieldname, fieldvalue = fieldtext.split('=')
                     fielddescr = self.namespace[fieldname.strip()]
-                    fieldbox = executor.execute(self.cpu,
+                    fieldbox = executor.execute(self.cpu, None,
                                                 rop.GETFIELD_GC,
                                                 fielddescr,
                                                 resolved)
                 elif tag[0] == 'varray':
                     fieldvalue = fieldtext
-                    fieldbox = executor.execute(self.cpu,
+                    fieldbox = executor.execute(self.cpu, None,
                                                 rop.GETARRAYITEM_GC,
                                                 tag[1],
                                                 resolved, ConstInt(index))
@@ -2130,12 +2168,14 @@ class BaseTestOptimizeOpt(BaseTest):
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext, guard_opnum):
+        from pypy.jit.metainterp.test.test_resume import ResumeDataFakeReader
+        from pypy.jit.metainterp.test.test_resume import MyMetaInterp
         guard_op, = [op for op in self.loop.operations if op.is_guard()]
         fail_args = guard_op.fail_args
         fdescr = guard_op.descr
         assert fdescr.guard_opnum == guard_opnum
-        reader = resume.ResumeDataReader(fdescr, fail_args,
-                                         MyMetaInterp(self.cpu))
+        reader = ResumeDataFakeReader(fdescr, fail_args,
+                                      MyMetaInterp(self.cpu))
         boxes = reader.consume_boxes()
         self._verify_fail_args(boxes, fdescr.oparse, expectedtext)
 
@@ -2190,7 +2230,7 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(p2, p3, descr=nextdescr)
-        guard_true(i1, descr=fdescr) [p1, i3]
+        guard_true(i1, descr=fdescr) [i3, p1]
         jump(i2, i1, i3, p3)
         """
         expected = """
@@ -2199,15 +2239,14 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i2, 1, i3, p3)
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
-        self.check_expanded_fail_descr('''p1, i3
+        self.check_expanded_fail_descr('''i3, p1
             where p1 is a node_vtable, valuedescr=1, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p3
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_4(self):
-        for arg in ['p1', 'p1,i2', 'i2,p1', 'p1,p2', 'p2,p1',
-                    'p1,p2,i2', 'p1,i2,p2', 'p2,p1,i2',
-                    'p2,i2,p1', 'i2,p1,p2', 'i2,p2,p1']:
+        for arg in ['p1', 'i2,p1', 'p1,p2', 'p2,p1',
+                    'i2,p1,p2', 'i2,p2,p1']:
             self.make_fail_descr()
             ops = """
             [i1, i2, i3]
@@ -2218,7 +2257,7 @@ class BaseTestOptimizeOpt(BaseTest):
             setfield_gc(p1, i2, descr=valuedescr)
             setfield_gc(p1, p2, descr=nextdescr)
             setfield_gc(p2, i2, descr=valuedescr)
-            guard_true(i1, descr=fdescr) [i4, %s, i3]
+            guard_true(i1, descr=fdescr) [i4, i3, %s]
             jump(i1, i2, i3)
             """
             expected = """
@@ -2227,7 +2266,7 @@ class BaseTestOptimizeOpt(BaseTest):
             jump(1, i2, i3)
             """
             self.optimize_loop(ops % arg, 'Not, Not, Not', expected)
-            self.check_expanded_fail_descr('''i3, %s, i3
+            self.check_expanded_fail_descr('''i3, i3, %s
                 where p1 is a node_vtable, valuedescr=i2, nextdescr=p2
                 where p2 is a node_vtable, valuedescr=i2''' % arg,
                                            rop.GUARD_TRUE)
@@ -2242,7 +2281,7 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)      # a cycle
-        guard_true(i1, descr=fdescr) [p1, i3, p2, i4]
+        guard_true(i1, descr=fdescr) [i3, i4, p1, p2]
         jump(i2, i1, i3, i4)
         """
         expected = """
@@ -2251,7 +2290,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i2, 1, i3, i4)
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
-        self.check_expanded_fail_descr('''p1, i3, p2, i4
+        self.check_expanded_fail_descr('''i3, i4, p1, p2
             where p1 is a node_vtable, valuedescr=i4, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p1
             ''', rop.GUARD_TRUE)
@@ -2587,14 +2626,45 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         self.optimize_loop(ops, 'Not, Not', ops)
 
     def test_call_pure_invalidates_caches(self):
+        # CALL_PURE should still force the setfield_gc() to occur before it
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(42, p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
-        self.optimize_loop(ops, 'Not, Not', ops)        
+        expected = '''
+        [p1, i1]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=plaincalldescr)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3)
+        '''
+        self.optimize_loop(ops, 'Not, Not', expected)
+
+    def test_call_pure_constant_folding(self):
+        # CALL_PURE is not marked as is_always_pure(), because it is wrong
+        # to call the function arbitrary many times at arbitrary points in
+        # time.  Check that it is either constant-folded (and replaced by
+        # the result of the call, recorded as the first arg), or turned into
+        # a regular CALL.
+        ops = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i3 = call_pure(42, 123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, i3, i4)
+        '''
+        expected = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, 42, i4)
+        '''
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
 
     def test_vref_nonvirtual_nonescape(self):
         ops = """
@@ -2626,7 +2696,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -2, descr=virtualtokendescr)
+        setfield_gc(p2, -3, descr=virtualtokendescr)
         jump(p1)
         """
         # XXX we should optimize a bit more the case of a nonvirtual.
@@ -2668,7 +2738,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -2, descr=virtualtokendescr)
+        setfield_gc(p2, -3, descr=virtualtokendescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, 'Not, Not', expected)
@@ -2709,7 +2779,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -2, descr=virtualtokendescr)
+        setfield_gc(p2, -3, descr=virtualtokendescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args
@@ -2780,7 +2850,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -2, descr=virtualtokendescr)
+        setfield_gc(p2, -3, descr=virtualtokendescr)
         call_may_force(i1, descr=mayforcevirtdescr)
         guard_not_forced() []
         jump(i1)
@@ -2806,7 +2876,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         setfield_gc(p2, 23, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -2, descr=virtualtokendescr)
+        setfield_gc(p2, -3, descr=virtualtokendescr)
         call_may_force(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
         jump(i1, p1)
@@ -2880,31 +2950,31 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         '''
         self.optimize_loop(ops, 'Not', expected)
 
-class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
+##class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
 
-    def test_instanceof(self):
-        ops = """
-        [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
-        i1 = instanceof(p0, descr=nodesize)
-        jump(i1)
-        """
-        expected = """
-        [i0]
-        jump(1)
-        """
-        self.optimize_loop(ops, 'Not', expected)
+##    def test_instanceof(self):
+##        ops = """
+##        [i0]
+##        p0 = new_with_vtable(ConstClass(node_vtable))
+##        i1 = instanceof(p0, descr=nodesize)
+##        jump(i1)
+##        """
+##        expected = """
+##        [i0]
+##        jump(1)
+##        """
+##        self.optimize_loop(ops, 'Not', expected)
  
-    def test_instanceof_guard_class(self):
-        ops = """
-        [i0, p0]
-        guard_class(p0, ConstClass(node_vtable)) []
-        i1 = instanceof(p0, descr=nodesize)
-        jump(i1, p0)
-        """
-        expected = """
-        [i0, p0]
-        guard_class(p0, ConstClass(node_vtable)) []
-        jump(1, p0)
-        """
-        self.optimize_loop(ops, 'Not, Not', expected)
+##    def test_instanceof_guard_class(self):
+##        ops = """
+##        [i0, p0]
+##        guard_class(p0, ConstClass(node_vtable)) []
+##        i1 = instanceof(p0, descr=nodesize)
+##        jump(i1, p0)
+##        """
+##        expected = """
+##        [i0, p0]
+##        guard_class(p0, ConstClass(node_vtable)) []
+##        jump(1, p0)
+##        """
+##        self.optimize_loop(ops, 'Not, Not', expected)

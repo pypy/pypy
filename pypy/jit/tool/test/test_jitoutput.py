@@ -35,14 +35,9 @@ def test_really_run():
     assert info.blackhole_no == 1
     assert info.backend_no == 1
     assert info.ops.total == 2
-    assert info.ops.calls == 0
-    assert info.ops.pure_calls == 0
     assert info.recorded_ops.total == 2
     assert info.recorded_ops.calls == 0
-    assert info.recorded_ops.pure_calls == 0
     assert info.guards == 1
-    assert info.blackholed_ops.total == 0
-    assert info.blackholed_ops.pure_calls == 0
     assert info.opt_ops == 6
     assert info.opt_guards == 1
     assert info.forcings == 0
@@ -53,14 +48,9 @@ Running asm:            1
 Blackhole:              1
 TOTAL:                  0.025532
 ops:                    2
-  calls:                1
-  pure calls:           1
 recorded ops:           6
   calls:                3
-  pure calls:           2
 guards:                 1
-blackholed ops:         5
-  pure calls:           3
 opt ops:                6
 opt guards:             1
 forcings:               1
@@ -81,14 +71,9 @@ def test_parse():
     assert info.backend_no == 1
     assert info.backend_time == 0.000525
     assert info.ops.total == 2
-    assert info.ops.calls == 1
-    assert info.ops.pure_calls == 1
     assert info.recorded_ops.total == 6
     assert info.recorded_ops.calls == 3
-    assert info.recorded_ops.pure_calls == 2
     assert info.guards == 1
-    assert info.blackholed_ops.total == 5
-    assert info.blackholed_ops.pure_calls == 3
     assert info.opt_ops == 6
     assert info.opt_guards == 1
     assert info.forcings == 1

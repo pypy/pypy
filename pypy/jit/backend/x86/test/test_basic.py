@@ -2,7 +2,7 @@ import py
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.jit.metainterp.test import test_basic
-from pypy.jit.metainterp.policy import StopAtXPolicy
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
 
 class Jit386Mixin(test_basic.LLJitMixin):

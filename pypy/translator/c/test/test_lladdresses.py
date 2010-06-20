@@ -193,3 +193,42 @@ def test_cast_adr_to_int():
     fc = compile(f, [int])
     res = fc(42)
     assert res == 0
+
+def test_cast_int_to_adr():
+    S = lltype.Struct("S", ("x", lltype.Signed))
+    s = lltype.malloc(S, immortal=True)
+    s.x = 42
+    integer = cast_adr_to_int(cast_ptr_to_adr(s), mode="symbolic")
+    def f(n):
+        if n > 1:
+            i = integer
+        else:
+            i = 123   # nonsense, but never used
+        print "hello world"     # prevent constant-folding
+        adr = cast_int_to_adr(i)
+        s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+        return s.x
+    fc = compile(f, [int])
+    res = fc(5)
+    assert res == 42
+
+def test_dict_of_addresses():
+    TP = lltype.Struct('x')
+    a = lltype.malloc(TP, flavor='raw', immortal=True)
+    b = lltype.malloc(TP, flavor='raw', immortal=True)
+
+    def f(i):
+        d = {}
+        d[cast_ptr_to_adr(a)] = 123
+        d[cast_ptr_to_adr(b)] = 456
+        if i > 5:
+            key = cast_ptr_to_adr(a)
+        else:
+            key = cast_ptr_to_adr(b)
+        return d[key]
+
+    fc = compile(f, [int])
+    res = fc(-77)
+    assert res == 456
+    res = fc(77)
+    assert res == 123

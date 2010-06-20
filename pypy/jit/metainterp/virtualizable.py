@@ -11,7 +11,7 @@ from pypy.jit.metainterp.warmstate import wrap, unwrap
 
 
 class VirtualizableInfo:
-    TOKEN_NONE            = 0
+    TOKEN_NONE            = 0      # must be 0 -- see also x86.call_assembler
     TOKEN_TRACING_RESCALL = -1
 
     def __init__(self, warmrunnerdesc):
@@ -72,6 +72,10 @@ class VirtualizableInfo:
                                     for name in static_fields]
         self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
+        self.static_field_by_descrs = dict(
+            [(descr, i) for (i, descr) in enumerate(self.static_field_descrs)])
+        self.array_field_by_descrs = dict(
+            [(descr, i) for (i, descr) in enumerate(self.array_field_descrs)])
         #
         getlength = cpu.ts.getlength
         getarrayitem = cpu.ts.getarrayitem
@@ -101,6 +105,52 @@ class VirtualizableInfo:
                     setarrayitem(lst, j, x)
                     i = i + 1
             assert len(boxes) == i + 1
+        #
+        def write_from_resume_data_partial(virtualizable, reader, nums):
+            # Load values from the reader (see resume.py) described by
+            # the list of numbers 'nums', and write them in their proper
+            # place in the 'virtualizable'.  This works from the end of
+            # the list and returns the index in 'nums' of the start of
+            # the virtualizable data found, allowing the caller to do
+            # further processing with the start of the list.
+            i = len(nums) - 1
+            assert i >= 0
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(getlength(lst)-1, -1, -1):
+                    i -= 1
+                    assert i >= 0
+                    x = reader.load_value_of_type(ARRAYITEMTYPE, nums[i])
+                    setarrayitem(lst, j, x)
+            for FIELDTYPE, fieldname in unroll_static_fields_rev:
+                i -= 1
+                assert i >= 0
+                x = reader.load_value_of_type(FIELDTYPE, nums[i])
+                setattr(virtualizable, fieldname, x)
+            return i
+        #
+        def load_list_of_boxes(virtualizable, reader, nums):
+            # Uses 'virtualizable' only to know the length of the arrays;
+            # does not write anything into it.  The returned list is in
+            # the format expected of virtualizable_boxes, so it ends in
+            # the virtualizable itself.
+            i = len(nums) - 1
+            assert i >= 0
+            boxes = [reader.decode_box_of_type(self.VTYPEPTR, nums[i])]
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(getlength(lst)-1, -1, -1):
+                    i -= 1
+                    assert i >= 0
+                    box = reader.decode_box_of_type(ARRAYITEMTYPE, nums[i])
+                    boxes.append(box)
+            for FIELDTYPE, fieldname in unroll_static_fields_rev:
+                i -= 1
+                assert i >= 0
+                box = reader.decode_box_of_type(FIELDTYPE, nums[i])
+                boxes.append(box)
+            boxes.reverse()
+            return boxes
         #
         def check_boxes(virtualizable, boxes):
             # for debugging
@@ -141,8 +191,14 @@ class VirtualizableInfo:
                                                       static_fields))
         unroll_array_fields = unrolling_iterable(zip(ARRAYITEMTYPES,
                                                      array_fields))
+        unroll_static_fields_rev = unrolling_iterable(
+                                          reversed(list(unroll_static_fields)))
+        unroll_array_fields_rev  = unrolling_iterable(
+                                          reversed(list(unroll_array_fields)))
         self.read_boxes = read_boxes
         self.write_boxes = write_boxes
+        self.write_from_resume_data_partial = write_from_resume_data_partial
+        self.load_list_of_boxes = load_list_of_boxes
         self.check_boxes = check_boxes
         self.get_index_in_array = get_index_in_array
         self.get_array_length = get_array_length
@@ -171,6 +227,9 @@ class VirtualizableInfo:
     def cast_to_vtype(self, virtualizable):
         return self.cpu.ts.cast_to_instance_maybe(self.VTYPEPTR, virtualizable)
     cast_to_vtype._annspecialcase_ = 'specialize:ll'
+
+    def cast_gcref_to_vtype(self, virtualizable):
+        return lltype.cast_opaque_ptr(self.VTYPEPTR, virtualizable)
 
     def is_vtypeptr(self, TYPE):
         return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
@@ -211,12 +270,6 @@ class VirtualizableInfo:
             ResumeGuardForcedDescr.force_now(self.cpu, token)
             assert virtualizable.vable_token == self.TOKEN_NONE
     force_now._dont_inline_ = True
-
-    def forced_vable(self, virtualizable_boxes):
-        virtualizable_box = virtualizable_boxes[-1]
-        virtualizable = self.unwrap_virtualizable_box(virtualizable_box)
-        self.write_boxes(virtualizable, virtualizable_boxes)
-        virtualizable.vable_token = self.TOKEN_NONE
 
 # ____________________________________________________________
 #

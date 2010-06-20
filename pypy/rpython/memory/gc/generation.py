@@ -720,7 +720,7 @@ if sys.platform == 'linux2':
         return pos
 
 elif sys.platform == 'darwin':
-    from pypy.rpython.lltypesystem import lltype, rffi
+    from pypy.rpython.lltypesystem import rffi
 
     sysctlbyname = rffi.llexternal('sysctlbyname',
                                    [rffi.CCHARP, rffi.VOIDP, rffi.SIZE_TP,

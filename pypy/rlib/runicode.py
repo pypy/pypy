@@ -17,7 +17,7 @@ if MAXUNICODE > sys.maxunicode:
     # Note that Python3 uses a similar implementation.
     def UNICHR(c):
         assert not we_are_translated()
-        if c < sys.maxunicode or c > MAXUNICODE:
+        if c <= sys.maxunicode or c > MAXUNICODE:
             return unichr(c)
         else:
             c -= 0x10000
@@ -48,14 +48,12 @@ else:
 def raise_unicode_exception_decode(errors, encoding, msg, s,
                                    startingpos, endingpos):
     assert isinstance(s, str)
-    raise UnicodeDecodeError(
-            encoding, s[startingpos], startingpos, endingpos, msg)
+    raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
 def raise_unicode_exception_encode(errors, encoding, msg, u,
                                    startingpos, endingpos):
     assert isinstance(u, unicode)
-    raise UnicodeEncodeError(
-            encoding, u[startingpos], startingpos, endingpos, msg)
+    raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________ 
 # unicode decoding

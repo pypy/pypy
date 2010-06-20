@@ -63,7 +63,7 @@ class TestProfile(ProfilerMixin):
             ]
         assert profiler.events == expected
         assert profiler.times == [2, 1, 1, 1]
-        assert profiler.counters == [1, 1, 1, 1, 4, 3, 1, 1, 7, 1, 0, 0, 0,
+        assert profiler.counters == [1, 1, 1, 1, 3, 3, 1, 7, 1, 0, 0, 0,
                                      0, 0, 0, 0]
 
     def test_simple_loop_with_call(self):
@@ -84,8 +84,7 @@ class TestProfile(ProfilerMixin):
         res = self.meta_interp(f, [6, 7])
         assert res == 84
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        # calls = (executed, recorded, blackholed) x (inpure, pure)
-        assert profiler.calls == [[1, 0], [1, 0], [0, 0]]
+        assert profiler.calls == 1
 
     def test_blackhole_pure(self):
         @purefunction
@@ -99,12 +98,10 @@ class TestProfile(ProfilerMixin):
                 myjitdriver.can_enter_jit(x=x, y=y, res=res, z=z)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res, z=z)
                 res += x
-                if y == 1:
-                    res += g(z)
+                res += g(z)
                 y -= 1
             return res * 2
         res = self.meta_interp(f, [6, 7, 2])
-        assert res == 90
+        assert res == f(6, 7, 2)
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        # calls = (executed, recorded, blackholed) x (inpure, pure)
-        assert profiler.calls == [[0, 1], [0, 0], [0, 1]]
+        assert profiler.calls == 1
