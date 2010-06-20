@@ -34,8 +34,12 @@ class PyPyCNotFound(Exception):
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
             copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
+    if sys.platform == 'win32':
+        basename = 'pypy-c.exe'
+    else:
+        basename = 'pypy-c'
     if override_pypy_c is None:
-        pypy_c = basedir.join('pypy', 'translator', 'goal', 'pypy-c')
+        pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
@@ -53,6 +57,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
+    pypydir.ensure('include', dir=True)
+    # we want to put there all *.h from module/cpyext/include
+    # and from pypy/_interfaces
+    for n in basedir.join('pypy', 'module', 'cpyext', 'include').listdir('*.h'):
+        shutil.copy(str(n), str(pypydir.join('include')))
+    for n in basedir.join('pypy', '_interfaces').listdir('*.h'):
+        shutil.copy(str(n), str(pypydir.join('include')))
     pypydir.ensure('bin', dir=True)
     archive_pypy_c = pypydir.join('bin', rename_pypy_c)
     shutil.copy(str(pypy_c), str(archive_pypy_c))
